@@ -455,12 +455,12 @@ public class KNNMethodContextTests extends KNNTestCase {
         );
     }
 
-    public void testValidateVectorDataType_whenByteLucene_thenValid() {
+    public void testValidateVectorDataType_whenByte_thenValid() {
         validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, SpaceType.L2, null);
+        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, SpaceType.L2, null);
     }
 
-    public void testValidateVectorDataType_whenByteNonLucene_thenException() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, SpaceType.L2, "UnsupportedMethod");
+    public void testValidateVectorDataType_whenByte_thenException() {
         validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_IVF, VectorDataType.BYTE, SpaceType.L2, "UnsupportedMethod");
     }
 

@@ -66,6 +66,8 @@ public class KNNConstants {
     public static final String MAX_VECTOR_COUNT_PARAMETER = "max_training_vector_count";
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
+    public static final String QFRAMEWORK_CONFIG = "qframe_config";
+
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String MODEL_VECTOR_DATA_TYPE_KEY = VECTOR_DATA_TYPE_FIELD;
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
@@ -110,6 +112,7 @@ public class KNNConstants {
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
+    public static final String FAISS_SIGNED_BYTE_SQ = "SQ8_direct_signed";
     public static final String FAISS_SQ_CLIP = "clip";
 
     // Parameter defaults/limits

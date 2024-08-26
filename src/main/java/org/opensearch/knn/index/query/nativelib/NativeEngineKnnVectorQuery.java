@@ -13,13 +13,14 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.ResultUtil;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,17 +50,60 @@ public class NativeEngineKnnVectorQuery extends Query {
         final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
 
-        List<Callable<TopDocs>> tasks = new ArrayList<>(leafReaderContexts.size());
-        for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            tasks.add(() -> searchLeaf(leafReaderContext, knnWeight));
+        List<Map<Integer, Float>> perLeafResults;
+        RescoreContext rescoreContext = knnQuery.getRescoreContext();
+        int finalK = knnQuery.getK();
+        if (rescoreContext == null) {
+            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, finalK);
+        } else {
+            int firstPassK = rescoreContext.getFirstPassK(finalK);
+            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassK);
+            ResultUtil.reduceToTopK(perLeafResults, firstPassK);
+            perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, finalK);
         }
-        TopDocs[] perLeafResults = indexSearcher.getTaskExecutor().invokeAll(tasks).toArray(TopDocs[]::new);
-        // TopDocs.merge requires perLeafResults to be sorted in descending order.
-        TopDocs topK = TopDocs.merge(knnQuery.getK(), perLeafResults);
+        ResultUtil.reduceToTopK(perLeafResults, finalK);
+        TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
+        for (int i = 0; i < perLeafResults.size(); i++) {
+            topDocs[i] = ResultUtil.resultMapToTopDocs(perLeafResults.get(i), leafReaderContexts.get(i).docBase);
+        }
+
+        TopDocs topK = TopDocs.merge(knnQuery.getK(), topDocs);
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery();
         }
         return createRewrittenQuery(reader, topK);
+    }
+
+    private List<Map<Integer, Float>> doSearch(
+        final IndexSearcher indexSearcher,
+        List<LeafReaderContext> leafReaderContexts,
+        KNNWeight knnWeight,
+        int k
+    ) throws IOException {
+        List<Callable<Map<Integer, Float>>> tasks = new ArrayList<>(leafReaderContexts.size());
+        for (LeafReaderContext leafReaderContext : leafReaderContexts) {
+            tasks.add(() -> searchLeaf(leafReaderContext, knnWeight, k));
+        }
+        return indexSearcher.getTaskExecutor().invokeAll(tasks);
+    }
+
+    private List<Map<Integer, Float>> doRescore(
+        final IndexSearcher indexSearcher,
+        List<LeafReaderContext> leafReaderContexts,
+        KNNWeight knnWeight,
+        List<Map<Integer, Float>> perLeafResults,
+        int k
+    ) throws IOException {
+        List<Callable<Map<Integer, Float>>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
+        for (int i = 0; i < perLeafResults.size(); i++) {
+            LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
+            int finalI = i;
+            rescoreTasks.add(() -> {
+                BitSet convertedBitSet = ResultUtil.resultMapToMatchBitSet(perLeafResults.get(finalI));
+                return knnWeight.exactSearch(leafReaderContext, convertedBitSet, false, k);
+            });
+        }
+        return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
     }
 
     private Query createRewrittenQuery(IndexReader reader, TopDocs topK) {
@@ -75,7 +119,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         return new DocAndScoreQuery(knnQuery.getK(), docs, scores, segmentStarts, reader.getContext().id());
     }
 
-    private static int[] findSegmentStarts(IndexReader reader, int[] docs) {
+    static int[] findSegmentStarts(IndexReader reader, int[] docs) {
         int[] starts = new int[reader.leaves().size() + 1];
         starts[starts.length - 1] = docs.length;
         if (starts.length == 2) {
@@ -93,26 +137,13 @@ public class NativeEngineKnnVectorQuery extends Query {
         return starts;
     }
 
-    private TopDocs searchLeaf(LeafReaderContext ctx, KNNWeight queryWeight) throws IOException {
-        int totalHits = 0;
-        final Map<Integer, Float> leafDocScores = queryWeight.searchLeaf(ctx);
-        final List<ScoreDoc> scoreDocs = new ArrayList<>();
+    private Map<Integer, Float> searchLeaf(LeafReaderContext ctx, KNNWeight queryWeight, int k) throws IOException {
+        final Map<Integer, Float> leafDocScores = queryWeight.searchLeaf(ctx, k);
         final Bits liveDocs = ctx.reader().getLiveDocs();
-
-        if (!leafDocScores.isEmpty()) {
-            final List<Map.Entry<Integer, Float>> topScores = new ArrayList<>(leafDocScores.entrySet());
-            topScores.sort(Map.Entry.<Integer, Float>comparingByValue().reversed());
-
-            for (Map.Entry<Integer, Float> entry : topScores) {
-                if (liveDocs == null || liveDocs.get(entry.getKey())) {
-                    ScoreDoc scoreDoc = new ScoreDoc(entry.getKey() + ctx.docBase, entry.getValue());
-                    scoreDocs.add(scoreDoc);
-                    totalHits++;
-                }
-            }
+        if (liveDocs != null) {
+            leafDocScores.entrySet().removeIf(entry -> liveDocs.get(entry.getKey()) == false);
         }
-
-        return new TopDocs(new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO), scoreDocs.toArray(ScoreDoc[]::new));
+        return leafDocScores;
     }
 
     @Override

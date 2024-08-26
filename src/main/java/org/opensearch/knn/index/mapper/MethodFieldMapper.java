@@ -16,6 +16,8 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
 import java.io.IOException;
 import java.util.Map;
@@ -24,6 +26,7 @@ import java.util.Optional;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
@@ -105,19 +108,24 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
         KNNMethodContext knnMethodContext = annConfig.getKnnMethodContext()
             .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
-        this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-
-        this.fieldType.putAttribute(DIMENSION, String.valueOf(annConfig.getDimension()));
-        this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
-        this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
-
         KNNEngine knnEngine = knnMethodContext.getKnnEngine();
-        this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
-
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnEngine.getKNNLibraryIndexingContext(
             knnMethodContext,
             knnMethodConfigContext
         );
+        QuantizationConfig quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
+
+        this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        this.fieldType.putAttribute(DIMENSION, String.valueOf(annConfig.getDimension()));
+        this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        // Conditionally add quantization config
+        if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
+            this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
+        }
+
+        this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+        this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
+
         try {
             this.fieldType.putAttribute(
                 PARAMETERS,

@@ -29,14 +29,17 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * Faiss HNSW method implementation
  */
 public class FaissHNSWMethod extends AbstractFaissMethod {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BINARY);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
+        VectorDataType.FLOAT,
+        VectorDataType.BINARY,
+        VectorDataType.BYTE
+    );
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
@@ -49,7 +52,12 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         KNNConstants.ENCODER_FLAT,
         Collections.emptyMap()
     );
-    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(new FaissFlatEncoder(), new FaissSQEncoder(), new FaissHNSWPQEncoder());
+    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(
+        new FaissFlatEncoder(),
+        new FaissSQEncoder(),
+        new FaissHNSWPQEncoder(),
+        new QFrameBitEncoder()
+    );
 
     /**
      * Constructor for FaissHNSWMethod
@@ -84,18 +92,14 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                 )
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
-            .setMapGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
-                String prefix = "";
-                if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {
-                    prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
-                }
-
-                return MethodAsMapBuilder.builder(
-                    prefix + FAISS_HNSW_DESCRIPTION,
+            .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
+                MethodAsMapBuilder methodAsMapBuilder = MethodAsMapBuilder.builder(
+                    FAISS_HNSW_DESCRIPTION,
                     methodComponent,
                     methodComponentContext,
                     knnMethodConfigContext
-                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build();
+                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
+                return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
             }))
             .build();
     }

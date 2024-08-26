@@ -30,7 +30,11 @@ public class MethodComponent {
     private final String name;
     @Getter
     private final Map<String, Parameter<?>> parameters;
-    private final TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Map<String, Object>> mapGenerator;
+    private final TriFunction<
+        MethodComponent,
+        MethodComponentContext,
+        KNNMethodConfigContext,
+        KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator;
     private final TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
     private final boolean requiresTraining;
     private final Set<VectorDataType> supportedVectorDataTypes;
@@ -43,7 +47,7 @@ public class MethodComponent {
     private MethodComponent(Builder builder) {
         this.name = builder.name;
         this.parameters = builder.parameters;
-        this.mapGenerator = builder.mapGenerator;
+        this.knnLibraryIndexingContextGenerator = builder.knnLibraryIndexingContextGenerator;
         this.overheadInKBEstimator = builder.overheadInKBEstimator;
         this.requiresTraining = builder.requiresTraining;
         this.supportedVectorDataTypes = builder.supportedDataTypes;
@@ -55,17 +59,20 @@ public class MethodComponent {
      * @param methodComponentContext from which to generate map
      * @return Method component as a map
      */
-    public Map<String, Object> getAsMap(MethodComponentContext methodComponentContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (mapGenerator == null) {
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
+        MethodComponentContext methodComponentContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
+        if (knnLibraryIndexingContextGenerator == null) {
             Map<String, Object> parameterMap = new HashMap<>();
             parameterMap.put(KNNConstants.NAME, methodComponentContext.getName());
             parameterMap.put(
                 KNNConstants.PARAMETERS,
                 getParameterMapWithDefaultsAdded(methodComponentContext, this, knnMethodConfigContext)
             );
-            return parameterMap;
+            return KNNLibraryIndexingContextImpl.builder().parameters(parameterMap).build();
         }
-        return mapGenerator.apply(this, methodComponentContext, knnMethodConfigContext);
+        return knnLibraryIndexingContextGenerator.apply(this, methodComponentContext, knnMethodConfigContext);
     }
 
     /**
@@ -209,7 +216,11 @@ public class MethodComponent {
 
         private final String name;
         private final Map<String, Parameter<?>> parameters;
-        private TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Map<String, Object>> mapGenerator;
+        private TriFunction<
+            MethodComponent,
+            MethodComponentContext,
+            KNNMethodConfigContext,
+            KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator;
         private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
         private boolean requiresTraining;
         private final Set<VectorDataType> supportedDataTypes;
@@ -227,7 +238,6 @@ public class MethodComponent {
         private Builder(String name) {
             this.name = name;
             this.parameters = new HashMap<>();
-            this.mapGenerator = null;
             this.overheadInKBEstimator = (mc, mcc, d) -> 0L;
             this.supportedDataTypes = new HashSet<>();
         }
@@ -247,13 +257,17 @@ public class MethodComponent {
         /**
          * Set the function used to parse a MethodComponentContext as a map
          *
-         * @param mapGenerator function to parse a MethodComponentContext as a map
+         * @param knnLibraryIndexingContextGenerator function to parse a MethodComponentContext as a knnLibraryIndexingContext
          * @return this builder
          */
-        public Builder setMapGenerator(
-            TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Map<String, Object>> mapGenerator
+        public Builder setKnnLibraryIndexingContextGenerator(
+            TriFunction<
+                MethodComponent,
+                MethodComponentContext,
+                KNNMethodConfigContext,
+                KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator
         ) {
-            this.mapGenerator = mapGenerator;
+            this.knnLibraryIndexingContextGenerator = knnLibraryIndexingContextGenerator;
             return this;
         }
 

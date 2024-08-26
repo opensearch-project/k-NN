@@ -8,8 +8,10 @@ package org.opensearch.knn.index.codec.nativeindex.model;
 import lombok.Builder;
 import lombok.ToString;
 import lombok.Value;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.util.Map;
 
@@ -22,5 +24,9 @@ public class BuildIndexParams {
     String indexPath;
     VectorDataType vectorDataType;
     Map<String, Object> parameters;
-    // TODO: Add quantization state as parameter to build index
+    /**
+     * An optional quantization state that contains required information for quantization
+     */
+    @Nullable
+    QuantizationState quantizationState;
 }

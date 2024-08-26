@@ -32,7 +32,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_LIMI
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LIMIT;
-import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * Faiss ivf implementation
@@ -52,7 +51,12 @@ public class FaissIVFMethod extends AbstractFaissMethod {
         KNNConstants.ENCODER_FLAT,
         Collections.emptyMap()
     );
-    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(new FaissFlatEncoder(), new FaissSQEncoder(), new FaissIVFPQEncoder());
+    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(
+        new FaissFlatEncoder(),
+        new FaissSQEncoder(),
+        new FaissIVFPQEncoder(),
+        new QFrameBitEncoder()
+    );
 
     /**
      * Constructor for FaissIVFMethod
@@ -84,18 +88,14 @@ public class FaissIVFMethod extends AbstractFaissMethod {
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setRequiresTraining(true)
-            .setMapGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
-                String prefix = "";
-                if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {
-                    prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
-                }
-
-                return MethodAsMapBuilder.builder(
-                    prefix + FAISS_IVF_DESCRIPTION,
+            .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
+                MethodAsMapBuilder methodAsMapBuilder = MethodAsMapBuilder.builder(
+                    FAISS_IVF_DESCRIPTION,
                     methodComponent,
                     methodComponentContext,
                     knnMethodConfigContext
-                ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build();
+                ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
+                return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
             }))
             .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
                 // Size estimate formula: (4 * nlists * d) / 1024 + 1

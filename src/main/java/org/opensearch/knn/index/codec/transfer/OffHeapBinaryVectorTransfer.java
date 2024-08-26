@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.transfer;
 
+import org.opensearch.knn.jni.JNICommons;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -21,12 +23,16 @@ public final class OffHeapBinaryVectorTransfer extends OffHeapVectorTransfer<byt
 
     @Override
     public void deallocate() {
-        // TODO: deallocate the memory location
+        JNICommons.freeBinaryVectorData(getVectorAddress());
     }
 
     @Override
-    protected long transfer(List<byte[]> vectorsToTransfer, boolean append) throws IOException {
-        // TODO: call to JNIService to transfer vector
-        return 0L;
+    protected long transfer(List<byte[]> batch, boolean append) throws IOException {
+        return JNICommons.storeBinaryVectorData(
+            getVectorAddress(),
+            batch.toArray(new byte[][] {}),
+            (long) batch.get(0).length * transferLimit,
+            append
+        );
     }
 }
