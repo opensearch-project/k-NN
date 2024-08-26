@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
@@ -54,10 +55,16 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
         IndexInput input = Mockito.mock(IndexInput.class);
         Mockito.when(directory.openInput(any(), any())).thenReturn(input);
 
+        String fieldName = "test-field";
+        FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getName()).thenReturn(fieldName);
+        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
+
         final SegmentReadState segmentReadState = new SegmentReadState(
             directory,
             segmentInfo,
-            Mockito.mock(FieldInfos.class),
+            fieldInfos,
             Mockito.mock(IOContext.class),
             segmentSuffix
         );

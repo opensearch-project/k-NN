@@ -178,8 +178,7 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
         try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
             quantizationStateWriter.writeFooter();
 
-            Mockito.verify(output, times(4)).writeInt(anyInt());
-            Mockito.verify(output, times(2)).writeString(anyString());
+            Mockito.verify(output, times(6)).writeInt(anyInt());
             Mockito.verify(output, times(2)).writeVLong(anyLong());
             Mockito.verify(output, times(1)).writeLong(anyLong());
             mockedStaticCodecUtil.verify(() -> CodecUtil.writeFooter(output));

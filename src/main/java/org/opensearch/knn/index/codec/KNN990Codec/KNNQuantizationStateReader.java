@@ -58,13 +58,13 @@ public final class KNNQuantizationStateReader {
 
             int numFields = getNumFields(input);
 
-            List<String> fieldNames = new ArrayList<>();
+            List<Integer> fieldNumbers = new ArrayList<>();
             List<Long> positions = new ArrayList<>();
             List<Integer> lengths = new ArrayList<>();
 
             // Read each field's metadata from the index section
             for (int i = 0; i < numFields; i++) {
-                fieldNames.add(input.readString());
+                fieldNumbers.add(input.readInt());
                 int length = input.readInt();
                 lengths.add(length);
                 long position = input.readVLong();
@@ -75,7 +75,8 @@ public final class KNNQuantizationStateReader {
                 input.seek(positions.get(i));
                 byte[] stateBytes = new byte[lengths.get(i)];
                 input.readBytes(stateBytes, 0, lengths.get(i));
-                readQuantizationStateInfos.put(fieldNames.get(i), stateBytes);
+                String fieldName = state.fieldInfos.fieldInfo(fieldNumbers.get(i)).getName();
+                readQuantizationStateInfos.put(fieldName, stateBytes);
             }
         }
         return readQuantizationStateInfos;
