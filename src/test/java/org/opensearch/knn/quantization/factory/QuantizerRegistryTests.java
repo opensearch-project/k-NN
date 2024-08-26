@@ -17,18 +17,22 @@ public class QuantizerRegistryTests extends KNNTestCase {
 
     @BeforeClass
     public static void setup() {
-        QuantizerRegistry.register(
-            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT),
-            new OneBitScalarQuantizer()
-        );
-        QuantizerRegistry.register(
-            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.TWO_BIT),
-            new MultiBitScalarQuantizer(2)
-        );
-        QuantizerRegistry.register(
-            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.FOUR_BIT),
-            new MultiBitScalarQuantizer(4)
-        );
+        try {
+            QuantizerRegistry.register(
+                ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT),
+                new OneBitScalarQuantizer()
+            );
+            QuantizerRegistry.register(
+                ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.TWO_BIT),
+                new MultiBitScalarQuantizer(2)
+            );
+            QuantizerRegistry.register(
+                ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.FOUR_BIT),
+                new MultiBitScalarQuantizer(4)
+            );
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("already registered"));
+        }
     }
 
     public void testRegisterAndGetQuantizer() {

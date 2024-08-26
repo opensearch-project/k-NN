@@ -15,6 +15,8 @@ import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
+import java.io.IOException;
+
 /**
  * OneBitScalarQuantizer is responsible for quantizing vectors using a single bit per dimension.
  * It computes the mean of each dimension during training and then uses these means as thresholds
@@ -56,7 +58,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @return a OneBitScalarQuantizationState containing the calculated means.
      */
     @Override
-    public QuantizationState train(final TrainingRequest<float[]> trainingRequest) {
+    public QuantizationState train(final TrainingRequest<float[]> trainingRequest) throws IOException {
         int[] sampledDocIds = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
         float[] meanThresholds = QuantizerHelper.calculateMeanThresholds(trainingRequest, sampledDocIds);
         return new OneBitScalarQuantizationState(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT), meanThresholds);
