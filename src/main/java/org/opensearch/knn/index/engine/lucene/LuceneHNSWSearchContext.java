@@ -10,6 +10,7 @@ import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.query.request.MethodParameter;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
 import java.util.Map;
@@ -31,5 +32,15 @@ public class LuceneHNSWSearchContext implements KNNLibrarySearchContext {
         }
         // Return the supported method parameters for non-radial cases
         return supportedMethodParameters;
+    }
+
+    @Override
+    public Map<String, Object> processMethodParameters(QueryContext ctx, Map<String, Object> parameters) {
+        return Map.of();
+    }
+
+    @Override
+    public RescoreContext getDefaultRescoreContext(QueryContext ctx) {
+        return null;
     }
 }

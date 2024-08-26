@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import com.google.common.collect.ImmutableSet;
+import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
@@ -55,6 +56,7 @@ public enum KNNEngine implements KNNLibrary {
         this.knnLibrary = knnLibrary;
     }
 
+    @Getter
     private final String name;
     private final KNNLibrary knnLibrary;
 
@@ -120,15 +122,6 @@ public enum KNNEngine implements KNNLibrary {
         return MAX_DIMENSIONS_BY_ENGINE.getOrDefault(knnEngine, MAX_DIMENSIONS_BY_ENGINE.get(KNNEngine.DEFAULT));
     }
 
-    /**
-     * Get the name of the engine
-     *
-     * @return name of the engine
-     */
-    public String getName() {
-        return name;
-    }
-
     @Override
     public String getVersion() {
         return knnLibrary.getVersion();
@@ -160,31 +153,18 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return knnLibrary.validateMethod(knnMethodContext, knnMethodConfigContext);
+    public ValidationException validateMethod(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnLibrary.validateMethod(knnMethodConfigContext);
     }
 
     @Override
-    public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-        return knnLibrary.isTrainingRequired(knnMethodContext);
+    public boolean isTrainingRequired(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnLibrary.isTrainingRequired(knnMethodConfigContext);
     }
 
     @Override
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        return knnLibrary.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
-    }
-
-    @Override
-    public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
-        return knnLibrary.getKNNLibrarySearchContext(methodName);
-    }
-
-    @Override
-    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return knnLibrary.estimateOverheadInKB(knnMethodContext, knnMethodConfigContext);
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnLibrary.getKNNLibraryIndexingContext(knnMethodConfigContext);
     }
 
     @Override

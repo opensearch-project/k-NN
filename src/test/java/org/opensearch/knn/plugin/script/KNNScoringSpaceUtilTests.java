@@ -15,6 +15,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -64,7 +65,11 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
 
         KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
 
-        when(fieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
+        when(fieldType.getKnnMethodConfigContext()).thenReturn(
+            Optional.ofNullable(
+                getKnnVectorFieldTypeConfigSupplierForMethodType(getDefaultKNNMethodContext(), 3).get().getKnnMethodConfigContext()
+            )
+        );
         assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.FLOAT), 0.1f);
 
         expectThrows(

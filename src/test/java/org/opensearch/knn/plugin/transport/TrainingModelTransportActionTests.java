@@ -74,7 +74,9 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
             trainingFieldName,
             null,
             "test-detector",
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
         trainingModelRequest.setTrainingDataSizeInKB(estimateVectorSetSizeInKB(trainingDataCount, dimension, VectorDataType.DEFAULT));
 

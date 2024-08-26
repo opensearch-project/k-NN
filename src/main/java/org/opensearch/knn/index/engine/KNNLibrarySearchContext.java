@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import org.opensearch.knn.index.engine.model.QueryContext;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
 import java.util.Map;
@@ -23,5 +24,24 @@ public interface KNNLibrarySearchContext {
      */
     Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx);
 
-    KNNLibrarySearchContext EMPTY = ctx -> Collections.emptyMap();
+    Map<String, Object> processMethodParameters(QueryContext ctx, Map<String, Object> parameters);
+
+    RescoreContext getDefaultRescoreContext(QueryContext ctx);
+
+    KNNLibrarySearchContext EMPTY = new KNNLibrarySearchContext() {
+        @Override
+        public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public Map<String, Object> processMethodParameters(QueryContext ctx, Map<String, Object> parameters) {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public RescoreContext getDefaultRescoreContext(QueryContext ctx) {
+            return null;
+        }
+    };
 }

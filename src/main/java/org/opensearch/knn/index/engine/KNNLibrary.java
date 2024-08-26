@@ -74,48 +74,26 @@ public interface KNNLibrary {
      * Validate the knnMethodContext for the given library. A ValidationException should be thrown if the method is
      * deemed invalid.
      *
-     * @param knnMethodContext to be validated
      * @param knnMethodConfigContext configuration context for the method
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext);
+    ValidationException validateMethod(KNNMethodConfigContext knnMethodConfigContext);
 
     /**
-     * Returns whether training is required or not from knnMethodContext for the given library.
+     * Returns whether training is required or not from knnMethodConfigContext for the given library.
      *
-     * @param knnMethodContext methodContext
+     * @param knnMethodConfigContext methodContext
      * @return true if training is required; false otherwise
      */
-    boolean isTrainingRequired(KNNMethodContext knnMethodContext);
-
-    /**
-     * Estimate overhead of KNNMethodContext in Kilobytes.
-     *
-     * @param knnMethodContext to estimate size for
-     * @param knnMethodConfigContext configuration context for the method
-     * @return size overhead estimate in KB
-     */
-    int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext);
+    boolean isTrainingRequired(KNNMethodConfigContext knnMethodConfigContext);
 
     /**
      * Get the context from the library needed to build the index.
      *
-     * @param knnMethodContext to get build context for
      * @param knnMethodConfigContext configuration context for the method
      * @return parameter map
      */
-    KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    );
-
-    /**
-     * Gets metadata related to methods supported by the library
-     *
-     * @param methodName name of method
-     * @return KNNLibrarySearchContext
-     */
-    KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName);
+    KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodConfigContext knnMethodConfigContext);
 
     /**
      * Getter for initialized

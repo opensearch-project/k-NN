@@ -25,6 +25,8 @@ public final class RescoreContext {
     @Builder.Default
     private float oversampleFactor = DEFAULT_OVERSAMPLE_FACTOR;
 
+    public static final RescoreContext DISABLED_RESCORE_CONTEXT = RescoreContext.builder().oversampleFactor(0).build();
+
     /**
      *
      * @return default RescoreContext

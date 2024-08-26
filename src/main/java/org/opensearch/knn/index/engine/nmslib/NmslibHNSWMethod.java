@@ -30,7 +30,6 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
-        SpaceType.UNDEFINED,
         SpaceType.L2,
         SpaceType.L1,
         SpaceType.LINF,
@@ -51,13 +50,17 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
             .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
             .addParameter(
                 METHOD_PARAMETER_M,
-                new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, (v, context) -> v > 0)
+                new Parameter.IntegerParameter(
+                    METHOD_PARAMETER_M,
+                    knnMethodConfigContext -> KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M,
+                    (v, context) -> v > 0
+                )
             )
             .addParameter(
                 METHOD_PARAMETER_EF_CONSTRUCTION,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_EF_CONSTRUCTION,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                    knnMethodConfigContext -> KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
                     (v, context) -> v > 0
                 )
             )

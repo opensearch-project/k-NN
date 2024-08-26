@@ -11,12 +11,12 @@ import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngineResolver;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.SpaceTypeResolver;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.indices.ModelDao;
@@ -25,7 +25,6 @@ import org.opensearch.knn.indices.ModelUtil;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
@@ -42,13 +41,10 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     private PerDimensionValidator perDimensionValidator;
     private VectorValidator vectorValidator;
 
-    private final String modelId;
-
     public static ModelFieldMapper createFieldMapper(
         String fullname,
         String simpleName,
         Map<String, String> metaValue,
-        VectorDataType vectorDataType,
         String modelId,
         MultiFields multiFields,
         CopyTo copyTo,
@@ -56,21 +52,53 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         ModelDao modelDao,
-        Version indexCreatedVersion
+        Version indexCreatedVersion,
+        OriginalParameters originalParameters
     ) {
-
-        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, new KNNMappingConfig() {
-            @Override
-            public Optional<String> getModelId() {
-                return Optional.of(modelId);
+        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, () -> {
+            ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+            KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelId, modelMetadata);
+            KNNVectorFieldType.KNNVectorFieldTypeConfig.KNNVectorFieldTypeConfigBuilder builder =
+                KNNVectorFieldType.KNNVectorFieldTypeConfig.builder()
+                    .dimension(modelMetadata.getDimension())
+                    .knnMethodConfigContext(knnMethodConfigContext)
+                    .vectorDataType(modelMetadata.getVectorDataType());
+            if (knnMethodConfigContext != null && knnMethodConfigContext.getKnnMethodContext() != null) {
+                KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.getKnnEngine()
+                    .getKNNLibraryIndexingContext(knnMethodConfigContext);
+                builder.knnLibrarySearchContext(knnLibraryIndexingContext.getKNNLibrarySearchContext());
             }
-
-            @Override
-            public int getDimension() {
-                return getModelMetadata(modelDao, modelId).getDimension();
-            }
-        });
+            return builder.build();
+        }, modelId);
         return new ModelFieldMapper(
+            simpleName,
+            mappedFieldType,
+            modelId,
+            multiFields,
+            copyTo,
+            ignoreMalformed,
+            stored,
+            hasDocValues,
+            modelDao,
+            indexCreatedVersion,
+            originalParameters
+        );
+    }
+
+    private ModelFieldMapper(
+        String simpleName,
+        KNNVectorFieldType mappedFieldType,
+        String modelId,
+        MultiFields multiFields,
+        CopyTo copyTo,
+        Explicit<Boolean> ignoreMalformed,
+        boolean stored,
+        boolean hasDocValues,
+        ModelDao modelDao,
+        Version indexCreatedVersion,
+        OriginalParameters originalParameters
+    ) {
+        super(
             simpleName,
             mappedFieldType,
             multiFields,
@@ -78,25 +106,9 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            modelDao,
-            indexCreatedVersion
+            indexCreatedVersion,
+            originalParameters
         );
-    }
-
-    private ModelFieldMapper(
-        String simpleName,
-        KNNVectorFieldType mappedFieldType,
-        MultiFields multiFields,
-        CopyTo copyTo,
-        Explicit<Boolean> ignoreMalformed,
-        boolean stored,
-        boolean hasDocValues,
-        ModelDao modelDao,
-        Version indexCreatedVersion
-    ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion, null);
-        KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
-        modelId = annConfig.getModelId().orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
         this.modelDao = modelDao;
 
         // For the model field mapper, we cannot validate the model during index creation due to
@@ -133,18 +145,15 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (vectorValidator != null) {
             return;
         }
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
-
-        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
-        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
         // Need to handle BWC case
-        if (knnMethodContext == null || knnMethodConfigContext == null) {
-            vectorValidator = new SpaceVectorValidator(modelMetadata.getSpaceType());
+        if (fieldType().getKnnMethodConfigContext().isEmpty()
+            || fieldType().getKnnMethodConfigContext().get().getKnnMethodContext() == null) {
+            vectorValidator = new SpaceVectorValidator(fieldType().getKnnMethodConfigContext().get().getSpaceType());
             return;
         }
-
-        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        KNNMethodConfigContext knnMethodConfigContext = fieldType().getKnnMethodConfigContext().get();
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodConfigContext);
         vectorValidator = knnLibraryIndexingContext.getVectorValidator();
     }
 
@@ -152,25 +161,26 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (perDimensionValidator != null) {
             return;
         }
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
 
-        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
-        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
-        // Need to handle BWC case
-        if (knnMethodContext == null || knnMethodConfigContext == null) {
-            if (modelMetadata.getVectorDataType() == VectorDataType.BINARY) {
+        if (fieldType().getKnnMethodConfigContext().isEmpty()) {
+            perDimensionValidator = PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
+            return;
+        }
+        KNNMethodConfigContext knnMethodConfigContext = fieldType().getKnnMethodConfigContext().get();
+
+        if (knnMethodConfigContext.getKnnMethodContext() == null) {
+            if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {
                 perDimensionValidator = PerDimensionValidator.DEFAULT_BIT_VALIDATOR;
-            } else if (modelMetadata.getVectorDataType() == VectorDataType.BYTE) {
+            } else if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BYTE) {
                 perDimensionValidator = PerDimensionValidator.DEFAULT_BYTE_VALIDATOR;
             } else {
                 perDimensionValidator = PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
             }
-
             return;
         }
 
-        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodConfigContext);
         perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
     }
 
@@ -178,75 +188,71 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (perDimensionProcessor != null) {
             return;
         }
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
 
-        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
-        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
         // Need to handle BWC case
-        if (knnMethodContext == null || knnMethodConfigContext == null) {
+        if (fieldType().getKnnMethodConfigContext().isEmpty()
+            || fieldType().getKnnMethodConfigContext().get().getKnnMethodContext() == null) {
             perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
             return;
         }
-
-        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        KNNMethodConfigContext knnMethodConfigContext = fieldType().getKnnMethodConfigContext().get();
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodConfigContext);
         perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
     }
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
         validatePreparse();
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
-        if (useLuceneBasedVectorField) {
-            int adjustedDimension = modelMetadata.getVectorDataType() == VectorDataType.BINARY
-                ? modelMetadata.getDimension() / Byte.SIZE
-                : modelMetadata.getDimension();
-            final VectorEncoding encoding = modelMetadata.getVectorDataType() == VectorDataType.FLOAT
+        KNNMethodConfigContext knnMethodConfigContext = fieldType().getKnnMethodConfigContext().orElse(null);
+
+        if (useLuceneBasedVectorField && knnMethodConfigContext != null) {
+            int adjustedDimension = fieldType().getVectorDataType() == VectorDataType.BINARY
+                ? fieldType().getDimension() / Byte.SIZE
+                : fieldType().getDimension();
+            final VectorEncoding encoding = fieldType().getVectorDataType() == VectorDataType.FLOAT
                 ? VectorEncoding.FLOAT32
                 : VectorEncoding.BYTE;
             fieldType.setVectorAttributes(
                 adjustedDimension,
                 encoding,
-                SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+                knnMethodConfigContext.getSpaceType().getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
             );
         } else {
             fieldType.setDocValuesType(DocValuesType.BINARY);
         }
 
         // Conditionally add quantization config
-        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
-        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
-        if (knnMethodContext != null && knnMethodConfigContext != null) {
-            KNNLibraryIndexingContext knnLibraryIndexingContext = modelMetadata.getKnnEngine()
-                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        if (knnMethodConfigContext != null && knnMethodConfigContext.getKnnMethodContext() != null) {
+            KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.getKnnEngine()
+                .getKNNLibraryIndexingContext(knnMethodConfigContext);
             QuantizationConfig quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
             if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
                 this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
             }
         }
 
-        parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getVectorDataType());
+        parseCreateField(context, fieldType().getDimension(), fieldType().getVectorDataType());
     }
 
-    private static KNNMethodContext getKNNMethodContextFromModelMetadata(ModelMetadata modelMetadata) {
-        MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
-        if (methodComponentContext == MethodComponentContext.EMPTY) {
-            return null;
-        }
-        return new KNNMethodContext(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType(), methodComponentContext);
-    }
-
-    private static KNNMethodConfigContext getKNNMethodConfigContextFromModelMetadata(ModelMetadata modelMetadata) {
+    private static KNNMethodConfigContext getKNNMethodConfigContextFromModelMetadata(String modelId, ModelMetadata modelMetadata) {
         MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
         if (methodComponentContext == MethodComponentContext.EMPTY) {
             return null;
         }
         // TODO: Need to fix this version check by serializing the model
-        return KNNMethodConfigContext.builder()
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(modelMetadata.getVectorDataType())
             .dimension(modelMetadata.getDimension())
             .versionCreated(Version.V_2_14_0)
+            .knnMethodContext(ModelUtil.getMethodContextForModel(modelMetadata))
+            .modelId(modelId)
+            .workloadModeConfig(modelMetadata.getWorkloadModeConfig())
+            .compressionConfig(modelMetadata.getCompressionConfig())
             .build();
+        knnMethodConfigContext.setSpaceType(SpaceTypeResolver.resolveSpaceType(knnMethodConfigContext));
+        knnMethodConfigContext.setKnnEngine(KNNEngineResolver.resolveKNNEngine(knnMethodConfigContext));
+        return knnMethodConfigContext;
     }
 
     private static ModelMetadata getModelMetadata(ModelDao modelDao, String modelId) {

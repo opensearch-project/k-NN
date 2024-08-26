@@ -28,6 +28,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -212,7 +214,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
 
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
@@ -333,7 +335,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
 
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
@@ -399,7 +401,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
 
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
@@ -469,7 +471,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.FLOAT
+                VectorDataType.FLOAT,
+                WorkloadModeConfig.NOT_CONFIGURED,
+                CompressionConfig.NOT_CONFIGURED
             ),
             modelBytes,
             modelId

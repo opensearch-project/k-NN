@@ -15,13 +15,11 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -43,30 +41,26 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         String fullname,
         String simpleName,
         Map<String, String> metaValue,
-        KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext,
-        KNNMethodContext originalKNNMethodContext,
         MultiFields multiFields,
         CopyTo copyTo,
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
-        boolean hasDocValues
+        boolean hasDocValues,
+        OriginalParameters originalParameters
     ) {
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodConfigContext);
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
             metaValue,
-            knnMethodConfigContext.getVectorDataType(),
-            new KNNMappingConfig() {
-                @Override
-                public Optional<KNNMethodContext> getKnnMethodContext() {
-                    return Optional.of(knnMethodContext);
-                }
-
-                @Override
-                public int getDimension() {
-                    return knnMethodConfigContext.getDimension();
-                }
-            }
+            () -> KNNVectorFieldType.KNNVectorFieldTypeConfig.builder()
+                .dimension(knnMethodConfigContext.getDimension())
+                .knnMethodConfigContext(knnMethodConfigContext)
+                .vectorDataType(knnMethodConfigContext.getVectorDataType())
+                .knnLibrarySearchContext(knnLibraryIndexingContext.getKNNLibrarySearchContext())
+                .build(),
+            null
         );
         return new MethodFieldMapper(
             simpleName,
@@ -76,8 +70,9 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            originalKNNMethodContext,
-            knnMethodConfigContext
+            knnMethodConfigContext,
+            knnLibraryIndexingContext,
+            originalParameters
         );
     }
 
@@ -89,10 +84,10 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        KNNMethodContext originalKNNMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
+        KNNMethodConfigContext knnMethodConfigContext,
+        KNNLibraryIndexingContext knnLibraryIndexingContext,
+        OriginalParameters originalParameters
     ) {
-
         super(
             simpleName,
             mappedFieldType,
@@ -102,28 +97,21 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext.getVersionCreated(),
-            originalKNNMethodContext
+            originalParameters
         );
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
-        KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = annConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
-        KNNEngine knnEngine = knnMethodContext.getKnnEngine();
-        KNNLibraryIndexingContext knnLibraryIndexingContext = knnEngine.getKNNLibraryIndexingContext(
-            knnMethodContext,
-            knnMethodConfigContext
-        );
+        KNNEngine knnEngine = knnMethodConfigContext.getKnnEngine();
         QuantizationConfig quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
 
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-        this.fieldType.putAttribute(DIMENSION, String.valueOf(annConfig.getDimension()));
-        this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMethodConfigContext.getDimension()));
+        this.fieldType.putAttribute(SPACE_TYPE, knnMethodConfigContext.getSpaceType().getValue());
         // Conditionally add quantization config
         if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
             this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
         }
 
-        this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+        this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, mappedFieldType.getVectorDataType().getValue());
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
         try {
@@ -136,10 +124,10 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         }
 
         if (useLuceneBasedVectorField) {
-            int adjustedDimension = mappedFieldType.vectorDataType == VectorDataType.BINARY
-                ? annConfig.getDimension() / 8
-                : annConfig.getDimension();
-            final VectorEncoding encoding = mappedFieldType.vectorDataType == VectorDataType.FLOAT
+            int adjustedDimension = knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY
+                ? knnMethodConfigContext.getDimension() / 8
+                : knnMethodConfigContext.getDimension();
+            final VectorEncoding encoding = knnMethodConfigContext.getVectorDataType() == VectorDataType.FLOAT
                 ? VectorEncoding.FLOAT32
                 : VectorEncoding.BYTE;
             fieldType.setVectorAttributes(

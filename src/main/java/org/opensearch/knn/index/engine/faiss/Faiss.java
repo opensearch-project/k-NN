@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNMethod;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.NativeLibrary;
 
 import java.util.Map;
@@ -88,5 +89,10 @@ public class Faiss extends NativeLibrary {
             return this.scoreTransform.get(spaceType).apply(score);
         }
         return spaceType.scoreToDistanceTranslation(score);
+    }
+
+    @Override
+    protected String doResolveMethod(KNNMethodConfigContext knnMethodConfigContext) {
+        return METHOD_HNSW;
     }
 }

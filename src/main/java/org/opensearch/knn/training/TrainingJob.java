@@ -18,6 +18,9 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -51,6 +54,7 @@ public class TrainingJob implements Runnable {
 
     @Getter
     private final String modelId;
+    private final KNNLibraryIndexingContext knnLibraryIndexingContext;
 
     /**
      * Constructor.
@@ -70,7 +74,8 @@ public class TrainingJob implements Runnable {
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
         KNNMethodConfigContext knnMethodConfigContext,
         String description,
-        String nodeAssignment
+        String nodeAssignment,
+        KNNLibraryIndexingContext knnLibraryIndexingContext
     ) {
         // Generate random base64 string if one is not provided
         this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
@@ -79,10 +84,15 @@ public class TrainingJob implements Runnable {
         this.nativeMemoryCacheManager = Objects.requireNonNull(nativeMemoryCacheManager, "NativeMemoryCacheManager cannot be null.");
         this.trainingDataEntryContext = Objects.requireNonNull(trainingDataEntryContext, "TrainingDataEntryContext cannot be null.");
         this.modelAnonymousEntryContext = Objects.requireNonNull(modelAnonymousEntryContext, "AnonymousEntryContext cannot be null.");
+        this.knnLibraryIndexingContext = Objects.requireNonNull(knnLibraryIndexingContext, "KNNLibraryIndexingContext cannot be null.");
+
+        KNNEngine knnEngine = knnMethodConfigContext.getKnnEngine();
+        SpaceType spaceType = knnMethodConfigContext.getSpaceType();
+
         this.model = new Model(
             new ModelMetadata(
-                knnMethodContext.getKnnEngine(),
-                knnMethodContext.getSpaceType(),
+                knnEngine,
+                spaceType,
                 knnMethodConfigContext.getDimension(),
                 ModelState.TRAINING,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
@@ -90,7 +100,9 @@ public class TrainingJob implements Runnable {
                 "",
                 nodeAssignment,
                 knnMethodContext.getMethodComponentContext(),
-                knnMethodConfigContext.getVectorDataType()
+                knnMethodConfigContext.getVectorDataType(),
+                knnMethodConfigContext.getWorkloadModeConfig(),
+                knnMethodConfigContext.getCompressionConfig()
             ),
             null,
             this.modelId
@@ -163,10 +175,7 @@ public class TrainingJob implements Runnable {
             if (trainingDataAllocation.isClosed()) {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
-            Map<String, Object> trainParameters = model.getModelMetadata()
-                .getKnnEngine()
-                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-                .getLibraryParameters();
+            Map<String, Object> trainParameters = knnLibraryIndexingContext.getLibraryParameters();
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)

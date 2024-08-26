@@ -28,7 +28,7 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
     public KNNScalarQuantizedVectorsFormatParams(Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
         super(params, defaultMaxConnections, defaultBeamWidth);
         MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
-        Map<String, Object> sqEncoderParams = encoderMethodComponentContext.getParameters();
+        Map<String, Object> sqEncoderParams = encoderMethodComponentContext.getParameters().orElse(null);
         this.initConfidenceInterval(sqEncoderParams);
         this.initBits(sqEncoderParams);
         this.initCompressFlag();

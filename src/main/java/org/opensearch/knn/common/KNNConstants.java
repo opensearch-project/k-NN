@@ -37,6 +37,10 @@ public class KNNConstants {
     public static final String MODEL = "model";
     public static final String MODELS = "models";
     public static final String MODEL_ID = "model_id";
+    public static final String MODE_PARAMETER = "mode";
+    public static final String COMPRESSION_PARAMETER = "compression";
+    public static final String MODE_IN_MEMORY_NAME = "in_memory";
+    public static final String MODE_ON_DISK_NAME = "on_disk";
     public static final String MODEL_BLOB_PARAMETER = "model_blob";
     public static final String MODEL_INDEX_MAPPING_PATH = "mappings/model-index.json";
     public static final String MODEL_INDEX_NAME = ".opensearch-knn-models";
@@ -71,6 +75,8 @@ public class KNNConstants {
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String MODEL_VECTOR_DATA_TYPE_KEY = VECTOR_DATA_TYPE_FIELD;
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
+
+    public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "compression_and_mode_feature_flag";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final String QUANTIZATION_STATE_FILE_SUFFIX = "qstate";

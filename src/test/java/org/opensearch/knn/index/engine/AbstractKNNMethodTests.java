@@ -31,72 +31,6 @@ public class AbstractKNNMethodTests extends KNNTestCase {
     }
 
     /**
-     * Test KNNMethod has space
-     */
-    public void testHasSpace() {
-        String name = "test";
-        KNNMethod knnMethod = new TestKNNMethod(
-            MethodComponent.Builder.builder(name).build(),
-            Set.of(SpaceType.L2, SpaceType.COSINESIMIL),
-            EMPTY_ENGINE_SPECIFIC_CONTEXT
-        );
-        assertTrue(knnMethod.isSpaceTypeSupported(SpaceType.L2));
-        assertTrue(knnMethod.isSpaceTypeSupported(SpaceType.COSINESIMIL));
-        assertFalse(knnMethod.isSpaceTypeSupported(SpaceType.INNER_PRODUCT));
-    }
-
-    /**
-     * Test KNNMethod validate
-     */
-    public void testValidate() throws IOException {
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .versionCreated(org.opensearch.Version.CURRENT)
-            .dimension(10)
-            .vectorDataType(VectorDataType.FLOAT)
-            .build();
-        String methodName = "test-method";
-        KNNMethod knnMethod = new TestKNNMethod(
-            MethodComponent.Builder.builder(methodName).addSupportedDataTypes(Set.of(VectorDataType.FLOAT)).build(),
-            Set.of(SpaceType.L2),
-            EMPTY_ENGINE_SPECIFIC_CONTEXT
-        );
-
-        // Invalid space
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, methodName)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        assertNotNull(knnMethod.validate(knnMethodContext1, knnMethodConfigContext));
-
-        // Invalid methodComponent
-        xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, methodName)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .startObject(PARAMETERS)
-            .field("invalid", "invalid")
-            .endObject()
-            .endObject();
-        in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
-
-        assertNotNull(knnMethod.validate(knnMethodContext2, knnMethodConfigContext));
-
-        // Valid everything
-        xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, methodName)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .endObject();
-        in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
-        assertNull(knnMethod.validate(knnMethodContext3, knnMethodConfigContext));
-    }
-
-    /**
      * Test KNNMethod validateWithData
      */
     public void testValidateWithContext() throws IOException {
@@ -120,7 +54,8 @@ public class AbstractKNNMethodTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        assertNotNull(knnMethod.validate(knnMethodContext1, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext1);
+        assertNotNull(knnMethod.validate(knnMethodConfigContext));
 
         // Invalid methodComponent
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -133,7 +68,8 @@ public class AbstractKNNMethodTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
-        assertNotNull(knnMethod.validate(knnMethodContext2, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext2);
+        assertNotNull(knnMethod.validate(knnMethodConfigContext));
 
         // Valid everything
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -143,22 +79,25 @@ public class AbstractKNNMethodTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
-        assertNull(knnMethod.validate(knnMethodContext3, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext3);
+        assertNull(knnMethod.validate(knnMethodConfigContext));
     }
 
     public void testGetKNNLibraryIndexingContext() {
+        SpaceType spaceType = SpaceType.DEFAULT;
+        String methodName = "test-method";
+        Map<String, Object> generatedMap = new HashMap<>(ImmutableMap.of("test-key", "test-value"));
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
             .vectorDataType(VectorDataType.FLOAT)
+            .knnMethodContext(new KNNMethodContext(KNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap)))
             .build();
-        SpaceType spaceType = SpaceType.DEFAULT;
-        String methodName = "test-method";
-        Map<String, Object> generatedMap = new HashMap<>(ImmutableMap.of("test-key", "test-value"));
+
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
             .setKnnLibraryIndexingContextGenerator(
                 ((methodComponent1, methodComponentContext, methodConfigContext) -> KNNLibraryIndexingContextImpl.builder()
-                    .parameters(methodComponentContext.getParameters())
+                    .parameters(methodComponentContext.getParameters().orElse(null))
                     .build())
             )
             .build();
@@ -172,20 +111,9 @@ public class AbstractKNNMethodTests extends KNNTestCase {
         assertEquals(
             expectedMap,
             knnMethod.getKNNLibraryIndexingContext(
-                new KNNMethodContext(KNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap)),
+
                 knnMethodConfigContext
             ).getLibraryParameters()
         );
-    }
-
-    public void testGetKNNLibrarySearchContext() {
-        String methodName = "test-method";
-        KNNLibrarySearchContext knnLibrarySearchContext = new DefaultHnswSearchContext();
-        KNNMethod knnMethod = new TestKNNMethod(
-            MethodComponent.Builder.builder(methodName).build(),
-            Set.of(SpaceType.L2),
-            knnLibrarySearchContext
-        );
-        assertEquals(knnLibrarySearchContext, knnMethod.getKNNLibrarySearchContext());
     }
 }

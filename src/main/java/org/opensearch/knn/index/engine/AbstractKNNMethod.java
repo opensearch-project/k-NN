@@ -33,33 +33,26 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     protected final KNNLibrarySearchContext knnLibrarySearchContext;
 
     @Override
-    public boolean isSpaceTypeSupported(SpaceType space) {
-        return spaces.contains(space);
-    }
-
-    @Override
-    public ValidationException validate(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+    public ValidationException validate(KNNMethodConfigContext knnMethodConfigContext) {
         List<String> errorMessages = new ArrayList<>();
-        if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
+        SpaceType spaceType = knnMethodConfigContext.getSpaceType();
+        if (!isSpaceTypeSupported(spaceType)) {
             errorMessages.add(
                 String.format(
                     Locale.ROOT,
                     "\"%s\" with \"%s\" configuration does not support space type: " + "\"%s\".",
                     this.methodComponent.getName(),
-                    knnMethodContext.getKnnEngine().getName().toLowerCase(Locale.ROOT),
-                    knnMethodContext.getSpaceType().getValue()
+                    knnMethodConfigContext.getKnnEngine().getName().toLowerCase(Locale.ROOT),
+                    spaceType.getValue()
                 )
             );
         }
 
-        ValidationException methodValidation = methodComponent.validate(
-            knnMethodContext.getMethodComponentContext(),
-            knnMethodConfigContext
-        );
+        MethodComponentContext methodComponentContext = extractUserProvidedMethodComponentContext(knnMethodConfigContext);
+        ValidationException methodValidation = methodComponent.validate(methodComponentContext, knnMethodConfigContext);
         if (methodValidation != null) {
             errorMessages.addAll(methodValidation.validationErrors());
         }
-
         if (errorMessages.isEmpty()) {
             return null;
         }
@@ -70,19 +63,47 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     }
 
     @Override
-    public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-        return methodComponent.isTrainingRequired(knnMethodContext.getMethodComponentContext());
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodConfigContext knnMethodConfigContext) {
+        MethodComponentContext resolvedMethodComponentContext = resolveMethodComponentContext(knnMethodConfigContext);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = methodComponent.getKNNLibraryIndexingContext(
+            resolvedMethodComponentContext,
+            knnMethodConfigContext
+        );
+        Map<String, Object> parameterMap = knnLibraryIndexingContext.getLibraryParameters();
+        SpaceType spaceType = knnMethodConfigContext.getSpaceType();
+        parameterMap.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
+        parameterMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, knnMethodConfigContext.getVectorDataType().getValue());
+        return KNNLibraryIndexingContextImpl.builder()
+            .quantizationConfig(knnLibraryIndexingContext.getQuantizationConfig())
+            .parameters(parameterMap)
+            .vectorValidator(doGetVectorValidator(knnMethodConfigContext))
+            .perDimensionValidator(doGetPerDimensionValidator(knnMethodConfigContext))
+            .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodConfigContext))
+            .knnLibrarySearchContext(doGetKNNLibrarySearchContext(knnMethodConfigContext))
+            .estimateOverheadInKB(knnLibraryIndexingContext.estimateOverheadInKB())
+            .build();
     }
 
     @Override
-    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return methodComponent.estimateOverheadInKB(knnMethodContext.getMethodComponentContext(), knnMethodConfigContext.getDimension());
+    public boolean isTrainingRequired(KNNMethodConfigContext knnMethodConfigContext) {
+        MethodComponentContext resolvedMethodComponentContext = resolveMethodComponentContext(knnMethodConfigContext);
+        return methodComponent.isTrainingRequired(resolvedMethodComponentContext, knnMethodConfigContext);
     }
 
-    protected PerDimensionValidator doGetPerDimensionValidator(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
+    protected MethodComponentContext extractUserProvidedMethodComponentContext(KNNMethodConfigContext knnMethodConfigContext) {
+        KNNMethodContext knnMethodContext = knnMethodConfigContext.getKnnMethodContext();
+        if (knnMethodContext == null) {
+            return null;
+        }
+        return knnMethodContext.getMethodComponentContext();
+    }
+
+    protected MethodComponentContext resolveMethodComponentContext(KNNMethodConfigContext knnMethodConfigContext) {
+        MethodComponentContext providedMethodComponentContext = extractUserProvidedMethodComponentContext(knnMethodConfigContext);
+        return methodComponent.resolveMethodComponentContext(knnMethodConfigContext, providedMethodComponentContext);
+    }
+
+    protected PerDimensionValidator doGetPerDimensionValidator(KNNMethodConfigContext knnMethodConfigContext) {
         VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType();
 
         if (VectorDataType.BINARY == vectorDataType) {
@@ -95,40 +116,20 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         return PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
     }
 
-    protected VectorValidator doGetVectorValidator(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return new SpaceVectorValidator(knnMethodContext.getSpaceType());
+    protected VectorValidator doGetVectorValidator(KNNMethodConfigContext knnMethodConfigContext) {
+        SpaceType spaceType = knnMethodConfigContext.getSpaceType();
+        return new SpaceVectorValidator(spaceType);
     }
 
-    protected PerDimensionProcessor doGetPerDimensionProcessor(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
+    protected PerDimensionProcessor doGetPerDimensionProcessor(KNNMethodConfigContext knnMethodConfigContext) {
         return PerDimensionProcessor.NOOP_PROCESSOR;
     }
 
-    @Override
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        KNNLibraryIndexingContext knnLibraryIndexingContext = methodComponent.getKNNLibraryIndexingContext(
-            knnMethodContext.getMethodComponentContext(),
-            knnMethodConfigContext
-        );
-        Map<String, Object> parameterMap = knnLibraryIndexingContext.getLibraryParameters();
-        parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
-        parameterMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, knnMethodConfigContext.getVectorDataType().getValue());
-        return KNNLibraryIndexingContextImpl.builder()
-            .quantizationConfig(knnLibraryIndexingContext.getQuantizationConfig())
-            .parameters(parameterMap)
-            .vectorValidator(doGetVectorValidator(knnMethodContext, knnMethodConfigContext))
-            .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))
-            .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
-            .build();
+    protected KNNLibrarySearchContext doGetKNNLibrarySearchContext(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnLibrarySearchContext;
     }
 
-    @Override
-    public KNNLibrarySearchContext getKNNLibrarySearchContext() {
-        return knnLibrarySearchContext;
+    private boolean isSpaceTypeSupported(SpaceType space) {
+        return spaces.contains(space);
     }
 }

@@ -6,10 +6,12 @@
 package org.opensearch.knn.index.engine;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.Setter;
-import org.opensearch.common.ValidationException;
+import org.opensearch.Version;
+import org.opensearch.common.Nullable;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -21,13 +23,13 @@ import org.opensearch.index.mapper.MapperParsingException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 /**
@@ -35,15 +37,19 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * It will encompass all parameters necessary to build the index.
  */
 @AllArgsConstructor
-@Getter
+@EqualsAndHashCode
 public class KNNMethodContext implements ToXContentFragment, Writeable {
+    private static final String UNDEFINED_VALUE = "undefined";
 
-    @NonNull
+    private static final StreamHelper DEFAULT_STREAM_HELPER = new DefaultStreamHelper();
+    private static final StreamHelper BEFORE_217_STREAM_HELPER = new Before217StreamHelper();
+
+    @Nullable
     private final KNNEngine knnEngine;
+    @Nullable
+    private final SpaceType spaceType;
     @NonNull
-    @Setter
-    private SpaceType spaceType;
-    @NonNull
+    @Getter
     private final MethodComponentContext methodComponentContext;
 
     /**
@@ -53,38 +59,36 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
      * @throws IOException on stream failure
      */
     public KNNMethodContext(StreamInput in) throws IOException {
-        this.knnEngine = KNNEngine.getEngine(in.readString());
-        this.spaceType = SpaceType.getSpace(in.readString());
-        this.methodComponentContext = new MethodComponentContext(in);
+        StreamHelper streamHelper = in.getVersion().onOrAfter(Version.V_2_17_0) ? DEFAULT_STREAM_HELPER : BEFORE_217_STREAM_HELPER;
+        this.knnEngine = streamHelper.streamInKNNEngine(in);
+        this.spaceType = streamHelper.streamInSpaceType(in);
+        this.methodComponentContext = streamHelper.streamInMethodComponentContext(in);
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        StreamHelper streamHelper = out.getVersion().onOrAfter(Version.V_2_17_0) ? DEFAULT_STREAM_HELPER : BEFORE_217_STREAM_HELPER;
+        streamHelper.streamOutKNNEngine(out, knnEngine);
+        streamHelper.streamOutSpaceType(out, spaceType);
+        streamHelper.streamOutMethodComponentContext(out, methodComponentContext);
     }
 
     /**
-     * This method uses the knnEngine to validate that the method is compatible with the engine.
+     * Get the KNN Engine
      *
-     * @param knnMethodConfigContext context to validate against
-     * @return ValidationException produced by validation errors; null if no validations errors.
+     * @return KNNEngine
      */
-    public ValidationException validate(KNNMethodConfigContext knnMethodConfigContext) {
-        return knnEngine.validateMethod(this, knnMethodConfigContext);
+    public Optional<KNNEngine> getKnnEngine() {
+        return Optional.ofNullable(knnEngine);
     }
 
     /**
-     * This method returns whether training is requires or not from knnEngine
+     * Get the Space Type
      *
-     * @return true if training is required by knnEngine; false otherwise
+     * @return SpaceType
      */
-    public boolean isTrainingRequired() {
-        return knnEngine.isTrainingRequired(this);
-    }
-
-    /**
-     * This method estimates the overhead the knn method adds irrespective of the number of vectors
-     *
-     * @param knnMethodConfigContext context to estimate overhead
-     * @return size in Kilobytes
-     */
-    public int estimateOverheadInKB(KNNMethodConfigContext knnMethodConfigContext) {
-        return knnEngine.estimateOverheadInKB(this, knnMethodConfigContext);
+    public Optional<SpaceType> getSpaceType() {
+        return Optional.ofNullable(spaceType);
     }
 
     /**
@@ -101,9 +105,9 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         @SuppressWarnings("unchecked")
         Map<String, Object> methodMap = (Map<String, Object>) in;
 
-        KNNEngine engine = KNNEngine.DEFAULT; // Get or default
-        SpaceType spaceType = SpaceType.UNDEFINED; // Get or default
-        String name = "";
+        KNNEngine engine = null;
+        SpaceType spaceType = null;
+        String name = null;
         Map<String, Object> parameters = new HashMap<>();
 
         String key;
@@ -167,10 +171,6 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
             }
         }
 
-        if (name.isEmpty()) {
-            throw new MapperParsingException(NAME + " needs to be set");
-        }
-
         MethodComponentContext method = new MethodComponentContext(name, parameters);
 
         return new KNNMethodContext(engine, spaceType, method);
@@ -178,35 +178,108 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(KNN_ENGINE, knnEngine.getName());
-        builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
-        builder = methodComponentContext.toXContent(builder, params);
-        return builder;
+        if (knnEngine != null) {
+            builder.field(KNN_ENGINE, knnEngine.getName());
+        }
+
+        if (spaceType != null) {
+            builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
+        }
+        return methodComponentContext.toXContent(builder, params);
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        KNNMethodContext other = (KNNMethodContext) obj;
+    private interface StreamHelper {
+        KNNEngine streamInKNNEngine(StreamInput in) throws IOException;
 
-        EqualsBuilder equalsBuilder = new EqualsBuilder();
-        equalsBuilder.append(knnEngine, other.knnEngine);
-        equalsBuilder.append(spaceType, other.spaceType);
-        equalsBuilder.append(methodComponentContext, other.methodComponentContext);
+        void streamOutKNNEngine(StreamOutput out, KNNEngine value) throws IOException;
 
-        return equalsBuilder.isEquals();
+        SpaceType streamInSpaceType(StreamInput in) throws IOException;
+
+        void streamOutSpaceType(StreamOutput out, SpaceType value) throws IOException;
+
+        MethodComponentContext streamInMethodComponentContext(StreamInput in) throws IOException;
+
+        void streamOutMethodComponentContext(StreamOutput out, MethodComponentContext value) throws IOException;
     }
 
-    @Override
-    public int hashCode() {
-        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(methodComponentContext).toHashCode();
+    private static class DefaultStreamHelper implements StreamHelper {
+        @Override
+        public KNNEngine streamInKNNEngine(StreamInput in) throws IOException {
+            String knnEngineString = in.readOptionalString();
+            return knnEngineString != null ? KNNEngine.getEngine(knnEngineString) : null;
+        }
+
+        @Override
+        public void streamOutKNNEngine(StreamOutput out, KNNEngine value) throws IOException {
+            String knnEngineString = value != null ? value.getName() : null;
+            out.writeOptionalString(knnEngineString);
+        }
+
+        @Override
+        public SpaceType streamInSpaceType(StreamInput in) throws IOException {
+            String spaceTypeString = in.readOptionalString();
+            return spaceTypeString != null ? SpaceType.getSpace(spaceTypeString) : null;
+        }
+
+        @Override
+        public void streamOutSpaceType(StreamOutput out, SpaceType value) throws IOException {
+            String spaceTypeString = value != null ? value.getValue() : null;
+            out.writeOptionalString(spaceTypeString);
+        }
+
+        @Override
+        public MethodComponentContext streamInMethodComponentContext(StreamInput in) throws IOException {
+            return new MethodComponentContext(in);
+        }
+
+        @Override
+        public void streamOutMethodComponentContext(StreamOutput out, MethodComponentContext value) throws IOException {
+            value.writeTo(out);
+        }
     }
 
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(knnEngine.getName());
-        out.writeString(spaceType.getValue());
-        this.methodComponentContext.writeTo(out);
+    private static class Before217StreamHelper implements StreamHelper {
+        @Override
+        public KNNEngine streamInKNNEngine(StreamInput in) throws IOException {
+            return KNNEngine.getEngine(in.readString());
+        }
+
+        @Override
+        public void streamOutKNNEngine(StreamOutput out, KNNEngine value) throws IOException {
+            // This may happen in a mixed cluster state. If this is the case, we need to write the default engine
+            if (value == null) {
+                out.writeString(NMSLIB_NAME);
+            } else {
+                out.writeString(value.getName());
+            }
+        }
+
+        @Override
+        public SpaceType streamInSpaceType(StreamInput in) throws IOException {
+            String spaceTypeString = in.readString();
+            if (Strings.isEmpty(spaceTypeString) || UNDEFINED_VALUE.equals(spaceTypeString)) {
+                return null;
+            }
+            return SpaceType.getSpace(spaceTypeString);
+        }
+
+        @Override
+        public void streamOutSpaceType(StreamOutput out, SpaceType value) throws IOException {
+            if (value == null) {
+                out.writeString(UNDEFINED_VALUE);
+            } else {
+                out.writeString(value.getValue());
+            }
+        }
+
+        @Override
+        public MethodComponentContext streamInMethodComponentContext(StreamInput in) throws IOException {
+            return new MethodComponentContext(in);
+        }
+
+        @Override
+        public void streamOutMethodComponentContext(StreamOutput out, MethodComponentContext value) throws IOException {
+            value.writeTo(out);
+        }
     }
 }

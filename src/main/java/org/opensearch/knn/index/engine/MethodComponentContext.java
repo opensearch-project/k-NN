@@ -6,9 +6,12 @@
 package org.opensearch.knn.index.engine;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang.math.NumberUtils;
+import org.opensearch.Version;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -21,14 +24,16 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.opensearch.knn.indices.ModelMetadata;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.index.engine.ParseUtil.checkExpectedArrayLength;
+import static org.opensearch.knn.index.engine.ParseUtil.checkStringMatches;
+import static org.opensearch.knn.index.engine.ParseUtil.checkStringNotEmpty;
+import static org.opensearch.knn.index.engine.ParseUtil.unwrapString;
 
 /**
  * MethodComponentContext represents a single user provided building block of a knn library index.
@@ -36,6 +41,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * Each component is composed of a name and a map of parameters.
  */
 @RequiredArgsConstructor
+@EqualsAndHashCode
 public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     // EMPTY method component context can only occur if a model originated on a cluster before 2.13.0 and the cluster is then upgraded to
@@ -45,7 +51,9 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     private static final String DELIMITER = ";";
     private static final String DELIMITER_PLACEHOLDER = "$%$";
 
-    @Getter
+    private static final StreamHelper DEFAULT_STREAM_HELPER = new DefaultStreamHelper();
+    private static final StreamHelper BEFORE_217_STREAM_HELPER = new Before217StreamHelper();
+
     private final String name;
     private final Map<String, Object> parameters;
 
@@ -56,16 +64,34 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      * @throws IOException on stream failure
      */
     public MethodComponentContext(StreamInput in) throws IOException {
-        this.name = in.readString();
+        StreamHelper streamHelper = in.getVersion().onOrAfter(Version.V_2_17_0) ? DEFAULT_STREAM_HELPER : BEFORE_217_STREAM_HELPER;
+        this.name = streamHelper.streamInName(in);
+        this.parameters = streamHelper.streamInParameters(in);
+    }
 
-        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
-        // do not read if their are no bytes left is null. Make sure this is in sync with the fellow read method. For
-        // more information, refer to https://github.com/opensearch-project/k-NN/issues/353.
-        if (in.available() > 0) {
-            this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
-        } else {
-            this.parameters = null;
-        }
+    /**
+     * Get name of the method component context
+     *
+     * @return Get name
+     */
+    public Optional<String> getName() {
+        return Optional.ofNullable(name);
+    }
+
+    /**
+     * Get parameters of the method component context
+     *
+     * @return Parameters
+     */
+    public Optional<Map<String, Object>> getParameters() {
+        return Optional.ofNullable(parameters);
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        StreamHelper streamHelper = out.getVersion().onOrAfter(Version.V_2_17_0) ? DEFAULT_STREAM_HELPER : BEFORE_217_STREAM_HELPER;
+        streamHelper.streamOutName(out, name);
+        streamHelper.streamOutParameters(out, parameters);
     }
 
     /**
@@ -81,8 +107,8 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> methodMap = (Map<String, Object>) in;
-        String name = "";
-        Map<String, Object> parameters = new HashMap<>();
+        String name = null;
+        Map<String, Object> parameters = null;
 
         String key;
         Object value;
@@ -107,25 +133,21 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
                 }
 
                 // Check to interpret map parameters as sub-methodComponentContexts
-                @SuppressWarnings("unchecked")
-                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet()
-                    .stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> {
-                        Object v = e.getValue();
-                        if (v instanceof Map) {
-                            return MethodComponentContext.parse(v);
-                        }
-                        return v;
-                    }));
-
-                parameters = parameters1;
+                parameters = ((Map<?, ?>) value).entrySet().stream().collect(Collectors.toMap(v -> {
+                    if (v.getKey() instanceof String) {
+                        return (String) v.getKey();
+                    }
+                    throw new MapperParsingException("Invalid type for input map for MethodComponentContext");
+                }, e -> {
+                    Object v = e.getValue();
+                    if (v instanceof Map) {
+                        return MethodComponentContext.parse(v);
+                    }
+                    return v;
+                }));
             } else {
                 throw new MapperParsingException("Invalid parameter for MethodComponentContext: " + key);
             }
-        }
-
-        if (name.isEmpty()) {
-            throw new MapperParsingException(NAME + " needs to be set");
         }
 
         return new MethodComponentContext(name, parameters);
@@ -133,13 +155,14 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(NAME, name);
+        if (name != null) {
+            builder.field(NAME, name);
+        }
+
         // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
         // we just create the null field. If parameters are not null, we created a nested structure. For more
         // information, refer to https://github.com/opensearch-project/k-NN/issues/353.
-        if (parameters == null) {
-            builder.field(PARAMETERS, (String) null);
-        } else {
+        if (parameters != null) {
             builder.startObject(PARAMETERS);
             parameters.forEach((key, value) -> {
                 try {
@@ -170,38 +193,6 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         return MethodComponentContext.parse(parsedMap);
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        MethodComponentContext other = (MethodComponentContext) obj;
-
-        EqualsBuilder equalsBuilder = new EqualsBuilder();
-        equalsBuilder.append(name, other.name);
-        equalsBuilder.append(parameters, other.parameters);
-        return equalsBuilder.isEquals();
-    }
-
-    @Override
-    public int hashCode() {
-        return new HashCodeBuilder().append(name).append(parameters).toHashCode();
-    }
-
-    /**
-     * Gets the parameters of the component
-     *
-     * @return parameters
-     */
-    public Map<String, Object> getParameters() {
-        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
-        // return an empty map if parameters is null. For more information, refer to
-        // https://github.com/opensearch-project/k-NN/issues/353.
-        if (parameters == null) {
-            return Collections.emptyMap();
-        }
-        return parameters;
-    }
-
     /**
      *
      * Provides a String representation of MethodComponentContext
@@ -212,30 +203,44 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      */
     public String toClusterStateString() {
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("{name=").append(name).append(DELIMITER);
-        stringBuilder.append("parameters=[");
-        if (Objects.nonNull(parameters)) {
-            for (Map.Entry<String, Object> entry : parameters.entrySet()) {
-                stringBuilder.append(entry.getKey()).append("=");
-                Object objectValue = entry.getValue();
-                String value;
-                if (objectValue instanceof MethodComponentContext) {
-                    value = ((MethodComponentContext) objectValue).toClusterStateString();
-                } else {
-                    value = entry.getValue().toString();
-                }
-                // Model Metadata uses a delimiter to split the input string in its fromString method
-                // https://github.com/opensearch-project/k-NN/blob/2.12/src/main/java/org/opensearch/knn/indices/ModelMetadata.java#L265
-                // If any of the values in the method component context contain this delimiter,
-                // then the method will not work correctly. Therefore, we replace the delimiter with an uncommon
-                // sequence that is very unlikely to appear in the value itself.
-                // https://github.com/opensearch-project/k-NN/issues/1337
-                value = value.replace(ModelMetadata.DELIMITER, DELIMITER_PLACEHOLDER);
-                stringBuilder.append(value).append(DELIMITER);
-            }
+        stringBuilder.append("{");
+        boolean isNameNull = true;
+        if (name != null) {
+            stringBuilder.append("name=").append(name);
+            isNameNull = false;
         }
-        stringBuilder.append("]}");
+
+        if (parameters != null) {
+            if (!isNameNull) {
+                stringBuilder.append(DELIMITER);
+            }
+            stringBuilder.append("parameters=[");
+            parametersToClusterStateString(stringBuilder);
+            stringBuilder.append("]");
+        }
+        stringBuilder.append("}");
         return stringBuilder.toString();
+    }
+
+    private void parametersToClusterStateString(StringBuilder stringBuilder) {
+        for (Map.Entry<String, Object> entry : parameters.entrySet()) {
+            stringBuilder.append(entry.getKey()).append("=");
+            Object objectValue = entry.getValue();
+            String value;
+            if (objectValue instanceof MethodComponentContext) {
+                value = ((MethodComponentContext) objectValue).toClusterStateString();
+            } else {
+                value = entry.getValue().toString();
+            }
+            // Model Metadata uses a delimiter to split the input string in its fromString method
+            // https://github.com/opensearch-project/k-NN/blob/2.12/src/main/java/org/opensearch/knn/indices/ModelMetadata.java#L265
+            // If any of the values in the method component context contain this delimiter,
+            // then the method will not work correctly. Therefore, we replace the delimiter with an uncommon
+            // sequence that is very unlikely to appear in the value itself.
+            // https://github.com/opensearch-project/k-NN/issues/1337
+            value = value.replace(ModelMetadata.DELIMITER, DELIMITER_PLACEHOLDER);
+            stringBuilder.append(value).append(DELIMITER);
+        }
     }
 
     /**
@@ -247,13 +252,26 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      */
     public static MethodComponentContext fromClusterStateString(String in) {
         String stringToParse = unwrapString(in, '{', '}');
+        String name = null;
+        Map<String, Object> parameters = null;
+        if (Strings.isEmpty(stringToParse)) {
+            return new MethodComponentContext(name, parameters);
+        }
 
         // Parse name from string
         String[] nameAndParameters = stringToParse.split(DELIMITER, 2);
+        if (nameAndParameters.length == 1) {
+            if (nameAndParameters[0].startsWith(NAME)) {
+                name = parseName(nameAndParameters[0]);
+            } else {
+                parameters = parseParameters(nameAndParameters[0]);
+            }
+            return new MethodComponentContext(name, parameters);
+        }
+
         checkExpectedArrayLength(nameAndParameters, 2);
-        String name = parseName(nameAndParameters[0]);
-        String parametersString = nameAndParameters[1];
-        Map<String, Object> parameters = parseParameters(parametersString);
+        name = parseName(nameAndParameters[0]);
+        parameters = parseParameters(nameAndParameters[1]);
         return new MethodComponentContext(name, parameters);
     }
 
@@ -274,7 +292,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         String[] parametersKeyAndValue = candidateParameterString.split("=", 2);
         checkStringMatches(parametersKeyAndValue[0], "parameters");
         if (parametersKeyAndValue.length == 1) {
-            return Collections.emptyMap();
+            return null;
         }
         checkExpectedArrayLength(parametersKeyAndValue, 2);
         return parseParametersValue(parametersKeyAndValue[1]);
@@ -301,7 +319,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     private static ValueAndRestToParse parseParameterValueAndRestToParse(String candidateParameterValueAndRestToParse) {
         if (candidateParameterValueAndRestToParse.charAt(0) == '{') {
-            int endOfNestedMap = findClosingPosition(candidateParameterValueAndRestToParse, '{', '}');
+            int endOfNestedMap = ParseUtil.findClosingPosition(candidateParameterValueAndRestToParse, '{', '}');
             String nestedMethodContext = candidateParameterValueAndRestToParse.substring(0, endOfNestedMap + 1);
             Object nestedParse = fromClusterStateString(nestedMethodContext);
             String restToParse = candidateParameterValueAndRestToParse.substring(endOfNestedMap + 1);
@@ -323,59 +341,6 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         return new ValueAndRestToParse(value, stringValueAndRestToParse[1]);
     }
 
-    private static String unwrapString(String in, char expectedStart, char expectedEnd) {
-        if (in.length() < 2) {
-            throw new IllegalArgumentException("Invalid string.");
-        }
-
-        if (in.charAt(0) != expectedStart || in.charAt(in.length() - 1) != expectedEnd) {
-            throw new IllegalArgumentException("Invalid string." + in);
-        }
-        return in.substring(1, in.length() - 1);
-    }
-
-    private static int findClosingPosition(String in, char expectedStart, char expectedEnd) {
-        int nestedLevel = 0;
-        for (int i = 0; i < in.length(); i++) {
-            if (in.charAt(i) == expectedStart) {
-                nestedLevel++;
-                continue;
-            }
-
-            if (in.charAt(i) == expectedEnd) {
-                nestedLevel--;
-            }
-
-            if (nestedLevel == 0) {
-                return i;
-            }
-        }
-
-        throw new IllegalArgumentException("Invalid string. No end to the nesting");
-    }
-
-    private static void checkStringNotEmpty(String string) {
-        if (string.isEmpty()) {
-            throw new IllegalArgumentException("Unable to parse MethodComponentContext");
-        }
-    }
-
-    private static void checkStringMatches(String string, String expected) {
-        if (!Objects.equals(string, expected)) {
-            throw new IllegalArgumentException("Unexpected key in MethodComponentContext.  Expected 'name' or 'parameters'");
-        }
-    }
-
-    private static void checkExpectedArrayLength(String[] array, int expectedLength) {
-        if (null == array) {
-            throw new IllegalArgumentException("Error parsing MethodComponentContext.  Array is null.");
-        }
-
-        if (array.length != expectedLength) {
-            throw new IllegalArgumentException("Error parsing MethodComponentContext.  Array is not expected length.");
-        }
-    }
-
     @AllArgsConstructor
     @Getter
     private static class ValueAndRestToParse {
@@ -383,15 +348,66 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         private final String restToParse;
     }
 
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(this.name);
+    private interface StreamHelper {
+        String streamInName(StreamInput in) throws IOException;
 
-        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
-        // do not write if parameters is null. Make sure this is in sync with the fellow read method. For more
-        // information, refer to https://github.com/opensearch-project/k-NN/issues/353.
-        if (this.parameters != null) {
-            out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+        void streamOutName(StreamOutput out, String value) throws IOException;
+
+        Map<String, Object> streamInParameters(StreamInput in) throws IOException;
+
+        void streamOutParameters(StreamOutput out, Map<String, Object> value) throws IOException;
+    }
+
+    private static class DefaultStreamHelper implements StreamHelper {
+        public String streamInName(StreamInput in) throws IOException {
+            return in.readOptionalString();
+        }
+
+        public void streamOutName(StreamOutput out, String value) throws IOException {
+            out.writeOptionalString(value);
+        }
+
+        public Map<String, Object> streamInParameters(StreamInput in) throws IOException {
+            if (in.readBoolean() == false) {
+                return null;
+            }
+            return in.readMap(StreamInput::readString, new ParameterMapValueReader());
+        }
+
+        public void streamOutParameters(StreamOutput out, Map<String, Object> value) throws IOException {
+            if (value != null) {
+                out.writeBoolean(true);
+                out.writeMap(value, StreamOutput::writeString, new ParameterMapValueWriter());
+            } else {
+                out.writeBoolean(false);
+            }
+        }
+    }
+
+    // Legacy Stream helper. This logic is incorrect but works in some cases. In order to maintain compatibility with
+    // older stream versions (whose code we cannot change), we need to leave this logic here.
+    //
+    // The relevant context for this is in https://github.com/opensearch-project/k-NN/issues/353.
+    private static class Before217StreamHelper implements StreamHelper {
+        public String streamInName(StreamInput in) throws IOException {
+            return in.readString();
+        }
+
+        public void streamOutName(StreamOutput out, String value) throws IOException {
+            out.writeString(value);
+        }
+
+        public Map<String, Object> streamInParameters(StreamInput in) throws IOException {
+            if (in.available() > 0) {
+                return in.readMap(StreamInput::readString, new ParameterMapValueReader());
+            }
+            return null;
+        }
+
+        public void streamOutParameters(StreamOutput out, Map<String, Object> value) throws IOException {
+            if (value != null) {
+                out.writeMap(value, StreamOutput::writeString, new ParameterMapValueWriter());
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
 
+import java.util.Collections;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -35,20 +36,28 @@ public class FaissIVFPQEncoder implements Encoder {
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
             ENCODER_PARAMETER_PQ_M,
-            new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M, ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, (v, context) -> {
-                boolean isValueGreaterThan0 = v > 0;
-                boolean isValueLessThanCodeCountLimit = v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
-                boolean isDimensionDivisibleByValue = context.getDimension() % v == 0;
-                return isValueGreaterThan0 && isValueLessThanCodeCountLimit && isDimensionDivisibleByValue;
-            })
+            new Parameter.IntegerParameter(
+                ENCODER_PARAMETER_PQ_M,
+                knnMethodConfigContext -> ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
+                (v, context) -> {
+                    boolean isValueGreaterThan0 = v > 0;
+                    boolean isValueLessThanCodeCountLimit = v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
+                    boolean isDimensionDivisibleByValue = context.getDimension() % v == 0;
+                    return isValueGreaterThan0 && isValueLessThanCodeCountLimit && isDimensionDivisibleByValue;
+                }
+            )
         )
         .addParameter(
             ENCODER_PARAMETER_PQ_CODE_SIZE,
-            new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT, (v, context) -> {
-                boolean isValueGreaterThan0 = v > 0;
-                boolean isValueLessThanCodeSizeLimit = v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT;
-                return isValueGreaterThan0 && isValueLessThanCodeSizeLimit;
-            })
+            new Parameter.IntegerParameter(
+                ENCODER_PARAMETER_PQ_CODE_SIZE,
+                knnMethodConfigContext -> ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT,
+                (v, context) -> {
+                    boolean isValueGreaterThan0 = v > 0;
+                    boolean isValueLessThanCodeSizeLimit = v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT;
+                    return isValueGreaterThan0 && isValueLessThanCodeSizeLimit;
+                }
+            )
         )
         .setRequiresTraining(true)
         .setKnnLibraryIndexingContextGenerator(
@@ -59,11 +68,13 @@ public class FaissIVFPQEncoder implements Encoder {
                 knnMethodConfigContext
             ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
         )
-        .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+        .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
             // Size estimate formula: (4 * d * 2^code_size) / 1024 + 1
 
             // Get value of code size passed in by user
-            Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+            Object codeSizeObject = methodComponentContext.getParameters()
+                .orElse(Collections.emptyMap())
+                .get(ENCODER_PARAMETER_PQ_CODE_SIZE);
 
             // If not specified, get default value of code size
             if (codeSizeObject == null) {
@@ -74,7 +85,7 @@ public class FaissIVFPQEncoder implements Encoder {
                     );
                 }
 
-                codeSizeObject = codeSizeParameter.getDefaultValue();
+                codeSizeObject = codeSizeParameter.getDefaultValueProvider().apply(knnMethodConfigContext);
             }
 
             if (!(codeSizeObject instanceof Integer)) {
@@ -82,7 +93,7 @@ public class FaissIVFPQEncoder implements Encoder {
             }
 
             int codeSize = (Integer) codeSizeObject;
-            return ((4L * (1L << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
+            return ((4L * (1L << codeSize) * knnMethodConfigContext.getDimension()) / BYTES_PER_KILOBYTES) + 1;
         })
         .build();
 

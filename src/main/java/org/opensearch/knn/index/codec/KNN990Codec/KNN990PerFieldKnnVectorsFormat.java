@@ -11,20 +11,18 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.engine.KNNEngine;
 
-import java.util.Optional;
-
 /**
  * Class provides per field format implementation for Lucene Knn vector type
  */
 public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
     private static final int NUM_MERGE_WORKERS = 1;
 
-    public KNN990PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
+    public KNN990PerFieldKnnVectorsFormat(final MapperService mapperService) {
         super(
             mapperService,
             Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
             Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
-            () -> new Lucene99HnswVectorsFormat(),
+            Lucene99HnswVectorsFormat::new,
             knnVectorsFormatParams -> new Lucene99HnswVectorsFormat(
                 knnVectorsFormatParams.getMaxConnections(),
                 knnVectorsFormatParams.getBeamWidth()

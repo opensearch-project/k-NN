@@ -29,6 +29,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.BaseQueryFactory;
 import org.opensearch.knn.index.query.KNNQueryFactory;
@@ -108,7 +110,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             parameterString = XContentFactory.jsonBuilder()
                 .map(
                     knnMethodContext.getKnnEngine()
-                        .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+                        .orElse(KNNEngine.DEFAULT)
+                        .getKNNLibraryIndexingContext(knnMethodConfigContext)
                         .getLibraryParameters()
                 )
                 .toString();
@@ -119,8 +122,8 @@ public class KNNCodecTestCase extends KNNTestCase {
         sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         sampleFieldType.setDocValuesType(DocValuesType.BINARY);
         sampleFieldType.putAttribute(KNNVectorFieldMapper.KNN_FIELD, "true");
-        sampleFieldType.putAttribute(KNNConstants.KNN_ENGINE, knnMethodContext.getKnnEngine().getName());
-        sampleFieldType.putAttribute(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        sampleFieldType.putAttribute(KNNConstants.KNN_ENGINE, knnMethodContext.getKnnEngine().orElse(KNNEngine.DEFAULT).getName());
+        sampleFieldType.putAttribute(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().orElse(SpaceType.DEFAULT).getValue());
         sampleFieldType.putAttribute(KNNConstants.PARAMETERS, parameterString);
         sampleFieldType.freeze();
     }
@@ -243,7 +246,9 @@ public class KNNCodecTestCase extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT
+            VectorDataType.FLOAT,
+            WorkloadModeConfig.NOT_CONFIGURED,
+            CompressionConfig.NOT_CONFIGURED
         );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
@@ -342,14 +347,14 @@ public class KNNCodecTestCase extends KNNTestCase {
         final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getKnnVectorFieldTypeConfigSupplierForMethodType(knnMethodContext, 3),
+            null
         );
         final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 2)
+            getKnnVectorFieldTypeConfigSupplierForMethodType(knnMethodContext, 2),
+            null
         );
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);

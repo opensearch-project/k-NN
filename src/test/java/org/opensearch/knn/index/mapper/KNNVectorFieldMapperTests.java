@@ -44,6 +44,8 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -109,7 +111,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, CURRENT, null, null);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, CURRENT, null);
 
         assertEquals(7, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
@@ -156,25 +158,26 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
-        assertEquals(spaceType, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getSpaceType());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMethodConfigContext().isPresent());
+        assertEquals(spaceType, knnVectorFieldMapper.fieldType().getKnnMethodConfigContext().get().getSpaceType());
         assertEquals(
             mRight,
             knnVectorFieldMapper.fieldType()
-                .getKnnMappingConfig()
-                .getKnnMethodContext()
+                .getKnnMethodConfigContext()
                 .get()
+                .getKnnMethodContext()
                 .getMethodComponentContext()
                 .getParameters()
+                .orElse(Collections.emptyMap())
                 .get(METHOD_PARAMETER_M)
         );
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+        assertTrue(knnVectorFieldMapper.fieldType().getModelId().isEmpty());
     }
 
     public void testBuilder_build_fromModel() {
         // Check that modelContext takes precedent over legacy
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -200,7 +203,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT
+            VectorDataType.FLOAT,
+            WorkloadModeConfig.NOT_CONFIGURED,
+            CompressionConfig.NOT_CONFIGURED
         );
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -208,8 +213,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         when(modelDao.getMetadata(modelId)).thenReturn(mockedModelMetadata);
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof ModelFieldMapper);
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isPresent());
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isEmpty());
+        assertTrue(knnVectorFieldMapper.fieldType().getModelId().isPresent());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMethodConfigContext().isPresent());
     }
 
     public void testBuilder_build_fromLegacy() throws IOException {
@@ -242,9 +247,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
-        assertEquals(SpaceType.L2, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getSpaceType());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMethodConfigContext().isPresent());
+        assertTrue(knnVectorFieldMapper.fieldType().getModelId().isEmpty());
+        assertEquals(SpaceType.L2, knnVectorFieldMapper.fieldType().getKnnMethodConfigContext().get().getSpaceType());
     }
 
     public void testBuilder_parse_fromKnnMethodContext_luceneEngine() throws IOException {
@@ -286,7 +291,11 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponentContext().getName());
         assertEquals(
             efConstruction,
-            builder.knnMethodContext.get().getMethodComponentContext().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
+            builder.knnMethodContext.get()
+                .getMethodComponentContext()
+                .getParameters()
+                .orElse(Collections.emptyMap())
+                .get(METHOD_PARAMETER_EF_CONSTRUCTION)
         );
         assertTrue(KNNEngine.LUCENE.isInitialized());
 
@@ -506,7 +515,11 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponentContext().getName());
         assertEquals(
             efConstruction,
-            builder.knnMethodContext.get().getMethodComponentContext().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
+            builder.knnMethodContext.get()
+                .getMethodComponentContext()
+                .getParameters()
+                .orElse(Collections.emptyMap())
+                .get(METHOD_PARAMETER_EF_CONSTRUCTION)
         );
 
         // Test invalid parameter
@@ -666,16 +679,16 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // merge with itself - should be successful
         KNNVectorFieldMapper knnVectorFieldMapperMerge1 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper1);
         assertEquals(
-            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get(),
-            knnVectorFieldMapperMerge1.fieldType().getKnnMappingConfig().getKnnMethodContext().get()
+            knnVectorFieldMapper1.fieldType().getKnnMethodConfigContext().get().getKnnMethodContext(),
+            knnVectorFieldMapperMerge1.fieldType().getKnnMethodConfigContext().get().getKnnMethodContext()
         );
 
         // merge with another mapper of the same field with same context
         KNNVectorFieldMapper knnVectorFieldMapper2 = builder.build(builderContext);
         KNNVectorFieldMapper knnVectorFieldMapperMerge2 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper2);
         assertEquals(
-            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get(),
-            knnVectorFieldMapperMerge2.fieldType().getKnnMappingConfig().getKnnMethodContext().get()
+            knnVectorFieldMapper1.fieldType().getKnnMethodConfigContext().get().getKnnMethodContext(),
+            knnVectorFieldMapperMerge2.fieldType().getKnnMethodConfigContext().get().getKnnMethodContext()
         );
 
         // merge with another mapper of the same field with different context
@@ -717,7 +730,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT
+            VectorDataType.FLOAT,
+            WorkloadModeConfig.NOT_CONFIGURED,
+            CompressionConfig.NOT_CONFIGURED
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 
@@ -740,18 +755,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         // merge with itself - should be successful
         KNNVectorFieldMapper knnVectorFieldMapperMerge1 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper1);
-        assertEquals(
-            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getModelId().get(),
-            knnVectorFieldMapperMerge1.fieldType().getKnnMappingConfig().getModelId().get()
-        );
+        assertEquals(knnVectorFieldMapper1.fieldType().getModelId(), knnVectorFieldMapperMerge1.fieldType().getModelId());
 
         // merge with another mapper of the same field with same context
         KNNVectorFieldMapper knnVectorFieldMapper2 = builder.build(builderContext);
         KNNVectorFieldMapper knnVectorFieldMapperMerge2 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper2);
-        assertEquals(
-            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getModelId().get(),
-            knnVectorFieldMapperMerge2.fieldType().getKnnMappingConfig().getModelId().get()
-        );
+        assertEquals(knnVectorFieldMapper1.fieldType().getModelId(), knnVectorFieldMapperMerge2.fieldType().getModelId());
 
         // merge with another mapper of the same field with different context
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -800,14 +809,13 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
                     Collections.emptyMap(),
-                    knnMethodContext,
                     knnMethodConfigContext,
-                    knnMethodContext,
                     FieldMapper.MultiFields.empty(),
                     FieldMapper.CopyTo.empty(),
                     new Explicit<>(true, true),
                     false,
-                    false
+                    false,
+                    null
                 );
                 methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
 
@@ -840,14 +848,13 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
                     Collections.emptyMap(),
-                    knnMethodContext,
                     knnMethodConfigContext,
-                    knnMethodContext,
                     FieldMapper.MultiFields.empty(),
                     FieldMapper.CopyTo.empty(),
                     new Explicit<>(true, true),
                     false,
-                    false
+                    false,
+                    null
                 );
 
                 methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
@@ -893,7 +900,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
                     Collections.emptyMap(),
-                    dataType,
                     MODEL_ID,
                     FieldMapper.MultiFields.empty(),
                     FieldMapper.CopyTo.empty(),
@@ -901,7 +907,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     false,
                     false,
                     modelDao,
-                    CURRENT
+                    CURRENT,
+                    null
                 );
 
                 modelFieldMapper.parseCreateField(parseContext);
@@ -934,7 +941,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
                     Collections.emptyMap(),
-                    dataType,
                     MODEL_ID,
                     FieldMapper.MultiFields.empty(),
                     FieldMapper.CopyTo.empty(),
@@ -942,7 +948,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     false,
                     false,
                     modelDao,
-                    CURRENT
+                    CURRENT,
+                    null
                 );
 
                 modelFieldMapper.parseCreateField(parseContext);
@@ -974,9 +981,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         LuceneFieldMapper luceneFieldMapper = LuceneFieldMapper.createFieldMapper(
             TEST_FIELD_NAME,
             Collections.emptyMap(),
-            getDefaultKNNMethodContext(),
             knnMethodConfigContext,
-            inputBuilder.build()
+            inputBuilder.build(),
+            null
         );
         luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, VectorDataType.FLOAT);
 
@@ -1023,9 +1030,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         luceneFieldMapper = LuceneFieldMapper.createFieldMapper(
             TEST_FIELD_NAME,
             Collections.emptyMap(),
-            knnMethodContext,
             knnMethodConfigContext,
-            inputBuilder.build()
+            inputBuilder.build(),
+            null
         );
         luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, VectorDataType.FLOAT);
 
@@ -1055,13 +1062,14 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             LuceneFieldMapper.createFieldMapper(
                 TEST_FIELD_NAME,
                 Collections.emptyMap(),
-                getDefaultByteKNNMethodContext(),
                 KNNMethodConfigContext.builder()
                     .vectorDataType(VectorDataType.BYTE)
                     .versionCreated(CURRENT)
                     .dimension(TEST_DIMENSION)
+                    .knnMethodContext(getDefaultByteKNNMethodContext())
                     .build(),
-                inputBuilder.build()
+                inputBuilder.build(),
+                null
             )
         );
         doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper)
@@ -1104,13 +1112,14 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             LuceneFieldMapper.createFieldMapper(
                 TEST_FIELD_NAME,
                 Collections.emptyMap(),
-                getDefaultByteKNNMethodContext(),
                 KNNMethodConfigContext.builder()
                     .vectorDataType(VectorDataType.BYTE)
                     .versionCreated(CURRENT)
                     .dimension(TEST_DIMENSION)
+                    .knnMethodContext(getDefaultByteKNNMethodContext())
                     .build(),
-                inputBuilder.build()
+                inputBuilder.build(),
+                null
             )
         );
         doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper)
@@ -1133,12 +1142,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     }
 
     public void testTypeParser_whenBinaryWithInvalidDimension_thenException() throws IOException {
-        testTypeParserWithBinaryDataType(KNNEngine.FAISS, SpaceType.UNDEFINED, METHOD_HNSW, 4, "should be multiply of 8");
+        testTypeParserWithBinaryDataType(KNNEngine.FAISS, SpaceType.HAMMING, METHOD_HNSW, 4, "should be multiply of 8");
     }
 
     public void testTypeParser_whenBinaryFaissHNSWWithInvalidSpaceType_thenException() throws IOException {
         for (SpaceType spaceType : SpaceType.values()) {
-            if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING == spaceType) {
+            if (SpaceType.HAMMING == spaceType) {
                 continue;
             }
             testTypeParserWithBinaryDataType(KNNEngine.FAISS, spaceType, METHOD_HNSW, 8, "is not supported with");
@@ -1146,8 +1155,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     }
 
     public void testTypeParser_whenBinaryNonFaiss_thenException() throws IOException {
-        testTypeParserWithBinaryDataType(KNNEngine.LUCENE, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
-        testTypeParserWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
+        testTypeParserWithBinaryDataType(KNNEngine.LUCENE, SpaceType.HAMMING, METHOD_HNSW, 8, "is not supported for vector data type");
+        testTypeParserWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.HAMMING, METHOD_HNSW, 8, "is not supported for vector data type");
     }
 
     private void testTypeParserWithBinaryDataType(
@@ -1185,7 +1194,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 buildParserContext(indexName, settings)
             );
 
-            assertEquals(spaceType, builder.getResolvedKNNMethodContext().getSpaceType());
+            assertEquals(spaceType, builder.getKnnMethodConfigContext().getSpaceType());
         } else {
             Exception ex = expectThrows(Exception.class, () -> {
                 typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
@@ -1226,7 +1235,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_whenBinaryWithLegacyKNNDisabled_thenValid() {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null);
         builder.vectorDataType.setValue(VectorDataType.BINARY);
         builder.dimension.setValue(8);
 
@@ -1273,7 +1282,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
             // IllegalArgumentException should be thrown.
             Exception e = assertThrows(IllegalArgumentException.class, () -> {
-                new KNNVectorFieldMapper.Builder(invalidVectorFieldName, null, CURRENT, null, null).build(builderContext);
+                new KNNVectorFieldMapper.Builder(invalidVectorFieldName, null, CURRENT, null).build(builderContext);
             });
             assertTrue(e.getMessage(), e.getMessage().contains("Vector field name must not include"));
         }

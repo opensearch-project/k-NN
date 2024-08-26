@@ -17,7 +17,6 @@ import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.util.Arrays;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -114,15 +113,9 @@ public enum VectorDataType {
      * throws Exception if an invalid value is provided.
      */
     public static VectorDataType get(String vectorDataType) {
-        Objects.requireNonNull(
-            vectorDataType,
-            String.format(
-                Locale.ROOT,
-                "[%s] should not be null. Supported types are [%s]",
-                VECTOR_DATA_TYPE_FIELD,
-                SUPPORTED_VECTOR_DATA_TYPES
-            )
-        );
+        if (vectorDataType == null) {
+            return DEFAULT;
+        }
         try {
             return VectorDataType.valueOf(vectorDataType.toUpperCase(Locale.ROOT));
         } catch (Exception e) {

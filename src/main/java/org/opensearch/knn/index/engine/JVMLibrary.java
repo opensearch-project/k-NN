@@ -25,11 +25,6 @@ public abstract class JVMLibrary extends AbstractKNNLibrary {
     }
 
     @Override
-    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        throw new UnsupportedOperationException("Estimating overhead is not supported for JVM based libraries.");
-    }
-
-    @Override
     public Boolean isInitialized() {
         return initialized;
     }

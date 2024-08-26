@@ -27,10 +27,23 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     private Map<String, Object> parameters = Collections.emptyMap();
     @Builder.Default
     private QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
+    @Builder.Default
+    private int estimateOverheadInKB = 0;
+    private KNNLibrarySearchContext knnLibrarySearchContext;
 
     @Override
     public Map<String, Object> getLibraryParameters() {
         return parameters;
+    }
+
+    @Override
+    public int estimateOverheadInKB() {
+        return estimateOverheadInKB;
+    }
+
+    @Override
+    public KNNLibrarySearchContext getKNNLibrarySearchContext() {
+        return knnLibrarySearchContext;
     }
 
     @Override

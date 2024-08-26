@@ -10,6 +10,7 @@ import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.JVMLibrary;
 import org.opensearch.knn.index.engine.KNNMethod;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 
 import java.util.List;
 import java.util.Map;
@@ -85,5 +86,10 @@ public class Lucene extends JVMLibrary {
     @Override
     public List<String> mmapFileExtensions() {
         return List.of("vec", "vex");
+    }
+
+    @Override
+    protected String doResolveMethod(KNNMethodConfigContext knnMethodConfigContext) {
+        return METHOD_HNSW;
     }
 }

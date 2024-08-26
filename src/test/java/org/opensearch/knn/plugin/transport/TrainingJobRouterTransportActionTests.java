@@ -308,7 +308,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
             "training-field",
             null,
             "description",
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock client to return the right number of docs
@@ -355,7 +357,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
             "training-field",
             null,
             "description",
-            VectorDataType.BINARY
+            VectorDataType.BINARY,
+            null,
+            null
         );
 
         // Mock client to return the right number of docs
@@ -403,7 +407,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
             "training-field",
             null,
             "description",
-            VectorDataType.BYTE
+            VectorDataType.BYTE,
+            null,
+            null
         );
 
         // Mock client to return the right number of docs

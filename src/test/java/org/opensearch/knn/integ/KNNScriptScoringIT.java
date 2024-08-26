@@ -46,7 +46,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.opensearch.knn.KNNTestCase.getMappingConfigForFlatMapping;
+import static org.opensearch.knn.KNNTestCase.getKnnVectorFieldTypeConfigSupplierForFlatType;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -113,7 +113,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
         final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(SpaceType.HAMMING, queryVector);
-        Set<SpaceType> spaceTypeToExclude = Set.of(SpaceType.UNDEFINED, SpaceType.HAMMING);
+        Set<SpaceType> spaceTypeToExclude = Set.of(SpaceType.HAMMING);
         Arrays.stream(SpaceType.values()).filter(s -> spaceTypeToExclude.contains(s) == false).forEach(s -> {
             Exception e = expectThrows(
                 Exception.class,
@@ -656,7 +656,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             .toString();
 
         for (SpaceType spaceType : SpaceType.values()) {
-            if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING == spaceType) {
+            if (SpaceType.HAMMING == spaceType) {
                 continue;
             }
             final float[] queryVector = randomVector(dimensions);
@@ -755,8 +755,10 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             new KNNVectorFieldType(
                 FIELD_NAME,
                 Collections.emptyMap(),
-                SpaceType.HAMMING == spaceType ? VectorDataType.BINARY : VectorDataType.FLOAT,
-                getMappingConfigForFlatMapping(SpaceType.HAMMING == spaceType ? queryVector.length * 8 : queryVector.length)
+                getKnnVectorFieldTypeConfigSupplierForFlatType(
+                    SpaceType.HAMMING == spaceType ? queryVector.length * 8 : queryVector.length
+                ),
+                null
             )
         );
         switch (spaceType) {

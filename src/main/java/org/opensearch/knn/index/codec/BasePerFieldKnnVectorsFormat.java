@@ -16,12 +16,10 @@ import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsForm
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.mapper.KNNMappingConfig;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -36,7 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 @Log4j2
 public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
 
-    private final Optional<MapperService> mapperService;
+    private final MapperService mapperService;
     private final int defaultMaxConnections;
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
@@ -46,7 +44,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private static final String BEAM_WIDTH = "beam_width";
 
     public BasePerFieldKnnVectorsFormat(
-        Optional<MapperService> mapperService,
+        MapperService mapperService,
         int defaultMaxConnections,
         int defaultBeamWidth,
         Supplier<KnnVectorsFormat> defaultFormatSupplier,
@@ -72,20 +70,30 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             );
             return defaultFormatSupplier.get();
         }
-        KNNVectorFieldType mappedFieldType = (KNNVectorFieldType) mapperService.orElseThrow(
-            () -> new IllegalStateException(
+        if (mapperService == null) {
+            throw new IllegalStateException(
                 String.format("Cannot read field type for field [%s] because mapper service is not available", field)
-            )
-        ).fieldType(field);
+            );
+        }
+        KNNVectorFieldType mappedFieldType = (KNNVectorFieldType) mapperService.fieldType(field);
 
-        KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
+        if (mappedFieldType.getModelId().isPresent()) {
+            return getFormatForModelBasedIndices();
+        }
+        if (mappedFieldType.getKnnMethodConfigContext().isEmpty()) {
+            throw new IllegalStateException("Method config context cannot be empty");
+        }
+        return getFormatForMethodBasedIndices(mappedFieldType.getKnnMethodConfigContext().get(), field);
+    }
 
-        final KNNEngine engine = knnMethodContext.getKnnEngine();
-        final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
+    private KnnVectorsFormat getFormatForModelBasedIndices() {
+        return new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
+    }
 
-        if (engine == KNNEngine.LUCENE) {
+    private KnnVectorsFormat getFormatForMethodBasedIndices(KNNMethodConfigContext knnMethodConfigContext, String field) {
+        KNNEngine knnEngine = knnMethodConfigContext.getKnnEngine();
+        if (knnEngine == KNNEngine.LUCENE) {
+            Map<String, Object> params = knnEngine.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
                 KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                     params,
@@ -131,6 +139,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private boolean isKnnVectorFieldType(final String field) {
-        return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldType;
+        return mapperService != null && mapperService.fieldType(field) instanceof KNNVectorFieldType;
     }
 }

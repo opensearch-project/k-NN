@@ -15,11 +15,17 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngineResolver;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
-import org.opensearch.knn.index.mapper.KNNMappingConfig;
+import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.SpaceTypeResolver;
+import org.opensearch.knn.index.engine.model.QueryContext;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -29,8 +35,8 @@ import org.opensearch.test.OpenSearchTestCase;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.when;
@@ -41,7 +47,22 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
  */
 public class KNNTestCase extends OpenSearchTestCase {
 
-    protected static final KNNLibrarySearchContext EMPTY_ENGINE_SPECIFIC_CONTEXT = ctx -> Map.of();
+    protected static final KNNLibrarySearchContext EMPTY_ENGINE_SPECIFIC_CONTEXT = new KNNLibrarySearchContext() {
+        @Override
+        public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
+            return Map.of();
+        }
+
+        @Override
+        public Map<String, Object> processMethodParameters(QueryContext ctx, Map<String, Object> parameters) {
+            return Map.of();
+        }
+
+        @Override
+        public RescoreContext getDefaultRescoreContext(QueryContext ctx) {
+            return null;
+        }
+    };
 
     @Mock
     protected ClusterService clusterService;
@@ -116,36 +137,35 @@ public class KNNTestCase extends OpenSearchTestCase {
         return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT_BINARY, methodComponentContext);
     }
 
-    public static KNNMappingConfig getMappingConfigForMethodMapping(KNNMethodContext knnMethodContext, int dimension) {
-        return new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(knnMethodContext);
-            }
+    public static Supplier<KNNVectorFieldType.KNNVectorFieldTypeConfig> getKnnVectorFieldTypeConfigSupplierForMethodType(
+        KNNMethodContext knnMethodContext,
+        int dimension
+    ) {
+        return () -> {
+            KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+                .knnMethodContext(knnMethodContext)
+                .dimension(dimension)
+                .build();
+            knnMethodConfigContext.setKnnEngine(KNNEngineResolver.resolveKNNEngine(knnMethodConfigContext));
+            knnMethodConfigContext.setSpaceType(SpaceTypeResolver.resolveSpaceType(knnMethodConfigContext));
 
-            @Override
-            public int getDimension() {
-                return dimension;
-            }
+            return KNNVectorFieldType.KNNVectorFieldTypeConfig.builder()
+                .dimension(dimension)
+                .knnMethodConfigContext(knnMethodConfigContext)
+                .build();
         };
     }
 
-    public static KNNMappingConfig getMappingConfigForFlatMapping(int dimension) {
-        return () -> dimension;
+    public static Supplier<KNNVectorFieldType.KNNVectorFieldTypeConfig> getKnnVectorFieldTypeConfigSupplierForFlatType(int dimension) {
+        return () -> KNNVectorFieldType.KNNVectorFieldTypeConfig.builder().dimension(dimension).build();
     }
 
-    public static KNNMappingConfig getMappingConfigForModelMapping(String modelId, int dimension) {
-        return new KNNMappingConfig() {
-            @Override
-            public Optional<String> getModelId() {
-                return Optional.of(modelId);
-            }
-
-            @Override
-            public int getDimension() {
-                return dimension;
-            }
-        };
+    public static Supplier<KNNVectorFieldType.KNNVectorFieldTypeConfig> getKnnVectorFieldTypeConfigSupplierForModelType(
+        String modelId,
+        int dimension
+    ) {
+        // TODO: We might need to try to resolve
+        return () -> KNNVectorFieldType.KNNVectorFieldTypeConfig.builder().dimension(dimension).build();
     }
 
     /**

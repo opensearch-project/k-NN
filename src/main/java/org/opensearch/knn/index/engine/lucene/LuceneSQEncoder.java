@@ -35,13 +35,17 @@ public class LuceneSQEncoder implements Encoder {
             LUCENE_SQ_CONFIDENCE_INTERVAL,
             new Parameter.DoubleParameter(
                 LUCENE_SQ_CONFIDENCE_INTERVAL,
-                null,
+                knnMethodConfigContext -> null,
                 (v, context) -> v == DYNAMIC_CONFIDENCE_INTERVAL || (v >= MINIMUM_CONFIDENCE_INTERVAL && v <= MAXIMUM_CONFIDENCE_INTERVAL)
             )
         )
         .addParameter(
             LUCENE_SQ_BITS,
-            new Parameter.IntegerParameter(LUCENE_SQ_BITS, LUCENE_SQ_DEFAULT_BITS, (v, context) -> LUCENE_SQ_BITS_SUPPORTED.contains(v))
+            new Parameter.IntegerParameter(
+                LUCENE_SQ_BITS,
+                knnMethodConfigContext -> LUCENE_SQ_DEFAULT_BITS,
+                (v, context) -> LUCENE_SQ_BITS_SUPPORTED.contains(v)
+            )
         )
         .build();
 

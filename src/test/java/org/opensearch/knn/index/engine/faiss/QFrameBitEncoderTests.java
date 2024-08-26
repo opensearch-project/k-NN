@@ -109,7 +109,7 @@ public class QFrameBitEncoderTests extends KNNTestCase {
         QFrameBitEncoder qFrameBitEncoder = new QFrameBitEncoder();
         assertFalse(
             qFrameBitEncoder.getMethodComponent()
-                .isTrainingRequired(new MethodComponentContext(QFrameBitEncoder.NAME, ImmutableMap.of(BITCOUNT_PARAM, 4)))
+                .isTrainingRequired(new MethodComponentContext(QFrameBitEncoder.NAME, ImmutableMap.of(BITCOUNT_PARAM, 4)), null)
         );
     }
 
@@ -118,7 +118,7 @@ public class QFrameBitEncoderTests extends KNNTestCase {
         assertEquals(
             0,
             qFrameBitEncoder.getMethodComponent()
-                .estimateOverheadInKB(new MethodComponentContext(QFrameBitEncoder.NAME, ImmutableMap.of(BITCOUNT_PARAM, 4)), 8)
+                .estimateOverheadInKB(new MethodComponentContext(QFrameBitEncoder.NAME, ImmutableMap.of(BITCOUNT_PARAM, 4)), null)
         );
     }
 }

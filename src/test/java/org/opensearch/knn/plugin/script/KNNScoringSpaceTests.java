@@ -61,8 +61,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getKnnVectorFieldTypeConfigSupplierForMethodType(knnMethodContext, 3),
+            null
         );
         KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
         assertEquals(1F, l2.getScoringMethod().apply(arrayFloat, arrayFloat), 0.1F);
@@ -82,8 +82,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getKnnVectorFieldTypeConfigSupplierForMethodType(knnMethodContext, 3),
+            null
         );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
         assertEquals(2F, cosineSimilarity.getScoringMethod().apply(arrayFloat2, arrayFloat), 0.1F);
@@ -105,8 +105,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getKnnVectorFieldTypeConfigSupplierForMethodType(knnMethodContext, 3),
+            null
         );
 
         final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
@@ -135,8 +135,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getKnnVectorFieldTypeConfigSupplierForMethodType(knnMethodContext, 3),
+            null
         );
         KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
 
@@ -206,8 +206,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            VectorDataType.BINARY,
-            getMappingConfigForMethodMapping(knnMethodContext, 8 * arrayListQueryObject.size())
+            getKnnVectorFieldTypeConfigSupplierForMethodType(knnMethodContext, 8 * arrayListQueryObject.size()),
+            null
         );
 
         KNNScoringSpace.Hamming hamming = new KNNScoringSpace.Hamming(arrayListQueryObject, fieldType);

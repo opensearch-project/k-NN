@@ -51,6 +51,8 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -300,6 +302,16 @@ public interface ModelDao {
                         builder = methodComponentContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
                         put(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT, builder.toString());
                     }
+
+                    if (modelMetadata.getWorkloadModeConfig() != WorkloadModeConfig.NOT_CONFIGURED) {
+                        put(KNNConstants.MODE_PARAMETER, modelMetadata.getWorkloadModeConfig().toString());
+                    }
+
+                    if (modelMetadata.getCompressionConfig() != CompressionConfig.NOT_CONFIGURED) {
+                        put(KNNConstants.COMPRESSION_PARAMETER, modelMetadata.getCompressionConfig().toString());
+                    }
+
+                    put(KNNConstants.VECTOR_DATA_TYPE_FIELD, modelMetadata.getVectorDataType());
                 }
             };
 

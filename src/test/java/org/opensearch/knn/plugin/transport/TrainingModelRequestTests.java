@@ -26,6 +26,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -41,7 +43,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -64,7 +65,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             preferredNode,
             description,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -88,7 +91,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         streamOutput = new BytesStreamOutput();
@@ -124,7 +129,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             preferredNode,
             description,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         trainingModelRequest.setMaximumVectorCount(maxVectorCount);
@@ -150,8 +157,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Setup the training request
         String modelId = "test-model-id";
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -164,7 +169,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -179,7 +186,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            WorkloadModeConfig.NOT_CONFIGURED,
+            CompressionConfig.NOT_CONFIGURED
         );
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 
@@ -207,8 +216,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Setup the training request
         String modelId = "test-model-id";
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -221,7 +228,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return true to recognize that the modelId is in graveyard
@@ -253,9 +262,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String validationExceptionMessage = "knn method invalid";
         ValidationException validationException = new ValidationException();
         validationException.addValidationError(validationExceptionMessage);
-        when(knnMethodContext.validate(any())).thenReturn(validationException);
-
-        when(knnMethodContext.isTrainingRequired()).thenReturn(false);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
         int dimension = 10;
         String trainingIndex = "test-training-index";
@@ -269,7 +275,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -298,9 +306,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String modelId = "test-model-id";
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -313,7 +318,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -345,9 +352,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String modelId = "test-model-id";
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -360,7 +364,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -397,9 +403,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String modelId = "test-model-id";
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -412,7 +415,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -453,9 +458,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String modelId = "test-model-id";
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
         int dimension = 10;
         String trainingIndex = "test-training-index";
@@ -469,7 +471,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -512,8 +516,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Setup the training request
         String modelId = "test-model-id";
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
         int dimension = 10;
         String trainingIndex = "test-training-index";
@@ -528,7 +530,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             preferredNode,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -575,8 +579,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Setup the training request
         String modelId = "test-model-id";
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
         int dimension = 10;
         String trainingIndex = "test-training-index";
@@ -595,7 +597,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             description,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -626,8 +630,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Setup the training request
         String modelId = "test-model-id";
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
         int dimension = 10;
         String trainingIndex = "test-training-index";
@@ -641,7 +643,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -664,8 +668,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Setup the training request
         String modelId = "test-model-id";
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.validate(any())).thenReturn(null);
-        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
         int dimension = 10;
         String trainingIndex = "test-training-index";
@@ -680,7 +682,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate

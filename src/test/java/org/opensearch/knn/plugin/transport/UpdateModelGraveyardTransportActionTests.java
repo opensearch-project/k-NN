@@ -19,6 +19,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -212,7 +214,9 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                WorkloadModeConfig.NOT_CONFIGURED,
+                CompressionConfig.NOT_CONFIGURED
             ),
             modelBlob,
             modelId

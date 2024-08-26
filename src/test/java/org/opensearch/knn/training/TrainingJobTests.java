@@ -15,11 +15,14 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.Version;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -33,6 +36,7 @@ import org.opensearch.knn.jni.JNIService;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.doAnswer;
@@ -57,8 +61,8 @@ public class TrainingJobTests extends KNNTestCase {
     public void testGetModelId() {
         String modelId = "test-model-id";
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.getKnnEngine()).thenReturn(KNNEngine.DEFAULT);
-        when(knnMethodContext.getSpaceType()).thenReturn(SpaceType.DEFAULT);
+        when(knnMethodContext.getKnnEngine()).thenReturn(Optional.of(KNNEngine.DEFAULT));
+        when(knnMethodContext.getSpaceType()).thenReturn(Optional.ofNullable(SpaceType.DEFAULT));
         when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
 
         TrainingJob trainingJob = new TrainingJob(
@@ -69,7 +73,8 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.DEFAULT).dimension(10).versionCreated(Version.CURRENT).build(),
             "",
-            "test-node"
+            "test-node",
+            KNNLibraryIndexingContextImpl.builder().build()
         );
 
         assertEquals(modelId, trainingJob.getModelId());
@@ -85,8 +90,8 @@ public class TrainingJobTests extends KNNTestCase {
         MethodComponentContext methodComponentContext = MethodComponentContext.EMPTY;
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
-        when(knnMethodContext.getSpaceType()).thenReturn(spaceType);
+        when(knnMethodContext.getKnnEngine()).thenReturn(Optional.of(knnEngine));
+        when(knnMethodContext.getSpaceType()).thenReturn(Optional.of(spaceType));
         when(knnMethodContext.getMethodComponentContext()).thenReturn(methodComponentContext);
 
         String modelID = "test-model-id";
@@ -102,7 +107,8 @@ public class TrainingJobTests extends KNNTestCase {
                 .versionCreated(Version.CURRENT)
                 .build(),
             description,
-            nodeAssignment
+            nodeAssignment,
+            KNNLibraryIndexingContextImpl.builder().build()
         );
 
         Model model = new Model(
@@ -116,7 +122,9 @@ public class TrainingJobTests extends KNNTestCase {
                 error,
                 nodeAssignment,
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                WorkloadModeConfig.NOT_CONFIGURED,
+                CompressionConfig.NOT_CONFIGURED
             ),
             null,
             modelID
@@ -195,7 +203,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            KNNLibraryIndexingContextImpl.builder().build()
         );
 
         trainingJob.run();
@@ -278,7 +287,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            KNNLibraryIndexingContextImpl.builder().build()
         );
 
         trainingJob.run();
@@ -350,7 +360,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            KNNLibraryIndexingContextImpl.builder().build()
         );
 
         trainingJob.run();
@@ -421,7 +432,8 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            KNNLibraryIndexingContextImpl.builder().build()
         );
 
         trainingJob.run();
@@ -499,7 +511,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            KNNLibraryIndexingContextImpl.builder().build()
         );
 
         trainingJob.run();

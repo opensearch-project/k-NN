@@ -15,9 +15,11 @@ import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
@@ -91,6 +93,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
         int maximumVectorCount = DEFAULT_NOT_SET_INT_VALUE;
         int searchSize = DEFAULT_NOT_SET_INT_VALUE;
 
+        String compressionConfig = null;
+        String workloadModeConfig = null;
+
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
@@ -101,9 +106,6 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 trainingField = parser.textOrNull();
             } else if (KNN_METHOD.equals(fieldName) && ensureNotSet(fieldName, knnMethodContext)) {
                 knnMethodContext = KNNMethodContext.parse(parser.map());
-                if (SpaceType.UNDEFINED == knnMethodContext.getSpaceType()) {
-                    knnMethodContext.setSpaceType(SpaceType.L2);
-                }
             } else if (DIMENSION.equals(fieldName) && ensureNotSet(fieldName, dimension)) {
                 dimension = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MAX_VECTOR_COUNT_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, maximumVectorCount)) {
@@ -115,6 +117,10 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 ModelUtil.blockCommasInModelDescription(description);
             } else if (VECTOR_DATA_TYPE_FIELD.equals(fieldName) && ensureNotSet(fieldName, vectorDataType)) {
                 vectorDataType = VectorDataType.get(parser.text());
+            } else if (KNNConstants.COMPRESSION_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, compressionConfig)) {
+                compressionConfig = parser.text();
+            } else if (KNNConstants.MODE_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, workloadModeConfig)) {
+                workloadModeConfig = parser.text();
             } else {
                 throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
             }
@@ -143,7 +149,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
             trainingField,
             preferredNodeId,
             description,
-            vectorDataType
+            vectorDataType,
+            WorkloadModeConfig.fromString(workloadModeConfig),
+            CompressionConfig.fromString(compressionConfig)
         );
 
         if (maximumVectorCount != DEFAULT_NOT_SET_INT_VALUE) {

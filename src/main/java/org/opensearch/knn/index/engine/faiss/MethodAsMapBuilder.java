@@ -15,6 +15,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -52,13 +53,17 @@ class MethodAsMapBuilder {
         // into the index description string faiss uses to create the index.
         Map<String, Object> methodParameters = (Map<String, Object>) methodAsMap.get(PARAMETERS);
         Parameter<?> parameter = methodComponent.getParameters().get(parameterName);
-        Object value = methodParameters.containsKey(parameterName) ? methodParameters.get(parameterName) : parameter.getDefaultValue();
+        Object value = methodParameters.containsKey(parameterName)
+            ? methodParameters.get(parameterName)
+            : parameter.getDefaultValueProvider().apply(knnMethodConfigContext);
 
         // Recursion is needed if the parameter is a method component context itself.
         if (parameter instanceof Parameter.MethodComponentContextParameter) {
             MethodComponentContext subMethodComponentContext = (MethodComponentContext) value;
+
             MethodComponent subMethodComponent = ((Parameter.MethodComponentContextParameter) parameter).getMethodComponent(
-                subMethodComponentContext.getName()
+                knnMethodConfigContext,
+                subMethodComponentContext
             );
 
             KNNLibraryIndexingContext knnLibraryIndexingContext = subMethodComponent.getKNNLibraryIndexingContext(
@@ -108,10 +113,7 @@ class MethodAsMapBuilder {
     ) {
         Map<String, Object> initialMap = new HashMap<>();
         initialMap.put(NAME, methodComponent.getName());
-        initialMap.put(
-            PARAMETERS,
-            MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent, knnMethodConfigContext)
-        );
+        initialMap.put(PARAMETERS, methodComponentContext.getParameters().orElse(Collections.emptyMap()));
         return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext, QuantizationConfig.EMPTY);
     }
 }

@@ -23,6 +23,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -57,19 +58,29 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
     public void testGetExpectedVectorLengthSuccess() {
         KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
+        when(knnVectorFieldType.getKnnMethodConfigContext()).thenReturn(
+            Optional.ofNullable(
+                getKnnVectorFieldTypeConfigSupplierForMethodType(getDefaultKNNMethodContext(), 3).get().getKnnMethodConfigContext()
+            )
+        );
         KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeBinary.getKnnMappingConfig()).thenReturn(
-            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8)
+        when(knnVectorFieldTypeBinary.getKnnMethodConfigContext()).thenReturn(
+            Optional.ofNullable(
+                getKnnVectorFieldTypeConfigSupplierForMethodType(getDefaultBinaryKNNMethodContext(), 8).get().getKnnMethodConfigContext()
+            )
         );
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
 
         KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(
-            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8)
+        when(knnVectorFieldTypeModelBased.getKnnMethodConfigContext()).thenReturn(
+            Optional.ofNullable(
+                getKnnVectorFieldTypeConfigSupplierForMethodType(getDefaultBinaryKNNMethodContext(), 8).get().getKnnMethodConfigContext()
+            )
         );
         String modelId = "test-model";
-        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
+        when(knnVectorFieldTypeModelBased.getKnnMethodConfigContext()).thenReturn(
+            Optional.ofNullable(getKnnVectorFieldTypeConfigSupplierForModelType(modelId, 4).get().getKnnMethodConfigContext())
+        );
         assertEquals(3, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType));
         assertEquals(1, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeBinary));
         assertEquals(4, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased));

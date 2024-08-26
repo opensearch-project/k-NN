@@ -15,10 +15,12 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -40,17 +42,25 @@ public class FaissIVFMethod extends AbstractFaissMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BINARY);
 
-    public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
-        SpaceType.UNDEFINED,
-        SpaceType.L2,
-        SpaceType.INNER_PRODUCT,
-        SpaceType.HAMMING
-    );
+    public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.HAMMING);
 
     private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(
         KNNConstants.ENCODER_FLAT,
         Collections.emptyMap()
     );
+    private final static MethodComponentContext DEFAULT_32x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 1)
+    );
+    private final static MethodComponentContext DEFAULT_16x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 2)
+    );
+    private final static MethodComponentContext DEFAULT_8x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 4)
+    );
+
     private final static List<Encoder> SUPPORTED_ENCODERS = List.of(
         new FaissFlatEncoder(),
         new FaissSQEncoder(),
@@ -74,7 +84,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                 METHOD_PARAMETER_NPROBES,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_NPROBES,
-                    METHOD_PARAMETER_NPROBES_DEFAULT,
+                    knnMethodConfigContext -> METHOD_PARAMETER_NPROBES_DEFAULT,
                     (v, context) -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT
                 )
             )
@@ -82,7 +92,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                 METHOD_PARAMETER_NLIST,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_NLIST,
-                    METHOD_PARAMETER_NLIST_DEFAULT,
+                    knnMethodConfigContext -> METHOD_PARAMETER_NLIST_DEFAULT,
                     (v, context) -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT
                 )
             )
@@ -97,11 +107,11 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                 ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
                 return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
             }))
-            .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+            .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
                 // Size estimate formula: (4 * nlists * d) / 1024 + 1
 
                 // Get value of nlists passed in by user
-                Object nlistObject = methodComponentContext.getParameters().get(METHOD_PARAMETER_NLIST);
+                Object nlistObject = methodComponentContext.getParameters().orElse(Collections.emptyMap()).get(METHOD_PARAMETER_NLIST);
 
                 // If not specified, get default value of nlist
                 if (nlistObject == null) {
@@ -112,7 +122,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                         );
                     }
 
-                    nlistObject = nlistParameter.getDefaultValue();
+                    nlistObject = nlistParameter.getDefaultValueProvider().apply(knnMethodConfigContext);
                 }
 
                 if (!(nlistObject instanceof Integer)) {
@@ -120,16 +130,36 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                 }
 
                 int centroids = (Integer) nlistObject;
-                return ((4L * centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
+                return ((4L * centroids * knnMethodConfigContext.getDimension()) / BYTES_PER_KILOBYTES) + 1;
             })
             .build();
     }
 
     private static Parameter.MethodComponentContextParameter initEncoderParameter() {
-        return new Parameter.MethodComponentContextParameter(
-            METHOD_ENCODER_PARAMETER,
-            DEFAULT_ENCODER_CONTEXT,
-            SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
-        );
+        return new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, knnMethodConfigContext -> {
+            CompressionConfig compressionConfig = resolveCompressionConfig(knnMethodConfigContext);
+            if (compressionConfig == CompressionConfig.NOT_CONFIGURED) {
+                return DEFAULT_ENCODER_CONTEXT;
+            }
+
+            return getDefaultEncoderFromCompression(compressionConfig);
+
+        }, SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent)));
+    }
+
+    private static MethodComponentContext getDefaultEncoderFromCompression(CompressionConfig compressionConfig) {
+        if (compressionConfig == CompressionConfig.x32) {
+            return DEFAULT_32x_ENCODER_CONTEXT;
+        }
+
+        if (compressionConfig == CompressionConfig.x16) {
+            return DEFAULT_16x_ENCODER_CONTEXT;
+        }
+
+        if (compressionConfig == CompressionConfig.x8) {
+            return DEFAULT_8x_ENCODER_CONTEXT;
+        }
+
+        return DEFAULT_ENCODER_CONTEXT;
     }
 }

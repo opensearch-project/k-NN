@@ -11,7 +11,6 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 
-import java.util.Optional;
 import java.util.function.Function;
 
 import static org.opensearch.knn.index.codec.KNNCodecVersion.V_9_9_0;
@@ -38,8 +37,7 @@ public class KNN990CodecTests extends KNNCodecTestCase {
     // write with a read only codec, which will fail
     @SneakyThrows
     public void testKnnVectorIndex() {
-        Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
-            mapperService) -> new KNN990PerFieldKnnVectorsFormat(Optional.of(mapperService));
+        Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = KNN990PerFieldKnnVectorsFormat::new;
 
         Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN990Codec.builder()
             .delegate(V_9_9_0.getDefaultCodecDelegate())

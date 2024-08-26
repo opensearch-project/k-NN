@@ -27,7 +27,6 @@ import org.opensearch.knn.index.codec.KNN950Codec.KNN950PerFieldKnnVectorsFormat
 import org.opensearch.knn.index.codec.KNN990Codec.KNN990Codec;
 import org.opensearch.knn.index.codec.KNN990Codec.KNN990PerFieldKnnVectorsFormat;
 
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -55,14 +54,14 @@ public enum KNNCodecVersion {
     V_9_2_0(
         "KNN920Codec",
         new Lucene92Codec(),
-        new KNN920PerFieldKnnVectorsFormat(Optional.empty()),
+        new KNN920PerFieldKnnVectorsFormat(null),
         (delegate) -> new KNNFormatFacade(
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
         (userCodec, mapperService) -> KNN920Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN920PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .knnVectorsFormat(new KNN920PerFieldKnnVectorsFormat(mapperService))
             .build(),
         KNN920Codec::new
     ),
@@ -70,14 +69,14 @@ public enum KNNCodecVersion {
     V_9_4_0(
         "KNN940Codec",
         new Lucene94Codec(),
-        new KNN940PerFieldKnnVectorsFormat(Optional.empty()),
+        new KNN940PerFieldKnnVectorsFormat(null),
         (delegate) -> new KNNFormatFacade(
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
         (userCodec, mapperService) -> KNN940Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN940PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .knnVectorsFormat(new KNN940PerFieldKnnVectorsFormat(mapperService))
             .build(),
         KNN940Codec::new
     ),
@@ -85,14 +84,14 @@ public enum KNNCodecVersion {
     V_9_5_0(
         "KNN950Codec",
         new Lucene95Codec(),
-        new KNN950PerFieldKnnVectorsFormat(Optional.empty()),
+        new KNN950PerFieldKnnVectorsFormat(null),
         (delegate) -> new KNNFormatFacade(
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
         (userCodec, mapperService) -> KNN950Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN950PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .knnVectorsFormat(new KNN950PerFieldKnnVectorsFormat(mapperService))
             .build(),
         KNN950Codec::new
     ),
@@ -100,14 +99,14 @@ public enum KNNCodecVersion {
     V_9_9_0(
         "KNN990Codec",
         new Lucene99Codec(),
-        new KNN990PerFieldKnnVectorsFormat(Optional.empty()),
+        new KNN990PerFieldKnnVectorsFormat(null),
         (delegate) -> new KNNFormatFacade(
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
         (userCodec, mapperService) -> KNN990Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN990PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .knnVectorsFormat(new KNN990PerFieldKnnVectorsFormat(mapperService))
             .build(),
         KNN990Codec::new
     );

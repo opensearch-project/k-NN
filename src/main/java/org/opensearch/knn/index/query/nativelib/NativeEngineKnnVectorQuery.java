@@ -47,13 +47,14 @@ public class NativeEngineKnnVectorQuery extends Query {
     @Override
     public Query rewrite(final IndexSearcher indexSearcher) throws IOException {
         final IndexReader reader = indexSearcher.getIndexReader();
+
         final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
 
         List<Map<Integer, Float>> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
         int finalK = knnQuery.getK();
-        if (rescoreContext == null) {
+        if (rescoreContext == null || rescoreContext == RescoreContext.DISABLED_RESCORE_CONTEXT) {
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, finalK);
         } else {
             int firstPassK = rescoreContext.getFirstPassK(finalK);

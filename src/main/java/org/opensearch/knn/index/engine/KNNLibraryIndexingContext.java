@@ -24,6 +24,20 @@ public interface KNNLibraryIndexingContext {
     Map<String, Object> getLibraryParameters();
 
     /**
+     * Estimate overhead of KNNMethodContext in Kilobytes.
+     *
+     * @return size overhead estimate in KB
+     */
+    int estimateOverheadInKB();
+
+    /**
+     * Gets metadata related to methods supported by the library
+     *
+     * @return KNNLibrarySearchContext
+     */
+    KNNLibrarySearchContext getKNNLibrarySearchContext();
+
+    /**
      * Get map of parameters that get passed to the quantization framework
      *
      * @return Map of parameters

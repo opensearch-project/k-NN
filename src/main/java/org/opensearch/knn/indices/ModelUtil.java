@@ -13,6 +13,8 @@ package org.opensearch.knn.indices;
 
 import lombok.experimental.UtilityClass;
 import org.apache.commons.lang.StringUtils;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Locale;
 
@@ -56,4 +58,17 @@ public class ModelUtil {
         return modelMetadata;
     }
 
+    /**
+     * Wraps model metadata call to get the component context to return {@link KNNMethodContext}
+     *
+     * @param modelMetadata {@link ModelMetadata}
+     * @return {@link KNNMethodContext} or null if method component context is empty
+     */
+    public static KNNMethodContext getMethodContextForModel(ModelMetadata modelMetadata) {
+        MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
+        if (methodComponentContext == MethodComponentContext.EMPTY) {
+            return null;
+        }
+        return new KNNMethodContext(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType(), methodComponentContext);
+    }
 }

@@ -261,9 +261,6 @@ public class JNIServiceTests extends KNNTestCase {
     public void testCreateIndex_nmslib_valid() throws IOException {
 
         for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
-            if (SpaceType.UNDEFINED == spaceType) {
-                continue;
-            }
 
             Path tmpFile = createTempFile();
 
@@ -610,8 +607,8 @@ public class JNIServiceTests extends KNNTestCase {
             .dimension(128)
             .vectorDataType(VectorDataType.FLOAT)
             .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -816,10 +813,6 @@ public class JNIServiceTests extends KNNTestCase {
 
         int k = 50;
         for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
-            if (SpaceType.UNDEFINED == spaceType) {
-                continue;
-            }
-
             Path tmpFile = createTempFile();
 
             TestUtils.createIndex(
@@ -1136,8 +1129,8 @@ public class JNIServiceTests extends KNNTestCase {
             .dimension(testData.indexData.getDimension())
             .versionCreated(Version.CURRENT)
             .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1173,8 +1166,8 @@ public class JNIServiceTests extends KNNTestCase {
             .dimension(128)
             .vectorDataType(VectorDataType.FLOAT)
             .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1206,8 +1199,8 @@ public class JNIServiceTests extends KNNTestCase {
             .dimension(testData.indexData.getDimension())
             .versionCreated(Version.CURRENT)
             .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1258,9 +1251,10 @@ public class JNIServiceTests extends KNNTestCase {
                 )
             )
         );
-
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
         String description = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .orElse(KNNEngine.DEFAULT)
+            .getKNNLibraryIndexingContext(knnMethodConfigContext)
             .getLibraryParameters()
             .get(INDEX_DESCRIPTION_PARAMETER)
             .toString();
@@ -1405,8 +1399,10 @@ public class JNIServiceTests extends KNNTestCase {
             )
         );
 
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
         String description = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .orElse(KNNEngine.DEFAULT)
+            .getKNNLibraryIndexingContext(knnMethodConfigContext)
             .getLibraryParameters()
             .get(INDEX_DESCRIPTION_PARAMETER)
             .toString();

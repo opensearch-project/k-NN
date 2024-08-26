@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Parameter that can be set for a method component
@@ -19,23 +20,26 @@ import java.util.function.BiFunction;
  * @param <T> Type parameter takes
  */
 public abstract class Parameter<T> {
-
     @Getter
     private final String name;
     @Getter
-    private final T defaultValue;
+    private final Function<KNNMethodConfigContext, T> defaultValueProvider;
     protected BiFunction<T, KNNMethodConfigContext, Boolean> validator;
 
     /**
      * Constructor
      *
      * @param name of the parameter
-     * @param defaultValue of the parameter
+     * @param defaultValueProvider of the parameter based on the configuration context
      * @param validator used to validate a parameter value passed
      */
-    public Parameter(String name, T defaultValue, BiFunction<T, KNNMethodConfigContext, Boolean> validator) {
+    public Parameter(
+        String name,
+        Function<KNNMethodConfigContext, T> defaultValueProvider,
+        BiFunction<T, KNNMethodConfigContext, Boolean> validator
+    ) {
         this.name = name;
-        this.defaultValue = defaultValue;
+        this.defaultValueProvider = defaultValueProvider;
         this.validator = validator;
     }
 
@@ -52,8 +56,12 @@ public abstract class Parameter<T> {
      * Boolean method parameter
      */
     public static class BooleanParameter extends Parameter<Boolean> {
-        public BooleanParameter(String name, Boolean defaultValue, BiFunction<Boolean, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public BooleanParameter(
+            String name,
+            Function<KNNMethodConfigContext, Boolean> defaultValueProvider,
+            BiFunction<Boolean, KNNMethodConfigContext, Boolean> validator
+        ) {
+            super(name, defaultValueProvider, validator);
         }
 
         @Override
@@ -79,8 +87,12 @@ public abstract class Parameter<T> {
      * Integer method parameter
      */
     public static class IntegerParameter extends Parameter<Integer> {
-        public IntegerParameter(String name, Integer defaultValue, BiFunction<Integer, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public IntegerParameter(
+            String name,
+            Function<KNNMethodConfigContext, Integer> defaultValueProvider,
+            BiFunction<Integer, KNNMethodConfigContext, Boolean> validator
+        ) {
+            super(name, defaultValueProvider, validator);
         }
 
         @Override
@@ -107,8 +119,12 @@ public abstract class Parameter<T> {
      * Double method parameter
      */
     public static class DoubleParameter extends Parameter<Double> {
-        public DoubleParameter(String name, Double defaultValue, BiFunction<Double, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public DoubleParameter(
+            String name,
+            Function<KNNMethodConfigContext, Double> defaultValueProvider,
+            BiFunction<Double, KNNMethodConfigContext, Boolean> validator
+        ) {
+            super(name, defaultValueProvider, validator);
         }
 
         @Override
@@ -147,16 +163,12 @@ public abstract class Parameter<T> {
      * String method parameter
      */
     public static class StringParameter extends Parameter<String> {
-
-        /**
-         * Constructor
-         *
-         * @param name         of the parameter
-         * @param defaultValue value to assign if the parameter is not set
-         * @param validator    used to validate the parameter value passed
-         */
-        public StringParameter(String name, String defaultValue, BiFunction<String, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public StringParameter(
+            String name,
+            Function<KNNMethodConfigContext, String> defaultValueProvider,
+            BiFunction<String, KNNMethodConfigContext, Boolean> validator
+        ) {
+            super(name, defaultValueProvider, validator);
         }
 
         @Override
@@ -188,24 +200,24 @@ public abstract class Parameter<T> {
 
         private final Map<String, MethodComponent> methodComponents;
 
-        /**
-         * Constructor
-         *
-         * @param name of the parameter
-         * @param defaultValue value to assign this parameter if it is not set
-         * @param methodComponents valid components that the MethodComponentContext can map to
-         */
         public MethodComponentContextParameter(
             String name,
-            MethodComponentContext defaultValue,
+            Function<KNNMethodConfigContext, MethodComponentContext> defaultValueProvider,
             Map<String, MethodComponent> methodComponents
         ) {
-            super(name, defaultValue, (methodComponentContext, knnMethodConfigContext) -> {
-                if (!methodComponents.containsKey(methodComponentContext.getName())) {
+            super(name, defaultValueProvider, (methodComponentContext, knnMethodConfigContext) -> {
+                MethodComponentContext resolvedMethodComponent = getMethodComponent(
+                    knnMethodConfigContext,
+                    methodComponentContext,
+                    defaultValueProvider,
+                    methodComponents
+                ).resolveMethodComponentContext(knnMethodConfigContext, methodComponentContext);
+                String resolvedMethodComponentName = resolvedMethodComponent.getName()
+                    .orElseThrow(() -> new IllegalStateException("Resolved method shouldnt ever be null"));
+                if (!methodComponents.containsKey(resolvedMethodComponentName)) {
                     return false;
                 }
-                return methodComponents.get(methodComponentContext.getName())
-                    .validate(methodComponentContext, knnMethodConfigContext) == null;
+                return methodComponents.get(resolvedMethodComponentName).validate(methodComponentContext, knnMethodConfigContext) == null;
             });
             this.methodComponents = methodComponents;
         }
@@ -234,11 +246,28 @@ public abstract class Parameter<T> {
         /**
          * Get method component by name
          *
-         * @param name name of method component
+         * @param knnMethodConfigContext Configuration context
+         * @param methodComponentContext Component context
          * @return MethodComponent that name maps to
          */
-        public MethodComponent getMethodComponent(String name) {
-            return methodComponents.get(name);
+        public MethodComponent getMethodComponent(
+            KNNMethodConfigContext knnMethodConfigContext,
+            MethodComponentContext methodComponentContext
+        ) {
+            return getMethodComponent(knnMethodConfigContext, methodComponentContext, getDefaultValueProvider(), methodComponents);
+        }
+
+        private static MethodComponent getMethodComponent(
+            KNNMethodConfigContext knnMethodConfigContext,
+            MethodComponentContext methodComponentContext,
+            Function<KNNMethodConfigContext, MethodComponentContext> defaultProvider,
+            Map<String, MethodComponent> methodComponents
+        ) {
+            if (methodComponentContext != null && methodComponentContext.getName().isPresent()) {
+                return methodComponents.get(methodComponentContext.getName().get());
+            }
+            MethodComponentContext resolvedMethodComponent = defaultProvider.apply(knnMethodConfigContext);
+            return methodComponents.get(resolvedMethodComponent.getName().orElseThrow());
         }
     }
 }

@@ -48,7 +48,8 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        assertNull(KNNEngine.LUCENE.validateMethod(knnMethodContext1, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext1);
+        assertNull(KNNEngine.LUCENE.validateMethod(knnMethodConfigContext));
 
         // Invalid parameter
         String invalidParameter = "invalid";
@@ -61,8 +62,8 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
-        knnMethodContext2.setSpaceType(SpaceType.L2);
-        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodContext2, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext2);
+        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodConfigContext));
 
         // Valid parameter, invalid value
         int invalidEfConstruction = -1;
@@ -75,8 +76,8 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
-        knnMethodContext3.setSpaceType(SpaceType.L2);
-        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodContext3, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext3);
+        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodConfigContext));
 
         // Unsupported space type
         SpaceType invalidSpaceType = SpaceType.LINF; // Not currently supported
@@ -87,7 +88,8 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext4 = KNNMethodContext.parse(in);
-        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodContext4, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext4);
+        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodConfigContext));
 
         // Check INNER_PRODUCT is supported with Lucene Engine
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -101,7 +103,8 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext5 = KNNMethodContext.parse(in);
-        assertNull(KNNEngine.LUCENE.validateMethod(knnMethodContext5, knnMethodConfigContext));
+        knnMethodConfigContext.setKnnMethodContext(knnMethodContext5);
+        assertNull(KNNEngine.LUCENE.validateMethod(knnMethodConfigContext));
     }
 
     public void testGetExtension() {

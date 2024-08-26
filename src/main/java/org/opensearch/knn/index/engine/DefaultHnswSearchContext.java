@@ -8,6 +8,7 @@ package org.opensearch.knn.index.engine;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.query.request.MethodParameter;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Map;
 
@@ -26,5 +27,15 @@ public final class DefaultHnswSearchContext implements KNNLibrarySearchContext {
     @Override
     public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
         return supportedMethodParameters;
+    }
+
+    @Override
+    public Map<String, Object> processMethodParameters(QueryContext ctx, Map<String, Object> parameters) {
+        return parameters;
+    }
+
+    @Override
+    public RescoreContext getDefaultRescoreContext(QueryContext ctx) {
+        return null;
     }
 }

@@ -32,9 +32,16 @@ public class FaissSQEncoder implements Encoder {
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
             FAISS_SQ_TYPE,
-            new Parameter.StringParameter(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16, (v, context) -> FAISS_SQ_ENCODER_TYPES.contains(v))
+            new Parameter.StringParameter(
+                FAISS_SQ_TYPE,
+                knnMethodConfigContext -> FAISS_SQ_ENCODER_FP16,
+                (v, context) -> FAISS_SQ_ENCODER_TYPES.contains(v)
+            )
         )
-        .addParameter(FAISS_SQ_CLIP, new Parameter.BooleanParameter(FAISS_SQ_CLIP, false, (v, context) -> Objects.nonNull(v)))
+        .addParameter(
+            FAISS_SQ_CLIP,
+            new Parameter.BooleanParameter(FAISS_SQ_CLIP, knnMethodConfigContext -> false, (v, context) -> Objects.nonNull(v))
+        )
         .setKnnLibraryIndexingContextGenerator(
             ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 FAISS_SQ_DESCRIPTION,

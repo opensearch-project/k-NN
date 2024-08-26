@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Getter;
+
 import java.util.Locale;
 
 import java.util.HashSet;
@@ -24,20 +26,8 @@ import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
  * propagated up to the Java layer. Additionally, naming translations should be done in jni layer as well. For example,
  * nmslib calls the inner_product space "negdotprod". This translation should take place in the nmslib's jni layer.
  */
+@Getter
 public enum SpaceType {
-    // This undefined space type is used to indicate that space type is not provided by user
-    // Later, we need to assign a default value based on data type
-    UNDEFINED("undefined") {
-        @Override
-        public float scoreTranslation(final float rawScore) {
-            throw new IllegalStateException("Unsupported method");
-        }
-
-        @Override
-        public void validateVectorDataType(VectorDataType vectorDataType) {
-            throw new IllegalStateException("Unsupported method");
-        }
-    },
     L2("l2") {
         @Override
         public float scoreTranslation(float rawScore) {
@@ -99,14 +89,6 @@ public enum SpaceType {
         }
     },
     INNER_PRODUCT("innerproduct") {
-        /**
-         * The inner product has a range of [-Float.MAX_VALUE, Float.MAX_VALUE], with a more similar result being
-         * represented by a more negative value. In Lucene, scores have to be in the range of [0, Float.MAX_VALUE],
-         * where a higher score represents a more similar result. So, we convert here.
-         *
-         * @param rawScore score returned from underlying library
-         * @return Lucene scaled score
-         */
         @Override
         public float scoreTranslation(float rawScore) {
             if (rawScore >= 0) {
@@ -195,15 +177,6 @@ public enum SpaceType {
                 String.format(Locale.ROOT, "Space type [%s] is not supported with [%s] data type", getValue(), vectorDataType.getValue())
             );
         }
-    }
-
-    /**
-     * Get space type name in engine
-     *
-     * @return name
-     */
-    public String getValue() {
-        return value;
     }
 
     public static Set<String> getValues() {

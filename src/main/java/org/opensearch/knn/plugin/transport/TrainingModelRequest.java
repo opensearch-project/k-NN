@@ -21,7 +21,12 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngineResolver;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.SpaceTypeResolver;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -50,6 +55,8 @@ public class TrainingModelRequest extends ActionRequest {
     private int maximumVectorCount;
     private int searchSize;
     private int trainingDataSizeInKB;
+    private final WorkloadModeConfig workloadModeConfig;
+    private final CompressionConfig compressionConfig;
 
     /**
      * Constructor.
@@ -70,7 +77,9 @@ public class TrainingModelRequest extends ActionRequest {
         String trainingField,
         String preferredNodeId,
         String description,
-        VectorDataType vectorDataType
+        VectorDataType vectorDataType,
+        WorkloadModeConfig workloadModeConfig,
+        CompressionConfig compressionConfig
     ) {
         super();
         this.modelId = modelId;
@@ -81,6 +90,8 @@ public class TrainingModelRequest extends ActionRequest {
         this.preferredNodeId = preferredNodeId;
         this.description = description;
         this.vectorDataType = vectorDataType;
+        this.workloadModeConfig = workloadModeConfig;
+        this.compressionConfig = compressionConfig;
 
         // Set these as defaults initially. If call wants to override them, they can use the setters.
         this.maximumVectorCount = Integer.MAX_VALUE; // By default, get all vectors in the index
@@ -93,7 +104,14 @@ public class TrainingModelRequest extends ActionRequest {
             .vectorDataType(vectorDataType)
             .dimension(dimension)
             .versionCreated(Version.CURRENT)
+            .workloadModeConfig(workloadModeConfig)
+            .compressionConfig(compressionConfig)
+            .modelId(modelId)
+            .knnMethodContext(knnMethodContext)
+            .versionCreated(Version.CURRENT)
             .build();
+        this.knnMethodConfigContext.setSpaceType(SpaceTypeResolver.resolveSpaceType(knnMethodConfigContext));
+        this.knnMethodConfigContext.setKnnEngine(KNNEngineResolver.resolveKNNEngine(knnMethodConfigContext));
     }
 
     /**
@@ -119,11 +137,27 @@ public class TrainingModelRequest extends ActionRequest {
         } else {
             this.vectorDataType = VectorDataType.DEFAULT;
         }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
+            this.compressionConfig = CompressionConfig.fromString(in.readOptionalString());
+            this.workloadModeConfig = WorkloadModeConfig.fromString(in.readOptionalString());
+        } else {
+            this.compressionConfig = null;
+            this.workloadModeConfig = null;
+        }
+
         this.knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(vectorDataType)
+            .knnMethodContext(knnMethodContext)
             .dimension(dimension)
             .versionCreated(in.getVersion())
+            .workloadModeConfig(workloadModeConfig)
+            .compressionConfig(compressionConfig)
+            .modelId(modelId)
+            .knnMethodContext(knnMethodContext)
+            .versionCreated(Version.CURRENT)
             .build();
+        this.knnMethodConfigContext.setSpaceType(SpaceTypeResolver.resolveSpaceType(knnMethodConfigContext));
+        this.knnMethodConfigContext.setKnnEngine(KNNEngineResolver.resolveKNNEngine(knnMethodConfigContext));
     }
 
     /**
@@ -205,13 +239,14 @@ public class TrainingModelRequest extends ActionRequest {
         }
 
         // Confirm that the passed in knnMethodContext is valid and requires training
-        ValidationException validationException = this.knnMethodContext.validate(knnMethodConfigContext);
+        KNNEngine knnEngine = knnMethodConfigContext.getKnnEngine();
+        ValidationException validationException = knnEngine.validateMethod(knnMethodConfigContext);
         if (validationException != null) {
             exception = new ActionRequestValidationException();
             exception.addValidationErrors(validationException.validationErrors());
         }
 
-        if (!this.knnMethodContext.isTrainingRequired()) {
+        if (!knnEngine.isTrainingRequired(knnMethodConfigContext)) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationError("Method does not require training.");
         }
@@ -270,6 +305,10 @@ public class TrainingModelRequest extends ActionRequest {
             out.writeString(this.vectorDataType.getValue());
         } else {
             out.writeString(VectorDataType.DEFAULT.getValue());
+        }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
+            out.writeOptionalString(compressionConfig == null ? null : compressionConfig.toString());
+            out.writeOptionalString(workloadModeConfig == null ? null : workloadModeConfig.toString());
         }
     }
 }

@@ -111,8 +111,8 @@ public class MethodComponentContextTests extends KNNTestCase {
             .endObject();
         Map<String, Object> params = xContentBuilderToMap(xContentBuilder);
         MethodComponentContext methodContext = new MethodComponentContext(name, params);
-        assertEquals(paramVal1, methodContext.getParameters().get(paramKey1));
-        assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
+        assertEquals(paramVal1, methodContext.getParameters().orElse(Collections.emptyMap()).get(paramKey1));
+        assertEquals(paramVal2, methodContext.getParameters().orElse(Collections.emptyMap()).get(paramKey2));
 
         // When parameters are null, an empty map should be returned
         methodContext = new MethodComponentContext(name, null);
@@ -163,8 +163,8 @@ public class MethodComponentContextTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         methodContext = MethodComponentContext.parse(in);
 
-        assertEquals(paramVal1, methodContext.getParameters().get(paramKey1));
-        assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
+        assertEquals(paramVal1, methodContext.getParameters().orElse(Collections.emptyMap()).get(paramKey1));
+        assertEquals(paramVal2, methodContext.getParameters().orElse(Collections.emptyMap()).get(paramKey2));
 
         // Parameter that is itself a MethodComponentContext
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -180,9 +180,12 @@ public class MethodComponentContextTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         methodContext = MethodComponentContext.parse(in);
 
-        assertTrue(methodContext.getParameters().get(paramKey1) instanceof MethodComponentContext);
-        assertEquals(paramVal1, ((MethodComponentContext) methodContext.getParameters().get(paramKey1)).getName());
-        assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
+        assertTrue(methodContext.getParameters().orElse(Collections.emptyMap()).get(paramKey1) instanceof MethodComponentContext);
+        assertEquals(
+            paramVal1,
+            ((MethodComponentContext) methodContext.getParameters().orElse(Collections.emptyMap()).get(paramKey1)).getName()
+        );
+        assertEquals(paramVal2, methodContext.getParameters().orElse(Collections.emptyMap()).get(paramKey2));
     }
 
     /**

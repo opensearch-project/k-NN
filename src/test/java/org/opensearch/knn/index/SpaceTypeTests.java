@@ -16,7 +16,6 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,8 +66,6 @@ public class SpaceTypeTests extends KNNTestCase {
 
     public void testValidateVectorDataType_whenCalled_thenReturn() {
         Map<SpaceType, Set<VectorDataType>> expected = Map.of(
-            SpaceType.UNDEFINED,
-            Collections.emptySet(),
             SpaceType.L2,
             Set.of(VectorDataType.FLOAT, VectorDataType.BYTE),
             SpaceType.COSINESIMIL,

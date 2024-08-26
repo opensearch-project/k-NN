@@ -14,6 +14,7 @@ import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Set;
@@ -46,11 +47,17 @@ public class QFrameBitEncoder implements Encoder {
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
             BITCOUNT_PARAM,
-            new Parameter.IntegerParameter(BITCOUNT_PARAM, DEFAULT_BITS, (v, context) -> validBitCounts.contains(v))
+            new Parameter.IntegerParameter(
+                BITCOUNT_PARAM,
+                knnMethodConfigContext -> DEFAULT_BITS,
+                (v, context) -> validBitCounts.contains(v)
+            )
         )
         .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
             QuantizationConfig quantizationConfig;
-            int bitCount = (int) methodComponentContext.getParameters().getOrDefault(BITCOUNT_PARAM, DEFAULT_BITS);
+            int bitCount = (int) methodComponentContext.getParameters()
+                .orElse(Collections.emptyMap())
+                .getOrDefault(BITCOUNT_PARAM, DEFAULT_BITS);
             if (bitCount == 1) {
                 quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
             } else if (bitCount == 2) {

@@ -11,13 +11,13 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.Version;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -58,15 +58,11 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
         );
 
         // Allocation representing size model will occupy in memory during training
+        KNNEngine knnEngine = request.getKnnMethodConfigContext().getKnnEngine();
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnEngine.getKNNLibraryIndexingContext(request.getKnnMethodConfigContext());
+
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext = new NativeMemoryEntryContext.AnonymousEntryContext(
-            request.getKnnMethodContext()
-                .estimateOverheadInKB(
-                    KNNMethodConfigContext.builder()
-                        .dimension(request.getDimension())
-                        .vectorDataType(request.getVectorDataType())
-                        .versionCreated(Version.CURRENT)
-                        .build()
-                ),
+            knnLibraryIndexingContext.estimateOverheadInKB(),
             NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance()
         );
 
@@ -78,7 +74,8 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             modelAnonymousEntryContext,
             request.getKnnMethodConfigContext(),
             request.getDescription(),
-            clusterService.localNode().getEphemeralId()
+            clusterService.localNode().getEphemeralId(),
+            knnLibraryIndexingContext
         );
 
         KNNCounter.TRAINING_REQUESTS.increment();

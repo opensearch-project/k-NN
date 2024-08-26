@@ -16,10 +16,12 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -41,17 +43,25 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         VectorDataType.BYTE
     );
 
-    public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
-        SpaceType.UNDEFINED,
-        SpaceType.HAMMING,
-        SpaceType.L2,
-        SpaceType.INNER_PRODUCT
-    );
+    public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(SpaceType.HAMMING, SpaceType.L2, SpaceType.INNER_PRODUCT);
 
     private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(
         KNNConstants.ENCODER_FLAT,
         Collections.emptyMap()
     );
+    private final static MethodComponentContext DEFAULT_32x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 1)
+    );
+    private final static MethodComponentContext DEFAULT_16x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 2)
+    );
+    private final static MethodComponentContext DEFAULT_8x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 4)
+    );
+
     private final static List<Encoder> SUPPORTED_ENCODERS = List.of(
         new FaissFlatEncoder(),
         new FaissSQEncoder(),
@@ -73,13 +83,17 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
             .addParameter(
                 METHOD_PARAMETER_M,
-                new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, (v, context) -> v > 0)
+                new Parameter.IntegerParameter(
+                    METHOD_PARAMETER_M,
+                    knnMethodConfigContext -> KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M,
+                    (v, context) -> v > 0
+                )
             )
             .addParameter(
                 METHOD_PARAMETER_EF_CONSTRUCTION,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_EF_CONSTRUCTION,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                    knnMethodConfigContext -> KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
                     (v, context) -> v > 0
                 )
             )
@@ -87,7 +101,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                 METHOD_PARAMETER_EF_SEARCH,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_EF_SEARCH,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                    knnMethodConfigContext -> KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
                     (v, context) -> v > 0
                 )
             )
@@ -105,10 +119,31 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     }
 
     private static Parameter.MethodComponentContextParameter initEncoderParameter() {
-        return new Parameter.MethodComponentContextParameter(
-            METHOD_ENCODER_PARAMETER,
-            DEFAULT_ENCODER_CONTEXT,
-            SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
-        );
+        return new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, knnMethodConfigContext -> {
+            CompressionConfig compressionConfig = resolveCompressionConfig(knnMethodConfigContext);
+            if (compressionConfig == CompressionConfig.NOT_CONFIGURED) {
+                return DEFAULT_ENCODER_CONTEXT;
+            }
+
+            return getDefaultEncoderFromCompression(compressionConfig);
+
+        }, SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent)));
     }
+
+    private static MethodComponentContext getDefaultEncoderFromCompression(CompressionConfig compressionConfig) {
+        if (compressionConfig == CompressionConfig.x32) {
+            return DEFAULT_32x_ENCODER_CONTEXT;
+        }
+
+        if (compressionConfig == CompressionConfig.x16) {
+            return DEFAULT_16x_ENCODER_CONTEXT;
+        }
+
+        if (compressionConfig == CompressionConfig.x8) {
+            return DEFAULT_8x_ENCODER_CONTEXT;
+        }
+
+        return DEFAULT_ENCODER_CONTEXT;
+    }
+
 }

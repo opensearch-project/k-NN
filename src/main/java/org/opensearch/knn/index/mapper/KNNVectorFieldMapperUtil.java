@@ -106,7 +106,7 @@ public class KNNVectorFieldMapperUtil {
      * @return expected vector length
      */
     public static int getExpectedVectorLength(final KNNVectorFieldType knnVectorFieldType) {
-        int expectedDimensions = knnVectorFieldType.getKnnMappingConfig().getDimension();
+        int expectedDimensions = knnVectorFieldType.getDimension();
         return VectorDataType.BINARY == knnVectorFieldType.getVectorDataType() ? expectedDimensions / 8 : expectedDimensions;
     }
 

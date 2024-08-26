@@ -6,13 +6,12 @@
 package org.opensearch.knn.index.engine;
 
 import lombok.Getter;
-import org.opensearch.Version;
 import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
@@ -35,7 +34,7 @@ public class MethodComponent {
         MethodComponentContext,
         KNNMethodConfigContext,
         KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator;
-    private final TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
+    private final TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Long> overheadInKBEstimator;
     private final boolean requiresTraining;
     private final Set<VectorDataType> supportedVectorDataTypes;
 
@@ -56,7 +55,7 @@ public class MethodComponent {
     /**
      * Parse methodComponentContext into a map that the library can use to configure the method
      *
-     * @param methodComponentContext from which to generate map
+     * @param methodComponentContext from which to generate KNNLibraryIndexingContext
      * @return Method component as a map
      */
     public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
@@ -65,12 +64,12 @@ public class MethodComponent {
     ) {
         if (knnLibraryIndexingContextGenerator == null) {
             Map<String, Object> parameterMap = new HashMap<>();
-            parameterMap.put(KNNConstants.NAME, methodComponentContext.getName());
-            parameterMap.put(
-                KNNConstants.PARAMETERS,
-                getParameterMapWithDefaultsAdded(methodComponentContext, this, knnMethodConfigContext)
-            );
-            return KNNLibraryIndexingContextImpl.builder().parameters(parameterMap).build();
+            parameterMap.put(KNNConstants.NAME, getName());
+            parameterMap.put(KNNConstants.PARAMETERS, methodComponentContext.getParameters().orElse(Collections.emptyMap()));
+            return KNNLibraryIndexingContextImpl.builder()
+                .estimateOverheadInKB(estimateOverheadInKB(methodComponentContext, knnMethodConfigContext))
+                .parameters(parameterMap)
+                .build();
         }
         return knnLibraryIndexingContextGenerator.apply(this, methodComponentContext, knnMethodConfigContext);
     }
@@ -78,12 +77,13 @@ public class MethodComponent {
     /**
      * Validate that the methodComponentContext is a valid configuration for this methodComponent
      *
-     * @param methodComponentContext to be validated
      * @param knnMethodConfigContext context for the method configuration
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
     public ValidationException validate(MethodComponentContext methodComponentContext, KNNMethodConfigContext knnMethodConfigContext) {
-        Map<String, Object> providedParameters = methodComponentContext.getParameters();
+        Map<String, Object> providedParameters = methodComponentContext == null
+            ? null
+            : methodComponentContext.getParameters().orElse(null);
 
         ValidationException validationException = null;
         if (!supportedVectorDataTypes.contains(knnMethodConfigContext.getVectorDataType())) {
@@ -113,19 +113,18 @@ public class MethodComponent {
      *
      * @return requiresTraining
      */
-    public boolean isTrainingRequired(MethodComponentContext methodComponentContext) {
+    public boolean isTrainingRequired(MethodComponentContext methodComponentContext, KNNMethodConfigContext knnMethodConfigContext) {
         if (requiresTraining) {
             return true;
         }
 
         // Check if any of the parameters the user provided require training. For example, PQ as an encoder.
         // If so, return true as well
-        Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        if (providedParameters == null || providedParameters.isEmpty()) {
+        if (methodComponentContext == null || methodComponentContext.getParameters().isEmpty()) {
             return false;
         }
 
-        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
+        for (Map.Entry<String, Object> providedParameter : methodComponentContext.getParameters().get().entrySet()) {
             // MethodComponentContextParameters are parameters that are MethodComponentContexts.
             // MethodComponent may or may not require training. So, we have to check if the parameter requires training.
             // If the parameter does not exist, the parameter estimate will be skipped. It is not this function's job
@@ -142,8 +141,8 @@ public class MethodComponent {
             }
 
             MethodComponentContext parameterMethodComponentContext = (MethodComponentContext) providedValue;
-            MethodComponent methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
-            if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
+            MethodComponent methodComponent = methodParameter.getMethodComponent(knnMethodConfigContext, parameterMethodComponentContext);
+            if (methodComponent.isTrainingRequired(parameterMethodComponentContext, knnMethodConfigContext)) {
                 return true;
             }
         }
@@ -154,11 +153,11 @@ public class MethodComponent {
     /**
      * Estimates the overhead in KB
      *
-     * @param methodComponentContext context to make estimate for
-     * @param dimension dimension to make estimate with
+     * @param methodComponentContext map of params to estimate overhead for
+     * @param knnMethodConfigContext context
      * @return overhead estimate in kb
      */
-    public int estimateOverheadInKB(MethodComponentContext methodComponentContext, int dimension) {
+    public int estimateOverheadInKB(MethodComponentContext methodComponentContext, KNNMethodConfigContext knnMethodConfigContext) {
         // Assume we have the following KNNMethodContext:
         // "method": {
         // "name":"METHOD_1",
@@ -178,15 +177,14 @@ public class MethodComponent {
         // First, we get the overhead estimate of METHOD_1. Then, we add the overhead
         // estimate for METHOD_2 by looping over parameters of METHOD_1.
 
-        long size = overheadInKBEstimator.apply(this, methodComponentContext, dimension);
+        long size = overheadInKBEstimator.apply(this, methodComponentContext, knnMethodConfigContext);
 
         // Check if any of the parameters add overhead
-        Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        if (providedParameters == null || providedParameters.isEmpty()) {
+        if (methodComponentContext == null || methodComponentContext.getParameters().isEmpty()) {
             return Math.toIntExact(size);
         }
 
-        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
+        for (Map.Entry<String, Object> providedParameter : methodComponentContext.getParameters().get().entrySet()) {
             // MethodComponentContextParameters are parameters that are MethodComponentContexts. We need to check if
             // these parameters add overhead. If the parameter does not exist, the parameter estimate will be skipped.
             // It is not this function's job to validate the parameters.
@@ -202,8 +200,8 @@ public class MethodComponent {
             }
 
             MethodComponentContext parameterMethodComponentContext = (MethodComponentContext) providedValue;
-            MethodComponent methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
-            size += methodComponent.estimateOverheadInKB(parameterMethodComponentContext, dimension);
+            MethodComponent methodComponent = methodParameter.getMethodComponent(knnMethodConfigContext, parameterMethodComponentContext);
+            size += methodComponent.estimateOverheadInKB(parameterMethodComponentContext, knnMethodConfigContext);
         }
 
         return Math.toIntExact(size);
@@ -221,7 +219,7 @@ public class MethodComponent {
             MethodComponentContext,
             KNNMethodConfigContext,
             KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator;
-        private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
+        private TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Long> overheadInKBEstimator;
         private boolean requiresTraining;
         private final Set<VectorDataType> supportedDataTypes;
 
@@ -287,7 +285,9 @@ public class MethodComponent {
          * @param overheadInKBEstimator function that will compute the estimation
          * @return Builder instance
          */
-        public Builder setOverheadInKBEstimator(TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator) {
+        public Builder setOverheadInKBEstimator(
+            TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Long> overheadInKBEstimator
+        ) {
             this.overheadInKBEstimator = overheadInKBEstimator;
             return this;
         }
@@ -313,41 +313,37 @@ public class MethodComponent {
         }
     }
 
-    /**
-     * Returns a map of the user provided parameters in addition to default parameters the user may not have passed
-     *
-     * @param methodComponentContext context containing user provided parameter
-     * @param methodComponent component containing method parameters and defaults
-     * @return Map of user provided parameters with defaults filled in as needed
-     */
-    public static Map<String, Object> getParameterMapWithDefaultsAdded(
-        MethodComponentContext methodComponentContext,
-        MethodComponent methodComponent,
-        KNNMethodConfigContext knnMethodConfigContext
+    protected MethodComponentContext resolveMethodComponentContext(
+        KNNMethodConfigContext knnMethodConfigContext,
+        MethodComponentContext userProvidedMethodComponentContext
     ) {
+        String name = getName();
         Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
-        Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
-        Version indexCreationVersion = knnMethodConfigContext.getVersionCreated();
-        for (Parameter<?> parameter : methodComponent.getParameters().values()) {
-            if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
-                parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));
+        for (Parameter<?> parameter : parameters.values()) {
+            if (userProvidedMethodComponentContext == null
+                || userProvidedMethodComponentContext.getParameters().isEmpty()
+                || userProvidedMethodComponentContext.getParameters().get().containsKey(parameter.getName()) == false) {
+                parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValueProvider().apply(knnMethodConfigContext));
+            } else if (parameter instanceof Parameter.MethodComponentContextParameter) {
+                MethodComponentContext innerUserProvidedMethodComponentContext = (MethodComponentContext) userProvidedMethodComponentContext
+                    .getParameters()
+                    .get()
+                    .get(parameter.getName());
+                MethodComponent methodComponent = ((Parameter.MethodComponentContextParameter) parameter).getMethodComponent(
+                    knnMethodConfigContext,
+                    innerUserProvidedMethodComponentContext
+                );
+                parametersWithDefaultsMap.put(
+                    parameter.getName(),
+                    methodComponent.resolveMethodComponentContext(knnMethodConfigContext, userProvidedMethodComponentContext)
+                );
             } else {
-                // Picking the right values for the parameters whose values are different based on different index
-                // created version.
-                if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_SEARCH)) {
-                    parametersWithDefaultsMap.put(parameter.getName(), IndexHyperParametersUtil.getHNSWEFSearchValue(indexCreationVersion));
-                } else if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
-                    parametersWithDefaultsMap.put(
-                        parameter.getName(),
-                        IndexHyperParametersUtil.getHNSWEFConstructionValue(indexCreationVersion)
-                    );
-                } else {
-                    parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValue());
-                }
-
+                parametersWithDefaultsMap.put(
+                    parameter.getName(),
+                    userProvidedMethodComponentContext.getParameters().get().get(parameter.getName())
+                );
             }
         }
-
-        return parametersWithDefaultsMap;
+        return new MethodComponentContext(name, parametersWithDefaultsMap);
     }
 }

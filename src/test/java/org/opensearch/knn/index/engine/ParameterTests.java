@@ -23,21 +23,21 @@ public class ParameterTests extends KNNTestCase {
      */
     public void testGetDefaultValue() {
         String defaultValue = "test-default";
-        Parameter<String> parameter = new Parameter<String>("test", defaultValue, (v, context) -> true) {
+        Parameter<String> parameter = new Parameter<String>("test", k -> defaultValue, (v, context) -> true) {
             @Override
             public ValidationException validate(Object value, KNNMethodConfigContext context) {
                 return null;
             }
         };
 
-        assertEquals(defaultValue, parameter.getDefaultValue());
+        assertEquals(defaultValue, parameter.getDefaultValueProvider().apply(null));
     }
 
     /**
      * Test integer parameter validate
      */
     public void testIntegerParameter_validate() {
-        final IntegerParameter parameter = new IntegerParameter("test", 1, (v, context) -> v > 0);
+        final IntegerParameter parameter = new IntegerParameter("test", k -> 1, (v, context) -> v > 0);
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .dimension(1)
             .versionCreated(Version.CURRENT)
@@ -57,7 +57,7 @@ public class ParameterTests extends KNNTestCase {
      * Test integer parameter validate
      */
     public void testIntegerParameter_validateWithContext() {
-        final IntegerParameter parameter = new IntegerParameter("test", 1, (v, context) -> v > 0 && v > context.getDimension());
+        final IntegerParameter parameter = new IntegerParameter("test", k -> 1, (v, context) -> v > 0 && v > context.getDimension());
 
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder().dimension(0).build();
 
@@ -72,7 +72,7 @@ public class ParameterTests extends KNNTestCase {
     }
 
     public void testStringParameter_validate() {
-        final StringParameter parameter = new StringParameter("test_parameter", "default_value", (v, context) -> "test".equals(v));
+        final StringParameter parameter = new StringParameter("test_parameter", k -> "default_value", (v, context) -> "test".equals(v));
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .dimension(1)
             .versionCreated(Version.CURRENT)
@@ -89,7 +89,7 @@ public class ParameterTests extends KNNTestCase {
     }
 
     public void testStringParameter_validateWithData() {
-        final StringParameter parameter = new StringParameter("test_parameter", "default_value", (v, context) -> {
+        final StringParameter parameter = new StringParameter("test_parameter", k -> "default_value", (v, context) -> {
             if (context.getDimension() > 0) {
                 return "test".equals(v);
             }
@@ -114,7 +114,7 @@ public class ParameterTests extends KNNTestCase {
     }
 
     public void testDoubleParameter_validate() {
-        final Parameter.DoubleParameter parameter = new Parameter.DoubleParameter("test_parameter", 1.0, (v, context) -> v >= 0);
+        final Parameter.DoubleParameter parameter = new Parameter.DoubleParameter("test_parameter", k -> 1.0, (v, context) -> v >= 0);
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .dimension(1)
             .versionCreated(Version.CURRENT)
@@ -134,7 +134,7 @@ public class ParameterTests extends KNNTestCase {
     public void testDoubleParameter_validateWithData() {
         final Parameter.DoubleParameter parameter = new Parameter.DoubleParameter(
             "test",
-            1.0,
+            k -> 1.0,
             (v, context) -> v > 0 && v > context.getDimension()
         );
 
@@ -168,13 +168,13 @@ public class ParameterTests extends KNNTestCase {
             methodComponentName1,
             MethodComponent.Builder.builder(parameterKey1)
                 .addSupportedDataTypes(Set.of(VectorDataType.FLOAT))
-                .addParameter(parameterKey1, new IntegerParameter(parameterKey1, 1, (v, context) -> v > 0))
+                .addParameter(parameterKey1, new IntegerParameter(parameterKey1, k -> 1, (v, context) -> v > 0))
                 .build()
         );
 
         final MethodComponentContextParameter parameter = new MethodComponentContextParameter(
             "test",
-            methodComponentContext,
+            k -> methodComponentContext,
             methodComponentMap
         );
 
@@ -213,13 +213,16 @@ public class ParameterTests extends KNNTestCase {
             methodComponentName1,
             MethodComponent.Builder.builder(parameterKey1)
                 .addSupportedDataTypes(Set.of(VectorDataType.FLOAT))
-                .addParameter(parameterKey1, new IntegerParameter(parameterKey1, 1, (v, context) -> v > 0 && v > context.getDimension()))
+                .addParameter(
+                    parameterKey1,
+                    new IntegerParameter(parameterKey1, k -> 1, (v, context) -> v > 0 && v > context.getDimension())
+                )
                 .build()
         );
 
         final MethodComponentContextParameter parameter = new MethodComponentContextParameter(
             "test",
-            methodComponentContext,
+            k -> methodComponentContext,
             methodComponentMap
         );
 
@@ -262,21 +265,21 @@ public class ParameterTests extends KNNTestCase {
         Map<String, MethodComponent> methodComponentMap = ImmutableMap.of(
             methodComponentName1,
             MethodComponent.Builder.builder(parameterKey1)
-                .addParameter(parameterKey1, new IntegerParameter(parameterKey1, 1, (v, context) -> v > 0))
+                .addParameter(parameterKey1, new IntegerParameter(parameterKey1, k -> 1, (v, context) -> v > 0))
                 .build()
         );
 
         final MethodComponentContextParameter parameter = new MethodComponentContextParameter(
             "test",
-            methodComponentContext,
+            k -> methodComponentContext,
             methodComponentMap
         );
 
         // Test when method component is available
-        assertEquals(methodComponentMap.get(methodComponentName1), parameter.getMethodComponent(methodComponentName1));
+        assertEquals(methodComponentMap.get(methodComponentName1), parameter.getMethodComponent(null, null));
 
         // test when method component is not available
         String invalidMethod = "invalid-method";
-        assertNull(parameter.getMethodComponent(invalidMethod));
+        assertNull(parameter.getMethodComponent(null, null));
     }
 }
