@@ -8,6 +8,8 @@ package org.opensearch.knn.quantization.models.requests;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.io.IOException;
+
 /**
  * TrainingRequest represents a request for training a quantizer.
  *
@@ -24,8 +26,8 @@ public abstract class TrainingRequest<T> {
     /**
      * Returns the vector corresponding to the specified document ID.
      *
-     * @param docId the document ID.
+     * @param position the document position.
      * @return the vector corresponding to the specified document ID.
      */
-    public abstract T getVectorByDocId(int docId);
+    public abstract T getVectorAtThePosition(int position) throws IOException;
 }
