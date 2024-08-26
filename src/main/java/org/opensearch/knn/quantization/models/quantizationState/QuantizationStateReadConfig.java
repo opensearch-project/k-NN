@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.store.Directory;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 @Getter
 @AllArgsConstructor
@@ -17,4 +18,5 @@ public class QuantizationStateReadConfig {
     private String segmentName;
     private String segmentSuffix;
     private FieldInfo fieldInfo;
+    private ScalarQuantizationType scalarQuantizationType;
 }

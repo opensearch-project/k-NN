@@ -12,6 +12,9 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
@@ -121,10 +124,17 @@ public final class KNNQuantizationStateReader {
             input.seek(position);
             byte[] stateBytes = new byte[length];
             input.readBytes(stateBytes, 0, length);
+            // Deserialize the byte array to a quantization state object
+            ScalarQuantizationType scalarQuantizationType = readConfig.getScalarQuantizationType();
+            if (scalarQuantizationType == ScalarQuantizationType.ONE_BIT) {
+                return OneBitScalarQuantizationState.fromByteArray(stateBytes);
+            } else if (scalarQuantizationType == ScalarQuantizationType.TWO_BIT
+                || scalarQuantizationType == ScalarQuantizationType.FOUR_BIT) {
+                    return MultiBitScalarQuantizationState.fromByteArray(stateBytes);
+                } else {
+                    throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
+                }
         }
-        // Deserialize the byte array to a quantization state object
-        // TODO: Get params from field info and deserialize
-        return null;
     }
 
     @VisibleForTesting
