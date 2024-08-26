@@ -54,6 +54,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+        quantizationStateWriter.writeHeader(segmentWriteState);
     }
 
     /**
@@ -79,8 +80,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void flush(int maxDoc, final Sorter.DocMap sortMap) throws IOException {
         flatVectorsWriter.flush(maxDoc, sortMap);
 
-        quantizationStateWriter.writeHeader(segmentWriteState);
-
         for (final NativeEngineFieldVectorsWriter<?> field : fields) {
             trainAndIndex(
                 field.getFieldInfo(),
@@ -96,12 +95,8 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void mergeOneField(final FieldInfo fieldInfo, final MergeState mergeState) throws IOException {
         // This will ensure that we are merging the FlatIndex during force merge.
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
-
-        quantizationStateWriter.writeHeader(segmentWriteState);
-        quantizationStateWriter.writeExistingStates();
         // For merge, pick values from flat vector and reindex again. This will use the flush operation to create graphs
         trainAndIndex(fieldInfo, this::getKNNVectorValuesForMerge, NativeIndexWriter::mergeIndex, mergeState);
-        quantizationStateWriter.writeFooter();
     }
 
     /**
@@ -113,6 +108,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             throw new IllegalStateException("NativeEnginesKNNVectorsWriter is already finished");
         }
         finished = true;
+        quantizationStateWriter.writeFooter();
         flatVectorsWriter.finish();
     }
 

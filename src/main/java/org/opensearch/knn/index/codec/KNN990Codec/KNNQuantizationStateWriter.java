@@ -95,17 +95,6 @@ public final class KNNQuantizationStateWriter {
         CodecUtil.writeFooter(output);
     }
 
-    /**
-     * Writes the bytes of existing quantization states.  Used during merge to rewrite file.
-     * @throws IOException exception could be thrown during write
-     */
-    public void writeExistingStates() throws IOException {
-        for (FieldQuantizationState fieldQuantizationState : fieldQuantizationStates) {
-            fieldQuantizationState.setPosition(output.getFilePointer());
-            output.writeBytes(fieldQuantizationState.stateBytes, fieldQuantizationState.stateBytes.length);
-        }
-    }
-
     @AllArgsConstructor
     private static class FieldQuantizationState {
         final int fieldNumber;
