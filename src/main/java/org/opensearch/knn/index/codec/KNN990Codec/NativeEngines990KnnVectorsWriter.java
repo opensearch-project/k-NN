@@ -88,7 +88,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 field
             );
         }
-        quantizationStateWriter.writeFooter();
     }
 
     @Override
