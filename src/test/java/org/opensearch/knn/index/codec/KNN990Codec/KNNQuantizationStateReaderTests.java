@@ -20,6 +20,10 @@ import org.apache.lucene.util.Version;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.util.Map;
 
@@ -80,6 +84,72 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
                 Mockito.verify(input, times(2)).readVLong();
                 Mockito.verify(input, times(2)).readBytes(any(byte[].class), anyInt(), anyInt());
                 Mockito.verify(input, times(2)).seek(anyLong());
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testReadFromQuantizationStateReadConfig() {
+        Directory directory = Mockito.mock(Directory.class);
+        IndexInput input = Mockito.mock(IndexInput.class);
+        Mockito.when(directory.openInput(any(), any())).thenReturn(input);
+
+        int fieldNumber = 4;
+        FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getFieldNumber()).thenReturn(fieldNumber);
+        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
+
+        String segmentName = "test-segment-name";
+        String segmentSuffix = "test-segment-suffix";
+        String scalarQuantizationTypeId1 = "1";
+        String scalarQuantizationTypeId2 = "2";
+        String scalarQuantizationTypeId4 = "4";
+        String scalarQuantizationTypeIdIncorrect = "-1";
+        QuantizationStateReadConfig quantizationStateReadConfig = Mockito.mock(QuantizationStateReadConfig.class);
+        Mockito.when(quantizationStateReadConfig.getSegmentName()).thenReturn(segmentName);
+        Mockito.when(quantizationStateReadConfig.getSegmentSuffix()).thenReturn(segmentSuffix);
+        Mockito.when(quantizationStateReadConfig.getFieldInfo()).thenReturn(fieldInfo);
+        Mockito.when(quantizationStateReadConfig.getDirectory()).thenReturn(directory);
+        Mockito.when(quantizationStateReadConfig.getScalarQuantizationTypeId()).thenReturn(scalarQuantizationTypeId1);
+
+        try (MockedStatic<KNNQuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNNQuantizationStateReader.class)) {
+            mockedStaticReader.when(() -> KNNQuantizationStateReader.getNumFields(input)).thenReturn(2);
+            mockedStaticReader.when(() -> KNNQuantizationStateReader.read(quantizationStateReadConfig)).thenCallRealMethod();
+            try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
+                assertThrows(IllegalArgumentException.class, () -> KNNQuantizationStateReader.read(quantizationStateReadConfig));
+
+                mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
+                Mockito.verify(input, times(4)).readInt();
+                Mockito.verify(input, times(2)).readVLong();
+                Mockito.verify(input, times(0)).readBytes(any(byte[].class), anyInt(), anyInt());
+                Mockito.verify(input, times(0)).seek(anyLong());
+
+                Mockito.when(input.readInt()).thenReturn(fieldNumber);
+
+                try (MockedStatic<OneBitScalarQuantizationState> mockedStaticOneBit = mockStatic(OneBitScalarQuantizationState.class)) {
+                    OneBitScalarQuantizationState oneBitScalarQuantizationState = Mockito.mock(OneBitScalarQuantizationState.class);
+                    mockedStaticOneBit.when(() -> OneBitScalarQuantizationState.fromByteArray(any(byte[].class)))
+                        .thenReturn(oneBitScalarQuantizationState);
+                    QuantizationState quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
+                    assertTrue(quantizationState instanceof OneBitScalarQuantizationState);
+                }
+
+                try (MockedStatic<MultiBitScalarQuantizationState> mockedStaticOneBit = mockStatic(MultiBitScalarQuantizationState.class)) {
+                    MultiBitScalarQuantizationState multiBitScalarQuantizationState = Mockito.mock(MultiBitScalarQuantizationState.class);
+                    mockedStaticOneBit.when(() -> MultiBitScalarQuantizationState.fromByteArray(any(byte[].class)))
+                        .thenReturn(multiBitScalarQuantizationState);
+
+                    Mockito.when(quantizationStateReadConfig.getScalarQuantizationTypeId()).thenReturn(scalarQuantizationTypeId2);
+                    QuantizationState quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
+                    assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
+
+                    Mockito.when(quantizationStateReadConfig.getScalarQuantizationTypeId()).thenReturn(scalarQuantizationTypeId4);
+                    quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
+                    assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
+                }
+                Mockito.when(quantizationStateReadConfig.getScalarQuantizationTypeId()).thenReturn(scalarQuantizationTypeIdIncorrect);
+                assertThrows(IllegalArgumentException.class, () -> KNNQuantizationStateReader.read(quantizationStateReadConfig));
             }
         }
     }
