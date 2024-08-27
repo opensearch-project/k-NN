@@ -125,7 +125,9 @@ public final class KNNQuantizationStateReader {
             byte[] stateBytes = new byte[length];
             input.readBytes(stateBytes, 0, length);
             // Deserialize the byte array to a quantization state object
-            ScalarQuantizationType scalarQuantizationType = readConfig.getScalarQuantizationType();
+            ScalarQuantizationType scalarQuantizationType = ScalarQuantizationType.fromId(
+                Integer.parseInt(readConfig.getScalarQuantizationTypeId())
+            );
             if (scalarQuantizationType == ScalarQuantizationType.ONE_BIT) {
                 return OneBitScalarQuantizationState.fromByteArray(stateBytes);
             } else if (scalarQuantizationType == ScalarQuantizationType.TWO_BIT

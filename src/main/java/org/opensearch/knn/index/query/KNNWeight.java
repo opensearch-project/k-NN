@@ -7,7 +7,6 @@ package org.opensearch.knn.index.query;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
@@ -24,13 +23,10 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.lucene.Lucene;
-import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.KNN990Codec.KNNQuantizationStateReader;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -42,12 +38,11 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.opensearch.knn.quantization.factory.QuantizerFactory;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
-import org.opensearch.knn.quantization.quantizer.Quantizer;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -81,6 +76,7 @@ public class KNNWeight extends Weight {
     private final ExactSearcher exactSearcher;
 
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
+    private final QuantizationService quantizationService = QuantizationService.getInstance();
 
     public KNNWeight(KNNQuery query, float boost) {
         super(query);
@@ -236,24 +232,6 @@ public class KNNWeight extends Weight {
             return null;
         }
 
-        // TODO: Use this to get quantization config
-        QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
-
-        QuantizationState quantizationState = QuantizationStateCache.getInstance().getQuantizationState(knnQuery.getField());
-
-        if (quantizationState == null) {
-            quantizationState = KNNQuantizationStateReader.read(
-                new QuantizationStateReadConfig(
-                    reader.directory(),
-                    knnQuery.getField(),
-                    Long.toString(reader.getSegmentInfo().getFieldInfosGen(), Character.MAX_RADIX),
-                    fieldInfo,
-                    quantizationConfig.getQuantizationType()
-                )
-            );
-            QuantizationStateCache.getInstance().addQuantizationState(knnQuery.getField(), quantizationState);
-        }
-
         KNNEngine knnEngine;
         SpaceType spaceType;
         VectorDataType vectorDataType;
@@ -280,18 +258,23 @@ public class KNNWeight extends Weight {
             );
         }
 
-        if (quantizationState != null) {
-            Quantizer<Object, Object> quantizer = QuantizerFactory.getQuantizer(quantizationState.getQuantizationParams());
-            QuantizationOutput<Object> quantizationOutput = QuantizationService.getInstance()
-                .createQuantizationOutput(quantizationState.getQuantizationParams());
-            KnnVectorsReader vectorReader = reader.getVectorReader();
-            if (vectorDataType == VectorDataType.FLOAT) {
-                quantizer.quantize(vectorReader.getFloatVectorValues(knnQuery.getField()), quantizationState, quantizationOutput);
-            } else if (vectorDataType == VectorDataType.BINARY || vectorDataType == VectorDataType.BYTE) {
-                quantizer.quantize(vectorReader.getByteVectorValues(knnQuery.getField()), quantizationState, quantizationOutput);
-            } else {
-                throw new IllegalArgumentException(String.format("Unexpected vector data type: %s", vectorDataType));
-            }
+        QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
+
+        byte[] quantizedVector = null;
+
+        if (quantizationParams != null) {
+            QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
+                .getQuantizationState(
+                    new QuantizationStateReadConfig(
+                        reader.directory(),
+                        reader.getSegmentName(),
+                        Long.toString(reader.getSegmentInfo().getFieldInfosGen(), Character.MAX_RADIX),
+                        fieldInfo,
+                        quantizationParams.getTypeIdentifier()
+                    )
+                );
+            QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
+            quantizedVector = (byte[]) quantizationService.quantize(quantizationState, knnQuery.getQueryVector(), quantizationOutput);
         }
 
         List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
@@ -334,10 +317,11 @@ public class KNNWeight extends Weight {
             }
             int[] parentIds = getParentIdsArray(context);
             if (k > 0) {
-                if (knnQuery.getVectorDataType() == VectorDataType.BINARY) {
+                if (knnQuery.getVectorDataType() == VectorDataType.BINARY
+                    || quantizationParams != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
-                        knnQuery.getByteQueryVector(),
+                        quantizationParams == null ? knnQuery.getByteQueryVector() : quantizedVector,
                         k,
                         knnQuery.getMethodParameters(),
                         knnEngine,
