@@ -92,7 +92,7 @@ public class TrainingJob implements Runnable {
                 nodeAssignment,
                 knnMethodContext.getMethodComponentContext(),
                 knnMethodConfigContext.getVectorDataType(),
-                Version.CURRENT
+                knnMethodConfigContext.getVersionCreated()
             ),
             null,
             this.modelId
