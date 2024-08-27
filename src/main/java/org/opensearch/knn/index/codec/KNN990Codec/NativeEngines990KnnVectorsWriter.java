@@ -52,10 +52,16 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private KNN990QuantizationStateWriter quantizationStateWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
+    private final Integer buildVectorDataStructureThreshold;
 
-    public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) {
+    public NativeEngines990KnnVectorsWriter(
+        SegmentWriteState segmentWriteState,
+        FlatVectorsWriter flatVectorsWriter,
+        Integer buildVectorDataStructureThreshold
+    ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
+        this.buildVectorDataStructureThreshold = buildVectorDataStructureThreshold;
     }
 
     /**
@@ -83,24 +89,34 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             final FieldInfo fieldInfo = field.getFieldInfo();
             final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
             int totalLiveDocs = getLiveDocs(getVectorValues(vectorDataType, field.getDocsWithField(), field.getVectors()));
-            if (totalLiveDocs > 0) {
-                KNNVectorValues<?> knnVectorValues = getVectorValues(vectorDataType, field.getDocsWithField(), field.getVectors());
-
-                final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValues, totalLiveDocs);
-                final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
-
-                knnVectorValues = getVectorValues(vectorDataType, field.getDocsWithField(), field.getVectors());
-
-                StopWatch stopWatch = new StopWatch().start();
-
-                writer.flushIndex(knnVectorValues, totalLiveDocs);
-
-                long time_in_millis = stopWatch.stop().totalTime().millis();
-                KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
-                log.debug("Flush took {} ms for vector field [{}]", time_in_millis, fieldInfo.getName());
-            } else {
+            if (totalLiveDocs == 0) {
                 log.debug("[Flush] No live docs for field {}", fieldInfo.getName());
+                return;
             }
+            KNNVectorValues<?> knnVectorValues = getVectorValues(vectorDataType, field.getDocsWithField(), field.getVectors());
+
+            final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValues, totalLiveDocs);
+            // Will consider building vector data structure based on threshold only for non quantization indices
+            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+                log.info(
+                    "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
+                    fieldInfo.name,
+                    totalLiveDocs,
+                    buildVectorDataStructureThreshold
+                );
+                return;
+            }
+            final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
+
+            knnVectorValues = getVectorValues(vectorDataType, field.getDocsWithField(), field.getVectors());
+
+            StopWatch stopWatch = new StopWatch().start();
+
+            writer.flushIndex(knnVectorValues, totalLiveDocs);
+
+            long time_in_millis = stopWatch.stop().totalTime().millis();
+            KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
+            log.debug("Flush took {} ms for vector field [{}]", time_in_millis, fieldInfo.getName());
         }
     }
 
@@ -118,6 +134,16 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
         KNNVectorValues<?> knnVectorValues = getKNNVectorValuesForMerge(vectorDataType, fieldInfo, mergeState);
         final QuantizationState quantizationState = train(fieldInfo, knnVectorValues, totalLiveDocs);
+        // Will consider building vector data structure based on threshold only for non quantization indices
+        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+            log.info(
+                "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
+                fieldInfo.name,
+                totalLiveDocs,
+                buildVectorDataStructureThreshold
+            );
+            return;
+        }
         final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
 
         knnVectorValues = getKNNVectorValuesForMerge(vectorDataType, fieldInfo, mergeState);
@@ -239,5 +265,12 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
             quantizationStateWriter.writeHeader(segmentWriteState);
         }
+    }
+
+    private boolean shouldSkipBuildingVectorDataStructure(final long docCount) {
+        if (buildVectorDataStructureThreshold < 0) {
+            return true;
+        }
+        return docCount < buildVectorDataStructureThreshold;
     }
 }

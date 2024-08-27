@@ -67,12 +67,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
     private final String description;
     private final List<Map<Integer, float[]>> vectorsPerField;
+    private static final Integer BUILD_GRAPH_ALWAYS_THRESHOLD = 0;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.openMocks(this);
-        objectUnderTest = new NativeEngines990KnnVectorsWriter(segmentWriteState, flatVectorsWriter);
+        objectUnderTest = new NativeEngines990KnnVectorsWriter(segmentWriteState, flatVectorsWriter, BUILD_GRAPH_ALWAYS_THRESHOLD);
     }
 
     @ParametersFactory
