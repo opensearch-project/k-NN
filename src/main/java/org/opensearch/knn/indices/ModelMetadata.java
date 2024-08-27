@@ -31,7 +31,6 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,7 +61,6 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param in Stream input
      */
     public ModelMetadata(StreamInput in) throws IOException {
-        String tempTrainingNodeAssignment;
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
@@ -323,7 +321,6 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      */
     public static ModelMetadata fromString(String modelMetadataString) {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
-        System.out.println(Arrays.toString(modelMetadataArray));
         int length = modelMetadataArray.length;
 
         if (length < 7 || length > 11) {
@@ -452,7 +449,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             objectToString(trainingNodeAssignment),
             (MethodComponentContext) methodComponentContext,
             VectorDataType.get(objectToString(vectorDataType)),
-            (Version) version
+            Version.fromString(version.toString())
         );
         return modelMetadata;
     }

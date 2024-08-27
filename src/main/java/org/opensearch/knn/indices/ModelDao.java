@@ -293,6 +293,7 @@ public interface ModelDao {
                     put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
                     put(KNNConstants.MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment());
                     put(KNNConstants.VECTOR_DATA_TYPE_FIELD, modelMetadata.getVectorDataType());
+                    put(KNNConstants.MODEL_VERSION, modelMetadata.getModelVersion());
 
                     MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
                     if (!methodComponentContext.getName().isEmpty()) {
@@ -423,7 +424,6 @@ public interface ModelDao {
                         return;
                     }
                     final Map<String, Object> responseMap = response.getSourceAsMap();
-                    System.out.println(responseMap);
                     Model model = Model.getModelFromSourceMap(responseMap);
                     actionListener.onResponse(new GetModelResponse(model));
 

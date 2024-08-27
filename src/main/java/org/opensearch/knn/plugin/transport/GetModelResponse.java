@@ -28,13 +28,11 @@ public class GetModelResponse extends ActionResponse implements ToXContentObject
 
     public GetModelResponse(Model model) {
         this.model = model;
-        System.out.println(model.getModelMetadata().toString());
     }
 
     public GetModelResponse(StreamInput in) throws IOException {
         super(in);
         this.model = new Model(in);
-        System.out.println(model.getModelMetadata().toString());
     }
 
     public Model getModel() {

@@ -73,7 +73,6 @@ public class TrainingJob implements Runnable {
         String description,
         String nodeAssignment
     ) {
-        System.out.println("Checkpoint");
         // Generate random base64 string if one is not provided
         this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
         this.knnMethodContext = Objects.requireNonNull(knnMethodContext, "MethodContext cannot be null.");
