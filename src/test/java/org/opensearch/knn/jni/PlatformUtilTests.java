@@ -134,7 +134,22 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
-    /* public void testIsAVX2SupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
+    public void testIsAVX512SupportedBySystem_platformIsMac_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isMac).thenReturn(false);
+            assertFalse(isAVX512SupportedBySystem());
+        }
+    }
+
+    public void testIsAVX512SupportedBySystem_platformIsIntelMac_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(true);
+            assertFalse(isAVX2SupportedBySystem());
+        }
+    }
+
+    public void testIsAVX512SupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isWindows).thenReturn(true);
@@ -142,7 +157,31 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
-    public void testIsAVX2SupportedBySystem_platformIsMac_returnsTrue() {
+    public void testIsAVX512SupportedBySystem_platformIsLinuxAllAVX512FlagsPresent_returnsTrue() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);            
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO))).thenReturn(Stream.of("flags: AVX2 avx512f avx512cd avx512vl avx512dq avx512bw", "dummy string"));
+                assertTrue(isAVX2SupportedBySystem());
+            }
+        }
+    }
+
+    public void testIsAVX512SupportedBySystem_platformIsLinuxSomeAVX512FlagsPresent_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);            
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO))).thenReturn(Stream.of("flags: AVX2 avx512vl avx512dq avx512bw avx512vbmi umip pku ospke avx512_vbmi2", "dummy string"));
+                assertTrue(isAVX2SupportedBySystem());
+            }
+        }
+    }
+
+    /*public void testIsAVX2SupportedBySystem_platformIsMac_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(true);
