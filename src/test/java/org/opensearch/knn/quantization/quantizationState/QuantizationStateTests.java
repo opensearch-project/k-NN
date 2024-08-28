@@ -100,7 +100,7 @@ public class QuantizationStateTests extends KNNTestCase {
         assertEquals(expectedRamBytesUsed, actualRamBytesUsed);
     }
 
-    public void testMultiBitScalarQuantizationStateGetDimensionsWithDimensionNotMultipleOf8() {
+    public void testMultiBitScalarQuantizationStateGetDimensions_withDimensionNotMultipleOf8_thenSuccess() {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
 
         // Case 1: 3 thresholds, each with 2 dimensions
