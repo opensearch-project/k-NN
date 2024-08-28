@@ -11,6 +11,7 @@
   - [Build](#build)
     - [JNI Library](#jni-library)
     - [JNI Library Artifacts](#jni-library-artifacts)
+    - [Parallelize make](#parallelize-make)
     - [Enable SIMD Optimization](#enable-simd-optimization)
   - [Run OpenSearch k-NN](#run-opensearch-k-nn)
     - [Run Single-node Cluster Locally](#run-single-node-cluster-locally)
@@ -210,7 +211,7 @@ To build the JNI Library manually, follow these steps:
 cd jni
 cmake .
 
-# To build everything, including tests
+# To build everything, including tests. If your computer has multiple cores you can speed it up by building in parallel using make -j 2 (or a higher number for more parallelism)
 make
 
 # To just build the libraries
@@ -257,6 +258,23 @@ these in your environment, you can disable committing the changes to the library
 `build.lib.commit_patches=false`. For example, `gradlew build -Dbuild.lib.commit_patches=false`. If the patches are 
 not committed, then the full library build process will run each time `cmake` is invoked. In a development environment, 
 it is recommended to setup the user git configuration to avoid this cost.
+
+### Parallelize make
+When we are building the plugin for the first time, it takes some time to build the JNI libraries. We can parallelize make and speed up the build time by setting and passing
+this flag to gradle, `nproc.count` if your computer has more number of cores (greater than or equal to 2).
+```
+# While building OpenSearch k-NN
+./gradlew build -Dnproc.count=4
+
+# While running OpenSearch k-NN
+./gradlew run -Dnproc.count=4
+
+# When building the JNI library manually
+cd jni
+cmake .
+# Pass the processor count with make using `-j`
+make -j 4 
+```
 
 ### Enable SIMD Optimization
 SIMD(Single Instruction/Multiple Data) Optimization is enabled by default on Linux and Mac which boosts the performance
