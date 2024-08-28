@@ -450,7 +450,7 @@ public class KNNSettings {
 
     public static boolean isFaissAVX512Disabled() {
         try {
-            return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
+            return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED);
         } catch (Exception e) {
             // In some UTs we identified that cluster setting is not set properly an leads to NPE. This check will avoid
             // those cases and will still return the default value.
