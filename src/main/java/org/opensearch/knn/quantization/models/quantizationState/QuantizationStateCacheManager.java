@@ -56,7 +56,7 @@ public final class QuantizationStateCacheManager {
      * @param fieldName The name of the field.
      * @param quantizationState The quantization state to store.
      */
-    private void addQuantizationState(String fieldName, QuantizationState quantizationState) {
+    public void addQuantizationState(String fieldName, QuantizationState quantizationState) {
         QuantizationStateCache.getInstance().addQuantizationState(fieldName, quantizationState);
     }
 
