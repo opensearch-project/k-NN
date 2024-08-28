@@ -122,8 +122,9 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
 
     @Override
     public int getDimensions() {
-        // For one-bit quantization, the dimension for indexing is just the length of the thresholds array.
-        return meanThresholds.length;
+        // For one-bit quantization, we have to ensure that dimension is divisible 8 as this will be used in binary
+        // index. A unit test also needs to be added for this.
+        return meanThresholds.length + (meanThresholds.length % 8);
     }
 
     /**
