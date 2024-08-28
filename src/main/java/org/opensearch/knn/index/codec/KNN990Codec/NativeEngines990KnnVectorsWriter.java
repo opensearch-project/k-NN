@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.codecs.KnnVectorsWriter;
@@ -42,14 +41,21 @@ import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType
  * A KNNVectorsWriter class for writing the vector data strcutures and flat vectors for Native Engines.
  */
 @Log4j2
-@RequiredArgsConstructor
 public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(NativeEngines990KnnVectorsWriter.class);
     private final SegmentWriteState segmentWriteState;
     private final FlatVectorsWriter flatVectorsWriter;
+    private final KNNQuantizationStateWriter quantizationStateWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
     private final QuantizationService quantizationService = QuantizationService.getInstance();
+
+    public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) throws IOException {
+        this.segmentWriteState = segmentWriteState;
+        this.flatVectorsWriter = flatVectorsWriter;
+        this.quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+        quantizationStateWriter.writeHeader(segmentWriteState);
+    }
 
     /**
      * Add new field for indexing.
@@ -73,6 +79,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     @Override
     public void flush(int maxDoc, final Sorter.DocMap sortMap) throws IOException {
         flatVectorsWriter.flush(maxDoc, sortMap);
+
         for (final NativeEngineFieldVectorsWriter<?> field : fields) {
             trainAndIndex(
                 field.getFieldInfo(),
@@ -89,7 +96,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
         // For merge, pick values from flat vector and reindex again. This will use the flush operation to create graphs
         trainAndIndex(fieldInfo, this::getKNNVectorValuesForMerge, NativeIndexWriter::mergeIndex, mergeState);
-
     }
 
     /**
@@ -101,6 +107,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             throw new IllegalStateException("NativeEnginesKNNVectorsWriter is already finished");
         }
         finished = true;
+        quantizationStateWriter.writeFooter();
         flatVectorsWriter.finish();
     }
 
@@ -119,6 +126,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      */
     @Override
     public void close() throws IOException {
+        quantizationStateWriter.closeOutput();
         IOUtils.close(flatVectorsWriter);
     }
 
@@ -222,6 +230,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         QuantizationState quantizationState = null;
         if (quantizationParams != null) {
             quantizationState = quantizationService.train(quantizationParams, knnVectorValues);
+            quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
         }
         NativeIndexWriter writer = (quantizationParams != null)
             ? NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState)

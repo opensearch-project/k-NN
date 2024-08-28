@@ -24,7 +24,7 @@ import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
@@ -396,11 +396,11 @@ public class KNNSettings {
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
         }, Stream.concat(dynamicCacheSettings.values().stream(), FEATURE_FLAGS.values().stream()).collect(Collectors.toUnmodifiableList()));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, it -> {
-            QuantizationStateCache.getInstance().setMaxCacheSizeInKB(it.getKb());
-            QuantizationStateCache.getInstance().rebuildCache();
+            QuantizationStateCacheManager.getInstance().setMaxCacheSizeInKB(it.getKb());
+            QuantizationStateCacheManager.getInstance().rebuildCache();
         });
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
-            QuantizationStateCache.getInstance().rebuildCache();
+            QuantizationStateCacheManager.getInstance().rebuildCache();
         });
     }
 
