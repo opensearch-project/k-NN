@@ -5,11 +5,10 @@
 
 package org.opensearch.knn.training;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.search.SearchHit;
 
 import java.util.ArrayList;
@@ -18,8 +17,8 @@ import java.util.List;
 /**
  * Transfers binary vectors from JVM to native memory.
  */
+@Log4j2
 public class BinaryTrainingDataConsumer extends TrainingDataConsumer {
-    private static final Logger logger = LogManager.getLogger(TrainingDataConsumer.class);
 
     /**
      * Constructor
@@ -65,7 +64,7 @@ public class BinaryTrainingDataConsumer extends TrainingDataConsumer {
         }
 
         if (nullVectorCount > 0) {
-            logger.warn("Found {} documents with null byte vectors in field {}", nullVectorCount, fieldName);
+            log.warn("Found {} documents with null byte vectors in field {}", nullVectorCount, fieldName);
         }
 
         setTotalVectorsCountAdded(getTotalVectorsCountAdded() + vectors.size());
