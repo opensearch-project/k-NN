@@ -138,7 +138,7 @@ public class QuantizationStateTests extends KNNTestCase {
         assertEquals(expectedDimensions5, state5.getDimensions());
     }
 
-    public void testOneBitScalarQuantizationStateGetDimensionsWithDimensionNotMultipleOf8() {
+    public void testOneBitScalarQuantizationStateGetDimensions_withDimensionNotMultipleOf8_thenSuccess() {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
 
         // Case 1: 5 dimensions (should align to 8)
