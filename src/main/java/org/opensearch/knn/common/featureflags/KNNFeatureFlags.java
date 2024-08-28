@@ -26,7 +26,7 @@ public class KNNFeatureFlags {
 
     // Feature flags
     private static final String KNN_LAUNCH_QUERY_REWRITE_ENABLED = "knn.feature.query.rewrite.enabled";
-    private static final boolean KNN_LAUNCH_QUERY_REWRITE_ENABLED_DEFAULT = false;
+    private static final boolean KNN_LAUNCH_QUERY_REWRITE_ENABLED_DEFAULT = true;
 
     @VisibleForTesting
     public static final Setting<Boolean> KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING = Setting.boolSetting(
