@@ -80,8 +80,9 @@ public class PlatformUtils {
         return false;
     }
 
-    public static boolean isAVX512SupportedBySystem() {       
-
+    public static boolean isAVX512SupportedBySystem() {
+        
+        // 
         if (!Platform.isIntel() || Platform.isMac()) {
             return false;
         }
@@ -94,13 +95,17 @@ public class PlatformUtils {
         // Here, we are trying to read the details of all processors used by system and find if any of the processor
         // supports AVX512 instructions supported by faiss.             
         String fileName = "/proc/cpuinfo";
+
+        // AVX512 has multiple flags, which control various features. k-nn requires the same set of flags as faiss to compile 
+        // using avx512. Please update these if faiss updates their compilation instructions in the future. 
+        // https://github.com/facebookresearch/faiss/blob/main/faiss/CMakeLists.txt
         String[] avx512 = { "avx512f", "avx512cd", "avx512vl", "avx512dq","avx512bw" };
         try {                
             String flags = AccessController.doPrivileged((PrivilegedExceptionAction<String>) () -> {
-                    String allFlags = Files.lines(Paths.get(fileName))
-                    .filter(s -> s.startsWith("flags"))
-                    .limit(1).toString();
-                return allFlags.toLowerCase();
+                String allFlags = Files.lines(Paths.get(fileName))
+                .filter(s -> s.startsWith("flags"))
+                .findFirst().map(s -> s.toLowerCase(Locale.ROOT)).orElse("");
+                return allFlags;
             });
             
             for (String flag: avx512)
