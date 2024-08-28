@@ -4,4 +4,4 @@
 [submodule "jni/external/faiss"]
 	path = jni/external/faiss
 	url = https://github.com/intel-innersource/libraries.searchengine.externalmirror.lucene.opensearch-faiss.git
-  branch=vector-opts
+	branch = vector-opts
