@@ -6,7 +6,6 @@
 package org.opensearch.knn.quantization.models.quantizationState;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.index.FieldInfo;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
@@ -31,22 +30,20 @@ public class QuantizationStateCacheManagerTests extends KNNTestCase {
     public void testGetQuantizationState() {
         try (MockedStatic<QuantizationStateCache> mockedStaticCache = Mockito.mockStatic(QuantizationStateCache.class)) {
             QuantizationStateReadConfig quantizationStateReadConfig = Mockito.mock(QuantizationStateReadConfig.class);
-            FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
-            String fieldName = "test-field";
-            Mockito.when(fieldInfo.getName()).thenReturn(fieldName);
-            Mockito.when(quantizationStateReadConfig.getFieldInfo()).thenReturn(fieldInfo);
+            String cacheKey = "test-key";
+            Mockito.when(quantizationStateReadConfig.getCacheKey()).thenReturn(cacheKey);
             QuantizationState quantizationState = Mockito.mock(QuantizationState.class);
             QuantizationStateCache quantizationStateCache = Mockito.mock(QuantizationStateCache.class);
             mockedStaticCache.when(QuantizationStateCache::getInstance).thenReturn(quantizationStateCache);
-            Mockito.doNothing().when(quantizationStateCache).addQuantizationState(fieldName, quantizationState);
+            Mockito.doNothing().when(quantizationStateCache).addQuantizationState(cacheKey, quantizationState);
             try (MockedStatic<KNNQuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNNQuantizationStateReader.class)) {
                 mockedStaticReader.when(() -> KNNQuantizationStateReader.read(quantizationStateReadConfig)).thenReturn(quantizationState);
                 QuantizationStateCacheManager.getInstance().getQuantizationState(quantizationStateReadConfig);
-                Mockito.verify(quantizationStateCache, times(1)).addQuantizationState(fieldName, quantizationState);
+                Mockito.verify(quantizationStateCache, times(1)).addQuantizationState(cacheKey, quantizationState);
             }
-            Mockito.when(quantizationStateCache.getQuantizationState(fieldName)).thenReturn(quantizationState);
+            Mockito.when(quantizationStateCache.getQuantizationState(cacheKey)).thenReturn(quantizationState);
             QuantizationStateCacheManager.getInstance().getQuantizationState(quantizationStateReadConfig);
-            Mockito.verify(quantizationStateCache, times(1)).addQuantizationState(fieldName, quantizationState);
+            Mockito.verify(quantizationStateCache, times(1)).addQuantizationState(cacheKey, quantizationState);
         }
     }
 

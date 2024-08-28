@@ -33,8 +33,10 @@ import java.io.IOException;
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
+    private final SegmentReadState segmentReadState;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
+        this.segmentReadState = state;
         this.flatVectorsReader = flatVectorsReader;
     }
 
@@ -101,6 +103,10 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      */
     @Override
     public void search(String field, float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+        if (knnCollector instanceof QuantizationConfigKNNCollector) {
+            ((QuantizationConfigKNNCollector) knnCollector).setSegmentReadState(segmentReadState);
+            return;
+        }
         throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
     }
 

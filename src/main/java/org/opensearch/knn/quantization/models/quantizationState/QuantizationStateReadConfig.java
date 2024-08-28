@@ -7,15 +7,14 @@ package org.opensearch.knn.quantization.models.quantizationState;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.store.Directory;
+import org.apache.lucene.index.SegmentReadState;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 @Getter
 @AllArgsConstructor
 public class QuantizationStateReadConfig {
-    private Directory directory;
-    private String segmentName;
-    private String segmentSuffix;
-    private FieldInfo fieldInfo;
-    private String scalarQuantizationTypeId;
+    private SegmentReadState segmentReadState;
+    private QuantizationParams quantizationParams;
+    private String field;
+    private String cacheKey;
 }
