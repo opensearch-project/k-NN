@@ -230,14 +230,6 @@ public class NativeIndexWriter {
             return;
         }
 
-        if (quantizationState != null) {
-            parameters.put(
-                KNNConstants.INDEX_DESCRIPTION_PARAMETER,
-                FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
-            );
-            return;
-        }
-
         if (!VectorDataType.BINARY.getValue()
             .equals(fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()))) {
             return;

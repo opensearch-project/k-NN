@@ -23,7 +23,6 @@ import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_SIGNED_BYTE_SQ;
@@ -135,7 +134,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         MethodComponentContext encoderContext = getEncoderMethodComponent(methodComponentContext);
         // We need to update the prefix used to create the faiss index if we are using the quantization
         // framework
-        if (encoderContext != null && Objects.equals(encoderContext.getName(), QFrameBitEncoder.NAME)) {
+        if (encoderContext != null && QFrameBitEncoder.NAME.equals(encoderContext.getName().orElse(null))) {
             prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
         }
 
