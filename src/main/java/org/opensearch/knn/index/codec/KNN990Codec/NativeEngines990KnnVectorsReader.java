@@ -16,6 +16,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
@@ -23,6 +24,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
+import org.opensearch.knn.common.KNNConstants;
 
 import java.io.IOException;
 
@@ -33,9 +35,11 @@ import java.io.IOException;
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
+    private final SegmentReadState segmentReadState;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
+        this.segmentReadState = state;
     }
 
     /**
@@ -101,6 +105,10 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      */
     @Override
     public void search(String field, float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+        if (knnCollector instanceof QuantizationConfigKNNCollector) {
+            ((QuantizationConfigKNNCollector) knnCollector).setSegmentReadState(segmentReadState);
+            return;
+        }
         throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
     }
 
@@ -131,6 +139,10 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      */
     @Override
     public void search(String field, byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+        if (knnCollector instanceof QuantizationConfigKNNCollector) {
+            ((QuantizationConfigKNNCollector) knnCollector).setSegmentReadState(segmentReadState);
+            return;
+        }
         throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
     }
 

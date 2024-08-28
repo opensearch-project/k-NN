@@ -49,6 +49,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
+        final String indexUUID = createQueryRequest.getIndexUuid();
+        final int shardId = createQueryRequest.getShardId();
 
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
@@ -81,6 +83,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
                         .rescoreContext(rescoreContext)
+                        .indexUUID(indexUUID)
+                        .shardId(shardId)
                         .build();
                     break;
                 default:
@@ -94,6 +98,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
                         .rescoreContext(rescoreContext)
+                        .indexUUID(indexUUID)
+                        .shardId(shardId)
                         .build();
             }
             return isKnnQueryRewriteEnabled() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;

@@ -127,14 +127,12 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
 
     static KNNLibraryIndexingContext adjustIndexDescription(
         MethodAsMapBuilder methodAsMapBuilder,
-        MethodComponentContext methodComponentContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
         String prefix = "";
-        MethodComponentContext encoderContext = getEncoderMethodComponent(methodComponentContext);
         // We need to update the prefix used to create the faiss index if we are using the quantization
         // framework
-        if (encoderContext != null && QFrameBitEncoder.NAME.equals(encoderContext.getName().orElse(null))) {
+        if (methodAsMapBuilder.getQuantizationConfig() != null) {
             prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
         }
 

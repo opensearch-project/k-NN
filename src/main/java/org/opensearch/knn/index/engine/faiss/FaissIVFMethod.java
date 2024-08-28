@@ -105,7 +105,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                     methodComponentContext,
                     knnMethodConfigContext
                 ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
-                return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
+                return adjustIndexDescription(methodAsMapBuilder, knnMethodConfigContext);
             }))
             .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
                 // Size estimate formula: (4 * nlists * d) / 1024 + 1

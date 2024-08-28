@@ -13,6 +13,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -91,14 +92,16 @@ public final class KNNQuantizationStateReader {
      * @return quantization state
      */
     public static QuantizationState read(QuantizationStateReadConfig readConfig) throws IOException {
+        SegmentReadState segmentReadState = readConfig.getSegmentReadState();
+        String field = readConfig.getField();
         String quantizationStateFileName = IndexFileNames.segmentFileName(
-            readConfig.getSegmentName(),
-            readConfig.getSegmentSuffix(),
-            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
+                segmentReadState.segmentInfo.name,
+                segmentReadState.segmentSuffix,
+                KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
         );
-        int fieldNumber = readConfig.getFieldInfo().getFieldNumber();
 
-        try (IndexInput input = readConfig.getDirectory().openInput(quantizationStateFileName, IOContext.READ)) {
+        int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
+        try (IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.READ)) {
             CodecUtil.retrieveChecksum(input);
             int numFields = getNumFields(input);
 
@@ -118,16 +121,14 @@ public final class KNNQuantizationStateReader {
             }
 
             if (position == -1 || length == 0) {
-                throw new IllegalArgumentException(String.format("Field %s not found", readConfig.getFieldInfo().getName()));
+                throw new IllegalArgumentException(String.format("Field %s not found", field));
             }
 
             input.seek(position);
             byte[] stateBytes = new byte[length];
             input.readBytes(stateBytes, 0, length);
             // Deserialize the byte array to a quantization state object
-            ScalarQuantizationType scalarQuantizationType = ScalarQuantizationType.fromId(
-                Integer.parseInt(readConfig.getScalarQuantizationTypeId())
-            );
+            ScalarQuantizationType scalarQuantizationType = ((ScalarQuantizationParams) readConfig.getQuantizationParams()).getSqType();
             if (scalarQuantizationType == ScalarQuantizationType.ONE_BIT) {
                 return OneBitScalarQuantizationState.fromByteArray(stateBytes);
             } else if (scalarQuantizationType == ScalarQuantizationType.TWO_BIT

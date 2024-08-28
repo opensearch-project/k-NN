@@ -41,11 +41,11 @@ public final class QuantizationStateCacheManager {
      * @return The associated QuantizationState
      */
     public QuantizationState getQuantizationState(QuantizationStateReadConfig quantizationStateReadConfig) throws IOException {
-        String fieldName = quantizationStateReadConfig.getFieldInfo().getName();
-        QuantizationState quantizationState = QuantizationStateCache.getInstance().getQuantizationState(fieldName);
+        QuantizationState quantizationState = QuantizationStateCache.getInstance()
+            .getQuantizationState(quantizationStateReadConfig.getCacheKey());
         if (quantizationState == null) {
             quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
-            addQuantizationState(fieldName, quantizationState);
+            addQuantizationState(quantizationStateReadConfig.getCacheKey(), quantizationState);
         }
 
         return quantizationState;
@@ -64,7 +64,8 @@ public final class QuantizationStateCacheManager {
      * Removes the quantization state associated with a given field name.
      * @param fieldName The name of the field.
      */
-    public void evict(String fieldName) {
+    public void evict(String segmentName, String fieldName) {
+        // TODO: Fix this
         QuantizationStateCache.getInstance().evict(fieldName);
     }
 

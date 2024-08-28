@@ -477,6 +477,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         String indexName = context.index().getName();
 
+        String indexUuid = context.index().getUUID();
+        int shardId = context.getShardId();
+
         if (k != 0) {
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
@@ -490,6 +493,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .filter(this.filter)
                 .context(context)
                 .rescoreContext(processedRescoreQueryContext)
+                .indexUuid(indexUuid)
+                .shardId(shardId)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }
@@ -505,6 +510,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .methodParameters(processedMethodParameters)
                 .filter(this.filter)
                 .context(context)
+                .indexUuid(indexUuid)
+                .shardId(shardId)
                 .build();
             return RNNQueryFactory.create(createQueryRequest);
         }

@@ -7,7 +7,9 @@ package org.opensearch.knn.index.query;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -27,6 +29,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -40,6 +43,7 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -78,22 +82,29 @@ public class KNNWeight extends Weight {
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
     private final QuantizationService quantizationService = QuantizationService.getInstance();
 
-    public KNNWeight(KNNQuery query, float boost) {
+    private final String indexUUID;
+    private final int shardId;
+
+    public KNNWeight(KNNQuery query, float boost, String indexUUID, int shardId) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = null;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
+        this.indexUUID = indexUUID;
+        this.shardId = shardId;
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, String indexUUID, int shardId) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = filterWeight;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
+        this.indexUUID = indexUUID;
+        this.shardId = shardId;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -216,13 +227,18 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
+    private String createQCacheKey(String segmentName) {
+        return indexUUID + "_ABC_" + shardId + "_ABC_" + segmentName + "_ABC_" + knnQuery.getField();
+    }
+
     private Map<Integer, Float> doANNSearch(
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
         final int cardinality,
         final int k
     ) throws IOException {
-        final SegmentReader reader = Lucene.segmentReader(context.reader());
+        LeafReader reader2 = context.reader();
+        final SegmentReader reader = Lucene.segmentReader(reader2);
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
         FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
@@ -263,14 +279,19 @@ public class KNNWeight extends Weight {
         byte[] quantizedVector = null;
 
         if (quantizationParams != null) {
+            QuantizationConfigKNNCollector tempCollector = new QuantizationConfigKNNCollector();
+            reader.searchNearestVectors(knnQuery.getField(), new float[0], tempCollector, null);
+            if (tempCollector.getSegmentReadState() == null) {
+                throw new IllegalStateException("No quantization state for file");
+            }
+
             QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
                 .getQuantizationState(
                     new QuantizationStateReadConfig(
-                        reader.directory(),
-                        reader.getSegmentName(),
-                        Long.toString(reader.getSegmentInfo().getFieldInfosGen(), Character.MAX_RADIX),
-                        fieldInfo,
-                        quantizationParams.getTypeIdentifier()
+                        tempCollector.getSegmentReadState(),
+                        quantizationParams,
+                        knnQuery.getField(),
+                        createQCacheKey(reader.getSegmentName())
                     )
                 );
             QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
@@ -294,7 +315,7 @@ public class KNNWeight extends Weight {
                 new NativeMemoryEntryContext.IndexEntryContext(
                     indexPath.toString(),
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                    getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName(), vectorDataType),
+                    getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName(), quantizationParams == null ? vectorDataType : VectorDataType.BINARY),
                     knnQuery.getIndexName(),
                     modelId
                 ),

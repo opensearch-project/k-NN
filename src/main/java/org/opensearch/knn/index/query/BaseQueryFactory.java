@@ -50,6 +50,8 @@ public abstract class BaseQueryFactory {
         private QueryBuilder filter;
         private QueryShardContext context;
         private RescoreContext rescoreContext;
+        String indexUuid;
+        int shardId;
 
         public Optional<QueryBuilder> getFilter() {
             return Optional.ofNullable(filter);

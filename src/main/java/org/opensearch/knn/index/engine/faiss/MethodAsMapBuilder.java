@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
@@ -30,6 +31,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * description in the map and returns the processed map
  */
 @AllArgsConstructor
+@Getter
 class MethodAsMapBuilder {
     String indexDescription;
     MethodComponent methodComponent;
