@@ -150,7 +150,14 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
         if (thresholds == null || thresholds.length == 0 || thresholds[0] == null) {
             throw new IllegalStateException("Error in getting Dimension: The thresholds array is not initialized.");
         }
-        return thresholds.length * thresholds[0].length;
+        int originalDimensions = thresholds[0].length;
+
+        // Align the original dimensions to the next multiple of 8 for each bit level
+        int alignedDimensions = (originalDimensions + 7) & ~7;
+
+        // The final dimension count should consider the bit levels
+        return thresholds.length * alignedDimensions;
+
     }
 
     /**

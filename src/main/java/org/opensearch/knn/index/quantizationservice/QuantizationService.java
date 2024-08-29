@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.quantizationService;
+package org.opensearch.knn.index.quantizationservice;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
