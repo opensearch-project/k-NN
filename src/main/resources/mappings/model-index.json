@@ -32,6 +32,9 @@
     },
     "method_component_context": {
       "type": "keyword"
+    },
+    "model_version": {
+      "type": "keyword"
     }
   }
 }
