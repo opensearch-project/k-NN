@@ -12,6 +12,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -23,11 +24,13 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -60,6 +63,8 @@ public class NativeIndexWriter {
     private final SegmentWriteState state;
     private final FieldInfo fieldInfo;
     private final NativeIndexBuildStrategy indexBuilder;
+    @Nullable
+    private final QuantizationState quantizationState;
 
     /**
      * Gets the correct writer type from fieldInfo
@@ -68,13 +73,29 @@ public class NativeIndexWriter {
      * @return correct NativeIndexWriter to make index specified in fieldInfo
      */
     public static NativeIndexWriter getWriter(final FieldInfo fieldInfo, SegmentWriteState state) {
-        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
-        boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
-        boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
-        if (iterative) {
-            return new NativeIndexWriter(state, fieldInfo, MemOptimizedNativeIndexBuildStrategy.getInstance());
-        }
-        return new NativeIndexWriter(state, fieldInfo, DefaultIndexBuildStrategy.getInstance());
+        return createWriter(fieldInfo, state, null);
+    }
+
+    /**
+     * Gets the correct writer type for the specified field, using a given QuantizationModel.
+     *
+     * This method returns a NativeIndexWriter instance that is tailored to the specific characteristics
+     * of the field described by the provided FieldInfo. It determines whether to use a template-based
+     * writer or an iterative approach based on the engine type and whether the field is associated with a template.
+     *
+     * If quantization is required, the QuantizationModel is passed to the writer to facilitate the quantization process.
+     *
+     * @param fieldInfo          The FieldInfo object containing metadata about the field for which the writer is needed.
+     * @param state              The SegmentWriteState representing the current segment's writing context.
+     * @param quantizationState  The QuantizationState that contains  quantization state required for quantization
+     * @return                   A NativeIndexWriter instance appropriate for the specified field, configured with or without quantization.
+     */
+    public static NativeIndexWriter getWriter(
+        final FieldInfo fieldInfo,
+        final SegmentWriteState state,
+        final QuantizationState quantizationState
+    ) {
+        return createWriter(fieldInfo, state, quantizationState);
     }
 
     /**
@@ -137,7 +158,12 @@ public class NativeIndexWriter {
     // TODO: Refactor this so its scalable. Possibly move it out of this class
     private BuildIndexParams indexParams(FieldInfo fieldInfo, String indexPath, KNNEngine knnEngine) throws IOException {
         final Map<String, Object> parameters;
-        final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
+        VectorDataType vectorDataType;
+        if (quantizationState != null) {
+            vectorDataType = QuantizationService.getInstance().getVectorDataTypeForTransfer(fieldInfo);
+        } else {
+            vectorDataType = extractVectorDataType(fieldInfo);
+        }
         if (fieldInfo.attributes().containsKey(MODEL_ID)) {
             Model model = getModel(fieldInfo);
             parameters = getTemplateParameters(fieldInfo, model);
@@ -151,6 +177,7 @@ public class NativeIndexWriter {
             .vectorDataType(vectorDataType)
             .knnEngine(knnEngine)
             .indexPath(indexPath)
+            .quantizationState(quantizationState)
             .build();
     }
 
@@ -294,5 +321,27 @@ public class NativeIndexWriter {
         byteBuffer.putLong(0, value);
         os.write(byteBuffer.array());
         os.close();
+    }
+
+    /**
+     * Helper method to create the appropriate NativeIndexWriter based on the field info and quantization state.
+     *
+     * @param fieldInfo          The FieldInfo object containing metadata about the field for which the writer is needed.
+     * @param state              The SegmentWriteState representing the current segment's writing context.
+     * @param quantizationState  The QuantizationState that contains quantization state required for quantization, can be null.
+     * @return                   A NativeIndexWriter instance appropriate for the specified field, configured with or without quantization.
+     */
+    private static NativeIndexWriter createWriter(
+        final FieldInfo fieldInfo,
+        final SegmentWriteState state,
+        @Nullable final QuantizationState quantizationState
+    ) {
+        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
+        boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
+        boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
+        NativeIndexBuildStrategy strategy = iterative
+            ? MemOptimizedNativeIndexBuildStrategy.getInstance()
+            : DefaultIndexBuildStrategy.getInstance();
+        return new NativeIndexWriter(state, fieldInfo, strategy, quantizationState);
     }
 }

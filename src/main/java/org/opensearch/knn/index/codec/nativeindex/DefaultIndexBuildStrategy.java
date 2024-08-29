@@ -39,16 +39,32 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
         return INSTANCE;
     }
 
+    /**
+     * Builds and writes a k-NN index using the provided vector values and index parameters. This method handles both
+     * quantized and non-quantized vectors, transferring them off-heap before building the index using native JNI services.
+     *
+     * <p>The method first iterates over the vector values to calculate the necessary bytes per vector. If quantization is
+     * enabled, the vectors are quantized before being transferred off-heap. Once all vectors are transferred, they are
+     * flushed and used to build the index. The index is then written to the specified path using JNI calls.</p>
+     *
+     * @param indexInfo        The {@link BuildIndexParams} containing the parameters and configuration for building the index.
+     * @param knnVectorValues  The {@link KNNVectorValues} representing the vectors to be indexed.
+     * @throws IOException     If an I/O error occurs during the process of building and writing the index.
+     */
     public void buildAndWriteIndex(final BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException {
-        iterateVectorValuesOnce(knnVectorValues); // to get bytesPerVector
-        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / knnVectorValues.bytesPerVector());
-        try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
+        // Needed to make sure we don't get 0 dimensions while initializing index
+        iterateVectorValuesOnce(knnVectorValues);
+        IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
-            final List<Integer> tranferredDocIds = new ArrayList<>();
+        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / indexBuildSetup.getBytesPerVector());
+        try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
+            final List<Integer> transferredDocIds = new ArrayList<>((int) knnVectorValues.totalLiveDocs());
+
             while (knnVectorValues.docId() != NO_MORE_DOCS) {
+                Object vector = QuantizationIndexUtils.processAndReturnVector(knnVectorValues, indexBuildSetup);
                 // append is true here so off heap memory buffer isn't overwritten
-                vectorTransfer.transfer(knnVectorValues.conditionalCloneVector(), true);
-                tranferredDocIds.add(knnVectorValues.docId());
+                vectorTransfer.transfer(vector, true);
+                transferredDocIds.add(knnVectorValues.docId());
                 knnVectorValues.nextDoc();
             }
             vectorTransfer.flush(true);
@@ -60,12 +76,12 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             if (params.containsKey(MODEL_ID)) {
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                     JNIService.createIndexFromTemplate(
-                        intListToArray(tranferredDocIds),
+                        intListToArray(transferredDocIds),
                         vectorAddress,
-                        knnVectorValues.dimension(),
+                        indexBuildSetup.getDimensions(),
                         indexInfo.getIndexPath(),
                         (byte[]) params.get(KNNConstants.MODEL_BLOB_PARAMETER),
-                        indexInfo.getParameters(),
+                        params,
                         indexInfo.getKnnEngine()
                     );
                     return null;
@@ -73,11 +89,11 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             } else {
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                     JNIService.createIndex(
-                        intListToArray(tranferredDocIds),
+                        intListToArray(transferredDocIds),
                         vectorAddress,
-                        knnVectorValues.dimension(),
+                        indexBuildSetup.getDimensions(),
                         indexInfo.getIndexPath(),
-                        indexInfo.getParameters(),
+                        params,
                         indexInfo.getKnnEngine()
                     );
                     return null;

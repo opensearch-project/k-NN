@@ -8,6 +8,7 @@ package org.opensearch.knn.quantization.models.quantizationState;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -106,5 +107,38 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
      */
     public static OneBitScalarQuantizationState fromByteArray(final byte[] bytes) throws IOException {
         return (OneBitScalarQuantizationState) QuantizationStateSerializer.deserialize(bytes, OneBitScalarQuantizationState::new);
+    }
+
+    /**
+     * Calculates and returns the number of bytes stored per vector after quantization.
+     *
+     * @return the number of bytes stored per vector.
+     */
+    @Override
+    public int getBytesPerVector() {
+        // Calculate the number of bytes required for one-bit quantization
+        return meanThresholds.length;
+    }
+
+    @Override
+    public int getDimensions() {
+        // For one-bit quantization, the dimension for indexing is just the length of the thresholds array.
+        // Align the original dimensions to the next multiple of 8
+        return (meanThresholds.length + 7) & ~7;
+    }
+
+    /**
+     * Calculates the memory usage of the OneBitScalarQuantizationState object in bytes.
+     * This method computes the shallow size of the instance itself, the shallow size of the
+     * quantization parameters, and the memory usage of the mean thresholds array.
+     *
+     * @return The estimated memory usage of the OneBitScalarQuantizationState object in bytes.
+     */
+    @Override
+    public long ramBytesUsed() {
+        long size = RamUsageEstimator.shallowSizeOfInstance(OneBitScalarQuantizationState.class);
+        size += RamUsageEstimator.shallowSizeOf(quantizationParams);
+        size += RamUsageEstimator.sizeOf(meanThresholds);
+        return size;
     }
 }
