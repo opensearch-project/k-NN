@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.quantizationService;
+package org.opensearch.knn.index.quantizationservice;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -49,7 +49,7 @@ final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
             }
             knnVectorValues.nextDoc();
         }
-        // Return the vector and the updated index
+        // Return the vector
         return knnVectorValues.getVector();
     }
 }
