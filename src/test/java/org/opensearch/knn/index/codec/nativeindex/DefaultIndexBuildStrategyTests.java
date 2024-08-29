@@ -17,7 +17,7 @@ import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.quantizationService.QuantizationService;
+import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
