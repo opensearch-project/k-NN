@@ -76,10 +76,10 @@ jobs:
           if lscpu  | grep -i avx2
           then
             echo "avx2 available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc`"
           else
             echo "avx2 not available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dsimd.enabled=false"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dsimd.enabled=false -Dnproc.count=`nproc`"
           fi  
 
 
@@ -117,15 +117,16 @@ jobs:
           brew reinstall gcc
           export FC=/usr/local/Cellar/gcc/12.2.0/bin/gfortran
 
+      # TODO: Detect processor count and set the value of nproc.count
       - name: Run build
         run: |
           if sysctl -n machdep.cpu.features machdep.cpu.leaf7_features | grep -i AVX2
           then
               echo "avx2 available on system"
-              ./gradlew build 
+              ./gradlew build -Dnproc.count=3
           else
               echo "avx2 not available on system"
-              ./gradlew build -Dsimd.enabled=false
+              ./gradlew build -Dsimd.enabled=false -Dnproc.count=3
           fi
 
   Build-k-NN-Windows:
@@ -183,6 +184,7 @@ jobs:
           rm .\OpenBLAS-0.3.21-x64.zip
           rm -r .\OpenBLAS\
 
+      # TODO: Detect processor count and set the value of nproc.count
       - name: Run build
         run: |
-          ./gradlew.bat build -D'simd.enabled=false'
+          ./gradlew.bat build -D'simd.enabled=false' -D'nproc.count=4'
