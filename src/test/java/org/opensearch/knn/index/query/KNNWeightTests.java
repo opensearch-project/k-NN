@@ -230,9 +230,7 @@ public class KNNWeightTests extends KNNTestCase {
 
         KNNWeight.initialize(modelDao);
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -296,9 +294,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(modelMetadata.getSpaceType()).thenReturn(spaceType);
 
         KNNWeight.initialize(modelDao);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -323,9 +319,7 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testShardWithoutFiles() {
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -370,9 +364,7 @@ public class KNNWeightTests extends KNNTestCase {
             .thenReturn(knnQueryResults);
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -463,9 +455,7 @@ public class KNNWeightTests extends KNNTestCase {
                 .build();
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final Map<String, String> attributesMap = ImmutableMap.of(
@@ -591,9 +581,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length + 1));
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
 
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
@@ -711,9 +699,7 @@ public class KNNWeightTests extends KNNTestCase {
             when(liveDocsBits.get(filterDocId)).thenReturn(true);
 
             final float boost = (float) randomDoubleBetween(0, 10, true);
-            final String indexUUID = null;
-            final int shardId = -1;
-            final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight, indexUUID, shardId);
+            final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
             final Map<String, String> attributesMap = ImmutableMap.of(
                 KNN_ENGINE,
                 KNNEngine.FAISS.getName(),
@@ -789,9 +775,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(liveDocsBits.get(filterDocId)).thenReturn(true);
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
             KNNEngine.FAISS.getName(),
@@ -861,9 +845,7 @@ public class KNNWeightTests extends KNNTestCase {
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null, null);
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
             KNNEngine.FAISS.getName(),
@@ -942,9 +924,7 @@ public class KNNWeightTests extends KNNTestCase {
             );
 
             final float boost = (float) randomDoubleBetween(0, 10, true);
-            final String indexUUID = null;
-            final int shardId = -1;
-            final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight, indexUUID, shardId);
+            final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
             final Map<String, String> attributesMap = ImmutableMap.of(
                 KNN_ENGINE,
                 KNNEngine.FAISS.getName(),
@@ -996,9 +976,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.empty());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, null);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
 
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
@@ -1047,9 +1025,7 @@ public class KNNWeightTests extends KNNTestCase {
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, parentFilter, null);
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
 
         // Execute
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -1088,9 +1064,7 @@ public class KNNWeightTests extends KNNTestCase {
             .parentsFilter(bitSetProducer)
             .build();
 
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         jniServiceMockedStatic.when(
             () -> JNIService.queryIndex(
@@ -1157,9 +1131,7 @@ public class KNNWeightTests extends KNNTestCase {
             .methodParameters(HNSW_METHOD_PARAMETERS)
             .build();
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -1301,9 +1273,7 @@ public class KNNWeightTests extends KNNTestCase {
             .methodParameters(HNSW_METHOD_PARAMETERS)
             .build();
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final String indexUUID = null;
-        final int shardId = -1;
-        final KNNWeight knnWeight = new KNNWeight(query, boost, indexUUID, shardId);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);

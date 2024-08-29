@@ -45,8 +45,6 @@ public class KNNQuery extends Query {
     private final String indexName;
     private final VectorDataType vectorDataType;
     private final RescoreContext rescoreContext;
-    private final String indexUUID;
-    private final int shardId;
 
     @Setter
     private Query filterQuery;
@@ -109,8 +107,6 @@ public class KNNQuery extends Query {
         this.parentsFilter = parentsFilter;
         this.vectorDataType = vectorDataType;
         this.rescoreContext = rescoreContext;
-        this.indexUUID = null;
-        this.shardId = -1;
     }
 
     /**
@@ -173,9 +169,9 @@ public class KNNQuery extends Query {
         }
         final Weight filterWeight = getFilterWeight(searcher);
         if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight, indexUUID, shardId);
+            return new KNNWeight(this, boost, filterWeight);
         }
-        return new KNNWeight(this, boost, indexUUID, shardId);
+        return new KNNWeight(this, boost);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

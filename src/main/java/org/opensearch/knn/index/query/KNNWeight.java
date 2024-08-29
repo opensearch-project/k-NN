@@ -76,29 +76,23 @@ public class KNNWeight extends Weight {
 
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
     private final QuantizationService quantizationService = QuantizationService.getInstance();
-    private final String indexUUID;
-    private final int shardId;
 
-    public KNNWeight(KNNQuery query, float boost, String indexUUID, int shardId) {
+    public KNNWeight(KNNQuery query, float boost) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = null;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
-        this.indexUUID = indexUUID;
-        this.shardId = shardId;
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, String indexUUID, int shardId) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = filterWeight;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
-        this.indexUUID = indexUUID;
-        this.shardId = shardId;
     }
 
     public static void initialize(ModelDao modelDao) {
