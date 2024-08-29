@@ -10,7 +10,7 @@ import org.apache.tools.ant.taskdefs.condition.Os
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.3.19-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "1.3.20-SNAPSHOT")
         knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
         opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
         opensearch_group = "org.opensearch"
@@ -453,7 +453,7 @@ afterEvaluate {
 
         requires('opensearch', versions.opensearch, EQUAL)
         //TODO: Use default knn lib version for now, fix will be compare with version that is used in build step.
-        requires("opensearch-knnlib",  "1.3.19.0",  EQUAL)
+        requires("opensearch-knnlib",  "1.3.20.0",  EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
         os = 'LINUX'
