@@ -23,8 +23,19 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
+import org.opensearch.common.UUIDs;
+import org.opensearch.knn.index.quantizationService.QuantizationService;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Vectors reader class for reading the flat vectors for native engines. The class provides methods for iterating
@@ -34,9 +45,34 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
     private final SegmentReadState segmentReadState;
+    private Map<String, String> fieldToUniqueCacheId;
 
-    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
+    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
         this.segmentReadState = state;
+        fieldToUniqueCacheId = new HashMap<>();
+        Map<String, byte[]> stateMap = KNNQuantizationStateReader.read(segmentReadState);
+        for (Map.Entry<String, byte[]> entry : stateMap.entrySet()) {
+            FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(entry.getKey());
+            QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo);
+            if (quantizationParams instanceof ScalarQuantizationParams) {
+                QuantizationState quantizationState;
+                ScalarQuantizationParams scalarQuantizationParams = (ScalarQuantizationParams) quantizationParams;
+                switch (scalarQuantizationParams.getSqType()) {
+                    case ONE_BIT:
+                        quantizationState = OneBitScalarQuantizationState.fromByteArray(entry.getValue());
+                        break;
+                    case TWO_BIT:
+                    case FOUR_BIT:
+                        quantizationState = MultiBitScalarQuantizationState.fromByteArray(entry.getValue());
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unknown Scalar Quantization Type");
+                }
+                String cacheKey = UUIDs.base64UUID();
+                fieldToUniqueCacheId.put(entry.getKey(), cacheKey);
+                QuantizationStateCacheManager.getInstance().addQuantizationState(cacheKey, quantizationState);
+            }
+        }
         this.flatVectorsReader = flatVectorsReader;
     }
 
@@ -104,7 +140,18 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     @Override
     public void search(String field, float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         if (knnCollector instanceof QuantizationConfigKNNCollector) {
-            ((QuantizationConfigKNNCollector) knnCollector).setSegmentReadState(segmentReadState);
+            String cacheKey = fieldToUniqueCacheId.get(field);
+            FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+            QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
+                .getQuantizationState(
+                    new QuantizationStateReadConfig(
+                        segmentReadState,
+                        QuantizationService.getInstance().getQuantizationParams(fieldInfo),
+                        field,
+                        cacheKey
+                    )
+                );
+            ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
         throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
@@ -156,6 +203,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     @Override
     public void close() throws IOException {
         IOUtils.close(flatVectorsReader);
+        for (String cacheKey : fieldToUniqueCacheId.values()) {
+            QuantizationStateCacheManager.getInstance().evict(cacheKey);
+        }
     }
 
     /**

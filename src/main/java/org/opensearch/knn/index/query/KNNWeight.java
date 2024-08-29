@@ -42,9 +42,6 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -224,10 +221,6 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private String createQCacheKey(String segmentName) {
-        return String.format("%s_%s_%s_%s", indexUUID, shardId, segmentName, knnQuery.getField());
-    }
-
     private Map<Integer, Float> doANNSearch(
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
@@ -278,20 +271,15 @@ public class KNNWeight extends Weight {
         if (quantizationParams != null) {
             QuantizationConfigKNNCollector tempCollector = new QuantizationConfigKNNCollector();
             reader.searchNearestVectors(knnQuery.getField(), new float[0], tempCollector, null);
-            if (tempCollector.getSegmentReadState() == null) {
+            if (tempCollector.getQuantizationState() == null) {
                 throw new IllegalStateException("No quantization state for file");
             }
-            QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
-                .getQuantizationState(
-                    new QuantizationStateReadConfig(
-                        tempCollector.getSegmentReadState(),
-                        quantizationParams,
-                        knnQuery.getField(),
-                        createQCacheKey(reader.getSegmentName())
-                    )
-                );
             QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
-            quantizedVector = (byte[]) quantizationService.quantize(quantizationState, knnQuery.getQueryVector(), quantizationOutput);
+            quantizedVector = (byte[]) quantizationService.quantize(
+                tempCollector.getQuantizationState(),
+                knnQuery.getQueryVector(),
+                quantizationOutput
+            );
         }
 
         List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());

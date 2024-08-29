@@ -24,6 +24,7 @@ import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexOptions;
@@ -41,6 +42,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.tests.store.BaseDirectoryWrapper;
@@ -113,6 +115,26 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
             Mockito.mock(Sort.class)
         );
 
+        final String segmentSuffix = "test-segment-suffix";
+
+        Directory directory = Mockito.mock(Directory.class);
+        IndexInput input = Mockito.mock(IndexInput.class);
+        Mockito.when(directory.openInput(any(), any())).thenReturn(input);
+
+        String fieldName = "test-field";
+        FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getName()).thenReturn(fieldName);
+        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
+
+        final SegmentReadState mockedSegmentReadState = new SegmentReadState(
+            directory,
+            mockedSegmentInfo,
+            fieldInfos,
+            Mockito.mock(IOContext.class),
+            segmentSuffix
+        );
+
         final SegmentWriteState mockedSegmentWriteState = new SegmentWriteState(
             Mockito.mock(InfoStream.class),
             Mockito.mock(Directory.class),
@@ -121,21 +143,22 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
             null,
             Mockito.mock(IOContext.class)
         );
-        final SegmentReadState mockedSegmentReadState = Mockito.mock(SegmentReadState.class);
-
         Mockito.when(mockedFlatVectorsFormat.fieldsReader(mockedSegmentReadState)).thenReturn(Mockito.mock(FlatVectorsReader.class));
         Mockito.when(mockedFlatVectorsFormat.fieldsWriter(mockedSegmentWriteState)).thenReturn(Mockito.mock(FlatVectorsWriter.class));
 
         final NativeEngines990KnnVectorsFormat nativeEngines990KnnVectorsFormat = new NativeEngines990KnnVectorsFormat(
             mockedFlatVectorsFormat
         );
-        Assert.assertTrue(
-            nativeEngines990KnnVectorsFormat.fieldsReader(mockedSegmentReadState) instanceof NativeEngines990KnnVectorsReader
-        );
         try (MockedStatic<CodecUtil> mockedStaticCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
             mockedStaticCodecUtil.when(
                 () -> CodecUtil.writeIndexHeader(any(IndexOutput.class), anyString(), anyInt(), any(byte[].class), anyString())
             ).thenAnswer((Answer<Void>) invocation -> null);
+            mockedStaticCodecUtil.when(() -> CodecUtil.retrieveChecksum(any(IndexInput.class)))
+                .thenAnswer((Answer<Void>) invocation -> null);
+            Assert.assertTrue(
+                nativeEngines990KnnVectorsFormat.fieldsReader(mockedSegmentReadState) instanceof NativeEngines990KnnVectorsReader
+            );
+
             Assert.assertTrue(
                 nativeEngines990KnnVectorsFormat.fieldsWriter(mockedSegmentWriteState) instanceof NativeEngines990KnnVectorsWriter
             );

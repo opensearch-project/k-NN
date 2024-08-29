@@ -7,15 +7,15 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopDocs;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 @Setter
 @Getter
 public class QuantizationConfigKNNCollector implements KnnCollector {
 
-    private SegmentReadState segmentReadState;
+    private QuantizationState quantizationState;
 
     @Override
     public boolean earlyTerminated() {
