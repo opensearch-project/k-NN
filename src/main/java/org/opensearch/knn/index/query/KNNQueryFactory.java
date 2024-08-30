@@ -23,7 +23,6 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isKnnQueryRewriteEnabled;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
 /**
@@ -96,7 +95,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .rescoreContext(rescoreContext)
                         .build();
             }
-            return isKnnQueryRewriteEnabled() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;
+            return createQueryRequest.getRescoreContext().isPresent() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;
         }
 
         Integer requestEfSearch = null;
