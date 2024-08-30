@@ -55,7 +55,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
@@ -78,7 +77,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         super.setUp();
         ClusterSettings clusterSettings = mock(ClusterSettings.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        when(clusterSettings.get(KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING)).thenReturn(false);
         KNNSettings.state().setClusterService(clusterService);
     }
 
