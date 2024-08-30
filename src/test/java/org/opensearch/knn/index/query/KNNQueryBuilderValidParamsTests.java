@@ -78,7 +78,12 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                 ),
                 $(
                     "valid knn with rescore",
-                    KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).minScore(10.0f).build(),
+                    KNNQueryBuilder.builder()
+                        .fieldName(FIELD_NAME)
+                        .vector(QUERY_VECTOR)
+                        .rescoreContext(RescoreContext.getDefault())
+                        .minScore(10.0f)
+                        .build(),
                     null,
                     null,
                     null,

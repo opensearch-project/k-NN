@@ -29,6 +29,11 @@ jni/lib/
 jni/jni_test*
 jni/googletest*
 jni/cmake/*.cmake-e
+jni/.cmake
+jni/.idea
+jni/build.ninja
+jni/.ninja_deps
+jni/.ninja_log
 
 benchmarks/perf-tool/okpt/output
 benchmarks/perf-tool/okpt/dev

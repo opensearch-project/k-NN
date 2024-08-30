@@ -614,12 +614,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             && Objects.equals(maxDistance, other.maxDistance)
             && Objects.equals(methodParameters, other.methodParameters)
             && Objects.equals(filter, other.filter)
-            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped);
+            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped)
+            && Objects.equals(rescoreContext, other.rescoreContext);
     }
 
     @Override
     protected int doHashCode() {
-        return Objects.hash(fieldName, Arrays.hashCode(vector), k, methodParameters, filter, ignoreUnmapped, maxDistance, minScore);
+        return Objects.hash(
+            fieldName,
+            Arrays.hashCode(vector),
+            k,
+            methodParameters,
+            filter,
+            ignoreUnmapped,
+            maxDistance,
+            minScore,
+            rescoreContext
+        );
     }
 
     @Override

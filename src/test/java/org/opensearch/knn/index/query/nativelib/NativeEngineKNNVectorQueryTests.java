@@ -16,6 +16,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.TaskExecutor;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -118,13 +119,13 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         int[] expectedDocs = { 0, 3, 4 };
         float[] expectedScores = { 1.2f, 5.1f, 3.4f };
         int[] findSegments = { 0, 1, 3 };
-        DocAndScoreQuery expected = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        Query expected = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
 
         // When
-        Query actual = objectUnderTest.rewrite(searcher);
+        Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
 
         // Then
-        assertEquals(expected, actual);
+        assertEquals(expected, actual.getQuery());
     }
 
     @SneakyThrows
@@ -139,13 +140,13 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         int[] expectedDocs = { 0, 1, 2 };
         float[] expectedScores = { 1.2f, 5.1f, 2.2f };
         int[] findSegments = { 0, 3 };
-        DocAndScoreQuery expected = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        Query expected = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
 
         // When
-        Query actual = objectUnderTest.rewrite(searcher);
+        Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
 
         // Then
-        assertEquals(expected, actual);
+        assertEquals(expected, actual.getQuery());
     }
 
     @SneakyThrows
@@ -155,11 +156,12 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(reader.leaves()).thenReturn(leaves);
         when(knnWeight.searchLeaf(leaf1, 4)).thenReturn(Collections.emptyMap());
         when(knnQuery.getK()).thenReturn(4);
+
         // When
-        Query actual = objectUnderTest.rewrite(searcher);
+        Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
 
         // Then
-        assertEquals(new MatchNoDocsQuery(), actual);
+        assertEquals(new MatchNoDocsQuery(), actual.getQuery());
     }
 
     @SneakyThrows
@@ -176,7 +178,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         Map<Integer, Float> rescoredLeaf2Results = new HashMap<>(Map.of(0, 21f));
         TopDocs topDocs1 = ResultUtil.resultMapToTopDocs(Map.of(1, 20f), 0);
         TopDocs topDocs2 = ResultUtil.resultMapToTopDocs(Map.of(0, 21f), 4);
-        DocAndScoreQuery expected = new DocAndScoreQuery(2, new int[] { 1, 4 }, new float[] { 20f, 21f }, new int[] { 0, 4, 2 }, 1);
+        Query expected = new DocAndScoreQuery(2, new int[] { 1, 4 }, new float[] { 20f, 21f }, new int[] { 0, 4, 2 }, 1);
 
         when(indexReaderContext.id()).thenReturn(1);
         when(knnQuery.getRescoreContext()).thenReturn(RescoreContext.builder().oversampleFactor(1.5f).build());
@@ -193,8 +195,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             try (MockedStatic<NativeEngineKnnVectorQuery> mockedStaticNativeKnnVectorQuery = mockStatic(NativeEngineKnnVectorQuery.class)) {
                 mockedStaticNativeKnnVectorQuery.when(() -> NativeEngineKnnVectorQuery.findSegmentStarts(any(), any()))
                     .thenReturn(new int[] { 0, 4, 2 });
-                Query actual = objectUnderTest.rewrite(searcher);
-                assertEquals(expected, actual);
+                Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
+                assertEquals(expected, actual.getQuery());
             }
         }
     }
