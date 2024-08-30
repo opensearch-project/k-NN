@@ -45,6 +45,7 @@ final class DocAndScoreQuery extends Query {
         if (searcher.getIndexReader().getContext().id() != contextIdentity) {
             throw new IllegalStateException("This DocAndScore query was created by a different reader");
         }
+
         return new Weight(this) {
             @Override
             public Explanation explain(LeafReaderContext context, int doc) {
