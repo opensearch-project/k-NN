@@ -14,11 +14,8 @@ package org.opensearch.knn.index.memory;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.util.IndexUtil;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.training.ByteTrainingDataConsumer;
-import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.TrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.watcher.FileChangesListener;
@@ -174,9 +171,8 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 nativeMemoryEntryContext.getVectorDataType()
             );
 
-            TrainingDataConsumer vectorDataConsumer = nativeMemoryEntryContext.getVectorDataType() == VectorDataType.FLOAT
-                ? new FloatTrainingDataConsumer(trainingDataAllocation)
-                : new ByteTrainingDataConsumer(trainingDataAllocation);
+            TrainingDataConsumer vectorDataConsumer = nativeMemoryEntryContext.getVectorDataType()
+                .getTrainingDataConsumer(trainingDataAllocation);
 
             trainingDataAllocation.writeLock();
 

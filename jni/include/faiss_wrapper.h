@@ -36,6 +36,12 @@ namespace knn_jni {
                                      jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
                                      jobject parametersJ);
 
+        // Create a index with ids and byte vectors. Instead of creating a new index, this function creates the index
+        // based off of the template index passed in. The index is serialized to indexPathJ.
+        void CreateByteIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
+                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
+                                     jobject parametersJ);
+
         // Load an index from indexPathJ into memory.
         //
         // Return a pointer to the loaded index
@@ -108,6 +114,13 @@ namespace knn_jni {
         //
         // Return the serialized representation
         jbyteArray TrainBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
+                         jlong trainVectorsPointerJ);
+
+        // Create an empty byte index defined by the values in the Java map, parametersJ. Train the index with
+        // the byte vectors located at trainVectorsPointerJ.
+        //
+        // Return the serialized representation
+        jbyteArray TrainByteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
                          jlong trainVectorsPointerJ);
 
         /*

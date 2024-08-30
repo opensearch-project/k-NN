@@ -114,6 +114,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    createByteIndexFromTemplate
+ * Signature: ([IJILjava/lang/String;[BLjava/util/Map;)V
+ */
+    JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createByteIndexFromTemplate
+      (JNIEnv *, jclass, jintArray, jlong, jint, jstring, jbyteArray, jobject);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
  * Method:    loadIndex
  * Signature: (Ljava/lang/String;)J
  */
@@ -214,6 +222,14 @@ JNIEXPORT jbyteArray JNICALL Java_org_opensearch_knn_jni_FaissService_trainIndex
  * Signature: (Ljava/util/Map;IJ)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_org_opensearch_knn_jni_FaissService_trainBinaryIndex
+  (JNIEnv *, jclass, jobject, jint, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    trainByteIndex
+ * Signature: (Ljava/util/Map;IJ)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_org_opensearch_knn_jni_FaissService_trainByteIndex
   (JNIEnv *, jclass, jobject, jint, jlong);
 
 /*

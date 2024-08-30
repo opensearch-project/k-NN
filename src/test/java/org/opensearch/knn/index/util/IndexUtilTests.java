@@ -29,6 +29,7 @@ import org.opensearch.knn.jni.JNIService;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -288,34 +290,33 @@ public class IndexUtilTests extends KNNTestCase {
             );
     }
 
-    public void testValidateKnnField_whenPassByteVectorDataType_thenThrowException() {
-        Map<String, Object> fieldValues = Map.of("type", "knn_vector", "dimension", 8, "data_type", "byte");
-        Map<String, Object> top_level_field = Map.of("top_level_field", fieldValues);
-        Map<String, Object> properties = Map.of("properties", top_level_field);
-        String field = "top_level_field";
-        int dimension = 8;
-
-        MappingMetadata mappingMetadata = mock(MappingMetadata.class);
-        when(mappingMetadata.getSourceAsMap()).thenReturn(properties);
-        IndexMetadata indexMetadata = mock(IndexMetadata.class);
-        when(indexMetadata.mapping()).thenReturn(mappingMetadata);
-        ModelDao modelDao = mock(ModelDao.class);
-
-        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, VectorDataType.BYTE, null);
-
-        assert Objects.requireNonNull(e)
-            .getMessage()
-            .matches("Validation Failed: 1: vector data type \"" + VectorDataType.BYTE.getValue() + "\" is not supported for training.;");
-    }
-
     public void testUpdateVectorDataTypeToParameters_whenVectorDataTypeIsBinary() {
         Map<String, Object> indexParams = new HashMap<>();
         IndexUtil.updateVectorDataTypeToParameters(indexParams, VectorDataType.BINARY);
         assertEquals(VectorDataType.BINARY.getValue(), indexParams.get(VECTOR_DATA_TYPE_FIELD));
     }
 
-    public void testValidateKnnField_whenPassBinaryVectorDataTypeAndPQEncoder_thenThrowException() {
-        Map<String, Object> fieldValues = Map.of("type", "knn_vector", "dimension", 8, "data_type", "binary", "encoder", "pq");
+    public void testValidateKnnField_whenPassBinaryVectorDataTypeAndEncoder_thenThrowException() {
+        validateKnnField_whenPassVectorDataTypeAndEncoder_thenThrowException(ENCODER_SQ, VectorDataType.BINARY);
+        validateKnnField_whenPassVectorDataTypeAndEncoder_thenThrowException(ENCODER_PQ, VectorDataType.BINARY);
+    }
+
+    public void testValidateKnnField_whenPassByteVectorDataTypeAndEncoder_thenThrowException() {
+        validateKnnField_whenPassVectorDataTypeAndEncoder_thenThrowException(ENCODER_SQ, VectorDataType.BYTE);
+        validateKnnField_whenPassVectorDataTypeAndEncoder_thenThrowException(ENCODER_PQ, VectorDataType.BYTE);
+    }
+
+    public void validateKnnField_whenPassVectorDataTypeAndEncoder_thenThrowException(String encoder, VectorDataType vectorDataType) {
+        Map<String, Object> fieldValues = Map.of(
+            "type",
+            "knn_vector",
+            "dimension",
+            8,
+            "data_type",
+            vectorDataType.getValue(),
+            "encoder",
+            encoder
+        );
         Map<String, Object> top_level_field = Map.of("top_level_field", fieldValues);
         Map<String, Object> properties = Map.of("properties", top_level_field);
         String field = "top_level_field";
@@ -326,24 +327,19 @@ public class IndexUtilTests extends KNNTestCase {
         IndexMetadata indexMetadata = mock(IndexMetadata.class);
         when(indexMetadata.mapping()).thenReturn(mappingMetadata);
         ModelDao modelDao = mock(ModelDao.class);
-        MethodComponentContext pq = new MethodComponentContext(ENCODER_PQ, Collections.emptyMap());
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq))
+            new MethodComponentContext(
+                METHOD_IVF,
+                ImmutableMap.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(encoder, Collections.emptyMap()))
+            )
         );
 
-        ValidationException e = IndexUtil.validateKnnField(
-            indexMetadata,
-            field,
-            dimension,
-            modelDao,
-            VectorDataType.BINARY,
-            knnMethodContext
-        );
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, vectorDataType, knnMethodContext);
 
         assert Objects.requireNonNull(e)
             .getMessage()
-            .matches("Validation Failed: 1: vector data type \"binary\" is not supported for pq encoder.;");
+            .contains(String.format(Locale.ROOT, "encoder is not supported for vector data type [%s]", vectorDataType.getValue()));
     }
 }

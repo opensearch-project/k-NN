@@ -173,6 +173,8 @@ namespace test_util {
 
     std::vector<float> RandomVectors(int dim, int64_t numVectors, float min, float max);
 
+    std::vector<int8_t> RandomByteVectors(int dim, int64_t numVectors, int min, int max);
+
     std::vector<int64_t> Range(int64_t numElements);
 
     // returns the number of 64 bit words it would take to hold numBits

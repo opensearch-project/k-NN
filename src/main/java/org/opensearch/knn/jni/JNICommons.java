@@ -178,12 +178,12 @@ public class JNICommons {
     public static native void freeBinaryVectorData(long memoryAddress);
 
     /**
-     * Free up the memory allocated for the binary data stored in memory address. This function should be used with the memory
-     * address returned by {@link JNICommons#storeBinaryVectorData(long, byte[][], long)}
+     * Free up the memory allocated for the byte data stored in memory address. This function should be used with the memory
+     * address returned by {@link JNICommons#storeByteVectorData(long, byte[][], long)}
      *
      * <p>
-     * The function is not threadsafe. If multiple threads are trying to free up same memory location, then it can
-     * lead to errors.
+     *  The function is not threadsafe. If multiple threads are trying to free up same memory location, then it can
+     *  lead to errors.
      * </p>
      *
      * @param memoryAddress address to be freed.

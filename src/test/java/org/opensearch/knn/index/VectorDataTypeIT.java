@@ -33,12 +33,23 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -589,6 +600,93 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         validateL2SearchResults(response);
+    }
+
+    @SneakyThrows
+    public void testIVFByteVector_whenIndexedAndQueried_thenSucceed() {
+
+        String modelId = "test-model-ivf-byte";
+        int dimension = 2;
+
+        // Add training data
+        String trainIndexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field("data_type", VectorDataType.BYTE.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(INDEX_NAME, trainIndexMapping);
+
+        int trainingDataCount = 100;
+        bulkIngestRandomByteVectors(INDEX_NAME, FIELD_NAME, trainingDataCount, dimension);
+
+        XContentBuilder trainModelXContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TRAIN_INDEX_PARAMETER, INDEX_NAME)
+            .field(TRAIN_FIELD_PARAMETER, FIELD_NAME)
+            .field(DIMENSION, dimension)
+            .field(MODEL_DESCRIPTION, "My model description")
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .field(
+                KNN_METHOD,
+                Map.of(
+                    NAME,
+                    METHOD_IVF,
+                    KNN_ENGINE,
+                    FAISS_NAME,
+                    METHOD_PARAMETER_SPACE_TYPE,
+                    SpaceType.L2.getValue(),
+                    PARAMETERS,
+                    Map.of(METHOD_PARAMETER_NLIST, 4, METHOD_PARAMETER_NPROBES, 4)
+                )
+            )
+            .endObject();
+
+        trainModel(modelId, trainModelXContentBuilder);
+
+        // Make sure training succeeds after 30 seconds
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        // Create knn index from model
+        String indexName = "test-index-name-ivf-byte";
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+
+        Byte[] b1 = { 6, 6 };
+        addKnnDoc(indexName, "1", FIELD_NAME, b1);
+        Byte[] b2 = { 2, 2 };
+        addKnnDoc(indexName, "2", FIELD_NAME, b2);
+        Byte[] b3 = { 4, 4 };
+        addKnnDoc(indexName, "3", FIELD_NAME, b3);
+        Byte[] b4 = { 3, 3 };
+        addKnnDoc(indexName, "4", FIELD_NAME, b4);
+
+        Byte[] queryVector = { 1, 1 };
+        Response response = searchKNNIndex(indexName, new KNNQueryBuilder(FIELD_NAME, convertByteToFloatArray(queryVector), 4), 4);
+
+        validateL2SearchResults(response);
+        deleteKNNIndex(indexName);
+        Thread.sleep(45 * 1000);
+        deleteModel(modelId);
     }
 
     @SneakyThrows

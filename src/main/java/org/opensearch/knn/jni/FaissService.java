@@ -194,6 +194,25 @@ class FaissService {
     );
 
     /**
+     * Create a byte index for the native library with a provided template index
+     *
+     * @param ids array of ids mapping to the data passed in
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
+     * @param indexPath path to save index file to
+     * @param templateIndex empty template index
+     * @param parameters additional build time parameters
+     */
+    public static native void createByteIndexFromTemplate(
+        int[] ids,
+        long vectorsAddress,
+        int dim,
+        String indexPath,
+        byte[] templateIndex,
+        Map<String, Object> parameters
+    );
+
+    /**
      * Load an index into memory
      *
      * @param indexPath path to index file
@@ -355,6 +374,16 @@ class FaissService {
      * @return bytes array of trained template index
      */
     public static native byte[] trainBinaryIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer);
+
+    /**
+     * Train an empty byte index
+     *
+     * @param indexParameters parameters used to build index
+     * @param dimension dimension for the index
+     * @param trainVectorsPointer pointer to where training vectors are stored in native memory
+     * @return bytes array of trained template index
+     */
+    public static native byte[] trainByteIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer);
 
     /**
      * <p>
