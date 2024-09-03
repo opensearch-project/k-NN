@@ -1,16 +1,11 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.training;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.jni.JNICommons;
@@ -20,23 +15,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Transfers byte vectors from JVM to native memory.
+ * Transfers binary vectors from JVM to native memory.
  */
-public class ByteTrainingDataConsumer extends TrainingDataConsumer {
+@Log4j2
+public class BinaryTrainingDataConsumer extends TrainingDataConsumer {
 
     /**
      * Constructor
      *
      * @param trainingDataAllocation NativeMemoryAllocation that contains information about native memory allocation.
      */
-    public ByteTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
+    public BinaryTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
         super(trainingDataAllocation);
     }
 
     @Override
     public void accept(List<?> byteVectors) {
         long memoryAddress = trainingDataAllocation.getMemoryAddress();
-        memoryAddress = JNICommons.storeByteVectorData(memoryAddress, byteVectors.toArray(new byte[0][0]), byteVectors.size());
+        memoryAddress = JNICommons.storeBinaryVectorData(memoryAddress, byteVectors.toArray(new byte[0][0]), byteVectors.size());
         trainingDataAllocation.setMemoryAddress(memoryAddress);
     }
 
@@ -45,9 +41,14 @@ public class ByteTrainingDataConsumer extends TrainingDataConsumer {
         SearchHit[] hits = searchResponse.getHits().getHits();
         List<byte[]> vectors = new ArrayList<>();
         String[] fieldPath = fieldName.split("\\.");
+        int nullVectorCount = 0;
 
         for (int vector = 0; vector < vectorsToAdd; vector++) {
             Object fieldValue = extractFieldValue(hits[vector], fieldPath);
+            if (fieldValue == null) {
+                nullVectorCount++;
+                continue;
+            }
 
             byte[] byteArray;
             if (!(fieldValue instanceof List<?>)) {
@@ -60,6 +61,10 @@ public class ByteTrainingDataConsumer extends TrainingDataConsumer {
             }
 
             vectors.add(byteArray);
+        }
+
+        if (nullVectorCount > 0) {
+            log.warn("Found {} documents with null byte vectors in field {}", nullVectorCount, fieldName);
         }
 
         setTotalVectorsCountAdded(getTotalVectorsCountAdded() + vectors.size());

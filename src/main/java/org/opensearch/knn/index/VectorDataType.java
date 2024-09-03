@@ -14,6 +14,12 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.knn.jni.JNICommons;
+import org.opensearch.knn.training.BinaryTrainingDataConsumer;
+import org.opensearch.knn.training.ByteTrainingDataConsumer;
+import org.opensearch.knn.training.FloatTrainingDataConsumer;
+import org.opensearch.knn.training.TrainingDataConsumer;
 
 import java.util.Arrays;
 import java.util.Locale;
@@ -48,6 +54,16 @@ public enum VectorDataType {
             }
             return vector;
         }
+
+        @Override
+        public TrainingDataConsumer getTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
+            return new BinaryTrainingDataConsumer(trainingDataAllocation);
+        }
+
+        @Override
+        public void freeNativeMemory(long memoryAddress) {
+            JNICommons.freeBinaryVectorData(memoryAddress);
+        }
     },
     BYTE("byte") {
 
@@ -67,6 +83,16 @@ public enum VectorDataType {
             }
             return vector;
         }
+
+        @Override
+        public TrainingDataConsumer getTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
+            return new ByteTrainingDataConsumer(trainingDataAllocation);
+        }
+
+        @Override
+        public void freeNativeMemory(long memoryAddress) {
+            JNICommons.freeByteVectorData(memoryAddress);
+        }
     },
     FLOAT("float") {
 
@@ -79,6 +105,16 @@ public enum VectorDataType {
         public float[] getVectorFromBytesRef(BytesRef binaryValue) {
             final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(binaryValue);
             return vectorSerializer.byteToFloatArray(binaryValue);
+        }
+
+        @Override
+        public TrainingDataConsumer getTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
+            return new FloatTrainingDataConsumer(trainingDataAllocation);
+        }
+
+        @Override
+        public void freeNativeMemory(long memoryAddress) {
+            JNICommons.freeVectorData(memoryAddress);
         }
 
     };
@@ -106,6 +142,17 @@ public enum VectorDataType {
      * @return float vector deserialized from binary value
      */
     public abstract float[] getVectorFromBytesRef(BytesRef binaryValue);
+
+    /**
+     * @param trainingDataAllocation training data that has been allocated in native memory
+     * @return TrainingDataConsumer which consumes training data
+     */
+    public abstract TrainingDataConsumer getTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation);
+
+    /**
+     * @param memoryAddress address to be freed
+     */
+    public abstract void freeNativeMemory(long memoryAddress);
 
     /**
      * Validates if given VectorDataType is in the list of supported data types.
