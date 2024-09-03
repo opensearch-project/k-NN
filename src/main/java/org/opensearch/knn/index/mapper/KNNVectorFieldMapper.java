@@ -160,14 +160,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNConstants.MODE_PARAMETER,
             false,
             m -> toType(m).originalMappingParameters.getMode(),
-            Arrays.stream(Mode.values()).map(Mode::toString).collect(Collectors.toList()).toArray(new String[0])
+            Mode.NAMES_ARRAY
         ).acceptsNull();
 
         protected final Parameter<String> compressionLevel = Parameter.restrictedStringParam(
             KNNConstants.COMPRESSION_LEVEL_PARAMETER,
             false,
             m -> toType(m).originalMappingParameters.getCompressionLevel(),
-            Arrays.stream(CompressionLevel.values()).map(CompressionLevel::toString).collect(Collectors.toList()).toArray(new String[0])
+            CompressionLevel.NAMES_ARRAY
         ).acceptsNull();
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();

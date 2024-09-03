@@ -15,7 +15,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.opensearch.Version;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -61,7 +60,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
-@Ignore
 public class JNIServiceTests extends KNNTestCase {
     static final int FP16_MAX = 65504;
     static final int FP16_MIN = -65504;

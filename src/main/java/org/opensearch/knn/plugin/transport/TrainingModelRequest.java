@@ -128,8 +128,8 @@ public class TrainingModelRequest extends ActionRequest {
             this.vectorDataType = VectorDataType.DEFAULT;
         }
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
-            this.mode = Mode.fromString(in.readOptionalString());
-            this.compressionLevel = CompressionLevel.fromString(in.readOptionalString());
+            this.mode = Mode.fromName(in.readOptionalString());
+            this.compressionLevel = CompressionLevel.fromName(in.readOptionalString());
         } else {
             this.mode = Mode.NOT_CONFIGURED;
             this.compressionLevel = CompressionLevel.NOT_CONFIGURED;
@@ -288,8 +288,8 @@ public class TrainingModelRequest extends ActionRequest {
             out.writeString(VectorDataType.DEFAULT.getValue());
         }
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
-            out.writeOptionalString(mode.toString());
-            out.writeOptionalString(compressionLevel.toString());
+            out.writeOptionalString(mode.getName());
+            out.writeOptionalString(compressionLevel.getName());
         }
     }
 }

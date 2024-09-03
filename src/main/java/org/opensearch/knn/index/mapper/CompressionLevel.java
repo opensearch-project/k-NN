@@ -6,8 +6,12 @@
 package org.opensearch.knn.index.mapper;
 
 import lombok.AllArgsConstructor;
+import lombok.Getter;
+import org.opensearch.core.common.Strings;
 
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 /**
  * Enum representing the compression level for float vectors. Compression in this sense refers to compressing a
@@ -16,13 +20,18 @@ import java.util.Locale;
  */
 @AllArgsConstructor
 public enum CompressionLevel {
-    NOT_CONFIGURED(-1),
-    x1(1),
-    x2(2),
-    x4(4),
-    x8(8),
-    x16(16),
-    x32(32);
+    NOT_CONFIGURED(-1, null),
+    x1(1, "1x"),
+    x2(2, "2x"),
+    x4(4, "4x"),
+    x8(8, "8x"),
+    x16(16, "16x"),
+    x32(32, "32x");
+
+    static final String[] NAMES_ARRAY = Arrays.stream(CompressionLevel.values())
+        .map(CompressionLevel::getName)
+        .collect(Collectors.toList())
+        .toArray(new String[0]);
 
     /**
      * Default is set to 1x and is a noop
@@ -36,12 +45,12 @@ public enum CompressionLevel {
      * @param name String representation of the compression level
      * @return CompressionLevel enum value
      */
-    public static CompressionLevel fromString(String name) {
-        if (name == null) {
+    public static CompressionLevel fromName(String name) {
+        if (Strings.isEmpty(name)) {
             return NOT_CONFIGURED;
         }
         for (CompressionLevel config : CompressionLevel.values()) {
-            if (config.toString() != null && config.toString().equals(name)) {
+            if (config.getName() != null && config.getName().equals(name)) {
                 return config;
             }
         }
@@ -49,14 +58,8 @@ public enum CompressionLevel {
     }
 
     private final int compressionLevel;
-
-    @Override
-    public String toString() {
-        if (this == NOT_CONFIGURED) {
-            return null;
-        }
-        return compressionLevel + "x";
-    }
+    @Getter
+    private final String name;
 
     /**
      * Gets the number of bits used to represent a float in order to achieve this compression. For instance, for
@@ -64,9 +67,9 @@ public enum CompressionLevel {
      *
      * @return number of bits to represent a float at this compression level
      */
-    public int numBitsForFloat() {
+    public int numBitsForFloat32() {
         if (this == NOT_CONFIGURED) {
-            return DEFAULT.numBitsForFloat();
+            return DEFAULT.numBitsForFloat32();
         }
 
         return (Float.BYTES * Byte.SIZE) / compressionLevel;

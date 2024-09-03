@@ -82,6 +82,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertEquals(original1.getTrainingField(), copy1.getTrainingField());
         assertEquals(original1.getPreferredNodeId(), copy1.getPreferredNodeId());
         assertEquals(original1.getVectorDataType(), copy1.getVectorDataType());
+        assertEquals(original1.getMode(), copy1.getMode());
+        assertEquals(original1.getCompressionLevel(), copy1.getCompressionLevel());
 
         // Also, check when preferred node and model id and description are null
         TrainingModelRequest original2 = new TrainingModelRequest(
@@ -108,6 +110,33 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertEquals(original2.getTrainingField(), copy2.getTrainingField());
         assertEquals(original2.getPreferredNodeId(), copy2.getPreferredNodeId());
         assertEquals(original2.getVectorDataType(), copy2.getVectorDataType());
+        assertEquals(original2.getMode(), copy2.getMode());
+        assertEquals(original2.getCompressionLevel(), copy2.getCompressionLevel());
+
+        TrainingModelRequest original3 = new TrainingModelRequest(
+            null,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null,
+            VectorDataType.DEFAULT,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+
+        streamOutput = new BytesStreamOutput();
+        original3.writeTo(streamOutput);
+        TrainingModelRequest copy3 = new TrainingModelRequest(streamOutput.bytes().streamInput());
+
+        assertEquals(original3.getModelId(), copy3.getModelId());
+        assertEquals(original3.getKnnMethodContext(), copy3.getKnnMethodContext());
+        assertEquals(original3.getDimension(), copy3.getDimension());
+        assertEquals(original3.getTrainingIndex(), copy3.getTrainingIndex());
+        assertEquals(original3.getTrainingField(), copy3.getTrainingField());
+        assertEquals(original3.getMode(), copy3.getMode());
+        assertEquals(original3.getCompressionLevel(), copy3.getCompressionLevel());
     }
 
     public void testGetters() {

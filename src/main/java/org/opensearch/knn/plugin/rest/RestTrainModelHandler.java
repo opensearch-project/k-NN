@@ -154,8 +154,8 @@ public class RestTrainModelHandler extends BaseRestHandler {
             preferredNodeId,
             description,
             vectorDataType,
-            Mode.fromString(mode),
-            CompressionLevel.fromString(compressionLevel)
+            Mode.fromName(mode),
+            CompressionLevel.fromName(compressionLevel)
         );
 
         if (maximumVectorCount != DEFAULT_NOT_SET_INT_VALUE) {

@@ -56,9 +56,26 @@ public class ModelMetadataTests extends KNNTestCase {
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         modelMetadata.writeTo(streamOutput);
-
         ModelMetadata modelMetadataCopy = new ModelMetadata(streamOutput.bytes().streamInput());
+        assertEquals(modelMetadata, modelMetadataCopy);
 
+        modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            "",
+            "",
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT,
+            Mode.ON_DISK,
+            CompressionLevel.x16
+        );
+        streamOutput = new BytesStreamOutput();
+        modelMetadata.writeTo(streamOutput);
+        modelMetadataCopy = new ModelMetadata(streamOutput.bytes().streamInput());
         assertEquals(modelMetadata, modelMetadataCopy);
     }
 
@@ -270,7 +287,7 @@ public class ModelMetadataTests extends KNNTestCase {
         assertEquals(updatedError, modelMetadata.getError());
     }
 
-    public void testToString() {
+    public void testGetName() {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
@@ -299,7 +316,11 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + methodComponentContext.toClusterStateString()
             + ","
-            + VectorDataType.DEFAULT.getValue();
+            + VectorDataType.DEFAULT.getValue()
+            + ","
+            + "null"
+            + ","
+            + "null";
 
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
@@ -314,6 +335,47 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED
+        );
+
+        assertEquals(expected, modelMetadata.toString());
+
+        expected = knnEngine.getName()
+            + ","
+            + spaceType.getValue()
+            + ","
+            + dimension
+            + ","
+            + modelState.getName()
+            + ","
+            + timestamp
+            + ","
+            + description
+            + ","
+            + error
+            + ","
+            + nodeAssignment
+            + ","
+            + methodComponentContext.toClusterStateString()
+            + ","
+            + VectorDataType.DEFAULT.getValue()
+            + ","
+            + Mode.ON_DISK
+            + ","
+            + CompressionLevel.x32;
+
+        modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            nodeAssignment,
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT,
+            Mode.ON_DISK,
+            CompressionLevel.x32
         );
 
         assertEquals(expected, modelMetadata.toString());
@@ -688,6 +750,52 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + VectorDataType.DEFAULT.getValue();
 
+        String stringRep3 = knnEngine.getName()
+            + ","
+            + spaceType.getValue()
+            + ","
+            + dimension
+            + ","
+            + modelState.getName()
+            + ","
+            + timestamp
+            + ","
+            + description
+            + ","
+            + error
+            + ","
+            + nodeAssignment
+            + ","
+            + methodComponentContext.toClusterStateString()
+            + ","
+            + VectorDataType.DEFAULT.getValue()
+            + ","
+            + ",";
+
+        String stringRep4 = knnEngine.getName()
+            + ","
+            + spaceType.getValue()
+            + ","
+            + dimension
+            + ","
+            + modelState.getName()
+            + ","
+            + timestamp
+            + ","
+            + description
+            + ","
+            + error
+            + ","
+            + nodeAssignment
+            + ","
+            + methodComponentContext.toClusterStateString()
+            + ","
+            + VectorDataType.DEFAULT.getValue()
+            + ","
+            + Mode.ON_DISK
+            + ","
+            + CompressionLevel.x32;
+
         ModelMetadata expected1 = new ModelMetadata(
             knnEngine,
             spaceType,
@@ -718,11 +826,30 @@ public class ModelMetadataTests extends KNNTestCase {
             CompressionLevel.NOT_CONFIGURED
         );
 
+        ModelMetadata expected3 = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            "",
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
         ModelMetadata fromString2 = ModelMetadata.fromString(stringRep2);
+        ModelMetadata fromString3 = ModelMetadata.fromString(stringRep3);
+        ModelMetadata fromString4 = ModelMetadata.fromString(stringRep4);
 
         assertEquals(expected1, fromString1);
         assertEquals(expected2, fromString2);
+        assertEquals(expected2, fromString3);
+        assertEquals(expected3, fromString4);
 
         expectThrows(IllegalArgumentException.class, () -> ModelMetadata.fromString("invalid"));
     }
@@ -767,6 +894,36 @@ public class ModelMetadataTests extends KNNTestCase {
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED
         );
+
+        ModelMetadata expected3 = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            "",
+            emptyMethodComponentContext,
+            VectorDataType.DEFAULT,
+            Mode.ON_DISK,
+            CompressionLevel.NOT_CONFIGURED
+        );
+
+        ModelMetadata expected4 = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            "",
+            emptyMethodComponentContext,
+            VectorDataType.DEFAULT,
+            Mode.ON_DISK,
+            CompressionLevel.x16
+        );
         Map<String, Object> metadataAsMap = new HashMap<>();
         metadataAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
         metadataAsMap.put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
@@ -788,6 +945,14 @@ public class ModelMetadataTests extends KNNTestCase {
         metadataAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, null);
         metadataAsMap.put(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT, null);
         assertEquals(expected2, fromMap);
+
+        metadataAsMap.put(KNNConstants.MODE_PARAMETER, Mode.ON_DISK.getName());
+        fromMap = ModelMetadata.getMetadataFromSourceMap(metadataAsMap);
+        assertEquals(expected3, fromMap);
+
+        metadataAsMap.put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x16.getName());
+        fromMap = ModelMetadata.getMetadataFromSourceMap(metadataAsMap);
+        assertEquals(expected4, fromMap);
     }
 
     public void testBlockCommasInDescription() {

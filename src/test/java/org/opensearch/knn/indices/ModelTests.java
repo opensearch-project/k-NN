@@ -399,8 +399,8 @@ public class ModelTests extends KNNTestCase {
         modelAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, nodeAssignment);
         modelAsMap.put(KNNConstants.MODEL_BLOB_PARAMETER, "aGVsbG8=");
         modelAsMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue());
-        modelAsMap.put(KNNConstants.MODE_PARAMETER, Mode.NOT_CONFIGURED.toString());
-        modelAsMap.put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, CompressionLevel.NOT_CONFIGURED.toString());
+        modelAsMap.put(KNNConstants.MODE_PARAMETER, Mode.NOT_CONFIGURED.getName());
+        modelAsMap.put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, CompressionLevel.NOT_CONFIGURED.getName());
 
         byte[] blob1 = "hello".getBytes();
         Model expected = new Model(metadata, blob1, modelID);

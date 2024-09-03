@@ -296,10 +296,10 @@ public interface ModelDao {
                     put(KNNConstants.MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment());
                     put(KNNConstants.VECTOR_DATA_TYPE_FIELD, modelMetadata.getVectorDataType());
                     if (Mode.isConfigured(modelMetadata.getMode())) {
-                        put(KNNConstants.MODE_PARAMETER, modelMetadata.getMode().toString());
+                        put(KNNConstants.MODE_PARAMETER, modelMetadata.getMode().getName());
                     }
                     if (CompressionLevel.isConfigured(modelMetadata.getCompressionLevel())) {
-                        put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, modelMetadata.getCompressionLevel().toString());
+                        put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, modelMetadata.getCompressionLevel().getName());
                     }
                     MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
                     if (!methodComponentContext.getName().isEmpty()) {

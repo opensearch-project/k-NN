@@ -417,6 +417,78 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
     }
 
+    @SneakyThrows
+    public void testTypeParser_parse_compressionAndModeParameter() {
+        String fieldName = "test-field-name-vec";
+        String indexName = "test-index-name-vec";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder1 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, 10)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x16.getName())
+            .endObject();
+
+        Mapper.Builder<?> builder = typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder1),
+            buildParserContext(indexName, settings)
+        );
+
+        assertTrue(builder instanceof KNNVectorFieldMapper.Builder);
+        assertEquals(Mode.ON_DISK.getName(), ((KNNVectorFieldMapper.Builder) builder).mode.get());
+        assertEquals(CompressionLevel.x16.getName(), ((KNNVectorFieldMapper.Builder) builder).compressionLevel.get());
+
+        XContentBuilder xContentBuilder2 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, 10)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
+            .field(MODE_PARAMETER, "invalid")
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x16.getName())
+            .endObject();
+
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder2), buildParserContext(indexName, settings))
+        );
+
+        XContentBuilder xContentBuilder3 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, 10)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
+            .field(COMPRESSION_LEVEL_PARAMETER, "invalid")
+            .endObject();
+
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder3), buildParserContext(indexName, settings))
+        );
+
+        XContentBuilder xContentBuilder4 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, 10)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
+            .field(MODEL_ID, "test")
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x16.getName())
+            .endObject();
+
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder4), buildParserContext(indexName, settings))
+        );
+    }
+
     // Validate TypeParser parsing invalid vector data_type which throws exception
     @SneakyThrows
     public void testTypeParser_parse_invalidVectorDataType() {
@@ -824,8 +896,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     dataType,
                     dimension,
                     knnMethodContext,
-                    Mode.NOT_CONFIGURED.toString(),
-                    CompressionLevel.NOT_CONFIGURED.toString(),
+                    Mode.NOT_CONFIGURED.getName(),
+                    CompressionLevel.NOT_CONFIGURED.getName(),
                     null
                 );
                 originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
@@ -925,8 +997,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     VectorDataType.DEFAULT,
                     -1,
                     null,
-                    Mode.NOT_CONFIGURED.toString(),
-                    CompressionLevel.NOT_CONFIGURED.toString(),
+                    Mode.NOT_CONFIGURED.getName(),
+                    CompressionLevel.NOT_CONFIGURED.getName(),
                     MODEL_ID
                 );
 
@@ -1017,8 +1089,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             VectorDataType.FLOAT,
             TEST_DIMENSION,
             getDefaultKNNMethodContext(),
-            Mode.NOT_CONFIGURED.toString(),
-            CompressionLevel.NOT_CONFIGURED.toString(),
+            Mode.NOT_CONFIGURED.getName(),
+            CompressionLevel.NOT_CONFIGURED.getName(),
             null
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
@@ -1076,8 +1148,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             VectorDataType.FLOAT,
             TEST_DIMENSION,
             knnMethodContext,
-            Mode.NOT_CONFIGURED.toString(),
-            CompressionLevel.NOT_CONFIGURED.toString(),
+            Mode.NOT_CONFIGURED.getName(),
+            CompressionLevel.NOT_CONFIGURED.getName(),
             null
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
@@ -1116,8 +1188,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             VectorDataType.BYTE,
             TEST_DIMENSION,
             getDefaultByteKNNMethodContext(),
-            Mode.NOT_CONFIGURED.toString(),
-            CompressionLevel.NOT_CONFIGURED.toString(),
+            Mode.NOT_CONFIGURED.getName(),
+            CompressionLevel.NOT_CONFIGURED.getName(),
             null
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
