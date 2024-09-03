@@ -31,7 +31,8 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         CopyTo copyTo,
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
-        boolean hasDocValues
+        boolean hasDocValues,
+        OriginalMappingParameters originalMappingParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -47,7 +48,8 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            knnMethodConfigContext.getVersionCreated()
+            knnMethodConfigContext.getVersionCreated(),
+            originalMappingParameters
         );
     }
 
@@ -59,9 +61,20 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        Version indexCreatedVersion
+        Version indexCreatedVersion,
+        OriginalMappingParameters originalMappingParameters
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion, null);
+        super(
+            simpleName,
+            mappedFieldType,
+            multiFields,
+            copyTo,
+            ignoreMalformed,
+            stored,
+            hasDocValues,
+            indexCreatedVersion,
+            originalMappingParameters
+        );
         // setting it explicitly false here to ensure that when flatmapper is used Lucene based Vector field is not created.
         this.useLuceneBasedVectorField = false;
         this.perDimensionValidator = selectPerDimensionValidator(vectorDataType);

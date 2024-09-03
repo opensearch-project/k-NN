@@ -26,9 +26,11 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -64,7 +66,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             preferredNode,
             description,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -88,7 +92,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         streamOutput = new BytesStreamOutput();
@@ -124,7 +130,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             preferredNode,
             description,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingModelRequest.setMaximumVectorCount(maxVectorCount);
@@ -164,7 +172,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -179,7 +189,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 
@@ -221,7 +233,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return true to recognize that the modelId is in graveyard
@@ -269,7 +283,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -313,7 +329,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -360,7 +378,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -412,7 +432,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -469,7 +491,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -528,7 +552,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             preferredNode,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -595,7 +621,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             description,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -641,7 +669,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -680,7 +710,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
             trainingField,
             null,
             null,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate

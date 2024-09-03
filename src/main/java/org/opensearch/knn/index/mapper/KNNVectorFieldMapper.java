@@ -104,13 +104,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 }
                 return value;
             },
-            m -> {
-                KNNMappingConfig knnMappingConfig = toType(m).fieldType().getKnnMappingConfig();
-                if (knnMappingConfig.getModelId().isPresent()) {
-                    return UNSET_MODEL_DIMENSION_IDENTIFIER;
-                }
-                return knnMappingConfig.getDimension();
-            }
+            m -> toType(m).originalMappingParameters.getDimension()
         );
 
         /**
@@ -122,7 +116,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             false,
             () -> DEFAULT_VECTOR_DATA_TYPE_FIELD,
             (n, c, o) -> VectorDataType.get((String) o),
-            m -> toType(m).vectorDataType
+            m -> toType(m).originalMappingParameters.getVectorDataType()
         );
 
         /**
@@ -133,7 +127,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected final Parameter<String> modelId = Parameter.stringParam(
             KNNConstants.MODEL_ID,
             false,
-            m -> toType(m).fieldType().getKnnMappingConfig().getModelId().orElse(null),
+            m -> toType(m).originalMappingParameters.getModelId(),
             null
         );
 
@@ -146,7 +140,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             false,
             () -> null,
             (n, c, o) -> KNNMethodContext.parse(o),
-            m -> toType(m).originalKNNMethodContext
+            m -> toType(m).originalMappingParameters.getKnnMethodContext()
         ).setSerializer(((b, n, v) -> {
             b.startObject(n);
             v.toXContent(b, ToXContent.EMPTY_PARAMS);
@@ -161,6 +155,20 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 throw validationException;
             }
         });
+
+        protected final Parameter<String> mode = Parameter.restrictedStringParam(
+            KNNConstants.MODE_PARAMETER,
+            false,
+            m -> toType(m).originalMappingParameters.getMode(),
+            Arrays.stream(Mode.values()).map(Mode::toString).collect(Collectors.toList()).toArray(new String[0])
+        );
+
+        protected final Parameter<String> compressionLevel = Parameter.restrictedStringParam(
+            KNNConstants.COMPRESSION_LEVEL_PARAMETER,
+            false,
+            m -> toType(m).originalMappingParameters.getCompressionLevel(),
+            Arrays.stream(CompressionLevel.values()).map(CompressionLevel::toString).collect(Collectors.toList()).toArray(new String[0])
+        );
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
@@ -182,28 +190,28 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         // So, what we do is pass in a "resolvedKNNMethodContext" that will either be null or be set via the merge builder
         // constructor. A similar approach was taken for https://github.com/opendistro-for-elasticsearch/k-NN/issues/288
         @Setter
-        @Getter
-        private KNNMethodContext resolvedKNNMethodContext;
-        @Setter
         private KNNMethodConfigContext knnMethodConfigContext;
+        @Setter
+        @Getter
+        private OriginalMappingParameters originalParameters;
 
         public Builder(
             String name,
             ModelDao modelDao,
             Version indexCreatedVersion,
-            KNNMethodContext resolvedKNNMethodContext,
-            KNNMethodConfigContext knnMethodConfigContext
+            KNNMethodConfigContext knnMethodConfigContext,
+            OriginalMappingParameters originalParameters
         ) {
             super(name);
             this.modelDao = modelDao;
             this.indexCreatedVersion = indexCreatedVersion;
-            this.resolvedKNNMethodContext = resolvedKNNMethodContext;
             this.knnMethodConfigContext = knnMethodConfigContext;
+            this.originalParameters = originalParameters;
         }
 
         @Override
         protected List<Parameter<?>> getParameters() {
-            return Arrays.asList(stored, hasDocValues, dimension, vectorDataType, meta, knnMethodContext, modelId);
+            return Arrays.asList(stored, hasDocValues, dimension, vectorDataType, meta, knnMethodContext, modelId, mode, compressionLevel);
         }
 
         protected Explicit<Boolean> ignoreMalformed(BuilderContext context) {
@@ -231,18 +239,18 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     name,
                     metaValue,
                     vectorDataType.getValue(),
-                    modelId.get(),
                     multiFieldsBuilder,
                     copyToBuilder,
                     ignoreMalformed,
                     stored.get(),
                     hasDocValues.get(),
                     modelDao,
-                    indexCreatedVersion
+                    indexCreatedVersion,
+                    originalParameters
                 );
             }
 
-            if (resolvedKNNMethodContext == null) {
+            if (originalParameters.getResolvedKnnMethodContext() == null) {
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -256,11 +264,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     copyToBuilder,
                     ignoreMalformed,
                     stored.get(),
-                    hasDocValues.get()
+                    hasDocValues.get(),
+                    originalParameters
                 );
             }
 
-            if (resolvedKNNMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
+            if (originalParameters.getResolvedKnnMethodContext().getKnnEngine() == KNNEngine.LUCENE) {
                 log.debug(String.format(Locale.ROOT, "Use [LuceneFieldMapper] mapper for field [%s]", name));
                 LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput = LuceneFieldMapper.CreateLuceneFieldMapperInput
                     .builder()
@@ -275,9 +284,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 return LuceneFieldMapper.createFieldMapper(
                     buildFullName(context),
                     metaValue,
-                    resolvedKNNMethodContext,
                     knnMethodConfigContext,
-                    createLuceneFieldMapperInput
+                    createLuceneFieldMapperInput,
+                    originalParameters
                 );
             }
 
@@ -285,14 +294,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 buildFullName(context),
                 name,
                 metaValue,
-                resolvedKNNMethodContext,
                 knnMethodConfigContext,
-                knnMethodContext.get(),
                 multiFieldsBuilder,
                 copyToBuilder,
                 ignoreMalformed,
                 stored.getValue(),
-                hasDocValues.getValue()
+                hasDocValues.getValue(),
+                originalParameters
             );
         }
 
@@ -382,8 +390,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         private void validateFromKNNMethod(KNNVectorFieldMapper.Builder builder) {
-            if (builder.resolvedKNNMethodContext != null) {
-                ValidationException validationException = builder.resolvedKNNMethodContext.validate(builder.knnMethodConfigContext);
+            if (builder.originalParameters.getResolvedKnnMethodContext() != null) {
+                ValidationException validationException = builder.originalParameters.getResolvedKnnMethodContext()
+                    .validate(builder.knnMethodConfigContext);
                 if (validationException != null) {
                     throw validationException;
                 }
@@ -407,13 +416,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             );
 
             // Configure method from map or legacy
-            builder.setResolvedKNNMethodContext(
-                builder.knnMethodContext.getValue() != null
-                    ? builder.knnMethodContext.getValue()
-                    : createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated())
-            );
-            // TODO: We should remove this and set it based on the KNNMethodContext
-            setDefaultSpaceType(builder.resolvedKNNMethodContext, builder.vectorDataType.getValue());
+            OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(builder);
+            if (originalMappingParameters.isLegacyMapping()) {
+                originalMappingParameters.setResolvedKnnMethodContext(
+                    createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated())
+                );
+            }
+            setDefaultSpaceType(builder.originalParameters.getResolvedKnnMethodContext(), builder.vectorDataType.getValue());
         }
 
         private boolean isKNNDisabled(Settings settings) {
@@ -449,7 +458,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     // We need to ensure that the original KNNMethodContext as parsed is stored to initialize the
     // Builder for serialization. So, we need to store it here. This is mainly to ensure that the legacy field mapper
     // can use KNNMethodContext without messing up serialization on mapper merge
-    protected KNNMethodContext originalKNNMethodContext;
+    protected OriginalMappingParameters originalMappingParameters;
 
     public KNNVectorFieldMapper(
         String simpleName,
@@ -460,7 +469,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         boolean stored,
         boolean hasDocValues,
         Version indexCreatedVersion,
-        KNNMethodContext originalKNNMethodContext
+        OriginalMappingParameters originalMappingParameters
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo);
         this.ignoreMalformed = ignoreMalformed;
@@ -469,7 +478,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.vectorDataType = mappedFieldType.getVectorDataType();
         updateEngineStats();
         this.indexCreatedVersion = indexCreatedVersion;
-        this.originalKNNMethodContext = originalKNNMethodContext;
+        this.originalMappingParameters = originalMappingParameters;
     }
 
     public KNNVectorFieldMapper clone() {
@@ -680,8 +689,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             simpleName(),
             modelDao,
             indexCreatedVersion,
-            fieldType().getKnnMappingConfig().getKnnMethodContext().orElse(null),
-            knnMethodConfigContext
+            knnMethodConfigContext,
+            originalMappingParameters
         ).init(this);
     }
 
