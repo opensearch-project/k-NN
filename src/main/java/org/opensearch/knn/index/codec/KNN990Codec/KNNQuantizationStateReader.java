@@ -50,11 +50,7 @@ public final class KNNQuantizationStateReader {
      * @param state the read state to read from
      */
     public static Map<String, byte[]> read(SegmentReadState state) throws IOException {
-        String quantizationStateFileName = IndexFileNames.segmentFileName(
-            state.segmentInfo.name,
-            state.segmentSuffix,
-            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
-        );
+        String quantizationStateFileName = getQuantizationStateFileName(state);
         Map<String, byte[]> readQuantizationStateInfos = new HashMap<>();
 
         try (IndexInput input = state.directory.openInput(quantizationStateFileName, IOContext.READ)) {
@@ -76,9 +72,7 @@ public final class KNNQuantizationStateReader {
             }
             // Read each field's bytes
             for (int i = 0; i < numFields; i++) {
-                input.seek(positions.get(i));
-                byte[] stateBytes = new byte[lengths.get(i)];
-                input.readBytes(stateBytes, 0, lengths.get(i));
+                byte[] stateBytes = readStateBytes(input, positions.get(i), lengths.get(i));
                 String fieldName = state.fieldInfos.fieldInfo(fieldNumbers.get(i)).getName();
                 readQuantizationStateInfos.put(fieldName, stateBytes);
             }
@@ -94,11 +88,7 @@ public final class KNNQuantizationStateReader {
     public static QuantizationState read(QuantizationStateReadConfig readConfig) throws IOException {
         SegmentReadState segmentReadState = readConfig.getSegmentReadState();
         String field = readConfig.getField();
-        String quantizationStateFileName = IndexFileNames.segmentFileName(
-            segmentReadState.segmentInfo.name,
-            segmentReadState.segmentSuffix,
-            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
-        );
+        String quantizationStateFileName = getQuantizationStateFileName(segmentReadState);
         int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
 
         try (IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.READ)) {
@@ -124,9 +114,8 @@ public final class KNNQuantizationStateReader {
                 throw new IllegalArgumentException(String.format("Field %s not found", field));
             }
 
-            input.seek(position);
-            byte[] stateBytes = new byte[length];
-            input.readBytes(stateBytes, 0, length);
+            byte[] stateBytes = readStateBytes(input, position, length);
+
             // Deserialize the byte array to a quantization state object
             ScalarQuantizationType scalarQuantizationType = ((ScalarQuantizationParams) readConfig.getQuantizationParams()).getSqType();
             if (scalarQuantizationType == ScalarQuantizationType.ONE_BIT) {
@@ -149,5 +138,18 @@ public final class KNNQuantizationStateReader {
         input.readInt();
         input.seek(indexStartPosition);
         return input.readInt();
+    }
+
+    @VisibleForTesting
+    static byte[] readStateBytes(IndexInput input, long position, int length) throws IOException {
+        input.seek(position);
+        byte[] stateBytes = new byte[length];
+        input.readBytes(stateBytes, 0, length);
+        return stateBytes;
+    }
+
+    @VisibleForTesting
+    static String getQuantizationStateFileName(SegmentReadState state) {
+        return IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
     }
 }

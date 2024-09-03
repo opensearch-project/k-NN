@@ -10,6 +10,7 @@ import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.Sort;
@@ -20,6 +21,7 @@ import org.apache.lucene.util.Version;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
@@ -84,8 +86,6 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
                 mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
                 Mockito.verify(input, times(4)).readInt();
                 Mockito.verify(input, times(2)).readVLong();
-                Mockito.verify(input, times(2)).readBytes(any(byte[].class), anyInt(), anyInt());
-                Mockito.verify(input, times(2)).seek(anyLong());
             }
         }
     }
@@ -138,14 +138,14 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
         try (MockedStatic<KNNQuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNNQuantizationStateReader.class)) {
             mockedStaticReader.when(() -> KNNQuantizationStateReader.getNumFields(input)).thenReturn(2);
             mockedStaticReader.when(() -> KNNQuantizationStateReader.read(quantizationStateReadConfig)).thenCallRealMethod();
+            mockedStaticReader.when(() -> KNNQuantizationStateReader.readStateBytes(any(IndexInput.class), anyLong(), anyInt()))
+                .thenReturn(new byte[8]);
             try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
                 assertThrows(IllegalArgumentException.class, () -> KNNQuantizationStateReader.read(quantizationStateReadConfig));
 
                 mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
                 Mockito.verify(input, times(4)).readInt();
                 Mockito.verify(input, times(2)).readVLong();
-                Mockito.verify(input, times(0)).readBytes(any(byte[].class), anyInt(), anyInt());
-                Mockito.verify(input, times(0)).seek(anyLong());
 
                 Mockito.when(input.readInt()).thenReturn(fieldNumber);
 
@@ -186,5 +186,51 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
         Mockito.verify(input, times(1)).readLong();
         Mockito.verify(input, times(2)).seek(anyLong());
         Mockito.verify(input, times(1)).length();
+    }
+
+    @SneakyThrows
+    public void testReadStateBytes() {
+        IndexInput input = Mockito.mock(IndexInput.class);
+        long position = 1;
+        int length = 2;
+        byte[] stateBytes = new byte[length];
+        KNNQuantizationStateReader.readStateBytes(input, position, length);
+
+        Mockito.verify(input, times(1)).seek(position);
+        Mockito.verify(input, times(1)).readBytes(stateBytes, 0, length);
+
+    }
+
+    @SneakyThrows
+    public void testGetQuantizationStateFileName() {
+        String segmentName = "test-segment";
+        String segmentSuffix = "test-suffix";
+        String expectedName = IndexFileNames.segmentFileName(segmentName, segmentSuffix, KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
+
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            Mockito.mock(Directory.class),
+            Mockito.mock(Version.class),
+            Mockito.mock(Version.class),
+            segmentName,
+            0,
+            false,
+            false,
+            Mockito.mock(Codec.class),
+            Mockito.mock(Map.class),
+            new byte[16],
+            Mockito.mock(Map.class),
+            Mockito.mock(Sort.class)
+        );
+
+        final SegmentReadState segmentReadState = new SegmentReadState(
+            Mockito.mock(Directory.class),
+            segmentInfo,
+            Mockito.mock(FieldInfos.class),
+            Mockito.mock(IOContext.class),
+            segmentSuffix
+        );
+
+        assertEquals(expectedName, KNNQuantizationStateReader.getQuantizationStateFileName(segmentReadState));
+
     }
 }
