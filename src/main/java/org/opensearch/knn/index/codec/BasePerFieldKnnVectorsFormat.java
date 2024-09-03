@@ -78,10 +78,13 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
-        KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
+        final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
+        if (knnMappingConfig.getModelId().isPresent()) {
+            return nativeEngineVectorsFormat();
+        }
 
+        final KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
+            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
         final KNNEngine engine = knnMethodContext.getKnnEngine();
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
 
@@ -122,6 +125,10 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         }
 
         // All native engines to use NativeEngines990KnnVectorsFormat
+        return nativeEngineVectorsFormat();
+    }
+
+    private NativeEngines990KnnVectorsFormat nativeEngineVectorsFormat() {
         return new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
     }
 
