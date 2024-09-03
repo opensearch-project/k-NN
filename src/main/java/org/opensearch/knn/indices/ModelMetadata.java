@@ -452,8 +452,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             objectToString(trainingNodeAssignment),
             (MethodComponentContext) methodComponentContext,
             VectorDataType.get(objectToString(vectorDataType)),
-            Mode.fromString(mode.toString()),
-            CompressionLevel.fromString(compressionLevel.toString())
+            Mode.fromString(objectToString(mode)),
+            CompressionLevel.fromString(objectToString(compressionLevel))
         );
         return modelMetadata;
     }

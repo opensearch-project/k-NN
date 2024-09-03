@@ -69,11 +69,7 @@ public final class OriginalMappingParameters {
             return false;
         }
 
-        if (vectorDataType != VectorDataType.DEFAULT) {
-            return false;
-        }
-
-        if (modelId != null || dimension == -1) {
+        if (modelId != null) {
             return false;
         }
 

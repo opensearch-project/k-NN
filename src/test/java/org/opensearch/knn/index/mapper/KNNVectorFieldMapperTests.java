@@ -65,6 +65,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.Version.CURRENT;
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -77,6 +78,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRU
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -109,11 +111,27 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, CURRENT, null, null);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(
+            fieldName,
+            modelDao,
+            CURRENT,
+            null,
+            new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null)
+        );
 
-        assertEquals(7, builder.getParameters().size());
+        assertEquals(9, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
-        List<String> expectedParams = Arrays.asList("store", "doc_values", DIMENSION, VECTOR_DATA_TYPE_FIELD, "meta", KNN_METHOD, MODEL_ID);
+        List<String> expectedParams = Arrays.asList(
+            "store",
+            "doc_values",
+            DIMENSION,
+            VECTOR_DATA_TYPE_FIELD,
+            "meta",
+            KNN_METHOD,
+            MODEL_ID,
+            MODE_PARAMETER,
+            COMPRESSION_LEVEL_PARAMETER
+        );
         assertEquals(expectedParams, actualParams);
     }
 
@@ -208,6 +226,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
 
         when(modelDao.getMetadata(modelId)).thenReturn(mockedModelMetadata);
+        builder.setOriginalParameters(new OriginalMappingParameters(builder));
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof ModelFieldMapper);
         assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isPresent());
@@ -1286,6 +1305,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Setup settings
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, false).build();
 
+        builder.setOriginalParameters(new OriginalMappingParameters(builder));
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
