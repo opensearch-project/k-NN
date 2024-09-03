@@ -69,7 +69,7 @@ public enum CompressionLevel {
             return DEFAULT.numBitsForFloat();
         }
 
-        return (Float.BYTES * Byte.SIZE) * compressionLevel;
+        return (Float.BYTES * Byte.SIZE) / compressionLevel;
     }
 
     /**
