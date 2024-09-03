@@ -32,6 +32,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.ContentPath;
 import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.Mapper;
+import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.KNNTestCase;
@@ -456,7 +457,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .endObject();
 
         expectThrows(
-            IllegalArgumentException.class,
+            MapperParsingException.class,
             () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder2), buildParserContext(indexName, settings))
         );
 

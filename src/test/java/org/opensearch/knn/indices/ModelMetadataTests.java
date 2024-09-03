@@ -790,9 +790,9 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + VectorDataType.DEFAULT.getValue()
             + ","
-            + Mode.ON_DISK
+            + Mode.ON_DISK.getName()
             + ","
-            + CompressionLevel.x32;
+            + CompressionLevel.x32.getName();
 
         ModelMetadata expected1 = new ModelMetadata(
             knnEngine,

@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import org.opensearch.core.common.Strings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
@@ -73,6 +74,6 @@ public final class OriginalMappingParameters {
             return false;
         }
 
-        return mode == null && compressionLevel == null;
+        return Strings.isEmpty(mode) && Strings.isEmpty(compressionLevel);
     }
 }
