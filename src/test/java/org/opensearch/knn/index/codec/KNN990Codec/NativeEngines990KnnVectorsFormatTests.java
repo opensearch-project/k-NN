@@ -14,6 +14,7 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
@@ -224,6 +225,16 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertEquals(1, floatVectorValues.size());
         assertEquals(8, floatVectorValues.dimension());
         indexReader.close();
+    }
+
+    public void testFormatName_withValidInput_thenSuccess() {
+        final String validFormatName = "NativeEngines990KnnVectorsFormat";
+        Assert.assertEquals(validFormatName, new NativeEngines990KnnVectorsFormat().getName());
+        Assert.assertEquals(
+            validFormatName,
+            new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
+                .getName()
+        );
     }
 
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {
