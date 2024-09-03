@@ -470,7 +470,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .endObject();
 
         expectThrows(
-            IllegalArgumentException.class,
+            MapperParsingException.class,
             () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder3), buildParserContext(indexName, settings))
         );
 
@@ -485,7 +485,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .endObject();
 
         expectThrows(
-            IllegalArgumentException.class,
+            MapperParsingException.class,
             () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder4), buildParserContext(indexName, settings))
         );
     }

@@ -366,6 +366,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 throw new IllegalArgumentException("Cannot set modelId or method parameters when index.knn setting is false");
             }
             validateDimensionSet(builder);
+            validateCompressionAndModeNotSet(builder, builder.name(), "flat");
         }
 
         private void validateFromModel(KNNVectorFieldMapper.Builder builder) {
@@ -373,6 +374,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (builder.dimension.getValue() == UNSET_MODEL_DIMENSION_IDENTIFIER && builder.modelId.get() == null) {
                 throw new IllegalArgumentException(String.format(Locale.ROOT, "Dimension value missing for vector: %s", builder.name()));
             }
+            validateCompressionAndModeNotSet(builder, builder.name(), "model");
         }
 
         private void validateFromKNNMethod(KNNVectorFieldMapper.Builder builder) {
@@ -389,6 +391,19 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         private void validateDimensionSet(KNNVectorFieldMapper.Builder builder) {
             if (builder.dimension.getValue() == UNSET_MODEL_DIMENSION_IDENTIFIER) {
                 throw new IllegalArgumentException(String.format(Locale.ROOT, "Dimension value missing for vector: %s", builder.name()));
+            }
+        }
+
+        private void validateCompressionAndModeNotSet(KNNVectorFieldMapper.Builder builder, String name, String context) {
+            if (builder.mode.isConfigured() || builder.compressionLevel.isConfigured()) {
+                throw new MapperParsingException(
+                    String.format(
+                        Locale.ROOT,
+                        "Compression and mode can not be specified in a %s mapping configuration for field: %s",
+                        context,
+                        name
+                    )
+                );
             }
         }
 

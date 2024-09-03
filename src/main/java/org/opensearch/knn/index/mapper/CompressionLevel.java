@@ -28,8 +28,10 @@ public enum CompressionLevel {
     x16(16, "16x"),
     x32(32, "32x");
 
+    // Internally, an empty string is easier to deal with them null. However, from the mapping,
+    // we do not want users to pass in the empty string and instead want null. So we make the conversion herex
     static final String[] NAMES_ARRAY = Arrays.stream(CompressionLevel.values())
-        .map(CompressionLevel::getName)
+        .map(compressionLevel -> compressionLevel == NOT_CONFIGURED ? null : compressionLevel.getName())
         .collect(Collectors.toList())
         .toArray(new String[0]);
 
