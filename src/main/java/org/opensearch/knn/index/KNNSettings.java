@@ -57,6 +57,7 @@ public class KNNSettings {
     private static final OsProbe osProbe = OsProbe.getInstance();
 
     private static final int INDEX_THREAD_QTY_MAX = 32;
+    private static final QuantizationStateCacheManager quantizationStateCacheManager = QuantizationStateCacheManager.getInstance();
 
     /**
      * Settings name
@@ -390,11 +391,11 @@ public class KNNSettings {
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
         }, dynamicCacheSettings.values().stream().collect(Collectors.toUnmodifiableList()));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, it -> {
-            QuantizationStateCacheManager.getInstance().setMaxCacheSizeInKB(it.getKb());
-            QuantizationStateCacheManager.getInstance().rebuildCache();
+            quantizationStateCacheManager.setMaxCacheSizeInKB(it.getKb());
+            quantizationStateCacheManager.rebuildCache();
         });
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
-            QuantizationStateCacheManager.getInstance().rebuildCache();
+            quantizationStateCacheManager.rebuildCache();
         });
     }
 
