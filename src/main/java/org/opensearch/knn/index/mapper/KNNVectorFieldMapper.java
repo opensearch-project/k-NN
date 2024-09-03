@@ -351,6 +351,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 null
             );
             builder.parse(name, parserContext, node);
+            builder.setOriginalParameters(new OriginalMappingParameters(builder));
 
             // All <a
             // href="https://github.com/opensearch-project/OpenSearch/blob/1.0.0/server/src/main/java/org/opensearch/index/mapper/DocumentMapperParser.java#L115-L161">parsing</a>
@@ -416,9 +417,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             );
 
             // Configure method from map or legacy
-            OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(builder);
-            if (originalMappingParameters.isLegacyMapping()) {
-                originalMappingParameters.setResolvedKnnMethodContext(
+            if (builder.originalParameters.isLegacyMapping()) {
+                builder.originalParameters.setResolvedKnnMethodContext(
                     createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated())
                 );
             }
