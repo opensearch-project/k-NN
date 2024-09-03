@@ -45,6 +45,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
     private final SegmentReadState segmentReadState;
+    private final QuantizationStateCacheManager quantizationStateCacheManager = QuantizationStateCacheManager.getInstance();
     private Map<String, String> fieldToUniqueCacheId;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
@@ -215,7 +216,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                 }
                 String cacheKey = UUIDs.base64UUID();
                 fieldToUniqueCacheId.put(entry.getKey(), cacheKey);
-                QuantizationStateCacheManager.getInstance().addQuantizationState(cacheKey, quantizationState);
+                quantizationStateCacheManager.addQuantizationState(cacheKey, quantizationState);
             }
         }
     }
