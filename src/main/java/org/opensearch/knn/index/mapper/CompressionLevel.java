@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  */
 @AllArgsConstructor
 public enum CompressionLevel {
-    NOT_CONFIGURED(-1, null),
+    NOT_CONFIGURED(-1, ""),
     x1(1, "1x"),
     x2(2, "2x"),
     x4(4, "4x"),

@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @Getter
 @AllArgsConstructor
 public enum Mode {
-    NOT_CONFIGURED(null),
+    NOT_CONFIGURED(""),
     IN_MEMORY("in_memory"),
     ON_DISK("on_disk");
 

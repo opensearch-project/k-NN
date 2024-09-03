@@ -287,7 +287,7 @@ public class ModelMetadataTests extends KNNTestCase {
         assertEquals(updatedError, modelMetadata.getError());
     }
 
-    public void testGetName() {
+    public void testToString() {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
@@ -318,9 +318,7 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + VectorDataType.DEFAULT.getValue()
             + ","
-            + "null"
-            + ","
-            + "null";
+            + ",";
 
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
@@ -359,9 +357,9 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + VectorDataType.DEFAULT.getValue()
             + ","
-            + Mode.ON_DISK
+            + Mode.ON_DISK.getName()
             + ","
-            + CompressionLevel.x32;
+            + CompressionLevel.x32.getName();
 
         modelMetadata = new ModelMetadata(
             knnEngine,
