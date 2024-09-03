@@ -21,10 +21,21 @@ public final class OriginalMappingParameters {
     private final VectorDataType vectorDataType;
     private final int dimension;
     private final KNNMethodContext knnMethodContext;
-    /**
-     * Resolved method context is used in order to handle legacy case when the user does not pass in a knnMethodContext
-     * but one is created from the context in the settings. By default, it will match the passed in value
-     */
+
+    // To support our legacy field mapping, on parsing, if index.knn=true and no method is
+    // passed, we build a KNNMethodContext using the space type, ef_construction and m that are set in the index
+    // settings. However, for fieldmappers for merging, we need to be able to initialize one field mapper from
+    // another (see
+    // https://github.com/opensearch-project/OpenSearch/blob/2.16.0/server/src/main/java/org/opensearch/index/mapper/ParametrizedFieldMapper.java#L98).
+    // The problem is that in this case, the settings are set to empty so we cannot properly resolve the KNNMethodContext.
+    // (see
+    // https://github.com/opensearch-project/OpenSearch/blob/2.16.0/server/src/main/java/org/opensearch/index/mapper/ParametrizedFieldMapper.java#L130).
+    // While we could override the KNNMethodContext parameter initializer to set the knnMethodContext based on the
+    // constructed KNNMethodContext from the other field mapper, this can result in merge conflict/serialization
+    // exceptions. See
+    // (https://github.com/opensearch-project/OpenSearch/blob/2.16.0/server/src/main/java/org/opensearch/index/mapper/ParametrizedFieldMapper.java#L322-L324).
+    // So, what we do is pass in a "resolvedKNNMethodContext" to ensure we track this resolveKnnMethodContext.
+    // A similar approach was taken for https://github.com/opendistro-for-elasticsearch/k-NN/issues/288
     @Setter
     private KNNMethodContext resolvedKnnMethodContext;
     private final String mode;

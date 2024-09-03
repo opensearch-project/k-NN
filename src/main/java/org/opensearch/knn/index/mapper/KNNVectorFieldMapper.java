@@ -161,34 +161,19 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             false,
             m -> toType(m).originalMappingParameters.getMode(),
             Arrays.stream(Mode.values()).map(Mode::toString).collect(Collectors.toList()).toArray(new String[0])
-        );
+        ).acceptsNull();
 
         protected final Parameter<String> compressionLevel = Parameter.restrictedStringParam(
             KNNConstants.COMPRESSION_LEVEL_PARAMETER,
             false,
             m -> toType(m).originalMappingParameters.getCompressionLevel(),
             Arrays.stream(CompressionLevel.values()).map(CompressionLevel::toString).collect(Collectors.toList()).toArray(new String[0])
-        );
+        ).acceptsNull();
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
         protected ModelDao modelDao;
         protected Version indexCreatedVersion;
-        // KNNMethodContext that allows us to properly configure a KNNVectorFieldMapper from another
-        // KNNVectorFieldMapper. To support our legacy field mapping, on parsing, if index.knn=true and no method is
-        // passed, we build a KNNMethodContext using the space type, ef_construction and m that are set in the index
-        // settings. However, for fieldmappers for merging, we need to be able to initialize one field mapper from
-        // another (see
-        // https://github.com/opensearch-project/OpenSearch/blob/2.16.0/server/src/main/java/org/opensearch/index/mapper/ParametrizedFieldMapper.java#L98).
-        // The problem is that in this case, the settings are set to empty so we cannot properly resolve the KNNMethodContext.
-        // (see
-        // https://github.com/opensearch-project/OpenSearch/blob/2.16.0/server/src/main/java/org/opensearch/index/mapper/ParametrizedFieldMapper.java#L130).
-        // While we could override the KNNMethodContext parameter initializer to set the knnMethodContext based on the
-        // constructed KNNMethodContext from the other field mapper, this can result in merge conflict/serialization
-        // exceptions. See
-        // (https://github.com/opensearch-project/OpenSearch/blob/2.16.0/server/src/main/java/org/opensearch/index/mapper/ParametrizedFieldMapper.java#L322-L324).
-        // So, what we do is pass in a "resolvedKNNMethodContext" that will either be null or be set via the merge builder
-        // constructor. A similar approach was taken for https://github.com/opendistro-for-elasticsearch/k-NN/issues/288
         @Setter
         private KNNMethodConfigContext knnMethodConfigContext;
         @Setter
