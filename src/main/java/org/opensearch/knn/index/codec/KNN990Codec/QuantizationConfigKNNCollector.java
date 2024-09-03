@@ -11,6 +11,9 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopDocs;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
+/**
+ * Collector used for passing the quantization state during query flow.
+ */
 @Setter
 @Getter
 public class QuantizationConfigKNNCollector implements KnnCollector {

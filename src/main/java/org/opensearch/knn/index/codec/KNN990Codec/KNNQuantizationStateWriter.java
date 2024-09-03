@@ -61,7 +61,7 @@ public final class KNNQuantizationStateWriter {
      * @throws IOException exception could be thrown while writing header
      */
     public void writeHeader(SegmentWriteState segmentWriteState) throws IOException {
-        CodecUtil.writeIndexHeader(output, "QuantizationCodec", 0, segmentWriteState.segmentInfo.getId(), segmentWriteState.segmentSuffix);
+        CodecUtil.writeIndexHeader(output, "KNN990Codec", 0, segmentWriteState.segmentInfo.getId(), segmentWriteState.segmentSuffix);
     }
 
     /**

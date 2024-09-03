@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -75,7 +74,7 @@ public class KNNWeight extends Weight {
     private final ExactSearcher exactSearcher;
 
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
-    private final QuantizationService quantizationService = QuantizationService.getInstance();
+    private final QuantizationService quantizationService;
 
     public KNNWeight(KNNQuery query, float boost) {
         super(query);
@@ -84,6 +83,7 @@ public class KNNWeight extends Weight {
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = null;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
+        this.quantizationService = QuantizationService.getInstance();
     }
 
     public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
@@ -93,6 +93,7 @@ public class KNNWeight extends Weight {
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = filterWeight;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
+        this.quantizationService = QuantizationService.getInstance();
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -221,8 +222,7 @@ public class KNNWeight extends Weight {
         final int cardinality,
         final int k
     ) throws IOException {
-        LeafReader reader2 = context.reader();
-        final SegmentReader reader = Lucene.segmentReader(reader2);
+        final SegmentReader reader = Lucene.segmentReader(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
         FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
@@ -260,15 +260,17 @@ public class KNNWeight extends Weight {
 
         QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
 
+        // TODO: Change type of vector once more quantization methods are supported
         byte[] quantizedVector = null;
 
         if (quantizationParams != null) {
             QuantizationConfigKNNCollector tempCollector = new QuantizationConfigKNNCollector();
             reader.searchNearestVectors(knnQuery.getField(), new float[0], tempCollector, null);
             if (tempCollector.getQuantizationState() == null) {
-                throw new IllegalStateException("No quantization state for file");
+                throw new IllegalStateException(String.format("No quantization state found for field %s", fieldInfo.getName()));
             }
             QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
+            // TODO: In the future, byte array will not be the only output type from this method
             quantizedVector = (byte[]) quantizationService.quantize(
                 tempCollector.getQuantizationState(),
                 knnQuery.getQueryVector(),
@@ -297,6 +299,7 @@ public class KNNWeight extends Weight {
                         spaceType,
                         knnEngine,
                         knnQuery.getIndexName(),
+                        // TODO: In the future, more vector data types will be supported with quantization
                         quantizationParams == null ? vectorDataType : VectorDataType.BINARY
                     ),
                     knnQuery.getIndexName(),
@@ -325,6 +328,7 @@ public class KNNWeight extends Weight {
                     || quantizationParams != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
+                        // TODO: In the future, quantizedVector can have other data types than byte
                         quantizationParams == null ? knnQuery.getByteQueryVector() : quantizedVector,
                         k,
                         knnQuery.getMethodParameters(),
