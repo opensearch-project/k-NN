@@ -24,11 +24,13 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
+import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
@@ -45,6 +47,10 @@ import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType
 @RequiredArgsConstructor
 public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(NativeEngines990KnnVectorsWriter.class);
+
+    private static final String FLUSH_OPERATION = "flush";
+    private static final String MERGE_OPERATION = "merge";
+
     private final SegmentWriteState segmentWriteState;
     private final FlatVectorsWriter flatVectorsWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
@@ -78,7 +84,9 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 field.getFieldInfo(),
                 (vectorDataType, fieldInfo, fieldVectorsWriter) -> getKNNVectorValues(vectorDataType, fieldVectorsWriter),
                 NativeIndexWriter::flushIndex,
-                field
+                field,
+                KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS,
+                FLUSH_OPERATION
             );
         }
     }
@@ -88,7 +96,14 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         // This will ensure that we are merging the FlatIndex during force merge.
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
         // For merge, pick values from flat vector and reindex again. This will use the flush operation to create graphs
-        trainAndIndex(fieldInfo, this::getKNNVectorValuesForMerge, NativeIndexWriter::mergeIndex, mergeState);
+        trainAndIndex(
+            fieldInfo,
+            this::getKNNVectorValuesForMerge,
+            NativeIndexWriter::mergeIndex,
+            mergeState,
+            KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS,
+            MERGE_OPERATION
+        );
 
     }
 
@@ -214,7 +229,9 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         final FieldInfo fieldInfo,
         final VectorValuesRetriever<VectorDataType, FieldInfo, C, KNNVectorValues<T>> vectorValuesRetriever,
         final IndexOperation<T> indexOperation,
-        final C VectorProcessingContext
+        final C VectorProcessingContext,
+        final KNNGraphValue graphBuildTime,
+        final String operationName
     ) throws IOException {
         final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
         KNNVectorValues<T> knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
@@ -228,6 +245,12 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             : NativeIndexWriter.getWriter(fieldInfo, segmentWriteState);
 
         knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
+
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         indexOperation.buildAndWrite(writer, knnVectorValues);
+        long time_in_millis = stopWatch.totalTime().millis();
+        graphBuildTime.incrementBy(time_in_millis);
+        log.warn("Graph build took " + time_in_millis + " ms for " + operationName);
     }
 }
