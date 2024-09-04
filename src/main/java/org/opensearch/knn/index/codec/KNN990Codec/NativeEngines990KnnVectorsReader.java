@@ -46,11 +46,11 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private final FlatVectorsReader flatVectorsReader;
     private final SegmentReadState segmentReadState;
     private final QuantizationStateCacheManager quantizationStateCacheManager = QuantizationStateCacheManager.getInstance();
-    private Map<String, String> fieldToUniqueCacheId;
+    private Map<String, String> quantizationStateCacheKeyPerField;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
         this.segmentReadState = state;
-        populateFieldMapAndQuantizationStateCache();
+        primeQuantizationStateCache();
         this.flatVectorsReader = flatVectorsReader;
     }
 
@@ -119,7 +119,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     public void search(String field, float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         // TODO: This is a temporary hack where we are using KNNCollector to initialize the quantization state.
         if (knnCollector instanceof QuantizationConfigKNNCollector) {
-            String cacheKey = fieldToUniqueCacheId.get(field);
+            String cacheKey = quantizationStateCacheKeyPerField.get(field);
             FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
             QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
                 .getQuantizationState(
@@ -182,7 +182,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     @Override
     public void close() throws IOException {
         IOUtils.close(flatVectorsReader);
-        for (String cacheKey : fieldToUniqueCacheId.values()) {
+        for (String cacheKey : quantizationStateCacheKeyPerField.values()) {
             QuantizationStateCacheManager.getInstance().evict(cacheKey);
         }
     }
@@ -195,9 +195,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         return flatVectorsReader.ramBytesUsed();
     }
 
-    private void populateFieldMapAndQuantizationStateCache() throws IOException {
-        fieldToUniqueCacheId = new HashMap<>();
-        Map<String, byte[]> stateMap = KNNQuantizationStateReader.read(segmentReadState);
+    private void primeQuantizationStateCache() throws IOException {
+        quantizationStateCacheKeyPerField = new HashMap<>();
+        Map<String, byte[]> stateMap = KNN990QuantizationStateReader.read(segmentReadState);
         for (Map.Entry<String, byte[]> entry : stateMap.entrySet()) {
             FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(entry.getKey());
             QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo);
@@ -216,7 +216,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                         throw new IllegalArgumentException("Unknown Scalar Quantization Type");
                 }
                 String cacheKey = UUIDs.base64UUID();
-                fieldToUniqueCacheId.put(entry.getKey(), cacheKey);
+                quantizationStateCacheKeyPerField.put(entry.getKey(), cacheKey);
                 quantizationStateCacheManager.addQuantizationState(cacheKey, quantizationState);
             }
         }

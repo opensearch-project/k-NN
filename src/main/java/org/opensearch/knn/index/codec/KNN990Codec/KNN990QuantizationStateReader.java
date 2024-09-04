@@ -28,7 +28,7 @@ import java.util.Map;
 /**
  * Reads quantization states
  */
-public final class KNNQuantizationStateReader {
+public final class KNN990QuantizationStateReader {
 
     /**
      * Read quantization states and return list of fieldNames and bytes
@@ -118,14 +118,15 @@ public final class KNNQuantizationStateReader {
 
             // Deserialize the byte array to a quantization state object
             ScalarQuantizationType scalarQuantizationType = ((ScalarQuantizationParams) readConfig.getQuantizationParams()).getSqType();
-            if (scalarQuantizationType == ScalarQuantizationType.ONE_BIT) {
-                return OneBitScalarQuantizationState.fromByteArray(stateBytes);
-            } else if (scalarQuantizationType == ScalarQuantizationType.TWO_BIT
-                || scalarQuantizationType == ScalarQuantizationType.FOUR_BIT) {
+            switch (scalarQuantizationType) {
+                case ONE_BIT:
+                    return OneBitScalarQuantizationState.fromByteArray(stateBytes);
+                case TWO_BIT:
+                case FOUR_BIT:
                     return MultiBitScalarQuantizationState.fromByteArray(stateBytes);
-                } else {
+                default:
                     throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
-                }
+            }
         }
     }
 
@@ -135,7 +136,6 @@ public final class KNNQuantizationStateReader {
         long markerAndIndexPosition = footerStart - Integer.BYTES - Long.BYTES;
         input.seek(markerAndIndexPosition);
         long indexStartPosition = input.readLong();
-        input.readInt();
         input.seek(indexStartPosition);
         return input.readInt();
     }

@@ -35,7 +35,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 
-public class KNNQuantizationStateWriterTests extends KNNTestCase {
+public class KNN990QuantizationStateWriterTests extends KNNTestCase {
 
     @SneakyThrows
     public void testWriteHeader() {
@@ -68,7 +68,7 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
             null,
             Mockito.mock(IOContext.class)
         );
-        KNNQuantizationStateWriter quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+        KNN990QuantizationStateWriter quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
         try (MockedStatic<CodecUtil> mockedStaticCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
             mockedStaticCodecUtil.when(
                 () -> CodecUtil.writeIndexHeader(any(IndexOutput.class), anyString(), anyInt(), any(byte[].class), anyString())
@@ -77,7 +77,7 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
             mockedStaticCodecUtil.verify(
                 () -> CodecUtil.writeIndexHeader(
                     output,
-                    "QuantizationCodec",
+                    "NativeEngines99KnnVectorsFormatQSData",
                     0,
                     segmentWriteState.segmentInfo.getId(),
                     segmentWriteState.segmentSuffix
@@ -117,7 +117,7 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
             null,
             Mockito.mock(IOContext.class)
         );
-        KNNQuantizationStateWriter quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+        KNN990QuantizationStateWriter quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
 
         int fieldNumber = 0;
         QuantizationState quantizationState = new OneBitScalarQuantizationState(
@@ -160,7 +160,7 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
             null,
             Mockito.mock(IOContext.class)
         );
-        KNNQuantizationStateWriter quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+        KNN990QuantizationStateWriter quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
 
         int fieldNumber1 = 1;
         int fieldNumber2 = 2;

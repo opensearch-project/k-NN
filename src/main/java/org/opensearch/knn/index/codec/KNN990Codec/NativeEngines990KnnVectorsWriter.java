@@ -51,7 +51,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
     private final SegmentWriteState segmentWriteState;
     private final FlatVectorsWriter flatVectorsWriter;
-    private final KNNQuantizationStateWriter quantizationStateWriter;
+    private final KNN990QuantizationStateWriter quantizationStateWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
     private final QuantizationService quantizationService = QuantizationService.getInstance();
@@ -59,7 +59,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) throws IOException {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
-        this.quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+        this.quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
         quantizationStateWriter.writeHeader(segmentWriteState);
     }
 

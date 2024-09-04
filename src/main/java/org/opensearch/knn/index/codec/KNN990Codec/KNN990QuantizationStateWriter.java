@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * Writes quantization states to off heap memory
  */
-public final class KNNQuantizationStateWriter {
+public final class KNN990QuantizationStateWriter {
 
     private final IndexOutput output;
     private List<FieldQuantizationState> fieldQuantizationStates = new ArrayList<>();
@@ -45,7 +45,7 @@ public final class KNNQuantizationStateWriter {
      * @param segmentWriteState segment write state containing segment information
      * @throws IOException exception could be thrown while creating the output
      */
-    public KNNQuantizationStateWriter(SegmentWriteState segmentWriteState) throws IOException {
+    public KNN990QuantizationStateWriter(SegmentWriteState segmentWriteState) throws IOException {
         String quantizationStateFileName = IndexFileNames.segmentFileName(
             segmentWriteState.segmentInfo.name,
             segmentWriteState.segmentSuffix,
@@ -61,7 +61,13 @@ public final class KNNQuantizationStateWriter {
      * @throws IOException exception could be thrown while writing header
      */
     public void writeHeader(SegmentWriteState segmentWriteState) throws IOException {
-        CodecUtil.writeIndexHeader(output, "KNN990Codec", 0, segmentWriteState.segmentInfo.getId(), segmentWriteState.segmentSuffix);
+        CodecUtil.writeIndexHeader(
+            output,
+            "NativeEngines99KnnVectorsFormatQSData",
+            0,
+            segmentWriteState.segmentInfo.getId(),
+            segmentWriteState.segmentSuffix
+        );
     }
 
     /**

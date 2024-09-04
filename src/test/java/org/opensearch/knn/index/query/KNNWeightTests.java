@@ -1419,7 +1419,7 @@ public class KNNWeightTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testANN() {
+    public void testANNWithQuantizationParams_thenSuccess() {
         try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
             ScalarQuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);

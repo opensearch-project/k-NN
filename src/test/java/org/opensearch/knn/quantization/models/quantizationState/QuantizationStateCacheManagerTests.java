@@ -9,7 +9,7 @@ import lombok.SneakyThrows;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.KNN990Codec.KNNQuantizationStateReader;
+import org.opensearch.knn.index.codec.KNN990Codec.KNN990QuantizationStateReader;
 
 import static org.mockito.Mockito.times;
 
@@ -36,8 +36,9 @@ public class QuantizationStateCacheManagerTests extends KNNTestCase {
             QuantizationStateCache quantizationStateCache = Mockito.mock(QuantizationStateCache.class);
             mockedStaticCache.when(QuantizationStateCache::getInstance).thenReturn(quantizationStateCache);
             Mockito.doNothing().when(quantizationStateCache).addQuantizationState(cacheKey, quantizationState);
-            try (MockedStatic<KNNQuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNNQuantizationStateReader.class)) {
-                mockedStaticReader.when(() -> KNNQuantizationStateReader.read(quantizationStateReadConfig)).thenReturn(quantizationState);
+            try (MockedStatic<KNN990QuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNN990QuantizationStateReader.class)) {
+                mockedStaticReader.when(() -> KNN990QuantizationStateReader.read(quantizationStateReadConfig))
+                    .thenReturn(quantizationState);
                 QuantizationStateCacheManager.getInstance().getQuantizationState(quantizationStateReadConfig);
                 Mockito.verify(quantizationStateCache, times(1)).addQuantizationState(cacheKey, quantizationState);
             }

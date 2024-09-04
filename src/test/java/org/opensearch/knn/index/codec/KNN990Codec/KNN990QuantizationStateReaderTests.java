@@ -37,7 +37,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 
-public class KNNQuantizationStateReaderTests extends KNNTestCase {
+public class KNN990QuantizationStateReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testReadFromSegmentReadState() {
@@ -77,11 +77,11 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
             segmentSuffix
         );
 
-        try (MockedStatic<KNNQuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNNQuantizationStateReader.class)) {
-            mockedStaticReader.when(() -> KNNQuantizationStateReader.getNumFields(input)).thenReturn(2);
-            mockedStaticReader.when(() -> KNNQuantizationStateReader.read(segmentReadState)).thenCallRealMethod();
+        try (MockedStatic<KNN990QuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNN990QuantizationStateReader.class)) {
+            mockedStaticReader.when(() -> KNN990QuantizationStateReader.getNumFields(input)).thenReturn(2);
+            mockedStaticReader.when(() -> KNN990QuantizationStateReader.read(segmentReadState)).thenCallRealMethod();
             try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
-                KNNQuantizationStateReader.read(segmentReadState);
+                KNN990QuantizationStateReader.read(segmentReadState);
 
                 mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
                 Mockito.verify(input, times(4)).readInt();
@@ -135,13 +135,13 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
         Mockito.when(quantizationStateReadConfig.getSegmentReadState()).thenReturn(segmentReadState);
         Mockito.when(quantizationStateReadConfig.getField()).thenReturn(fieldName);
 
-        try (MockedStatic<KNNQuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNNQuantizationStateReader.class)) {
-            mockedStaticReader.when(() -> KNNQuantizationStateReader.getNumFields(input)).thenReturn(2);
-            mockedStaticReader.when(() -> KNNQuantizationStateReader.read(quantizationStateReadConfig)).thenCallRealMethod();
-            mockedStaticReader.when(() -> KNNQuantizationStateReader.readStateBytes(any(IndexInput.class), anyLong(), anyInt()))
+        try (MockedStatic<KNN990QuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNN990QuantizationStateReader.class)) {
+            mockedStaticReader.when(() -> KNN990QuantizationStateReader.getNumFields(input)).thenReturn(2);
+            mockedStaticReader.when(() -> KNN990QuantizationStateReader.read(quantizationStateReadConfig)).thenCallRealMethod();
+            mockedStaticReader.when(() -> KNN990QuantizationStateReader.readStateBytes(any(IndexInput.class), anyLong(), anyInt()))
                 .thenReturn(new byte[8]);
             try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
-                assertThrows(IllegalArgumentException.class, () -> KNNQuantizationStateReader.read(quantizationStateReadConfig));
+                assertThrows(IllegalArgumentException.class, () -> KNN990QuantizationStateReader.read(quantizationStateReadConfig));
 
                 mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
                 Mockito.verify(input, times(4)).readInt();
@@ -154,7 +154,7 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
                     OneBitScalarQuantizationState oneBitScalarQuantizationState = Mockito.mock(OneBitScalarQuantizationState.class);
                     mockedStaticOneBit.when(() -> OneBitScalarQuantizationState.fromByteArray(any(byte[].class)))
                         .thenReturn(oneBitScalarQuantizationState);
-                    QuantizationState quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
+                    QuantizationState quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
                     assertTrue(quantizationState instanceof OneBitScalarQuantizationState);
                 }
 
@@ -165,12 +165,12 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
 
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams2);
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams2);
-                    QuantizationState quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
+                    QuantizationState quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
                     assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
 
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams4);
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams4);
-                    quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
+                    quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
                     assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
                 }
             }
@@ -180,9 +180,9 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testGetNumFields() {
         IndexInput input = Mockito.mock(IndexInput.class);
-        KNNQuantizationStateReader.getNumFields(input);
+        KNN990QuantizationStateReader.getNumFields(input);
 
-        Mockito.verify(input, times(2)).readInt();
+        Mockito.verify(input, times(1)).readInt();
         Mockito.verify(input, times(1)).readLong();
         Mockito.verify(input, times(2)).seek(anyLong());
         Mockito.verify(input, times(1)).length();
@@ -194,7 +194,7 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
         long position = 1;
         int length = 2;
         byte[] stateBytes = new byte[length];
-        KNNQuantizationStateReader.readStateBytes(input, position, length);
+        KNN990QuantizationStateReader.readStateBytes(input, position, length);
 
         Mockito.verify(input, times(1)).seek(position);
         Mockito.verify(input, times(1)).readBytes(stateBytes, 0, length);
@@ -230,7 +230,7 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
             segmentSuffix
         );
 
-        assertEquals(expectedName, KNNQuantizationStateReader.getQuantizationStateFileName(segmentReadState));
+        assertEquals(expectedName, KNN990QuantizationStateReader.getQuantizationStateFileName(segmentReadState));
 
     }
 }

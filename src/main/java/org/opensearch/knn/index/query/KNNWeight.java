@@ -261,22 +261,7 @@ public class KNNWeight extends Weight {
         QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
 
         // TODO: Change type of vector once more quantization methods are supported
-        byte[] quantizedVector = null;
-
-        if (quantizationParams != null) {
-            QuantizationConfigKNNCollector tempCollector = new QuantizationConfigKNNCollector();
-            reader.searchNearestVectors(knnQuery.getField(), new float[0], tempCollector, null);
-            if (tempCollector.getQuantizationState() == null) {
-                throw new IllegalStateException(String.format("No quantization state found for field %s", fieldInfo.getName()));
-            }
-            QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
-            // TODO: In the future, byte array will not be the only output type from this method
-            quantizedVector = (byte[]) quantizationService.quantize(
-                tempCollector.getQuantizationState(),
-                knnQuery.getQueryVector(),
-                quantizationOutput
-            );
-        }
+        byte[] quantizedVector = getQuantizedVector(quantizationParams, reader, fieldInfo);
 
         List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
         if (engineFiles.isEmpty()) {
@@ -476,5 +461,24 @@ public class KNNWeight extends Weight {
      */
     private boolean canDoExactSearchAfterANNSearch(final int filterIdsCount, final int annResultCount) {
         return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
+    }
+
+    // TODO: this will eventually return more types than just byte
+    private byte[] getQuantizedVector(QuantizationParams quantizationParams, SegmentReader reader, FieldInfo fieldInfo) throws IOException {
+        if (quantizationParams != null) {
+            QuantizationConfigKNNCollector tempCollector = new QuantizationConfigKNNCollector();
+            reader.searchNearestVectors(knnQuery.getField(), new float[0], tempCollector, null);
+            if (tempCollector.getQuantizationState() == null) {
+                throw new IllegalStateException(String.format("No quantization state found for field %s", fieldInfo.getName()));
+            }
+            QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
+            // TODO: In the future, byte array will not be the only output type from this method
+            return (byte[]) quantizationService.quantize(
+                tempCollector.getQuantizationState(),
+                knnQuery.getQueryVector(),
+                quantizationOutput
+            );
+        }
+        return null;
     }
 }

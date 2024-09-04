@@ -7,7 +7,7 @@ package org.opensearch.knn.quantization.models.quantizationState;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.opensearch.knn.index.codec.KNN990Codec.KNNQuantizationStateReader;
+import org.opensearch.knn.index.codec.KNN990Codec.KNN990QuantizationStateReader;
 
 import java.io.IOException;
 
@@ -44,7 +44,7 @@ public final class QuantizationStateCacheManager {
         QuantizationState quantizationState = QuantizationStateCache.getInstance()
             .getQuantizationState(quantizationStateReadConfig.getCacheKey());
         if (quantizationState == null) {
-            quantizationState = KNNQuantizationStateReader.read(quantizationStateReadConfig);
+            quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
             addQuantizationState(quantizationStateReadConfig.getCacheKey(), quantizationState);
         }
 
