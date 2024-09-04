@@ -71,7 +71,7 @@ public final class KNN990QuantizationStateReader {
                 readQuantizationStateInfos.put(fieldName, stateBytes);
             }
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.warn(String.format("Unable to read the quantization state file for segment %s", state.segmentInfo.name), e);
             return Collections.emptyMap();
         }
         return readQuantizationStateInfos;
@@ -124,6 +124,9 @@ public final class KNN990QuantizationStateReader {
                 default:
                     throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
             }
+        } catch (Exception e) {
+            log.warn(String.format("Unable to read the quantization state file for segment %s", segmentReadState.segmentInfo.name), e);
+            return null;
         }
     }
 
