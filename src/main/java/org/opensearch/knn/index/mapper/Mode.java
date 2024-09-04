@@ -26,7 +26,7 @@ public enum Mode {
 
     // Internally, an empty string is easier to deal with them null. However, from the mapping,
     // we do not want users to pass in the empty string and instead want null. So we make the conversion herex
-    static final String[] NAMES_ARRAY = Arrays.stream(Mode.values())
+    public static final String[] NAMES_ARRAY = Arrays.stream(Mode.values())
         .map(mode -> mode == NOT_CONFIGURED ? null : mode.getName())
         .collect(Collectors.toList())
         .toArray(new String[0]);
