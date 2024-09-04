@@ -130,6 +130,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                         cacheKey
                     )
                 );
+            if (quantizationState == null) {
+                return;
+            }
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }

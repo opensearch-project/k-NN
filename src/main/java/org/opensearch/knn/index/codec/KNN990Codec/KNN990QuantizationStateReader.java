@@ -19,7 +19,10 @@ import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuan
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,12 +52,13 @@ public final class KNN990QuantizationStateReader {
      */
     public static Map<String, byte[]> read(SegmentReadState state) throws IOException {
         String quantizationStateFileName = getQuantizationStateFileName(state);
-        Map<String, byte[]> readQuantizationStateInfos = new HashMap<>();
 
         try (IndexInput input = state.directory.openInput(quantizationStateFileName, IOContext.READ)) {
             CodecUtil.retrieveChecksum(input);
 
             int numFields = getNumFields(input);
+
+            Map<String, byte[]> readQuantizationStateInfos = new HashMap<>();
 
             // Read each field's metadata from the index section and then read bytes
             for (int i = 0; i < numFields; i++) {
@@ -65,10 +69,10 @@ public final class KNN990QuantizationStateReader {
                 String fieldName = state.fieldInfos.fieldInfo(fieldNumber).getName();
                 readQuantizationStateInfos.put(fieldName, stateBytes);
             }
-        } catch (Exception e) {
             return readQuantizationStateInfos;
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            return Collections.emptyMap();
         }
-        return readQuantizationStateInfos;
     }
 
     /**
@@ -118,6 +122,8 @@ public final class KNN990QuantizationStateReader {
                 default:
                     throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
             }
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            return null;
         }
     }
 
