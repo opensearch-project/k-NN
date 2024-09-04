@@ -51,6 +51,8 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -293,7 +295,12 @@ public interface ModelDao {
                     put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
                     put(KNNConstants.MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment());
                     put(KNNConstants.VECTOR_DATA_TYPE_FIELD, modelMetadata.getVectorDataType());
-
+                    if (Mode.isConfigured(modelMetadata.getMode())) {
+                        put(KNNConstants.MODE_PARAMETER, modelMetadata.getMode().getName());
+                    }
+                    if (CompressionLevel.isConfigured(modelMetadata.getCompressionLevel())) {
+                        put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, modelMetadata.getCompressionLevel().getName());
+                    }
                     MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
                     if (!methodComponentContext.getName().isEmpty()) {
                         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();

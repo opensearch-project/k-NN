@@ -19,6 +19,8 @@ import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -70,7 +72,9 @@ public class TrainingJob implements Runnable {
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
         KNNMethodConfigContext knnMethodConfigContext,
         String description,
-        String nodeAssignment
+        String nodeAssignment,
+        Mode mode,
+        CompressionLevel compressionLevel
     ) {
         // Generate random base64 string if one is not provided
         this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
@@ -90,7 +94,9 @@ public class TrainingJob implements Runnable {
                 "",
                 nodeAssignment,
                 knnMethodContext.getMethodComponentContext(),
-                knnMethodConfigContext.getVectorDataType()
+                knnMethodConfigContext.getVectorDataType(),
+                mode,
+                compressionLevel
             ),
             null,
             this.modelId
