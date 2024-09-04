@@ -155,7 +155,7 @@ public class KNN990QuantizationStateReaderTests extends KNNTestCase {
                     mockedStaticOneBit.when(() -> OneBitScalarQuantizationState.fromByteArray(any(byte[].class)))
                         .thenReturn(oneBitScalarQuantizationState);
                     QuantizationState quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
-                    assertTrue(quantizationState instanceof OneBitScalarQuantizationState);
+                    assertEquals(oneBitScalarQuantizationState, quantizationState);
                 }
 
                 try (MockedStatic<MultiBitScalarQuantizationState> mockedStaticOneBit = mockStatic(MultiBitScalarQuantizationState.class)) {
@@ -166,12 +166,12 @@ public class KNN990QuantizationStateReaderTests extends KNNTestCase {
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams2);
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams2);
                     QuantizationState quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
-                    assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
+                    assertEquals(multiBitScalarQuantizationState, quantizationState);
 
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams4);
                     Mockito.when(quantizationStateReadConfig.getQuantizationParams()).thenReturn(scalarQuantizationParams4);
                     quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
-                    assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
+                    assertEquals(multiBitScalarQuantizationState, quantizationState);
                 }
             }
         }
