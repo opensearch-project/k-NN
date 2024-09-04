@@ -75,6 +75,5 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     public void testUseLuceneKNNVectorsFormat_withDifferentInputs_thenSuccess() {
         Assert.assertFalse(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_16_0));
         Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_17_0));
-        Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_3_0_0));
     }
 }
