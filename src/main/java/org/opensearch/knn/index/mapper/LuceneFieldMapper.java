@@ -45,9 +45,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     static LuceneFieldMapper createFieldMapper(
         String fullname,
         Map<String, String> metaValue,
-        KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext,
-        CreateLuceneFieldMapperInput createLuceneFieldMapperInput
+        CreateLuceneFieldMapperInput createLuceneFieldMapperInput,
+        OriginalMappingParameters originalMappingParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -56,7 +56,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             new KNNMappingConfig() {
                 @Override
                 public Optional<KNNMethodContext> getKnnMethodContext() {
-                    return Optional.of(knnMethodContext);
+                    return Optional.of(originalMappingParameters.getResolvedKnnMethodContext());
                 }
 
                 @Override
@@ -66,13 +66,14 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             }
         );
 
-        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnMethodConfigContext);
+        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnMethodConfigContext, originalMappingParameters);
     }
 
     private LuceneFieldMapper(
         final KNNVectorFieldType mappedFieldType,
         final CreateLuceneFieldMapperInput input,
-        KNNMethodConfigContext knnMethodConfigContext
+        KNNMethodConfigContext knnMethodConfigContext,
+        OriginalMappingParameters originalMappingParameters
     ) {
         super(
             input.getName(),
@@ -83,7 +84,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.isStored(),
             input.isHasDocValues(),
             knnMethodConfigContext.getVersionCreated(),
-            mappedFieldType.knnMappingConfig.getKnnMethodContext().orElse(null)
+            originalMappingParameters
         );
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()

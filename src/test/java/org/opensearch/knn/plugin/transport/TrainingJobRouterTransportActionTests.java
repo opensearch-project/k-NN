@@ -24,6 +24,8 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.transport.TransportService;
@@ -308,7 +310,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
             "training-field",
             null,
             "description",
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock client to return the right number of docs
@@ -355,7 +359,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
             "training-field",
             null,
             "description",
-            VectorDataType.BINARY
+            VectorDataType.BINARY,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock client to return the right number of docs
@@ -403,7 +409,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
             "training-field",
             null,
             "description",
-            VectorDataType.BYTE
+            VectorDataType.BYTE,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         // Mock client to return the right number of docs

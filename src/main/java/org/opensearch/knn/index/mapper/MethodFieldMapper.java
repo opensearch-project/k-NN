@@ -43,14 +43,13 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         String fullname,
         String simpleName,
         Map<String, String> metaValue,
-        KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext,
-        KNNMethodContext originalKNNMethodContext,
         MultiFields multiFields,
         CopyTo copyTo,
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
-        boolean hasDocValues
+        boolean hasDocValues,
+        OriginalMappingParameters originalMappingParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -59,7 +58,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             new KNNMappingConfig() {
                 @Override
                 public Optional<KNNMethodContext> getKnnMethodContext() {
-                    return Optional.of(knnMethodContext);
+                    return Optional.of(originalMappingParameters.getResolvedKnnMethodContext());
                 }
 
                 @Override
@@ -76,8 +75,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            originalKNNMethodContext,
-            knnMethodConfigContext
+            knnMethodConfigContext,
+            originalMappingParameters
         );
     }
 
@@ -89,8 +88,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        KNNMethodContext originalKNNMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
+        KNNMethodConfigContext knnMethodConfigContext,
+        OriginalMappingParameters originalMappingParameters
     ) {
 
         super(
@@ -102,7 +101,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext.getVersionCreated(),
-            originalKNNMethodContext
+            originalMappingParameters
         );
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
         KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();

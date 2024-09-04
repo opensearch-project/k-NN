@@ -22,6 +22,8 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -50,6 +52,8 @@ public class TrainingModelRequest extends ActionRequest {
     private int maximumVectorCount;
     private int searchSize;
     private int trainingDataSizeInKB;
+    private final Mode mode;
+    private final CompressionLevel compressionLevel;
 
     /**
      * Constructor.
@@ -70,7 +74,9 @@ public class TrainingModelRequest extends ActionRequest {
         String trainingField,
         String preferredNodeId,
         String description,
-        VectorDataType vectorDataType
+        VectorDataType vectorDataType,
+        Mode mode,
+        CompressionLevel compressionLevel
     ) {
         super();
         this.modelId = modelId;
@@ -94,6 +100,8 @@ public class TrainingModelRequest extends ActionRequest {
             .dimension(dimension)
             .versionCreated(Version.CURRENT)
             .build();
+        this.mode = mode;
+        this.compressionLevel = compressionLevel;
     }
 
     /**
@@ -119,6 +127,14 @@ public class TrainingModelRequest extends ActionRequest {
         } else {
             this.vectorDataType = VectorDataType.DEFAULT;
         }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
+            this.mode = Mode.fromName(in.readOptionalString());
+            this.compressionLevel = CompressionLevel.fromName(in.readOptionalString());
+        } else {
+            this.mode = Mode.NOT_CONFIGURED;
+            this.compressionLevel = CompressionLevel.NOT_CONFIGURED;
+        }
+
         this.knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(vectorDataType)
             .dimension(dimension)
@@ -270,6 +286,10 @@ public class TrainingModelRequest extends ActionRequest {
             out.writeString(this.vectorDataType.getValue());
         } else {
             out.writeString(VectorDataType.DEFAULT.getValue());
+        }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
+            out.writeOptionalString(mode.getName());
+            out.writeOptionalString(compressionLevel.getName());
         }
     }
 }

@@ -71,6 +71,7 @@ public class KNNConstants {
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String MODEL_VECTOR_DATA_TYPE_KEY = VECTOR_DATA_TYPE_FIELD;
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
+    public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
 
@@ -150,4 +151,7 @@ public class KNNConstants {
     public static final Float DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO = 0.95f;
     public static final String MIN_SCORE = "min_score";
     public static final String MAX_DISTANCE = "max_distance";
+
+    public static final String MODE_PARAMETER = "mode";
+    public static final String COMPRESSION_LEVEL_PARAMETER = "compression_level";
 }
