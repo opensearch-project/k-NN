@@ -20,9 +20,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -58,22 +56,13 @@ public final class KNN990QuantizationStateReader {
 
             int numFields = getNumFields(input);
 
-            List<Integer> fieldNumbers = new ArrayList<>();
-            List<Long> positions = new ArrayList<>();
-            List<Integer> lengths = new ArrayList<>();
-
-            // Read each field's metadata from the index section
+            // Read each field's metadata from the index section and then read bytes
             for (int i = 0; i < numFields; i++) {
-                fieldNumbers.add(input.readInt());
+                int fieldNumber = input.readInt();
                 int length = input.readInt();
-                lengths.add(length);
                 long position = input.readVLong();
-                positions.add(position);
-            }
-            // Read each field's bytes
-            for (int i = 0; i < numFields; i++) {
-                byte[] stateBytes = readStateBytes(input, positions.get(i), lengths.get(i));
-                String fieldName = state.fieldInfos.fieldInfo(fieldNumbers.get(i)).getName();
+                byte[] stateBytes = readStateBytes(input, position, length);
+                String fieldName = state.fieldInfos.fieldInfo(fieldNumber).getName();
                 readQuantizationStateInfos.put(fieldName, stateBytes);
             }
         }
