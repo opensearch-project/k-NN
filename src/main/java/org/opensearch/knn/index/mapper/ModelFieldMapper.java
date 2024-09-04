@@ -49,25 +49,25 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         String simpleName,
         Map<String, String> metaValue,
         VectorDataType vectorDataType,
-        String modelId,
         MultiFields multiFields,
         CopyTo copyTo,
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
         ModelDao modelDao,
-        Version indexCreatedVersion
+        Version indexCreatedVersion,
+        OriginalMappingParameters originalMappingParameters
     ) {
 
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, new KNNMappingConfig() {
             @Override
             public Optional<String> getModelId() {
-                return Optional.of(modelId);
+                return Optional.of(originalMappingParameters.getModelId());
             }
 
             @Override
             public int getDimension() {
-                return getModelMetadata(modelDao, modelId).getDimension();
+                return getModelMetadata(modelDao, originalMappingParameters.getModelId()).getDimension();
             }
         });
         return new ModelFieldMapper(
@@ -79,7 +79,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             modelDao,
-            indexCreatedVersion
+            indexCreatedVersion,
+            originalMappingParameters
         );
     }
 
@@ -92,9 +93,20 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         ModelDao modelDao,
-        Version indexCreatedVersion
+        Version indexCreatedVersion,
+        OriginalMappingParameters originalMappingParameters
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion, null);
+        super(
+            simpleName,
+            mappedFieldType,
+            multiFields,
+            copyTo,
+            ignoreMalformed,
+            stored,
+            hasDocValues,
+            indexCreatedVersion,
+            originalMappingParameters
+        );
         KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
         modelId = annConfig.getModelId().orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
         this.modelDao = modelDao;

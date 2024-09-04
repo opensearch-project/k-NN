@@ -78,7 +78,9 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             modelAnonymousEntryContext,
             request.getKnnMethodConfigContext(),
             request.getDescription(),
-            clusterService.localNode().getEphemeralId()
+            clusterService.localNode().getEphemeralId(),
+            request.getMode(),
+            request.getCompressionLevel()
         );
 
         KNNCounter.TRAINING_REQUESTS.increment();
