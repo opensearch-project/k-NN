@@ -28,6 +28,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -469,7 +471,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.FLOAT
+                VectorDataType.FLOAT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBytes,
             modelId

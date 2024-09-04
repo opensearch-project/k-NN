@@ -37,6 +37,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -141,7 +143,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -162,7 +166,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -191,7 +197,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 new MethodComponentContext("test", Collections.emptyMap()),
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -253,7 +261,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -316,7 +326,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             "any-id"
@@ -354,7 +366,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             null,
             modelId
@@ -394,7 +408,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -446,7 +462,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -466,7 +484,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             null,
             modelId
@@ -504,7 +524,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);
@@ -582,7 +604,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -617,7 +641,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId1
@@ -686,7 +712,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
@@ -729,7 +757,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
             ),
             modelBlob,
             modelId
