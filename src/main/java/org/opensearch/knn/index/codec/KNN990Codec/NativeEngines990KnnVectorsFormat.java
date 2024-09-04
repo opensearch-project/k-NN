@@ -29,7 +29,7 @@ import java.io.IOException;
 public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     /** The format for storing, reading, merging vectors on disk */
     private static FlatVectorsFormat flatVectorsFormat;
-    private static final String FORMAT_NAME = "NativeEngines99KnnVectorsFormat";
+    private static final String FORMAT_NAME = "NativeEngines990KnnVectorsFormat";
 
     public NativeEngines990KnnVectorsFormat() {
         super(FORMAT_NAME);
