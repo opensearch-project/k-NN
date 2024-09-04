@@ -51,6 +51,7 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
@@ -135,6 +136,8 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         indexWriter.commit();
         indexWriter.close();
 
+        assertNotEquals(0L, (long) KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue());
+
         // Validate to see if correct values are returned, assumption here is only 1 segment is getting created
         IndexSearcher searcher = new IndexSearcher(indexReader);
         final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
@@ -204,6 +207,8 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         indexWriter.flush();
         indexWriter.commit();
         indexWriter.close();
+        assertNotEquals(0L, (long) KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue());
+
         IndexSearcher searcher = new IndexSearcher(indexReader);
         final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
         SegmentReader segmentReader = Lucene.segmentReader(leafReader);
