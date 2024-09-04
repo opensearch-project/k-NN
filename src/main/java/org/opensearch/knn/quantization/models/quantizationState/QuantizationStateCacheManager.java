@@ -45,9 +45,7 @@ public final class QuantizationStateCacheManager {
             .getQuantizationState(quantizationStateReadConfig.getCacheKey());
         if (quantizationState == null) {
             quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
-            if (quantizationState != null) {
-                addQuantizationState(quantizationStateReadConfig.getCacheKey(), quantizationState);
-            }
+            addQuantizationState(quantizationStateReadConfig.getCacheKey(), quantizationState);
         }
 
         return quantizationState;
