@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.KNN990Codec;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentReadState;
@@ -20,12 +21,14 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Reads quantization states
  */
+@Log4j2
 public final class KNN990QuantizationStateReader {
 
     /**
@@ -49,12 +52,14 @@ public final class KNN990QuantizationStateReader {
      */
     public static Map<String, byte[]> read(SegmentReadState state) throws IOException {
         String quantizationStateFileName = getQuantizationStateFileName(state);
-        Map<String, byte[]> readQuantizationStateInfos = new HashMap<>();
+        Map<String, byte[]> readQuantizationStateInfos = null;
 
         try (IndexInput input = state.directory.openInput(quantizationStateFileName, IOContext.READ)) {
             CodecUtil.retrieveChecksum(input);
 
             int numFields = getNumFields(input);
+
+            readQuantizationStateInfos = new HashMap<>();
 
             // Read each field's metadata from the index section and then read bytes
             for (int i = 0; i < numFields; i++) {
@@ -66,7 +71,8 @@ public final class KNN990QuantizationStateReader {
                 readQuantizationStateInfos.put(fieldName, stateBytes);
             }
         } catch (Exception e) {
-            return readQuantizationStateInfos;
+            log.error(e.getMessage());
+            return Collections.emptyMap();
         }
         return readQuantizationStateInfos;
     }
