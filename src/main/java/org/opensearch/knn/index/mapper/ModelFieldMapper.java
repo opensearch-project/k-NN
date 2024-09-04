@@ -257,7 +257,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         return KNNMethodConfigContext.builder()
             .vectorDataType(modelMetadata.getVectorDataType())
             .dimension(modelMetadata.getDimension())
-            .versionCreated(Version.V_2_14_0)
+            .versionCreated(modelMetadata.getModelVersion())
             .build();
     }
 
