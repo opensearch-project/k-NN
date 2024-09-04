@@ -59,7 +59,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
-        this.quantizationStateWriter = null;
     }
 
     /**
@@ -85,8 +84,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void flush(int maxDoc, final Sorter.DocMap sortMap) throws IOException {
         flatVectorsWriter.flush(maxDoc, sortMap);
 
-        initQuantizationStateWriterIfNecessary();
-
         for (final NativeEngineFieldVectorsWriter<?> field : fields) {
             trainAndIndex(
                 field.getFieldInfo(),
@@ -103,8 +100,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void mergeOneField(final FieldInfo fieldInfo, final MergeState mergeState) throws IOException {
         // This will ensure that we are merging the FlatIndex during force merge.
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
-
-        initQuantizationStateWriterIfNecessary();
 
         // For merge, pick values from flat vector and reindex again. This will use the flush operation to create graphs
         trainAndIndex(
@@ -126,7 +121,9 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             throw new IllegalStateException("NativeEnginesKNNVectorsWriter is already finished");
         }
         finished = true;
-        quantizationStateWriter.writeFooter();
+        if (quantizationStateWriter != null) {
+            quantizationStateWriter.writeFooter();
+        }
         flatVectorsWriter.finish();
     }
 
@@ -145,7 +142,9 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      */
     @Override
     public void close() throws IOException {
-        quantizationStateWriter.closeOutput();
+        if (quantizationStateWriter != null) {
+            quantizationStateWriter.closeOutput();
+        }
         IOUtils.close(flatVectorsWriter);
     }
 
@@ -250,6 +249,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
         QuantizationState quantizationState = null;
         if (quantizationParams != null) {
+            initQuantizationStateWriterIfNecessary();
             quantizationState = quantizationService.train(quantizationParams, knnVectorValues);
             quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
         }

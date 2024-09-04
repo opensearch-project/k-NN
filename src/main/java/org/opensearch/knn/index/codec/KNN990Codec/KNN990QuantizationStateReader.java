@@ -65,6 +65,8 @@ public final class KNN990QuantizationStateReader {
                 String fieldName = state.fieldInfos.fieldInfo(fieldNumber).getName();
                 readQuantizationStateInfos.put(fieldName, stateBytes);
             }
+        } catch (Exception e) {
+            return readQuantizationStateInfos;
         }
         return readQuantizationStateInfos;
     }
