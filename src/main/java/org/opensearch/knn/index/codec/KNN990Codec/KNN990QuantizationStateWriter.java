@@ -25,6 +25,7 @@ public final class KNN990QuantizationStateWriter {
 
     private final IndexOutput output;
     private List<FieldQuantizationState> fieldQuantizationStates = new ArrayList<>();
+    static final String NATIVE_ENGINES_990_KNN_VECTORS_FORMAT_QS_DATA = "NativeEngines990KnnVectorsFormatQSData";
 
     /**
      * Constructor
@@ -63,7 +64,7 @@ public final class KNN990QuantizationStateWriter {
     public void writeHeader(SegmentWriteState segmentWriteState) throws IOException {
         CodecUtil.writeIndexHeader(
             output,
-            "NativeEngines99KnnVectorsFormatQSData",
+            NATIVE_ENGINES_990_KNN_VECTORS_FORMAT_QS_DATA,
             0,
             segmentWriteState.segmentInfo.getId(),
             segmentWriteState.segmentSuffix

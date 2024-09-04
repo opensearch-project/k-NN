@@ -51,16 +51,15 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
     private final SegmentWriteState segmentWriteState;
     private final FlatVectorsWriter flatVectorsWriter;
-    private final KNN990QuantizationStateWriter quantizationStateWriter;
+    private KNN990QuantizationStateWriter quantizationStateWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
     private final QuantizationService quantizationService = QuantizationService.getInstance();
 
-    public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) throws IOException {
+    public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
-        this.quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
-        quantizationStateWriter.writeHeader(segmentWriteState);
+        this.quantizationStateWriter = null;
     }
 
     /**
@@ -86,6 +85,8 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void flush(int maxDoc, final Sorter.DocMap sortMap) throws IOException {
         flatVectorsWriter.flush(maxDoc, sortMap);
 
+        initQuantizationStateWriterIfNecessary();
+
         for (final NativeEngineFieldVectorsWriter<?> field : fields) {
             trainAndIndex(
                 field.getFieldInfo(),
@@ -102,6 +103,9 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void mergeOneField(final FieldInfo fieldInfo, final MergeState mergeState) throws IOException {
         // This will ensure that we are merging the FlatIndex during force merge.
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
+
+        initQuantizationStateWriterIfNecessary();
+
         // For merge, pick values from flat vector and reindex again. This will use the flush operation to create graphs
         trainAndIndex(
             fieldInfo,
@@ -261,5 +265,12 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         long time_in_millis = stopWatch.totalTime().millis();
         graphBuildTime.incrementBy(time_in_millis);
         log.warn("Graph build took " + time_in_millis + " ms for " + operationName);
+    }
+
+    private void initQuantizationStateWriterIfNecessary() throws IOException {
+        if (quantizationStateWriter == null) {
+            quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
+            quantizationStateWriter.writeHeader(segmentWriteState);
+        }
     }
 }

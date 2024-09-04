@@ -77,7 +77,7 @@ public class KNN990QuantizationStateWriterTests extends KNNTestCase {
             mockedStaticCodecUtil.verify(
                 () -> CodecUtil.writeIndexHeader(
                     output,
-                    "NativeEngines99KnnVectorsFormatQSData",
+                    KNN990QuantizationStateWriter.NATIVE_ENGINES_990_KNN_VECTORS_FORMAT_QS_DATA,
                     0,
                     segmentWriteState.segmentInfo.getId(),
                     segmentWriteState.segmentSuffix

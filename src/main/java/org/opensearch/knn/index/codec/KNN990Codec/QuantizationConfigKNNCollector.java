@@ -20,43 +20,45 @@ public class QuantizationConfigKNNCollector implements KnnCollector {
 
     private QuantizationState quantizationState;
 
+    private final String NATIVE_ENGINE_SEARCH_ERROR_MESSAGE = "Search functionality using codec is not supported with Native Engine Reader";
+
     @Override
     public boolean earlyTerminated() {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 
     @Override
     public void incVisitedCount(int i) {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 
     @Override
     public long visitedCount() {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 
     @Override
     public long visitLimit() {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 
     @Override
     public int k() {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 
     @Override
     public boolean collect(int i, float v) {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 
     @Override
     public float minCompetitiveSimilarity() {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 
     @Override
     public TopDocs topDocs() {
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        throw new UnsupportedOperationException(NATIVE_ENGINE_SEARCH_ERROR_MESSAGE);
     }
 }
