@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
@@ -50,9 +51,11 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS = Version.V_2_16_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE = Version.V_2_16_0;
     private static final Version MINIMAL_RESCORE_FEATURE = Version.V_2_17_0;
+    private static final Version MINIMAL_MODE_AND_COMPRESSION_FEATURE = Version.V_2_17_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VERSION = Version.V_2_17_0;
     // public so neural search can access it
     public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
+    public static final Set<VectorDataType> VECTOR_DATA_TYPES_NOT_SUPPORTING_ENCODERS = Set.of(VectorDataType.BINARY, VectorDataType.BYTE);
 
     /**
      * Determines the size of a file on disk in kilobytes
@@ -146,16 +149,6 @@ public class IndexUtil {
         }
 
         if (trainRequestVectorDataType != null) {
-            if (VectorDataType.BYTE == trainRequestVectorDataType) {
-                exception.addValidationError(
-                    String.format(
-                        Locale.ROOT,
-                        "vector data type \"%s\" is not supported for training.",
-                        trainRequestVectorDataType.getValue()
-                    )
-                );
-                return exception;
-            }
             VectorDataType trainIndexDataType = getVectorDataTypeFromFieldMapping(fieldMap);
 
             if (trainIndexDataType != trainRequestVectorDataType) {
@@ -171,20 +164,18 @@ public class IndexUtil {
                 return exception;
             }
 
-            // Block binary vector data type for pq encoder
+            // Block binary and byte vector data type for any encoder
             if (trainRequestKnnMethodContext != null) {
                 MethodComponentContext methodComponentContext = trainRequestKnnMethodContext.getMethodComponentContext();
                 Map<String, Object> parameters = methodComponentContext.getParameters();
 
                 if (parameters != null && parameters.containsKey(KNNConstants.METHOD_ENCODER_PARAMETER)) {
                     MethodComponentContext encoder = (MethodComponentContext) parameters.get(KNNConstants.METHOD_ENCODER_PARAMETER);
-                    if (encoder != null
-                        && KNNConstants.ENCODER_PQ.equals(encoder.getName())
-                        && VectorDataType.BINARY == trainRequestVectorDataType) {
+                    if (encoder != null && VECTOR_DATA_TYPES_NOT_SUPPORTING_ENCODERS.contains(trainRequestVectorDataType)) {
                         exception.addValidationError(
                             String.format(
                                 Locale.ROOT,
-                                "vector data type \"%s\" is not supported for pq encoder.",
+                                "encoder is not supported for vector data type [%s]",
                                 trainRequestVectorDataType.getValue()
                             )
                         );
@@ -327,16 +318,6 @@ public class IndexUtil {
     }
 
     /**
-     * Tell if it is binary index or not
-     *
-     * @param vectorDataType vector data type
-     * @return true if it is binary index
-     */
-    public static boolean isBinaryIndex(VectorDataType vectorDataType) {
-        return VectorDataType.BINARY == vectorDataType;
-    }
-
-    /**
      * Update vector data type into parameters
      *
      * @param parameters parameters associated with an index
@@ -344,6 +325,9 @@ public class IndexUtil {
      */
     public static void updateVectorDataTypeToParameters(Map<String, Object> parameters, VectorDataType vectorDataType) {
         if (VectorDataType.BINARY == vectorDataType) {
+            parameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+        }
+        if (VectorDataType.BYTE == vectorDataType) {
             parameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         }
     }
@@ -406,6 +390,7 @@ public class IndexUtil {
                 put(KNNConstants.METHOD_PARAMETER, MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS);
                 put(KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE);
                 put(RESCORE_PARAMETER, MINIMAL_RESCORE_FEATURE);
+                put(KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE, MINIMAL_MODE_AND_COMPRESSION_FEATURE);
                 put(KNNConstants.MODEL_VERSION, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VERSION);
             }
         };

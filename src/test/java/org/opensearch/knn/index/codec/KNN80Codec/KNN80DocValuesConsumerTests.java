@@ -30,6 +30,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -460,27 +462,31 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
 
         byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine);
-        ModelMetadata modelMetadata = new ModelMetadata(
-            knnEngine,
-            spaceType,
-            dimension,
-            ModelState.CREATED,
-            "timestamp",
-            "Empty description",
-            "",
-            "",
-            MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT,
-            Version.V_EMPTY
+        Model model = new Model(
+            new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                ModelState.CREATED,
+                "timestamp",
+                "Empty description",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.FLOAT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED,
+                    Version.V_EMPTY
+            ),
+            modelBytes,
+            modelId
         );
-        Model model = new Model(modelMetadata, modelBytes, modelId);
         JNICommons.freeVectorData(trainingPtr);
 
         try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
             // Setup the model cache to return the correct model
             ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
             when(modelDao.get(modelId)).thenReturn(model);
-            when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 
             modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 

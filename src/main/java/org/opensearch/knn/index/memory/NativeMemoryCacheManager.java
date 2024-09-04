@@ -21,13 +21,17 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,6 +49,7 @@ public class NativeMemoryCacheManager implements Closeable {
     private static NativeMemoryCacheManager INSTANCE;
 
     private Cache<String, NativeMemoryAllocation> cache;
+    private Deque<String> accessRecencyQueue;
     private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
@@ -97,7 +102,7 @@ public class NativeMemoryCacheManager implements Closeable {
         }
 
         cacheCapacityReached = new AtomicBoolean(false);
-
+        accessRecencyQueue = new ConcurrentLinkedDeque<>();
         cache = cacheBuilder.build();
     }
 
@@ -301,7 +306,52 @@ public class NativeMemoryCacheManager implements Closeable {
             );
         }
 
-        return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
+        if (KNNFeatureFlags.isForceEvictCacheEnabled()) {
+            // Utilizes a force eviction mechanism to free up memory before the entry can be added to the cache
+            // In case of a cache hit, the operation just updates the locally maintained recency list
+            // In case of a cache miss, least recently accessed entries are evicted in a blocking manner
+            // before the new entry can be added to the cache.
+            String key = nativeMemoryEntryContext.getKey();
+            NativeMemoryAllocation result = cache.getIfPresent(key);
+
+            // Cache Hit
+            // In case of a cache hit, moving the item to the end of the recency queue adds
+            // some overhead to the get operation. This can be optimized further to make this operation
+            // as lightweight as possible. Multiple approaches and their outcomes were documented
+            // before moving forward with the current solution.
+            // The details are outlined here: https://github.com/opensearch-project/k-NN/pull/2015#issuecomment-2327064680
+            if (result != null) {
+                accessRecencyQueue.remove(key);
+                accessRecencyQueue.addLast(key);
+                return result;
+            }
+
+            // Cache Miss
+            // Evict before put
+            synchronized (this) {
+                if (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight) {
+                    Iterator<String> lruIterator = accessRecencyQueue.iterator();
+                    while (lruIterator.hasNext()
+                        && (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight)) {
+
+                        String keyToRemove = lruIterator.next();
+                        NativeMemoryAllocation allocationToRemove = cache.getIfPresent(keyToRemove);
+                        if (allocationToRemove != null) {
+                            allocationToRemove.close();
+                            cache.invalidate(keyToRemove);
+                        }
+                        lruIterator.remove();
+                    }
+                }
+
+                result = cache.get(key, nativeMemoryEntryContext::load);
+                accessRecencyQueue.addLast(key);
+
+                return result;
+            }
+        } else {
+            return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
+        }
     }
 
     /**

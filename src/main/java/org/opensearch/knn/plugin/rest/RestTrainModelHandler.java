@@ -15,9 +15,12 @@ import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
@@ -91,6 +94,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
         int maximumVectorCount = DEFAULT_NOT_SET_INT_VALUE;
         int searchSize = DEFAULT_NOT_SET_INT_VALUE;
 
+        String compressionLevel = null;
+        String mode = null;
+
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
@@ -115,6 +121,10 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 ModelUtil.blockCommasInModelDescription(description);
             } else if (VECTOR_DATA_TYPE_FIELD.equals(fieldName) && ensureNotSet(fieldName, vectorDataType)) {
                 vectorDataType = VectorDataType.get(parser.text());
+            } else if (KNNConstants.MODE_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, mode)) {
+                mode = parser.text();
+            } else if (KNNConstants.COMPRESSION_LEVEL_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, compressionLevel)) {
+                compressionLevel = parser.text();
             } else {
                 throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
             }
@@ -143,7 +153,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
             trainingField,
             preferredNodeId,
             description,
-            vectorDataType
+            vectorDataType,
+            Mode.fromName(mode),
+            CompressionLevel.fromName(compressionLevel)
         );
 
         if (maximumVectorCount != DEFAULT_NOT_SET_INT_VALUE) {

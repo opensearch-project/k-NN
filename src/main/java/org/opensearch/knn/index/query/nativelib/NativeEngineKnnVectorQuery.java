@@ -15,6 +15,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.KNNQuery;
@@ -45,7 +46,7 @@ public class NativeEngineKnnVectorQuery extends Query {
     private final KNNQuery knnQuery;
 
     @Override
-    public Query rewrite(final IndexSearcher indexSearcher) throws IOException {
+    public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException {
         final IndexReader reader = indexSearcher.getIndexReader();
         final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
@@ -69,9 +70,9 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         TopDocs topK = TopDocs.merge(knnQuery.getK(), topDocs);
         if (topK.scoreDocs.length == 0) {
-            return new MatchNoDocsQuery();
+            return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
-        return createRewrittenQuery(reader, topK);
+        return createDocAndScoreQuery(reader, topK).createWeight(indexSearcher, scoreMode, boost);
     }
 
     private List<Map<Integer, Float>> doSearch(
@@ -106,7 +107,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
     }
 
-    private Query createRewrittenQuery(IndexReader reader, TopDocs topK) {
+    private Query createDocAndScoreQuery(IndexReader reader, TopDocs topK) {
         int len = topK.scoreDocs.length;
         Arrays.sort(topK.scoreDocs, Comparator.comparingInt(a -> a.doc));
         int[] docs = new int[len];

@@ -20,6 +20,8 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -69,7 +71,9 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.DEFAULT).dimension(10).versionCreated(Version.CURRENT).build(),
             "",
-            "test-node"
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         assertEquals(modelId, trainingJob.getModelId());
@@ -102,7 +106,9 @@ public class TrainingJobTests extends KNNTestCase {
                 .versionCreated(Version.CURRENT)
                 .build(),
             description,
-            nodeAssignment
+            nodeAssignment,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         Model model = new Model(
@@ -117,7 +123,9 @@ public class TrainingJobTests extends KNNTestCase {
                 nodeAssignment,
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
-                Version.CURRENT
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED,
+                    Version.CURRENT
             ),
             null,
             modelID
@@ -196,7 +204,9 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -279,7 +289,9 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -351,7 +363,9 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -422,7 +436,9 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -500,7 +516,9 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             knnMethodConfigContext,
             "",
-            "test-node"
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();

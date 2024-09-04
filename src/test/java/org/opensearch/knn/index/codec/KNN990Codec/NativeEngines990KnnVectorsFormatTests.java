@@ -14,6 +14,7 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
@@ -51,6 +52,7 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
@@ -204,6 +206,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         indexWriter.flush();
         indexWriter.commit();
         indexWriter.close();
+
         IndexSearcher searcher = new IndexSearcher(indexReader);
         final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
         SegmentReader segmentReader = Lucene.segmentReader(leafReader);
@@ -219,6 +222,16 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertEquals(1, floatVectorValues.size());
         assertEquals(8, floatVectorValues.dimension());
         indexReader.close();
+    }
+
+    public void testFormatName_withValidInput_thenSuccess() {
+        final String validFormatName = "NativeEngines990KnnVectorsFormat";
+        Assert.assertEquals(validFormatName, new NativeEngines990KnnVectorsFormat().getName());
+        Assert.assertEquals(
+            validFormatName,
+            new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
+                .getName()
+        );
     }
 
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {

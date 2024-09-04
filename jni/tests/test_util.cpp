@@ -447,6 +447,14 @@ std::vector<float> test_util::RandomVectors(int dim, int64_t numVectors, float m
     return vectors;
 }
 
+std::vector<int8_t> test_util::RandomByteVectors(int dim, int64_t numVectors, int min, int max) {
+    std::vector<int8_t> vectors(dim*numVectors);
+    for (int64_t i = 0; i < dim*numVectors; i++) {
+        vectors[i] = test_util::RandomInt(min, max);
+    }
+    return vectors;
+}
+
 std::vector<int64_t> test_util::Range(int64_t numElements) {
     std::vector<int64_t> rangeVector(numElements);
     for (int64_t i = 0; i < numElements; i++) {

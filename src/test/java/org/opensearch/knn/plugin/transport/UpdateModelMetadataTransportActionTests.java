@@ -22,6 +22,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.threadpool.ThreadPool;
@@ -72,7 +74,9 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             "",
             MethodComponentContext.EMPTY,
             VectorDataType.DEFAULT,
-            Version.CURRENT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
         );
 
         // Get update transport action

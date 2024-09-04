@@ -207,7 +207,8 @@ public class KNNQuery extends Query {
             context,
             parentsFilter,
             radius,
-            methodParameters
+            methodParameters,
+            rescoreContext
         );
     }
 
@@ -227,7 +228,8 @@ public class KNNQuery extends Query {
             && Objects.equals(context, other.context)
             && Objects.equals(indexName, other.indexName)
             && Objects.equals(parentsFilter, other.parentsFilter)
-            && Objects.equals(filterQuery, other.filterQuery);
+            && Objects.equals(filterQuery, other.filterQuery)
+            && Objects.equals(rescoreContext, other.rescoreContext);
     }
 
     /**
