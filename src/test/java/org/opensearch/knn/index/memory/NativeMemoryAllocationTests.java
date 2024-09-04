@@ -13,26 +13,36 @@ package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
+import org.junit.Before;
+import org.mockito.Mock;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.util.IndexUtil;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.watcher.FileWatcher;
 import org.opensearch.watcher.WatcherHandle;
 
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_FORCE_EVICT_CACHE_ENABLED_SETTING;
 
 public class NativeMemoryAllocationTests extends KNNTestCase {
 
@@ -40,6 +50,19 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     private int testLockValue2;
     private int testLockValue3;
     private int testLockValue4;
+
+    @Mock
+    ClusterSettings clusterSettings;
+
+    @Before
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        clusterSettings = mock(ClusterSettings.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterSettings.get(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING)).thenReturn(false);
+        KNNSettings.state().setClusterService(clusterService);
+    }
 
     public void testIndexAllocation_close() throws InterruptedException {
         // Create basic nmslib HNSW index
@@ -205,6 +228,71 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
 
         Thread.sleep(1000);
         assertEquals(finalValue, testLockValue1);
+    }
+
+    public void testIndexAllocation_closeDefault() {
+        WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        AtomicReference<Exception> expectedException = new AtomicReference<>();
+
+        // Executor based non-blocking close
+        NativeMemoryAllocation.IndexAllocation nonBlockingIndexAllocation = new NativeMemoryAllocation.IndexAllocation(
+            mock(ExecutorService.class),
+            0,
+            0,
+            null,
+            "test",
+            "test",
+            watcherHandle
+        );
+
+        executorService.submit(nonBlockingIndexAllocation::readLock);
+        Future<?> closingThread = executorService.submit(nonBlockingIndexAllocation::close);
+        try {
+            closingThread.get();
+        } catch (Exception ex) {
+            expectedException.set(ex);
+        }
+        assertNull(expectedException.get());
+        expectedException.set(null);
+        executorService.shutdown();
+    }
+
+    public void testIndexAllocation_closeBlocking() throws InterruptedException, ExecutionException {
+        WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        AtomicReference<Exception> expectedException = new AtomicReference<>();
+
+        // Blocking close
+        when(clusterSettings.get(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING)).thenReturn(true);
+        NativeMemoryAllocation.IndexAllocation blockingIndexAllocation = new NativeMemoryAllocation.IndexAllocation(
+            mock(ExecutorService.class),
+            0,
+            0,
+            null,
+            "test",
+            "test",
+            watcherHandle
+        );
+
+        executorService.submit(blockingIndexAllocation::readLock);
+        Future<?> closingThread = executorService.submit(blockingIndexAllocation::close);
+
+        // Check if thread is currently blocked
+        try {
+            closingThread.get(5, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            expectedException.set(e);
+        }
+
+        assertNotNull(expectedException.get());
+
+        executorService.submit(blockingIndexAllocation::readUnlock);
+        closingThread.get();
+
+        // Waits until close
+        assertTrue(blockingIndexAllocation.isClosed());
+        executorService.shutdown();
     }
 
     public void testIndexAllocation_writeLock() throws InterruptedException {

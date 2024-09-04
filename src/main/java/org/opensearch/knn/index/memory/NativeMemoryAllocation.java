@@ -13,6 +13,7 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNIService;
@@ -161,11 +162,19 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void close() {
-            executor.execute(() -> {
+            Runnable onClose = () -> {
                 writeLock();
                 cleanup();
                 writeUnlock();
-            });
+            };
+
+            // The close operation needs to be blocking to prevent overflow
+            // This blocks any entry until the close has completed, preventing creation before close scenarios
+            if (KNNFeatureFlags.isForceEvictCacheEnabled()) {
+                onClose.run();
+            } else {
+                executor.execute(onClose);
+            }
         }
 
         private void cleanup() {
