@@ -48,8 +48,8 @@ public class ModelUtil {
         if (StringUtils.isEmpty(modelId)) {
             return null;
         }
-        final Model model = ModelCache.getInstance().get(modelId);
-        final ModelMetadata modelMetadata = model.getModelMetadata();
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        final ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
         if (isModelCreated(modelMetadata) == false) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
         }

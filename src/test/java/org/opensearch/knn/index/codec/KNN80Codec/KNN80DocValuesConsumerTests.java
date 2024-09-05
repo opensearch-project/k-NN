@@ -18,6 +18,8 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -460,85 +462,92 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
 
         byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine);
-        Model model = new Model(
-            new ModelMetadata(
-                knnEngine,
-                spaceType,
-                dimension,
-                ModelState.CREATED,
-                "timestamp",
-                "Empty description",
-                "",
-                "",
-                MethodComponentContext.EMPTY,
-                VectorDataType.FLOAT,
-                Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
-            ),
-            modelBytes,
-            modelId
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            "timestamp",
+            "Empty description",
+            "",
+            "",
+            MethodComponentContext.EMPTY,
+            VectorDataType.FLOAT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED,
+            Version.V_EMPTY
         );
+        Model model = new Model(modelMetadata, modelBytes, modelId);
         JNICommons.freeVectorData(trainingPtr);
 
-        // Setup the model cache to return the correct model
-        ModelDao modelDao = mock(ModelDao.class);
-        when(modelDao.get(modelId)).thenReturn(model);
-        ClusterService clusterService = mock(ClusterService.class);
-        when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            // Setup the model cache to return the correct model
+            ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+            when(modelDao.get(modelId)).thenReturn(model);
+            when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb").build(),
-            ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
-        );
+            modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        ModelCache.initialize(modelDao, clusterService);
+            ClusterService clusterService = mock(ClusterService.class);
+            when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
 
-        // Build the segment and field info
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
-        int docsInSegment = 100;
-        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+            ClusterSettings clusterSettings = new ClusterSettings(
+                Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb").build(),
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
+            );
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
-            .directory(directory)
-            .segmentName(segmentName)
-            .docsInSegment(docsInSegment)
-            .codec(codec)
-            .build();
+            when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+            ModelCache.initialize(modelDao, clusterService);
 
-        FieldInfo[] fieldInfoArray = new FieldInfo[] {
-            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                .addAttribute(MODEL_ID, modelId)
-                .build() };
+            // Build the segment and field info
+            String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+            int docsInSegment = 100;
+            String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-        FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
-        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+            SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+                .directory(directory)
+                .segmentName(segmentName)
+                .docsInSegment(docsInSegment)
+                .codec(codec)
+                .build();
 
-        long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
+            FieldInfo[] fieldInfoArray = new FieldInfo[] {
+                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                    .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                    .addAttribute(MODEL_ID, modelId)
+                    .build() };
 
-        // Add documents to the field
-        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
-            docsInSegment,
-            dimension
-        );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
+            FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+            SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
 
-        // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
-        assertFileInCorrectLocation(state, expectedFile);
+            long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
 
-        // The footer should be valid
-        assertValidFooter(state.directory, expectedFile);
+            // Add documents to the field
+            KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
+            TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer =
+                new TestVectorValues.RandomVectorDocValuesProducer(docsInSegment, dimension);
+            knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
 
-        // The document should be readable by faiss
-        assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
+            // The document should be created in the correct location
+            String expectedFile = KNNCodecUtil.buildEngineFileName(
+                segmentName,
+                knnEngine.getVersion(),
+                fieldName,
+                knnEngine.getExtension()
+            );
+            assertFileInCorrectLocation(state, expectedFile);
 
-        // The graph creation statistics should be updated
-        assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+            // The footer should be valid
+            assertValidFooter(state.directory, expectedFile);
+
+            // The document should be readable by faiss
+            assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
+
+            // The graph creation statistics should be updated
+            assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
+            assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
+            assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+        }
 
     }
 

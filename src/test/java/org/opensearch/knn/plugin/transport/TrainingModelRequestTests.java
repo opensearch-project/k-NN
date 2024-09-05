@@ -12,6 +12,7 @@
 package org.opensearch.knn.plugin.transport;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -222,7 +223,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
             MethodComponentContext.EMPTY,
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+            CompressionLevel.NOT_CONFIGURED,
+            Version.CURRENT
         );
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 

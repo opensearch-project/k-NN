@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.indices;
 
+import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -47,7 +48,8 @@ public class ModelTests extends KNNTestCase {
                     MethodComponentContext.EMPTY,
                     VectorDataType.DEFAULT,
                     Mode.NOT_CONFIGURED,
-                    CompressionLevel.NOT_CONFIGURED
+                    CompressionLevel.NOT_CONFIGURED,
+                    Version.CURRENT
                 ),
                 null,
                 "test-model"
@@ -71,7 +73,8 @@ public class ModelTests extends KNNTestCase {
                     MethodComponentContext.EMPTY,
                     VectorDataType.DEFAULT,
                     Mode.NOT_CONFIGURED,
-                    CompressionLevel.NOT_CONFIGURED
+                    CompressionLevel.NOT_CONFIGURED,
+                    Version.CURRENT
                 ),
                 new byte[16],
                 "test-model"
@@ -92,7 +95,8 @@ public class ModelTests extends KNNTestCase {
                     MethodComponentContext.EMPTY,
                     VectorDataType.DEFAULT,
                     Mode.NOT_CONFIGURED,
-                    CompressionLevel.NOT_CONFIGURED
+                    CompressionLevel.NOT_CONFIGURED,
+                    Version.CURRENT
                 ),
                 new byte[16],
                 "test-model"
@@ -113,7 +117,8 @@ public class ModelTests extends KNNTestCase {
                     MethodComponentContext.EMPTY,
                     VectorDataType.DEFAULT,
                     Mode.NOT_CONFIGURED,
-                    CompressionLevel.NOT_CONFIGURED
+                    CompressionLevel.NOT_CONFIGURED,
+                    Version.CURRENT
                 ),
                 new byte[16],
                 "test-model"
@@ -135,7 +140,8 @@ public class ModelTests extends KNNTestCase {
             MethodComponentContext.EMPTY,
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+            CompressionLevel.NOT_CONFIGURED,
+            Version.CURRENT
         );
         Model model = new Model(modelMetadata, new byte[16], "test-model");
         assertEquals(modelMetadata, model.getModelMetadata());
@@ -156,7 +162,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             modelBlob,
             "test-model"
@@ -179,7 +186,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[size],
             "test-model"
@@ -199,7 +207,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             null,
             "test-model"
@@ -222,7 +231,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             blob1,
             "test-model"
@@ -251,7 +261,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[16],
             "test-model-1"
@@ -269,7 +280,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[16],
             "test-model-1"
@@ -287,13 +299,13 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[16],
             "test-model-2"
         );
 
-        assertEquals(model1, model1);
         assertEquals(model1, model2);
         assertNotEquals(model1, model3);
     }
@@ -315,7 +327,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[16],
             "test-model-1"
@@ -333,7 +346,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[16],
             "test-model-1"
@@ -351,7 +365,8 @@ public class ModelTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[16],
             "test-model-2"
@@ -385,7 +400,8 @@ public class ModelTests extends KNNTestCase {
             MethodComponentContext.EMPTY,
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+            CompressionLevel.NOT_CONFIGURED,
+            Version.CURRENT
         );
         Map<String, Object> modelAsMap = new HashMap<>();
         modelAsMap.put(KNNConstants.MODEL_ID, modelID);

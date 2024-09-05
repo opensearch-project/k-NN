@@ -16,6 +16,8 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.mockito.MockedStatic;
+import org.opensearch.Version;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -232,82 +234,86 @@ public class KNNCodecTestCase extends KNNTestCase {
         );
 
         // Setup model cache
-        ModelDao modelDao = mock(ModelDao.class);
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+            modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 
-        // Set model state to created
-        ModelMetadata modelMetadata1 = new ModelMetadata(
-            knnEngine,
-            spaceType,
-            dimension,
-            ModelState.CREATED,
-            ZonedDateTime.now(ZoneOffset.UTC).toString(),
-            "",
-            "",
-            "",
-            MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT,
-            Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
-        );
+            // Set model state to created
+            ModelMetadata modelMetadata1 = new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.FLOAT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
+            );
 
-        Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
-        when(modelDao.get(modelId)).thenReturn(mockModel);
-        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
+            Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
+            when(modelDao.get(modelId)).thenReturn(mockModel);
+            when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
 
-        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
-        ClusterSettings clusterSettings = new ClusterSettings(settings, ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
+            Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
+            ClusterSettings clusterSettings = new ClusterSettings(settings, ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
 
-        ClusterService clusterService = mock(ClusterService.class);
-        when(clusterService.getSettings()).thenReturn(settings);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+            ClusterService clusterService = mock(ClusterService.class);
+            when(clusterService.getSettings()).thenReturn(settings);
+            when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        ModelCache.initialize(modelDao, clusterService);
-        ModelCache.getInstance().removeAll();
+            ModelCache.initialize(modelDao, clusterService);
+            ModelCache.getInstance().removeAll();
 
-        // Setup Lucene
-        setUpMockClusterService();
-        Directory dir = newFSDirectory(createTempDir());
-        IndexWriterConfig iwc = newIndexWriterConfig();
-        iwc.setMergeScheduler(new SerialMergeScheduler());
-        iwc.setCodec(codec);
+            // Setup Lucene
+            setUpMockClusterService();
+            Directory dir = newFSDirectory(createTempDir());
+            IndexWriterConfig iwc = newIndexWriterConfig();
+            iwc.setMergeScheduler(new SerialMergeScheduler());
+            iwc.setCodec(codec);
 
-        FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-        fieldType.setDocValuesType(DocValuesType.BINARY);
-        fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
-        fieldType.freeze();
+            FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+            fieldType.setDocValuesType(DocValuesType.BINARY);
+            fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
+            fieldType.freeze();
 
-        // Add the documents to the index
-        float[][] arrays = { { 1.0f, 3.0f, 4.0f }, { 2.0f, 5.0f, 8.0f }, { 3.0f, 6.0f, 9.0f }, { 4.0f, 7.0f, 10.0f } };
+            // Add the documents to the index
+            float[][] arrays = { { 1.0f, 3.0f, 4.0f }, { 2.0f, 5.0f, 8.0f }, { 3.0f, 6.0f, 9.0f }, { 4.0f, 7.0f, 10.0f } };
 
-        RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
-        String fieldName = "test_vector";
-        for (float[] array : arrays) {
-            VectorField vectorField = new VectorField(fieldName, array, fieldType);
-            Document doc = new Document();
-            doc.add(vectorField);
-            writer.addDocument(doc);
+            RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
+            String fieldName = "test_vector";
+            for (float[] array : arrays) {
+                VectorField vectorField = new VectorField(fieldName, array, fieldType);
+                Document doc = new Document();
+                doc.add(vectorField);
+                writer.addDocument(doc);
+            }
+
+            IndexReader reader = writer.getReader();
+            writer.close();
+
+            // Make sure that search returns the correct results
+            KNNWeight.initialize(modelDao);
+            ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
+            NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
+            float[] query = { 10.0f, 10.0f, 10.0f };
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy", (BitSetProducer) null), 10);
+
+            assertEquals(3, topDocs.scoreDocs[0].doc);
+            assertEquals(2, topDocs.scoreDocs[1].doc);
+            assertEquals(1, topDocs.scoreDocs[2].doc);
+            assertEquals(0, topDocs.scoreDocs[3].doc);
+
+            reader.close();
+            dir.close();
+            resourceWatcherService.close();
+            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
         }
-
-        IndexReader reader = writer.getReader();
-        writer.close();
-
-        // Make sure that search returns the correct results
-        KNNWeight.initialize(modelDao);
-        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
-        float[] query = { 10.0f, 10.0f, 10.0f };
-        IndexSearcher searcher = new IndexSearcher(reader);
-        TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy", (BitSetProducer) null), 10);
-
-        assertEquals(3, topDocs.scoreDocs[0].doc);
-        assertEquals(2, topDocs.scoreDocs[1].doc);
-        assertEquals(1, topDocs.scoreDocs[2].doc);
-        assertEquals(0, topDocs.scoreDocs[3].doc);
-
-        reader.close();
-        dir.close();
-        resourceWatcherService.close();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
     public void testWriteByOldCodec(Codec codec) throws IOException {

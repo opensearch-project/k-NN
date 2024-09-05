@@ -13,6 +13,7 @@ package org.opensearch.knn.plugin.transport;
 
 import com.google.common.collect.ImmutableSet;
 import org.junit.Ignore;
+import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -84,7 +85,8 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             new byte[128],
             modelId

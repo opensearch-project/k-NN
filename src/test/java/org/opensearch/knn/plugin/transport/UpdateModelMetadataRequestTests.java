@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.Version;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -48,7 +49,8 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             MethodComponentContext.EMPTY,
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+            CompressionLevel.NOT_CONFIGURED,
+            Version.CURRENT
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
@@ -76,7 +78,8 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             MethodComponentContext.EMPTY,
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+            CompressionLevel.NOT_CONFIGURED,
+            Version.CURRENT
         );
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
@@ -119,7 +122,8 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             MethodComponentContext.EMPTY,
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+            CompressionLevel.NOT_CONFIGURED,
+            Version.CURRENT
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 

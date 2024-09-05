@@ -38,6 +38,9 @@
     },
     "compression_level": {
       "type": "keyword"
+    },
+    "model_version": {
+      "type": "keyword"
     }
   }
 }

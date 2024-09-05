@@ -301,6 +301,7 @@ public interface ModelDao {
                     if (CompressionLevel.isConfigured(modelMetadata.getCompressionLevel())) {
                         put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, modelMetadata.getCompressionLevel().getName());
                     }
+                    put(KNNConstants.MODEL_VERSION, modelMetadata.getModelVersion());
                     MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
                     if (!methodComponentContext.getName().isEmpty()) {
                         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
