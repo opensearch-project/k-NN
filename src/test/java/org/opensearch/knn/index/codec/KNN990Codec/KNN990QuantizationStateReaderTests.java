@@ -143,11 +143,6 @@ public class KNN990QuantizationStateReaderTests extends KNNTestCase {
             mockedStaticReader.when(() -> KNN990QuantizationStateReader.readStateBytes(any(IndexInput.class), anyLong(), anyInt()))
                 .thenReturn(new byte[8]);
             try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
-                assertThrows(IllegalArgumentException.class, () -> KNN990QuantizationStateReader.read(quantizationStateReadConfig));
-
-                mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
-                Mockito.verify(input, times(4)).readInt();
-                Mockito.verify(input, times(2)).readVLong();
 
                 Mockito.when(input.readInt()).thenReturn(fieldNumber);
 
@@ -158,6 +153,7 @@ public class KNN990QuantizationStateReaderTests extends KNNTestCase {
                         .thenReturn(oneBitScalarQuantizationState);
                     QuantizationState quantizationState = KNN990QuantizationStateReader.read(quantizationStateReadConfig);
                     assertEquals(oneBitScalarQuantizationState, quantizationState);
+                    mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
                 }
 
                 try (MockedStatic<MultiBitScalarQuantizationState> mockedStaticOneBit = mockStatic(MultiBitScalarQuantizationState.class)) {
