@@ -75,10 +75,12 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
+                .vectorValues(knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 
             // When
-            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams, knnVectorValues);
+            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
 
             // Then
             mockedJNIService.verify(
@@ -193,10 +195,12 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
                 .quantizationState(quantizationState)
+                .vectorValues(knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 
             // When
-            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams, knnVectorValues);
+            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
 
             // Then
             mockedJNIService.verify(
