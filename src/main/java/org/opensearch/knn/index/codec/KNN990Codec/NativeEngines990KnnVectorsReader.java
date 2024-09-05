@@ -25,10 +25,6 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
-import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
-import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -50,8 +46,8 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
         this.segmentReadState = state;
-        primeQuantizationStateCache();
         this.flatVectorsReader = flatVectorsReader;
+        primeQuantizationStateCache();
     }
 
     /**
@@ -197,28 +193,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private void primeQuantizationStateCache() throws IOException {
         quantizationStateCacheKeyPerField = new HashMap<>();
-        Map<String, byte[]> stateMap = KNN990QuantizationStateReader.read(segmentReadState);
-        for (Map.Entry<String, byte[]> entry : stateMap.entrySet()) {
-            FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(entry.getKey());
-            QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo);
-            if (quantizationParams instanceof ScalarQuantizationParams) {
-                QuantizationState quantizationState;
-                ScalarQuantizationParams scalarQuantizationParams = (ScalarQuantizationParams) quantizationParams;
-                switch (scalarQuantizationParams.getSqType()) {
-                    case ONE_BIT:
-                        quantizationState = OneBitScalarQuantizationState.fromByteArray(entry.getValue());
-                        break;
-                    case TWO_BIT:
-                    case FOUR_BIT:
-                        quantizationState = MultiBitScalarQuantizationState.fromByteArray(entry.getValue());
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unknown Scalar Quantization Type");
-                }
-                String cacheKey = UUIDs.base64UUID();
-                quantizationStateCacheKeyPerField.put(entry.getKey(), cacheKey);
-                quantizationStateCacheManager.addQuantizationState(cacheKey, quantizationState);
-            }
+        for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+            String cacheKey = UUIDs.base64UUID();
+            quantizationStateCacheKeyPerField.put(fieldInfo.getName(), cacheKey);
         }
     }
 }

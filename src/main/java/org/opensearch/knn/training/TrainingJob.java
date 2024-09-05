@@ -18,7 +18,10 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.jni.JNIService;
@@ -169,14 +172,22 @@ public class TrainingJob implements Runnable {
             if (trainingDataAllocation.isClosed()) {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
-            Map<String, Object> trainParameters = model.getModelMetadata()
+
+            KNNLibraryIndexingContext libraryIndexingContext = model.getModelMetadata()
                 .getKnnEngine()
-                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-                .getLibraryParameters();
+                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+
+            Map<String, Object> trainParameters = libraryIndexingContext.getLibraryParameters();
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
             );
+
+            if (libraryIndexingContext.getQuantizationConfig() != QuantizationConfig.EMPTY) {
+                trainParameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
+            } else {
+                trainParameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, modelMetadata.getVectorDataType().getValue());
+            }
 
             byte[] modelBlob = JNIService.trainIndex(
                 trainParameters,
