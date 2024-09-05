@@ -161,6 +161,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             CompressionLevel.NAMES_ARRAY
         ).acceptsNull();
 
+        // A top level space Type field.
+        protected final Parameter<String> topLevelSpaceType = Parameter.stringParam(
+            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE,
+            false,
+            m -> toType(m).originalMappingParameters.getTopLevelSpaceType(),
+            SpaceType.UNDEFINED.getValue()
+        ).setValidator(SpaceType::getSpace);
+
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
         protected ModelDao modelDao;
@@ -187,7 +195,18 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         protected List<Parameter<?>> getParameters() {
-            return Arrays.asList(stored, hasDocValues, dimension, vectorDataType, meta, knnMethodContext, modelId, mode, compressionLevel);
+            return Arrays.asList(
+                stored,
+                hasDocValues,
+                dimension,
+                vectorDataType,
+                meta,
+                knnMethodContext,
+                modelId,
+                mode,
+                compressionLevel,
+                topLevelSpaceType
+            );
         }
 
         protected Explicit<Boolean> ignoreMalformed(BuilderContext context) {
@@ -346,11 +365,29 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 validateFromModel(builder);
             } else {
                 validateMode(builder);
+                validateSpaceType(builder);
                 resolveKNNMethodComponents(builder, parserContext);
                 validateFromKNNMethod(builder);
             }
 
             return builder;
+        }
+
+        private void validateSpaceType(KNNVectorFieldMapper.Builder builder) {
+            final KNNMethodContext knnMethodContext = builder.knnMethodContext.get();
+            // if context is defined
+            if (knnMethodContext != null) {
+                // now ensure both space types are same.
+                final SpaceType knnMethodContextSpaceType = knnMethodContext.getSpaceType();
+                final SpaceType topLevelSpaceType = SpaceType.getSpace(builder.topLevelSpaceType.get());
+                if (topLevelSpaceType != SpaceType.UNDEFINED
+                    && topLevelSpaceType != knnMethodContextSpaceType
+                    && knnMethodContextSpaceType != SpaceType.UNDEFINED) {
+                    throw new MapperParsingException(
+                        "Space type in \"method\" and top level space type should be same or one of them should be defined"
+                    );
+                }
+            }
         }
 
         private void validateMode(KNNVectorFieldMapper.Builder builder) {
@@ -386,6 +423,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (builder.dimension.getValue() == UNSET_MODEL_DIMENSION_IDENTIFIER && builder.modelId.get() == null) {
                 throw new IllegalArgumentException(String.format(Locale.ROOT, "Dimension value missing for vector: %s", builder.name()));
             }
+            // ensure model and top level spaceType is not defined
+            if (builder.modelId.get() != null && SpaceType.getSpace(builder.topLevelSpaceType.get()) != SpaceType.UNDEFINED) {
+                throw new IllegalArgumentException("TopLevel Space type and model can not be both specified in the " + "mapping");
+            }
+
             validateCompressionAndModeNotSet(builder, builder.name(), "model");
         }
 
@@ -439,19 +481,33 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // Configure method from map or legacy
             if (builder.originalParameters.isLegacyMapping()) {
                 builder.originalParameters.setResolvedKnnMethodContext(
-                    createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated())
+                    createKNNMethodContextFromLegacy(
+                        parserContext.getSettings(),
+                        parserContext.indexVersionCreated(),
+                        SpaceType.getSpace(builder.topLevelSpaceType.get())
+                    )
                 );
             } else if (Mode.isConfigured(Mode.fromName(builder.mode.get()))
                 || CompressionLevel.isConfigured(CompressionLevel.fromName(builder.compressionLevel.get()))) {
+                    // we need don't need to resolve the space type, whatever default we are using will be passed down to
+                    // while resolving KNNMethodContext for the mode and compression. and then when we resolve the spaceType
+                    // we will set the correct spaceType.
                     builder.originalParameters.setResolvedKnnMethodContext(
                         ModeBasedResolver.INSTANCE.resolveKNNMethodContext(
                             builder.knnMethodConfigContext.getMode(),
                             builder.knnMethodConfigContext.getCompressionLevel(),
-                            false
+                            false,
+                            SpaceType.getSpace(builder.originalParameters.getTopLevelSpaceType())
                         )
                     );
                 }
-            setDefaultSpaceType(builder.originalParameters.getResolvedKnnMethodContext(), builder.originalParameters.getVectorDataType());
+            // this function should now correct the space type for the above resolved context too, if spaceType was
+            // not provided.
+            setSpaceType(
+                builder.originalParameters.getResolvedKnnMethodContext(),
+                builder.originalParameters.getVectorDataType(),
+                builder.topLevelSpaceType.get()
+            );
         }
 
         private boolean isKNNDisabled(Settings settings) {
@@ -459,16 +515,30 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             return !isSettingPresent || !KNNSettings.IS_KNN_INDEX_SETTING.get(settings);
         }
 
-        private void setDefaultSpaceType(final KNNMethodContext knnMethodContext, final VectorDataType vectorDataType) {
+        private void setSpaceType(
+            final KNNMethodContext knnMethodContext,
+            final VectorDataType vectorDataType,
+            final String topLevelSpaceType
+        ) {
+            // Now KNNMethodContext should never be null. Because only case it could be null is flatMapper which is
+            // already handled
             if (knnMethodContext == null) {
-                return;
+                throw new IllegalArgumentException("KNNMethodContext cannot be null");
             }
-
+            final SpaceType topLevelSpaceTypeEnum = SpaceType.getSpace(topLevelSpaceType);
+            // Now set the spaceSpaceType for KNNMethodContext
             if (SpaceType.UNDEFINED == knnMethodContext.getSpaceType()) {
-                if (VectorDataType.BINARY == vectorDataType) {
-                    knnMethodContext.setSpaceType(SpaceType.DEFAULT_BINARY);
+                // We are handling the case when top level space type is defined but method level spaceType is not
+                // defined.
+                if (topLevelSpaceTypeEnum != SpaceType.UNDEFINED) {
+                    knnMethodContext.setSpaceType(topLevelSpaceTypeEnum);
                 } else {
-                    knnMethodContext.setSpaceType(SpaceType.DEFAULT);
+                    // If both spaceTypes are undefined then put the default spaceType based on datatype
+                    if (VectorDataType.BINARY == vectorDataType) {
+                        knnMethodContext.setSpaceType(SpaceType.DEFAULT_BINARY);
+                    } else {
+                        knnMethodContext.setSpaceType(SpaceType.DEFAULT);
+                    }
                 }
             }
         }

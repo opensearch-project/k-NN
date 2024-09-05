@@ -17,11 +17,35 @@ import java.util.Collections;
 public class OriginalMappingParametersTests extends KNNTestCase {
 
     public void testIsLegacy() {
-        assertTrue(new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, null).isLegacyMapping());
-        assertFalse(new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, "model-id").isLegacyMapping());
-        assertFalse(new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, Mode.ON_DISK.getName(), null, null).isLegacyMapping());
+        assertTrue(
+            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, null, SpaceType.UNDEFINED.getValue())
+                .isLegacyMapping()
+        );
         assertFalse(
-            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, CompressionLevel.x2.getName(), null).isLegacyMapping()
+            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, "model-id", SpaceType.UNDEFINED.getValue())
+                .isLegacyMapping()
+        );
+        assertFalse(
+            new OriginalMappingParameters(
+                VectorDataType.DEFAULT,
+                123,
+                null,
+                Mode.ON_DISK.getName(),
+                null,
+                null,
+                SpaceType.UNDEFINED.getValue()
+            ).isLegacyMapping()
+        );
+        assertFalse(
+            new OriginalMappingParameters(
+                VectorDataType.DEFAULT,
+                123,
+                null,
+                null,
+                CompressionLevel.x2.getName(),
+                null,
+                SpaceType.UNDEFINED.getValue()
+            ).isLegacyMapping()
         );
         assertFalse(
             new OriginalMappingParameters(
@@ -30,7 +54,8 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.L2, new MethodComponentContext(null, Collections.emptyMap())),
                 null,
                 null,
-                null
+                null,
+                SpaceType.UNDEFINED.getValue()
             ).isLegacyMapping()
         );
     }
