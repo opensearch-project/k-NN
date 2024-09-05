@@ -23,14 +23,19 @@ public class ModelUtilTests extends KNNTestCase {
         MockedStatic<ModelCache> modelCacheMockedStatic = Mockito.mockStatic(ModelCache.class);
 
         modelCacheMockedStatic.when(ModelCache::getInstance).thenReturn(modelCache);
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            ModelDao.OpenSearchKNNModelDao modelDao = Mockito.mock(ModelDao.OpenSearchKNNModelDao.class);
+            Mockito.when(modelDao.getMetadata(MODEL_ID)).thenReturn(modelMetadata);
+            Mockito.when(modelMetadata.getState()).thenReturn(ModelState.FAILED);
+            modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 
-        Mockito.when(modelCache.get(MODEL_ID)).thenReturn(model);
-        Mockito.when(model.getModelMetadata()).thenReturn(null);
-        Assert.assertThrows(IllegalArgumentException.class, () -> ModelUtil.getModelMetadata(MODEL_ID));
+            Mockito.when(modelCache.get(MODEL_ID)).thenReturn(model);
+            Mockito.when(model.getModelMetadata()).thenReturn(null);
+            Assert.assertThrows(IllegalArgumentException.class, () -> ModelUtil.getModelMetadata(MODEL_ID));
 
-        Mockito.when(model.getModelMetadata()).thenReturn(modelMetadata);
-        Mockito.when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
-        Assert.assertNotNull(ModelUtil.getModelMetadata(MODEL_ID));
+            Mockito.when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
+            Assert.assertNotNull(ModelUtil.getModelMetadata(MODEL_ID));
+        }
         modelCacheMockedStatic.close();
     }
 }
