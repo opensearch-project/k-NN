@@ -11,10 +11,12 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
 
@@ -149,6 +151,12 @@ public enum SpaceType {
     public static SpaceType DEFAULT = L2;
     public static SpaceType DEFAULT_BINARY = HAMMING;
 
+    private static final String[] VALID_VALUES = Arrays.stream(SpaceType.values())
+        .filter(space -> space != SpaceType.UNDEFINED)
+        .map(SpaceType::getValue)
+        .collect(Collectors.toList())
+        .toArray(new String[0]);
+
     private final String value;
 
     SpaceType(String value) {
@@ -221,7 +229,9 @@ public enum SpaceType {
                 return currentSpaceType;
             }
         }
-        throw new IllegalArgumentException("Unable to find space: " + spaceTypeName);
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "Unable to find space: %s . Valid values are: %s", spaceTypeName, Arrays.toString(VALID_VALUES))
+        );
     }
 
     /**
