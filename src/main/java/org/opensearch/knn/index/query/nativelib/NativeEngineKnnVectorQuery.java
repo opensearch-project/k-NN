@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query.nativelib;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.IndexSearcher;
@@ -18,6 +19,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.Bits;
+import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.ResultUtil;
@@ -39,6 +41,7 @@ import java.util.concurrent.Callable;
  * for k-NN query if required. This is done by overriding rewrite method to execute ANN on each leaf
  * {@link KNNQuery} does not give the ability to post process segment results.
  */
+@Log4j2
 @Getter
 @RequiredArgsConstructor
 public class NativeEngineKnnVectorQuery extends Query {
@@ -60,7 +63,11 @@ public class NativeEngineKnnVectorQuery extends Query {
             int firstPassK = rescoreContext.getFirstPassK(finalK);
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassK);
             ResultUtil.reduceToTopK(perLeafResults, firstPassK);
+
+            StopWatch stopWatch = new StopWatch().start();
             perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, finalK);
+            long rescoreTime = stopWatch.stop().totalTime().millis();
+            log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, leafReaderContexts.size());
         }
         ResultUtil.reduceToTopK(perLeafResults, finalK);
         TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
