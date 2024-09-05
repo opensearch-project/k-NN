@@ -6,7 +6,7 @@
 package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.http.util.EntityUtils;
 import org.junit.Ignore;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
