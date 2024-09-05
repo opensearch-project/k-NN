@@ -13,6 +13,7 @@ package org.opensearch.knn.indices;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -51,7 +52,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             "hello".getBytes(),
             modelId
@@ -91,7 +93,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[BYTES_PER_KILOBYTES + 1],
             modelId
@@ -152,7 +155,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[size1],
             modelId1
@@ -171,7 +175,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[size2],
             modelId2
@@ -218,7 +223,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[size1],
             modelId1
@@ -237,7 +243,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[size2],
             modelId2
@@ -289,7 +296,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             "hello".getBytes(),
             modelId
@@ -338,7 +346,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[modelSize],
             modelId
@@ -410,7 +419,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[modelSize1],
             modelId1
@@ -455,7 +465,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[modelSize1],
             modelId1
@@ -476,7 +487,8 @@ public class ModelCacheTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
             ),
             new byte[modelSize2],
             modelId2
@@ -525,7 +537,8 @@ public class ModelCacheTests extends KNNTestCase {
                     MethodComponentContext.EMPTY,
                     VectorDataType.DEFAULT,
                     Mode.NOT_CONFIGURED,
-                    CompressionLevel.NOT_CONFIGURED
+                    CompressionLevel.NOT_CONFIGURED,
+                    Version.V_EMPTY
                 ),
                 new byte[BYTES_PER_KILOBYTES * 2],
                 modelId
