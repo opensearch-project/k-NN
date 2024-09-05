@@ -71,9 +71,18 @@ public abstract class KNNVectorValues<T> {
     }
 
     /**
-     * Returns the total live docs for KNNVectorValues.
+     * Returns the total live docs for KNNVectorValues. This function is broken and doesn't always give the accurate
+     * live docs count when iterators are {@link FloatVectorValues}, {@link ByteVectorValues}. Avoid using this iterator,
+     * rather use a simple function like this:
+     * <pre class="prettyprint">
+     *     int liveDocs = 0;
+     *     while(vectorValues.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+     *         liveDocs++;
+     *     }
+     * </pre>
      * @return long
      */
+    @Deprecated
     public long totalLiveDocs() {
         return vectorValuesIterator.liveDocs();
     }
