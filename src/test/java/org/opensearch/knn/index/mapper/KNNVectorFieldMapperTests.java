@@ -37,6 +37,7 @@ import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -118,10 +119,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             modelDao,
             CURRENT,
             null,
-            new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null)
+            new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null, SpaceType.UNDEFINED.getValue())
         );
 
-        assertEquals(9, builder.getParameters().size());
+        assertEquals(10, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
         List<String> expectedParams = Arrays.asList(
             "store",
@@ -132,7 +133,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             KNN_METHOD,
             MODEL_ID,
             MODE_PARAMETER,
-            COMPRESSION_LEVEL_PARAMETER
+            COMPRESSION_LEVEL_PARAMETER,
+            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE
         );
         assertEquals(expectedParams, actualParams);
     }
@@ -902,7 +904,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     knnMethodContext,
                     Mode.NOT_CONFIGURED.getName(),
                     CompressionLevel.NOT_CONFIGURED.getName(),
-                    null
+                    null,
+                    SpaceType.UNDEFINED.getValue()
                 );
                 originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
                 MethodFieldMapper methodFieldMapper = MethodFieldMapper.createFieldMapper(
@@ -1003,7 +1006,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     null,
                     Mode.NOT_CONFIGURED.getName(),
                     CompressionLevel.NOT_CONFIGURED.getName(),
-                    MODEL_ID
+                    MODEL_ID,
+                    SpaceType.UNDEFINED.getValue()
                 );
 
                 ModelFieldMapper modelFieldMapper = ModelFieldMapper.createFieldMapper(
@@ -1095,7 +1099,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             getDefaultKNNMethodContext(),
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
-            null
+            null,
+            SpaceType.UNDEFINED.getValue()
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
@@ -1154,7 +1159,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             knnMethodContext,
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
-            null
+            null,
+            SpaceType.UNDEFINED.getValue()
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
         luceneFieldMapper = LuceneFieldMapper.createFieldMapper(
@@ -1194,7 +1200,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             getDefaultByteKNNMethodContext(),
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
-            null
+            null,
+            SpaceType.UNDEFINED.getValue()
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
