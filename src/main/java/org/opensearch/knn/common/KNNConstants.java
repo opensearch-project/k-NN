@@ -33,6 +33,8 @@ public class KNNConstants {
     public static final String METHOD_IVF = "ivf";
     public static final String METHOD_PARAMETER_NLIST = "nlist";
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
+    // used for defining toplevel parameter
+    public static final String TOP_LEVEL_PARAMETER_SPACE_TYPE = METHOD_PARAMETER_SPACE_TYPE;
     public static final String COMPOUND_EXTENSION = "c";
     public static final String MODEL = "model";
     public static final String MODELS = "models";
@@ -72,6 +74,7 @@ public class KNNConstants {
     public static final String MODEL_VECTOR_DATA_TYPE_KEY = VECTOR_DATA_TYPE_FIELD;
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
     public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";
+    public static final String TOP_LEVEL_SPACE_TYPE_FEATURE = "top_level_space_type_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final String QUANTIZATION_STATE_FILE_SUFFIX = "osknnqstate";

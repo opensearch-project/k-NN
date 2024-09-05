@@ -8,6 +8,7 @@ Compatible with OpenSearch 2.17.0
 * Add support for byte vector with Faiss Engine HNSW algorithm [#1823](https://github.com/opensearch-project/k-NN/pull/1823)
 * Add support for byte vector with Faiss Engine IVF algorithm [#2002](https://github.com/opensearch-project/k-NN/pull/2002)
 * Add mode/compression configuration support for disk-based vector search [#2034](https://github.com/opensearch-project/k-NN/pull/2034)
+* Add spaceType as a top level optional parameter while creating vector field. [#2044](https://github.com/opensearch-project/k-NN/pull/2044)
 ### Enhancements
 * Adds iterative graph build capability into a faiss index to improve the memory footprint during indexing and Integrates KNNVectorsFormat for native engines[#1950](https://github.com/opensearch-project/k-NN/pull/1950)
 ### Bug Fixes

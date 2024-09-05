@@ -95,6 +95,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
         int dimension = DEFAULT_NOT_SET_INT_VALUE;
         int maximumVectorCount = DEFAULT_NOT_SET_INT_VALUE;
         int searchSize = DEFAULT_NOT_SET_INT_VALUE;
+        SpaceType topLevelSpaceType = SpaceType.UNDEFINED;
 
         String compressionLevel = null;
         String mode = null;
@@ -109,9 +110,6 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 trainingField = parser.textOrNull();
             } else if (KNN_METHOD.equals(fieldName) && ensureNotSet(fieldName, knnMethodContext)) {
                 knnMethodContext = KNNMethodContext.parse(parser.map());
-                if (SpaceType.UNDEFINED == knnMethodContext.getSpaceType()) {
-                    knnMethodContext.setSpaceType(SpaceType.L2);
-                }
             } else if (DIMENSION.equals(fieldName) && ensureNotSet(fieldName, dimension)) {
                 dimension = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MAX_VECTOR_COUNT_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, maximumVectorCount)) {
@@ -127,6 +125,8 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 mode = parser.text();
             } else if (KNNConstants.COMPRESSION_LEVEL_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, compressionLevel)) {
                 compressionLevel = parser.text();
+            } else if (KNNConstants.SPACE_TYPE.equals(fieldName) && ensureSpaceTypeNotSet(topLevelSpaceType)) {
+                topLevelSpaceType = SpaceType.getSpace(parser.text());
             } else {
                 throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
             }
@@ -160,7 +160,11 @@ public class RestTrainModelHandler extends BaseRestHandler {
             vectorDataType,
             VectorDataType.FLOAT.getValue()
         );
-
+        resolveSpaceTypeAndSetInKNNMethodContext(topLevelSpaceType, knnMethodContext);
+        // if KNNMethodContext was not null then spaceTypes we should fix the space type if it is not set.
+        if (knnMethodContext == null && topLevelSpaceType == SpaceType.UNDEFINED) {
+            topLevelSpaceType = SpaceType.DEFAULT;
+        }
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
             knnMethodContext,
@@ -171,7 +175,8 @@ public class RestTrainModelHandler extends BaseRestHandler {
             description,
             vectorDataType,
             Mode.fromName(mode),
-            CompressionLevel.fromName(compressionLevel)
+            CompressionLevel.fromName(compressionLevel),
+            topLevelSpaceType
         );
 
         if (maximumVectorCount != DEFAULT_NOT_SET_INT_VALUE) {
@@ -202,6 +207,35 @@ public class RestTrainModelHandler extends BaseRestHandler {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "\"[%s]\" and \"[%s]\" cannot both be set", fieldNameA, fieldNameB)
             );
+        }
+    }
+
+    private boolean ensureSpaceTypeNotSet(SpaceType spaceType) {
+        if (spaceType != SpaceType.UNDEFINED) {
+            throw new IllegalArgumentException("Unable to parse SpaceType as it is duplicated.");
+        }
+        return true;
+    }
+
+    private void resolveSpaceTypeAndSetInKNNMethodContext(SpaceType topLevelSpaceType, KNNMethodContext knnMethodContext) {
+        // First check if KNNMethodContext is not null as it can be null
+        if (knnMethodContext != null) {
+            // if space type is not provided by user then it will undefined
+            if (knnMethodContext.getSpaceType() == SpaceType.UNDEFINED) {
+                // fix the top level spaceType if it is undefined
+                if (topLevelSpaceType == SpaceType.UNDEFINED) {
+                    topLevelSpaceType = SpaceType.DEFAULT;
+                }
+                // set the space type now in KNNMethodContext
+                knnMethodContext.setSpaceType(topLevelSpaceType);
+            } else {
+                // if spaceType is set at 2 places lets ensure that we validate those cases and throw error
+                if (topLevelSpaceType != SpaceType.UNDEFINED) {
+                    throw new IllegalArgumentException(
+                        "Top Level spaceType and space type in method both are set. Set space type at 1 place."
+                    );
+                }
+            }
         }
     }
 

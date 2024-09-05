@@ -21,6 +21,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
@@ -56,6 +57,33 @@ public class TrainingModelRequest extends ActionRequest {
     private final Mode mode;
     private final CompressionLevel compressionLevel;
 
+    TrainingModelRequest(
+        String modelId,
+        KNNMethodContext knnMethodContext,
+        int dimension,
+        String trainingIndex,
+        String trainingField,
+        String preferredNodeId,
+        String description,
+        VectorDataType vectorDataType,
+        Mode mode,
+        CompressionLevel compressionLevel
+    ) {
+        this(
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            preferredNodeId,
+            description,
+            vectorDataType,
+            mode,
+            compressionLevel,
+            SpaceType.DEFAULT
+        );
+    }
+
     /**
      * Constructor.
      *
@@ -77,7 +105,8 @@ public class TrainingModelRequest extends ActionRequest {
         String description,
         VectorDataType vectorDataType,
         Mode mode,
-        CompressionLevel compressionLevel
+        CompressionLevel compressionLevel,
+        SpaceType spaceType
     ) {
         super();
         this.modelId = modelId;
@@ -107,7 +136,7 @@ public class TrainingModelRequest extends ActionRequest {
             .build();
 
         if (knnMethodContext == null && (Mode.isConfigured(mode) || CompressionLevel.isConfigured(compressionLevel))) {
-            this.knnMethodContext = ModeBasedResolver.INSTANCE.resolveKNNMethodContext(mode, compressionLevel, true);
+            this.knnMethodContext = ModeBasedResolver.INSTANCE.resolveKNNMethodContext(mode, compressionLevel, true, spaceType);
         } else {
             this.knnMethodContext = knnMethodContext;
         }

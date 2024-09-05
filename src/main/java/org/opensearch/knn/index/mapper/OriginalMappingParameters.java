@@ -42,6 +42,7 @@ public final class OriginalMappingParameters {
     private final String mode;
     private final String compressionLevel;
     private final String modelId;
+    private final String topLevelSpaceType;
 
     /**
      * Initialize the parameters from the builder
@@ -56,6 +57,7 @@ public final class OriginalMappingParameters {
         this.mode = builder.mode.get();
         this.compressionLevel = builder.compressionLevel.get();
         this.modelId = builder.modelId.get();
+        this.topLevelSpaceType = builder.topLevelSpaceType.get();
     }
 
     /**
