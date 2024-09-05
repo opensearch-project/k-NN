@@ -41,6 +41,6 @@
     },
     "model_version": {
       "type": "keyword"
-    },
+    }
   }
 }

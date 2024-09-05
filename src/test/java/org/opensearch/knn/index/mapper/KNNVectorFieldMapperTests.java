@@ -223,7 +223,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             VectorDataType.FLOAT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                    Version.V_EMPTY
+            Version.V_EMPTY
         );
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -816,7 +816,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             VectorDataType.FLOAT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                    Version.V_EMPTY
+            Version.V_EMPTY
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 

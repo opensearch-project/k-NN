@@ -295,7 +295,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             vectorDataType.getValue(),
             mode.getName(),
             compressionLevel.getName(),
-                    version.toString()
+            version.toString()
         );
     }
 
@@ -333,7 +333,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             .append(getVectorDataType())
             .append(getMode())
             .append(getCompressionLevel())
-                .append(getModelVersion())
+            .append(getModelVersion())
             .toHashCode();
     }
 
@@ -354,7 +354,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                     + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>\" or "
                     + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>\". or "
                     + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>,<Mode>,<CompressionLevel>\" or "
-                        + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>,<Mode>,<CompressionLevel>,<Version>\"."
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>,<Mode>,<CompressionLevel>,<Version>\"."
             );
         }
 
@@ -391,7 +391,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             vectorDataType,
             mode,
             compressionLevel,
-                    version
+            version
         );
     }
 
@@ -485,7 +485,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             VectorDataType.get(objectToString(vectorDataType)),
             Mode.fromName(objectToString(mode)),
             CompressionLevel.fromName(objectToString(compressionLevel)),
-        Version.fromString(version.toString())
+            Version.fromString(version.toString())
         );
         return modelMetadata;
     }

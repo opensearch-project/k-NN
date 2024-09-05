@@ -224,7 +224,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 

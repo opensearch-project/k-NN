@@ -50,7 +50,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
@@ -79,7 +79,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
@@ -123,7 +123,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 

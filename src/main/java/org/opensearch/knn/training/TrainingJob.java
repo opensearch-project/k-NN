@@ -100,7 +100,7 @@ public class TrainingJob implements Runnable {
                 knnMethodConfigContext.getVectorDataType(),
                 mode,
                 compressionLevel,
-                        knnMethodConfigContext.getVersionCreated()
+                knnMethodConfigContext.getVersionCreated()
             ),
             null,
             this.modelId

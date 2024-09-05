@@ -76,7 +76,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         // Get update transport action

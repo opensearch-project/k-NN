@@ -50,6 +50,7 @@ public class ModelUtil {
         }
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         final ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        System.out.println(modelMetadata.toString());
         if (isModelCreated(modelMetadata) == false) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
         }

@@ -71,7 +71,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
             VectorDataType.FLOAT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                    Version.V_EMPTY
+            Version.V_EMPTY
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);

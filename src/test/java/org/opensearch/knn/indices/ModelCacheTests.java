@@ -53,7 +53,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             "hello".getBytes(),
             modelId
@@ -94,7 +94,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[BYTES_PER_KILOBYTES + 1],
             modelId
@@ -156,7 +156,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[size1],
             modelId1
@@ -176,7 +176,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[size2],
             modelId2
@@ -224,7 +224,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[size1],
             modelId1
@@ -244,7 +244,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[size2],
             modelId2
@@ -297,7 +297,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             "hello".getBytes(),
             modelId
@@ -347,7 +347,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[modelSize],
             modelId
@@ -420,7 +420,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[modelSize1],
             modelId1
@@ -466,7 +466,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[modelSize1],
             modelId1
@@ -488,7 +488,7 @@ public class ModelCacheTests extends KNNTestCase {
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                        Version.V_EMPTY
+                Version.V_EMPTY
             ),
             new byte[modelSize2],
             modelId2
@@ -538,7 +538,7 @@ public class ModelCacheTests extends KNNTestCase {
                     VectorDataType.DEFAULT,
                     Mode.NOT_CONFIGURED,
                     CompressionLevel.NOT_CONFIGURED,
-                            Version.V_EMPTY
+                    Version.V_EMPTY
                 ),
                 new byte[BYTES_PER_KILOBYTES * 2],
                 modelId

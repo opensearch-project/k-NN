@@ -86,7 +86,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                    Version.CURRENT
+                Version.CURRENT
             ),
             new byte[128],
             modelId

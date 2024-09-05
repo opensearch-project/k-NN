@@ -218,7 +218,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                    Version.CURRENT
+                Version.CURRENT
             ),
             modelBlob,
             modelId

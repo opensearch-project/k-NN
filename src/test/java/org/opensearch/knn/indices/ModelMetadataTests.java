@@ -53,7 +53,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -74,7 +74,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.ON_DISK,
             CompressionLevel.x16,
-                Version.CURRENT
+            Version.CURRENT
         );
         streamOutput = new BytesStreamOutput();
         modelMetadata.writeTo(streamOutput);
@@ -97,7 +97,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(knnEngine, modelMetadata.getKnnEngine());
@@ -118,7 +118,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                    Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(spaceType, modelMetadata.getSpaceType());
@@ -139,7 +139,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                    Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(dimension, modelMetadata.getDimension());
@@ -160,7 +160,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -181,7 +181,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(timeValue, modelMetadata.getTimestamp());
@@ -202,7 +202,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(description, modelMetadata.getDescription());
@@ -223,7 +223,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -244,7 +244,7 @@ public class ModelMetadataTests extends KNNTestCase {
             vectorDataType,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                    Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(vectorDataType, modelMetadata.getVectorDataType());
@@ -286,7 +286,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -311,7 +311,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                    Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -356,8 +356,8 @@ public class ModelMetadataTests extends KNNTestCase {
             + Mode.ON_DISK.getName()
             + ","
             + CompressionLevel.x32.getName()
-        + ","
-        + version;
+            + ","
+            + version;
 
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
@@ -372,7 +372,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.ON_DISK,
             CompressionLevel.x32,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(expected, modelMetadata.toString());
@@ -396,7 +396,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -411,7 +411,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
@@ -427,7 +427,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -442,7 +442,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -457,7 +457,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -472,7 +472,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -487,7 +487,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -502,7 +502,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -517,7 +517,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
@@ -533,7 +533,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(modelMetadata1, modelMetadata1);
@@ -567,7 +567,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -582,7 +582,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
@@ -598,7 +598,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -613,7 +613,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -628,7 +628,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -643,7 +643,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -658,7 +658,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -673,7 +673,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -688,7 +688,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
@@ -704,7 +704,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         assertEquals(modelMetadata1.hashCode(), modelMetadata1.hashCode());
@@ -752,8 +752,8 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + VectorDataType.DEFAULT.getValue()
             + ","
-                + ","
-                + ","
+            + ","
+            + ","
             + version.toString();
 
         String stringRep2 = knnEngine.getName()
@@ -793,8 +793,8 @@ public class ModelMetadataTests extends KNNTestCase {
             + VectorDataType.DEFAULT.getValue()
             + ","
             + ","
-                + ","
-                + version;
+            + ","
+            + version;
 
         String stringRep4 = knnEngine.getName()
             + ","
@@ -833,7 +833,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.V_EMPTY
+            Version.V_EMPTY
         );
 
         ModelMetadata expected2 = new ModelMetadata(
@@ -849,7 +849,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-                Version.V_EMPTY
+            Version.V_EMPTY
         );
 
         ModelMetadata expected3 = new ModelMetadata(
@@ -865,7 +865,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.ON_DISK,
             CompressionLevel.x32,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
@@ -908,7 +908,7 @@ public class ModelMetadataTests extends KNNTestCase {
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-version
+            version
         );
         ModelMetadata expected2 = new ModelMetadata(
             knnEngine,
@@ -923,7 +923,7 @@ version
             VectorDataType.DEFAULT,
             Mode.NOT_CONFIGURED,
             CompressionLevel.NOT_CONFIGURED,
-        emptyVersion
+            emptyVersion
         );
 
         ModelMetadata expected3 = new ModelMetadata(
@@ -939,7 +939,7 @@ version
             VectorDataType.DEFAULT,
             Mode.ON_DISK,
             CompressionLevel.NOT_CONFIGURED,
-                Version.CURRENT
+            Version.CURRENT
         );
 
         ModelMetadata expected4 = new ModelMetadata(
@@ -955,7 +955,7 @@ version
             VectorDataType.DEFAULT,
             Mode.ON_DISK,
             CompressionLevel.x16,
-                Version.CURRENT
+            Version.CURRENT
         );
         Map<String, Object> metadataAsMap = new HashMap<>();
         metadataAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
@@ -1016,7 +1016,7 @@ version
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
                 CompressionLevel.NOT_CONFIGURED,
-                    Version.CURRENT
+                Version.CURRENT
             )
         );
         assertEquals("Model description cannot contain any commas: ','", e.getMessage());

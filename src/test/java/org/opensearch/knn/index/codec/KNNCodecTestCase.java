@@ -238,22 +238,22 @@ public class KNNCodecTestCase extends KNNTestCase {
             ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
             modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 
-        // Set model state to created
-        ModelMetadata modelMetadata1 = new ModelMetadata(
-            knnEngine,
-            spaceType,
-            dimension,
-            ModelState.CREATED,
-            ZonedDateTime.now(ZoneOffset.UTC).toString(),
-            "",
-            "",
-            "",
-            MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT,
-            Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED,
+            // Set model state to created
+            ModelMetadata modelMetadata1 = new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.FLOAT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED,
                 Version.V_EMPTY
-        );
+            );
 
             Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
             when(modelDao.get(modelId)).thenReturn(mockModel);
