@@ -52,7 +52,8 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
      * @param knnVectorValues  The {@link KNNVectorValues} representing the vectors to be indexed.
      * @throws IOException     If an I/O error occurs during the process of building and writing the index.
      */
-    public void buildAndWriteIndex(final BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException {
+    public void buildAndWriteIndex(final BuildIndexParams indexInfo) throws IOException {
+        final KNNVectorValues<?> knnVectorValues = indexInfo.getVectorValues();
         // Needed to make sure we don't get 0 dimensions while initializing index
         iterateVectorValuesOnce(knnVectorValues);
         KNNEngine engine = indexInfo.getKnnEngine();
@@ -62,7 +63,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
         // Initialize the index
         long indexMemoryAddress = AccessController.doPrivileged(
             (PrivilegedAction<Long>) () -> JNIService.initIndex(
-                knnVectorValues.totalLiveDocs(),
+                indexInfo.getTotalLiveDocs(),
                 indexBuildSetup.getDimensions(),
                 indexParameters,
                 engine
