@@ -11,7 +11,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
@@ -33,7 +32,6 @@ public class QuantizationStateCache {
     private static volatile QuantizationStateCache instance;
     private Cache<String, QuantizationState> cache;
     @Getter
-    @Setter
     private long maxCacheSizeInKB;
     @Getter
     private Instant evictedDueToSizeAt;
@@ -48,7 +46,7 @@ public class QuantizationStateCache {
      * Gets the singleton instance of the cache.
      * @return QuantizationStateCache
      */
-    public static QuantizationStateCache getInstance() {
+    static QuantizationStateCache getInstance() {
         if (instance == null) {
             synchronized (QuantizationStateCache.class) {
                 if (instance == null) {
@@ -75,7 +73,7 @@ public class QuantizationStateCache {
             .build();
     }
 
-    public synchronized void rebuildCache() {
+    synchronized void rebuildCache() {
         clear();
         buildCache();
     }
@@ -85,7 +83,7 @@ public class QuantizationStateCache {
      * @param fieldName The name of the field.
      * @return The associated QuantizationState, or null if not present.
      */
-    public QuantizationState getQuantizationState(String fieldName) {
+    QuantizationState getQuantizationState(String fieldName) {
         return cache.getIfPresent(fieldName);
     }
 
@@ -94,7 +92,7 @@ public class QuantizationStateCache {
      * @param fieldName The name of the field.
      * @param quantizationState The quantization state to store.
      */
-    public void addQuantizationState(String fieldName, QuantizationState quantizationState) {
+    void addQuantizationState(String fieldName, QuantizationState quantizationState) {
         cache.put(fieldName, quantizationState);
     }
 
@@ -110,6 +108,10 @@ public class QuantizationStateCache {
         if (RemovalCause.SIZE == removalNotification.getCause()) {
             updateEvictedDueToSizeAt();
         }
+    }
+
+    void setMaxCacheSizeInKB(long maxCacheSizeInKB) {
+        this.maxCacheSizeInKB = maxCacheSizeInKB;
     }
 
     private void updateEvictedDueToSizeAt() {

@@ -74,6 +74,7 @@ public class KNNConstants {
     public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
+    public static final String QUANTIZATION_STATE_FILE_SUFFIX = "osknnqstate";
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
