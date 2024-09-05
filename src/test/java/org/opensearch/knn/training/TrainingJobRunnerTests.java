@@ -65,7 +65,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         // After put finishes, it should call the onResponse function that will call responseListener and then kickoff
         // training.
         ModelDao modelDao = mock(ModelDao.class);
-        when(modelDao.get(modelId)).thenReturn(model);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         doAnswer(invocationOnMock -> {
             assertEquals(1, trainingJobRunner.getJobCount()); // Make sure job count is correct
             IndexResponse indexResponse = new IndexResponse(new ShardId(MODEL_INDEX_NAME, "uuid", 0), modelId, 0, 0, 0, true);

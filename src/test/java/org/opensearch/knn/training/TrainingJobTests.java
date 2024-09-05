@@ -124,7 +124,8 @@ public class TrainingJobTests extends KNNTestCase {
                 MethodComponentContext.EMPTY,
                 VectorDataType.DEFAULT,
                 Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             null,
             modelID
