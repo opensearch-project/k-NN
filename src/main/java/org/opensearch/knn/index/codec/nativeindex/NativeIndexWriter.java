@@ -18,12 +18,14 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -255,7 +257,12 @@ public class NativeIndexWriter {
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
         parameters.put(KNNConstants.MODEL_ID, fieldInfo.attributes().get(MODEL_ID));
         parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, model.getModelBlob());
-        IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+        if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo) != QuantizationConfig.EMPTY) {
+            IndexUtil.updateVectorDataTypeToParameters(parameters, VectorDataType.BINARY);
+        } else {
+            IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+        }
+
         return parameters;
     }
 

@@ -60,6 +60,10 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     ) {
 
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, new KNNMappingConfig() {
+            private Integer dimension = null;
+            private Mode mode = null;
+            private CompressionLevel compressionLevel = null;
+
             @Override
             public Optional<String> getModelId() {
                 return Optional.of(originalMappingParameters.getModelId());
@@ -67,7 +71,36 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
             @Override
             public int getDimension() {
-                return getModelMetadata(modelDao, originalMappingParameters.getModelId()).getDimension();
+                if (dimension == null) {
+                    initFromModelMetadata();
+                }
+
+                return dimension;
+            }
+
+            @Override
+            public Mode getMode() {
+                if (mode == null) {
+                    initFromModelMetadata();
+                }
+                return mode;
+            }
+
+            @Override
+            public CompressionLevel getCompressionLevel() {
+                if (compressionLevel == null) {
+                    initFromModelMetadata();
+                }
+                return compressionLevel;
+            }
+
+            // ModelMetadata relies on cluster state which may not be available during field mapper creation. Thus,
+            // we lazily initialize it.
+            private void initFromModelMetadata() {
+                ModelMetadata modelMetadata = getModelMetadata(modelDao, originalMappingParameters.getModelId());
+                dimension = modelMetadata.getDimension();
+                mode = modelMetadata.getMode();
+                compressionLevel = modelMetadata.getCompressionLevel();
             }
         });
         return new ModelFieldMapper(
@@ -258,6 +291,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             .vectorDataType(modelMetadata.getVectorDataType())
             .dimension(modelMetadata.getDimension())
             .versionCreated(Version.V_2_14_0)
+            .mode(modelMetadata.getMode())
+            .compressionLevel(modelMetadata.getCompressionLevel())
             .build();
     }
 
