@@ -193,6 +193,27 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testDeletedDocsWithSegmentMerge_whenValid_ThenSucceed() {
+        XContentBuilder builder;
+        CompressionLevel compressionLevel = CompressionLevel.x32;
+        String indexName = INDEX_NAME + compressionLevel;
+        builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        validateIndexWithDeletedDocs(indexName, mapping);
+        validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
+    }
+
+    @SneakyThrows
     public void testTraining_whenInvalid_thenFail() {
         setupTrainingIndex();
         String modelId = "test";
@@ -317,6 +338,18 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         createKnnIndex(indexName, mapping);
         addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS);
         forceMergeKnnIndex(indexName, 1);
+    }
+
+    @SneakyThrows
+    private void validateIndexWithDeletedDocs(String indexName, String mapping) {
+        createKnnIndex(indexName, mapping);
+        addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS);
+        refreshIndex(indexName);
+        // this will simulate the deletion of the docs
+        addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS);
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName, 1);
+        refreshIndex(indexName);
     }
 
     @SneakyThrows

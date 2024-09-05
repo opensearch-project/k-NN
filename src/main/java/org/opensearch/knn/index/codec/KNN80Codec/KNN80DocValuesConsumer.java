@@ -69,10 +69,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
         final VectorDataType vectorDataType = extractVectorDataType(field);
         final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
 
+        // For BDV it is fine to use knnVectorValues.totalLiveDocs() as we already run the full loop to calculate total
+        // live docs
         if (isMerge) {
-            NativeIndexWriter.getWriter(field, state).mergeIndex(knnVectorValues);
+            NativeIndexWriter.getWriter(field, state).mergeIndex(knnVectorValues, (int) knnVectorValues.totalLiveDocs());
         } else {
-            NativeIndexWriter.getWriter(field, state).flushIndex(knnVectorValues);
+            NativeIndexWriter.getWriter(field, state).flushIndex(knnVectorValues, (int) knnVectorValues.totalLiveDocs());
         }
     }
 

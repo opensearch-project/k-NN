@@ -48,17 +48,17 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
      * flushed and used to build the index. The index is then written to the specified path using JNI calls.</p>
      *
      * @param indexInfo        The {@link BuildIndexParams} containing the parameters and configuration for building the index.
-     * @param knnVectorValues  The {@link KNNVectorValues} representing the vectors to be indexed.
      * @throws IOException     If an I/O error occurs during the process of building and writing the index.
      */
-    public void buildAndWriteIndex(final BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException {
+    public void buildAndWriteIndex(final BuildIndexParams indexInfo) throws IOException {
+        final KNNVectorValues<?> knnVectorValues = indexInfo.getVectorValues();
         // Needed to make sure we don't get 0 dimensions while initializing index
         iterateVectorValuesOnce(knnVectorValues);
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
         int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / indexBuildSetup.getBytesPerVector());
         try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
-            final List<Integer> transferredDocIds = new ArrayList<>((int) knnVectorValues.totalLiveDocs());
+            final List<Integer> transferredDocIds = new ArrayList<>(indexInfo.getTotalLiveDocs());
 
             while (knnVectorValues.docId() != NO_MORE_DOCS) {
                 Object vector = QuantizationIndexUtils.processAndReturnVector(knnVectorValues, indexBuildSetup);

@@ -106,9 +106,9 @@ public class NativeIndexWriter {
      * @param knnVectorValues
      * @throws IOException
      */
-    public void flushIndex(final KNNVectorValues<?> knnVectorValues) throws IOException {
+    public void flushIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {
         iterateVectorValuesOnce(knnVectorValues);
-        buildAndWriteIndex(knnVectorValues);
+        buildAndWriteIndex(knnVectorValues, totalLiveDocs);
         recordRefreshStats();
     }
 
@@ -117,7 +117,7 @@ public class NativeIndexWriter {
      * @param knnVectorValues
      * @throws IOException
      */
-    public void mergeIndex(final KNNVectorValues<?> knnVectorValues) throws IOException {
+    public void mergeIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {
         iterateVectorValuesOnce(knnVectorValues);
         if (knnVectorValues.docId() == NO_MORE_DOCS) {
             // This is in place so we do not add metrics
@@ -126,13 +126,13 @@ public class NativeIndexWriter {
         }
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
-        startMergeStats((int) knnVectorValues.totalLiveDocs(), bytesPerVector);
-        buildAndWriteIndex(knnVectorValues);
-        endMergeStats((int) knnVectorValues.totalLiveDocs(), bytesPerVector);
+        startMergeStats(totalLiveDocs, bytesPerVector);
+        buildAndWriteIndex(knnVectorValues, totalLiveDocs);
+        endMergeStats(totalLiveDocs, bytesPerVector);
     }
 
-    private void buildAndWriteIndex(final KNNVectorValues<?> knnVectorValues) throws IOException {
-        if (knnVectorValues.totalLiveDocs() == 0) {
+    private void buildAndWriteIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {
+        if (totalLiveDocs == 0) {
             log.debug("No live docs for field " + fieldInfo.name);
             return;
         }
@@ -150,15 +150,21 @@ public class NativeIndexWriter {
         ).toString();
         state.directory.createOutput(engineFileName, state.context).close();
 
-        final BuildIndexParams nativeIndexParams = indexParams(fieldInfo, indexPath, knnEngine);
-        indexBuilder.buildAndWriteIndex(nativeIndexParams, knnVectorValues);
+        final BuildIndexParams nativeIndexParams = indexParams(fieldInfo, indexPath, knnEngine, knnVectorValues, totalLiveDocs);
+        indexBuilder.buildAndWriteIndex(nativeIndexParams);
         writeFooter(indexPath, engineFileName, state);
     }
 
     // The logic for building parameters need to be cleaned up. There are various cases handled here
     // Currently it falls under two categories - with model and without model. Without model is further divided based on vector data type
     // TODO: Refactor this so its scalable. Possibly move it out of this class
-    private BuildIndexParams indexParams(FieldInfo fieldInfo, String indexPath, KNNEngine knnEngine) throws IOException {
+    private BuildIndexParams indexParams(
+        FieldInfo fieldInfo,
+        String indexPath,
+        KNNEngine knnEngine,
+        KNNVectorValues<?> vectorValues,
+        int totalLiveDocs
+    ) throws IOException {
         final Map<String, Object> parameters;
         VectorDataType vectorDataType;
         if (quantizationState != null) {
@@ -180,6 +186,8 @@ public class NativeIndexWriter {
             .knnEngine(knnEngine)
             .indexPath(indexPath)
             .quantizationState(quantizationState)
+            .vectorValues(vectorValues)
+            .totalLiveDocs(totalLiveDocs)
             .build();
     }
 

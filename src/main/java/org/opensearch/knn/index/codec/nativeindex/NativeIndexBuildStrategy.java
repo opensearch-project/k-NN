@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.codec.nativeindex;
 
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 
@@ -15,5 +14,5 @@ import java.io.IOException;
  */
 public interface NativeIndexBuildStrategy {
 
-    void buildAndWriteIndex(BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException;
+    void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException;
 }

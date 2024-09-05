@@ -57,12 +57,15 @@ public final class QuantizationService<T, R> {
      * @return The {@link QuantizationState} containing the state of the trained quantizer.
      * @throws IOException If an I/O error occurs during the training process.
      */
-    public QuantizationState train(final QuantizationParams quantizationParams, final KNNVectorValues<T> knnVectorValues)
-        throws IOException {
+    public QuantizationState train(
+        final QuantizationParams quantizationParams,
+        final KNNVectorValues<T> knnVectorValues,
+        final long liveDocs
+    ) throws IOException {
         Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
 
         // Create the training request from the vector values
-        KNNVectorQuantizationTrainingRequest<T> trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValues);
+        KNNVectorQuantizationTrainingRequest<T> trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValues, liveDocs);
 
         // Train the quantizer and return the quantization state
         return quantizer.train(trainingRequest);
