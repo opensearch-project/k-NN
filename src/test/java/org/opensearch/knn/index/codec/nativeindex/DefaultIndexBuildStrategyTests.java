@@ -74,10 +74,12 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
+                .vectorValues(knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 
             // When
-            DefaultIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams, knnVectorValues);
+            DefaultIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
 
             // Then
             mockedJNIService.verify(
@@ -166,10 +168,12 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
                 .quantizationState(quantizationState)
+                .vectorValues(knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 
             // When
-            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams, knnVectorValues);
+            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
 
             // Then
             mockedJNIService.verify(
@@ -250,10 +254,12 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("model_id", "id", "model_blob", modelBlob))
+                .vectorValues(knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 
             // When
-            DefaultIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams, knnVectorValues);
+            DefaultIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
 
             // Then
             mockedJNIService.verify(
