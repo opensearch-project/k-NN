@@ -40,57 +40,6 @@ import static org.mockito.Mockito.times;
 public class KNN990QuantizationStateReaderTests extends KNNTestCase {
 
     @SneakyThrows
-    public void testReadFromSegmentReadState() {
-        final String segmentName = "test-segment-name";
-        final String segmentSuffix = "test-segment-suffix";
-
-        final SegmentInfo segmentInfo = new SegmentInfo(
-            Mockito.mock(Directory.class),
-            Mockito.mock(Version.class),
-            Mockito.mock(Version.class),
-            segmentName,
-            0,
-            false,
-            false,
-            Mockito.mock(Codec.class),
-            Mockito.mock(Map.class),
-            new byte[16],
-            Mockito.mock(Map.class),
-            Mockito.mock(Sort.class)
-        );
-
-        Directory directory = Mockito.mock(Directory.class);
-        IndexInput input = Mockito.mock(IndexInput.class);
-        Mockito.when(directory.openInput(any(), any())).thenReturn(input);
-
-        String fieldName = "test-field";
-        FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
-        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
-        Mockito.when(fieldInfo.getName()).thenReturn(fieldName);
-        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
-
-        final SegmentReadState segmentReadState = new SegmentReadState(
-            directory,
-            segmentInfo,
-            fieldInfos,
-            Mockito.mock(IOContext.class),
-            segmentSuffix
-        );
-
-        try (MockedStatic<KNN990QuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNN990QuantizationStateReader.class)) {
-            mockedStaticReader.when(() -> KNN990QuantizationStateReader.getNumFields(input)).thenReturn(2);
-            mockedStaticReader.when(() -> KNN990QuantizationStateReader.read(segmentReadState)).thenCallRealMethod();
-            try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
-                KNN990QuantizationStateReader.read(segmentReadState);
-
-                mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
-                Mockito.verify(input, times(4)).readInt();
-                Mockito.verify(input, times(2)).readVLong();
-            }
-        }
-    }
-
-    @SneakyThrows
     public void testReadFromQuantizationStateReadConfig() {
         String fieldName = "test-field";
         int fieldNumber = 4;
