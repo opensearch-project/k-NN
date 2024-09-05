@@ -32,6 +32,7 @@ import org.apache.lucene.util.Version;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.common.io.PathUtils;
@@ -39,6 +40,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -47,6 +49,7 @@ import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -54,6 +57,11 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -1064,7 +1072,7 @@ public class KNNWeightTests extends KNNTestCase {
             .parentsFilter(bitSetProducer)
             .build();
 
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, null);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         jniServiceMockedStatic.when(
             () -> JNIService.queryIndex(
@@ -1349,5 +1357,158 @@ public class KNNWeightTests extends KNNTestCase {
             .map(entry -> new KNNQueryResult(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList())
             .toArray(new KNNQueryResult[0]);
+    }
+
+    @SneakyThrows
+    public void testANNWithQuantizationParams_whenStateNotFound_thenFail() {
+        try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
+            QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
+            QuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+            Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class))).thenReturn(quantizationParams);
+            quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
+
+            // Given
+            int k = 3;
+            jniServiceMockedStatic.when(
+                () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any())
+            ).thenReturn(getFilteredKNNQueryResults());
+
+            jniServiceMockedStatic.when(
+                () -> JNIService.queryBinaryIndex(
+                    anyLong(),
+                    eq(BYTE_QUERY_VECTOR),
+                    eq(k),
+                    eq(HNSW_METHOD_PARAMETERS),
+                    any(),
+                    any(),
+                    anyInt(),
+                    any()
+                )
+            ).thenReturn(getFilteredKNNQueryResults());
+            final SegmentReader reader = mockSegmentReader();
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final KNNQuery query = KNNQuery.builder()
+                .field(FIELD_NAME)
+                .queryVector(QUERY_VECTOR)
+                .k(k)
+                .indexName(INDEX_NAME)
+                .filterQuery(FILTER_QUERY)
+                .methodParameters(HNSW_METHOD_PARAMETERS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .build();
+
+            final float boost = (float) randomDoubleBetween(0, 10, true);
+            final KNNWeight knnWeight = new KNNWeight(query, boost);
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            final Map<String, String> attributesMap = ImmutableMap.of(
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            );
+
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(attributesMap);
+
+            expectThrows(IllegalStateException.class, () -> knnWeight.scorer(leafReaderContext));
+        }
+    }
+
+    @SneakyThrows
+    public void testANNWithQuantizationParams_thenSuccess() {
+        try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
+            QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
+            ScalarQuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+            Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class))).thenReturn(quantizationParams);
+            quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
+
+            float[] meanThresholds = new float[] { 1.2f, 2.3f, 3.4f, 4.5f };
+            QuantizationState quantizationState = new OneBitScalarQuantizationState(quantizationParams, meanThresholds);
+
+            try (
+                MockedConstruction<QuantizationConfigKNNCollector> quantizationCollectorMockedConstruction = Mockito.mockConstruction(
+                    QuantizationConfigKNNCollector.class,
+                    (mock, context) -> Mockito.when(mock.getQuantizationState()).thenReturn(quantizationState)
+                )
+            ) {
+
+                // Given
+                int k = 3;
+                jniServiceMockedStatic.when(
+                    () -> JNIService.queryIndex(
+                        anyLong(),
+                        eq(QUERY_VECTOR),
+                        eq(k),
+                        eq(HNSW_METHOD_PARAMETERS),
+                        any(),
+                        any(),
+                        anyInt(),
+                        any()
+                    )
+                ).thenReturn(getFilteredKNNQueryResults());
+
+                jniServiceMockedStatic.when(
+                    () -> JNIService.queryBinaryIndex(
+                        anyLong(),
+                        eq(BYTE_QUERY_VECTOR),
+                        eq(k),
+                        eq(HNSW_METHOD_PARAMETERS),
+                        any(),
+                        any(),
+                        anyInt(),
+                        any()
+                    )
+                ).thenReturn(getFilteredKNNQueryResults());
+                final SegmentReader reader = mockSegmentReader();
+                final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+                when(leafReaderContext.reader()).thenReturn(reader);
+
+                final KNNQuery query = KNNQuery.builder()
+                    .field(FIELD_NAME)
+                    .queryVector(QUERY_VECTOR)
+                    .k(k)
+                    .indexName(INDEX_NAME)
+                    .filterQuery(FILTER_QUERY)
+                    .methodParameters(HNSW_METHOD_PARAMETERS)
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .build();
+
+                final float boost = (float) randomDoubleBetween(0, 10, true);
+                final KNNWeight knnWeight = new KNNWeight(query, boost);
+                final FieldInfos fieldInfos = mock(FieldInfos.class);
+                final FieldInfo fieldInfo = mock(FieldInfo.class);
+                final Map<String, String> attributesMap = ImmutableMap.of(
+                    KNN_ENGINE,
+                    KNNEngine.FAISS.getName(),
+                    PARAMETERS,
+                    String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+                );
+
+                when(reader.getFieldInfos()).thenReturn(fieldInfos);
+                when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+                when(fieldInfo.attributes()).thenReturn(attributesMap);
+
+                KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+
+                assertNotNull(knnScorer);
+                jniServiceMockedStatic.verify(
+                    () -> JNIService.queryIndex(
+                        anyLong(),
+                        eq(QUERY_VECTOR),
+                        eq(k),
+                        eq(HNSW_METHOD_PARAMETERS),
+                        any(),
+                        any(),
+                        anyInt(),
+                        any()
+                    ),
+                    times(1)
+                );
+            }
+        }
     }
 }

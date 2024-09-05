@@ -31,3 +31,4 @@ Compatible with OpenSearch 2.17.0
 * Added Quantization Framework and implemented 1Bit and multibit quantizer[#1889](https://github.com/opensearch-project/k-NN/issues/1889)
 * Encapsulate dimension, vector data type validation/processing inside Library [#1957](https://github.com/opensearch-project/k-NN/pull/1957)
 * Add quantization state cache [#1960](https://github.com/opensearch-project/k-NN/pull/1960)
+* Add quantization state reader and writer [#1997](https://github.com/opensearch-project/k-NN/pull/1997)
