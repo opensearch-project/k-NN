@@ -8,10 +8,9 @@ package org.opensearch.knn.index.mapper;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.core.common.Strings;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
-import java.util.Arrays;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
 /**
  * Enum representing the compression level for float vectors. Compression in this sense refers to compressing a
@@ -20,20 +19,23 @@ import java.util.stream.Collectors;
  */
 @AllArgsConstructor
 public enum CompressionLevel {
-    NOT_CONFIGURED(-1, ""),
-    x1(1, "1x"),
-    x2(2, "2x"),
-    x4(4, "4x"),
-    x8(8, "8x"),
-    x16(16, "16x"),
-    x32(32, "32x");
+    NOT_CONFIGURED(-1, "", null),
+    x1(1, "1x", null),
+    x2(2, "2x", null),
+    x4(4, "4x", new RescoreContext(1.0f)),
+    x8(8, "8x", new RescoreContext(1.5f)),
+    x16(16, "16x", new RescoreContext(2.0f)),
+    x32(32, "32x", new RescoreContext(2.0f));
 
     // Internally, an empty string is easier to deal with them null. However, from the mapping,
     // we do not want users to pass in the empty string and instead want null. So we make the conversion herex
-    static final String[] NAMES_ARRAY = Arrays.stream(CompressionLevel.values())
-        .map(compressionLevel -> compressionLevel == NOT_CONFIGURED ? null : compressionLevel.getName())
-        .collect(Collectors.toList())
-        .toArray(new String[0]);
+    public static final String[] NAMES_ARRAY = new String[] {
+        NOT_CONFIGURED.getName(),
+        x1.getName(),
+        x2.getName(),
+        x8.getName(),
+        x16.getName(),
+        x32.getName() };
 
     /**
      * Default is set to 1x and is a noop
@@ -62,6 +64,8 @@ public enum CompressionLevel {
     private final int compressionLevel;
     @Getter
     private final String name;
+    @Getter
+    private final RescoreContext defaultRescoreContext;
 
     /**
      * Gets the number of bits used to represent a float in order to achieve this compression. For instance, for
