@@ -28,8 +28,8 @@ final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
      *
      * @param knnVectorValues the KNNVectorValues instance containing the vectors.
      */
-    KNNVectorQuantizationTrainingRequest(KNNVectorValues<T> knnVectorValues) {
-        super((int) knnVectorValues.totalLiveDocs());
+    KNNVectorQuantizationTrainingRequest(KNNVectorValues<T> knnVectorValues, long liveDocs) {
+        super((int) liveDocs);
         this.knnVectorValues = knnVectorValues;
         this.lastIndex = 0;
     }
