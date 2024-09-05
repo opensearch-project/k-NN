@@ -21,6 +21,7 @@ import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.common.StopWatch;
@@ -63,8 +64,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
     /**
      * Add new field for indexing.
-     * In Lucene, we use single file for all the vector fields so here we need to see how we are going to make things
-     * work.
      * @param fieldInfo {@link FieldInfo}
      */
     @Override
@@ -204,7 +203,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      */
     @FunctionalInterface
     private interface IndexOperation<T> {
-        void buildAndWrite(NativeIndexWriter writer, KNNVectorValues<T> knnVectorValues) throws IOException;
+        void buildAndWrite(NativeIndexWriter writer, KNNVectorValues<T> knnVectorValues, int totalLiveDocs) throws IOException;
     }
 
     /**
@@ -248,9 +247,11 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         KNNVectorValues<T> knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
         QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
         QuantizationState quantizationState = null;
-        if (quantizationParams != null) {
+        // Count the docIds
+        int totalLiveDocs = getLiveDocs(vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext));
+        if (quantizationParams != null && totalLiveDocs > 0) {
             initQuantizationStateWriterIfNecessary();
-            quantizationState = quantizationService.train(quantizationParams, knnVectorValues);
+            quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs);
             quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
         }
         NativeIndexWriter writer = (quantizationParams != null)
@@ -261,10 +262,25 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        indexOperation.buildAndWrite(writer, knnVectorValues);
+        indexOperation.buildAndWrite(writer, knnVectorValues, totalLiveDocs);
         long time_in_millis = stopWatch.totalTime().millis();
         graphBuildTime.incrementBy(time_in_millis);
         log.warn("Graph build took " + time_in_millis + " ms for " + operationName);
+    }
+
+    /**
+     * The {@link KNNVectorValues} will be exhausted after this function run. So make sure that you are not sending the
+     * vectorsValues object which you plan to use later
+     */
+    private int getLiveDocs(KNNVectorValues<?> vectorValues) throws IOException {
+        // Count all the live docs as there vectorValues.totalLiveDocs() just gives the cost for the FloatVectorValues,
+        // and doesn't tell the correct number of docs, if there are deleted docs in the segment. So we are counting
+        // the total live docs here.
+        int liveDocs = 0;
+        while (vectorValues.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+            liveDocs++;
+        }
+        return liveDocs;
     }
 
     private void initQuantizationStateWriterIfNecessary() throws IOException {
