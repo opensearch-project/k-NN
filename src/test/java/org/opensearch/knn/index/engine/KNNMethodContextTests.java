@@ -21,15 +21,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -82,154 +74,6 @@ public class KNNMethodContextTests extends KNNTestCase {
         MethodComponentContext methodComponent = new MethodComponentContext("test-method", Collections.emptyMap());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.L1, methodComponent);
         assertEquals(SpaceType.L1, knnMethodContext.getSpaceType());
-    }
-
-    /**
-     * Test KNNMethodContext validation
-     */
-    public void testValidate() {
-        // Check a valid nmslib method
-        MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(2)
-            .versionCreated(Version.CURRENT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
-        assertNull(knnMethodContext.validate(knnMethodConfigContext));
-
-        // Check invalid parameter nmslib
-        hnswMethod = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of("invalid", 111));
-        KNNMethodContext knnMethodContext1 = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
-        assertNotNull(knnMethodContext1.validate(knnMethodConfigContext));
-
-        // Check invalid method nmslib
-        MethodComponentContext invalidMethod = new MethodComponentContext("invalid", Collections.emptyMap());
-        KNNMethodContext knnMethodContext2 = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, invalidMethod);
-        assertNotNull(knnMethodContext2.validate(knnMethodConfigContext));
-    }
-
-    /**
-     * Test KNNMethodContext requires training method
-     */
-    public void testRequiresTraining() {
-
-        // Check for NMSLIB
-        MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
-        assertFalse(knnMethodContext.isTrainingRequired());
-
-        // Check for FAISS not required
-        hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethod);
-        assertFalse(knnMethodContext.isTrainingRequired());
-
-        // Check FAISS required
-        MethodComponentContext pq = new MethodComponentContext(ENCODER_PQ, Collections.emptyMap());
-
-        MethodComponentContext hnswMethodPq = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethodPq);
-        assertTrue(knnMethodContext.isTrainingRequired());
-
-        MethodComponentContext ivfMethod = new MethodComponentContext(METHOD_IVF, Collections.emptyMap());
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethod);
-        assertTrue(knnMethodContext.isTrainingRequired());
-
-        MethodComponentContext ivfMethodPq = new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq);
-        assertTrue(knnMethodContext.isTrainingRequired());
-    }
-
-    public void testEstimateOverheadInKB_whenMethodIsHNSWFlatNmslib_thenSizeIsExpectedValue() {
-        // For HNSW no encoding we expect 0
-        MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(2)
-            .versionCreated(Version.CURRENT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
-        assertEquals(0, knnMethodContext.estimateOverheadInKB(knnMethodConfigContext));
-
-    }
-
-    public void testEstimateOverheadInKB_whenMethodIsHNSWFlatFaiss_thenSizeIsExpectedValue() {
-        // For HNSW no encoding we expect 0
-        MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(168)
-            .versionCreated(Version.CURRENT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, hnswMethod);
-        assertEquals(0, knnMethodContext.estimateOverheadInKB(knnMethodConfigContext));
-
-    }
-
-    public void testEstimateOverheadInKB_whenMethodIsHNSWPQFaiss_thenSizeIsExpectedValue() {
-        int dimension = 768;
-        int codeSize = ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
-
-        // For HNSWPQ, we expect 4 * d * 2^code_size / 1024 + 1
-        int expectedHnswPq = 4 * dimension * (1 << codeSize) / BYTES_PER_KILOBYTES + 1;
-
-        MethodComponentContext pqMethodContext = new MethodComponentContext(ENCODER_PQ, ImmutableMap.of());
-
-        MethodComponentContext hnswMethodPq = new MethodComponentContext(
-            METHOD_HNSW,
-            ImmutableMap.of(METHOD_ENCODER_PARAMETER, pqMethodContext)
-        );
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(dimension)
-            .versionCreated(Version.CURRENT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethodPq);
-        assertEquals(expectedHnswPq, knnMethodContext.estimateOverheadInKB(knnMethodConfigContext));
-    }
-
-    public void testEstimateOverheadInKB_whenMethodIsIVFFlatFaiss_thenSizeIsExpectedValue() {
-        // For IVF, we expect 4 * nlist * d / 1024 + 1
-        int dimension = 768;
-        int nlists = 1024;
-        int expectedIvf = 4 * nlists * dimension / BYTES_PER_KILOBYTES + 1;
-
-        MethodComponentContext ivfMethod = new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists));
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(dimension)
-            .versionCreated(Version.CURRENT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethod);
-        assertEquals(expectedIvf, knnMethodContext.estimateOverheadInKB(knnMethodConfigContext));
-    }
-
-    public void testEstimateOverheadInKB_whenMethodIsIVFPQFaiss_thenSizeIsExpectedValue() {
-        int dimension = 768;
-        int nlists = 1024;
-        int expectedIvf = 4 * nlists * dimension / BYTES_PER_KILOBYTES + 1;
-
-        // For IVFPQ twe expect 4 * nlist * d / 1024 + 1 + 4 * d * 2^code_size / 1024 + 1
-        int codeSize = 16;
-        int expectedFromPq = 4 * dimension * (1 << codeSize) / BYTES_PER_KILOBYTES + 1;
-        int expectedIvfPq = expectedIvf + expectedFromPq;
-
-        MethodComponentContext pqMethodContext = new MethodComponentContext(
-            ENCODER_PQ,
-            ImmutableMap.of(ENCODER_PARAMETER_PQ_CODE_SIZE, codeSize)
-        );
-
-        MethodComponentContext ivfMethodPq = new MethodComponentContext(
-            METHOD_IVF,
-            ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists, METHOD_ENCODER_PARAMETER, pqMethodContext)
-        );
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(dimension)
-            .versionCreated(Version.CURRENT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq);
-        assertEquals(expectedIvfPq, knnMethodContext.estimateOverheadInKB(knnMethodConfigContext));
     }
 
     /**
@@ -485,9 +329,9 @@ public class KNNMethodContextTests extends KNNTestCase {
             .versionCreated(Version.CURRENT)
             .build();
         if (expectedErrMsg == null) {
-            assertNull(methodContext.validate(knnMethodConfigContext));
+            assertNull(knnEngine.validateMethod(methodContext, knnMethodConfigContext));
         } else {
-            assertNotNull(methodContext.validate(knnMethodConfigContext));
+            assertNotNull(knnEngine.validateMethod(methodContext, knnMethodConfigContext));
         }
     }
 

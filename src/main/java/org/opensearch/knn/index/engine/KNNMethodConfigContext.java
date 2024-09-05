@@ -12,6 +12,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.opensearch.Version;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 
 /**
  * This object provides additional context that the user does not provide when {@link KNNMethodContext} is
@@ -27,5 +29,10 @@ public final class KNNMethodConfigContext {
     private VectorDataType vectorDataType;
     private Integer dimension;
     private Version versionCreated;
+    @Builder.Default
+    private Mode mode = Mode.NOT_CONFIGURED;
+    @Builder.Default
+    private CompressionLevel compressionLevel = CompressionLevel.NOT_CONFIGURED;
+
     public static final KNNMethodConfigContext EMPTY = KNNMethodConfigContext.builder().build();
 }

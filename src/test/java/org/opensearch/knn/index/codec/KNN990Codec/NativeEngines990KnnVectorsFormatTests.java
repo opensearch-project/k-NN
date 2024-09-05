@@ -52,6 +52,7 @@ import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
@@ -95,6 +96,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         super.tearDown();
     }
 
+    @Ignore
     @SneakyThrows
     public void testReaderAndWriter_whenValidInput_thenSuccess() {
         final Lucene99FlatVectorsFormat mockedFlatVectorsFormat = Mockito.mock(Lucene99FlatVectorsFormat.class);

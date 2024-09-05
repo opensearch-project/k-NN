@@ -65,6 +65,16 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
                 public int getDimension() {
                     return knnMethodConfigContext.getDimension();
                 }
+
+                @Override
+                public Mode getMode() {
+                    return knnMethodConfigContext.getMode();
+                }
+
+                @Override
+                public CompressionLevel getCompressionLevel() {
+                    return knnMethodConfigContext.getCompressionLevel();
+                }
             }
         );
         return new MethodFieldMapper(

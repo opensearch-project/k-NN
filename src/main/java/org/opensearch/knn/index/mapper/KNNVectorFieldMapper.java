@@ -145,16 +145,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             b.startObject(n);
             v.toXContent(b, ToXContent.EMPTY_PARAMS);
             b.endObject();
-        }), m -> m.getMethodComponentContext().getName()).setValidator(v -> {
-            if (v == null) return;
-
-            ValidationException validationException;
-            if (v.isTrainingRequired()) {
-                validationException = new ValidationException();
-                validationException.addValidationError(String.format(Locale.ROOT, "\"%s\" requires training.", KNN_METHOD));
-                throw validationException;
-            }
-        });
+        }), m -> m.getMethodComponentContext().getName());
 
         protected final Parameter<String> mode = Parameter.restrictedStringParam(
             KNNConstants.MODE_PARAMETER,
@@ -354,11 +345,32 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
             } else {
+                validateMode(builder);
                 resolveKNNMethodComponents(builder, parserContext);
                 validateFromKNNMethod(builder);
             }
 
             return builder;
+        }
+
+        private void validateMode(KNNVectorFieldMapper.Builder builder) {
+            boolean isKNNMethodContextConfigured = builder.originalParameters.getKnnMethodContext() != null;
+            boolean isModeConfigured = builder.mode.isConfigured() || builder.compressionLevel.isConfigured();
+            if (isModeConfigured && isKNNMethodContextConfigured) {
+                throw new MapperParsingException(
+                    String.format(
+                        Locale.ROOT,
+                        "Compression and mode can not be specified in a \"method\" mapping configuration for field: %s",
+                        builder.name
+                    )
+                );
+            }
+
+            if (isModeConfigured && builder.vectorDataType.getValue() != VectorDataType.FLOAT) {
+                throw new MapperParsingException(
+                    String.format(Locale.ROOT, "Compression and mode cannot be used for non-float32 data type for field %s", builder.name)
+                );
+            }
         }
 
         private void validateFromFlat(KNNVectorFieldMapper.Builder builder) {
@@ -378,9 +390,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         private void validateFromKNNMethod(KNNVectorFieldMapper.Builder builder) {
+            ValidationException validationException;
+            if (builder.originalParameters.getResolvedKnnMethodContext().isTrainingRequired()) {
+                validationException = new ValidationException();
+                validationException.addValidationError(String.format(Locale.ROOT, "\"%s\" requires training.", KNN_METHOD));
+                throw validationException;
+            }
+
             if (builder.originalParameters.getResolvedKnnMethodContext() != null) {
-                ValidationException validationException = builder.originalParameters.getResolvedKnnMethodContext()
-                    .validate(builder.knnMethodConfigContext);
+                validationException = builder.originalParameters.getResolvedKnnMethodContext().validate(builder.knnMethodConfigContext);
                 if (validationException != null) {
                     throw validationException;
                 }
@@ -410,9 +428,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         private void resolveKNNMethodComponents(KNNVectorFieldMapper.Builder builder, ParserContext parserContext) {
             builder.setKnnMethodConfigContext(
                 KNNMethodConfigContext.builder()
-                    .vectorDataType(builder.vectorDataType.getValue())
+                    .vectorDataType(builder.originalParameters.getVectorDataType())
                     .versionCreated(parserContext.indexVersionCreated())
-                    .dimension(builder.dimension.getValue())
+                    .dimension(builder.originalParameters.getDimension())
+                    .mode(Mode.fromName(builder.originalParameters.getMode()))
+                    .compressionLevel(CompressionLevel.fromName(builder.originalParameters.getCompressionLevel()))
                     .build()
             );
 
@@ -421,8 +441,17 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 builder.originalParameters.setResolvedKnnMethodContext(
                     createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated())
                 );
-            }
-            setDefaultSpaceType(builder.originalParameters.getResolvedKnnMethodContext(), builder.vectorDataType.getValue());
+            } else if (Mode.isConfigured(Mode.fromName(builder.mode.get()))
+                || CompressionLevel.isConfigured(CompressionLevel.fromName(builder.compressionLevel.get()))) {
+                    builder.originalParameters.setResolvedKnnMethodContext(
+                        ModeBasedResolver.INSTANCE.resolveKNNMethodContext(
+                            builder.knnMethodConfigContext.getMode(),
+                            builder.knnMethodConfigContext.getCompressionLevel(),
+                            false
+                        )
+                    );
+                }
+            setDefaultSpaceType(builder.originalParameters.getResolvedKnnMethodContext(), builder.originalParameters.getVectorDataType());
         }
 
         private boolean isKNNDisabled(Settings settings) {

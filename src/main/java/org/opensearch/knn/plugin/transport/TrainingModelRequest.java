@@ -24,6 +24,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.mapper.ModeBasedResolver;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -80,7 +81,6 @@ public class TrainingModelRequest extends ActionRequest {
     ) {
         super();
         this.modelId = modelId;
-        this.knnMethodContext = knnMethodContext;
         this.dimension = dimension;
         this.trainingIndex = trainingIndex;
         this.trainingField = trainingField;
@@ -95,13 +95,22 @@ public class TrainingModelRequest extends ActionRequest {
         // Training data size in kilobytes. By default, this is invalid (it cant have negative kb). It eventually gets
         // calculated in transit. A user cannot set this value directly.
         this.trainingDataSizeInKB = -1;
+        this.mode = mode;
+        this.compressionLevel = compressionLevel;
+
         this.knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(vectorDataType)
             .dimension(dimension)
             .versionCreated(Version.CURRENT)
+            .compressionLevel(compressionLevel)
+            .mode(mode)
             .build();
-        this.mode = mode;
-        this.compressionLevel = compressionLevel;
+
+        if (knnMethodContext == null && (Mode.isConfigured(mode) || CompressionLevel.isConfigured(compressionLevel))) {
+            this.knnMethodContext = ModeBasedResolver.INSTANCE.resolveKNNMethodContext(mode, compressionLevel, true);
+        } else {
+            this.knnMethodContext = knnMethodContext;
+        }
     }
 
     /**
@@ -139,6 +148,8 @@ public class TrainingModelRequest extends ActionRequest {
             .vectorDataType(vectorDataType)
             .dimension(dimension)
             .versionCreated(in.getVersion())
+            .compressionLevel(compressionLevel)
+            .mode(mode)
             .build();
     }
 

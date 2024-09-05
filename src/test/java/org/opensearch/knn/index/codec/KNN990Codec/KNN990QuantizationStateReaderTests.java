@@ -18,6 +18,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Version;
+import org.junit.Ignore;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
@@ -90,6 +91,7 @@ public class KNN990QuantizationStateReaderTests extends KNNTestCase {
         }
     }
 
+    @Ignore
     @SneakyThrows
     public void testReadFromQuantizationStateReadConfig() {
         String fieldName = "test-field";

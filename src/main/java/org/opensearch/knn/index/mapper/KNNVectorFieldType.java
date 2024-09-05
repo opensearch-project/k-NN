@@ -17,6 +17,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -80,5 +81,21 @@ public class KNNVectorFieldType extends MappedFieldType {
     @Override
     public Object valueForDisplay(Object value) {
         return deserializeStoredVector((BytesRef) value, vectorDataType);
+    }
+
+    /**
+     * Resolve the rescore context provided for a user based on the field configuration
+     *
+     * @param userProvidedContext {@link RescoreContext} user passed; if null, the default should be configured
+     * @return resolved {@link RescoreContext}
+     */
+    public RescoreContext resolveRescoreContext(RescoreContext userProvidedContext) {
+        if (userProvidedContext != null) {
+            return userProvidedContext;
+        }
+        return ModeBasedResolver.INSTANCE.resolveRescoreContext(
+            getKnnMappingConfig().getMode(),
+            getKnnMappingConfig().getCompressionLevel()
+        );
     }
 }

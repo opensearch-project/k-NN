@@ -88,45 +88,41 @@ public final class KNN990QuantizationStateReader {
         String quantizationStateFileName = getQuantizationStateFileName(segmentReadState);
         int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
 
-        try (IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.READ)) {
-            CodecUtil.retrieveChecksum(input);
-            int numFields = getNumFields(input);
+        IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.READ);
+        CodecUtil.retrieveChecksum(input);
+        int numFields = getNumFields(input);
 
-            long position = -1;
-            int length = 0;
+        long position = -1;
+        int length = 0;
 
-            // Read each field's metadata from the index section, break when correct field is found
-            for (int i = 0; i < numFields; i++) {
-                int tempFieldNumber = input.readInt();
-                int tempLength = input.readInt();
-                long tempPosition = input.readVLong();
-                if (tempFieldNumber == fieldNumber) {
-                    position = tempPosition;
-                    length = tempLength;
-                    break;
-                }
+        // Read each field's metadata from the index section, break when correct field is found
+        for (int i = 0; i < numFields; i++) {
+            int tempFieldNumber = input.readInt();
+            int tempLength = input.readInt();
+            long tempPosition = input.readVLong();
+            if (tempFieldNumber == fieldNumber) {
+                position = tempPosition;
+                length = tempLength;
+                break;
             }
+        }
 
-            if (position == -1 || length == 0) {
-                throw new IllegalArgumentException(String.format("Field %s not found", field));
-            }
+        if (position == -1 || length == 0) {
+            throw new IllegalArgumentException(String.format("Field %s not found", field));
+        }
 
-            byte[] stateBytes = readStateBytes(input, position, length);
+        byte[] stateBytes = readStateBytes(input, position, length);
 
-            // Deserialize the byte array to a quantization state object
-            ScalarQuantizationType scalarQuantizationType = ((ScalarQuantizationParams) readConfig.getQuantizationParams()).getSqType();
-            switch (scalarQuantizationType) {
-                case ONE_BIT:
-                    return OneBitScalarQuantizationState.fromByteArray(stateBytes);
-                case TWO_BIT:
-                case FOUR_BIT:
-                    return MultiBitScalarQuantizationState.fromByteArray(stateBytes);
-                default:
-                    throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
-            }
-        } catch (Exception e) {
-            log.warn(String.format("Unable to read the quantization state file for segment %s", segmentReadState.segmentInfo.name), e);
-            return null;
+        // Deserialize the byte array to a quantization state object
+        ScalarQuantizationType scalarQuantizationType = ((ScalarQuantizationParams) readConfig.getQuantizationParams()).getSqType();
+        switch (scalarQuantizationType) {
+            case ONE_BIT:
+                return OneBitScalarQuantizationState.fromByteArray(stateBytes);
+            case TWO_BIT:
+            case FOUR_BIT:
+                return MultiBitScalarQuantizationState.fromByteArray(stateBytes);
+            default:
+                throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
         }
     }
 

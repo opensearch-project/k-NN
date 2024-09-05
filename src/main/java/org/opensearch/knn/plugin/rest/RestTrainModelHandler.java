@@ -34,12 +34,14 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.MAX_VECTOR_COUNT_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.PREFERENCE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_SIZE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
@@ -131,7 +133,10 @@ public class RestTrainModelHandler extends BaseRestHandler {
         }
 
         // Check that these parameters get set
-        ensureSet(KNN_METHOD, knnMethodContext);
+        ensureAtleasOneSet(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
+        ensureMutualExclusion(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode);
+        ensureMutualExclusion(KNN_METHOD, knnMethodContext, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
+
         ensureSet(DIMENSION, dimension);
         ensureSet(TRAIN_INDEX_PARAMETER, trainingIndex);
         ensureSet(TRAIN_FIELD_PARAMETER, trainingField);
@@ -144,6 +149,17 @@ public class RestTrainModelHandler extends BaseRestHandler {
         if (vectorDataType == DEFAULT_NOT_SET_OBJECT_VALUE) {
             vectorDataType = VectorDataType.DEFAULT;
         }
+
+        ensureIfSetThenEquals(
+            MODE_PARAMETER,
+            mode,
+            COMPRESSION_LEVEL_PARAMETER,
+            compressionLevel,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.FLOAT,
+            vectorDataType,
+            VectorDataType.FLOAT.getValue()
+        );
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
@@ -178,6 +194,43 @@ public class RestTrainModelHandler extends BaseRestHandler {
     private void ensureSet(String fieldName, int value) {
         if (value == DEFAULT_NOT_SET_INT_VALUE) {
             throw new IllegalArgumentException("Request did not set \"" + fieldName + ".");
+        }
+    }
+
+    private void ensureMutualExclusion(String fieldNameA, Object valueA, String fieldNameB, Object valueB) {
+        if (valueA != DEFAULT_NOT_SET_OBJECT_VALUE && valueB != DEFAULT_NOT_SET_OBJECT_VALUE) {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "\"[%s]\" and \"[%s]\" cannot both be set", fieldNameA, fieldNameB)
+            );
+        }
+    }
+
+    private void ensureIfSetThenEquals(
+        String fieldNameA,
+        Object valueA,
+        String fieldNameB,
+        Object valueB,
+        String fieldNameC,
+        Object expectedValueC,
+        Object actualValueC,
+        String expectedValueCName
+    ) {
+        if ((valueA != DEFAULT_NOT_SET_OBJECT_VALUE || valueB != DEFAULT_NOT_SET_OBJECT_VALUE) && expectedValueC != actualValueC) {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "When \"[%s]\" or \"[%s]\" is set, \"[%s]\" must be set to \"[%s]\"",
+                    fieldNameA,
+                    fieldNameB,
+                    fieldNameC,
+                    expectedValueCName
+                )
+            );
+        }
+    }
+
+    private void ensureAtleasOneSet(String fieldNameA, Object valueA, String fieldNameB, Object valueB, String fieldNameC, Object valueC) {
+        if (valueA == DEFAULT_NOT_SET_OBJECT_VALUE && valueB == DEFAULT_NOT_SET_OBJECT_VALUE && valueC == DEFAULT_NOT_SET_OBJECT_VALUE) {
         }
     }
 
