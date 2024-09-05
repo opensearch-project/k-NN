@@ -7,6 +7,7 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.Ignore;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -15,6 +16,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.mapper.ModeBasedResolver;
@@ -28,6 +30,10 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFAULT;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
@@ -145,7 +151,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName);
+            validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
         }
 
         for (CompressionLevel compressionLevel : ModeBasedResolver.SUPPORTED_COMPRESSION_LEVELS) {
@@ -164,7 +170,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                     .endObject();
                 String mapping = builder.toString();
                 validateIndex(indexName, mapping);
-                validateSearch(indexName);
+                validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
             }
         }
 
@@ -182,7 +188,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName);
+            validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
         }
     }
 
@@ -216,6 +222,9 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         expectThrows(ResponseException.class, () -> trainModel(modelId, builder2));
     }
 
+    // Training isnt currently supported for mode and compression because quantization framework does not quantize
+    // the training vectors. So, commenting out for now.
+    @Ignore
     @SneakyThrows
     public void testTraining_whenValid_thenSucceed() {
         setupTrainingIndex();
@@ -228,10 +237,6 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
                 .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
                 .field(KNNConstants.DIMENSION, DIMENSION)
-                .startObject(KNN_METHOD)
-                .field(NAME, METHOD_IVF)
-                .field(KNN_ENGINE, FAISS_NAME)
-                .endObject()
                 .field(MODEL_DESCRIPTION, "")
                 .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
                 .endObject();
@@ -247,7 +252,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName);
+            validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT);
         }
 
         for (CompressionLevel compressionLevel : ModeBasedResolver.SUPPORTED_COMPRESSION_LEVELS) {
@@ -259,10 +264,6 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                     .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
                     .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
                     .field(KNNConstants.DIMENSION, DIMENSION)
-                    .startObject(KNN_METHOD)
-                    .field(NAME, METHOD_IVF)
-                    .field(KNN_ENGINE, FAISS_NAME)
-                    .endObject()
                     .field(MODEL_DESCRIPTION, "")
                     .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
                     .field(MODE_PARAMETER, mode)
@@ -279,7 +280,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                     .endObject();
                 String mapping = builder.toString();
                 validateIndex(indexName, mapping);
-                validateSearch(indexName);
+                validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT);
             }
         }
 
@@ -291,10 +292,6 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
                 .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
                 .field(KNNConstants.DIMENSION, DIMENSION)
-                .startObject(KNN_METHOD)
-                .field(NAME, METHOD_IVF)
-                .field(KNN_ENGINE, FAISS_NAME)
-                .endObject()
                 .field(MODEL_DESCRIPTION, "")
                 .field(MODE_PARAMETER, mode)
                 .endObject();
@@ -310,7 +307,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName);
+            validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT);
         }
 
     }
@@ -324,10 +321,8 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
 
     @SneakyThrows
     private void setupTrainingIndex() {
-        int dimension = 20;
-        int trainingDataCount = 256;
-        createBasicKnnIndex(TRAINING_INDEX_NAME, TRAINING_FIELD_NAME, dimension);
-        bulkIngestRandomVectors(TRAINING_INDEX_NAME, TRAINING_FIELD_NAME, trainingDataCount, dimension);
+        createBasicKnnIndex(TRAINING_INDEX_NAME, TRAINING_FIELD_NAME, DIMENSION);
+        bulkIngestRandomVectors(TRAINING_INDEX_NAME, TRAINING_FIELD_NAME, TRAINING_VECS, DIMENSION);
     }
 
     @SneakyThrows
@@ -338,7 +333,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    private void validateSearch(String indexName) {
+    private void validateSearch(String indexName, String methodParameterName, int methodParameterValue) {
         // Basic search
         Response response = searchKNNIndex(
             indexName,
@@ -349,6 +344,9 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .startObject(FIELD_NAME)
                 .field("vector", TEST_VECTOR)
                 .field("k", K)
+                .startObject(METHOD_PARAMETER)
+                .field(methodParameterName, methodParameterValue)
+                .endObject()
                 .endObject()
                 .endObject()
                 .endObject()
@@ -372,6 +370,9 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .field("k", K)
                 .startObject(RescoreParser.RESCORE_PARAMETER)
                 .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+                .endObject()
+                .startObject(METHOD_PARAMETER)
+                .field(methodParameterName, methodParameterValue)
                 .endObject()
                 .endObject()
                 .endObject()

@@ -136,16 +136,6 @@ public class RestTrainModelHandler extends BaseRestHandler {
         ensureAtleasOneSet(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
         ensureMutualExclusion(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode);
         ensureMutualExclusion(KNN_METHOD, knnMethodContext, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
-        ensureIfSetThenEquals(
-            MODE_PARAMETER,
-            mode,
-            COMPRESSION_LEVEL_PARAMETER,
-            compressionLevel,
-            VECTOR_DATA_TYPE_FIELD,
-            VectorDataType.FLOAT,
-            vectorDataType,
-            VectorDataType.FLOAT.getValue()
-        );
 
         ensureSet(DIMENSION, dimension);
         ensureSet(TRAIN_INDEX_PARAMETER, trainingIndex);
@@ -159,6 +149,17 @@ public class RestTrainModelHandler extends BaseRestHandler {
         if (vectorDataType == DEFAULT_NOT_SET_OBJECT_VALUE) {
             vectorDataType = VectorDataType.DEFAULT;
         }
+
+        ensureIfSetThenEquals(
+            MODE_PARAMETER,
+            mode,
+            COMPRESSION_LEVEL_PARAMETER,
+            compressionLevel,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.FLOAT,
+            vectorDataType,
+            VectorDataType.FLOAT.getValue()
+        );
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
