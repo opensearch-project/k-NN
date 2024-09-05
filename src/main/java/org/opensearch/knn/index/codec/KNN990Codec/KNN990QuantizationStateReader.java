@@ -21,9 +21,6 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Reads quantization states
@@ -32,7 +29,7 @@ import java.util.Map;
 public final class KNN990QuantizationStateReader {
 
     /**
-     * Read quantization states and return list of fieldNames and bytes
+     * Reads an individual quantization state for a given field
      * File format:
      * Header
      * QS1 state bytes
@@ -48,37 +45,6 @@ public final class KNN990QuantizationStateReader {
      * -1 (marker)
      * Footer
      *
-     * @param state the read state to read from
-     */
-    public static Map<String, byte[]> read(SegmentReadState state) throws IOException {
-        String quantizationStateFileName = getQuantizationStateFileName(state);
-        Map<String, byte[]> readQuantizationStateInfos = null;
-
-        try (IndexInput input = state.directory.openInput(quantizationStateFileName, IOContext.READ)) {
-            CodecUtil.retrieveChecksum(input);
-
-            int numFields = getNumFields(input);
-
-            readQuantizationStateInfos = new HashMap<>();
-
-            // Read each field's metadata from the index section and then read bytes
-            for (int i = 0; i < numFields; i++) {
-                int fieldNumber = input.readInt();
-                int length = input.readInt();
-                long position = input.readVLong();
-                byte[] stateBytes = readStateBytes(input, position, length);
-                String fieldName = state.fieldInfos.fieldInfo(fieldNumber).getName();
-                readQuantizationStateInfos.put(fieldName, stateBytes);
-            }
-        } catch (Exception e) {
-            log.warn(String.format("Unable to read the quantization state file for segment %s", state.segmentInfo.name), e);
-            return Collections.emptyMap();
-        }
-        return readQuantizationStateInfos;
-    }
-
-    /**
-     * Reads an individual quantization state for a given field
      * @param readConfig a config class that contains necessary information for reading the state
      * @return quantization state
      */
@@ -88,41 +54,43 @@ public final class KNN990QuantizationStateReader {
         String quantizationStateFileName = getQuantizationStateFileName(segmentReadState);
         int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
 
-        IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.READ);
-        CodecUtil.retrieveChecksum(input);
-        int numFields = getNumFields(input);
+        try (IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.READ)) {
 
-        long position = -1;
-        int length = 0;
+            CodecUtil.retrieveChecksum(input);
+            int numFields = getNumFields(input);
 
-        // Read each field's metadata from the index section, break when correct field is found
-        for (int i = 0; i < numFields; i++) {
-            int tempFieldNumber = input.readInt();
-            int tempLength = input.readInt();
-            long tempPosition = input.readVLong();
-            if (tempFieldNumber == fieldNumber) {
-                position = tempPosition;
-                length = tempLength;
-                break;
+            long position = -1;
+            int length = 0;
+
+            // Read each field's metadata from the index section, break when correct field is found
+            for (int i = 0; i < numFields; i++) {
+                int tempFieldNumber = input.readInt();
+                int tempLength = input.readInt();
+                long tempPosition = input.readVLong();
+                if (tempFieldNumber == fieldNumber) {
+                    position = tempPosition;
+                    length = tempLength;
+                    break;
+                }
             }
-        }
 
-        if (position == -1 || length == 0) {
-            throw new IllegalArgumentException(String.format("Field %s not found", field));
-        }
+            if (position == -1 || length == 0) {
+                throw new IllegalArgumentException(String.format("Field %s not found", field));
+            }
 
-        byte[] stateBytes = readStateBytes(input, position, length);
+            byte[] stateBytes = readStateBytes(input, position, length);
 
-        // Deserialize the byte array to a quantization state object
-        ScalarQuantizationType scalarQuantizationType = ((ScalarQuantizationParams) readConfig.getQuantizationParams()).getSqType();
-        switch (scalarQuantizationType) {
-            case ONE_BIT:
-                return OneBitScalarQuantizationState.fromByteArray(stateBytes);
-            case TWO_BIT:
-            case FOUR_BIT:
-                return MultiBitScalarQuantizationState.fromByteArray(stateBytes);
-            default:
-                throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
+            // Deserialize the byte array to a quantization state object
+            ScalarQuantizationType scalarQuantizationType = ((ScalarQuantizationParams) readConfig.getQuantizationParams()).getSqType();
+            switch (scalarQuantizationType) {
+                case ONE_BIT:
+                    return OneBitScalarQuantizationState.fromByteArray(stateBytes);
+                case TWO_BIT:
+                case FOUR_BIT:
+                    return MultiBitScalarQuantizationState.fromByteArray(stateBytes);
+                default:
+                    throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
+            }
         }
     }
 

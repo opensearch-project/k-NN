@@ -52,7 +52,6 @@ import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
@@ -69,6 +68,7 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -96,7 +96,6 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         super.tearDown();
     }
 
-    @Ignore
     @SneakyThrows
     public void testReaderAndWriter_whenValidInput_thenSuccess() {
         final Lucene99FlatVectorsFormat mockedFlatVectorsFormat = Mockito.mock(Lucene99FlatVectorsFormat.class);
@@ -129,6 +128,17 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
         Mockito.when(fieldInfo.getName()).thenReturn(fieldName);
         Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
+        Mockito.when(fieldInfos.iterator()).thenReturn(new Iterator<FieldInfo>() {
+            @Override
+            public boolean hasNext() {
+                return false;
+            }
+
+            @Override
+            public FieldInfo next() {
+                return null;
+            }
+        });
 
         final SegmentReadState mockedSegmentReadState = new SegmentReadState(
             directory,
