@@ -173,12 +173,6 @@ public class TrainingModelRequest extends ActionRequest {
             this.compressionLevel = CompressionLevel.NOT_CONFIGURED;
         }
 
-        // SpaceType topLevelSpaceType = SpaceType.DEFAULT;
-        //
-        // if(IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.TOP_LEVEL_SPACE_TYPE_FEATURE)) {
-        // topLevelSpaceType = SpaceType.getSpace(in.readOptionalString());
-        // }
-
         this.knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(vectorDataType)
             .dimension(dimension)
