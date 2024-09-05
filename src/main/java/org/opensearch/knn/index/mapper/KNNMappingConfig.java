@@ -31,6 +31,24 @@ public interface KNNMappingConfig {
     }
 
     /**
+     * Return the mode to be used for this field
+     *
+     * @return {@link Mode}
+     */
+    default Mode getMode() {
+        return Mode.NOT_CONFIGURED;
+    }
+
+    /**
+     * Return compression level to be used for this field
+     *
+     * @return {@link CompressionLevel}
+     */
+    default CompressionLevel getCompressionLevel() {
+        return CompressionLevel.NOT_CONFIGURED;
+    }
+
+    /**
      *
      * @return the dimension of the index; for model based indices, it will be null
      */

@@ -31,20 +31,20 @@ public class QFrameworkIT extends KNNRestTestCase {
         // TODO :- UnComment this once Search is Integrated and KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING is enabled
         // addKnnDoc(INDEX_NAME, "1", FIELD_NAME, TEST_VECTOR);
         // Response response = searchKNNIndex(
-        // INDEX_NAME,
-        // XContentFactory.jsonBuilder()
-        // .startObject()
-        // .startObject("query")
-        // .startObject("knn")
-        // .startObject(FIELD_NAME)
-        // .field("vector", TEST_VECTOR)
-        // .field("k", K)
-        // .endObject()
-        // .endObject()
-        // .endObject()
-        // .endObject(),
-        // 1
-        // );
+        // // INDEX_NAME,
+        // // XContentFactory.jsonBuilder()
+        // // .startObject()
+        // // .startObject("query")
+        // // .startObject("knn")
+        // // .startObject(FIELD_NAME)
+        // // .field("vector", TEST_VECTOR)
+        // // .field("k", K)
+        // // .endObject()
+        // // .endObject()
+        // // .endObject()
+        // // .endObject(),
+        // // 1
+        // // );
         // assertOK(response);
     }
 

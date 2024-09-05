@@ -413,6 +413,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         MethodComponentContext methodComponentContext = queryConfigFromMapping.get().getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.get().getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.get().getVectorDataType();
+        RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
 
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         updateQueryStats(vectorQueryType);
@@ -529,7 +530,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .methodParameters(this.methodParameters)
                 .filter(this.filter)
                 .context(context)
-                .rescoreContext(rescoreContext)
+                .rescoreContext(processedRescoreContext)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }
