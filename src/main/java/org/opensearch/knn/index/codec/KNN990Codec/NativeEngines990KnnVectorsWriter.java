@@ -244,26 +244,25 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         final String operationName
     ) throws IOException {
         final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
-        KNNVectorValues<T> knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
-        QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
-        QuantizationState quantizationState = null;
         // Count the docIds
         int totalLiveDocs = getLiveDocs(vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext));
-        if (quantizationParams != null && totalLiveDocs > 0) {
+        if (totalLiveDocs == 0) {
+            log.debug("No live docs for field " + fieldInfo.name);
+            return;
+        }
+        QuantizationState quantizationState = null;
+        QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
+        if (quantizationParams != null) {
             initQuantizationStateWriterIfNecessary();
+            KNNVectorValues<T> knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
             quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs);
             quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
         }
-        NativeIndexWriter writer = (quantizationParams != null)
-            ? NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState)
-            : NativeIndexWriter.getWriter(fieldInfo, segmentWriteState);
-
-        knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
-
-        StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
-        indexOperation.buildAndWrite(writer, knnVectorValues, totalLiveDocs);
-        long time_in_millis = stopWatch.totalTime().millis();
+        NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
+        KNNVectorValues<T> knnVectors = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
+        StopWatch stopWatch = new StopWatch().start();
+        indexOperation.buildAndWrite(writer, knnVectors, totalLiveDocs);
+        long time_in_millis = stopWatch.stop().totalTime().millis();
         graphBuildTime.incrementBy(time_in_millis);
         log.warn("Graph build took " + time_in_millis + " ms for " + operationName);
     }
