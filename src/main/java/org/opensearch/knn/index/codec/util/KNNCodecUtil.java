@@ -10,6 +10,7 @@ import org.apache.lucene.index.SegmentInfo;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Comparator;
 import java.util.List;

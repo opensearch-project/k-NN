@@ -12,6 +12,7 @@ import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.NoMergePolicy;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
@@ -24,6 +25,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
@@ -446,5 +448,20 @@ public class KNNCodecTestCase extends KNNTestCase {
         dir.close();
         resourceWatcherService.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+    }
+
+    public void testGetKNNEngines() {
+        SegmentInfo segmentInfo = mock(SegmentInfo.class);
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        Set<String> SEGMENT_MULTI_FIELD_FILES_FAISS = Set.of(
+                "_0.cfe",
+                "_0_2011_long_target_field.faissc",
+                "_0_2011_target_field.faissc"
+        );
+        when(segmentInfo.getUseCompoundFile()).thenReturn(true);
+        when(segmentInfo.files()).thenReturn(SEGMENT_MULTI_FIELD_FILES_FAISS);
+        List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), "target_field", segmentInfo);
+        assertEquals(engineFiles.size(), 1);
+        assertTrue(engineFiles.get(0).equals("_0_2011_target_field.faissc"));
     }
 }

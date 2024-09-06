@@ -1319,7 +1319,7 @@ public class KNNWeightTests extends KNNTestCase {
 
         String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
         KNNEngine knnEngine = KNNEngine.getEngine(engineName);
-        List<String> engineFiles = knnWeight.getEngineFiles(reader, knnEngine.getExtension());
+        List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), query.getField(), reader.getSegmentInfo().info);
         String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
         assertEquals(engineFiles.get(0), expectIndexPath);
 

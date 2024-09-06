@@ -272,7 +272,7 @@ public class KNNWeight extends Weight {
         // TODO: Change type of vector once more quantization methods are supported
         final byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
 
-        List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
+        List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
         if (engineFiles.isEmpty()) {
             log.debug("[KNN] No engine index found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
             return null;
@@ -378,25 +378,6 @@ public class KNNWeight extends Weight {
 
         return Arrays.stream(results)
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
-    }
-
-    @VisibleForTesting
-    List<String> getEngineFiles(SegmentReader reader, String extension) throws IOException {
-        /*
-         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
-         */
-        String engineExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-            ? extension + KNNConstants.COMPOUND_EXTENSION
-            : extension;
-        String engineSuffix = knnQuery.getField() + engineExtension;
-        String underLineEngineSuffix = "_" + engineSuffix;
-        List<String> engineFiles = reader.getSegmentInfo()
-            .files()
-            .stream()
-            .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
-            .sorted(Comparator.comparingInt(String::length))
-            .collect(Collectors.toList());
-        return engineFiles;
     }
 
     /**

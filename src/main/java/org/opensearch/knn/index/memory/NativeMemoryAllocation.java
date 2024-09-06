@@ -16,7 +16,6 @@ import lombok.Setter;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.common.concurrent.RefCountedReleasable;
-import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.KNNWeight;
@@ -186,8 +185,7 @@ public interface NativeMemoryAllocation {
             this.refCounted = new RefCountedReleasable<>("IndexAllocation-Reference", this, this::closeInternal);
         }
 
-        @Override
-        public void close() {
+        protected void closeInternal() {
             Runnable onClose = () -> {
                 writeLock();
                 cleanup();

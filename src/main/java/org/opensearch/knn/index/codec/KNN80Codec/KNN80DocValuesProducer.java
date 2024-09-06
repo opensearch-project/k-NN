@@ -25,7 +25,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.common.io.PathUtils;
-import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -134,13 +134,8 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         if (modelId != null) {
             return null;
         }
-        // Lucene Engine would not set attributes
-        final String engineName = field.attributes().get(KNNConstants.KNN_ENGINE);
-        if (engineName == null) {
-            return null;
-        }
-        KNNEngine engine = KNNEngine.getEngine(engineName);
-        if (engine == KNNEngine.FAISS || engine == KNNEngine.NMSLIB) {
+        KNNEngine engine = FieldInfoExtractor.extractKNNEngine(field);
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
             return engine;
         }
         return null;
