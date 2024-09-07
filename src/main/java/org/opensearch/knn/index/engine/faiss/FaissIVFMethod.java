@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultIVFSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
@@ -34,7 +36,13 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LI
 /**
  * Faiss ivf implementation
  */
-public class FaissIVFMethod extends AbstractKNNMethod {
+public class FaissIVFMethod extends AbstractFaissMethod {
+
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
+        VectorDataType.FLOAT,
+        VectorDataType.BINARY,
+        VectorDataType.BYTE
+    );
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
@@ -47,7 +55,12 @@ public class FaissIVFMethod extends AbstractKNNMethod {
         KNNConstants.ENCODER_FLAT,
         Collections.emptyMap()
     );
-    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(new FaissFlatEncoder(), new FaissSQEncoder(), new FaissIVFPQEncoder());
+    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(
+        new FaissFlatEncoder(),
+        new FaissSQEncoder(),
+        new FaissIVFPQEncoder(),
+        new QFrameBitEncoder()
+    );
 
     /**
      * Constructor for FaissIVFMethod
@@ -60,12 +73,13 @@ public class FaissIVFMethod extends AbstractKNNMethod {
 
     private static MethodComponent initMethodComponent() {
         return MethodComponent.Builder.builder(METHOD_IVF)
+            .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
             .addParameter(
                 METHOD_PARAMETER_NPROBES,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_NPROBES,
                     METHOD_PARAMETER_NPROBES_DEFAULT,
-                    v -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT
+                    (v, context) -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT
                 )
             )
             .addParameter(
@@ -73,18 +87,20 @@ public class FaissIVFMethod extends AbstractKNNMethod {
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_NLIST,
                     METHOD_PARAMETER_NLIST_DEFAULT,
-                    v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT
+                    (v, context) -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT
                 )
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setRequiresTraining(true)
-            .setMapGenerator(
-                ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+            .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
+                MethodAsMapBuilder methodAsMapBuilder = MethodAsMapBuilder.builder(
                     FAISS_IVF_DESCRIPTION,
                     methodComponent,
-                    methodComponentContext
-                ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
-            )
+                    methodComponentContext,
+                    knnMethodConfigContext
+                ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
+                return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
+            }))
             .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
                 // Size estimate formula: (4 * nlists * d) / 1024 + 1
 

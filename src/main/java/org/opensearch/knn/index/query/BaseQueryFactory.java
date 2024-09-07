@@ -18,6 +18,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
 import java.util.Map;
@@ -48,6 +49,7 @@ public abstract class BaseQueryFactory {
         private Float radius;
         private QueryBuilder filter;
         private QueryShardContext context;
+        private RescoreContext rescoreContext;
 
         public Optional<QueryBuilder> getFilter() {
             return Optional.ofNullable(filter);
@@ -55,6 +57,10 @@ public abstract class BaseQueryFactory {
 
         public Optional<QueryShardContext> getContext() {
             return Optional.ofNullable(context);
+        }
+
+        public Optional<RescoreContext> getRescoreContext() {
+            return Optional.ofNullable(rescoreContext);
         }
     }
 

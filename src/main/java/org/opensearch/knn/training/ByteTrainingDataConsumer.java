@@ -11,11 +11,9 @@
 
 package org.opensearch.knn.training;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.search.SearchHit;
 
 import java.util.ArrayList;
@@ -25,7 +23,6 @@ import java.util.List;
  * Transfers byte vectors from JVM to native memory.
  */
 public class ByteTrainingDataConsumer extends TrainingDataConsumer {
-    private static final Logger logger = LogManager.getLogger(TrainingDataConsumer.class);
 
     /**
      * Constructor
@@ -48,14 +45,9 @@ public class ByteTrainingDataConsumer extends TrainingDataConsumer {
         SearchHit[] hits = searchResponse.getHits().getHits();
         List<byte[]> vectors = new ArrayList<>();
         String[] fieldPath = fieldName.split("\\.");
-        int nullVectorCount = 0;
 
         for (int vector = 0; vector < vectorsToAdd; vector++) {
             Object fieldValue = extractFieldValue(hits[vector], fieldPath);
-            if (fieldValue == null) {
-                nullVectorCount++;
-                continue;
-            }
 
             byte[] byteArray;
             if (!(fieldValue instanceof List<?>)) {
@@ -68,10 +60,6 @@ public class ByteTrainingDataConsumer extends TrainingDataConsumer {
             }
 
             vectors.add(byteArray);
-        }
-
-        if (nullVectorCount > 0) {
-            logger.warn("Found {} documents with null byte vectors in field {}", nullVectorCount, fieldName);
         }
 
         setTotalVectorsCountAdded(getTotalVectorsCountAdded() + vectors.size());

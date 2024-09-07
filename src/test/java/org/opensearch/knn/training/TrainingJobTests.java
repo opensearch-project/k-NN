@@ -15,10 +15,13 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.Version;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -66,10 +69,11 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryCacheManager.class),
             mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-            10,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.DEFAULT).dimension(10).versionCreated(Version.CURRENT).build(),
             "",
             "test-node",
-            VectorDataType.DEFAULT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         assertEquals(modelId, trainingJob.getModelId());
@@ -96,10 +100,15 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryCacheManager.class),
             mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-            dimension,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .dimension(dimension)
+                .versionCreated(Version.CURRENT)
+                .build(),
             description,
             nodeAssignment,
-            VectorDataType.DEFAULT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         Model model = new Model(
@@ -113,7 +122,10 @@ public class TrainingJobTests extends KNNTestCase {
                 error,
                 nodeAssignment,
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED,
+                Version.CURRENT
             ),
             null,
             modelID
@@ -130,6 +142,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
@@ -185,10 +202,11 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
             "test-node",
-            VectorDataType.DEFAULT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -225,6 +243,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
@@ -264,10 +287,11 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
             "test-node",
-            VectorDataType.DEFAULT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -287,6 +311,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
@@ -332,10 +361,11 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
             "test-node",
-            VectorDataType.DEFAULT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -355,6 +385,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
@@ -399,10 +434,11 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-            dimension,
+            knnMethodConfigContext,
             "",
             "test-node",
-            VectorDataType.DEFAULT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();
@@ -420,6 +456,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 1024; // setting this to 1024 will cause training to fail when there is only 2 data points
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
@@ -473,10 +514,11 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
             "test-node",
-            VectorDataType.DEFAULT
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
 
         trainingJob.run();

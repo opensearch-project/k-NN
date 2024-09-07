@@ -5,6 +5,7 @@
 
 package org.opensearch.knn;
 
+import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
 import lombok.SneakyThrows;
@@ -1167,6 +1168,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
+    public void bulkIngestRandomByteVectors(String indexName, String fieldName, int numVectors, int dimension) throws IOException {
+        for (int i = 0; i < numVectors; i++) {
+            byte[] vector = new byte[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = randomByte();
+            }
+            addKnnDoc(indexName, String.valueOf(i + 1), fieldName, Bytes.asList(vector).toArray());
+        }
+    }
+
     /**
      * Bulk ingest random vectors with nested field
      *
@@ -1274,6 +1285,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
         for (int i = firstDocID; i < firstDocID + numDocs; i++) {
             Float[] indexVector = new Float[dimension];
             Arrays.fill(indexVector, (float) i);
+            addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
+        }
+    }
+
+    public void addKNNByteDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
+        for (int i = firstDocID; i < firstDocID + numDocs; i++) {
+            Byte[] indexVector = new Byte[dimension];
+            Arrays.fill(indexVector, (byte) i);
             addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
         }
     }

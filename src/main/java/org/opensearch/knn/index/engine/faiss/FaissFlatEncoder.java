@@ -5,9 +5,13 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
+
+import java.util.Set;
 
 /**
  * Flat faiss encoder. Flat encoding means that it does nothing. It needs an encoder, though, because it
@@ -15,14 +19,22 @@ import org.opensearch.knn.index.engine.MethodComponent;
  */
 public class FaissFlatEncoder implements Encoder {
 
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
+        VectorDataType.FLOAT,
+        VectorDataType.BYTE,
+        VectorDataType.BINARY
+    );
+
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
-        .setMapGenerator(
-            ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+        .setKnnLibraryIndexingContextGenerator(
+            ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 KNNConstants.FAISS_FLAT_DESCRIPTION,
                 methodComponent,
-                methodComponentContext
+                methodComponentContext,
+                knnMethodConfigContext
             ).build())
         )
+        .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .build();
 
     @Override

@@ -8,6 +8,8 @@ package org.opensearch.knn.bwc;
 import org.junit.Assert;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Map;
 
@@ -50,6 +52,48 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
             validateKNNIndexingOnUpgrade();
+        }
+    }
+
+    // Ensure that when segments created with old mapping are forcemerged in new cluster, they
+    // succeed
+    public void testKNNIndexDefaultLegacyFieldMappingForceMerge() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 100);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+        } else {
+            forceMergeKnnIndex(testIndex);
+        }
+    }
+
+    // Ensure bwc works for binary force merge
+    public void testKNNIndexBinaryForceMerge() throws Exception {
+        int dimension = 40;
+
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                getKNNDefaultIndexSettings(),
+                createKnnIndexMapping(
+                    TEST_FIELD,
+                    dimension,
+                    METHOD_HNSW,
+                    KNNEngine.FAISS.getName(),
+                    SpaceType.HAMMING.getValue(),
+                    true,
+                    VectorDataType.BINARY
+                )
+            );
+            addKNNByteDocs(testIndex, TEST_FIELD, dimension / 8, DOC_ID, 100);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+        } else {
+            forceMergeKnnIndex(testIndex);
         }
     }
 

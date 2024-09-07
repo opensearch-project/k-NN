@@ -13,20 +13,13 @@ package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.util.BytesRef;
+import org.junit.Assert;
+import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.MethodComponentContext;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -61,109 +54,27 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
     public void testGetExpectedVectorLengthSuccess() {
         KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldType.getDimension()).thenReturn(3);
-
+        when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
         KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeBinary.getDimension()).thenReturn(8);
+        when(knnVectorFieldTypeBinary.getKnnMappingConfig()).thenReturn(
+            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8)
+        );
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
 
         KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
+        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(
+            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8)
+        );
         String modelId = "test-model";
-        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(modelId);
-
-        ModelDao modelDao = mock(ModelDao.class);
-        ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
-        when(modelMetadata.getDimension()).thenReturn(4);
-        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
-
-        KNNVectorFieldMapperUtil.initialize(modelDao);
-
+        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
         assertEquals(3, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType));
         assertEquals(1, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeBinary));
         assertEquals(4, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased));
     }
 
-    public void testGetExpectedVectorLengthFailure() {
-        KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
-        String modelId = "test-model";
-        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(modelId);
-
-        ModelDao modelDao = mock(ModelDao.class);
-        ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
-        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
-
-        KNNVectorFieldMapperUtil.initialize(modelDao);
-
-        IllegalArgumentException e = expectThrows(
-            IllegalArgumentException.class,
-            () -> KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased)
-        );
-        assertEquals(String.format("Model ID '%s' is not created.", modelId), e.getMessage());
-
-        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(null);
-        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        MethodComponentContext methodComponentContext = mock(MethodComponentContext.class);
-        String fieldName = "test-field";
-        when(methodComponentContext.getName()).thenReturn(fieldName);
-        when(knnMethodContext.getMethodComponentContext()).thenReturn(methodComponentContext);
-        when(knnVectorFieldTypeModelBased.getKnnMethodContext()).thenReturn(knnMethodContext);
-
-        e = expectThrows(
-            IllegalArgumentException.class,
-            () -> KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased)
-        );
-        assertEquals(String.format("Field '%s' does not have model.", fieldName), e.getMessage());
-    }
-
-    public void testValidateVectorDataType_whenBinaryFaissHNSW_thenValid() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BINARY, null);
-    }
-
-    public void testValidateVectorDataType_whenBinaryNonFaiss_thenException() {
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.BINARY, "only supported");
-        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_HNSW, VectorDataType.BINARY, "only supported");
-    }
-
-    public void testValidateVectorDataType_whenBinaryFaissIVF_thenException() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_IVF, VectorDataType.BINARY, "only supported");
-    }
-
-    public void testValidateVectorDataType_whenByteLucene_thenValid() {
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, null);
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_IVF, VectorDataType.BYTE, null);
-    }
-
-    public void testValidateVectorDataType_whenByteNonLucene_thenException() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, "only supported");
-        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_IVF, VectorDataType.BYTE, "only supported");
-    }
-
-    public void testValidateVectorDataType_whenFloat_thenValid() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, null);
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, null);
-        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, null);
-    }
-
-    private void validateValidateVectorDataType(
-        final KNNEngine knnEngine,
-        final String methodName,
-        final VectorDataType vectorDataType,
-        final String expectedErrMsg
-    ) {
-        MethodComponentContext methodComponentContext = new MethodComponentContext(methodName, Collections.emptyMap());
-        KNNMethodContext methodContext = new KNNMethodContext(knnEngine, SpaceType.UNDEFINED, methodComponentContext);
-        if (expectedErrMsg == null) {
-            KNNVectorFieldMapperUtil.validateVectorDataType(methodContext, vectorDataType);
-        } else {
-            Exception ex = expectThrows(
-                IllegalArgumentException.class,
-                () -> KNNVectorFieldMapperUtil.validateVectorDataType(methodContext, vectorDataType)
-            );
-            assertTrue(ex.getMessage().contains(expectedErrMsg));
-        }
+    public void testUseLuceneKNNVectorsFormat_withDifferentInputs_thenSuccess() {
+        Assert.assertFalse(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_16_0));
+        Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_17_0));
+        Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_3_0_0));
     }
 }

@@ -33,6 +33,8 @@ public class KNNConstants {
     public static final String METHOD_IVF = "ivf";
     public static final String METHOD_PARAMETER_NLIST = "nlist";
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
+    // used for defining toplevel parameter
+    public static final String TOP_LEVEL_PARAMETER_SPACE_TYPE = METHOD_PARAMETER_SPACE_TYPE;
     public static final String COMPOUND_EXTENSION = "c";
     public static final String MODEL = "model";
     public static final String MODELS = "models";
@@ -66,11 +68,17 @@ public class KNNConstants {
     public static final String MAX_VECTOR_COUNT_PARAMETER = "max_training_vector_count";
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
+    public static final String QFRAMEWORK_CONFIG = "qframe_config";
+
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String MODEL_VECTOR_DATA_TYPE_KEY = VECTOR_DATA_TYPE_FIELD;
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
+    public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";
+    public static final String TOP_LEVEL_SPACE_TYPE_FEATURE = "top_level_space_type_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
+    public static final String MODEL_VERSION = "model_version";
+    public static final String QUANTIZATION_STATE_FILE_SUFFIX = "osknnqstate";
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
@@ -109,6 +117,7 @@ public class KNNConstants {
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
+    public static final String FAISS_SIGNED_BYTE_SQ = "SQ8_direct_signed";
     public static final String FAISS_SQ_CLIP = "clip";
 
     // Parameter defaults/limits
@@ -147,4 +156,7 @@ public class KNNConstants {
     public static final Float DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO = 0.95f;
     public static final String MIN_SCORE = "min_score";
     public static final String MAX_DISTANCE = "max_distance";
+
+    public static final String MODE_PARAMETER = "mode";
+    public static final String COMPRESSION_LEVEL_PARAMETER = "compression_level";
 }

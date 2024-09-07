@@ -23,6 +23,7 @@ public abstract class KNNVectorValues<T> {
 
     protected final KNNVectorValuesIterator vectorValuesIterator;
     protected int dimension;
+    protected int bytesPerVector;
 
     protected KNNVectorValues(final KNNVectorValuesIterator vectorValuesIterator) {
         this.vectorValuesIterator = vectorValuesIterator;
@@ -38,6 +39,20 @@ public abstract class KNNVectorValues<T> {
     public abstract T getVector() throws IOException;
 
     /**
+     * Intended to return a vector reference either after deep copy of the vector obtained from {@code getVector}
+     * or return the vector itself.
+     * <p>
+     *   This decision to clone depends on the vector returned based on the type of iterator
+     * </p>
+     * Running this function can incur latency hence should be absolutely used when necessary.
+     * For most of the cases {@link  #getVector()} function should work.
+     *
+     * @return T an array of byte[], float[] Or a deep copy of it
+     * @throws IOException
+     */
+    public abstract T conditionalCloneVector() throws IOException;
+
+    /**
      * Dimension of vector is returned. Do call getVector function first before calling this function otherwise you will get 0 value.
      * @return int
      */
@@ -47,9 +62,27 @@ public abstract class KNNVectorValues<T> {
     }
 
     /**
-     * Returns the total live docs for KNNVectorValues.
+     * Size of a vector in bytes is returned. Do call getVector function first before calling this function otherwise you will get 0 value.
+     * @return int
+     */
+    public int bytesPerVector() {
+        assert docId() != -1 && bytesPerVector != 0 : "Cannot get bytesPerVector before we retrieve a vector from KNNVectorValues";
+        return bytesPerVector;
+    }
+
+    /**
+     * Returns the total live docs for KNNVectorValues. This function is broken and doesn't always give the accurate
+     * live docs count when iterators are {@link FloatVectorValues}, {@link ByteVectorValues}. Avoid using this iterator,
+     * rather use a simple function like this:
+     * <pre class="prettyprint">
+     *     int liveDocs = 0;
+     *     while(vectorValues.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+     *         liveDocs++;
+     *     }
+     * </pre>
      * @return long
      */
+    @Deprecated
     public long totalLiveDocs() {
         return vectorValuesIterator.liveDocs();
     }
@@ -81,5 +114,4 @@ public abstract class KNNVectorValues<T> {
     public int nextDoc() throws IOException {
         return vectorValuesIterator.nextDoc();
     }
-
 }

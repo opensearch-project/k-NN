@@ -5,7 +5,11 @@
 
 package org.opensearch.knn.index.engine;
 
-import java.util.Collections;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.PerDimensionProcessor;
+import org.opensearch.knn.index.mapper.PerDimensionValidator;
+import org.opensearch.knn.index.mapper.VectorValidator;
+
 import java.util.Map;
 
 /**
@@ -19,5 +23,28 @@ public interface KNNLibraryIndexingContext {
      */
     Map<String, Object> getLibraryParameters();
 
-    KNNLibraryIndexingContext EMPTY = Collections::emptyMap;
+    /**
+     * Get map of parameters that get passed to the quantization framework
+     *
+     * @return Map of parameters
+     */
+    QuantizationConfig getQuantizationConfig();
+
+    /**
+     *
+     * @return Get the vector validator
+     */
+    VectorValidator getVectorValidator();
+
+    /**
+     *
+     * @return Get the per dimension validator
+     */
+    PerDimensionValidator getPerDimensionValidator();
+
+    /**
+     *
+     * @return Get the per dimension processor
+     */
+    PerDimensionProcessor getPerDimensionProcessor();
 }

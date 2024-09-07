@@ -18,6 +18,7 @@ buildscript {
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
         simd_enabled = System.getProperty("simd.enabled", "true")
+        nproc_count = System.getProperty("nproc.count", "1")
         avx512_enabled = System.getProperty("avx512.enabled", "false")
         // This flag determines whether the CMake build system should apply a custom patch. It prevents build failures
         // when the cmakeJniLib task is run multiple times. If the build.lib.commit_patches is true, the CMake build
@@ -333,7 +334,7 @@ task cmakeJniLib(type:Exec) {
 task buildJniLib(type:Exec) {
     dependsOn cmakeJniLib
     workingDir 'jni'
-    commandLine 'make', 'opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common'
+    commandLine 'make', 'opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
 }
 
 test {

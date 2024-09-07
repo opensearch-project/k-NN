@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.query;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
@@ -17,13 +16,13 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isKnnQueryRewriteEnabled;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
 /**
@@ -31,39 +30,6 @@ import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPE
  */
 @Log4j2
 public class KNNQueryFactory extends BaseQueryFactory {
-
-    /**
-     * Note. This method should be used only for test.
-     * Should use {@link #create(CreateQueryRequest)} instead.
-     *
-     * Creates a Lucene query for a particular engine.
-     *
-     * @param knnEngine Engine to create the query for
-     * @param indexName Name of the OpenSearch index that is being queried
-     * @param fieldName Name of the field in the OpenSearch index that will be queried
-     * @param vector The query vector to get the nearest neighbors for
-     * @param k the number of nearest neighbors to return
-     * @return Lucene Query
-     */
-    @VisibleForTesting
-    public static Query create(
-        KNNEngine knnEngine,
-        String indexName,
-        String fieldName,
-        float[] vector,
-        int k,
-        VectorDataType vectorDataType
-    ) {
-        final CreateQueryRequest createQueryRequest = CreateQueryRequest.builder()
-            .knnEngine(knnEngine)
-            .indexName(indexName)
-            .fieldName(fieldName)
-            .vector(vector)
-            .vectorDataType(vectorDataType)
-            .k(k)
-            .build();
-        return create(createQueryRequest);
-    }
 
     /**
      * Creates a Lucene query for a particular engine.
@@ -81,6 +47,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
+        final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
 
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
@@ -112,6 +79,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .methodParameters(methodParameters)
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
+                        .rescoreContext(rescoreContext)
                         .build();
                     break;
                 default:
@@ -124,9 +92,10 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .methodParameters(methodParameters)
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
+                        .rescoreContext(rescoreContext)
                         .build();
             }
-            return isKnnQueryRewriteEnabled() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;
+            return createQueryRequest.getRescoreContext().isPresent() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;
         }
 
         Integer requestEfSearch = null;

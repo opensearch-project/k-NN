@@ -23,10 +23,14 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.query.parser.RescoreParser;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexUtil;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -43,6 +47,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
@@ -53,6 +58,8 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValu
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
 /**
  * Helper class to build the KNN query
@@ -72,6 +79,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField EF_SEARCH_FIELD = new ParseField(METHOD_PARAMETER_EF_SEARCH);
     public static final ParseField NPROBE_FIELD = new ParseField(METHOD_PARAMETER_NPROBES);
     public static final ParseField METHOD_PARAMS_FIELD = new ParseField(METHOD_PARAMETER);
+    public static final ParseField RESCORE_FIELD = new ParseField(RESCORE_PARAMETER);
+    public static final ParseField RESCORE_OVERSAMPLE_FIELD = new ParseField(RESCORE_OVERSAMPLE_PARAMETER);
 
     public static final int K_MAX = 10000;
     /**
@@ -95,6 +104,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private QueryBuilder filter;
     @Getter
     private boolean ignoreUnmapped;
+    @Getter
+    private RescoreContext rescoreContext;
 
     /**
      * Constructs a new query with the given field name and vector
@@ -135,6 +146,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         private boolean ignoreUnmapped;
         private String queryName;
         private float boost = DEFAULT_BOOST;
+        private RescoreContext rescoreContext;
 
         public Builder() {}
 
@@ -188,11 +200,25 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return this;
         }
 
+        public Builder rescoreContext(RescoreContext rescoreContext) {
+            this.rescoreContext = rescoreContext;
+            return this;
+        }
+
         public KNNQueryBuilder build() {
             validate();
             int k = this.k == null ? 0 : this.k;
-            return new KNNQueryBuilder(fieldName, vector, k, maxDistance, minScore, methodParameters, filter, ignoreUnmapped).boost(boost)
-                .queryName(queryName);
+            return new KNNQueryBuilder(
+                fieldName,
+                vector,
+                k,
+                maxDistance,
+                minScore,
+                methodParameters,
+                filter,
+                ignoreUnmapped,
+                rescoreContext
+            ).boost(boost).queryName(queryName);
         }
 
         private void validate() {
@@ -236,6 +262,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 if (validationException != null) {
                     throw new IllegalArgumentException(
                         String.format(Locale.ROOT, "[%s] errors in method parameter [%s]", NAME, validationException.getMessage())
+                    );
+                }
+            }
+
+            if (rescoreContext != null) {
+                ValidationException validationException = RescoreParser.validate(rescoreContext);
+                if (validationException != null) {
+                    throw new IllegalArgumentException(
+                        String.format(Locale.ROOT, "[%s] errors in rescore parameter [%s]", NAME, validationException.getMessage())
                     );
                 }
             }
@@ -283,6 +318,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.ignoreUnmapped = false;
         this.maxDistance = null;
         this.minScore = null;
+        this.rescoreContext = null;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -304,6 +340,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         maxDistance = builder.maxDistance;
         minScore = builder.minScore;
         methodParameters = builder.methodParameters;
+        rescoreContext = builder.rescoreContext;
     }
 
     @Override
@@ -341,43 +378,56 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (!(mappedFieldType instanceof KNNVectorFieldType)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
-
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
-        int fieldDimension = knnVectorFieldType.getDimension();
-        KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
-        MethodComponentContext methodComponentContext = null;
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
-        VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
-        SpaceType spaceType = knnVectorFieldType.getSpaceType();
+        KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
+        final AtomicReference<QueryConfigFromMapping> queryConfigFromMapping = new AtomicReference<>();
+        int fieldDimension = knnMappingConfig.getDimension();
+        knnMappingConfig.getKnnMethodContext()
+            .ifPresentOrElse(
+                knnMethodContext -> queryConfigFromMapping.set(
+                    new QueryConfigFromMapping(
+                        knnMethodContext.getKnnEngine(),
+                        knnMethodContext.getMethodComponentContext(),
+                        knnMethodContext.getSpaceType(),
+                        knnVectorFieldType.getVectorDataType()
+                    )
+                ),
+                () -> knnMappingConfig.getModelId().ifPresentOrElse(modelId -> {
+                    ModelMetadata modelMetadata = getModelMetadataForField(modelId);
+                    queryConfigFromMapping.set(
+                        new QueryConfigFromMapping(
+                            modelMetadata.getKnnEngine(),
+                            modelMetadata.getMethodComponentContext(),
+                            modelMetadata.getSpaceType(),
+                            modelMetadata.getVectorDataType()
+                        )
+                    );
+                },
+                    () -> {
+                        throw new IllegalArgumentException(
+                            String.format(Locale.ROOT, "Field '%s' is not built for ANN search.", this.fieldName)
+                        );
+                    }
+                )
+            );
+        KNNEngine knnEngine = queryConfigFromMapping.get().getKnnEngine();
+        MethodComponentContext methodComponentContext = queryConfigFromMapping.get().getMethodComponentContext();
+        SpaceType spaceType = queryConfigFromMapping.get().getSpaceType();
+        VectorDataType vectorDataType = queryConfigFromMapping.get().getVectorDataType();
+        RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
+
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         updateQueryStats(vectorQueryType);
 
-        if (fieldDimension == -1) {
-            if (spaceType != null) {
-                throw new IllegalStateException("Space type should be null when the field uses a model");
-            }
-            // If dimension is not set, the field uses a model and the information needs to be retrieved from there
-            ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
-            fieldDimension = modelMetadata.getDimension();
-            knnEngine = modelMetadata.getKnnEngine();
-            spaceType = modelMetadata.getSpaceType();
-            methodComponentContext = modelMetadata.getMethodComponentContext();
-            vectorDataType = modelMetadata.getVectorDataType();
-
-        } else if (knnMethodContext != null) {
-            // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
-            knnEngine = knnMethodContext.getKnnEngine();
-            spaceType = knnMethodContext.getSpaceType();
-            methodComponentContext = knnMethodContext.getMethodComponentContext();
-        }
-
+        // This could be null in the case of when a model did not have serialized methodComponent information
         final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
         if (StringUtils.isNotBlank(method)) {
             final KNNLibrarySearchContext engineSpecificMethodContext = knnEngine.getKNNLibrarySearchContext(method);
             QueryContext queryContext = new QueryContext(vectorQueryType);
             ValidationException validationException = validateParameters(
                 engineSpecificMethodContext.supportedMethodParameters(queryContext),
-                (Map<String, Object>) methodParameters
+                (Map<String, Object>) methodParameters,
+                KNNMethodConfigContext.EMPTY
             );
             if (validationException != null) {
                 throw new IllegalArgumentException(
@@ -401,6 +451,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
             if (vectorDataType == VectorDataType.BINARY) {
                 throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
+            }
+
+            if (knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY) {
+                throw new UnsupportedOperationException("Radial search is not supported for indices which have quantization enabled");
             }
         }
 
@@ -433,22 +487,32 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         byte[] byteVector = new byte[0];
-        if (VectorDataType.BINARY == vectorDataType) {
-            byteVector = new byte[vector.length];
-            for (int i = 0; i < vector.length; i++) {
-                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
-                byteVector[i] = (byte) vector[i];
-            }
-            spaceType.validateVector(byteVector);
-        } else if (VectorDataType.BYTE == vectorDataType) {
-            byteVector = new byte[vector.length];
-            for (int i = 0; i < vector.length; i++) {
-                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
-                byteVector[i] = (byte) vector[i];
-            }
-            spaceType.validateVector(byteVector);
-        } else {
-            spaceType.validateVector(vector);
+        switch (vectorDataType) {
+            case BINARY:
+                byteVector = new byte[vector.length];
+                for (int i = 0; i < vector.length; i++) {
+                    validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
+                    byteVector[i] = (byte) vector[i];
+                }
+                spaceType.validateVector(byteVector);
+                break;
+            case BYTE:
+                if (KNNEngine.LUCENE == knnEngine) {
+                    byteVector = new byte[vector.length];
+                    for (int i = 0; i < vector.length; i++) {
+                        validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
+                        byteVector[i] = (byte) vector[i];
+                    }
+                    spaceType.validateVector(byteVector);
+                } else {
+                    for (float v : vector) {
+                        validateByteVectorValue(v, knnVectorFieldType.getVectorDataType());
+                    }
+                    spaceType.validateVector(vector);
+                }
+                break;
+            default:
+                spaceType.validateVector(vector);
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
@@ -464,13 +528,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
-                .byteVector(VectorDataType.BYTE == vectorDataType || VectorDataType.BINARY == vectorDataType ? byteVector : null)
+                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine))
+                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
                 .filter(this.filter)
                 .context(context)
+                .rescoreContext(processedRescoreContext)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }
@@ -492,13 +557,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires k or distance or score to be set", NAME));
     }
 
-    private ModelMetadata getModelMetadataForField(KNNVectorFieldType knnVectorField) {
-        String modelId = knnVectorField.getModelId();
-
-        if (modelId == null) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' does not have model.", this.fieldName));
-        }
-
+    private ModelMetadata getModelMetadataForField(String modelId) {
         ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
         if (!ModelUtil.isModelCreated(modelMetadata)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
@@ -538,6 +597,20 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
     }
 
+    private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
+        if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
+            return this.vector;
+        }
+        return null;
+    }
+
+    private byte[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine, byte[] byteVector) {
+        if (VectorDataType.BINARY == vectorDataType || (VectorDataType.BYTE == vectorDataType && KNNEngine.LUCENE == knnEngine)) {
+            return byteVector;
+        }
+        return null;
+    }
+
     @Override
     protected boolean doEquals(KNNQueryBuilder other) {
         return Objects.equals(fieldName, other.fieldName)
@@ -547,12 +620,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             && Objects.equals(maxDistance, other.maxDistance)
             && Objects.equals(methodParameters, other.methodParameters)
             && Objects.equals(filter, other.filter)
-            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped);
+            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped)
+            && Objects.equals(rescoreContext, other.rescoreContext);
     }
 
     @Override
     protected int doHashCode() {
-        return Objects.hash(fieldName, Arrays.hashCode(vector), k, methodParameters, filter, ignoreUnmapped, maxDistance, minScore);
+        return Objects.hash(
+            fieldName,
+            Arrays.hashCode(vector),
+            k,
+            methodParameters,
+            filter,
+            ignoreUnmapped,
+            maxDistance,
+            minScore,
+            rescoreContext
+        );
     }
 
     @Override
@@ -567,5 +651,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             filter = filter.rewrite(queryShardContext);
         }
         return super.doRewrite(queryShardContext);
+    }
+
+    @Getter
+    @AllArgsConstructor
+    private static class QueryConfigFromMapping {
+        private final KNNEngine knnEngine;
+        private final MethodComponentContext methodComponentContext;
+        private final SpaceType spaceType;
+        private final VectorDataType vectorDataType;
     }
 }

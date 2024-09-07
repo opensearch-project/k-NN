@@ -51,12 +51,18 @@ test_util::MockJNIUtil::MockJNIUtil() {
                         (*reinterpret_cast<std::vector<std::vector<float>> *>(array2dJ)))
                     for (auto item : v) data->push_back(item);
             });
-    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToByteVector)
+    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToBinaryVector)
             .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<uint8_t>* data) {
                 for (const auto &v :
                         (*reinterpret_cast<std::vector<std::vector<uint8_t>> *>(array2dJ)))
                     for (auto item : v) data->push_back(item);
             });
+    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToByteVector)
+                .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<int8_t>* data) {
+                    for (const auto &v :
+                            (*reinterpret_cast<std::vector<std::vector<int8_t>> *>(array2dJ)))
+                        for (auto item : v) data->push_back(item);
+                });
 
 
     // arrayJ is re-interpreted as std::vector<int64_t> *
@@ -437,6 +443,14 @@ std::vector<float> test_util::RandomVectors(int dim, int64_t numVectors, float m
     std::vector<float> vectors(dim*numVectors);
     for (int64_t i = 0; i < dim*numVectors; i++) {
         vectors[i] = test_util::RandomFloat(min, max);
+    }
+    return vectors;
+}
+
+std::vector<int8_t> test_util::RandomByteVectors(int dim, int64_t numVectors, int min, int max) {
+    std::vector<int8_t> vectors(dim*numVectors);
+    for (int64_t i = 0; i < dim*numVectors; i++) {
+        vectors[i] = test_util::RandomInt(min, max);
     }
     return vectors;
 }

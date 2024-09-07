@@ -8,24 +8,33 @@ package org.opensearch.knn.index.codec;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.mockito.MockedStatic;
+import org.opensearch.Version;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.query.BaseQueryFactory;
 import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
@@ -56,6 +65,7 @@ import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +87,8 @@ import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_M;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
@@ -84,16 +96,36 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  * Test used for testing Codecs
  */
 public class KNNCodecTestCase extends KNNTestCase {
-
-    private static final Codec ACTUAL_CODEC = KNNCodecVersion.current().getDefaultKnnCodecSupplier().get();
-    private static FieldType sampleFieldType;
+    private static final FieldType sampleFieldType;
     static {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(CURRENT)
+            .vectorDataType(VectorDataType.DEFAULT)
+            .build();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.DEFAULT,
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+        );
+        String parameterString;
+        try {
+            parameterString = XContentFactory.jsonBuilder()
+                .map(
+                    knnMethodContext.getKnnEngine()
+                        .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+                        .getLibraryParameters()
+                )
+                .toString();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-        sampleFieldType.putAttribute(KNNConstants.KNN_METHOD, KNNConstants.METHOD_HNSW);
-        sampleFieldType.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName());
-        sampleFieldType.putAttribute(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
-        sampleFieldType.putAttribute(KNNConstants.HNSW_ALGO_M, "32");
-        sampleFieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512");
+        sampleFieldType.setDocValuesType(DocValuesType.BINARY);
+        sampleFieldType.putAttribute(KNNVectorFieldMapper.KNN_FIELD, "true");
+        sampleFieldType.putAttribute(KNNConstants.KNN_ENGINE, knnMethodContext.getKnnEngine().getName());
+        sampleFieldType.putAttribute(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        sampleFieldType.putAttribute(KNNConstants.PARAMETERS, parameterString);
         sampleFieldType.freeze();
     }
     private static final String FIELD_NAME_ONE = "test_vector_one";
@@ -202,79 +234,86 @@ public class KNNCodecTestCase extends KNNTestCase {
         );
 
         // Setup model cache
-        ModelDao modelDao = mock(ModelDao.class);
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+            modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 
-        // Set model state to created
-        ModelMetadata modelMetadata1 = new ModelMetadata(
-            knnEngine,
-            spaceType,
-            dimension,
-            ModelState.CREATED,
-            ZonedDateTime.now(ZoneOffset.UTC).toString(),
-            "",
-            "",
-            "",
-            MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT
-        );
+            // Set model state to created
+            ModelMetadata modelMetadata1 = new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.FLOAT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED,
+                Version.V_EMPTY
+            );
 
-        Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
-        when(modelDao.get(modelId)).thenReturn(mockModel);
-        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
+            Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
+            when(modelDao.get(modelId)).thenReturn(mockModel);
+            when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
 
-        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
-        ClusterSettings clusterSettings = new ClusterSettings(settings, ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
+            Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
+            ClusterSettings clusterSettings = new ClusterSettings(settings, ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
 
-        ClusterService clusterService = mock(ClusterService.class);
-        when(clusterService.getSettings()).thenReturn(settings);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+            ClusterService clusterService = mock(ClusterService.class);
+            when(clusterService.getSettings()).thenReturn(settings);
+            when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        ModelCache.initialize(modelDao, clusterService);
-        ModelCache.getInstance().removeAll();
+            ModelCache.initialize(modelDao, clusterService);
+            ModelCache.getInstance().removeAll();
 
-        // Setup Lucene
-        setUpMockClusterService();
-        Directory dir = newFSDirectory(createTempDir());
-        IndexWriterConfig iwc = newIndexWriterConfig();
-        iwc.setMergeScheduler(new SerialMergeScheduler());
-        iwc.setCodec(codec);
+            // Setup Lucene
+            setUpMockClusterService();
+            Directory dir = newFSDirectory(createTempDir());
+            IndexWriterConfig iwc = newIndexWriterConfig();
+            iwc.setMergeScheduler(new SerialMergeScheduler());
+            iwc.setCodec(codec);
 
-        FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-        fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
-        fieldType.freeze();
+            FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+            fieldType.setDocValuesType(DocValuesType.BINARY);
+            fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
+            fieldType.freeze();
 
-        // Add the documents to the index
-        float[][] arrays = { { 1.0f, 3.0f, 4.0f }, { 2.0f, 5.0f, 8.0f }, { 3.0f, 6.0f, 9.0f }, { 4.0f, 7.0f, 10.0f } };
+            // Add the documents to the index
+            float[][] arrays = { { 1.0f, 3.0f, 4.0f }, { 2.0f, 5.0f, 8.0f }, { 3.0f, 6.0f, 9.0f }, { 4.0f, 7.0f, 10.0f } };
 
-        RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
-        String fieldName = "test_vector";
-        for (float[] array : arrays) {
-            VectorField vectorField = new VectorField(fieldName, array, fieldType);
-            Document doc = new Document();
-            doc.add(vectorField);
-            writer.addDocument(doc);
+            RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
+            String fieldName = "test_vector";
+            for (float[] array : arrays) {
+                VectorField vectorField = new VectorField(fieldName, array, fieldType);
+                Document doc = new Document();
+                doc.add(vectorField);
+                writer.addDocument(doc);
+            }
+
+            IndexReader reader = writer.getReader();
+            writer.close();
+
+            // Make sure that search returns the correct results
+            KNNWeight.initialize(modelDao);
+            ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
+            NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
+            float[] query = { 10.0f, 10.0f, 10.0f };
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy", (BitSetProducer) null), 10);
+
+            assertEquals(3, topDocs.scoreDocs[0].doc);
+            assertEquals(2, topDocs.scoreDocs[1].doc);
+            assertEquals(1, topDocs.scoreDocs[2].doc);
+            assertEquals(0, topDocs.scoreDocs[3].doc);
+
+            reader.close();
+            dir.close();
+            resourceWatcherService.close();
+            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
         }
-
-        IndexReader reader = writer.getReader();
-        writer.close();
-
-        // Make sure that search returns the correct results
-        KNNWeight.initialize(modelDao);
-        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
-        float[] query = { 10.0f, 10.0f, 10.0f };
-        IndexSearcher searcher = new IndexSearcher(reader);
-        TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy", (BitSetProducer) null), 10);
-
-        assertEquals(3, topDocs.scoreDocs[0].doc);
-        assertEquals(2, topDocs.scoreDocs[1].doc);
-        assertEquals(1, topDocs.scoreDocs[2].doc);
-        assertEquals(0, topDocs.scoreDocs[3].doc);
-
-        reader.close();
-        dir.close();
-        resourceWatcherService.close();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
     public void testWriteByOldCodec(Codec codec) throws IOException {
@@ -309,8 +348,19 @@ public class KNNCodecTestCase extends KNNTestCase {
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
-        final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(FIELD_NAME_ONE, Map.of(), 3, knnMethodContext);
-        final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(FIELD_NAME_TWO, Map.of(), 2, knnMethodContext);
+
+        final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
+        );
+        final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 2)
+        );
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
 
@@ -326,9 +376,9 @@ public class KNNCodecTestCase extends KNNTestCase {
         /**
          * Add doc with field "test_vector_one"
          */
-        final FieldType luceneFieldType = KnnVectorField.createFieldType(3, VectorSimilarityFunction.EUCLIDEAN);
+        final FieldType luceneFieldType = KnnFloatVectorField.createFieldType(3, VectorSimilarityFunction.EUCLIDEAN);
         float[] array = { 1.0f, 3.0f, 4.0f };
-        KnnVectorField vectorField = new KnnVectorField(FIELD_NAME_ONE, array, luceneFieldType);
+        KnnFloatVectorField vectorField = new KnnFloatVectorField(FIELD_NAME_ONE, array, luceneFieldType);
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         Document doc = new Document();
         doc.add(vectorField);
@@ -341,13 +391,16 @@ public class KNNCodecTestCase extends KNNTestCase {
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getMaxDimensions(eq(FIELD_NAME_ONE));
 
         IndexSearcher searcher = new IndexSearcher(reader);
+
         Query query = KNNQueryFactory.create(
-            KNNEngine.LUCENE,
-            "dummy",
-            FIELD_NAME_ONE,
-            new float[] { 1.0f, 0.0f, 0.0f },
-            1,
-            DEFAULT_VECTOR_DATA_TYPE_FIELD
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .indexName("dummy")
+                .fieldName(FIELD_NAME_ONE)
+                .vector(new float[] { 1.0f, 0.0f, 0.0f })
+                .k(1)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .build()
         );
 
         assertEquals(1, searcher.count(query));
@@ -377,12 +430,14 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         IndexSearcher searcher1 = new IndexSearcher(reader1);
         Query query1 = KNNQueryFactory.create(
-            KNNEngine.LUCENE,
-            "dummy",
-            FIELD_NAME_TWO,
-            new float[] { 1.0f, 0.0f },
-            1,
-            DEFAULT_VECTOR_DATA_TYPE_FIELD
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .indexName("dummy")
+                .fieldName(FIELD_NAME_TWO)
+                .vector(new float[] { 1.0f, 0.0f })
+                .k(1)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .build()
         );
 
         assertEquals(1, searcher1.count(query1));

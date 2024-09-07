@@ -9,7 +9,6 @@ import lombok.Getter;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
-import org.opensearch.common.Nullable;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.TextSearchInfo;
@@ -17,9 +16,8 @@ import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -27,7 +25,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
@@ -35,49 +32,21 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deseriali
  */
 @Getter
 public class KNNVectorFieldType extends MappedFieldType {
-    int dimension;
-    String modelId;
-    KNNMethodContext knnMethodContext;
+    KNNMappingConfig knnMappingConfig;
     VectorDataType vectorDataType;
-    SpaceType spaceType;
 
-    public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, VectorDataType vectorDataType, SpaceType spaceType) {
-        this(name, meta, dimension, null, null, vectorDataType, spaceType);
-    }
-
-    public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext) {
-        this(name, meta, dimension, knnMethodContext, null, DEFAULT_VECTOR_DATA_TYPE_FIELD, knnMethodContext.getSpaceType());
-    }
-
-    public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext, String modelId) {
-        this(name, meta, dimension, knnMethodContext, modelId, DEFAULT_VECTOR_DATA_TYPE_FIELD, null);
-    }
-
-    public KNNVectorFieldType(
-        String name,
-        Map<String, String> meta,
-        int dimension,
-        KNNMethodContext knnMethodContext,
-        VectorDataType vectorDataType
-    ) {
-        this(name, meta, dimension, knnMethodContext, null, vectorDataType, knnMethodContext.getSpaceType());
-    }
-
-    public KNNVectorFieldType(
-        String name,
-        Map<String, String> meta,
-        int dimension,
-        @Nullable KNNMethodContext knnMethodContext,
-        @Nullable String modelId,
-        VectorDataType vectorDataType,
-        @Nullable SpaceType spaceType
-    ) {
-        super(name, false, false, true, TextSearchInfo.NONE, meta);
-        this.dimension = dimension;
-        this.modelId = modelId;
-        this.knnMethodContext = knnMethodContext;
+    /**
+     * Constructor for KNNVectorFieldType.
+     *
+     * @param name name of the field
+     * @param metadata metadata of the field
+     * @param vectorDataType data type of the vector
+     * @param annConfig configuration context for the ANN index
+     */
+    public KNNVectorFieldType(String name, Map<String, String> metadata, VectorDataType vectorDataType, KNNMappingConfig annConfig) {
+        super(name, false, false, true, TextSearchInfo.NONE, metadata);
         this.vectorDataType = vectorDataType;
-        this.spaceType = spaceType;
+        this.knnMappingConfig = annConfig;
     }
 
     @Override
@@ -112,5 +81,21 @@ public class KNNVectorFieldType extends MappedFieldType {
     @Override
     public Object valueForDisplay(Object value) {
         return deserializeStoredVector((BytesRef) value, vectorDataType);
+    }
+
+    /**
+     * Resolve the rescore context provided for a user based on the field configuration
+     *
+     * @param userProvidedContext {@link RescoreContext} user passed; if null, the default should be configured
+     * @return resolved {@link RescoreContext}
+     */
+    public RescoreContext resolveRescoreContext(RescoreContext userProvidedContext) {
+        if (userProvidedContext != null) {
+            return userProvidedContext;
+        }
+        return ModeBasedResolver.INSTANCE.resolveRescoreContext(
+            getKnnMappingConfig().getMode(),
+            getKnnMappingConfig().getCompressionLevel()
+        );
     }
 }

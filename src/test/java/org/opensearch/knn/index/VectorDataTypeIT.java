@@ -13,15 +13,15 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.script.Script;
 
 import java.util.ArrayList;
@@ -32,9 +32,24 @@ import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -245,18 +260,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             ResponseException.class,
             () -> createKnnIndexMappingWithNmslibEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue())
         );
-        assertTrue(
-            ex.getMessage()
-                .contains(
-                    String.format(
-                        Locale.ROOT,
-                        "[%s] field with value [%s] is only supported for [%s] engine",
-                        VECTOR_DATA_TYPE_FIELD,
-                        VectorDataType.BYTE.getValue(),
-                        LUCENE_NAME
-                    )
-                )
-        );
+        assertTrue(ex.getMessage().contains("is not supported for vector data type"));
     }
 
     @SneakyThrows
@@ -278,18 +282,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         String mapping = builder.toString();
 
         ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
-        assertTrue(
-            ex.getMessage()
-                .contains(
-                    String.format(
-                        Locale.ROOT,
-                        "[%s] field with value [%s] is not supported for [%s] engine",
-                        VECTOR_DATA_TYPE_FIELD,
-                        VectorDataType.BYTE.getValue(),
-                        NMSLIB_NAME
-                    )
-                )
-        );
+        assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported for vector data type"));
 
     }
 
@@ -478,6 +471,225 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testAddDocWithByteVectorUsingFaissEngine() {
+        createKnnIndexMappingWithFaissEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        Byte[] vector = { 6, 6 };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        refreshAllIndices();
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testUpdateDocWithByteVectorUsingFaissEngine() {
+        createKnnIndexMappingWithFaissEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        Byte[] vector = { -36, 78 };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        Byte[] updatedVector = { 89, -8 };
+        updateKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, updatedVector);
+
+        refreshAllIndices();
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testDeleteDocWithByteVectorUsingFaissEngine() {
+        createKnnIndexMappingWithFaissEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        Byte[] vector = { 35, -46 };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        deleteKnnDoc(INDEX_NAME, DOC_ID);
+        refreshAllIndices();
+
+        assertEquals(0, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testSearchWithByteVectorUsingFaissEngine() {
+        createKnnIndexMappingWithFaissEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        ingestL2ByteTestData();
+
+        Byte[] queryVector = { 1, 1 };
+        Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, convertByteToFloatArray(queryVector), 4), 4);
+
+        validateL2SearchResults(response);
+    }
+
+    @SneakyThrows
+    public void testInvalidVectorDataUsingFaissEngine() {
+        createKnnIndexMappingWithFaissEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        Float[] vector = { -10.76f, 15.89f };
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector));
+        assertTrue(
+            ex.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field was set as [%s] in index mapping. But, KNN vector values are floats instead of byte integers",
+                        VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BYTE.getValue()
+                    )
+                )
+        );
+    }
+
+    // Create an index with byte vector data_type and add a doc with values out of byte range which should throw exception
+    @SneakyThrows
+    public void testInvalidByteVectorRangeUsingFaissEngine() {
+        createKnnIndexMappingWithFaissEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        Float[] vector = { -1000f, 155f };
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector));
+        assertTrue(
+            ex.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field was set as [%s] in index mapping. But, KNN vector values are not within in the byte range [%d, %d]",
+                        VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BYTE.getValue(),
+                        Byte.MIN_VALUE,
+                        Byte.MAX_VALUE
+                    )
+                )
+        );
+    }
+
+    // Create an index with byte vector data_type using faiss engine with an encoder which should throw an exception
+    @SneakyThrows
+    public void testByteVectorDataTypeWithFaissEngineUsingEncoderThrowsException() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, 2)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, M)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
+    }
+
+    public void testDocValuesWithByteVectorDataTypeFaissEngine() throws Exception {
+        createKnnIndexMappingWithFaissEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        ingestL2ByteTestData();
+
+        Byte[] queryVector = { 1, 1 };
+        Request request = createScriptQueryRequest(queryVector, SpaceType.L2.getValue(), MATCH_ALL_QUERY_BUILDER);
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        validateL2SearchResults(response);
+    }
+
+    @SneakyThrows
+    public void testIVFByteVector_whenIndexedAndQueried_thenSucceed() {
+
+        String modelId = "test-model-ivf-byte";
+        int dimension = 2;
+
+        // Add training data
+        String trainIndexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field("data_type", VectorDataType.BYTE.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(INDEX_NAME, trainIndexMapping);
+
+        int trainingDataCount = 100;
+        bulkIngestRandomByteVectors(INDEX_NAME, FIELD_NAME, trainingDataCount, dimension);
+
+        XContentBuilder trainModelXContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TRAIN_INDEX_PARAMETER, INDEX_NAME)
+            .field(TRAIN_FIELD_PARAMETER, FIELD_NAME)
+            .field(DIMENSION, dimension)
+            .field(MODEL_DESCRIPTION, "My model description")
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .field(
+                KNN_METHOD,
+                Map.of(
+                    NAME,
+                    METHOD_IVF,
+                    KNN_ENGINE,
+                    FAISS_NAME,
+                    METHOD_PARAMETER_SPACE_TYPE,
+                    SpaceType.L2.getValue(),
+                    PARAMETERS,
+                    Map.of(METHOD_PARAMETER_NLIST, 4, METHOD_PARAMETER_NPROBES, 4)
+                )
+            )
+            .endObject();
+
+        trainModel(modelId, trainModelXContentBuilder);
+
+        // Make sure training succeeds after 30 seconds
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        // Create knn index from model
+        String indexName = "test-index-name-ivf-byte";
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+
+        Byte[] b1 = { 6, 6 };
+        addKnnDoc(indexName, "1", FIELD_NAME, b1);
+        Byte[] b2 = { 2, 2 };
+        addKnnDoc(indexName, "2", FIELD_NAME, b2);
+        Byte[] b3 = { 4, 4 };
+        addKnnDoc(indexName, "3", FIELD_NAME, b3);
+        Byte[] b4 = { 3, 3 };
+        addKnnDoc(indexName, "4", FIELD_NAME, b4);
+
+        Byte[] queryVector = { 1, 1 };
+        Response response = searchKNNIndex(indexName, new KNNQueryBuilder(FIELD_NAME, convertByteToFloatArray(queryVector), 4), 4);
+
+        validateL2SearchResults(response);
+        deleteKNNIndex(indexName);
+        Thread.sleep(45 * 1000);
+        deleteModel(modelId);
+    }
+
+    @SneakyThrows
     private void ingestL2ByteTestData() {
         Byte[] b1 = { 6, 6 };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, b1);
@@ -515,6 +727,10 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, KNNEngine.LUCENE.getName());
     }
 
+    private void createKnnIndexMappingWithFaissEngine(int dimension, SpaceType spaceType, String vectorDataType) throws Exception {
+        createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, KNNEngine.FAISS.getName());
+    }
+
     private void createKnnIndexMappingWithCustomEngine(int dimension, SpaceType spaceType, String vectorDataType, String engine)
         throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -528,7 +744,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, engine)
-            .startObject(KNNConstants.PARAMETERS)
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
             .endObject()

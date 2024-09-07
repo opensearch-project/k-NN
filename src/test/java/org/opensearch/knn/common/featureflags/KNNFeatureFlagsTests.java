@@ -11,8 +11,8 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING;
-import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isKnnQueryRewriteEnabled;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_FORCE_EVICT_CACHE_ENABLED_SETTING;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isForceEvictCacheEnabled;
 
 public class KNNFeatureFlagsTests extends KNNTestCase {
 
@@ -25,10 +25,10 @@ public class KNNFeatureFlagsTests extends KNNTestCase {
         KNNSettings.state().setClusterService(clusterService);
     }
 
-    public void testIsFeatureEnabled() throws Exception {
-        when(clusterSettings.get(KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING)).thenReturn(false);
-        assertFalse(isKnnQueryRewriteEnabled());
-        when(clusterSettings.get(KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING)).thenReturn(true);
-        assertTrue(isKnnQueryRewriteEnabled());
+    public void testIsForceEvictCacheEnabled() throws Exception {
+        when(clusterSettings.get(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING)).thenReturn(false);
+        assertFalse(isForceEvictCacheEnabled());
+        when(clusterSettings.get(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING)).thenReturn(true);
+        assertTrue(isForceEvictCacheEnabled());
     }
 }

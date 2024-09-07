@@ -32,6 +32,15 @@
     },
     "method_component_context": {
       "type": "keyword"
+    },
+    "mode": {
+      "type": "keyword"
+    },
+    "compression_level": {
+      "type": "keyword"
+    },
+    "model_version": {
+      "type": "keyword"
     }
   }
 }

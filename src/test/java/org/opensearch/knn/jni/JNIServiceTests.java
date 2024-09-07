@@ -21,6 +21,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod;
@@ -85,7 +86,7 @@ public class JNIServiceTests extends KNNTestCase {
     public void testCreateIndex_invalid_engineNotSupported() {
         expectThrows(
             IllegalArgumentException.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 new int[] {},
                 0,
                 0,
@@ -99,21 +100,14 @@ public class JNIServiceTests extends KNNTestCase {
     public void testCreateIndex_invalid_engineNull() {
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
-                new int[] {},
-                0,
-                0,
-                "test",
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                null
-            )
+            () -> TestUtils.createIndex(new int[] {}, 0, 0, "test", ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), null)
         );
     }
 
     public void testCreateIndex_nmslib_invalid_noSpaceType() {
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 testData.indexData.docs,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -132,7 +126,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile1 = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors1[0].length,
@@ -148,7 +142,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile2 = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress2,
                 vectors2[0].length,
@@ -167,7 +161,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 null,
                 memoryAddress,
                 0,
@@ -179,7 +173,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 0,
                 0,
@@ -191,7 +185,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 0,
@@ -203,12 +197,12 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(docIds, memoryAddress, 0, tmpFile.toAbsolutePath().toString(), null, KNNEngine.NMSLIB)
+            () -> TestUtils.createIndex(docIds, memoryAddress, 0, tmpFile.toAbsolutePath().toString(), null, KNNEngine.NMSLIB)
         );
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 0,
@@ -227,7 +221,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors[0].length,
@@ -253,7 +247,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors[0].length,
@@ -273,7 +267,7 @@ public class JNIServiceTests extends KNNTestCase {
 
             Path tmpFile = createTempFile();
 
-            JNIService.createIndex(
+            TestUtils.createIndex(
                 testData.indexData.docs,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -285,7 +279,7 @@ public class JNIServiceTests extends KNNTestCase {
 
             tmpFile = createTempFile();
 
-            JNIService.createIndex(
+            TestUtils.createIndex(
                 testData.indexData.docs,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -309,7 +303,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -328,7 +322,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile1 = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors1[0].length,
@@ -343,7 +337,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile2 = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors2[0].length,
@@ -363,7 +357,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 null,
                 memoryAddress,
                 0,
@@ -375,7 +369,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 0,
                 0,
@@ -387,7 +381,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -399,7 +393,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -411,7 +405,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -431,7 +425,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors[0].length,
@@ -451,7 +445,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors[0].length,
@@ -469,7 +463,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors[0].length,
@@ -492,7 +486,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 memoryAddress,
                 vectors[0].length,
@@ -516,7 +510,7 @@ public class JNIServiceTests extends KNNTestCase {
         String sqfp16IndexDescription = "HNSW16,SQfp16";
         long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
         Path tmpFile = createTempFile();
-        JNIService.createIndex(
+        TestUtils.createIndex(
             docIds,
             memoryAddress,
             vectors[0].length,
@@ -539,7 +533,7 @@ public class JNIServiceTests extends KNNTestCase {
         float[][] truncatedVectors = truncateToFp16Range(testData.indexData.vectors);
         long memoryAddress = JNICommons.storeVectorData(0, truncatedVectors, (long) truncatedVectors.length * truncatedVectors[0].length);
         Path tmpFile = createTempFile();
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             memoryAddress,
             testData.indexData.getDimension(),
@@ -611,7 +605,13 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -627,7 +627,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.createIndex(
+            () -> TestUtils.createIndex(
                 docIds,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -653,7 +653,7 @@ public class JNIServiceTests extends KNNTestCase {
         for (String method : methods) {
             for (SpaceType spaceType : spaces) {
                 Path tmpFile1 = createTempFile();
-                JNIService.createIndex(
+                TestUtils.createIndex(
                     testData.indexData.docs,
                     testData.loadDataToMemoryAddress(),
                     testData.indexData.getDimension(),
@@ -670,7 +670,7 @@ public class JNIServiceTests extends KNNTestCase {
     public void testCreateIndex_binary_faiss_valid() {
         Path tmpFile1 = createTempFile();
         long memoryAddr = testData.loadBinaryDataToMemoryAddress();
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             memoryAddr,
             testData.indexData.getDimension(),
@@ -726,7 +726,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
 
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),
@@ -762,7 +762,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
 
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),
@@ -792,7 +792,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
 
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),
@@ -822,7 +822,7 @@ public class JNIServiceTests extends KNNTestCase {
 
             Path tmpFile = createTempFile();
 
-            JNIService.createIndex(
+            TestUtils.createIndex(
                 testData.indexData.docs,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
@@ -855,7 +855,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
 
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),
@@ -881,7 +881,7 @@ public class JNIServiceTests extends KNNTestCase {
         for (String method : methods) {
             for (SpaceType spaceType : spaces) {
                 Path tmpFile = createTempFile();
-                JNIService.createIndex(
+                TestUtils.createIndex(
                     testData.indexData.docs,
                     testData.loadDataToMemoryAddress(),
                     testData.indexData.getDimension(),
@@ -942,7 +942,7 @@ public class JNIServiceTests extends KNNTestCase {
         for (String method : methods) {
             for (SpaceType spaceType : spaces) {
                 Path tmpFile = createTempFile();
-                JNIService.createIndex(
+                TestUtils.createIndex(
                     testDataNested.indexData.docs,
                     testData.loadDataToMemoryAddress(),
                     testDataNested.indexData.getDimension(),
@@ -985,7 +985,7 @@ public class JNIServiceTests extends KNNTestCase {
         for (String method : methods) {
             Path tmpFile = createTempFile();
             long memoryAddr = testData.loadBinaryDataToMemoryAddress();
-            JNIService.createIndex(
+            TestUtils.createIndex(
                 testData.indexData.docs,
                 memoryAddr,
                 testData.indexData.getDimension(),
@@ -1064,7 +1064,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
 
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),
@@ -1088,7 +1088,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
 
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),
@@ -1131,7 +1131,13 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(testData.indexData.getDimension())
+            .versionCreated(Version.CURRENT)
+            .build();
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1162,7 +1168,13 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1189,8 +1201,13 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(testData.indexData.getDimension())
+            .versionCreated(Version.CURRENT)
+            .build();
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1211,7 +1228,7 @@ public class JNIServiceTests extends KNNTestCase {
         return trainPointer1;
     }
 
-    public void testCreateIndexFromTemplate() throws IOException {
+    public void createIndexFromTemplate() throws IOException {
 
         long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
         assertNotEquals(0, trainPointer1);
@@ -1223,6 +1240,11 @@ public class JNIServiceTests extends KNNTestCase {
         }
 
         SpaceType spaceType = SpaceType.L2;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.FAISS,
             spaceType,
@@ -1238,7 +1260,7 @@ public class JNIServiceTests extends KNNTestCase {
         );
 
         String description = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext)
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
             .getLibraryParameters()
             .get(INDEX_DESCRIPTION_PARAMETER)
             .toString();
@@ -1361,7 +1383,11 @@ public class JNIServiceTests extends KNNTestCase {
     private String createFaissIVFPQIndex(int ivfNlist, int pqM, int pqCodeSize, SpaceType spaceType) throws IOException {
         long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
         assertNotEquals(0, trainPointer);
-
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.FAISS,
             spaceType,
@@ -1380,7 +1406,7 @@ public class JNIServiceTests extends KNNTestCase {
         );
 
         String description = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext)
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
             .getLibraryParameters()
             .get(INDEX_DESCRIPTION_PARAMETER)
             .toString();
@@ -1412,7 +1438,7 @@ public class JNIServiceTests extends KNNTestCase {
 
     private String createFaissHNSWIndex(SpaceType spaceType) throws IOException {
         Path tmpFile = createTempFile();
-        JNIService.createIndex(
+        TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),

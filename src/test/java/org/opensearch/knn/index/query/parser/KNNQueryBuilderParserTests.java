@@ -17,6 +17,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.plugins.SearchPlugin;
@@ -31,6 +32,8 @@ import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
 public class KNNQueryBuilderParserTests extends KNNTestCase {
 
@@ -468,6 +471,38 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         logger.info(builder.toString());
         logger.info(testBuilder.toString());
         assertEquals(builder.toString(), testBuilder.toString());
+    }
+
+    public void testToXContent_whenRescore_thenSucceed() throws IOException {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        float oversample = 1.0f;
+        XContentBuilder builderFromObject = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(NAME)
+            .startObject(FIELD_NAME)
+            .field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), queryVector)
+            .field(KNNQueryBuilder.K_FIELD.getPreferredName(), K)
+            .startObject(RESCORE_PARAMETER)
+            .field(RESCORE_OVERSAMPLE_PARAMETER, oversample)
+            .endObject()
+            .field(BOOST_FIELD.getPreferredName(), BOOST)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        KNNQueryBuilder knnQueryBuilderFromObject = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .boost(BOOST)
+            .k(K)
+            .rescoreContext(RescoreContext.builder().oversampleFactor(oversample).build())
+            .build();
+
+        XContentBuilder testBuilder = XContentFactory.jsonBuilder();
+        testBuilder.startObject();
+        KNNQueryBuilderParser.toXContent(testBuilder, EMPTY_PARAMS, knnQueryBuilderFromObject);
+        testBuilder.endObject();
+        assertEquals(builderFromObject.toString(), testBuilder.toString());
     }
 
     @Override

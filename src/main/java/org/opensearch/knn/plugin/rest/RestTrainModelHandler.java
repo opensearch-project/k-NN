@@ -15,9 +15,12 @@ import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
@@ -31,12 +34,14 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.MAX_VECTOR_COUNT_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.PREFERENCE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_SIZE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
@@ -90,6 +95,10 @@ public class RestTrainModelHandler extends BaseRestHandler {
         int dimension = DEFAULT_NOT_SET_INT_VALUE;
         int maximumVectorCount = DEFAULT_NOT_SET_INT_VALUE;
         int searchSize = DEFAULT_NOT_SET_INT_VALUE;
+        SpaceType topLevelSpaceType = SpaceType.UNDEFINED;
+
+        String compressionLevel = null;
+        String mode = null;
 
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
@@ -101,9 +110,6 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 trainingField = parser.textOrNull();
             } else if (KNN_METHOD.equals(fieldName) && ensureNotSet(fieldName, knnMethodContext)) {
                 knnMethodContext = KNNMethodContext.parse(parser.map());
-                if (SpaceType.UNDEFINED == knnMethodContext.getSpaceType()) {
-                    knnMethodContext.setSpaceType(SpaceType.L2);
-                }
             } else if (DIMENSION.equals(fieldName) && ensureNotSet(fieldName, dimension)) {
                 dimension = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MAX_VECTOR_COUNT_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, maximumVectorCount)) {
@@ -115,13 +121,22 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 ModelUtil.blockCommasInModelDescription(description);
             } else if (VECTOR_DATA_TYPE_FIELD.equals(fieldName) && ensureNotSet(fieldName, vectorDataType)) {
                 vectorDataType = VectorDataType.get(parser.text());
+            } else if (KNNConstants.MODE_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, mode)) {
+                mode = parser.text();
+            } else if (KNNConstants.COMPRESSION_LEVEL_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, compressionLevel)) {
+                compressionLevel = parser.text();
+            } else if (KNNConstants.SPACE_TYPE.equals(fieldName) && ensureSpaceTypeNotSet(topLevelSpaceType)) {
+                topLevelSpaceType = SpaceType.getSpace(parser.text());
             } else {
                 throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
             }
         }
 
         // Check that these parameters get set
-        ensureSet(KNN_METHOD, knnMethodContext);
+        ensureAtleasOneSet(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
+        ensureMutualExclusion(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode);
+        ensureMutualExclusion(KNN_METHOD, knnMethodContext, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
+
         ensureSet(DIMENSION, dimension);
         ensureSet(TRAIN_INDEX_PARAMETER, trainingIndex);
         ensureSet(TRAIN_FIELD_PARAMETER, trainingField);
@@ -135,6 +150,21 @@ public class RestTrainModelHandler extends BaseRestHandler {
             vectorDataType = VectorDataType.DEFAULT;
         }
 
+        ensureIfSetThenEquals(
+            MODE_PARAMETER,
+            mode,
+            COMPRESSION_LEVEL_PARAMETER,
+            compressionLevel,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.FLOAT,
+            vectorDataType,
+            VectorDataType.FLOAT.getValue()
+        );
+        resolveSpaceTypeAndSetInKNNMethodContext(topLevelSpaceType, knnMethodContext);
+        // if KNNMethodContext was not null then spaceTypes we should fix the space type if it is not set.
+        if (knnMethodContext == null && topLevelSpaceType == SpaceType.UNDEFINED) {
+            topLevelSpaceType = SpaceType.DEFAULT;
+        }
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
             knnMethodContext,
@@ -143,7 +173,10 @@ public class RestTrainModelHandler extends BaseRestHandler {
             trainingField,
             preferredNodeId,
             description,
-            vectorDataType
+            vectorDataType,
+            Mode.fromName(mode),
+            CompressionLevel.fromName(compressionLevel),
+            topLevelSpaceType
         );
 
         if (maximumVectorCount != DEFAULT_NOT_SET_INT_VALUE) {
@@ -166,6 +199,72 @@ public class RestTrainModelHandler extends BaseRestHandler {
     private void ensureSet(String fieldName, int value) {
         if (value == DEFAULT_NOT_SET_INT_VALUE) {
             throw new IllegalArgumentException("Request did not set \"" + fieldName + ".");
+        }
+    }
+
+    private void ensureMutualExclusion(String fieldNameA, Object valueA, String fieldNameB, Object valueB) {
+        if (valueA != DEFAULT_NOT_SET_OBJECT_VALUE && valueB != DEFAULT_NOT_SET_OBJECT_VALUE) {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "\"[%s]\" and \"[%s]\" cannot both be set", fieldNameA, fieldNameB)
+            );
+        }
+    }
+
+    private boolean ensureSpaceTypeNotSet(SpaceType spaceType) {
+        if (spaceType != SpaceType.UNDEFINED) {
+            throw new IllegalArgumentException("Unable to parse SpaceType as it is duplicated.");
+        }
+        return true;
+    }
+
+    private void resolveSpaceTypeAndSetInKNNMethodContext(SpaceType topLevelSpaceType, KNNMethodContext knnMethodContext) {
+        // First check if KNNMethodContext is not null as it can be null
+        if (knnMethodContext != null) {
+            // if space type is not provided by user then it will undefined
+            if (knnMethodContext.getSpaceType() == SpaceType.UNDEFINED) {
+                // fix the top level spaceType if it is undefined
+                if (topLevelSpaceType == SpaceType.UNDEFINED) {
+                    topLevelSpaceType = SpaceType.DEFAULT;
+                }
+                // set the space type now in KNNMethodContext
+                knnMethodContext.setSpaceType(topLevelSpaceType);
+            } else {
+                // if spaceType is set at 2 places lets ensure that we validate those cases and throw error
+                if (topLevelSpaceType != SpaceType.UNDEFINED) {
+                    throw new IllegalArgumentException(
+                        "Top Level spaceType and space type in method both are set. Set space type at 1 place."
+                    );
+                }
+            }
+        }
+    }
+
+    private void ensureIfSetThenEquals(
+        String fieldNameA,
+        Object valueA,
+        String fieldNameB,
+        Object valueB,
+        String fieldNameC,
+        Object expectedValueC,
+        Object actualValueC,
+        String expectedValueCName
+    ) {
+        if ((valueA != DEFAULT_NOT_SET_OBJECT_VALUE || valueB != DEFAULT_NOT_SET_OBJECT_VALUE) && expectedValueC != actualValueC) {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "When \"[%s]\" or \"[%s]\" is set, \"[%s]\" must be set to \"[%s]\"",
+                    fieldNameA,
+                    fieldNameB,
+                    fieldNameC,
+                    expectedValueCName
+                )
+            );
+        }
+    }
+
+    private void ensureAtleasOneSet(String fieldNameA, Object valueA, String fieldNameB, Object valueB, String fieldNameC, Object valueC) {
+        if (valueA == DEFAULT_NOT_SET_OBJECT_VALUE && valueB == DEFAULT_NOT_SET_OBJECT_VALUE && valueC == DEFAULT_NOT_SET_OBJECT_VALUE) {
         }
     }
 

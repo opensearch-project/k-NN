@@ -19,6 +19,8 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
@@ -74,7 +76,9 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
             trainingFieldName,
             null,
             "test-detector",
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
         );
         trainingModelRequest.setTrainingDataSizeInKB(estimateVectorSetSizeInKB(trainingDataCount, dimension, VectorDataType.DEFAULT));
 

@@ -18,7 +18,7 @@
 #include "commons.h"
 
 jlong knn_jni::commons::storeVectorData(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong memoryAddressJ,
-                                        jobjectArray dataJ, jlong initialCapacityJ) {
+                                        jobjectArray dataJ, jlong initialCapacityJ, jboolean appendJ) {
     std::vector<float> *vect;
     if ((long) memoryAddressJ == 0) {
         vect = new std::vector<float>();
@@ -26,14 +26,19 @@ jlong knn_jni::commons::storeVectorData(knn_jni::JNIUtilInterface *jniUtil, JNIE
     } else {
         vect = reinterpret_cast<std::vector<float>*>(memoryAddressJ);
     }
+
+    if (appendJ == JNI_FALSE) {
+        vect->clear();
+    }
+
     int dim = jniUtil->GetInnerDimensionOf2dJavaFloatArray(env, dataJ);
     jniUtil->Convert2dJavaObjectArrayAndStoreToFloatVector(env, dataJ, dim, vect);
 
     return (jlong) vect;
 }
 
-jlong knn_jni::commons::storeByteVectorData(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong memoryAddressJ,
-                                        jobjectArray dataJ, jlong initialCapacityJ) {
+jlong knn_jni::commons::storeBinaryVectorData(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong memoryAddressJ,
+                                        jobjectArray dataJ, jlong initialCapacityJ, jboolean appendJ) {
     std::vector<uint8_t> *vect;
     if ((long) memoryAddressJ == 0) {
         vect = new std::vector<uint8_t>();
@@ -41,6 +46,31 @@ jlong knn_jni::commons::storeByteVectorData(knn_jni::JNIUtilInterface *jniUtil, 
     } else {
         vect = reinterpret_cast<std::vector<uint8_t>*>(memoryAddressJ);
     }
+
+    if (appendJ == JNI_FALSE) {
+        vect->clear();
+    }
+
+    int dim = jniUtil->GetInnerDimensionOf2dJavaByteArray(env, dataJ);
+    jniUtil->Convert2dJavaObjectArrayAndStoreToBinaryVector(env, dataJ, dim, vect);
+
+    return (jlong) vect;
+}
+
+jlong knn_jni::commons::storeByteVectorData(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong memoryAddressJ,
+                                        jobjectArray dataJ, jlong initialCapacityJ, jboolean appendJ) {
+    std::vector<int8_t> *vect;
+    if (memoryAddressJ == 0) {
+        vect = new std::vector<int8_t>();
+        vect->reserve(static_cast<long>(initialCapacityJ));
+    } else {
+        vect = reinterpret_cast<std::vector<int8_t>*>(memoryAddressJ);
+    }
+
+    if (appendJ == JNI_FALSE) {
+            vect->clear();
+    }
+
     int dim = jniUtil->GetInnerDimensionOf2dJavaByteArray(env, dataJ);
     jniUtil->Convert2dJavaObjectArrayAndStoreToByteVector(env, dataJ, dim, vect);
 
@@ -54,9 +84,16 @@ void knn_jni::commons::freeVectorData(jlong memoryAddressJ) {
     }
 }
 
-void knn_jni::commons::freeByteVectorData(jlong memoryAddressJ) {
+void knn_jni::commons::freeBinaryVectorData(jlong memoryAddressJ) {
     if (memoryAddressJ != 0) {
         auto *vect = reinterpret_cast<std::vector<uint8_t>*>(memoryAddressJ);
+        delete vect;
+    }
+}
+
+void knn_jni::commons::freeByteVectorData(jlong memoryAddressJ) {
+    if (memoryAddressJ != 0) {
+        auto *vect = reinterpret_cast<std::vector<int8_t>*>(memoryAddressJ);
         delete vect;
     }
 }

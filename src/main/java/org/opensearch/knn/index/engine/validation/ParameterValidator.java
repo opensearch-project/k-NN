@@ -7,6 +7,7 @@ package org.opensearch.knn.index.engine.validation;
 
 import org.opensearch.common.Nullable;
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.Parameter;
 
 import java.util.ArrayList;
@@ -17,14 +18,17 @@ public final class ParameterValidator {
 
     /**
      * A function which validates request parameters.
+     *
      * @param validParameters A set of valid parameters that can be requestParameters can be validated against
      * @param requestParameters parameters from the request
-     * @return
+     * @param knnMethodConfigContext context of the knn method
+     * @return ValidationException if there are any validation errors, null otherwise
      */
     @Nullable
     public static ValidationException validateParameters(
         final Map<String, Parameter<?>> validParameters,
-        final Map<String, Object> requestParameters
+        final Map<String, Object> requestParameters,
+        KNNMethodConfigContext knnMethodConfigContext
     ) {
 
         if (validParameters == null) {
@@ -38,7 +42,8 @@ public final class ParameterValidator {
         final List<String> errorMessages = new ArrayList<>();
         for (Map.Entry<String, Object> parameter : requestParameters.entrySet()) {
             if (validParameters.containsKey(parameter.getKey())) {
-                final ValidationException parameterValidation = validParameters.get(parameter.getKey()).validate(parameter.getValue());
+                final ValidationException parameterValidation = validParameters.get(parameter.getKey())
+                    .validate(parameter.getValue(), knnMethodConfigContext);
                 if (parameterValidation != null) {
                     errorMessages.addAll(parameterValidation.validationErrors());
                 }

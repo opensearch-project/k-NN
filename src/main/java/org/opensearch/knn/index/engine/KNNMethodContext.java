@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
-import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -20,16 +19,13 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -41,21 +37,6 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 @AllArgsConstructor
 @Getter
 public class KNNMethodContext implements ToXContentFragment, Writeable {
-
-    private static KNNMethodContext defaultInstance = null;
-
-    /**
-     * This is used only for testing
-     * @return default KNNMethodContext for testing
-     */
-    public static synchronized KNNMethodContext getDefault() {
-        if (defaultInstance == null) {
-            MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-            methodComponentContext.setIndexVersion(Version.CURRENT);
-            defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
-        }
-        return defaultInstance;
-    }
 
     @NonNull
     private final KNNEngine knnEngine;
@@ -78,22 +59,13 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     }
 
     /**
-     * This method uses the knnEngine to validate that the method is compatible with the engine
+     * This method uses the knnEngine to validate that the method is compatible with the engine.
      *
+     * @param knnMethodConfigContext context to validate against
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public ValidationException validate() {
-        return knnEngine.validateMethod(this);
-    }
-
-    /**
-     * This method uses the knnEngine to validate that the method is compatible with the engine, using additional data not present in the method context
-     *
-     * @param vectorSpaceInfo additional data not present in the method context
-     * @return ValidationException produced by validation errors; null if no validations errors.
-     */
-    public ValidationException validateWithData(VectorSpaceInfo vectorSpaceInfo) {
-        return knnEngine.validateMethodWithData(this, vectorSpaceInfo);
+    public ValidationException validate(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnEngine.validateMethod(this, knnMethodConfigContext);
     }
 
     /**
@@ -108,11 +80,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     /**
      * This method estimates the overhead the knn method adds irrespective of the number of vectors
      *
-     * @param dimension dimension to make estimate with
+     * @param knnMethodConfigContext context to estimate overhead
      * @return size in Kilobytes
      */
-    public int estimateOverheadInKB(int dimension) {
-        return knnEngine.estimateOverheadInKB(this, dimension);
+    public int estimateOverheadInKB(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnEngine.estimateOverheadInKB(this, knnMethodConfigContext);
     }
 
     /**

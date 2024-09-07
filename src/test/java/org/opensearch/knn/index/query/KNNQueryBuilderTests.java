@@ -29,7 +29,11 @@ import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -40,6 +44,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -54,7 +59,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
@@ -77,7 +81,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         super.setUp();
         ClusterSettings clusterSettings = mock(ClusterSettings.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        when(clusterSettings.get(KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING)).thenReturn(false);
         KNNSettings.state().setClusterService(clusterService);
     }
 
@@ -185,9 +188,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
@@ -207,7 +209,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
@@ -215,7 +216,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         FloatVectorSimilarityQuery query = (FloatVectorSimilarityQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         float resultSimilarity = KNNEngine.LUCENE.distanceToRadialThreshold(MAX_DISTANCE, SpaceType.L2);
 
@@ -239,7 +240,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
@@ -247,7 +247,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         FloatVectorSimilarityQuery query = (FloatVectorSimilarityQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertTrue(query.toString().contains("resultSimilarity=" + 0.5f));
     }
@@ -266,16 +266,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext)
-        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(indexSettings.getMaxResultWindow()).thenReturn(1000);
@@ -298,16 +296,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext)
-        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(indexSettings.getMaxResultWindow()).thenReturn(1000);
@@ -325,16 +321,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext)
-        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(indexSettings.getMaxResultWindow()).thenReturn(1000);
@@ -352,16 +346,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext)
-        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(indexSettings.getMaxResultWindow()).thenReturn(1000);
@@ -383,16 +375,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext)
-        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(indexSettings.getMaxResultWindow()).thenReturn(1000);
@@ -416,16 +406,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext)
-        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(indexSettings.getMaxResultWindow()).thenReturn(1000);
@@ -444,7 +432,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(8);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
@@ -452,9 +439,50 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.HAMMING, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 8));
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         assertTrue(e.getMessage().contains("Binary data type does not support radial search"));
+    }
+
+    public void testDoToQuery_whenRadialSearchOnDiskMode_thenException() {
+        float[] queryVector = { 1.0f };
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(
+            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
+            ImmutableMap.of()
+        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(knnMethodContext);
+            }
+
+            @Override
+            public int getDimension() {
+                return 1;
+            }
+
+            public Mode getMode() {
+                return Mode.ON_DISK;
+            }
+
+            public QuantizationConfig getQuantizationConfig() {
+                return QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
+            }
+        });
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+        assertEquals("Radial search is not supported for indices which have quantization enabled", e.getMessage());
     }
 
     public void testDoToQuery_KnnQueryWithFilter_Lucene() throws Exception {
@@ -470,15 +498,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
         // When
@@ -504,14 +530,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertNotNull(query);
@@ -531,14 +556,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertNotNull(query);
@@ -553,15 +577,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
         // When
@@ -586,10 +608,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
-            new KNNMethodContext(KNNEngine.LUCENE, SpaceType.COSINESIMIL, new MethodComponentContext("hnsw", Map.of()))
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            new MethodComponentContext("hnsw", Map.of())
         );
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
@@ -609,15 +633,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
     }
@@ -632,15 +654,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
 
         // Dimension is -1. In this case, model metadata will need to provide dimension
-        when(mockKNNVectorField.getDimension()).thenReturn(-K);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(null);
         String modelId = "test-model-id";
-        when(mockKNNVectorField.getModelId()).thenReturn(modelId);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
 
         // Mock the modelDao to return mocked modelMetadata
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
@@ -672,14 +691,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
 
-        when(mockKNNVectorField.getDimension()).thenReturn(-K);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(null);
         String modelId = "test-model-id";
-        when(mockKNNVectorField.getModelId()).thenReturn(modelId);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
 
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
@@ -709,15 +725,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-
-        when(mockKNNVectorField.getDimension()).thenReturn(-K);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(null);
         String modelId = "test-model-id";
-        when(mockKNNVectorField.getModelId()).thenReturn(modelId);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
 
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
@@ -744,10 +756,10 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(400);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 400));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
-        when(mockKNNVectorField.getDimension()).thenReturn(K);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), K));
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
     }
 
@@ -769,9 +781,10 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
+        when(knnMethodContext.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         IllegalArgumentException exception = expectThrows(
             IllegalArgumentException.class,
@@ -790,9 +803,10 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BYTE);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
+        when(knnMethodContext.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         IllegalArgumentException exception = expectThrows(
             IllegalArgumentException.class,
@@ -806,19 +820,23 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testSerialization() throws Exception {
         // For k-NN search
-        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null);
-        assertSerialization(Version.CURRENT, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, Map.of("ef_search", EF_SEARCH), null, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null, null);
 
         // For distance threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MAX_DISTANCE);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MAX_DISTANCE, null);
 
         // For score threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MIN_SCORE);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MIN_SCORE, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MIN_SCORE, null);
+
+        // Test rescore
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null, RescoreContext.getDefault());
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null, RescoreContext.getDefault());
     }
 
     private void assertSerialization(
@@ -827,7 +845,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         Integer k,
         Map<String, ?> methodParameters,
         Float distance,
-        Float score
+        Float score,
+        RescoreContext rescoreContext
     ) throws Exception {
         final KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
@@ -837,6 +856,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .k(k)
             .methodParameters(methodParameters)
             .filter(queryBuilderOptional.orElse(null))
+            .rescoreContext(rescoreContext)
             .build();
 
         final ClusterService clusterService = mockClusterService(version);
@@ -848,7 +868,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             output.writeNamedWriteable(knnQueryBuilder);
 
             try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
-                in.setVersion(Version.CURRENT);
+                in.setVersion(version);
                 final QueryBuilder deserializedQuery = in.readNamedWriteable(QueryBuilder.class);
 
                 assertNotNull(deserializedQuery);
@@ -870,6 +890,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                     assertNull(deserializedKnnQueryBuilder.getFilter());
                 }
                 assertMethodParameters(version, methodParameters, deserializedKnnQueryBuilder.getMethodParameters());
+                assertRescore(version, rescoreContext, deserializedKnnQueryBuilder.getRescoreContext());
             }
         }
     }
@@ -881,6 +902,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             if (version.onOrAfter(Version.V_2_16_0)) {
                 assertEquals(expectedMethodParameters.get("ef_search"), actualMethodParameters.get("ef_search"));
             }
+        }
+    }
+
+    private void assertRescore(Version version, RescoreContext expectedRescoreContext, RescoreContext actualRescoreContext) {
+        if (!version.onOrAfter(Version.V_2_17_0)) {
+            assertNull(actualRescoreContext);
+            return;
+        }
+
+        if (expectedRescoreContext != null) {
+            assertEquals(expectedRescoreContext, actualRescoreContext);
         }
     }
 
@@ -919,9 +951,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
             Index dummyIndex = new Index("dummy", "dummy");
-            when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+            when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
             when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-            when(mockKNNVectorField.getDimension()).thenReturn(4);
             when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
@@ -946,9 +977,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         Index dummyIndex = new Index("dummy", "dummy");
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
@@ -972,9 +1002,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         Index dummyIndex = new Index("dummy", "dummy");
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
@@ -992,9 +1022,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(32);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.HAMMING);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 32));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertArrayEquals(expectedQueryVector, query.getByteQueryVector());
@@ -1008,9 +1037,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(8);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
-        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.HAMMING);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         Exception ex = expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         assertTrue(ex.getMessage(), ex.getMessage().contains("invalid dimension"));

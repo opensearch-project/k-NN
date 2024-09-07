@@ -14,6 +14,8 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
@@ -23,36 +25,57 @@ import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.NoMergePolicy;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.tests.store.BaseDirectoryWrapper;
 import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.InfoStream;
+import org.apache.lucene.util.Version;
 import org.junit.After;
 import org.junit.Assert;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 
 @Log4j2
 public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
@@ -60,6 +83,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     private static final String FLAT_VECTOR_FILE_EXT = ".vec";
     private static final String HNSW_FILE_EXT = ".hnsw";
     private static final String FLOAT_VECTOR_FIELD = "float_field";
+    private static final String FLOAT_VECTOR_FIELD_BINARY = "float_field_binary";
     private static final String BYTE_VECTOR_FIELD = "byte_field";
     private Directory dir;
     private RandomIndexWriter indexWriter;
@@ -75,21 +99,83 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     @SneakyThrows
     public void testReaderAndWriter_whenValidInput_thenSuccess() {
         final Lucene99FlatVectorsFormat mockedFlatVectorsFormat = Mockito.mock(Lucene99FlatVectorsFormat.class);
-        final SegmentWriteState mockedSegmentWriteState = Mockito.mock(SegmentWriteState.class);
-        final SegmentReadState mockedSegmentReadState = Mockito.mock(SegmentReadState.class);
 
+        final String segmentName = "test-segment-name";
+
+        final SegmentInfo mockedSegmentInfo = new SegmentInfo(
+            Mockito.mock(Directory.class),
+            Mockito.mock(Version.class),
+            Mockito.mock(Version.class),
+            segmentName,
+            0,
+            false,
+            false,
+            Mockito.mock(Codec.class),
+            Mockito.mock(Map.class),
+            new byte[16],
+            Mockito.mock(Map.class),
+            Mockito.mock(Sort.class)
+        );
+
+        final String segmentSuffix = "test-segment-suffix";
+
+        Directory directory = Mockito.mock(Directory.class);
+        IndexInput input = Mockito.mock(IndexInput.class);
+        Mockito.when(directory.openInput(any(), any())).thenReturn(input);
+
+        String fieldName = "test-field";
+        FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getName()).thenReturn(fieldName);
+        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
+        Mockito.when(fieldInfos.iterator()).thenReturn(new Iterator<FieldInfo>() {
+            @Override
+            public boolean hasNext() {
+                return false;
+            }
+
+            @Override
+            public FieldInfo next() {
+                return null;
+            }
+        });
+
+        final SegmentReadState mockedSegmentReadState = new SegmentReadState(
+            directory,
+            mockedSegmentInfo,
+            fieldInfos,
+            Mockito.mock(IOContext.class),
+            segmentSuffix
+        );
+
+        final SegmentWriteState mockedSegmentWriteState = new SegmentWriteState(
+            Mockito.mock(InfoStream.class),
+            Mockito.mock(Directory.class),
+            mockedSegmentInfo,
+            Mockito.mock(FieldInfos.class),
+            null,
+            Mockito.mock(IOContext.class)
+        );
         Mockito.when(mockedFlatVectorsFormat.fieldsReader(mockedSegmentReadState)).thenReturn(Mockito.mock(FlatVectorsReader.class));
         Mockito.when(mockedFlatVectorsFormat.fieldsWriter(mockedSegmentWriteState)).thenReturn(Mockito.mock(FlatVectorsWriter.class));
 
         final NativeEngines990KnnVectorsFormat nativeEngines990KnnVectorsFormat = new NativeEngines990KnnVectorsFormat(
             mockedFlatVectorsFormat
         );
-        Assert.assertTrue(
-            nativeEngines990KnnVectorsFormat.fieldsReader(mockedSegmentReadState) instanceof NativeEngines990KnnVectorsReader
-        );
-        Assert.assertTrue(
-            nativeEngines990KnnVectorsFormat.fieldsWriter(mockedSegmentWriteState) instanceof NativeEngines990KnnVectorsWriter
-        );
+        try (MockedStatic<CodecUtil> mockedStaticCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
+            mockedStaticCodecUtil.when(
+                () -> CodecUtil.writeIndexHeader(any(IndexOutput.class), anyString(), anyInt(), any(byte[].class), anyString())
+            ).thenAnswer((Answer<Void>) invocation -> null);
+            mockedStaticCodecUtil.when(() -> CodecUtil.retrieveChecksum(any(IndexInput.class)))
+                .thenAnswer((Answer<Void>) invocation -> null);
+            Assert.assertTrue(
+                nativeEngines990KnnVectorsFormat.fieldsReader(mockedSegmentReadState) instanceof NativeEngines990KnnVectorsReader
+            );
+
+            Assert.assertTrue(
+                nativeEngines990KnnVectorsFormat.fieldsWriter(mockedSegmentWriteState) instanceof NativeEngines990KnnVectorsWriter
+            );
+        }
     }
 
     @SneakyThrows
@@ -98,11 +184,32 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         float[] floatVector = { 1.0f, 3.0f, 4.0f };
         byte[] byteVector = { 6, 14 };
 
+        FieldType fieldTypeForFloat = createVectorField(3, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldTypeForFloat.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"HNSW16,Flat\", \"spaceType\": \"l2\"}");
+        fieldTypeForFloat.freeze();
+        addFieldToIndex(new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, fieldTypeForFloat), indexWriter);
+        FieldType fieldTypeForByte = createVectorField(2, VectorEncoding.BYTE, VectorDataType.BINARY);
+        fieldTypeForByte.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"HNSW16,Flat\", \"spaceType\": \"l2\"}");
+        fieldTypeForByte.freeze();
+        addFieldToIndex(new KnnByteVectorField(BYTE_VECTOR_FIELD, byteVector, fieldTypeForByte), indexWriter);
+
+        float[] floatVectorForBinaryQuantization_1 = { 1.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+        float[] floatVectorForBinaryQuantization_2 = { 1.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+        FieldType fieldTypeForBinaryQuantization = createVectorField(8, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldTypeForBinaryQuantization.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"BHNSW32\", \"spaceType\": \"l2\"}");
+        QuantizationConfig quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
+        fieldTypeForBinaryQuantization.putAttribute(KNNConstants.QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
+        fieldTypeForBinaryQuantization.freeze();
+
         addFieldToIndex(
-            new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, createVectorField(3, VectorEncoding.FLOAT32)),
+            new KnnFloatVectorField(FLOAT_VECTOR_FIELD_BINARY, floatVectorForBinaryQuantization_1, fieldTypeForBinaryQuantization),
             indexWriter
         );
-        addFieldToIndex(new KnnByteVectorField(BYTE_VECTOR_FIELD, byteVector, createVectorField(2, VectorEncoding.BYTE)), indexWriter);
+        addFieldToIndex(
+            new KnnFloatVectorField(FLOAT_VECTOR_FIELD_BINARY, floatVectorForBinaryQuantization_2, fieldTypeForBinaryQuantization),
+            indexWriter
+        );
+
         final IndexReader indexReader = indexWriter.getReader();
         // ensuring segments are created
         indexWriter.flush();
@@ -125,7 +232,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         if (segmentReader.getSegmentInfo().info.getUseCompoundFile() == false) {
             final List<String> vecfiles = getFilesFromSegment(dir, FLAT_VECTOR_FILE_EXT);
             // 2 .vec files will be created as we are using per field vectors format.
-            assertEquals(2, vecfiles.size());
+            assertEquals(3, vecfiles.size());
         }
 
         final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD);
@@ -140,6 +247,12 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertEquals(1, byteVectorValues.size());
         assertEquals(2, byteVectorValues.dimension());
 
+        final FloatVectorValues floatVectorValuesForBinaryQuantization = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
+        floatVectorValuesForBinaryQuantization.nextDoc();
+        assertArrayEquals(floatVectorForBinaryQuantization_1, floatVectorValuesForBinaryQuantization.vectorValue(), 0.0f);
+        assertEquals(2, floatVectorValuesForBinaryQuantization.size());
+        assertEquals(8, floatVectorValuesForBinaryQuantization.dimension());
+
         Assert.assertThrows(
             UnsupportedOperationException.class,
             () -> leafReader.searchNearestVectors(FLOAT_VECTOR_FIELD, floatVector, 10, new Bits.MatchAllBits(1), 10)
@@ -151,6 +264,53 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         );
         // do it at the end so that all search is completed
         indexReader.close();
+    }
+
+    @SneakyThrows
+    public void testNativeEngineVectorFormat_whenBinaryQuantizationApplied_thenSuccess() {
+        setup();
+        float[] floatVectorForBinaryQuantization = { 1.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+        FieldType fieldTypeForBinaryQuantization = createVectorField(8, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldTypeForBinaryQuantization.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"BHNSW32\", \"spaceType\": \"l2\"}");
+        QuantizationConfig quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
+        fieldTypeForBinaryQuantization.putAttribute(KNNConstants.QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
+
+        addFieldToIndex(
+            new KnnFloatVectorField(FLOAT_VECTOR_FIELD_BINARY, floatVectorForBinaryQuantization, fieldTypeForBinaryQuantization),
+            indexWriter
+        );
+
+        final IndexReader indexReader = indexWriter.getReader();
+        // ensuring segments are created
+        indexWriter.flush();
+        indexWriter.commit();
+        indexWriter.close();
+
+        IndexSearcher searcher = new IndexSearcher(indexReader);
+        final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
+        SegmentReader segmentReader = Lucene.segmentReader(leafReader);
+        if (segmentReader.getSegmentInfo().info.getUseCompoundFile() == false) {
+            final List<String> vecfiles = getFilesFromSegment(dir, FLAT_VECTOR_FILE_EXT);
+            // 2 .vec files will be created as we are using per field vectors format.
+            assertEquals(1, vecfiles.size());
+        }
+
+        final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
+        floatVectorValues.nextDoc();
+        assertArrayEquals(floatVectorForBinaryQuantization, floatVectorValues.vectorValue(), 0.0f);
+        assertEquals(1, floatVectorValues.size());
+        assertEquals(8, floatVectorValues.dimension());
+        indexReader.close();
+    }
+
+    public void testFormatName_withValidInput_thenSuccess() {
+        final String validFormatName = "NativeEngines990KnnVectorsFormat";
+        Assert.assertEquals(validFormatName, new NativeEngines990KnnVectorsFormat().getName());
+        Assert.assertEquals(
+            validFormatName,
+            new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
+                .getName()
+        );
     }
 
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {
@@ -187,23 +347,23 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         indexWriter.addDocument(doc1);
     }
 
-    private FieldType createVectorField(int dimension, VectorEncoding vectorEncoding) {
+    private FieldType createVectorField(int dimension, VectorEncoding vectorEncoding, VectorDataType vectorDataType) {
         FieldType nativeVectorField = new FieldType();
         // TODO: Replace this with the default field which will be created in mapper for Native Engines with KNNVectorsFormat
         nativeVectorField.setTokenized(false);
         nativeVectorField.setIndexOptions(IndexOptions.NONE);
         nativeVectorField.putAttribute(KNNVectorFieldMapper.KNN_FIELD, "true");
         nativeVectorField.putAttribute(KNNConstants.KNN_METHOD, KNNConstants.METHOD_HNSW);
-        nativeVectorField.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName());
+        nativeVectorField.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
         nativeVectorField.putAttribute(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_M, "32");
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512");
+        nativeVectorField.putAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         nativeVectorField.setVectorAttributes(
             dimension,
             vectorEncoding,
             SpaceType.L2.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
         );
-        nativeVectorField.freeze();
         return nativeVectorField;
     }
 }

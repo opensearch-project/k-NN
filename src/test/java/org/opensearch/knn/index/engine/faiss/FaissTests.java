@@ -10,10 +10,16 @@ import org.opensearch.Version;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -39,7 +45,13 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class FaissTests extends KNNTestCase {
 
-    public void testGetMethodAsMap_whenMethodIsHNSWFlat_thenCreateCorrectIndexDescription() throws IOException {
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWFlat_thenCreateCorrectIndexDescription() throws IOException {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
         int mParam = 65;
         String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,Flat", mParam);
 
@@ -53,15 +65,20 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
-        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
-    public void testGetMethodAsMap_whenMethodIsHNSWPQ_thenCreateCorrectIndexDescription() throws IOException {
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWPQ_thenCreateCorrectIndexDescription() throws IOException {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         int hnswMParam = 65;
         int pqMParam = 17;
         String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,PQ%d", hnswMParam, pqMParam);
@@ -82,16 +99,21 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
-        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
     @SneakyThrows
-    public void testGetMethodAsMap_whenMethodIsHNSWSQFP16_thenCreateCorrectIndexDescription() {
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWSQFP16_thenCreateCorrectIndexDescription() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         int hnswMParam = 65;
         String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,SQfp16", hnswMParam);
 
@@ -111,15 +133,20 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
-        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
-    public void testGetMethodAsMap_whenMethodIsIVFFlat_thenCreateCorrectIndexDescription() throws IOException {
+    public void testGetKNNLibraryIndexingContext_whenMethodIsIVFFlat_thenCreateCorrectIndexDescription() throws IOException {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         int nlists = 88;
         String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,Flat", nlists);
 
@@ -134,13 +161,19 @@ public class FaissTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
 
-        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
-    public void testGetMethodAsMap_whenMethodIsIVFPQ_thenCreateCorrectIndexDescription() throws IOException {
+    public void testGetKNNLibraryIndexingContext_whenMethodIsIVFPQ_thenCreateCorrectIndexDescription() throws IOException {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         int ivfNlistsParam = 88;
         int pqMParam = 17;
         int pqCodeSizeParam = 53;
@@ -164,14 +197,20 @@ public class FaissTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
 
-        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
     @SneakyThrows
-    public void testGetMethodAsMap_whenMethodIsIVFSQFP16_thenCreateCorrectIndexDescription() {
+    public void testGetKNNLibraryIndexingContext_whenMethodIsIVFSQFP16_thenCreateCorrectIndexDescription() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         int nlists = 88;
         String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,SQfp16", nlists);
 
@@ -192,10 +231,89 @@ public class FaissTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
 
-        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
+    @SneakyThrows
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWWithQFrame_thenCreateCorrectConfig() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        int m = 88;
+        String expectedIndexDescription = "BHNSW" + m + ",Flat";
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, m)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, QFrameBitEncoder.NAME)
+            .startObject(PARAMETERS)
+            .field(QFrameBitEncoder.BITCOUNT_PARAM, 4)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = Faiss.INSTANCE.getKNNLibraryIndexingContext(
+            knnMethodContext,
+            knnMethodConfigContext
+        );
+        Map<String, Object> map = knnLibraryIndexingContext.getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(
+            QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build(),
+            knnLibraryIndexingContext.getQuantizationConfig()
+        );
+    }
+
+    @SneakyThrows
+    public void testGetKNNLibraryIndexingContext_whenMethodIsIVFWithQFrame_thenCreateCorrectConfig() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        int nlist = 88;
+        String expectedIndexDescription = "BIVF" + nlist + ",Flat";
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, nlist)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, QFrameBitEncoder.NAME)
+            .startObject(PARAMETERS)
+            .field(QFrameBitEncoder.BITCOUNT_PARAM, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = Faiss.INSTANCE.getKNNLibraryIndexingContext(
+            knnMethodContext,
+            knnMethodConfigContext
+        );
+        Map<String, Object> map = knnLibraryIndexingContext.getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(
+            QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build(),
+            knnLibraryIndexingContext.getQuantizationConfig()
+        );
     }
 
     public void testMethodAsMapBuilder() throws IOException {
@@ -210,9 +328,9 @@ public class FaissTests extends KNNTestCase {
         String parameter3 = "test-parameter-3";
         Integer defaultValue3 = 3;
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, defaultValue1, value -> value > 0))
-            .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, defaultValue2, value -> value > 0))
-            .addParameter(parameter3, new Parameter.IntegerParameter(parameter3, defaultValue3, value -> value > 0))
+            .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, defaultValue1, (value, context) -> value > 0))
+            .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, defaultValue2, (value, context) -> value > 0))
+            .addParameter(parameter3, new Parameter.IntegerParameter(parameter3, defaultValue3, (value, context) -> value > 0))
             .build();
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
@@ -233,12 +351,20 @@ public class FaissTests extends KNNTestCase {
         expectedMap.put(PARAMETERS, expectedParametersMap);
         expectedMap.put(NAME, methodName);
         expectedMap.put(INDEX_DESCRIPTION_PARAMETER, methodDescription + value1);
+        KNNLibraryIndexingContext expectedKNNMethodContext = KNNLibraryIndexingContextImpl.builder().parameters(expectedMap).build();
 
-        Map<String, Object> methodAsMap = MethodAsMapBuilder.builder(methodDescription, methodComponent, methodComponentContext)
-            .addParameter(parameter1, "", "")
-            .build();
+        KNNLibraryIndexingContext actualKNNLibraryIndexingContext = MethodAsMapBuilder.builder(
+            methodDescription,
+            methodComponent,
+            methodComponentContext,
+            KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build()
+        ).addParameter(parameter1, "", "").build();
 
-        assertEquals(expectedMap, methodAsMap);
+        assertEquals(expectedKNNMethodContext.getQuantizationConfig(), actualKNNLibraryIndexingContext.getQuantizationConfig());
+        assertEquals(expectedKNNMethodContext.getLibraryParameters(), actualKNNLibraryIndexingContext.getLibraryParameters());
+        assertEquals(expectedKNNMethodContext.getPerDimensionProcessor(), actualKNNLibraryIndexingContext.getPerDimensionProcessor());
+        assertEquals(expectedKNNMethodContext.getPerDimensionValidator(), actualKNNLibraryIndexingContext.getPerDimensionValidator());
+        assertEquals(expectedKNNMethodContext.getVectorValidator(), actualKNNLibraryIndexingContext.getVectorValidator());
     }
 
 }
