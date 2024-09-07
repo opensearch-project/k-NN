@@ -141,7 +141,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             ArgumentCaptor<float[]> vectorCaptor = ArgumentCaptor.forClass(float[].class);
             // New: Create QuantizationOutput and mock the quantization process
             QuantizationOutput<byte[]> quantizationOutput = mock(QuantizationOutput.class);
-            when(quantizationOutput.getQuantizedVector()).thenReturn(new byte[] { 1, 2 });
+            when(quantizationOutput.getQuantizedVectorCopy()).thenReturn(new byte[] { 1, 2 });
             when(quantizationService.createQuantizationOutput(eq(quantizationState.getQuantizationParams()))).thenReturn(
                 quantizationOutput
             );
@@ -149,8 +149,8 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             // Quantize the vector with the quantization output
             when(quantizationService.quantize(eq(quantizationState), vectorCaptor.capture(), eq(quantizationOutput))).thenAnswer(
                 invocation -> {
-                    quantizationOutput.getQuantizedVector();
-                    return quantizationOutput.getQuantizedVector();
+                    quantizationOutput.getQuantizedVectorCopy();
+                    return quantizationOutput.getQuantizedVectorCopy();
                 }
             );
             when(quantizationState.getDimensions()).thenReturn(2);

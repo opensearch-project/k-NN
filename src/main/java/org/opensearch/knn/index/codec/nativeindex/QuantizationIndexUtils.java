@@ -33,7 +33,7 @@ class QuantizationIndexUtils {
                 knnVectorValues.getVector(),
                 indexBuildSetup.getQuantizationOutput()
             );
-            return indexBuildSetup.getQuantizationOutput().getQuantizedVector();
+            return indexBuildSetup.getQuantizationOutput().getQuantizedVectorCopy();
         } else {
             return knnVectorValues.conditionalCloneVector();
         }

@@ -63,4 +63,16 @@ public class BinaryQuantizationOutput implements QuantizationOutput<byte[]> {
     public byte[] getQuantizedVector() {
         return quantizedVector;
     }
+
+    /**
+     * Returns a copy of the quantized vector.
+     *
+     * @return a copy of the quantized vector byte array.
+     */
+    @Override
+    public byte[] getQuantizedVectorCopy() {
+        byte[] clonedByteArray = new byte[quantizedVector.length];
+        System.arraycopy(quantizedVector, 0, clonedByteArray, 0, quantizedVector.length);
+        return clonedByteArray;
+    }
 }

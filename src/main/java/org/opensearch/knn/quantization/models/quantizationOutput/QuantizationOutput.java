@@ -33,4 +33,11 @@ public interface QuantizationOutput<T> {
      * @return true if the quantized vector is already prepared, false otherwise.
      */
     boolean isPrepared(int vectorLength);
+
+    /**
+     * Returns a copy of the quantized vector.
+     *
+     * @return a copy of the quantized data.
+     */
+    T getQuantizedVectorCopy();
 }
