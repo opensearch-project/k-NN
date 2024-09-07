@@ -29,11 +29,10 @@ public abstract class OffHeapVectorTransfer<T> implements Closeable {
     private long vectorAddress;
     protected final int transferLimit;
 
-    private final List<T> vectorsToTransfer;
+    private List<T> vectorsToTransfer;
 
     public OffHeapVectorTransfer(final int transferLimit) {
         this.transferLimit = transferLimit;
-        this.vectorsToTransfer = new ArrayList<>(transferLimit);
         this.vectorAddress = 0;
     }
 
@@ -45,10 +44,13 @@ public abstract class OffHeapVectorTransfer<T> implements Closeable {
      * @throws IOException
      */
     public boolean transfer(T vector, boolean append) throws IOException {
+        if (vectorsToTransfer == null) {
+            vectorsToTransfer = new ArrayList<>(transferLimit);
+        }
         vectorsToTransfer.add(vector);
         if (vectorsToTransfer.size() == this.transferLimit) {
             vectorAddress = transfer(vectorsToTransfer, append);
-            vectorsToTransfer.clear();
+            vectorsToTransfer = null;
             return true;
         }
         return false;
@@ -64,9 +66,9 @@ public abstract class OffHeapVectorTransfer<T> implements Closeable {
      */
     public boolean flush(boolean append) throws IOException {
         // flush before closing
-        if (!vectorsToTransfer.isEmpty()) {
+        if (vectorsToTransfer != null && !vectorsToTransfer.isEmpty()) {
             vectorAddress = transfer(vectorsToTransfer, append);
-            vectorsToTransfer.clear();
+            vectorsToTransfer = null;
             return true;
         }
         return false;
@@ -90,7 +92,9 @@ public abstract class OffHeapVectorTransfer<T> implements Closeable {
      */
     public void reset() {
         vectorAddress = 0;
-        vectorsToTransfer.clear();
+        if (vectorsToTransfer != null) {
+            vectorsToTransfer = null;
+        }
     }
 
     protected abstract void deallocate();

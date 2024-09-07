@@ -73,7 +73,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
         int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / indexBuildSetup.getBytesPerVector());
         try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
 
-            final List<Integer> transferredDocIds = new ArrayList<>(transferLimit);
+            List<Integer> transferredDocIds = new ArrayList<>(transferLimit);
 
             while (knnVectorValues.docId() != NO_MORE_DOCS) {
                 Object vector = QuantizationIndexUtils.processAndReturnVector(knnVectorValues, indexBuildSetup);
@@ -81,11 +81,12 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                 boolean transferred = vectorTransfer.transfer(vector, false);
                 transferredDocIds.add(knnVectorValues.docId());
                 if (transferred) {
+                    final int[] docArray = intListToArray(transferredDocIds);
                     // Insert vectors
                     long vectorAddress = vectorTransfer.getVectorAddress();
                     AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                         JNIService.insertToIndex(
-                            intListToArray(transferredDocIds),
+                            docArray,
                             vectorAddress,
                             indexBuildSetup.getDimensions(),
                             indexParameters,
@@ -94,7 +95,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                         );
                         return null;
                     });
-                    transferredDocIds.clear();
+                    transferredDocIds = new ArrayList<>(transferLimit);
                 }
                 knnVectorValues.nextDoc();
             }
@@ -102,10 +103,11 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
             boolean flush = vectorTransfer.flush(false);
             // Need to make sure that the flushed vectors are indexed
             if (flush) {
+                final int[] docArray = intListToArray(transferredDocIds);
                 long vectorAddress = vectorTransfer.getVectorAddress();
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                     JNIService.insertToIndex(
-                        intListToArray(transferredDocIds),
+                        docArray,
                         vectorAddress,
                         indexBuildSetup.getDimensions(),
                         indexParameters,
@@ -114,7 +116,6 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                     );
                     return null;
                 });
-                transferredDocIds.clear();
             }
 
             // Write vector
