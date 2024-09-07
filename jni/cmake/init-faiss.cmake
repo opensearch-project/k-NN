@@ -86,7 +86,7 @@ if(NOT DEFINED SIMD_ENABLED)
 endif()
 
 if(NOT DEFINED AVX512_ENABLED)
-    set(AVX512_ENABLED false)   # set default value as false if the argument is not set
+    set(AVX512_ENABLED true)   # set default value as true if the argument is not set
 endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" OR NOT SIMD_ENABLED)
