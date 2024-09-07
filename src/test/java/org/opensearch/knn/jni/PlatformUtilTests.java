@@ -145,7 +145,7 @@ public class PlatformUtilTests extends KNNTestCase {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(true);
-            assertFalse(isAVX2SupportedBySystem());
+            assertFalse(isAVX512SupportedBySystem());
         }
     }
 
@@ -153,7 +153,7 @@ public class PlatformUtilTests extends KNNTestCase {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isWindows).thenReturn(true);
-            assertFalse(isAVX2SupportedBySystem());
+            assertFalse(isAVX512SupportedBySystem());
         }
     }
 
@@ -165,7 +165,7 @@ public class PlatformUtilTests extends KNNTestCase {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: AVX2 avx512f avx512cd avx512vl avx512dq avx512bw", "dummy string"));
-                assertTrue(isAVX2SupportedBySystem());
+                assertTrue(isAVX512SupportedBySystem());
             }
         }
     }
@@ -178,7 +178,7 @@ public class PlatformUtilTests extends KNNTestCase {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: AVX2 avx512vl avx512dq avx512bw avx512vbmi umip pku ospke avx512_vbmi2", "dummy string"));
-                assertTrue(isAVX2SupportedBySystem());
+                assertFalse(isAVX512SupportedBySystem());
             }
         }
     }

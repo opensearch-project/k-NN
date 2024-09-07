@@ -19,7 +19,7 @@ buildscript {
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
         simd_enabled = System.getProperty("simd.enabled", "true")
         nproc_count = System.getProperty("nproc.count", "1")
-        avx512_enabled = System.getProperty("avx512.enabled", "false")
+        avx512_enabled = System.getProperty("avx512.enabled", "true")
         // This flag determines whether the CMake build system should apply a custom patch. It prevents build failures
         // when the cmakeJniLib task is run multiple times. If the build.lib.commit_patches is true, the CMake build
         // system skips applying the patch if the patches have been applied already. If build.lib.commit_patches is
