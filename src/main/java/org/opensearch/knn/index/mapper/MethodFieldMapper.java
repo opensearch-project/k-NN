@@ -51,6 +51,12 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         OriginalMappingParameters originalMappingParameters
     ) {
+
+        KNNMethodContext knnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
+        QuantizationConfig quantizationConfig = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getQuantizationConfig();
+
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
             metaValue,
@@ -74,6 +80,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
                 @Override
                 public CompressionLevel getCompressionLevel() {
                     return knnMethodConfigContext.getCompressionLevel();
+                }
+
+                @Override
+                public QuantizationConfig getQuantizationConfig() {
+                    return quantizationConfig;
                 }
             }
         );

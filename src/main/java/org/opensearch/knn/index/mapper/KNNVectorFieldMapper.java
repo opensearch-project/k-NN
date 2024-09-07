@@ -241,7 +241,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     hasDocValues.get(),
                     modelDao,
                     indexCreatedVersion,
-                    originalParameters
+                    originalParameters,
+                    knnMethodConfigContext
                 );
             }
 
