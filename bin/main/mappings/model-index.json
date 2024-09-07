@@ -1,0 +1,46 @@
+{
+  "properties": {
+    "model_id": {
+      "type": "keyword"
+    },
+    "engine": {
+      "type": "keyword"
+    },
+    "space_type": {
+      "type": "keyword"
+    },
+    "dimension": {
+      "type": "integer"
+    },
+    "state": {
+      "type": "keyword"
+    },
+    "timestamp": {
+      "type": "date"
+    },
+    "description": {
+      "type": "keyword"
+    },
+    "error": {
+      "type": "keyword"
+    },
+    "model_blob": {
+      "type": "binary"
+    },
+    "node_assignment": {
+      "type": "keyword"
+    },
+    "method_component_context": {
+      "type": "keyword"
+    },
+    "mode": {
+      "type": "keyword"
+    },
+    "compression_level": {
+      "type": "keyword"
+    },
+    "model_version": {
+      "type": "keyword"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+# Copyright OpenSearch Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Painless definition of classes used by knn plugin
+
+class org.opensearch.knn.index.KNNVectorScriptDocValues {
+  float[] getValue()
+}
+static_import {
+  float l2Squared(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+  float lInfNorm(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+  float l1Norm(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+  float innerProduct(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+  float cosineSimilarity(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+  float cosineSimilarity(List, org.opensearch.knn.index.KNNVectorScriptDocValues, Number) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+  float hamming(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+}

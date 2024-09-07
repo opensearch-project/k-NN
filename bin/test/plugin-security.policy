@@ -1,0 +1,9 @@
+grant {
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_nmslib";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_common";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx2";
+    permission java.net.SocketPermission "*", "connect,resolve";
+    permission java.lang.RuntimePermission "accessDeclaredMembers";
+    permission java.io.FilePermission "/proc/cpuinfo", "read";
+};
