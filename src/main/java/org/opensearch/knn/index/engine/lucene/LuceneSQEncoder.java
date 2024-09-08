@@ -8,8 +8,11 @@ package org.opensearch.knn.index.engine.lucene;
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponent;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.List;
 import java.util.Set;
@@ -48,5 +51,14 @@ public class LuceneSQEncoder implements Encoder {
     @Override
     public MethodComponent getMethodComponent() {
         return METHOD_COMPONENT;
+    }
+
+    @Override
+    public CompressionLevel calculateCompressionLevel(
+        MethodComponentContext methodComponentContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
+        // Hard coding to 4x for now, given thats all that is supported.
+        return CompressionLevel.x4;
     }
 }
