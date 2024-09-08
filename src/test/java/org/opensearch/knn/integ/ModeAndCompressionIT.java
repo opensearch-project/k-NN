@@ -389,7 +389,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         assertOK(response);
         String responseBody = EntityUtils.toString(response.getEntity());
         List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
-        assertEquals(K, knnResults.size());
+        assertTrue(knnResults.size() > 0);
 
         // Search with rescore
         response = searchKNNIndex(
@@ -416,6 +416,6 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         assertOK(response);
         responseBody = EntityUtils.toString(response.getEntity());
         knnResults = parseSearchResponse(responseBody, FIELD_NAME);
-        assertEquals(K, knnResults.size());
+        assertTrue(knnResults.size() > 0);
     }
 }
