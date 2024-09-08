@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.query;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
@@ -42,27 +44,18 @@ public class ExactSearcher {
     /**
      * Execute an exact search on a subset of documents of a leaf
      *
-     * @param leafReaderContext LeafReaderContext to be searched over
-     * @param matchedDocs matched documents
-     * @param knnQuery KNN Query
-     * @param k number of results to return
-     * @param isParentHits whether the matchedDocs contains parent ids or child ids. This is relevant in the case of
-     *                     filtered nested search where the matchedDocs contain the parent ids and {@link NestedFilteredIdsKNNIterator}
-     *                     needs to be used.
+     * @param leafReaderContext {@link LeafReaderContext}
+     * @param exactSearcherContext {@link ExactSearcherContext}
      * @return Map of re-scored results
+     * @throws IOException exception during execution of exact search
      */
-    public Map<Integer, Float> searchLeaf(
-        final LeafReaderContext leafReaderContext,
-        final BitSet matchedDocs,
-        final KNNQuery knnQuery,
-        int k,
-        boolean isParentHits
-    ) throws IOException {
-        KNNIterator iterator = getMatchedKNNIterator(leafReaderContext, matchedDocs, knnQuery, isParentHits);
-        if (matchedDocs.cardinality() <= k) {
+    public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
+        throws IOException {
+        KNNIterator iterator = getMatchedKNNIterator(leafReaderContext, exactSearcherContext);
+        if (exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
             return scoreAllDocs(iterator);
         }
-        return searchTopK(iterator, k);
+        return searchTopK(iterator, exactSearcherContext.getK());
     }
 
     private Map<Integer, Float> scoreAllDocs(KNNIterator iterator) throws IOException {
@@ -105,17 +98,15 @@ public class ExactSearcher {
         return docToScore;
     }
 
-    private KNNIterator getMatchedKNNIterator(
-        final LeafReaderContext leafReaderContext,
-        final BitSet matchedDocs,
-        KNNQuery knnQuery,
-        boolean isParentHits
-    ) throws IOException {
+    private KNNIterator getMatchedKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext)
+        throws IOException {
+        final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
+        final BitSet matchedDocs = exactSearcherContext.getMatchedDocs();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
 
-        boolean isNestedRequired = isParentHits && knnQuery.getParentsFilter() != null;
+        boolean isNestedRequired = exactSearcherContext.isParentHits() && knnQuery.getParentsFilter() != null;
 
         if (VectorDataType.BINARY == knnQuery.getVectorDataType() && isNestedRequired) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
@@ -137,6 +128,17 @@ public class ExactSearcher {
                 spaceType
             );
         }
+        final byte[] quantizedQueryVector;
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
+        if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
+            // Build Segment Level Quantization info.
+            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, knnQuery.getField());
+            // Quantize the Query Vector Once.
+            quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+        } else {
+            segmentLevelQuantizationInfo = null;
+            quantizedQueryVector = null;
+        }
 
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
         if (isNestedRequired) {
@@ -145,10 +147,42 @@ public class ExactSearcher {
                 knnQuery.getQueryVector(),
                 (KNNFloatVectorValues) vectorValues,
                 spaceType,
-                knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                knnQuery.getParentsFilter().getBitSet(leafReaderContext),
+                quantizedQueryVector,
+                segmentLevelQuantizationInfo
             );
         }
 
-        return new FilteredIdsKNNIterator(matchedDocs, knnQuery.getQueryVector(), (KNNFloatVectorValues) vectorValues, spaceType);
+        return new FilteredIdsKNNIterator(
+            matchedDocs,
+            knnQuery.getQueryVector(),
+            (KNNFloatVectorValues) vectorValues,
+            spaceType,
+            quantizedQueryVector,
+            segmentLevelQuantizationInfo
+        );
+    }
+
+    /**
+     * Stores the context that is used to do the exact search. This class will help in reducing the explosion of attributes
+     * for doing exact search.
+     */
+    @Value
+    @Builder
+    public static class ExactSearcherContext {
+        /**
+         * controls whether we should use Quantized vectors during exact search or not. This is useful because when we do
+         * re-scoring we need to re-score using full precision vectors and not quantized vectors.
+         */
+        boolean useQuantizedVectorsForSearch;
+        int k;
+        BitSet matchedDocs;
+        KNNQuery knnQuery;
+        /**
+         * whether the matchedDocs contains parent ids or child ids. This is relevant in the case of
+         * filtered nested search where the matchedDocs contain the parent ids and {@link NestedFilteredIdsKNNIterator}
+         * needs to be used.
+         */
+        boolean isParentHits;
     }
 }
