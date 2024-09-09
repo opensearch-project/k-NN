@@ -17,8 +17,8 @@ import java.util.List;
  */
 public final class OffHeapBinaryVectorTransfer extends OffHeapVectorTransfer<byte[]> {
 
-    public OffHeapBinaryVectorTransfer(int transferLimit) {
-        super(transferLimit);
+    public OffHeapBinaryVectorTransfer(int bytesPerVector, int totalVectorsToTransfer) {
+        super(bytesPerVector, totalVectorsToTransfer);
     }
 
     @Override
