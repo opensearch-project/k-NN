@@ -27,7 +27,6 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -39,8 +38,6 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
-import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -140,8 +137,17 @@ public class KNNWeight extends Weight {
          * This improves the recall.
          */
         Map<Integer, Float> docIdsToScoreMap;
+        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+            .k(k)
+            .isParentHits(true)
+            .matchedDocs(filterBitSet)
+            // setting to true, so that if quantization details are present we want to do search on the quantized
+            // vectors as this flow is used in first pass of search.
+            .useQuantizedVectorsForSearch(true)
+            .knnQuery(knnQuery)
+            .build();
         if (filterWeight != null && canDoExactSearch(cardinality)) {
-            docIdsToScoreMap = exactSearch(context, filterBitSet, true, k);
+            docIdsToScoreMap = exactSearch(context, exactSearcherContext);
         } else {
             docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
             if (docIdsToScoreMap == null) {
@@ -155,7 +161,7 @@ public class KNNWeight extends Weight {
                     docIdsToScoreMap.size(),
                     cardinality
                 );
-                docIdsToScoreMap = exactSearch(context, filterBitSet, true, k);
+                docIdsToScoreMap = exactSearch(context, exactSearcherContext);
             }
         }
         if (docIdsToScoreMap.isEmpty()) {
@@ -258,10 +264,13 @@ public class KNNWeight extends Weight {
             );
         }
 
-        QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
-
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+            reader,
+            fieldInfo,
+            knnQuery.getField()
+        );
         // TODO: Change type of vector once more quantization methods are supported
-        byte[] quantizedVector = getQuantizedVector(quantizationParams, reader, fieldInfo);
+        final byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
 
         List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
         if (engineFiles.isEmpty()) {
@@ -285,7 +294,7 @@ public class KNNWeight extends Weight {
                         knnEngine,
                         knnQuery.getIndexName(),
                         // TODO: In the future, more vector data types will be supported with quantization
-                        quantizationParams == null ? vectorDataType : VectorDataType.BINARY
+                        quantizedVector == null ? vectorDataType : VectorDataType.BINARY
                     ),
                     knnQuery.getIndexName(),
                     modelId
@@ -310,11 +319,11 @@ public class KNNWeight extends Weight {
             int[] parentIds = getParentIdsArray(context);
             if (k > 0) {
                 if (knnQuery.getVectorDataType() == VectorDataType.BINARY
-                    || quantizationParams != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
+                    || quantizedVector != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
                         // TODO: In the future, quantizedVector can have other data types than byte
-                        quantizationParams == null ? knnQuery.getByteQueryVector() : quantizedVector,
+                        quantizedVector == null ? knnQuery.getByteQueryVector() : quantizedVector,
                         k,
                         knnQuery.getMethodParameters(),
                         knnEngine,
@@ -391,16 +400,14 @@ public class KNNWeight extends Weight {
     /**
      * Execute exact search for the given matched doc ids and return the results as a map of docId to score.
      *
-     * @param leafReaderContext The leaf reader context for the current segment.
-     * @param matchSet The filterIds to search for.
-     * @param isParentHits Whether the matchedDocs contains parent ids or child ids.
-     * @param k The number of results to return.
      * @return Map of docId to score for the exact search results.
      * @throws IOException If an error occurs during the search.
      */
-    public Map<Integer, Float> exactSearch(final LeafReaderContext leafReaderContext, final BitSet matchSet, boolean isParentHits, int k)
-        throws IOException {
-        return exactSearcher.searchLeaf(leafReaderContext, matchSet, knnQuery, k, isParentHits);
+    public Map<Integer, Float> exactSearch(
+        final LeafReaderContext leafReaderContext,
+        final ExactSearcher.ExactSearcherContext exactSearcherContext
+    ) throws IOException {
+        return exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
     }
 
     @Override
@@ -461,24 +468,5 @@ public class KNNWeight extends Weight {
      */
     private boolean canDoExactSearchAfterANNSearch(final int filterIdsCount, final int annResultCount) {
         return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
-    }
-
-    // TODO: this will eventually return more types than just byte
-    private byte[] getQuantizedVector(QuantizationParams quantizationParams, SegmentReader reader, FieldInfo fieldInfo) throws IOException {
-        if (quantizationParams != null) {
-            QuantizationConfigKNNCollector tempCollector = new QuantizationConfigKNNCollector();
-            reader.searchNearestVectors(knnQuery.getField(), new float[0], tempCollector, null);
-            if (tempCollector.getQuantizationState() == null) {
-                throw new IllegalStateException(String.format("No quantization state found for field %s", fieldInfo.getName()));
-            }
-            QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
-            // TODO: In the future, byte array will not be the only output type from this method
-            return (byte[]) quantizationService.quantize(
-                tempCollector.getQuantizationState(),
-                knnQuery.getQueryVector(),
-                quantizationOutput
-            );
-        }
-        return null;
     }
 }

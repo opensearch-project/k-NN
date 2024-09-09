@@ -84,6 +84,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -1363,9 +1364,9 @@ public class KNNWeightTests extends KNNTestCase {
     public void testANNWithQuantizationParams_whenStateNotFound_thenFail() {
         try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
+            quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
             QuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
             Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class))).thenReturn(quantizationParams);
-            quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
 
             // Given
             int k = 3;
@@ -1413,6 +1414,8 @@ public class KNNWeightTests extends KNNTestCase {
             when(reader.getFieldInfos()).thenReturn(fieldInfos);
             when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
             when(fieldInfo.attributes()).thenReturn(attributesMap);
+            // fieldName, new float[0], tempCollector, null)
+            doNothing().when(reader).searchNearestVectors(any(), eq(new float[0]), any(), any());
 
             expectThrows(IllegalStateException.class, () -> knnWeight.scorer(leafReaderContext));
         }
