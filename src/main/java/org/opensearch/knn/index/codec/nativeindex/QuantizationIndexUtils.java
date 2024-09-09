@@ -18,12 +18,12 @@ import java.io.IOException;
 class QuantizationIndexUtils {
 
     /**
-     * Processes and returns the vector based on whether quantization is applied or not.
+     * Processes the vector from {@link KNNVectorValues} and returns either a cloned quantized vector or a cloned original vector.
      *
-     * @param knnVectorValues the KNN vector values to be processed.
-     * @param indexBuildSetup the setup containing quantization state and output, along with other parameters.
-     * @return the processed vector, either quantized or original.
-     * @throws IOException if an I/O error occurs during processing.
+     * @param knnVectorValues The KNN vector values containing the original vector.
+     * @param indexBuildSetup The setup containing the quantization state and output details.
+     * @return The quantized vector (as a byte array) or the original/cloned vector.
+     * @throws IOException If an I/O error occurs while processing the vector.
      */
     static Object processAndReturnVector(KNNVectorValues<?> knnVectorValues, IndexBuildSetup indexBuildSetup) throws IOException {
         QuantizationService quantizationService = QuantizationService.getInstance();
@@ -33,7 +33,11 @@ class QuantizationIndexUtils {
                 knnVectorValues.getVector(),
                 indexBuildSetup.getQuantizationOutput()
             );
-            return indexBuildSetup.getQuantizationOutput().getQuantizedVector();
+            /**
+             * Returns a copy of the quantized vector. This is because of during transfer same vectors was getting
+             * added due to reference.
+             */
+            return indexBuildSetup.getQuantizationOutput().getQuantizedVectorCopy();
         } else {
             return knnVectorValues.conditionalCloneVector();
         }
