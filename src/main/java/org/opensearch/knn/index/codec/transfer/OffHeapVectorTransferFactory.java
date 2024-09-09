@@ -18,18 +18,23 @@ public final class OffHeapVectorTransferFactory {
     /**
      * Gets the right vector transfer object based on vector data type
      * @param vectorDataType {@link VectorDataType}
-     * @param transferLimit max number of vectors that can be transferred to off heap in one transfer
+     * @param bytesPerVector Bytes used per vector
+     * @param totalVectorsToTransfer total number of vectors that will be transferred off heap
      * @return Correct implementation of {@link OffHeapVectorTransfer}
      * @param <T> float[] or byte[]
      */
-    public static <T> OffHeapVectorTransfer<T> getVectorTransfer(final VectorDataType vectorDataType, final int transferLimit) {
+    public static <T> OffHeapVectorTransfer<T> getVectorTransfer(
+        final VectorDataType vectorDataType,
+        int bytesPerVector,
+        int totalVectorsToTransfer
+    ) {
         switch (vectorDataType) {
             case FLOAT:
-                return (OffHeapVectorTransfer<T>) new OffHeapFloatVectorTransfer(transferLimit);
+                return (OffHeapVectorTransfer<T>) new OffHeapFloatVectorTransfer(bytesPerVector, totalVectorsToTransfer);
             case BINARY:
-                return (OffHeapVectorTransfer<T>) new OffHeapBinaryVectorTransfer(transferLimit);
+                return (OffHeapVectorTransfer<T>) new OffHeapBinaryVectorTransfer(bytesPerVector, totalVectorsToTransfer);
             case BYTE:
-                return (OffHeapVectorTransfer<T>) new OffHeapByteVectorTransfer(transferLimit);
+                return (OffHeapVectorTransfer<T>) new OffHeapByteVectorTransfer(bytesPerVector, totalVectorsToTransfer);
             default:
                 throw new IllegalArgumentException("Unsupported vector data type: " + vectorDataType);
         }
