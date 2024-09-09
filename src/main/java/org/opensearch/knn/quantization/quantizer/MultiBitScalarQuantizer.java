@@ -139,7 +139,7 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds[0].length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        if (!output.isPrepared(vectorLength)) output.prepareQuantizedVector(vectorLength);
+        output.prepareQuantizedVector(vectorLength);
         BitPacker.quantizeAndPackBits(vector, thresholds, bitsPerCoordinate, output.getQuantizedVector());
     }
 

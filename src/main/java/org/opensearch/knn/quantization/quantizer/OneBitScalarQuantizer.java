@@ -84,7 +84,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds.length != vectorLength) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        if (!output.isPrepared(vectorLength)) output.prepareQuantizedVector(vectorLength);
+        output.prepareQuantizedVector(vectorLength);
         BitPacker.quantizeAndPackBits(vector, thresholds, output.getQuantizedVector());
     }
 
