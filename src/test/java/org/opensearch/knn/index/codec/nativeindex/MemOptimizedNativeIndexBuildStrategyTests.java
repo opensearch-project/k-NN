@@ -9,8 +9,6 @@ import lombok.SneakyThrows;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.opensearch.core.common.unit.ByteSizeValue;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
@@ -49,7 +47,6 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
         final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
 
         try (
-            MockedStatic<KNNSettings> mockedKNNSettings = Mockito.mockStatic(KNNSettings.class);
             MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
             MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
                 OffHeapVectorTransferFactory.class
@@ -57,13 +54,13 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
         ) {
 
             // Limits transfer to 2 vectors
-            mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(16));
             mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
 
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
-            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 2))
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
                 .thenReturn(offHeapVectorTransfer);
 
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
             when(offHeapVectorTransfer.transfer(vectorTransferCapture.capture(), eq(false))).thenReturn(false)
                 .thenReturn(true)
                 .thenReturn(false);
@@ -145,7 +142,6 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
         final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
 
         try (
-            MockedStatic<KNNSettings> mockedKNNSettings = Mockito.mockStatic(KNNSettings.class);
             MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
             MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
                 OffHeapVectorTransferFactory.class
@@ -154,11 +150,11 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
         ) {
 
             // Limits transfer to 2 vectors
-            mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(16));
             mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
 
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
-            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 2))
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
                 .thenReturn(offHeapVectorTransfer);
 
             QuantizationService quantizationService = mock(QuantizationService.class);
