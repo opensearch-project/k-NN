@@ -56,8 +56,16 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         ModelDao modelDao,
         Version indexCreatedVersion,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        KNNMethodConfigContext knnMethodConfigContext
     ) {
+
+        final KNNMethodContext knnMethodContext = originalMappingParameters.getKnnMethodContext();
+        final QuantizationConfig quantizationConfig = knnMethodContext == null
+            ? QuantizationConfig.EMPTY
+            : knnMethodContext.getKnnEngine()
+                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+                .getQuantizationConfig();
 
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, new KNNMappingConfig() {
             private Integer dimension = null;
@@ -92,6 +100,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
                     initFromModelMetadata();
                 }
                 return compressionLevel;
+            }
+
+            @Override
+            public QuantizationConfig getQuantizationConfig() {
+                return quantizationConfig;
             }
 
             // ModelMetadata relies on cluster state which may not be available during field mapper creation. Thus,

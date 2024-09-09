@@ -1130,6 +1130,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             MockedStatic<KNNVectorFieldMapperUtil> utilMockedStatic = Mockito.mockStatic(KNNVectorFieldMapperUtil.class);
             MockedStatic<ModelUtil> modelUtilMockedStatic = Mockito.mockStatic(ModelUtil.class)
         ) {
+            KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .versionCreated(CURRENT)
+                .dimension(TEST_DIMENSION)
+                .build();
+
             for (VectorDataType dataType : VectorDataType.values()) {
                 log.info("Vector Data Type is : {}", dataType);
                 SpaceType spaceType = VectorDataType.BINARY == dataType ? SpaceType.DEFAULT_BINARY : SpaceType.INNER_PRODUCT;
@@ -1173,7 +1179,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     false,
                     modelDao,
                     CURRENT,
-                    originalMappingParameters
+                    originalMappingParameters,
+                    knnMethodConfigContext
                 );
 
                 modelFieldMapper.parseCreateField(parseContext);
@@ -1214,7 +1221,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     false,
                     modelDao,
                     CURRENT,
-                    originalMappingParameters
+                    originalMappingParameters,
+                    knnMethodConfigContext
                 );
 
                 modelFieldMapper.parseCreateField(parseContext);
