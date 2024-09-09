@@ -16,7 +16,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -166,11 +165,11 @@ public class TrainingJobRunner {
     private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update) throws IOException,
         ExecutionException, InterruptedException {
         if (update) {
-            Model model = modelDao.get(trainingJob.getModelId());
-            if (model.getModelMetadata().getState().equals(ModelState.TRAINING)) {
+            ModelMetadata modelMetadata = modelDao.getMetadata(trainingJob.getModelId());
+            if (modelMetadata.getState().equals(ModelState.TRAINING)) {
                 modelDao.update(trainingJob.getModel(), listener);
             } else {
-                logger.info("Model state is {}. Skipping serialization of trained data", model.getModelMetadata().getState());
+                logger.info("Model state is {}. Skipping serialization of trained data", modelMetadata.getState());
             }
         } else {
             modelDao.put(trainingJob.getModel(), listener);

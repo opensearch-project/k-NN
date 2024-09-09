@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.Version;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -59,6 +60,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     private String error;
     @Getter
     private final CompressionLevel compressionLevel;
+    private final Version version;
 
     /**
      * Constructor
@@ -66,7 +68,6 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param in Stream input
      */
     public ModelMetadata(StreamInput in) throws IOException {
-        String tempTrainingNodeAssignment;
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
@@ -96,7 +97,6 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         } else {
             this.vectorDataType = VectorDataType.DEFAULT;
         }
-
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
             this.mode = Mode.fromName(in.readOptionalString());
             this.compressionLevel = CompressionLevel.fromName(in.readOptionalString());
@@ -105,6 +105,11 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             this.compressionLevel = CompressionLevel.NOT_CONFIGURED;
         }
 
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MODEL_VERSION)) {
+            this.version = Version.fromString(in.readString());
+        } else {
+            this.version = Version.V_EMPTY;
+        }
     }
 
     /**
@@ -133,7 +138,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         MethodComponentContext methodComponentContext,
         VectorDataType vectorDataType,
         Mode mode,
-        CompressionLevel compressionLevel
+        CompressionLevel compressionLevel,
+        Version version
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
@@ -159,6 +165,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.vectorDataType = Objects.requireNonNull(vectorDataType, "vector data type must not be null");
         this.mode = Objects.requireNonNull(mode, "Mode must not be null");
         this.compressionLevel = Objects.requireNonNull(compressionLevel, "Compression level must not be null");
+        this.version = Objects.requireNonNull(version, "model version must not be null");
     }
 
     /**
@@ -247,6 +254,14 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     }
 
     /**
+     * Getter for the model version
+     * @return version
+     */
+    public Version getModelVersion() {
+        return version;
+    }
+
+    /**
      * setter for model's state
      *
      * @param state of the model
@@ -279,7 +294,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             methodComponentContext.toClusterStateString(),
             vectorDataType.getValue(),
             mode.getName(),
-            compressionLevel.getName()
+            compressionLevel.getName(),
+            version.toString()
         );
     }
 
@@ -317,6 +333,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             .append(getVectorDataType())
             .append(getMode())
             .append(getCompressionLevel())
+            .append(getModelVersion())
             .toHashCode();
     }
 
@@ -329,15 +346,15 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     public static ModelMetadata fromString(String modelMetadataString) {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
         int length = modelMetadataArray.length;
-
-        if (length < 7 || length > 12) {
+        if (length < 7 || length > 13) {
             throw new IllegalArgumentException(
                 "Illegal format for model metadata. Must be of the form "
                     + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\" or "
                     + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\" or "
                     + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>\" or "
                     + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>\". or "
-                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>,<Mode>,<CompressionLevel>\"."
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>,<Mode>,<CompressionLevel>\" or "
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>,<VectorDataType>,<Mode>,<CompressionLevel>,<Version>\"."
             );
         }
 
@@ -357,6 +374,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         CompressionLevel compressionLevel = length > 11
             ? CompressionLevel.fromName(modelMetadataArray[11])
             : CompressionLevel.NOT_CONFIGURED;
+        Version version = length > 12 ? Version.fromString(modelMetadataArray[12]) : Version.V_EMPTY;
 
         log.debug(getLogMessage(length));
 
@@ -372,7 +390,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             methodComponentContext,
             vectorDataType,
             mode,
-            compressionLevel
+            compressionLevel,
+            version
         );
     }
 
@@ -386,9 +405,10 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                 return "Model metadata contains training node assignment and method context.";
             case 10:
                 return "Model metadata contains training node assignment, method context and vector data type.";
-            case 11:
             case 12:
                 return "Model metadata contains mode and compression level";
+            case 13:
+                return "Model metadata contains training node assignment, method context, vector data type, and version";
             default:
                 throw new IllegalArgumentException("Unexpected metadata array length: " + length);
         }
@@ -423,6 +443,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object vectorDataType = modelSourceMap.get(KNNConstants.VECTOR_DATA_TYPE_FIELD);
         Object mode = modelSourceMap.get(KNNConstants.MODE_PARAMETER);
         Object compressionLevel = modelSourceMap.get(KNNConstants.COMPRESSION_LEVEL_PARAMETER);
+        Object version = modelSourceMap.get(KNNConstants.MODEL_VERSION);
 
         if (trainingNodeAssignment == null) {
             trainingNodeAssignment = "";
@@ -447,6 +468,10 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             vectorDataType = VectorDataType.DEFAULT.getValue();
         }
 
+        if (version == null) {
+            version = Version.V_EMPTY;
+        }
+
         ModelMetadata modelMetadata = new ModelMetadata(
             KNNEngine.getEngine(objectToString(engine)),
             SpaceType.getSpace(objectToString(space)),
@@ -459,7 +484,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             (MethodComponentContext) methodComponentContext,
             VectorDataType.get(objectToString(vectorDataType)),
             Mode.fromName(objectToString(mode)),
-            CompressionLevel.fromName(objectToString(compressionLevel))
+            CompressionLevel.fromName(objectToString(compressionLevel)),
+            Version.fromString(version.toString())
         );
         return modelMetadata;
     }
@@ -485,6 +511,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
             out.writeOptionalString(mode.getName());
             out.writeOptionalString(compressionLevel.getName());
+        }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MODEL_VERSION)) {
+            out.writeString(version.toString());
         }
     }
 
@@ -516,6 +545,13 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             if (CompressionLevel.isConfigured(compressionLevel)) {
                 builder.field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName());
             }
+        }
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(KNNConstants.MODEL_VERSION)) {
+            String versionString = "unknown";
+            if (version != Version.V_EMPTY) {
+                versionString = version.toString();
+            }
+            builder.field(KNNConstants.MODEL_VERSION, versionString);
         }
         return builder;
     }
