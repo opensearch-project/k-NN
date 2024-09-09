@@ -7,16 +7,18 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.Assert;
 import org.junit.Ignore;
+import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.mapper.ModeBasedResolver;
@@ -50,7 +52,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
 
     private static final int DIMENSION = 16;
     private static final int NUM_DOCS = 20;
-    private static final int K = 2;
+    private static final int K = NUM_DOCS;
     private final static float[] TEST_VECTOR = new float[] {
         1.0f,
         2.0f,
@@ -210,7 +212,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             .endObject();
         String mapping = builder.toString();
         validateIndexWithDeletedDocs(indexName, mapping);
-        validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
+        validateGreenIndex(indexName);
     }
 
     @SneakyThrows
@@ -353,6 +355,19 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    private void validateGreenIndex(String indexName) {
+        Request request = new Request("GET", "/_cat/indices/" + indexName + "?format=csv");
+        Response response = client().performRequest(request);
+        assertOK(response);
+        assertEquals(
+            "The status of index " + indexName + " is not green",
+            "green",
+            new String(response.getEntity().getContent().readAllBytes()).split("\n")[0].split(" ")[0]
+        );
+
+    }
+
+    @SneakyThrows
     private void setupTrainingIndex() {
         createBasicKnnIndex(TRAINING_INDEX_NAME, TRAINING_FIELD_NAME, DIMENSION);
         bulkIngestRandomVectors(TRAINING_INDEX_NAME, TRAINING_FIELD_NAME, TRAINING_VECS, DIMENSION);
@@ -388,8 +403,40 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         );
         assertOK(response);
         String responseBody = EntityUtils.toString(response.getEntity());
-        List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
-        assertTrue(knnResults.size() > 0);
+        List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(K, knnResults.size());
+
+        // Do exact search and gather right scores for the documents
+        Response exactSearchResponse = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("script_score")
+                .startObject("query")
+                .field("match_all")
+                .startObject()
+                .endObject()
+                .endObject()
+                .startObject("script")
+                .field("source", "knn_score")
+                .field("lang", "knn")
+                .startObject("params")
+                .field("field", FIELD_NAME)
+                .field("query_value", TEST_VECTOR)
+                .field("space_type", SpaceType.L2.getValue())
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(exactSearchResponse);
+        String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
+        List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
+        assertEquals(NUM_DOCS, exactSearchKnnResults.size());
+        Assert.assertEquals(exactSearchKnnResults, knnResults);
 
         // Search with rescore
         response = searchKNNIndex(
@@ -415,7 +462,8 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         );
         assertOK(response);
         responseBody = EntityUtils.toString(response.getEntity());
-        knnResults = parseSearchResponse(responseBody, FIELD_NAME);
-        assertTrue(knnResults.size() > 0);
+        knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(K, knnResults.size());
+        Assert.assertEquals(exactSearchKnnResults, knnResults);
     }
 }

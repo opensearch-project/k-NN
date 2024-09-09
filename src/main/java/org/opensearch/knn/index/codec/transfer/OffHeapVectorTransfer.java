@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.transfer;
 
 import lombok.Getter;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.Closeable;
@@ -27,14 +28,20 @@ public abstract class OffHeapVectorTransfer<T> implements Closeable {
 
     @Getter
     private long vectorAddress;
+    @Getter
     protected final int transferLimit;
 
-    private final List<T> vectorsToTransfer;
+    private List<T> vectorsToTransfer;
 
-    public OffHeapVectorTransfer(final int transferLimit) {
-        this.transferLimit = transferLimit;
-        this.vectorsToTransfer = new ArrayList<>(transferLimit);
+    public OffHeapVectorTransfer(int bytesPerVector, int totalVectorsToTransfer) {
+        this.transferLimit = computeTransferLimit(bytesPerVector, totalVectorsToTransfer);
+        this.vectorsToTransfer = new ArrayList<>(this.transferLimit);
         this.vectorAddress = 0;
+    }
+
+    private int computeTransferLimit(int bytesPerVector, int totalVectorsToTransfer) {
+        int limit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / bytesPerVector);
+        return Math.min(limit, totalVectorsToTransfer);
     }
 
     /**
@@ -90,7 +97,7 @@ public abstract class OffHeapVectorTransfer<T> implements Closeable {
      */
     public void reset() {
         vectorAddress = 0;
-        vectorsToTransfer.clear();
+        vectorsToTransfer = null;
     }
 
     protected abstract void deallocate();

@@ -6,9 +6,14 @@
 package org.opensearch.knn.index.codec.transfer;
 
 import lombok.SneakyThrows;
+import org.mockito.MockedStatic;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
 
 import java.util.List;
+
+import static org.mockito.Mockito.mockStatic;
 
 public class OffHeapVectorTransferTests extends KNNTestCase {
 
@@ -22,21 +27,27 @@ public class OffHeapVectorTransferTests extends KNNTestCase {
             new float[] { 0.3f, 0.4f }
         );
 
-        OffHeapFloatVectorTransfer vectorTransfer = new OffHeapFloatVectorTransfer(2);
-        long vectorAddress = 0;
-        assertFalse(vectorTransfer.transfer(vectors.get(0), false));
-        assertEquals(0, vectorTransfer.getVectorAddress());
-        assertTrue(vectorTransfer.transfer(vectors.get(1), false));
-        vectorAddress = vectorTransfer.getVectorAddress();
-        assertFalse(vectorTransfer.transfer(vectors.get(2), false));
-        assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
-        assertTrue(vectorTransfer.transfer(vectors.get(3), false));
-        assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
-        assertFalse(vectorTransfer.transfer(vectors.get(4), false));
-        assertTrue(vectorTransfer.flush(false));
-        vectorTransfer.reset();
-        assertEquals(0, vectorTransfer.getVectorAddress());
-        vectorTransfer.close();
+        try (MockedStatic<KNNSettings> mockedKNNSettings = mockStatic(KNNSettings.class)) {
+            mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(16));
+
+            OffHeapFloatVectorTransfer vectorTransfer = new OffHeapFloatVectorTransfer(8, 5);
+            long vectorAddress = 0;
+            assertFalse(vectorTransfer.transfer(vectors.get(0), false));
+            assertEquals(0, vectorTransfer.getVectorAddress());
+            assertTrue(vectorTransfer.transfer(vectors.get(1), false));
+            vectorAddress = vectorTransfer.getVectorAddress();
+            assertFalse(vectorTransfer.transfer(vectors.get(2), false));
+            assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
+            assertTrue(vectorTransfer.transfer(vectors.get(3), false));
+            assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
+            assertFalse(vectorTransfer.transfer(vectors.get(4), false));
+            assertTrue(vectorTransfer.flush(false));
+            vectorTransfer.reset();
+            assertEquals(0, vectorTransfer.getVectorAddress());
+            vectorTransfer.close();
+
+        }
+
     }
 
     @SneakyThrows
@@ -49,20 +60,23 @@ public class OffHeapVectorTransferTests extends KNNTestCase {
             new byte[] { 8, 9 }
         );
 
-        OffHeapByteVectorTransfer vectorTransfer = new OffHeapByteVectorTransfer(2);
-        long vectorAddress = 0;
-        assertFalse(vectorTransfer.transfer(vectors.get(0), false));
-        assertEquals(0, vectorTransfer.getVectorAddress());
-        assertTrue(vectorTransfer.transfer(vectors.get(1), false));
-        vectorAddress = vectorTransfer.getVectorAddress();
-        assertFalse(vectorTransfer.transfer(vectors.get(2), false));
-        assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
-        assertTrue(vectorTransfer.transfer(vectors.get(3), false));
-        assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
-        assertFalse(vectorTransfer.transfer(vectors.get(4), false));
-        assertTrue(vectorTransfer.flush(false));
-        vectorTransfer.close();
-        assertEquals(0, vectorTransfer.getVectorAddress());
+        try (MockedStatic<KNNSettings> mockedKNNSettings = mockStatic(KNNSettings.class)) {
+            mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(4));
+            OffHeapByteVectorTransfer vectorTransfer = new OffHeapByteVectorTransfer(2, 5);
+            long vectorAddress = 0;
+            assertFalse(vectorTransfer.transfer(vectors.get(0), false));
+            assertEquals(0, vectorTransfer.getVectorAddress());
+            assertTrue(vectorTransfer.transfer(vectors.get(1), false));
+            vectorAddress = vectorTransfer.getVectorAddress();
+            assertFalse(vectorTransfer.transfer(vectors.get(2), false));
+            assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
+            assertTrue(vectorTransfer.transfer(vectors.get(3), false));
+            assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
+            assertFalse(vectorTransfer.transfer(vectors.get(4), false));
+            assertTrue(vectorTransfer.flush(false));
+            vectorTransfer.close();
+            assertEquals(0, vectorTransfer.getVectorAddress());
+        }
     }
 
     @SneakyThrows
@@ -75,18 +89,21 @@ public class OffHeapVectorTransferTests extends KNNTestCase {
             new byte[] { 8, 9 }
         );
 
-        OffHeapBinaryVectorTransfer vectorTransfer = new OffHeapBinaryVectorTransfer(2);
-        long vectorAddress = 0;
-        assertFalse(vectorTransfer.transfer(vectors.get(0), false));
-        assertEquals(0, vectorTransfer.getVectorAddress());
-        assertTrue(vectorTransfer.transfer(vectors.get(1), false));
-        vectorAddress = vectorTransfer.getVectorAddress();
-        assertFalse(vectorTransfer.transfer(vectors.get(2), false));
-        assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
-        assertTrue(vectorTransfer.transfer(vectors.get(3), false));
-        assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
-        assertFalse(vectorTransfer.transfer(vectors.get(4), false));
-        assertTrue(vectorTransfer.flush(false));
-        vectorTransfer.close();
+        try (MockedStatic<KNNSettings> mockedKNNSettings = mockStatic(KNNSettings.class)) {
+            mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(4));
+            OffHeapBinaryVectorTransfer vectorTransfer = new OffHeapBinaryVectorTransfer(2, 5);
+            long vectorAddress = 0;
+            assertFalse(vectorTransfer.transfer(vectors.get(0), false));
+            assertEquals(0, vectorTransfer.getVectorAddress());
+            assertTrue(vectorTransfer.transfer(vectors.get(1), false));
+            vectorAddress = vectorTransfer.getVectorAddress();
+            assertFalse(vectorTransfer.transfer(vectors.get(2), false));
+            assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
+            assertTrue(vectorTransfer.transfer(vectors.get(3), false));
+            assertEquals(vectorAddress, vectorTransfer.getVectorAddress());
+            assertFalse(vectorTransfer.transfer(vectors.get(4), false));
+            assertTrue(vectorTransfer.flush(false));
+            vectorTransfer.close();
+        }
     }
 }
