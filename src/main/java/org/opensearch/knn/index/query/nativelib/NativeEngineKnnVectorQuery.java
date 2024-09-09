@@ -20,6 +20,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.ResultUtil;
@@ -108,7 +109,15 @@ public class NativeEngineKnnVectorQuery extends Query {
             int finalI = i;
             rescoreTasks.add(() -> {
                 BitSet convertedBitSet = ResultUtil.resultMapToMatchBitSet(perLeafResults.get(finalI));
-                return knnWeight.exactSearch(leafReaderContext, convertedBitSet, false, k);
+                final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+                    .matchedDocs(convertedBitSet)
+                    // setting to false because in re-scoring we want to do exact search on full precision vectors
+                    .useQuantizedVectorsForSearch(false)
+                    .k(k)
+                    .isParentHits(false)
+                    .knnQuery(knnQuery)
+                    .build();
+                return knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
             });
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
