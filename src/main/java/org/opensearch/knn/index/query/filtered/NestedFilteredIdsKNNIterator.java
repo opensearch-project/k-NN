@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query.filtered;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import java.io.IOException;
@@ -19,14 +20,26 @@ import java.io.IOException;
 public class NestedFilteredIdsKNNIterator extends FilteredIdsKNNIterator {
     private final BitSet parentBitSet;
 
-    public NestedFilteredIdsKNNIterator(
+    NestedFilteredIdsKNNIterator(
         final BitSet filterIdsArray,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) {
-        super(filterIdsArray, queryVector, knnFloatVectorValues, spaceType);
+        this(filterIdsArray, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
+    }
+
+    public NestedFilteredIdsKNNIterator(
+        final BitSet filterIdsArray,
+        final float[] queryVector,
+        final KNNFloatVectorValues knnFloatVectorValues,
+        final SpaceType spaceType,
+        final BitSet parentBitSet,
+        final byte[] quantizedVector,
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
+    ) {
+        super(filterIdsArray, queryVector, knnFloatVectorValues, spaceType, quantizedVector, segmentLevelQuantizationInfo);
         this.parentBitSet = parentBitSet;
     }
 

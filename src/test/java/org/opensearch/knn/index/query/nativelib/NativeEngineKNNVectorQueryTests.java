@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -186,8 +185,9 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnWeight.getQuery()).thenReturn(knnQuery);
         when(knnWeight.searchLeaf(leaf1, firstPassK)).thenReturn(initialLeaf1Results);
         when(knnWeight.searchLeaf(leaf2, firstPassK)).thenReturn(initialLeaf2Results);
-        when(knnWeight.exactSearch(eq(leaf1), any(), anyBoolean(), anyInt())).thenReturn(rescoredLeaf1Results);
-        when(knnWeight.exactSearch(eq(leaf2), any(), anyBoolean(), anyInt())).thenReturn(rescoredLeaf2Results);
+
+        when(knnWeight.exactSearch(eq(leaf1), any())).thenReturn(rescoredLeaf1Results);
+        when(knnWeight.exactSearch(eq(leaf2), any())).thenReturn(rescoredLeaf2Results);
         try (MockedStatic<ResultUtil> mockedResultUtil = mockStatic(ResultUtil.class)) {
             mockedResultUtil.when(() -> ResultUtil.reduceToTopK(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
             mockedResultUtil.when(() -> ResultUtil.resultMapToTopDocs(eq(rescoredLeaf1Results), anyInt())).thenAnswer(t -> topDocs1);

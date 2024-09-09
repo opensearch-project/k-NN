@@ -9,6 +9,8 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import java.io.IOException;
@@ -24,16 +26,29 @@ public class FilteredIdsKNNIterator implements KNNIterator {
     protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
     protected final float[] queryVector;
+    private final byte[] quantizedQueryVector;
     protected final KNNFloatVectorValues knnFloatVectorValues;
     protected final SpaceType spaceType;
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
+    private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
+
+    FilteredIdsKNNIterator(
+        final BitSet filterIdsBitSet,
+        final float[] queryVector,
+        final KNNFloatVectorValues knnFloatVectorValues,
+        final SpaceType spaceType
+    ) {
+        this(filterIdsBitSet, queryVector, knnFloatVectorValues, spaceType, null, null);
+    }
 
     public FilteredIdsKNNIterator(
         final BitSet filterIdsBitSet,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final byte[] quantizedQueryVector,
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
     ) {
         this.filterIdsBitSet = filterIdsBitSet;
         this.bitSetIterator = new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
@@ -41,6 +56,8 @@ public class FilteredIdsKNNIterator implements KNNIterator {
         this.knnFloatVectorValues = knnFloatVectorValues;
         this.spaceType = spaceType;
         this.docId = bitSetIterator.nextDoc();
+        this.quantizedQueryVector = quantizedQueryVector;
+        this.segmentLevelQuantizationInfo = segmentLevelQuantizationInfo;
     }
 
     /**
@@ -68,8 +85,13 @@ public class FilteredIdsKNNIterator implements KNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
-        // Calculates a similarity score between the two vectors with a specified function. Higher similarity
-        // scores correspond to closer vectors.
-        return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
+        if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
+            byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
+            return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
+        } else {
+            // Calculates a similarity score between the two vectors with a specified function. Higher similarity
+            // scores correspond to closer vectors.
+            return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
+        }
     }
 }
