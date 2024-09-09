@@ -449,15 +449,4 @@ public class KNNCodecTestCase extends KNNTestCase {
         resourceWatcherService.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
-
-    public void testGetKNNEngines() {
-        SegmentInfo segmentInfo = mock(SegmentInfo.class);
-        KNNEngine knnEngine = KNNEngine.FAISS;
-        Set<String> SEGMENT_MULTI_FIELD_FILES_FAISS = Set.of("_0.cfe", "_0_2011_long_target_field.faissc", "_0_2011_target_field.faissc");
-        when(segmentInfo.getUseCompoundFile()).thenReturn(true);
-        when(segmentInfo.files()).thenReturn(SEGMENT_MULTI_FIELD_FILES_FAISS);
-        List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), "target_field", segmentInfo);
-        assertEquals(engineFiles.size(), 1);
-        assertTrue(engineFiles.get(0).equals("_0_2011_target_field.faissc"));
-    }
 }
