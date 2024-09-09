@@ -8,7 +8,6 @@ package org.opensearch.knn.index.codec.nativeindex;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -56,8 +55,13 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
         iterateVectorValuesOnce(knnVectorValues);
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
-        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / indexBuildSetup.getBytesPerVector());
-        try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
+        try (
+            final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(
+                indexInfo.getVectorDataType(),
+                indexBuildSetup.getBytesPerVector(),
+                indexInfo.getTotalLiveDocs()
+            )
+        ) {
             final List<Integer> transferredDocIds = new ArrayList<>(indexInfo.getTotalLiveDocs());
 
             while (knnVectorValues.docId() != NO_MORE_DOCS) {
