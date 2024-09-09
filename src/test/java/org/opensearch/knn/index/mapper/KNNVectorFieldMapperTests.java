@@ -878,6 +878,65 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertNull(builder.knnMethodContext.get());
     }
 
+    public void testKNNVectorFieldMapperMerge_whenModeAndCompressionIsPresent_thenSuccess() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        int dimension = 133;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
+        );
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper1 = builder.build(builderContext);
+
+        // merge with itself - should be successful
+        KNNVectorFieldMapper knnVectorFieldMapperMerge1 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper1);
+        assertEquals(
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get(),
+            knnVectorFieldMapperMerge1.fieldType().getKnnMappingConfig().getKnnMethodContext().get()
+        );
+
+        assertEquals(
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getCompressionLevel(),
+            knnVectorFieldMapperMerge1.fieldType().getKnnMappingConfig().getCompressionLevel()
+        );
+        assertEquals(
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getMode(),
+            knnVectorFieldMapperMerge1.fieldType().getKnnMappingConfig().getMode()
+        );
+
+        // merge with another mapper of the same field with same context
+        KNNVectorFieldMapper knnVectorFieldMapper2 = builder.build(builderContext);
+        KNNVectorFieldMapper knnVectorFieldMapperMerge2 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper2);
+        assertEquals(
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get(),
+            knnVectorFieldMapperMerge2.fieldType().getKnnMappingConfig().getKnnMethodContext().get()
+        );
+
+        assertEquals(
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getCompressionLevel(),
+            knnVectorFieldMapperMerge2.fieldType().getKnnMappingConfig().getCompressionLevel()
+        );
+        assertEquals(
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getMode(),
+            knnVectorFieldMapperMerge2.fieldType().getKnnMappingConfig().getMode()
+        );
+    }
+
     public void testKNNVectorFieldMapper_merge_fromKnnMethodContext() throws IOException {
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
