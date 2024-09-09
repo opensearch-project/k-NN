@@ -782,6 +782,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 .vectorDataType(vectorDataType)
                 .versionCreated(indexCreatedVersion)
                 .dimension(fieldType().getKnnMappingConfig().getDimension())
+                .compressionLevel(fieldType().getKnnMappingConfig().getCompressionLevel())
+                .mode(fieldType().getKnnMappingConfig().getMode())
                 .build();
         }
 
