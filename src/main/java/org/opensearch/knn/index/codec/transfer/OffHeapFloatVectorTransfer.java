@@ -15,8 +15,8 @@ import java.util.List;
  */
 public final class OffHeapFloatVectorTransfer extends OffHeapVectorTransfer<float[]> {
 
-    public OffHeapFloatVectorTransfer(int transferLimit) {
-        super(transferLimit);
+    public OffHeapFloatVectorTransfer(int bytesPerVector, int totalVectorsToTransfer) {
+        super(bytesPerVector, totalVectorsToTransfer);
     }
 
     @Override

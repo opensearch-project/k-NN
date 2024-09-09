@@ -17,8 +17,8 @@ import java.util.List;
  */
 public final class OffHeapByteVectorTransfer extends OffHeapVectorTransfer<byte[]> {
 
-    public OffHeapByteVectorTransfer(int transferLimit) {
-        super(transferLimit);
+    public OffHeapByteVectorTransfer(int bytesPerVector, int totalVectorsToTransfer) {
+        super(bytesPerVector, totalVectorsToTransfer);
     }
 
     @Override
