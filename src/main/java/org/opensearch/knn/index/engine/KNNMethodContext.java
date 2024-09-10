@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
@@ -34,17 +35,48 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * KNNMethodContext will contain the information necessary to produce a library index from an Opensearch mapping.
  * It will encompass all parameters necessary to build the index.
  */
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
 @Getter
 public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @NonNull
-    private final KNNEngine knnEngine;
+    private KNNEngine knnEngine;
     @NonNull
     @Setter
     private SpaceType spaceType;
     @NonNull
     private final MethodComponentContext methodComponentContext;
+    // Currently, the KNNEngine member variable cannot be null and defaults during parsing to nmslib. However, in order
+    // to support disk based engine resolution, this value potentially needs to be updated. Thus, this value is used
+    // to determine if the variable can be overridden or not based on whether the user explicitly set the value during parsing
+    private boolean isEngineConfigured;
+
+    /**
+     * Copy constructor. Useful for creating a deep copy of a {@link KNNMethodContext}. Note that the engine and
+     * space type should be set.
+     *
+     * @param knnMethodContext original {@link KNNMethodContext}. Must NOT be null
+     */
+    public KNNMethodContext(KNNMethodContext knnMethodContext) {
+        if (knnMethodContext == null) {
+            throw new IllegalArgumentException("KNNMethodContext cannot be null");
+        }
+
+        this.knnEngine = knnMethodContext.knnEngine;
+        this.spaceType = knnMethodContext.spaceType;
+        this.isEngineConfigured = true;
+        this.methodComponentContext = new MethodComponentContext(knnMethodContext.methodComponentContext);
+    }
+
+    /**
+     *
+     * @param knnEngine {@link KNNEngine}
+     * @param spaceType {@link SpaceType}
+     * @param methodComponentContext {@link MethodComponentContext}
+     */
+    public KNNMethodContext(KNNEngine knnEngine, SpaceType spaceType, MethodComponentContext methodComponentContext) {
+        this(knnEngine, spaceType, methodComponentContext, true);
+    }
 
     /**
      * Constructor from stream.
@@ -56,6 +88,21 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.methodComponentContext = new MethodComponentContext(in);
+        this.isEngineConfigured = true;
+    }
+
+    /**
+     * Set the {@link KNNEngine} if it is not configured (i.e. DEFAULT). This is useful for using different engines
+     * for different configurations - i.e. dynamic defaults
+     *
+     * @param knnEngine KNNEngine to set
+     */
+    public void setKnnEngine(KNNEngine knnEngine) {
+        if (isEngineConfigured) {
+            throw new IllegalArgumentException("Cannot configure KNNEngine if it has already been configured");
+        }
+        this.knnEngine = knnEngine;
+        this.isEngineConfigured = true;
     }
 
     /**
@@ -101,6 +148,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         @SuppressWarnings("unchecked")
         Map<String, Object> methodMap = (Map<String, Object>) in;
 
+        boolean isEngineConfigured = false;
         KNNEngine engine = KNNEngine.DEFAULT; // Get or default
         SpaceType spaceType = SpaceType.UNDEFINED; // Get or default
         String name = "";
@@ -123,6 +171,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
                         throw new MapperParsingException("Invalid " + KNN_ENGINE + ": " + value);
                     }
                 }
+                isEngineConfigured = true;
             } else if (METHOD_PARAMETER_SPACE_TYPE.equals(key)) {
                 if (value != null && !(value instanceof String)) {
                     throw new MapperParsingException("\"" + METHOD_PARAMETER_SPACE_TYPE + "\" must be a string");
@@ -173,7 +222,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
         MethodComponentContext method = new MethodComponentContext(name, parameters);
 
-        return new KNNMethodContext(engine, spaceType, method);
+        return new KNNMethodContext(engine, spaceType, method, isEngineConfigured);
     }
 
     @Override
