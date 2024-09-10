@@ -6,19 +6,17 @@
 package org.opensearch.knn.index.engine.lucene;
 
 import com.google.common.collect.ImmutableSet;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -41,11 +39,10 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
         SpaceType.INNER_PRODUCT
     );
 
-    private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(
-        KNNConstants.ENCODER_FLAT,
-        Collections.emptyMap()
-    );
-    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(new LuceneSQEncoder());
+    final static Encoder SQ_ENCODER = new LuceneSQEncoder();
+    final static Map<String, Encoder> SUPPORTED_ENCODERS = Map.of(SQ_ENCODER.getName(), SQ_ENCODER);
+
+    final static MethodComponent HNSW_METHOD_COMPONENT = initMethodComponent();
 
     /**
      * Constructor for LuceneHNSWMethod
@@ -53,7 +50,7 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
      * @see AbstractKNNMethod
      */
     public LuceneHNSWMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new LuceneHNSWSearchContext());
+        super(HNSW_METHOD_COMPONENT, Set.copyOf(SUPPORTED_SPACES), new LuceneHNSWSearchContext());
     }
 
     private static MethodComponent initMethodComponent() {
@@ -78,8 +75,8 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
     private static Parameter.MethodComponentContextParameter initEncoderParameter() {
         return new Parameter.MethodComponentContextParameter(
             METHOD_ENCODER_PARAMETER,
-            DEFAULT_ENCODER_CONTEXT,
-            SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
+            null,
+            SUPPORTED_ENCODERS.values().stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
         );
     }
 }

@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
@@ -104,6 +105,11 @@ public class KNNTestCase extends OpenSearchTestCase {
     public static KNNMethodContext getDefaultKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
         return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
+    }
+
+    public static KNNMethodContext getDefaultKNNMethodContextForModel() {
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_IVF, Collections.emptyMap());
+        return new KNNMethodContext(KNNEngine.FAISS, SpaceType.DEFAULT, methodComponentContext);
     }
 
     public static KNNMethodContext getDefaultByteKNNMethodContext() {

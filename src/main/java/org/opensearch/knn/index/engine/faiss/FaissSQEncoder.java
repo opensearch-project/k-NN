@@ -8,8 +8,11 @@ package org.opensearch.knn.index.engine.faiss;
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponent;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Objects;
 import java.util.Set;
@@ -48,5 +51,14 @@ public class FaissSQEncoder implements Encoder {
     @Override
     public MethodComponent getMethodComponent() {
         return METHOD_COMPONENT;
+    }
+
+    @Override
+    public CompressionLevel calculateCompressionLevel(
+        MethodComponentContext methodComponentContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
+        // TODO: Hard code for now
+        return CompressionLevel.x2;
     }
 }
