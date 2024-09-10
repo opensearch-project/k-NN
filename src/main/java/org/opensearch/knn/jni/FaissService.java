@@ -20,6 +20,7 @@ import java.security.PrivilegedAction;
 import java.util.Map;
 
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
+import static org.opensearch.knn.index.KNNSettings.isFaissAVX512Disabled;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;;
 
@@ -31,25 +32,22 @@ import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;;
  *      src/main/java/org/opensearch/knn/index/query/KNNQueryResult.java
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
  */
+@SuppressWarnings("deprecation")
 class FaissService {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
 
-            // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by using the
-            // 'knn.faiss.avx2.disabled' setting by setting it to true in the opensearch.yml configuration
-            if (!isFaissAVX2Disabled()) {
-                if (isAVX512SupportedBySystem()) {
-                    System.loadLibrary(KNNConstants.FAISS_AVX512_JNI_LIBRARY_NAME);
-                } else if (isAVX2SupportedBySystem()) {
+            // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by setting
+            // 'knn.faiss.avx2.disabled' or 'knn.faiss.avx512.disabled' to true in the opensearch.yml configuration
+            if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {                
+                System.loadLibrary(KNNConstants.FAISS_AVX512_JNI_LIBRARY_NAME);
+                } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
                     System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
                 } else {
                     System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
                 }
-            } else {
-                System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
-            }
-
+                
             initLibrary();
             KNNEngine.FAISS.setInitialized(true);
             return null;

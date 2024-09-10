@@ -81,19 +81,19 @@ set(BUILD_TESTING OFF)          # Avoid building faiss tests
 set(FAISS_ENABLE_GPU OFF)
 set(FAISS_ENABLE_PYTHON OFF)
 
-if(NOT DEFINED SIMD_ENABLED)
-    set(SIMD_ENABLED true)   # set default value as true if the argument is not set
+if(NOT DEFINED AVX2_ENABLED)
+    set(AVX2_ENABLED true)   # set default value as true if the argument is not set
 endif()
 
 if(NOT DEFINED AVX512_ENABLED)
     set(AVX512_ENABLED true)   # set default value as true if the argument is not set
 endif()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" OR NOT SIMD_ENABLED)
+if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" OR ( NOT AVX2_ENABLED AND NOT AVX512_ENABLED))
     set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue. Also, on aarch64 avx2 is not supported.
     set(TARGET_LINK_FAISS_LIB faiss)
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux AND SIMD_ENABLED AND AVX512_ENABLED)
-    set(FAISS_OPT_LEVEL avx512)       # Keep optimization level as avx512 to improve performance on Linux. This is not present on mac systems.
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux AND AVX512_ENABLED)
+    set(FAISS_OPT_LEVEL avx512)       # Keep optimization level as avx512 to improve performance on Linux. This is not present on mac systems, and presently not supported on Windows OS.
     set(TARGET_LINK_FAISS_LIB faiss_avx512)
     string(PREPEND LIB_EXT "_avx512") # Prepend "_avx512" to lib extension to create the library as "libopensearchknn_faiss_avx512.so" on linux
 else()

@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.17...2.x)
 ### Features
+* Add AVX512 support to k-NN for FAISS library
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure

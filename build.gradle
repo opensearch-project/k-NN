@@ -17,7 +17,7 @@ buildscript {
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        simd_enabled = System.getProperty("simd.enabled", "true")
+        avx2_enabled = System.getProperty("avx2.enabled", "true")
         nproc_count = System.getProperty("nproc.count", "1")
         avx512_enabled = System.getProperty("avx512.enabled", "true")
         // This flag determines whether the CMake build system should apply a custom patch. It prevents build failures
@@ -317,7 +317,7 @@ task cmakeJniLib(type:Exec) {
     args.add("cmake")
     args.add(".")
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
-    args.add("-DSIMD_ENABLED=${simd_enabled}")
+    args.add("-DAVX2_ENABLED=${avx2_enabled}")
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")

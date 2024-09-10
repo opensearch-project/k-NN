@@ -39,7 +39,7 @@ public class PlatformUtils {
      *    the flags contains 'avx2' and return true if it exists else false.
      */
     public static boolean isAVX2SupportedBySystem() {
-        if (!Platform.isIntel()) {
+        if (!Platform.isIntel() || Platform.isWindows()) {
             return false;
         }
 
@@ -84,7 +84,7 @@ public class PlatformUtils {
 
     public static boolean isAVX512SupportedBySystem() {
 
-        if (!Platform.isIntel() || Platform.isMac()) {
+        if (!Platform.isIntel() || Platform.isMac() || Platform.isWindows()) {
             return false;
         }
 
