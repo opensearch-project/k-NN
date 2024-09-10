@@ -25,7 +25,7 @@ public final class EngineResolver {
      * @param requiresTraining whether config requires training
      * @return {@link KNNEngine}
      */
-    public static KNNEngine resolveEngine(
+    public KNNEngine resolveEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
         boolean requiresTraining
@@ -48,7 +48,7 @@ public final class EngineResolver {
         }
 
         // For 1x, we need to default to faiss if mode is provided and use nmslib otherwise
-        if (compressionLevel == CompressionLevel.x1) {
+        if (CompressionLevel.isConfigured(compressionLevel) == false || compressionLevel == CompressionLevel.x1) {
             return mode == Mode.ON_DISK ? KNNEngine.FAISS : KNNEngine.DEFAULT;
         }
 

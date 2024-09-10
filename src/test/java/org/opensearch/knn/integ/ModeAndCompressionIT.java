@@ -7,6 +7,7 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -136,7 +137,14 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
+            logger.info("Compression level {}", compressionLevel);
+            validateSearch(
+                indexName,
+                METHOD_PARAMETER_EF_SEARCH,
+                KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                compressionLevel,
+                Mode.NOT_CONFIGURED.getName()
+            );
         }
 
         for (String compressionLevel : COMPRESSION_LEVELS) {
@@ -155,7 +163,14 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                     .endObject();
                 String mapping = builder.toString();
                 validateIndex(indexName, mapping);
-                validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
+                logger.info("Compression level {}", compressionLevel);
+                validateSearch(
+                    indexName,
+                    METHOD_PARAMETER_EF_SEARCH,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                    compressionLevel,
+                    mode
+                );
             }
         }
 
@@ -173,7 +188,14 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName, METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH);
+            logger.info("Compression level {}", CompressionLevel.NOT_CONFIGURED.getName());
+            validateSearch(
+                indexName,
+                METHOD_PARAMETER_EF_SEARCH,
+                KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                CompressionLevel.NOT_CONFIGURED.getName(),
+                mode
+            );
         }
     }
 
@@ -258,7 +280,13 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT);
+            validateSearch(
+                indexName,
+                METHOD_PARAMETER_NPROBES,
+                METHOD_PARAMETER_NLIST_DEFAULT,
+                compressionLevel,
+                Mode.NOT_CONFIGURED.getName()
+            );
         }
 
         for (String compressionLevel : CompressionLevel.NAMES_ARRAY) {
@@ -286,7 +314,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                     .endObject();
                 String mapping = builder.toString();
                 validateIndex(indexName, mapping);
-                validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT);
+                validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT, compressionLevel, mode);
             }
         }
 
@@ -313,7 +341,13 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 .endObject();
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
-            validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT);
+            validateSearch(
+                indexName,
+                METHOD_PARAMETER_NPROBES,
+                METHOD_PARAMETER_NLIST_DEFAULT,
+                CompressionLevel.NOT_CONFIGURED.getName(),
+                mode
+            );
         }
 
     }
@@ -364,7 +398,13 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    private void validateSearch(String indexName, String methodParameterName, int methodParameterValue) {
+    private void validateSearch(
+        String indexName,
+        String methodParameterName,
+        int methodParameterValue,
+        String compressionLevelString,
+        String mode
+    ) {
         // Basic search
         Response response = searchKNNIndex(
             indexName,
@@ -419,7 +459,9 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
         List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
         assertEquals(NUM_DOCS, exactSearchKnnResults.size());
-        // Assert.assertEquals(exactSearchKnnResults, knnResults);
+        if (CompressionLevel.x4.getName().equals(compressionLevelString) == false && Mode.ON_DISK.getName().equals(mode)) {
+            Assert.assertEquals(exactSearchKnnResults, knnResults);
+        }
 
         // Search with rescore
         response = searchKNNIndex(
@@ -447,6 +489,8 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         responseBody = EntityUtils.toString(response.getEntity());
         knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
         assertEquals(K, knnResults.size());
-        // Assert.assertEquals(exactSearchKnnResults, knnResults);
+        if (CompressionLevel.x4.getName().equals(compressionLevelString) == false && Mode.ON_DISK.getName().equals(mode)) {
+            Assert.assertEquals(exactSearchKnnResults, knnResults);
+        }
     }
 }

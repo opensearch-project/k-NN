@@ -35,7 +35,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * KNNMethodContext will contain the information necessary to produce a library index from an Opensearch mapping.
  * It will encompass all parameters necessary to build the index.
  */
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
 @Getter
 public class KNNMethodContext implements ToXContentFragment, Writeable {
 
@@ -46,6 +46,9 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     private SpaceType spaceType;
     @NonNull
     private final MethodComponentContext methodComponentContext;
+    // Currently, the KNNEngine member variable cannot be null and defaults during parsing to nmslib. However, in order
+    // to support disk based engine resolution, this value potentially needs to be updated. Thus, this value is used
+    // to determine if the variable can be overridden or not based on whether the user explicitly set the value during parsing
     private boolean isEngineConfigured;
 
     /**

@@ -38,7 +38,7 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         // If the context is null, the compression is not configured or the encoder is not defined, return not configured
         // because the method context does not contain this info
         if (isEncoderSpecified(resolvedKnnMethodContext) == false) {
-            return CompressionLevel.NOT_CONFIGURED;
+            return CompressionLevel.x1;
         }
         Encoder encoder = encoderMap.get(getEncoderName(resolvedKnnMethodContext));
         if (encoder == null) {

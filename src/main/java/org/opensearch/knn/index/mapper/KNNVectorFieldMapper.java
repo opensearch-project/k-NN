@@ -177,6 +177,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected ModelDao modelDao;
         protected Version indexCreatedVersion;
         @Setter
+        @Getter
         private KNNMethodConfigContext knnMethodConfigContext;
         @Setter
         @Getter
@@ -496,7 +497,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             // Based on config context, if the user does not set the engine, set it
-            KNNEngine resolvedKNNEngine = EngineResolver.resolveEngine(
+            KNNEngine resolvedKNNEngine = EngineResolver.INSTANCE.resolveEngine(
                 builder.knnMethodConfigContext,
                 builder.originalParameters.getResolvedKnnMethodContext(),
                 false
