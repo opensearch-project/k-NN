@@ -9,7 +9,11 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNMethod;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
+import org.opensearch.knn.index.engine.ResolvedMethodContext;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -41,12 +45,8 @@ public class Faiss extends NativeLibrary {
         SpaceType,
         Function<Float, Float>>builder().put(SpaceType.INNER_PRODUCT, score -> score > 1 ? 1 - score : 1 / score - 1).build();
 
-    private final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
-        METHOD_HNSW,
-        new FaissHNSWMethod(),
-        METHOD_IVF,
-        new FaissIVFMethod()
-    );
+    // Package private so that the method resolving logic can access the methods
+    final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new FaissHNSWMethod(), METHOD_IVF, new FaissIVFMethod());
 
     public final static Faiss INSTANCE = new Faiss(
         METHODS,
@@ -55,6 +55,8 @@ public class Faiss extends NativeLibrary {
         KNNConstants.FAISS_EXTENSION,
         SCORE_TO_DISTANCE_TRANSFORMATIONS
     );
+
+    private final MethodResolver methodResolver;
 
     /**
      * Constructor for Faiss
@@ -73,6 +75,7 @@ public class Faiss extends NativeLibrary {
     ) {
         super(methods, scoreTranslation, currentVersion, extension);
         this.scoreTransform = scoreTransform;
+        this.methodResolver = new FaissMethodResolver();
     }
 
     @Override
@@ -88,5 +91,15 @@ public class Faiss extends NativeLibrary {
             return this.scoreTransform.get(spaceType).apply(score);
         }
         return spaceType.scoreToDistanceTranslation(score);
+    }
+
+    @Override
+    public ResolvedMethodContext resolveMethod(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        boolean shouldRequireTraining,
+        final SpaceType spaceType
+    ) {
+        return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
 }

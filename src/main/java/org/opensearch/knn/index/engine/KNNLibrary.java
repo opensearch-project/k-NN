@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
  */
-public interface KNNLibrary {
+public interface KNNLibrary extends MethodResolver {
 
     /**
      * Gets the version of the library that is being used. In general, this can be used for ensuring compatibility of

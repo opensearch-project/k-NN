@@ -342,7 +342,10 @@ public class MethodComponent {
                         IndexHyperParametersUtil.getHNSWEFConstructionValue(indexCreationVersion)
                     );
                 } else {
-                    parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValue());
+                    Object value = parameter.getDefaultValue();
+                    if (value != null) {
+                        parametersWithDefaultsMap.put(parameter.getName(), value);
+                    }
                 }
 
             }
