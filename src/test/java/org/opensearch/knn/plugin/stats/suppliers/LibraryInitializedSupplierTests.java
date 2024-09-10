@@ -18,6 +18,7 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNLibrary;
+import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
@@ -104,6 +105,16 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         @Override
         public void setInitialized(Boolean isInitialized) {
             this.initialized = isInitialized;
+        }
+
+        @Override
+        public ResolvedMethodContext resolveMethod(
+            KNNMethodContext knnMethodContext,
+            KNNMethodConfigContext knnMethodConfigContext,
+            boolean shouldRequireTraining,
+            SpaceType spaceType
+        ) {
+            return null;
         }
     }
 }

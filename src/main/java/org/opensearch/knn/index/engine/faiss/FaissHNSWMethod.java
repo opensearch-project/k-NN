@@ -20,6 +20,7 @@ import org.opensearch.knn.index.engine.Parameter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -52,12 +53,23 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         KNNConstants.ENCODER_FLAT,
         Collections.emptyMap()
     );
-    private final static List<Encoder> SUPPORTED_ENCODERS = List.of(
-        new FaissFlatEncoder(),
-        new FaissSQEncoder(),
-        new FaissHNSWPQEncoder(),
-        new QFrameBitEncoder()
+
+    // Package private so that the method resolving logic can access the methods
+    final static Encoder FLAT_ENCODER = new FaissFlatEncoder();
+    final static Encoder SQ_ENCODER = new FaissSQEncoder();
+    final static Encoder HNSW_PQ_ENCODER = new FaissHNSWPQEncoder();
+    final static Encoder QFRAME_BIT_ENCODER = new QFrameBitEncoder();
+    final static Map<String, Encoder> SUPPORTED_ENCODERS = Map.of(
+        FLAT_ENCODER.getName(),
+        FLAT_ENCODER,
+        SQ_ENCODER.getName(),
+        SQ_ENCODER,
+        HNSW_PQ_ENCODER.getName(),
+        HNSW_PQ_ENCODER,
+        QFRAME_BIT_ENCODER.getName(),
+        QFRAME_BIT_ENCODER
     );
+    final static MethodComponent HNSW_COMPONENT = initMethodComponent();
 
     /**
      * Constructor for FaissHNSWMethod
@@ -65,7 +77,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
      * @see AbstractKNNMethod
      */
     public FaissHNSWMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
+        super(HNSW_COMPONENT, Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
     }
 
     private static MethodComponent initMethodComponent() {
@@ -108,7 +120,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         return new Parameter.MethodComponentContextParameter(
             METHOD_ENCODER_PARAMETER,
             DEFAULT_ENCODER_CONTEXT,
-            SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
+            SUPPORTED_ENCODERS.values().stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
         );
     }
 }

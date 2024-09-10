@@ -37,6 +37,8 @@ public final class OriginalMappingParameters {
     // (https://github.com/opensearch-project/OpenSearch/blob/2.16.0/server/src/main/java/org/opensearch/index/mapper/ParametrizedFieldMapper.java#L322-L324).
     // So, what we do is pass in a "resolvedKNNMethodContext" to ensure we track this resolveKnnMethodContext.
     // A similar approach was taken for https://github.com/opendistro-for-elasticsearch/k-NN/issues/288
+    //
+    // In almost all cases except when dealing with the mapping, the resolved context should be used
     @Setter
     private KNNMethodContext resolvedKnnMethodContext;
     private final String mode;
