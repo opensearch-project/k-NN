@@ -40,14 +40,14 @@ class FaissService {
 
             // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by setting
             // 'knn.faiss.avx2.disabled' or 'knn.faiss.avx512.disabled' to true in the opensearch.yml configuration
-            if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {                
+            if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
                 System.loadLibrary(KNNConstants.FAISS_AVX512_JNI_LIBRARY_NAME);
-                } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
-                    System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
-                } else {
-                    System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
-                }
-                
+            } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
+                System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
+            } else {
+                System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+            }
+
             initLibrary();
             KNNEngine.FAISS.setInitialized(true);
             return null;
