@@ -77,12 +77,12 @@ jobs:
           then
             echo "avx512 available on system"
             su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc`"
-          else if lscpu  | grep -i avx2
+          elif lscpu  | grep -i avx2
           then
             echo "avx2 available on system"
             su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc` -Davx512.enabled=false"
           else
-            echo "avx2 not available on system"
+            echo "avx512 and avx2 not available on system"
             su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Dnproc.count=`nproc`"
           fi  
 
