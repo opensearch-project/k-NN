@@ -41,13 +41,7 @@ public final class ModeBasedResolver {
 
     private static final CompressionLevel DEFAULT_COMPRESSION_FOR_MODE_ON_DISK = CompressionLevel.x32;
     private static final CompressionLevel DEFAULT_COMPRESSION_FOR_MODE_IN_MEMORY = CompressionLevel.x1;
-    public final static Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(
-        CompressionLevel.x1,
-        CompressionLevel.x2,
-        CompressionLevel.x8,
-        CompressionLevel.x16,
-        CompressionLevel.x32
-    );
+    public final static Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(CompressionLevel.x32);
 
     private ModeBasedResolver() {}
 

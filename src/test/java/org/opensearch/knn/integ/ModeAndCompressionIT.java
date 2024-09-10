@@ -8,7 +8,6 @@ package org.opensearch.knn.integ;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -247,7 +246,6 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
 
     // Training isnt currently supported for mode and compression because quantization framework does not quantize
     // the training vectors. So, commenting out for now.
-    @Ignore
     @SneakyThrows
     public void testTraining_whenValid_thenSucceed() {
         setupTrainingIndex();
