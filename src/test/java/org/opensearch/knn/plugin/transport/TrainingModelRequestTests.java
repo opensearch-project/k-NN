@@ -44,7 +44,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,7 +51,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
         String modelId = "test-model-id";
-        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContextForModel();
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -142,7 +141,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
     public void testGetters() {
         String modelId = "test-model-id";
-        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContextForModel();
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -170,7 +169,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         trainingModelRequest.setTrainingDataSizeInKB(trainingSetSizeInKB);
 
         assertEquals(modelId, trainingModelRequest.getModelId());
-        assertEquals(knnMethodContext, trainingModelRequest.getKnnMethodContext());
         assertEquals(dimension, trainingModelRequest.getDimension());
         assertEquals(trainingIndex, trainingModelRequest.getTrainingIndex());
         assertEquals(trainingField, trainingModelRequest.getTrainingField());
@@ -187,18 +185,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // Setup the training request
         String modelId = "test-model-id";
-        KNNEngine knnEngine = mock(KNNEngine.class);
-        when(knnEngine.validateMethod(any(), any())).thenReturn(null);
-        when(knnEngine.isTrainingRequired(any())).thenReturn(true);
-        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
-            knnMethodContext,
+            getDefaultKNNMethodContextForModel(),
             dimension,
             trainingIndex,
             trainingField,
@@ -251,18 +244,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // Setup the training request
         String modelId = "test-model-id";
-        KNNEngine knnEngine = mock(KNNEngine.class);
-        when(knnEngine.validateMethod(any(), any())).thenReturn(null);
-        when(knnEngine.isTrainingRequired(any())).thenReturn(true);
-        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
-            knnMethodContext,
+            getDefaultKNNMethodContextForModel(),
             dimension,
             trainingIndex,
             trainingField,
@@ -298,48 +286,26 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String modelId = "test-model-id";
 
         // Mock throwing an exception on validation
-        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        String validationExceptionMessage = "knn method invalid";
-        ValidationException validationException = new ValidationException();
-        validationException.addValidationError(validationExceptionMessage);
-        when(knnMethodContext.validate(any())).thenReturn(validationException);
-
-        when(knnMethodContext.isTrainingRequired()).thenReturn(false);
-        when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
 
-        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-            modelId,
-            knnMethodContext,
-            dimension,
-            trainingIndex,
-            trainingField,
-            null,
-            null,
-            VectorDataType.DEFAULT,
-            Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+        ValidationException validationException = expectThrows(
+            ValidationException.class,
+            () -> new TrainingModelRequest(
+                modelId,
+                getDefaultKNNMethodContext(),
+                dimension,
+                trainingIndex,
+                trainingField,
+                null,
+                null,
+                VectorDataType.DEFAULT,
+                Mode.NOT_CONFIGURED,
+                CompressionLevel.NOT_CONFIGURED
+            )
         );
-
-        // Mock the model dao to return null so that no exception is produced
-        ModelDao modelDao = mock(ModelDao.class);
-        when(modelDao.getMetadata(modelId)).thenReturn(null);
-
-        // This cluster service will result in no validation exceptions
-        ClusterService clusterService = getClusterServiceForValidReturns(trainingIndex, trainingField, dimension);
-
-        // Initialize static components with the mocks
-        TrainingModelRequest.initialize(modelDao, clusterService);
-
-        // Test that validation produces model already exists error message
-        ActionRequestValidationException exception = trainingModelRequest.validate();
-        assertNotNull(exception);
-        List<String> validationErrors = exception.validationErrors();
-        assertEquals(2, validationErrors.size());
-        assertTrue(validationErrors.get(0).contains(validationExceptionMessage));
-        assertTrue(validationErrors.get(1).contains("Method does not require training."));
+        assertTrue(validationException.getMessage().contains("engine from training context"));
     }
 
     public void testValidation_invalid_trainingIndexDoesNotExist() {

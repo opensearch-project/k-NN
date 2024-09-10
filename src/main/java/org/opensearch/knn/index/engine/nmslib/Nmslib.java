@@ -8,7 +8,11 @@ package org.opensearch.knn.index.engine.nmslib;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNMethod;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
+import org.opensearch.knn.index.engine.ResolvedMethodContext;
 
 import java.util.Collections;
 import java.util.Map;
@@ -27,6 +31,7 @@ public class Nmslib extends NativeLibrary {
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new NmslibHNSWMethod());
 
     public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(), CURRENT_VERSION, EXTENSION);
+    private final MethodResolver methodResolver;
 
     /**
      * Constructor for Nmslib
@@ -43,6 +48,7 @@ public class Nmslib extends NativeLibrary {
         String extension
     ) {
         super(methods, scoreTranslation, currentVersion, extension);
+        this.methodResolver = new NmslibMethodResolver();
     }
 
     @Override
@@ -52,5 +58,15 @@ public class Nmslib extends NativeLibrary {
 
     public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
         return score;
+    }
+
+    @Override
+    public ResolvedMethodContext resolveMethod(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        boolean shouldRequireTraining,
+        final SpaceType spaceType
+    ) {
+        return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
 }

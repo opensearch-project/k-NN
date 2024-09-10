@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -173,7 +174,9 @@ public class IndexUtil {
 
                 if (parameters != null && parameters.containsKey(KNNConstants.METHOD_ENCODER_PARAMETER)) {
                     MethodComponentContext encoder = (MethodComponentContext) parameters.get(KNNConstants.METHOD_ENCODER_PARAMETER);
-                    if (encoder != null && VECTOR_DATA_TYPES_NOT_SUPPORTING_ENCODERS.contains(trainRequestVectorDataType)) {
+                    if (encoder != null
+                        && VECTOR_DATA_TYPES_NOT_SUPPORTING_ENCODERS.contains(trainRequestVectorDataType)
+                        && ENCODER_FLAT.equals(encoder.getName()) == false) {
                         exception.addValidationError(
                             String.format(
                                 Locale.ROOT,

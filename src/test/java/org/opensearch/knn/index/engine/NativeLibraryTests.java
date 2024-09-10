@@ -73,5 +73,15 @@ public class NativeLibraryTests extends KNNTestCase {
         public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
             return 0.0f;
         }
+
+        @Override
+        public ResolvedMethodContext resolveMethod(
+            KNNMethodContext knnMethodContext,
+            KNNMethodConfigContext knnMethodConfigContext,
+            boolean shouldRequireTraining,
+            SpaceType spaceType
+        ) {
+            return null;
+        }
     }
 }
