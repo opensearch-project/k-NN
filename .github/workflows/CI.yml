@@ -73,13 +73,17 @@ jobs:
         # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
         run: |
           chown -R 1000:1000 `pwd`
-          if lscpu  | grep -i avx2
+          if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw          
+          then
+            echo "avx512 available on system"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc`"
+          else if lscpu  | grep -i avx2
           then
             echo "avx2 available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc`"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc` -Davx512.enabled=false"
           else
             echo "avx2 not available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dsimd.enabled=false -Dnproc.count=`nproc`"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Dnproc.count=`nproc`"
           fi  
 
 
@@ -126,7 +130,7 @@ jobs:
               ./gradlew build -Dnproc.count=3
           else
               echo "avx2 not available on system"
-              ./gradlew build -Dsimd.enabled=false -Dnproc.count=3
+              ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Dnproc.count=3
           fi
 
   Build-k-NN-Windows:
@@ -187,4 +191,4 @@ jobs:
       # TODO: Detect processor count and set the value of nproc.count
       - name: Run build
         run: |
-          ./gradlew.bat build -D'simd.enabled=false' -D'nproc.count=4'
+          ./gradlew.bat build -D'avx2.enabled=false' -D'avx512.enabled=false' -D'nproc.count=4'
