@@ -19,6 +19,7 @@ Compatible with OpenSearch 2.17.0
 * Disallow a vector field to have an invalid character for a physical file name. [#1936](https://github.com/opensearch-project/k-NN/pull/1936)
 * Fix memory overflow caused by cache behavior [#2015](https://github.com/opensearch-project/k-NN/pull/2015)
 * Use correct type for binary vector in ivf training [#2086](https://github.com/opensearch-project/k-NN/pull/2086)
+* Switch MINGW32 to MINGW64 [#2090](https://github.com/opensearch-project/k-NN/pull/2090)
 ### Infrastructure
 * Parallelize make to reduce build time [#2006] (https://github.com/opensearch-project/k-NN/pull/2006)
 ### Maintenance
