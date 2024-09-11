@@ -23,6 +23,7 @@ import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
@@ -51,7 +52,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
-            validateKNNIndexingOnUpgrade();
+            validateKNNIndexingOnUpgrade(NUM_DOCS);
         }
     }
 
@@ -65,8 +66,37 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 100);
             // Flush to ensure that index is not re-indexed when node comes back up
             flush(testIndex, true);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 100, K);
         } else {
-            forceMergeKnnIndex(testIndex);
+            validateKNNIndexingOnUpgrade(100);
+        }
+    }
+
+    public void testKNNIndexFaissForceMerge() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, FAISS_NAME));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 100);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 100, K);
+        } else {
+            validateKNNIndexingOnUpgrade(100);
+        }
+    }
+
+    public void testKNNIndexLuceneForceMerge() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 100);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 100, K);
+        } else {
+            validateKNNIndexingOnUpgrade(100);
         }
     }
 
@@ -115,7 +145,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
-            validateKNNIndexingOnUpgrade();
+            validateKNNIndexingOnUpgrade(NUM_DOCS);
         }
     }
 
@@ -126,7 +156,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKNNIndexMethodFieldMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
-            validateKNNIndexingOnUpgrade();
+            validateKNNIndexingOnUpgrade(NUM_DOCS);
         }
     }
 
@@ -150,7 +180,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
             validateCustomMethodFieldMappingAfterUpgrade();
-            validateKNNIndexingOnUpgrade();
+            validateKNNIndexingOnUpgrade(NUM_DOCS);
         }
     }
 
@@ -240,11 +270,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     }
 
     // KNN indexing tests when the cluster is upgraded to latest version
-    public void validateKNNIndexingOnUpgrade() throws Exception {
-        QUERY_COUNT = NUM_DOCS;
+    public void validateKNNIndexingOnUpgrade(int numOfDocs) throws Exception {
+        QUERY_COUNT = numOfDocs;
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
         cleanUpCache();
-        DOC_ID = NUM_DOCS;
+        DOC_ID = numOfDocs;
         addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
