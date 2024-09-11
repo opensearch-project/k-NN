@@ -136,6 +136,33 @@ public class FaissMethodResolverTests extends KNNTestCase {
             SpaceType.L2
         );
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x1, SpaceType.L2, ENCODER_FLAT, false);
+
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .versionCreated(Version.CURRENT)
+            .build();
+
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            new KNNMethodContext(
+                KNNEngine.FAISS,
+                SpaceType.L2,
+                new MethodComponentContext(
+                    METHOD_HNSW,
+                    Map.of(
+                        METHOD_ENCODER_PARAMETER,
+                        new MethodComponentContext(
+                            QFrameBitEncoder.NAME,
+                            Map.of(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x8.numBitsForFloat32())
+                        )
+                    )
+                )
+            ),
+            knnMethodConfigContext,
+            false,
+            SpaceType.L2
+        );
+        assertEquals(knnMethodConfigContext.getCompressionLevel(), CompressionLevel.x8);
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x8, SpaceType.L2, QFrameBitEncoder.NAME, true);
     }
 
     private void validateResolveMethodContext(
