@@ -10,6 +10,14 @@ test_queries_100x128.csv and packing 8 bits to 1 byte with ends up with 16 lengt
 For quantization technique, we calculated the median(49935.95941056451) of all values in test_vectors_1000x128.json
 and converted it as 0 if it is less than the median and 1 if it is equal to or larger than the median.
 
+# test_ground_truth_binary_100.csv
+The file contains the ground truth for the query test_queries_binary_100x128.csv against the data 
+test_vectors_binary_1000x128.json using hamming distance.
+
+# test_ground_truth_l2_100.csv
+The file contains the ground truth for the query test_queries_100x128.csv against the data test_vectors_1000x128.json
+using l2 distance
+
 # test_vectors_nested_1000x128.json
 The file contains a simulated data to represent nested field.
 Consecutive ids are assigned for data from same parent document.
