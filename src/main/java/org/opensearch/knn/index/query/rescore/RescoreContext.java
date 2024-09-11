@@ -22,6 +22,9 @@ public final class RescoreContext {
 
     public static final int MAX_FIRST_PASS_RESULTS = 10000;
 
+    // Todo:- We will improve this in upcoming releases
+    public static final int MIN_FIRST_PASS_RESULTS = 100;
+
     @Builder.Default
     private float oversampleFactor = DEFAULT_OVERSAMPLE_FACTOR;
 
@@ -40,6 +43,6 @@ public final class RescoreContext {
      * @return The number of results to return for the first pass of rescoring
      */
     public int getFirstPassK(int finalK) {
-        return Math.min(MAX_FIRST_PASS_RESULTS, (int) Math.ceil(finalK * oversampleFactor));
+        return Math.min(MAX_FIRST_PASS_RESULTS, Math.max(MIN_FIRST_PASS_RESULTS, (int) Math.ceil(finalK * oversampleFactor)));
     }
 }

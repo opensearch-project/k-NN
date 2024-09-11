@@ -25,9 +25,9 @@ public enum CompressionLevel {
     x1(1, "1x", null, Collections.emptySet()),
     x2(2, "2x", null, Collections.emptySet()),
     x4(4, "4x", null, Collections.emptySet()),
-    x8(8, "8x", new RescoreContext(1.5f), Set.of(Mode.ON_DISK)),
-    x16(16, "16x", new RescoreContext(2.0f), Set.of(Mode.ON_DISK)),
-    x32(32, "32x", new RescoreContext(2.0f), Set.of(Mode.ON_DISK));
+    x8(8, "8x", new RescoreContext(2.0f), Set.of(Mode.ON_DISK)),
+    x16(16, "16x", new RescoreContext(3.0f), Set.of(Mode.ON_DISK)),
+    x32(32, "32x", new RescoreContext(3.0f), Set.of(Mode.ON_DISK));
 
     // Internally, an empty string is easier to deal with them null. However, from the mapping,
     // we do not want users to pass in the empty string and instead want null. So we make the conversion herex

@@ -65,8 +65,6 @@ public class FaissMethodResolver extends AbstractMethodResolver {
 
         // Fill in parameters for the encoder and then the method.
         resolveEncoder(resolvedKNNMethodContext, knnMethodConfigContext, encoderMap);
-        resolveMethodParams(resolvedKNNMethodContext.getMethodComponentContext(), knnMethodConfigContext, method);
-
         // From the resolved method context, get the compression level and validate it against the passed in
         // configuration
         CompressionLevel resolvedCompressionLevel = resolveCompressionLevelFromMethodContext(
@@ -77,6 +75,9 @@ public class FaissMethodResolver extends AbstractMethodResolver {
 
         // Validate that resolved compression doesnt have any conflicts
         validateCompressionConflicts(knnMethodConfigContext.getCompressionLevel(), resolvedCompressionLevel);
+        knnMethodConfigContext.setCompressionLevel(resolvedCompressionLevel);
+        resolveMethodParams(resolvedKNNMethodContext.getMethodComponentContext(), knnMethodConfigContext, method);
+
         return ResolvedMethodContext.builder()
             .knnMethodContext(resolvedKNNMethodContext)
             .compressionLevel(resolvedCompressionLevel)

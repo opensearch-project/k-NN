@@ -28,6 +28,8 @@ public class IndexHyperParametersUtil {
 
     private static final int INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION_OLD_VALUE = 512;
     private static final int INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH_OLD_VALUE = 512;
+    private static final int INDEX_BINARY_QUANTIZATION_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 256;
+    private static final int INDEX_BINARY_QUANTIZATION_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 256;
 
     /**
      * Returns the default value of EF Construction that should be used for the input index version. After version 2.12.0
@@ -75,5 +77,23 @@ public class IndexHyperParametersUtil {
             KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH
         );
         return KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
+    }
+
+    /*
+     * Returns the default value of EF Construction that should be used with Binary Quantization.
+     *
+     * @return default value of EF Construction
+     */
+    public static int getBinaryQuantizationEFConstructionValue() {
+        return INDEX_BINARY_QUANTIZATION_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+    }
+
+    /*
+     * Returns the default value of EF Search that should be used  with Binary Quantization.
+     *
+     * @return default value of EF Search
+     */
+    public static int getBinaryQuantizationEFSearchValue() {
+        return INDEX_BINARY_QUANTIZATION_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
     }
 }
