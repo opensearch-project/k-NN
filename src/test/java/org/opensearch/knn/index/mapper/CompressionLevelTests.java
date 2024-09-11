@@ -7,6 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 public class CompressionLevelTests extends KNNTestCase {
 
@@ -38,5 +39,31 @@ public class CompressionLevelTests extends KNNTestCase {
         assertFalse(CompressionLevel.isConfigured(CompressionLevel.NOT_CONFIGURED));
         assertFalse(CompressionLevel.isConfigured(null));
         assertTrue(CompressionLevel.isConfigured(CompressionLevel.x1));
+    }
+
+    public void testGetDefaultRescoreContext() {
+        // Test rescore context for ON_DISK mode
+        Mode mode = Mode.ON_DISK;
+
+        // x32 should have RescoreContext with an oversample factor of 3.0f
+        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode);
+        assertNotNull(rescoreContext);
+        assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // x16 should have RescoreContext with an oversample factor of 3.0f
+        rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(mode);
+        assertNotNull(rescoreContext);
+        assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // x8 should have RescoreContext with an oversample factor of 2.0f
+        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(mode);
+        assertNotNull(rescoreContext);
+        assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Other compression levels should not have a RescoreContext for ON_DISK mode
+        assertNull(CompressionLevel.x4.getDefaultRescoreContext(mode));
+        assertNull(CompressionLevel.x2.getDefaultRescoreContext(mode));
+        assertNull(CompressionLevel.x1.getDefaultRescoreContext(mode));
+        assertNull(CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode));
     }
 }
