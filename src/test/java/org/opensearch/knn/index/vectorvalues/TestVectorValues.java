@@ -184,7 +184,11 @@ public class TestVectorValues {
         public PreDefinedFloatVectorValues(final List<float[]> vectors) {
             super();
             this.count = vectors.size();
-            this.dimension = vectors.get(0).length;
+            if (!vectors.isEmpty()) {
+                this.dimension = vectors.get(0).length;
+            } else {
+                this.dimension = 0;
+            }
             this.vectors = vectors;
             this.current = -1;
             vector = new float[dimension];
