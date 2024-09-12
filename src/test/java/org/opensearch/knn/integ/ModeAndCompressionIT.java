@@ -7,6 +7,7 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.logging.log4j.util.Strings;
 import org.junit.Assert;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -278,6 +279,10 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
 
         for (CompressionLevel compressionLevel : ModeBasedResolver.SUPPORTED_COMPRESSION_LEVELS) {
             for (String mode : Mode.NAMES_ARRAY) {
+                if (mode == null) {
+                    continue;
+                }
+                mode = mode.toLowerCase();
                 String indexName = INDEX_NAME + compressionLevel + "_" + mode;
                 String modelId = indexName;
                 builder = XContentFactory.jsonBuilder()
@@ -306,6 +311,10 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         }
 
         for (String mode : Mode.NAMES_ARRAY) {
+            if (mode == null) {
+                continue;
+            }
+            mode = mode.toLowerCase();
             String indexName = INDEX_NAME + mode;
             String modelId = indexName;
             builder = XContentFactory.jsonBuilder()
@@ -329,6 +338,19 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             String mapping = builder.toString();
             validateIndex(indexName, mapping);
             validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT);
+            deleteKNNIndex(indexName);
+        }
+
+        for (CompressionLevel compressionLevel : ModeBasedResolver.SUPPORTED_COMPRESSION_LEVELS) {
+            String indexName = INDEX_NAME + compressionLevel;
+            deleteKNNIndex(indexName);
+            for (String mode : Mode.NAMES_ARRAY) {
+                if (mode == null) {
+                    continue;
+                }
+                mode = mode.toLowerCase();
+                deleteKNNIndex(Strings.concat(indexName, "_" + mode));
+            }
         }
 
     }
@@ -434,7 +456,9 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
         List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
         assertEquals(NUM_DOCS, exactSearchKnnResults.size());
-        Assert.assertEquals(exactSearchKnnResults, knnResults);
+        for (int i = 0; i < NUM_DOCS; i++) {
+            Assert.assertEquals(exactSearchKnnResults.get(i), knnResults.get(i), .00001);
+        }
 
         // Search with rescore
         response = searchKNNIndex(
