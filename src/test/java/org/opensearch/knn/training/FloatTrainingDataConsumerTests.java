@@ -13,6 +13,7 @@ package org.opensearch.knn.training;
 
 import org.mockito.ArgumentCaptor;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ public class FloatTrainingDataConsumerTests extends KNNTestCase {
                                                                                                                                           // numVectors*dimension*
                                                                                                                                           // Float.BYTES);
         when(trainingDataAllocation.getMemoryAddress()).thenReturn(0L);
+        when(trainingDataAllocation.getQuantizationConfig()).thenReturn(QuantizationConfig.EMPTY);
 
         // Capture argument passed to set pointer
         ArgumentCaptor<Long> valueCapture = ArgumentCaptor.forClass(Long.class);
