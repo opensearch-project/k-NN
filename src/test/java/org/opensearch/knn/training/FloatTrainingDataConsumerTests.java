@@ -13,7 +13,9 @@ package org.opensearch.knn.training;
 
 import org.mockito.ArgumentCaptor;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,11 +31,45 @@ public class FloatTrainingDataConsumerTests extends KNNTestCase {
 
         // Mock the training data allocation
         int dimension = 128;
-        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class); // new
-                                                                                                                                          // NativeMemoryAllocation.TrainingDataAllocation(0,
-                                                                                                                                          // numVectors*dimension*
-                                                                                                                                          // Float.BYTES);
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class);
+
         when(trainingDataAllocation.getMemoryAddress()).thenReturn(0L);
+
+        when(trainingDataAllocation.getQuantizationConfig()).thenReturn(QuantizationConfig.EMPTY);
+
+        // Capture argument passed to set pointer
+        ArgumentCaptor<Long> valueCapture = ArgumentCaptor.forClass(Long.class);
+
+        FloatTrainingDataConsumer floatTrainingDataConsumer = new FloatTrainingDataConsumer(trainingDataAllocation);
+
+        List<Float[]> vectorSet1 = new ArrayList<>(3);
+        for (int i = 0; i < 3; i++) {
+            Float[] vector = new Float[dimension];
+            Arrays.fill(vector, (float) i);
+            vectorSet1.add(vector);
+        }
+
+        // Transfer vectors
+        floatTrainingDataConsumer.accept(vectorSet1);
+
+        // Ensure that the pointer captured has been updated
+        verify(trainingDataAllocation).setMemoryAddress(valueCapture.capture());
+        when(trainingDataAllocation.getMemoryAddress()).thenReturn(valueCapture.getValue());
+
+        assertNotEquals(0, trainingDataAllocation.getMemoryAddress());
+    }
+
+    public void testAccept_withQuantizationConfig() {
+
+        // Mock the training data allocation
+        int dimension = 128;
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class);
+
+        when(trainingDataAllocation.getMemoryAddress()).thenReturn(0L);
+
+        QuantizationConfig quantizationConfig = mock(QuantizationConfig.class);
+        when(quantizationConfig.getQuantizationType()).thenReturn(ScalarQuantizationType.ONE_BIT);
+        when(trainingDataAllocation.getQuantizationConfig()).thenReturn(QuantizationConfig.EMPTY);
 
         // Capture argument passed to set pointer
         ArgumentCaptor<Long> valueCapture = ArgumentCaptor.forClass(Long.class);
