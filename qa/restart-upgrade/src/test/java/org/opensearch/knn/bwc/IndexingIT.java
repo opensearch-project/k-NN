@@ -90,7 +90,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
         if (isRunningAgainstOldCluster()) {
-            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME));
+            createKnnIndex(
+                testIndex,
+                getKNNDefaultIndexSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME)
+            );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 100);
             // Flush to ensure that index is not re-indexed when node comes back up
             flush(testIndex, true);
