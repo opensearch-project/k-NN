@@ -48,9 +48,7 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
 
     @Override
     public void accept(List<?> floats) {
-        if (floats.isEmpty() == false
-            && quantizationConfig != QuantizationConfig.EMPTY
-            && quantizationConfig.getQuantizationType() != null) {
+        if (isValidFloatsAndQuantizationConfig(floats)) {
             try {
                 List<byte[]> byteVectors = quantizeVectors(floats);
                 long memoryAddress = trainingDataAllocation.getMemoryAddress();
@@ -109,5 +107,9 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
         }
 
         return bytes;
+    }
+
+    private boolean isValidFloatsAndQuantizationConfig(List<?> floats) {
+        return floats != null && floats.isEmpty() == false && quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY;
     }
 }
