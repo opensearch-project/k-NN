@@ -11,6 +11,8 @@ import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.HashMap;
@@ -328,6 +330,15 @@ public class MethodComponent {
         Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
         Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
         Version indexCreationVersion = knnMethodConfigContext.getVersionCreated();
+        Mode mode = knnMethodConfigContext.getMode();
+        CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
+
+        // Check if the mode is ON_DISK and the compression level is one of the binary quantization levels (x32, x16, or x8).
+        // This determines whether to use binary quantization-specific values for parameters like ef_search and ef_construction.
+        boolean isOnDiskWithBinaryQuantization = (compressionLevel == CompressionLevel.x32
+            || compressionLevel == CompressionLevel.x16
+            || compressionLevel == CompressionLevel.x8);
+
         for (Parameter<?> parameter : methodComponent.getParameters().values()) {
             if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
                 parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));
@@ -335,14 +346,32 @@ public class MethodComponent {
                 // Picking the right values for the parameters whose values are different based on different index
                 // created version.
                 if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_SEARCH)) {
-                    parametersWithDefaultsMap.put(parameter.getName(), IndexHyperParametersUtil.getHNSWEFSearchValue(indexCreationVersion));
+                    if (isOnDiskWithBinaryQuantization) {
+                        parametersWithDefaultsMap.put(parameter.getName(), IndexHyperParametersUtil.getBinaryQuantizationEFSearchValue());
+                    } else {
+                        parametersWithDefaultsMap.put(
+                            parameter.getName(),
+                            IndexHyperParametersUtil.getHNSWEFSearchValue(indexCreationVersion)
+                        );
+                    }
                 } else if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
-                    parametersWithDefaultsMap.put(
-                        parameter.getName(),
-                        IndexHyperParametersUtil.getHNSWEFConstructionValue(indexCreationVersion)
-                    );
+                    if (isOnDiskWithBinaryQuantization) {
+                        parametersWithDefaultsMap.put(
+                            parameter.getName(),
+                            IndexHyperParametersUtil.getBinaryQuantizationEFConstructionValue()
+                        );
+                    } else {
+                        parametersWithDefaultsMap.put(
+                            parameter.getName(),
+                            IndexHyperParametersUtil.getHNSWEFConstructionValue(indexCreationVersion)
+                        );
+                    }
+
                 } else {
-                    parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValue());
+                    Object value = parameter.getDefaultValue();
+                    if (value != null) {
+                        parametersWithDefaultsMap.put(parameter.getName(), value);
+                    }
                 }
 
             }

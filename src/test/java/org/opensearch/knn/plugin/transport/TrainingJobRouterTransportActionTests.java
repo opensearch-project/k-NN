@@ -304,7 +304,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Setup the request
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             null,
-            getDefaultKNNMethodContext(),
+            getDefaultKNNMethodContextForModel(),
             dimension,
             trainingIndexName,
             "training-field",
@@ -353,7 +353,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Setup the request
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             null,
-            getDefaultKNNMethodContext(),
+            getDefaultKNNMethodContextForModel(),
             dimension,
             trainingIndexName,
             "training-field",
@@ -403,7 +403,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Setup the request
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             null,
-            getDefaultKNNMethodContext(),
+            getDefaultKNNMethodContextForModel(),
             dimension,
             trainingIndexName,
             "training-field",

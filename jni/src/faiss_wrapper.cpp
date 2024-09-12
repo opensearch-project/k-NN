@@ -286,7 +286,7 @@ void knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInter
     auto *inputVectors = reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
     int dim = (int)dimJ;
     if (dim % 8 != 0) {
-        throw std::runtime_error("Dimensions should be multiply of 8");
+        throw std::runtime_error("Dimensions should be multiple of 8");
     }
     int numVectors = (int) (inputVectors->size() / (uint64_t) (dim / 8));
     int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
@@ -857,8 +857,12 @@ jbyteArray knn_jni::faiss_wrapper::TrainBinaryIndex(knn_jni::JNIUtilInterface * 
     }
 
     // Train index if needed
+    int dim = (int)dimensionJ;
+    if (dim % 8 != 0) {
+        throw std::runtime_error("Dimensions should be multiple of 8");
+    }
     auto *trainingVectorsPointerCpp = reinterpret_cast<std::vector<uint8_t>*>(trainVectorsPointerJ);
-    int numVectors = trainingVectorsPointerCpp->size() * 8 /(int) dimensionJ;
+    int numVectors = (int) (trainingVectorsPointerCpp->size() / (dim / 8));
     if(!indexWriter->is_trained) {
         InternalTrainBinaryIndex(indexWriter.get(), numVectors, trainingVectorsPointerCpp->data());
     }

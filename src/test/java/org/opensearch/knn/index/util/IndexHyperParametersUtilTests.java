@@ -41,4 +41,12 @@ public class IndexHyperParametersUtilTests extends TestCase {
             IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.CURRENT)
         );
     }
+
+    public void testGetBinaryQuantizationEFValues_thenSuccess() {
+        // Test for Binary Quantization EF Construction value
+        Assert.assertEquals(256, IndexHyperParametersUtil.getBinaryQuantizationEFConstructionValue());
+
+        // Test for Binary Quantization EF Search value
+        Assert.assertEquals(256, IndexHyperParametersUtil.getBinaryQuantizationEFSearchValue());
+    }
 }

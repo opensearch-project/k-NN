@@ -74,7 +74,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
                 @Override
                 public Mode getMode() {
-                    return knnMethodConfigContext.getMode();
+                    return Mode.fromName(originalMappingParameters.getMode());
                 }
 
                 @Override
@@ -125,19 +125,18 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             originalMappingParameters
         );
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
-        KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = annConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
-        KNNEngine knnEngine = knnMethodContext.getKnnEngine();
+        KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
+        KNNMethodContext resolvedKnnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
+        KNNEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnEngine.getKNNLibraryIndexingContext(
-            knnMethodContext,
+            resolvedKnnMethodContext,
             knnMethodConfigContext
         );
         QuantizationConfig quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
 
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-        this.fieldType.putAttribute(DIMENSION, String.valueOf(annConfig.getDimension()));
-        this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMappingConfig.getDimension()));
+        this.fieldType.putAttribute(SPACE_TYPE, resolvedKnnMethodContext.getSpaceType().getValue());
         // Conditionally add quantization config
         if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
             this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
@@ -157,8 +156,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
         if (useLuceneBasedVectorField) {
             int adjustedDimension = mappedFieldType.vectorDataType == VectorDataType.BINARY
-                ? annConfig.getDimension() / 8
-                : annConfig.getDimension();
+                ? knnMappingConfig.getDimension() / 8
+                : knnMappingConfig.getDimension();
             final VectorEncoding encoding = mappedFieldType.vectorDataType == VectorDataType.FLOAT
                 ? VectorEncoding.FLOAT32
                 : VectorEncoding.BYTE;

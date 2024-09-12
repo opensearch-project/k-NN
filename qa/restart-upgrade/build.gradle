@@ -35,6 +35,7 @@ testClusters {
     }
 }
 
+   def versionsBelow2_3 = ["1.", "2.0.", "2.1.", "2.2."]
 // Task to run BWC tests against the old cluster
     task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
         dependsOn "zipBwcPlugin"
@@ -86,6 +87,13 @@ testClusters {
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
+            }
+        }
+
+        if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
             }
         }
 
@@ -152,6 +160,13 @@ testClusters {
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
+            }
+        }
+
+        if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
             }
         }
 
