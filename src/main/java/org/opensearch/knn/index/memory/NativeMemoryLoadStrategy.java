@@ -13,6 +13,7 @@ package org.opensearch.knn.index.memory;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -170,6 +171,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 nativeMemoryEntryContext.calculateSizeInKB(),
                 nativeMemoryEntryContext.getVectorDataType()
             );
+
+            QuantizationConfig quantizationConfig = nativeMemoryEntryContext.getQuantizationConfig();
+            trainingDataAllocation.setQuantizationConfig(quantizationConfig);
 
             TrainingDataConsumer vectorDataConsumer = nativeMemoryEntryContext.getVectorDataType()
                 .getTrainingDataConsumer(trainingDataAllocation);

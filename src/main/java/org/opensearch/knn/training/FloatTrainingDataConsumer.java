@@ -13,10 +13,19 @@ package org.opensearch.knn.training;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.knn.quantization.factory.QuantizerFactory;
+import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
+import org.opensearch.knn.quantization.models.requests.TrainingRequest;
+import org.opensearch.knn.quantization.quantizer.Quantizer;
 import org.opensearch.search.SearchHit;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,6 +34,8 @@ import java.util.List;
  */
 public class FloatTrainingDataConsumer extends TrainingDataConsumer {
 
+    private final QuantizationConfig quantizationConfig;
+
     /**
      * Constructor
      *
@@ -32,16 +43,28 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
      */
     public FloatTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
         super(trainingDataAllocation);
+        this.quantizationConfig = trainingDataAllocation.getQuantizationConfig();
     }
 
     @Override
     public void accept(List<?> floats) {
-        trainingDataAllocation.setMemoryAddress(
-            JNIService.transferVectors(
-                trainingDataAllocation.getMemoryAddress(),
-                floats.stream().map(v -> ArrayUtils.toPrimitive((Float[]) v)).toArray(float[][]::new)
-            )
-        );
+        if (isValidFloatsAndQuantizationConfig(floats)) {
+            try {
+                List<byte[]> byteVectors = quantizeVectors(floats);
+                long memoryAddress = trainingDataAllocation.getMemoryAddress();
+                memoryAddress = JNICommons.storeBinaryVectorData(memoryAddress, byteVectors.toArray(new byte[0][0]), byteVectors.size());
+                trainingDataAllocation.setMemoryAddress(memoryAddress);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            trainingDataAllocation.setMemoryAddress(
+                JNIService.transferVectors(
+                    trainingDataAllocation.getMemoryAddress(),
+                    floats.stream().map(v -> ArrayUtils.toPrimitive((Float[]) v)).toArray(float[][]::new)
+                )
+            );
+        }
     }
 
     @Override
@@ -63,5 +86,30 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
         setTotalVectorsCountAdded(getTotalVectorsCountAdded() + vectors.size());
 
         accept(vectors);
+    }
+
+    private List<byte[]> quantizeVectors(List<?> vectors) throws IOException {
+        List<byte[]> bytes = new ArrayList<>();
+        ScalarQuantizationParams quantizationParams = new ScalarQuantizationParams(quantizationConfig.getQuantizationType());
+        Quantizer<float[], byte[]> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
+        // Create training request
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<float[]>(vectors.size()) {
+            @Override
+            public float[] getVectorAtThePosition(int position) {
+                return ArrayUtils.toPrimitive((Float[]) vectors.get(position));
+            }
+        };
+        QuantizationState quantizationState = quantizer.train(trainingRequest);
+        BinaryQuantizationOutput binaryQuantizationOutput = new BinaryQuantizationOutput(quantizationConfig.getQuantizationType().getId());
+        for (int i = 0; i < vectors.size(); i++) {
+            quantizer.quantize(ArrayUtils.toPrimitive((Float[]) vectors.get(i)), quantizationState, binaryQuantizationOutput);
+            bytes.add(binaryQuantizationOutput.getQuantizedVectorCopy());
+        }
+
+        return bytes;
+    }
+
+    private boolean isValidFloatsAndQuantizationConfig(List<?> floats) {
+        return floats != null && floats.isEmpty() == false && quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY;
     }
 }

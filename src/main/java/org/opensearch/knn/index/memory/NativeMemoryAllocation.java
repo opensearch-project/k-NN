@@ -12,9 +12,11 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -252,6 +254,9 @@ public interface NativeMemoryAllocation {
         private volatile boolean closed;
         private long memoryAddress;
         private final int size;
+        @Getter
+        @Setter
+        private QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
 
         // Implement reader/writer with semaphores to deal with passing lock conditions between threads
         private int readCount;
