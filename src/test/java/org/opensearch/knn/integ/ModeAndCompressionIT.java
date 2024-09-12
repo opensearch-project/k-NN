@@ -8,7 +8,6 @@ package org.opensearch.knn.integ;
 import lombok.SneakyThrows;
 import org.apache.http.util.EntityUtils;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -252,12 +251,14 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
 
     // Training isnt currently supported for mode and compression because quantization framework does not quantize
     // the training vectors. So, commenting out for now.
-    @Ignore
     @SneakyThrows
     public void testTraining_whenValid_thenSucceed() {
         setupTrainingIndex();
         XContentBuilder builder;
         for (String compressionLevel : CompressionLevel.NAMES_ARRAY) {
+            if (compressionLevel.equals("4x")) {
+                continue;
+            }
             String indexName = INDEX_NAME + compressionLevel;
             String modelId = indexName;
             builder = XContentFactory.jsonBuilder()
@@ -287,38 +288,13 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 compressionLevel,
                 Mode.NOT_CONFIGURED.getName()
             );
+            deleteKNNIndex(indexName);
         }
-
-        for (String compressionLevel : CompressionLevel.NAMES_ARRAY) {
-            for (String mode : Mode.NAMES_ARRAY) {
-                String indexName = INDEX_NAME + compressionLevel + "_" + mode;
-                String modelId = indexName;
-                builder = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
-                    .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
-                    .field(KNNConstants.DIMENSION, DIMENSION)
-                    .field(MODEL_DESCRIPTION, "")
-                    .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel)
-                    .field(MODE_PARAMETER, mode)
-                    .endObject();
-                validateTraining(modelId, builder);
-                builder = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject("properties")
-                    .startObject(FIELD_NAME)
-                    .field("type", "knn_vector")
-                    .field("model_id", modelId)
-                    .endObject()
-                    .endObject()
-                    .endObject();
-                String mapping = builder.toString();
-                validateIndex(indexName, mapping);
-                validateSearch(indexName, METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NLIST_DEFAULT, compressionLevel, mode);
-            }
-        }
-
         for (String mode : Mode.NAMES_ARRAY) {
+            if (mode == null) {
+                continue;
+            }
+            mode = mode.toLowerCase();
             String indexName = INDEX_NAME + mode;
             String modelId = indexName;
             builder = XContentFactory.jsonBuilder()
@@ -348,8 +324,8 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
                 CompressionLevel.NOT_CONFIGURED.getName(),
                 mode
             );
+            deleteKNNIndex(indexName);
         }
-
     }
 
     @SneakyThrows
@@ -459,6 +435,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
         List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
         assertEquals(NUM_DOCS, exactSearchKnnResults.size());
+
         if (CompressionLevel.x4.getName().equals(compressionLevelString) == false && Mode.ON_DISK.getName().equals(mode)) {
             Assert.assertEquals(exactSearchKnnResults, knnResults);
         }
