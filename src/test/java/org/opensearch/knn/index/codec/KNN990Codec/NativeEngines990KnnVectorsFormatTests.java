@@ -81,9 +81,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     private static final Codec TESTING_CODEC = new UnitTestCodec();
     private static final String FLAT_VECTOR_FILE_EXT = ".vec";
-    private static final String HNSW_FILE_EXT = ".hnsw";
+    private static final String FAISS_ENGINE_FILE_EXT = ".faiss";
     private static final String FLOAT_VECTOR_FIELD = "float_field";
-    private static final String FLOAT_VECTOR_FIELD_BINARY = "float_field_binary";
+    private static final String FLOAT_VECTOR_FIELD_BINARY = "float_binary_field";
     private static final String BYTE_VECTOR_FIELD = "byte_field";
     private Directory dir;
     private RandomIndexWriter indexWriter;
@@ -220,11 +220,11 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         IndexSearcher searcher = new IndexSearcher(indexReader);
         final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
         SegmentReader segmentReader = Lucene.segmentReader(leafReader);
-        final List<String> hnswfiles = getFilesFromSegment(dir, HNSW_FILE_EXT);
-        // 0 hnsw files for now as we have not integrated graph creation here.
-        assertEquals(0, hnswfiles.size());
-        assertEquals(hnswfiles.stream().filter(x -> x.contains(FLOAT_VECTOR_FIELD)).count(), 0);
-        assertEquals(hnswfiles.stream().filter(x -> x.contains(BYTE_VECTOR_FIELD)).count(), 0);
+        final List<String> hnswfiles = getFilesFromSegment(dir, FAISS_ENGINE_FILE_EXT);
+        assertEquals(3, hnswfiles.size());
+        assertEquals(hnswfiles.stream().filter(x -> x.contains(FLOAT_VECTOR_FIELD)).count(), 1);
+        assertEquals(hnswfiles.stream().filter(x -> x.contains(BYTE_VECTOR_FIELD)).count(), 1);
+        assertEquals(hnswfiles.stream().filter(x -> x.contains(FLOAT_VECTOR_FIELD_BINARY)).count(), 1);
 
         // Even setting IWC to not use compound file it still uses compound file, hence ensuring we don't check .vec
         // file in case segment uses compound format. use this seed once we fix this to validate everything is
