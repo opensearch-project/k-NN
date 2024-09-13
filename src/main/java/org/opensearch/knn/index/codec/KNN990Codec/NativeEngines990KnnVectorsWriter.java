@@ -91,7 +91,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             int totalLiveDocs = getLiveDocs(getVectorValues(vectorDataType, field.getDocsWithField(), field.getVectors()));
             if (totalLiveDocs == 0) {
                 log.debug("[Flush] No live docs for field {}", fieldInfo.getName());
-                return;
+                continue;
             }
             KNNVectorValues<?> knnVectorValues = getVectorValues(vectorDataType, field.getDocsWithField(), field.getVectors());
 
@@ -104,7 +104,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                     totalLiveDocs,
                     buildVectorDataStructureThreshold
                 );
-                return;
+                continue;
             }
             final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
 

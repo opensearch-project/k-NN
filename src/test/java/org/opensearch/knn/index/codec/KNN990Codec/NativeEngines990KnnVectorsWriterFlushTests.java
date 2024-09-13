@@ -29,9 +29,12 @@ import org.opensearch.knn.quantization.models.quantizationParams.QuantizationPar
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -44,7 +47,9 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @RequiredArgsConstructor
@@ -68,6 +73,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
     private final String description;
     private final List<Map<Integer, float[]>> vectorsPerField;
     private static final Integer BUILD_GRAPH_ALWAYS_THRESHOLD = 0;
+    private static final Integer BUILD_GRAPH_NEVER_THRESHOLD = -1;
 
     @Override
     public void setUp() throws Exception {
@@ -86,6 +92,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     "Multi Field",
                     List.of(
                         Map.of(0, new float[] { 1, 2, 3 }, 1, new float[] { 2, 3, 4 }, 2, new float[] { 3, 4, 5 }),
+                        Collections.emptyMap(),
                         Map.of(
                             0,
                             new float[] { 1, 2, 3, 4 },
@@ -172,7 +179,334 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
-                    verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    if (vectorsPerField.get(i).size() > 0) {
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    } else {
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+    }
+
+    public void testFlush_whenThresholdIsNegative_thenNativeIndexWriterIsNeverCalled() throws IOException {
+        // Given
+        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+            final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+                new ArrayList<>(vectorsPerField.get(i).values())
+            );
+            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+                VectorDataType.FLOAT,
+                randomVectorValues
+            );
+            expectedVectorValues.add(knnVectorValues);
+
+        });
+
+        final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
+            segmentWriteState,
+            flatVectorsWriter,
+            BUILD_GRAPH_NEVER_THRESHOLD
+        );
+
+        try (
+            MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
+            MockedStatic<KNNVectorValuesFactory> knnVectorValuesFactoryMockedStatic = mockStatic(KNNVectorValuesFactory.class);
+            MockedStatic<QuantizationService> quantizationServiceMockedStatic = mockStatic(QuantizationService.class);
+            MockedStatic<NativeIndexWriter> nativeIndexWriterMockedStatic = mockStatic(NativeIndexWriter.class);
+            MockedConstruction<KNN990QuantizationStateWriter> knn990QuantWriterMockedConstruction = mockConstruction(
+                KNN990QuantizationStateWriter.class
+            );
+        ) {
+            quantizationServiceMockedStatic.when(() -> QuantizationService.getInstance()).thenReturn(quantizationService);
+            IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+                final FieldInfo fieldInfo = fieldInfo(
+                    i,
+                    VectorEncoding.FLOAT32,
+                    Map.of(KNNConstants.VECTOR_DATA_TYPE_FIELD, "float", KNNConstants.KNN_ENGINE, "faiss")
+                );
+
+                NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, vectorsPerField.get(i));
+                fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
+                    .thenReturn(field);
+                try {
+                    nativeEngineWriter.addField(fieldInfo);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                DocsWithFieldSet docsWithFieldSet = field.getDocsWithField();
+                knnVectorValuesFactoryMockedStatic.when(
+                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValues.get(i));
+
+                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
+                    .thenReturn(nativeIndexWriter);
+            });
+
+            doAnswer(answer -> {
+                Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
+                return null;
+            }).when(nativeIndexWriter).flushIndex(any(), anyInt());
+
+            // When
+            nativeEngineWriter.flush(5, null);
+
+            // Then
+            verify(flatVectorsWriter).flush(5, null);
+            if (vectorsPerField.size() > 0) {
+                assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
+            }
+            verifyNoInteractions(nativeIndexWriter);
+        }
+    }
+
+    public void testFlush_whenThresholdIsGreaterThanVectorSize_thenNativeIndexWriterIsNeverCalled() throws IOException {
+        // Given
+        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        final Map<Integer, Integer> sizeMap = new HashMap<>();
+        IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+            final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+                new ArrayList<>(vectorsPerField.get(i).values())
+            );
+            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+                VectorDataType.FLOAT,
+                randomVectorValues
+            );
+            sizeMap.put(i, randomVectorValues.size());
+            expectedVectorValues.add(knnVectorValues);
+
+        });
+        final int maxThreshold = sizeMap.values().stream().filter(count -> count != 0).max(Integer::compareTo).orElse(0);
+        final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
+            segmentWriteState,
+            flatVectorsWriter,
+            maxThreshold + 1
+        );
+
+        try (
+            MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
+            MockedStatic<KNNVectorValuesFactory> knnVectorValuesFactoryMockedStatic = mockStatic(KNNVectorValuesFactory.class);
+            MockedStatic<QuantizationService> quantizationServiceMockedStatic = mockStatic(QuantizationService.class);
+            MockedStatic<NativeIndexWriter> nativeIndexWriterMockedStatic = mockStatic(NativeIndexWriter.class);
+            MockedConstruction<KNN990QuantizationStateWriter> knn990QuantWriterMockedConstruction = mockConstruction(
+                KNN990QuantizationStateWriter.class
+            );
+        ) {
+            quantizationServiceMockedStatic.when(() -> QuantizationService.getInstance()).thenReturn(quantizationService);
+            IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+                final FieldInfo fieldInfo = fieldInfo(
+                    i,
+                    VectorEncoding.FLOAT32,
+                    Map.of(KNNConstants.VECTOR_DATA_TYPE_FIELD, "float", KNNConstants.KNN_ENGINE, "faiss")
+                );
+
+                NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, vectorsPerField.get(i));
+                fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
+                    .thenReturn(field);
+                try {
+                    nativeEngineWriter.addField(fieldInfo);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                DocsWithFieldSet docsWithFieldSet = field.getDocsWithField();
+                knnVectorValuesFactoryMockedStatic.when(
+                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValues.get(i));
+
+                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
+                    .thenReturn(nativeIndexWriter);
+            });
+
+            doAnswer(answer -> {
+                Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
+                return null;
+            }).when(nativeIndexWriter).flushIndex(any(), anyInt());
+
+            // When
+            nativeEngineWriter.flush(5, null);
+
+            // Then
+            verify(flatVectorsWriter).flush(5, null);
+            if (vectorsPerField.size() > 0) {
+                assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
+            }
+            verifyNoInteractions(nativeIndexWriter);
+        }
+    }
+
+    public void testFlush_whenThresholdIsEqualToMinNumberOfVectors_thenNativeIndexWriterIsCalled() throws IOException {
+        // Given
+        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        final Map<Integer, Integer> sizeMap = new HashMap<>();
+        IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+            final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+                new ArrayList<>(vectorsPerField.get(i).values())
+            );
+            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+                VectorDataType.FLOAT,
+                randomVectorValues
+            );
+            sizeMap.put(i, randomVectorValues.size());
+            expectedVectorValues.add(knnVectorValues);
+
+        });
+
+        final int minThreshold = sizeMap.values().stream().filter(count -> count != 0).min(Integer::compareTo).orElse(0);
+        final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
+            segmentWriteState,
+            flatVectorsWriter,
+            minThreshold
+        );
+
+        try (
+            MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
+            MockedStatic<KNNVectorValuesFactory> knnVectorValuesFactoryMockedStatic = mockStatic(KNNVectorValuesFactory.class);
+            MockedStatic<QuantizationService> quantizationServiceMockedStatic = mockStatic(QuantizationService.class);
+            MockedStatic<NativeIndexWriter> nativeIndexWriterMockedStatic = mockStatic(NativeIndexWriter.class);
+            MockedConstruction<KNN990QuantizationStateWriter> knn990QuantWriterMockedConstruction = mockConstruction(
+                KNN990QuantizationStateWriter.class
+            );
+        ) {
+            quantizationServiceMockedStatic.when(() -> QuantizationService.getInstance()).thenReturn(quantizationService);
+            IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+                final FieldInfo fieldInfo = fieldInfo(
+                    i,
+                    VectorEncoding.FLOAT32,
+                    Map.of(KNNConstants.VECTOR_DATA_TYPE_FIELD, "float", KNNConstants.KNN_ENGINE, "faiss")
+                );
+
+                NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, vectorsPerField.get(i));
+                fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
+                    .thenReturn(field);
+                try {
+                    nativeEngineWriter.addField(fieldInfo);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                DocsWithFieldSet docsWithFieldSet = field.getDocsWithField();
+                knnVectorValuesFactoryMockedStatic.when(
+                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValues.get(i));
+
+                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
+                    .thenReturn(nativeIndexWriter);
+            });
+
+            doAnswer(answer -> {
+                Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
+                return null;
+            }).when(nativeIndexWriter).flushIndex(any(), anyInt());
+
+            // When
+            nativeEngineWriter.flush(5, null);
+
+            // Then
+            verify(flatVectorsWriter).flush(5, null);
+            if (vectorsPerField.size() > 0) {
+                assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
+                assertTrue((long) KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue() > 0);
+            }
+            IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+                try {
+                    if (vectorsPerField.get(i).size() > 0) {
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    } else {
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+    }
+
+    public void testFlush_whenThresholdIsEqualToFixedValue_thenRelevantNativeIndexWriterIsCalled() throws IOException {
+        // Given
+        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+            final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+                new ArrayList<>(vectorsPerField.get(i).values())
+            );
+            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+                VectorDataType.FLOAT,
+                randomVectorValues
+            );
+            expectedVectorValues.add(knnVectorValues);
+
+        });
+        final int threshold = 4;
+        final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
+            segmentWriteState,
+            flatVectorsWriter,
+            threshold
+        );
+
+        try (
+            MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
+            MockedStatic<KNNVectorValuesFactory> knnVectorValuesFactoryMockedStatic = mockStatic(KNNVectorValuesFactory.class);
+            MockedStatic<QuantizationService> quantizationServiceMockedStatic = mockStatic(QuantizationService.class);
+            MockedStatic<NativeIndexWriter> nativeIndexWriterMockedStatic = mockStatic(NativeIndexWriter.class);
+            MockedConstruction<KNN990QuantizationStateWriter> knn990QuantWriterMockedConstruction = mockConstruction(
+                KNN990QuantizationStateWriter.class
+            );
+        ) {
+            quantizationServiceMockedStatic.when(() -> QuantizationService.getInstance()).thenReturn(quantizationService);
+            IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+                final FieldInfo fieldInfo = fieldInfo(
+                    i,
+                    VectorEncoding.FLOAT32,
+                    Map.of(KNNConstants.VECTOR_DATA_TYPE_FIELD, "float", KNNConstants.KNN_ENGINE, "faiss")
+                );
+
+                NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, vectorsPerField.get(i));
+                fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
+                    .thenReturn(field);
+                try {
+                    nativeEngineWriter.addField(fieldInfo);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                DocsWithFieldSet docsWithFieldSet = field.getDocsWithField();
+                knnVectorValuesFactoryMockedStatic.when(
+                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValues.get(i));
+
+                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
+                    .thenReturn(nativeIndexWriter);
+            });
+
+            doAnswer(answer -> {
+                Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
+                return null;
+            }).when(nativeIndexWriter).flushIndex(any(), anyInt());
+
+            // When
+            nativeEngineWriter.flush(5, null);
+
+            // Then
+            verify(flatVectorsWriter).flush(5, null);
+            if (vectorsPerField.size() > 0) {
+                assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
+                assertTrue((long) KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue() > 0);
+            }
+            IntStream.range(0, vectorsPerField.size()).forEach(i -> {
+                try {
+                    if (vectorsPerField.get(i).size() >= threshold) {
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    } else {
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -259,8 +593,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
-                    verify(knn990QuantWriterMockedConstruction.constructed().get(0)).writeState(i, quantizationState);
-                    verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    if (vectorsPerField.get(i).size() > 0) {
+                        verify(knn990QuantWriterMockedConstruction.constructed().get(0)).writeState(i, quantizationState);
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    } else {
+                        verify(knn990QuantWriterMockedConstruction.constructed().get(0), never()).writeState(i, quantizationState);
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                    }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
