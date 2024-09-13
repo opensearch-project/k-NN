@@ -287,7 +287,7 @@ by enabling `AVX2` and `AVX512` on `x86 architecture` and `NEON` on `ARM64 archi
 the underlying processor should support these capabilities (AVX512, AVX2 or NEON). It can be disabled by setting the parameter `avx2.enabled` to `false` and
 `avx512.enabled` to `false`. If your processor supports `AVX512` or `AVX2`, they can be set by enabling the setting . By default, these values are enabled on 
 OpenSearch. Some exceptions: As of now, SIMD support is not supported on Windows OS, and AVX512 is not present on MAC systems due to hardware not supporting the
-feature.
+feature. 
 
 ```
 # While building OpenSearch k-NN
