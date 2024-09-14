@@ -684,20 +684,29 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
     } else {
         faiss::SearchParameters *searchParameters = nullptr;
         faiss::SearchParametersHNSW hnswParams;
+        faiss::SearchParametersIVF ivfParams;
         std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
         std::vector<uint64_t> idGrouperBitmap;
-        auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
+        auto ivfReader = dynamic_cast<const faiss::IndexBinaryIVF*>(indexReader->index);
         // TODO currently, search parameter is not supported in binary index
         // To avoid test failure, we skip setting ef search when methodPramsJ is null temporary
-        if(hnswReader!= nullptr && (methodParamsJ != nullptr || parentIdsJ != nullptr)) {
-            // Query param efsearch supersedes ef_search provided during index setting.
-            hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
-            if (parentIdsJ != nullptr) {
-                idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
-                hnswParams.grp = idGrouper.get();
+        if (ivfReader) {
+            int indexNprobe = ivfReader->nprobe;
+            ivfParams.nprobe = commons::getIntegerMethodParameter(env, jniUtil, methodParams, NPROBES, indexNprobe);
+            searchParameters = &ivfParams;
+        } else {
+            auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
+            if(hnswReader != nullptr && (methodParamsJ != nullptr || parentIdsJ != nullptr)) {
+               // Query param efsearch supersedes ef_search provided during index setting.
+               hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
+               if (parentIdsJ != nullptr) {
+                   idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
+                   hnswParams.grp = idGrouper.get();
+               }
+               searchParameters = &hnswParams;
             }
-            searchParameters = &hnswParams;
         }
+
         try {
             indexReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
         } catch (...) {
