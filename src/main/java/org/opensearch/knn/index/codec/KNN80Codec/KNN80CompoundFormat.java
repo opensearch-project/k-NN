@@ -41,7 +41,7 @@ public class KNN80CompoundFormat extends CompoundFormat {
 
     @Override
     public CompoundDirectory getCompoundReader(Directory dir, SegmentInfo si, IOContext context) throws IOException {
-        return delegate.getCompoundReader(dir, si, context);
+        return new KNN80CompoundDirectory(delegate.getCompoundReader(dir, si, context), dir);
     }
 
     @Override

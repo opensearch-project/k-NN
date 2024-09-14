@@ -41,6 +41,6 @@ public class KNN80DocValuesFormat extends DocValuesFormat {
 
     @Override
     public DocValuesProducer fieldsProducer(SegmentReadState state) throws IOException {
-        return delegate.fieldsProducer(state);
+        return new KNN80DocValuesProducer(delegate.fieldsProducer(state), state);
     }
 }
