@@ -471,10 +471,7 @@ public class KNNSettings {
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
             KNN_FAISS_AVX2_DISABLED_SETTING,
-            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
-            KNN_FAISS_AVX512_DISABLED_SETTING,
-            QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
-            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING
+            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
