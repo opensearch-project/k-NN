@@ -19,6 +19,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
+import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
 
@@ -30,15 +31,20 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     /** The format for storing, reading, merging vectors on disk */
     private static FlatVectorsFormat flatVectorsFormat;
     private static final String FORMAT_NAME = "NativeEngines990KnnVectorsFormat";
+    private static int buildVectorDatastructureThreshold;
 
     public NativeEngines990KnnVectorsFormat() {
-        super(FORMAT_NAME);
-        flatVectorsFormat = new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer());
+        this(new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer()));
     }
 
-    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat lucene99FlatVectorsFormat) {
+    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat) {
+        this(flatVectorsFormat, KNNSettings.INDEX_KNN_DEFAULT_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
+    }
+
+    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat, int buildVectorDatastructureThreshold) {
         super(FORMAT_NAME);
-        flatVectorsFormat = lucene99FlatVectorsFormat;
+        NativeEngines990KnnVectorsFormat.flatVectorsFormat = flatVectorsFormat;
+        NativeEngines990KnnVectorsFormat.buildVectorDatastructureThreshold = buildVectorDatastructureThreshold;
     }
 
     /**
@@ -48,7 +54,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public KnnVectorsWriter fieldsWriter(final SegmentWriteState state) throws IOException {
-        return new NativeEngines990KnnVectorsWriter(state, flatVectorsFormat.fieldsWriter(state));
+        return new NativeEngines990KnnVectorsWriter(state, flatVectorsFormat.fieldsWriter(state), buildVectorDatastructureThreshold);
     }
 
     /**
@@ -63,6 +69,12 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public String toString() {
-        return "NativeEngines99KnnVectorsFormat(name=" + this.getClass().getSimpleName() + ", flatVectorsFormat=" + flatVectorsFormat + ")";
+        return "NativeEngines99KnnVectorsFormat(name="
+            + this.getClass().getSimpleName()
+            + ", flatVectorsFormat="
+            + flatVectorsFormat
+            + ", buildVectorDatastructureThreshold"
+            + buildVectorDatastructureThreshold
+            + ")";
     }
 }
