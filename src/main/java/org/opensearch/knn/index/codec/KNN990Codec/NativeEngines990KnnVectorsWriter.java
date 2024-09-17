@@ -53,10 +53,16 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private KNN990QuantizationStateWriter quantizationStateWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
+    private final Integer buildVectorDataStructureThreshold;
 
-    public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) {
+    public NativeEngines990KnnVectorsWriter(
+        SegmentWriteState segmentWriteState,
+        FlatVectorsWriter flatVectorsWriter,
+        Integer buildVectorDataStructureThreshold
+    ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
+        this.buildVectorDataStructureThreshold = buildVectorDataStructureThreshold;
     }
 
     /**
@@ -94,6 +100,16 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 field.getVectors()
             );
             final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
+            // Will consider building vector data structure based on threshold only for non quantization indices
+            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+                log.info(
+                    "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
+                    fieldInfo.name,
+                    totalLiveDocs,
+                    buildVectorDataStructureThreshold
+                );
+                continue;
+            }
             final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
             final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
 
@@ -123,6 +139,16 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         }
 
         final QuantizationState quantizationState = train(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
+        // Will consider building vector data structure based on threshold only for non quantization indices
+        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+            log.info(
+                "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
+                fieldInfo.name,
+                totalLiveDocs,
+                buildVectorDataStructureThreshold
+            );
+            return;
+        }
         final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
         final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
 
@@ -252,5 +278,12 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
             quantizationStateWriter.writeHeader(segmentWriteState);
         }
+    }
+
+    private boolean shouldSkipBuildingVectorDataStructure(final long docCount) {
+        if (buildVectorDataStructureThreshold < 0) {
+            return true;
+        }
+        return docCount < buildVectorDataStructureThreshold;
     }
 }

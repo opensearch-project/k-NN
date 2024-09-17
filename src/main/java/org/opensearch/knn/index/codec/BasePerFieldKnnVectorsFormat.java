@@ -11,7 +11,9 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
@@ -129,7 +131,21 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private NativeEngines990KnnVectorsFormat nativeEngineVectorsFormat() {
-        return new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
+        int buildVectorDatastructureThreshold = getBuildVectorDatastructureThresholdSetting(mapperService.get());
+        return new NativeEngines990KnnVectorsFormat(
+            new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
+            buildVectorDatastructureThreshold
+        );
+    }
+
+    private int getBuildVectorDatastructureThresholdSetting(final MapperService knnMapperService) {
+        final IndexSettings indexSettings = knnMapperService.getIndexSettings();
+        final Integer buildVectorDatastructureThreshold = indexSettings.getValue(
+            KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_SETTING
+        );
+        return buildVectorDatastructureThreshold != null
+            ? buildVectorDatastructureThreshold
+            : KNNSettings.INDEX_KNN_DEFAULT_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD;
     }
 
     @Override

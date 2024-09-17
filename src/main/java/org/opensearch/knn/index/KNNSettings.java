@@ -67,6 +67,7 @@ public class KNNSettings {
      * Settings name
      */
     public static final String KNN_SPACE_TYPE = "index.knn.space_type";
+    public static final String INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = "index.knn.build_vector_data_structure_threshold";
     public static final String KNN_ALGO_PARAM_M = "index.knn.algo_param.m";
     public static final String KNN_ALGO_PARAM_EF_CONSTRUCTION = "index.knn.algo_param.ef_construction";
     public static final String KNN_ALGO_PARAM_EF_SEARCH = "index.knn.algo_param.ef_search";
@@ -96,6 +97,9 @@ public class KNNSettings {
     public static final boolean KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
+    public static final Integer INDEX_KNN_DEFAULT_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = 0;
+    public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
+    public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX = Integer.MAX_VALUE - 2;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE_FOR_BINARY = "hamming";
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 100;
@@ -153,6 +157,21 @@ public class KNNSettings {
         new SpaceTypeValidator(),
         IndexScope,
         Setting.Property.Deprecated
+    );
+
+    /**
+     * build_vector_data_structure_threshold - This parameter determines when to build vector data structure for knn fields during indexing
+     * and merging. Setting -1 (min) will skip building graph, whereas on any other values, the graph will be built if
+     * number of live docs in segment is greater than this threshold. Since max number of documents in a segment can
+     * be Integer.MAX_VALUE - 1, this setting will allow threshold to be up to 1 less than max number of documents in a segment
+     */
+    public static final Setting<Integer> INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_SETTING = Setting.intSetting(
+        INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD,
+        INDEX_KNN_DEFAULT_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD,
+        INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN,
+        INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX,
+        IndexScope,
+        Dynamic
     );
 
     /**
@@ -485,6 +504,7 @@ public class KNNSettings {
     public List<Setting<?>> getSettings() {
         List<Setting<?>> settings = Arrays.asList(
             INDEX_KNN_SPACE_TYPE,
+            INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_SETTING,
             INDEX_KNN_ALGO_PARAM_M_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
