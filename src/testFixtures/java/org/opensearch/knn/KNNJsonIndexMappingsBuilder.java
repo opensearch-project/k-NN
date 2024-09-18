@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.common.KNNConstants;
 
 import java.io.IOException;
 
@@ -26,7 +27,7 @@ public class KNNJsonIndexMappingsBuilder {
     private String vectorDataType;
     private Method method;
 
-    public String getIndexMapping() throws IOException {
+    public XContentBuilder getIndexMappingBuilder() throws IOException {
         if (nestedFieldName != null) {
             XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
                 .startObject()
@@ -40,7 +41,7 @@ public class KNNJsonIndexMappingsBuilder {
             addVectorDataType(xContentBuilder);
             addMethod(xContentBuilder);
             xContentBuilder.endObject().endObject().endObject().endObject().endObject();
-            return xContentBuilder.toString();
+            return xContentBuilder;
         } else {
             XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
                 .startObject()
@@ -51,8 +52,12 @@ public class KNNJsonIndexMappingsBuilder {
             addVectorDataType(xContentBuilder);
             addMethod(xContentBuilder);
             xContentBuilder.endObject().endObject().endObject();
-            return xContentBuilder.toString();
+            return xContentBuilder;
         }
+    }
+
+    public String getIndexMapping() throws IOException {
+        return getIndexMappingBuilder().toString();
     }
 
     private void addVectorDataType(final XContentBuilder xContentBuilder) throws IOException {
@@ -102,9 +107,21 @@ public class KNNJsonIndexMappingsBuilder {
         @Builder
         public static class Parameters {
             private Encoder encoder;
+            private Integer efConstruction;
+            private Integer efSearch;
+            private Integer m;
 
             private void addTo(final XContentBuilder xContentBuilder) throws IOException {
                 xContentBuilder.startObject("parameters");
+                if (efConstruction != null) {
+                    xContentBuilder.field("ef_construction", efConstruction);
+                }
+                if (efSearch != null) {
+                    xContentBuilder.field("ef_search", efSearch);
+                }
+                if (m != null) {
+                    xContentBuilder.field(KNNConstants.METHOD_PARAMETER_M, m);
+                }
                 addEncoder(xContentBuilder);
                 xContentBuilder.endObject();
             }
