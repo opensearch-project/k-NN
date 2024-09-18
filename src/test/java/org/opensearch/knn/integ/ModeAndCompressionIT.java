@@ -249,8 +249,6 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         expectThrows(ResponseException.class, () -> trainModel(modelId, builder2));
     }
 
-    // Training isnt currently supported for mode and compression because quantization framework does not quantize
-    // the training vectors. So, commenting out for now.
     @SneakyThrows
     public void testTraining_whenValid_thenSucceed() {
         setupTrainingIndex();
