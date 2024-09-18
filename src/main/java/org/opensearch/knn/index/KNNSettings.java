@@ -512,20 +512,12 @@ public class KNNSettings {
         }
     }
 
-    public static boolean isFaissAVX512Disabled() {
-        try {
-            return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED);
-        } catch (Exception e) {
-            // In some UTs we identified that cluster setting is not set properly an leads to NPE. This check will avoid
-            // those cases and will still return the default value.
-            log.warn(
-                "Unable to get setting value {} from cluster settings. Using default value as {}",
-                KNN_FAISS_AVX512_DISABLED,
-                KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
-                e
-            );
-            return KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE;
-        }
+    public static boolean isFaissAVX512Disabled() {        
+            String sValue = KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED);
+            if (sValue != null) {
+                return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED);
+            }
+            return KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE;        
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {

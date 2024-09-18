@@ -20,6 +20,7 @@ import oshi.util.platform.mac.SysctlUtil;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.AccessController;
+import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.Locale;
@@ -109,7 +110,7 @@ public class PlatformUtils {
                     return Arrays.stream(avx512).allMatch(flags::contains);
                 });
 
-            } catch (Exception e) {
+            } catch (PrivilegedActionException e) {
                 logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
             }
         }
