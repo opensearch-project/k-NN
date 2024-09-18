@@ -18,7 +18,7 @@ public final class RescoreContext {
 
     public static final float DEFAULT_OVERSAMPLE_FACTOR = 1.0f;
     public static final float MAX_OVERSAMPLE_FACTOR = 100.0f;
-    public static final float MIN_OVERSAMPLE_FACTOR = 0.0f;
+    public static final float MIN_OVERSAMPLE_FACTOR = 1.0f;
 
     public static final int MAX_FIRST_PASS_RESULTS = 10000;
 
