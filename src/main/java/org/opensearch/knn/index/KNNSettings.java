@@ -512,8 +512,8 @@ public class KNNSettings {
         }
     }
 
-    public static boolean isFaissAVX512Disabled() {        
-            return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED);    
+    public static boolean isFaissAVX512Disabled() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED);
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {
