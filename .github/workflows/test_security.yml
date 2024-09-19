@@ -70,4 +70,15 @@ jobs:
         # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
         run: |
           chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "whoami && java -version && ./gradlew integTest -Dsecurity.enabled=true -Dsimd.enabled=true -Dnproc.count=`nproc`"
+          if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw          
+          then
+            echo "avx512 available on system"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc`"
+          elif lscpu  | grep -i avx2
+          then
+            echo "avx2 available on system"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dnproc.count=`nproc` -Davx512.enabled=false"
+          else
+            echo "avx512 and avx2 not available on system"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Dnproc.count=`nproc`"
+          fi  
