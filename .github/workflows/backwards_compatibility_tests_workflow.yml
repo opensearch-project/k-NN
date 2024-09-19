@@ -105,9 +105,19 @@ jobs:
       - if: startsWith(matrix.os,'ubuntu')
         name: Run k-NN Restart-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }} on Ubuntu
         run: |
-          echo "Running restart-upgrade backwards compatibility tests ..."
-          ./gradlew :qa:restart-upgrade:testRestartUpgrade -Dtests.bwc.version=$BWC_VERSION_RESTART_UPGRADE
-
+          echo "Running restart-upgrade backwards compatibility tests ..."          
+          if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw          
+          then
+            echo "avx512 available on system"
+            ./gradlew :qa:restart-upgrade:testRestartUpgrade -Dtests.bwc.version=$BWC_VERSION_RESTART_UPGRADE -Dnproc.count=`nproc`
+          elif lscpu  | grep -i avx2
+          then
+            echo "avx2 available on system"
+            ./gradlew :qa:restart-upgrade:testRestartUpgrade -Dtests.bwc.version=$BWC_VERSION_RESTART_UPGRADE -Dnproc.count=`nproc` -Davx512.enabled=false
+          else
+            echo "avx512 and avx2 not available on system"
+            ./gradlew :qa:restart-upgrade:testRestartUpgrade -Dtests.bwc.version=$BWC_VERSION_RESTART_UPGRADE -Davx2.enabled=false -Davx512.enabled=false -Dsimd.enabled=false -Dnproc.count=`nproc`
+          fi 
 
   Rolling-Upgrade-BWCTests-k-NN:
     strategy:
@@ -176,4 +186,15 @@ jobs:
         name: Run k-NN Rolling-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }} on Ubuntu
         run: |
           echo "Running rolling-upgrade backwards compatibility tests ..."
-          ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE
+          if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw          
+          then
+            echo "avx512 available on system"
+            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Dnproc.count=`nproc`
+          elif lscpu  | grep -i avx2
+          then
+            echo "avx2 available on system"
+            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Dnproc.count=`nproc` -Davx512.enabled=false
+          else
+            echo "avx512 and avx2 not available on system"
+            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Davx2.enabled=false -Davx512.enabled=false -Dsimd.enabled=false -Dnproc.count=`nproc`
+          fi  

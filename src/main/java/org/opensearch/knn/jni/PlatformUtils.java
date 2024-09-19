@@ -20,8 +20,11 @@ import oshi.util.platform.mac.SysctlUtil;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.AccessController;
+import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 public class PlatformUtils {
 
@@ -37,7 +40,7 @@ public class PlatformUtils {
      *    the flags contains 'avx2' and return true if it exists else false.
      */
     public static boolean isAVX2SupportedBySystem() {
-        if (!Platform.isIntel()) {
+        if (!Platform.isIntel() || Platform.isWindows()) {
             return false;
         }
 
@@ -58,7 +61,6 @@ public class PlatformUtils {
             }
 
         } else if (Platform.isLinux()) {
-
             // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
             // by system. This info contains "flags" for each processor which determines the qualities of that processor
             // and it's ability to process different instruction sets like mmx, avx, avx2 and so on.
@@ -75,6 +77,40 @@ public class PlatformUtils {
                 );
 
             } catch (Exception e) {
+                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
+            }
+        }
+        return false;
+    }
+
+    public static boolean isAVX512SupportedBySystem() {
+
+        if (!Platform.isIntel() || Platform.isMac() || Platform.isWindows()) {
+            return false;
+        }
+
+        if (Platform.isLinux()) {
+            // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
+            // by system. This info contains "flags" for each processor which determines the qualities of that processor
+            // and it's ability to process different instruction sets like mmx, avx, avx2, avx512 and so on.
+            // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
+            // Here, we are trying to read the details of all processors used by system and find if any of the processor
+            // supports AVX512 instructions supported by faiss.
+            String fileName = "/proc/cpuinfo";
+
+            // AVX512 has multiple flags, which control various features. k-nn requires the same set of flags as faiss to compile
+            // using avx512. Please update these if faiss updates their compilation instructions in the future.
+            // https://github.com/facebookresearch/faiss/blob/main/faiss/CMakeLists.txt
+            String[] avx512 = { "avx512f", "avx512cd", "avx512vl", "avx512dq", "avx512bw" };
+
+            try {
+                return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
+                    Stream<String> linestream = Files.lines(Paths.get(fileName));
+                    String flags = linestream.filter(line -> line.startsWith("flags")).findFirst().orElse("");
+                    return Arrays.stream(avx512).allMatch(flags::contains);
+                });
+
+            } catch (PrivilegedActionException e) {
                 logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
             }
         }
