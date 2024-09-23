@@ -6,13 +6,17 @@
 package org.opensearch.knn.index.vectorvalues;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.DocsWithFieldSet;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.MergeState;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.junit.Assert;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -108,6 +112,87 @@ public class KNNVectorValuesTests extends KNNTestCase {
         );
     }
 
+    @SneakyThrows
+    public void testByteVectorValues_whenIteratorIsMergeSegmentVectorValues_thenSuccess() {
+        final Map<Integer, byte[]> byteArray = Map.of(0, new byte[] { 1, 5, 8 }, 1, new byte[] { 6, 7, 9 });
+        int dimension = byteArray.get(0).length;
+        KNNMergeVectorValues.KNNVectorValuesSub<ByteVectorValues> knnVectorValuesSub = new KNNMergeVectorValues.KNNVectorValuesSub<>(
+            (docId) -> byteArray.get(docId) != null ? docId : -1,
+            new TestVectorValues.PreDefinedByteVectorValues(new ArrayList<>(byteArray.values())),
+            2
+        );
+        KNNVectorValuesIterator.MergeByteVectorValuesIterator iterator = new KNNVectorValuesIterator.MergeByteVectorValuesIterator(
+            List.of(knnVectorValuesSub),
+            mergeState()
+        );
+        final KNNVectorValues<byte[]> knnBinaryVectorValuesBinaryDocValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.BYTE,
+            iterator
+        );
+        new CompareVectorValues<byte[]>().validateVectorValues(
+            knnBinaryVectorValuesBinaryDocValues,
+            new ArrayList<>(byteArray.values()),
+            3,
+            dimension,
+            false
+        );
+
+    }
+
+    @SneakyThrows
+    public void testBinaryVectorValues_whenIteratorIsMergeSegmentVectorValues_thenSuccess() {
+        final Map<Integer, byte[]> byteArray = Map.of(0, new byte[] { 1, 5, 8 }, 1, new byte[] { 6, 7, 9 });
+        int dimension = byteArray.get(0).length * 8;
+        KNNMergeVectorValues.KNNVectorValuesSub<ByteVectorValues> knnVectorValuesSub = new KNNMergeVectorValues.KNNVectorValuesSub<>(
+            (docId) -> byteArray.get(docId) != null ? docId : -1,
+            new TestVectorValues.PreDefinedBinaryVectorValues(new ArrayList<>(byteArray.values())),
+            2
+        );
+        KNNVectorValuesIterator.MergeByteVectorValuesIterator iterator = new KNNVectorValuesIterator.MergeByteVectorValuesIterator(
+            List.of(knnVectorValuesSub),
+            mergeState()
+        );
+        final KNNVectorValues<byte[]> knnBinaryVectorValuesBinaryDocValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.BINARY,
+            iterator
+        );
+        new CompareVectorValues<byte[]>().validateVectorValues(
+            knnBinaryVectorValuesBinaryDocValues,
+            new ArrayList<>(byteArray.values()),
+            3,
+            dimension,
+            false
+        );
+
+    }
+
+    @SneakyThrows
+    public void testFloatVectorValues_whenIteratorIsMergeSegmentVectorValues_thenSuccess() {
+        final Map<Integer, float[]> floats = Map.of(0, new float[] { 1, 5, 8 }, 1, new float[] { 6, 7, 9 });
+        int dimension = floats.get(0).length;
+        KNNMergeVectorValues.KNNVectorValuesSub<FloatVectorValues> knnVectorValuesSub = new KNNMergeVectorValues.KNNVectorValuesSub<>(
+            (docId) -> floats.get(docId) != null ? docId : -1,
+            new TestVectorValues.PreDefinedFloatVectorValues(new ArrayList<>(floats.values())),
+            2
+        );
+        KNNVectorValuesIterator.MergeFloat32VectorValuesIterator iterator = new KNNVectorValuesIterator.MergeFloat32VectorValuesIterator(
+            List.of(knnVectorValuesSub),
+            mergeState()
+        );
+        final KNNVectorValues<float[]> knnFloatVectorValuesBinaryDocValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.FLOAT,
+            iterator
+        );
+        new CompareVectorValues<float[]>().validateVectorValues(
+            knnFloatVectorValuesBinaryDocValues,
+            new ArrayList<>(floats.values()),
+            12,
+            dimension,
+            false
+        );
+
+    }
+
     private DocsWithFieldSet getDocIdSetIterator(int numberOfDocIds) {
         final DocsWithFieldSet docsWithFieldSet = new DocsWithFieldSet();
         for (int i = 0; i < numberOfDocIds; i++) {
@@ -150,6 +235,10 @@ public class KNNVectorValuesTests extends KNNTestCase {
             }
             assertEquals(bytesPerVector, vectorValues.bytesPerVector);
         }
+    }
+
+    private MergeState mergeState() {
+        return new MergeState(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false);
     }
 
 }

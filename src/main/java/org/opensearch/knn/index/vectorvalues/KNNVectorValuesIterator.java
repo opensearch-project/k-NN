@@ -9,8 +9,10 @@ import lombok.NonNull;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.DocIDMerger;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.MergeState;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 
@@ -18,6 +20,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
 /**
  * An abstract class that provides an iterator to iterate over KNNVectors, as KNNVectors are stored as different
@@ -185,4 +189,96 @@ public interface KNNVectorValuesIterator {
         }
     }
 
+    abstract class MergeSegmentVectorValuesIterator<T extends DocIdSetIterator, U> implements KNNVectorValuesIterator {
+
+        private DocIDMerger<KNNMergeVectorValues.KNNVectorValuesSub<T>> docIdMerger;
+        private final int liveDocs;
+        private int docId;
+        protected KNNMergeVectorValues.KNNVectorValuesSub<T> current;
+
+        private static final VectorValueExtractorStrategy VECTOR_VALUES_STRATEGY =
+            new VectorValueExtractorStrategy.MergeSegmentValuesExtractor();
+
+        MergeSegmentVectorValuesIterator(final List<KNNMergeVectorValues.KNNVectorValuesSub<T>> subs, final MergeState mergeState)
+            throws IOException {
+            this.docIdMerger = DocIDMerger.of(subs, mergeState.needsIndexSort);
+            int totalSize = 0;
+            for (KNNMergeVectorValues.KNNVectorValuesSub<T> sub : subs) {
+                totalSize += sub.liveDocs;
+            }
+            this.liveDocs = totalSize;
+            this.docId = -1;
+
+        }
+
+        @Override
+        public int docId() {
+            return docId;
+        }
+
+        @Override
+        public int advance(int docId) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int nextDoc() throws IOException {
+            current = docIdMerger.next();
+            if (current == null) {
+                docId = NO_MORE_DOCS;
+            } else {
+                docId = current.mappedDocID;
+            }
+            return docId;
+        }
+
+        @Override
+        public DocIdSetIterator getDocIdSetIterator() {
+            // while we can get the values of current, this method is intended to be called once so it's much better to throw
+            // so Liskov-Substitution-principle is not violated unknowingly
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long liveDocs() {
+            return liveDocs;
+        }
+
+        @Override
+        public VectorValueExtractorStrategy getVectorExtractorStrategy() {
+            return VECTOR_VALUES_STRATEGY;
+        }
+
+        public abstract U vectorValue() throws IOException;
+    }
+
+    class MergeFloat32VectorValuesIterator extends MergeSegmentVectorValuesIterator<FloatVectorValues, float[]> {
+
+        MergeFloat32VectorValuesIterator(
+            final List<KNNMergeVectorValues.KNNVectorValuesSub<FloatVectorValues>> subs,
+            final MergeState mergeState
+        ) throws IOException {
+            super(subs, mergeState);
+        }
+
+        @Override
+        public float[] vectorValue() throws IOException {
+            return current.values.vectorValue();
+        }
+    }
+
+    class MergeByteVectorValuesIterator extends MergeSegmentVectorValuesIterator<ByteVectorValues, byte[]> {
+
+        MergeByteVectorValuesIterator(
+            final List<KNNMergeVectorValues.KNNVectorValuesSub<ByteVectorValues>> subs,
+            final MergeState mergeState
+        ) throws IOException {
+            super(subs, mergeState);
+        }
+
+        @Override
+        public byte[] vectorValue() throws IOException {
+            return current.values.vectorValue();
+        }
+    }
 }

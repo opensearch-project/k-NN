@@ -82,7 +82,6 @@ public abstract class KNNVectorValues<T> {
      * </pre>
      * @return long
      */
-    @Deprecated
     public long totalLiveDocs() {
         return vectorValuesIterator.liveDocs();
     }

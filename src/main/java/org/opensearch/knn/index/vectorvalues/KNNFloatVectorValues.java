@@ -32,7 +32,8 @@ public class KNNFloatVectorValues extends KNNVectorValues<float[]> {
     @Override
     public float[] conditionalCloneVector() throws IOException {
         float[] vector = getVector();
-        if (vectorValuesIterator.getDocIdSetIterator() instanceof FloatVectorValues) {
+        if (vectorValuesIterator instanceof KNNVectorValuesIterator.MergeFloat32VectorValuesIterator
+            || vectorValuesIterator.getDocIdSetIterator() instanceof FloatVectorValues) {
             return Arrays.copyOf(vector, vector.length);
         }
         return vector;

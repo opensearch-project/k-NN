@@ -123,4 +123,23 @@ interface VectorValueExtractorStrategy {
         }
     }
 
+    /**
+     * Strategy to extract the vector from {@link KNNVectorValuesIterator.MergeSegmentVectorValuesIterator}
+     */
+    class MergeSegmentValuesExtractor implements VectorValueExtractorStrategy {
+        @Override
+        public <T> T extract(final VectorDataType vectorDataType, final KNNVectorValuesIterator vectorValuesIterator) throws IOException {
+            switch (vectorDataType) {
+                case FLOAT:
+                    return (T) ((KNNVectorValuesIterator.MergeFloat32VectorValuesIterator) vectorValuesIterator).vectorValue();
+                case BYTE:
+                case BINARY:
+                    return (T) ((KNNVectorValuesIterator.MergeByteVectorValuesIterator) vectorValuesIterator).vectorValue();
+            }
+            throw new IllegalArgumentException(
+                "Valid Vector data type not passed to extract vector from FieldWriterIteratorVectorExtractor strategy"
+            );
+        }
+    }
+
 }

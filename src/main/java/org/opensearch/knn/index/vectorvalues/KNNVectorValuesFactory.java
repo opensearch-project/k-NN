@@ -5,10 +5,13 @@
 
 package org.opensearch.knn.index.vectorvalues;
 
+import com.google.common.annotations.VisibleForTesting;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -17,9 +20,13 @@ import org.opensearch.knn.index.VectorDataType;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.opensearch.knn.index.vectorvalues.KNNMergeVectorValues.mergeByteVectorValues;
+import static org.opensearch.knn.index.vectorvalues.KNNMergeVectorValues.mergeFloatVectorValues;
+
 /**
  * A factory class that provides various methods to create the {@link KNNVectorValues}.
  */
+@Log4j2
 public final class KNNVectorValuesFactory {
 
     /**
@@ -45,7 +52,27 @@ public final class KNNVectorValuesFactory {
         final DocsWithFieldSet docIdWithFieldSet,
         final Map<Integer, T> vectors
     ) {
-        return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<T>(docIdWithFieldSet, vectors));
+        return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<>(docIdWithFieldSet, vectors));
+    }
+
+    public static <T> KNNVectorValues<T> getVectorValues(
+        final VectorDataType vectorDataType,
+        final FieldInfo fieldInfo,
+        final MergeState mergeState
+    ) {
+        try {
+            switch (fieldInfo.getVectorEncoding()) {
+                case FLOAT32:
+                    return getVectorValues(vectorDataType, mergeFloatVectorValues(fieldInfo, mergeState));
+                case BYTE:
+                    return getVectorValues(vectorDataType, mergeByteVectorValues(fieldInfo, mergeState));
+                default:
+                    throw new IllegalStateException("Unsupported vector encoding [" + fieldInfo.getVectorEncoding() + "]");
+            }
+        } catch (final IOException e) {
+            log.error("Unable to merge vectors for field [{}]", fieldInfo.getName(), e);
+            throw new IllegalStateException("Unable to merge vectors for field [" + fieldInfo.getName() + "]", e);
+        }
     }
 
     /**
@@ -72,8 +99,9 @@ public final class KNNVectorValuesFactory {
         return getVectorValues(FieldInfoExtractor.extractVectorDataType(fieldInfo), vectorValuesIterator);
     }
 
+    @VisibleForTesting
     @SuppressWarnings("unchecked")
-    private static <T> KNNVectorValues<T> getVectorValues(
+    static <T> KNNVectorValues<T> getVectorValues(
         final VectorDataType vectorDataType,
         final KNNVectorValuesIterator knnVectorValuesIterator
     ) {

@@ -44,6 +44,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -176,6 +177,10 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     throw new RuntimeException(e);
                 }
             });
+            knnVectorValuesFactoryMockedStatic.verify(
+                () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                times(expectedVectorValues.size())
+            );
         }
     }
 
@@ -230,8 +235,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i), vectorsPerField.get(i).size()))
-                        .thenReturn(quantizationState);
+                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i))).thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -264,6 +268,11 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     throw new RuntimeException(e);
                 }
             });
+
+            knnVectorValuesFactoryMockedStatic.verify(
+                () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                times(expectedVectorValues.size() * 2)
+            );
         }
     }
 

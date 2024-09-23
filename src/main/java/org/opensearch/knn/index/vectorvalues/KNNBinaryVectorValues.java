@@ -34,7 +34,8 @@ public class KNNBinaryVectorValues extends KNNVectorValues<byte[]> {
     @Override
     public byte[] conditionalCloneVector() throws IOException {
         byte[] vector = getVector();
-        if (vectorValuesIterator.getDocIdSetIterator() instanceof ByteVectorValues) {
+        if (vectorValuesIterator instanceof KNNVectorValuesIterator.MergeByteVectorValuesIterator
+            || vectorValuesIterator.getDocIdSetIterator() instanceof ByteVectorValues) {
             return Arrays.copyOf(vector, vector.length);
         }
         return vector;
