@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Documentation
 ### Maintenance
 ### Refactoring
+* Does not create additional KNNVectorValues in NativeEngines990KNNVectorWriter when quantization is not needed [#2133](https://github.com/opensearch-project/k-NN/pull/2133)
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.17...2.x)
 ### Features
