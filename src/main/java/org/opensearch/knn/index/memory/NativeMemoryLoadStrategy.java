@@ -12,8 +12,12 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.util.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -87,9 +91,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             };
         }
 
-        @Override
-        public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext indexEntryContext)
-            throws IOException {
+        private NativeMemoryAllocation.IndexAllocation loadWithAbsoluteIndexPath(
+            NativeMemoryEntryContext.IndexEntryContext indexEntryContext
+        ) throws IOException {
             Path indexPath = Paths.get(indexEntryContext.getKey());
             FileWatcher fileWatcher = new FileWatcher(indexPath);
             fileWatcher.addListener(indexFileOnDeleteListener);
@@ -117,6 +121,55 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 sharedIndexState,
                 IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters())
             );
+        }
+
+        @Override
+        public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext indexEntryContext)
+            throws IOException {
+            final Path absoluteIndexPath = Paths.get(indexEntryContext.getKey());
+            final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(absoluteIndexPath.toString());
+            if (knnEngine != KNNEngine.FAISS) {
+                // We will support other non-FAISS native engines (ex: NMSLIB) soon.
+                return loadWithAbsoluteIndexPath(indexEntryContext);
+            }
+
+            final FileWatcher fileWatcher = new FileWatcher(absoluteIndexPath);
+            fileWatcher.addListener(indexFileOnDeleteListener);
+            fileWatcher.init();
+
+            final Directory directory = indexEntryContext.getDirectory();
+
+            // Ex: Input -> /a/b/c/_0_NativeEngines990KnnVectorsFormat_0.vec
+            // Output -> _0_NativeEngines990KnnVectorsFormat_0.vec
+            final String logicalIndexPath = absoluteIndexPath.getFileName().toString();
+
+            final int indexSize = (int) directory.fileLength(logicalIndexPath);
+
+            try (IndexInput readStream = directory.openInput(logicalIndexPath, IOContext.READONCE)) {
+                IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
+                long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
+
+                SharedIndexState sharedIndexState = null;
+                String modelId = indexEntryContext.getModelId();
+                if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
+                    log.info("Index with model: \"{}\" requires shared state. Retrieving shared state.", modelId);
+                    sharedIndexState = SharedIndexStateManager.getInstance().get(indexAddress, modelId, knnEngine);
+                    JNIService.setSharedIndexState(indexAddress, sharedIndexState.getSharedIndexStateAddress(), knnEngine);
+                }
+
+                final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
+                return new NativeMemoryAllocation.IndexAllocation(
+                    executor,
+                    indexAddress,
+                    indexSize / 1024,  // Convert bytes in KB unit.
+                    knnEngine,
+                    absoluteIndexPath.toString(),
+                    indexEntryContext.getOpenSearchIndexName(),
+                    watcherHandle,
+                    sharedIndexState,
+                    IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters())
+                );
+            }
         }
 
         @Override

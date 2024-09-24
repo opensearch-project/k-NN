@@ -12,6 +12,8 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
@@ -47,6 +49,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
     public void testIndexLoadStrategy_load() throws IOException {
         // Create basic nmslib HNSW index
         Path dir = createTempDir();
+        Directory luceneDirectory = new MMapDirectory(dir);
         KNNEngine knnEngine = KNNEngine.NMSLIB;
         String indexName = "test1" + knnEngine.getExtension();
         String path = dir.resolve(indexName).toAbsolutePath().toString();
@@ -68,6 +71,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+            luceneDirectory,
             path,
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
             parameters,
@@ -87,6 +91,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
 
     public void testLoad_whenFaissBinary_thenSuccess() throws IOException {
         Path dir = createTempDir();
+        Directory luceneDirectory = new MMapDirectory(dir);
         KNNEngine knnEngine = KNNEngine.FAISS;
         String indexName = "test1" + knnEngine.getExtension();
         String path = dir.resolve(indexName).toAbsolutePath().toString();
@@ -116,6 +121,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+            luceneDirectory,
             path,
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
             parameters,

@@ -130,11 +130,27 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    loadIndexWithStream
+ * Signature: (Lorg/opensearch/knn/index/util/IndexInputWithBuffer;)J
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexWithStream
+  (JNIEnv *, jclass, jobject);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
  * Method:    loadBinaryIndex
  * Signature: (Ljava/lang/String;)J
  */
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndex
   (JNIEnv *, jclass, jstring);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    loadBinaryIndexWithStream
+ * Signature: (Lorg/opensearch/knn/index/util/IndexInputWithBuffer;)J
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndexWithStream
+  (JNIEnv *, jclass, jobject);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService

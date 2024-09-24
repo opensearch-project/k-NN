@@ -14,6 +14,7 @@ package org.opensearch.knn.jni;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.util.IndexInputWithBuffer;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -218,12 +219,30 @@ class FaissService {
     public static native long loadIndex(String indexPath);
 
     /**
+     * Load an index into memory via a wrapping having Lucene's IndexInput.
+     * Instead of directly accessing an index path, this will make Faiss delegate IndexInput to load bytes.
+     *
+     * @param readStream IndexInput wrapper having a Lucene's IndexInput reference.
+     * @return pointer to location in memory the index resides in
+     */
+    public static native long loadIndexWithStream(IndexInputWithBuffer readStream);
+
+    /**
      * Load a binary index into memory
      *
      * @param indexPath path to index file
      * @return pointer to location in memory the index resides in
      */
     public static native long loadBinaryIndex(String indexPath);
+
+    /**
+     * Load a binary index into memory with a wrapping having Lucene's IndexInput.
+     * Instead of directly accessing an index path, this will make Faiss delegate IndexInput to load bytes.
+     *
+     * @param readStream IndexInput wrapper having a Lucene's IndexInput reference.
+     * @return pointer to location in memory the index resides in
+     */
+    public static native long loadBinaryIndexWithStream(IndexInputWithBuffer readStream);
 
     /**
      * Determine if index contains shared state.
