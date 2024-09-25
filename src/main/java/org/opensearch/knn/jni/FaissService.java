@@ -14,7 +14,7 @@ package org.opensearch.knn.jni;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.util.IndexInputWithBuffer;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;

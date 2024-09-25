@@ -22,8 +22,7 @@
 namespace knn_jni {
 
     // Interface for making calls to JNI
-    class JNIUtilInterface {
-    public:
+    struct JNIUtilInterface {
         // -------------------------- EXCEPTION HANDLING ----------------------------
         // Takes the name of a Java exception type and a message and throws the corresponding exception
         // to the JVM
@@ -127,56 +126,77 @@ namespace knn_jni {
 
         virtual void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf) = 0;
 
+        virtual jobject GetObjectField(JNIEnv * env, jobject obj, jfieldID fieldID) = 0;
+
+        virtual jclass FindClassFromJNIEnv(JNIEnv * env, const char *name) = 0;
+
+        virtual jmethodID GetMethodID(JNIEnv * env, jclass clazz, const char *name, const char *sig) = 0;
+
+        virtual jfieldID GetFieldID(JNIEnv * env, jclass clazz, const char *name, const char *sig) = 0;
+
+        virtual void * GetPrimitiveArrayCritical(JNIEnv * env, jarray array, jboolean *isCopy) = 0;
+
+        virtual void ReleasePrimitiveArrayCritical(JNIEnv * env, jarray array, void *carray, jint mode) = 0;
+
+        virtual jint CallIntMethodInt(JNIEnv * env, jobject obj, jmethodID methodID, int intArg) = 0;
+
         // --------------------------------------------------------------------------
     };
 
     jobject GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key);
 
     // Class that implements JNIUtilInterface methods
-    class JNIUtil: public JNIUtilInterface {
+    class JNIUtil final : public JNIUtilInterface {
     public:
         // Initialize and Uninitialize methods are used for caching/cleaning up Java classes and methods
         void Initialize(JNIEnv* env);
         void Uninitialize(JNIEnv* env);
 
-        void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "");
-        void HasExceptionInStack(JNIEnv* env);
-        void HasExceptionInStack(JNIEnv* env, const std::string& message);
-        void CatchCppExceptionAndThrowJava(JNIEnv* env);
-        jclass FindClass(JNIEnv * env, const std::string& className);
-        jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName);
-        std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString);
-        std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ);
-        std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ);
-        int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ);
-        std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim);
-        std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ);
-        int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ);
-        int GetInnerDimensionOf2dJavaByteArray(JNIEnv *env, jobjectArray array2dJ);
-        int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ);
-        int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ);
-        int GetJavaLongArrayLength(JNIEnv *env, jlongArray arrayJ);
-        int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ);
-        int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ);
+        void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "") final;
+        void HasExceptionInStack(JNIEnv* env) final;
+        void HasExceptionInStack(JNIEnv* env, const std::string& message) final;
+        void CatchCppExceptionAndThrowJava(JNIEnv* env) final;
+        jclass FindClass(JNIEnv * env, const std::string& className) final;
+        jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName) final;
+        std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString) final;
+        std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) final;
+        std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ) final;
+        int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) final;
+        std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim) final;
+        std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) final;
+        int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ) final;
+        int GetInnerDimensionOf2dJavaByteArray(JNIEnv *env, jobjectArray array2dJ) final;
+        int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ) final;
+        int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ) final;
+        int GetJavaLongArrayLength(JNIEnv *env, jlongArray arrayJ) final;
+        int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ) final;
+        int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) final;
 
-        void DeleteLocalRef(JNIEnv *env, jobject obj);
-        jbyte * GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy);
-        jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy);
-        jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy);
-        jlong * GetLongArrayElements(JNIEnv *env, jlongArray array, jboolean * isCopy);
-        jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index);
-        jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance);
-        jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init);
-        jbyteArray NewByteArray(JNIEnv *env, jsize len);
-        void ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode);
-        void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode);
-        void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode);
-        void ReleaseLongArrayElements(JNIEnv *env, jlongArray array, jlong *elems, jint mode);
-        void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val);
-        void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf);
-        void Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<float> *vect);
-        void Convert2dJavaObjectArrayAndStoreToBinaryVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<uint8_t> *vect);
-        void Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<int8_t> *vect);
+        void DeleteLocalRef(JNIEnv *env, jobject obj) final;
+        jbyte * GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy) final;
+        jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy) final;
+        jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy) final;
+        jlong * GetLongArrayElements(JNIEnv *env, jlongArray array, jboolean * isCopy) final;
+        jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index) final;
+        jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance) final;
+        jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init) final;
+        jbyteArray NewByteArray(JNIEnv *env, jsize len) final;
+        void ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode) final;
+        void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode) final;
+        void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode) final;
+        void ReleaseLongArrayElements(JNIEnv *env, jlongArray array, jlong *elems, jint mode) final;
+        void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) final;
+        void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf) final;
+        void Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<float> *vect) final;
+        void Convert2dJavaObjectArrayAndStoreToBinaryVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<uint8_t> *vect) final;
+        void Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<int8_t> *vect) final;
+        jobject GetObjectField(JNIEnv * env, jobject obj, jfieldID fieldID) final;
+        jclass FindClassFromJNIEnv(JNIEnv * env, const char *name) final;
+        jmethodID GetMethodID(JNIEnv * env, jclass clazz, const char *name, const char *sig) final;
+        jfieldID GetFieldID(JNIEnv * env, jclass clazz, const char *name, const char *sig) final;
+        jint CallIntMethodInt(JNIEnv * env, jobject obj, jmethodID methodID, int intArg) final;
+        void * GetPrimitiveArrayCritical(JNIEnv * env, jarray array, jboolean *isCopy) final;
+        void ReleasePrimitiveArrayCritical(JNIEnv * env, jarray array, void *carray, jint mode) final;
 
     private:
         std::unordered_map<std::string, jclass> cachedClasses;

@@ -154,6 +154,7 @@ if ("${WIN32}" STREQUAL "")
                 tests/nmslib_wrapper_unit_test.cpp
                 tests/test_util.cpp
                 tests/commons_test.cpp
+                tests/faiss_stream_support_test.cpp
                 tests/faiss_index_service_test.cpp
                 )
 

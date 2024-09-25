@@ -106,6 +106,14 @@ namespace test_util {
                     (JNIEnv * env, jobjectArray array, jsize index, jobject val));
         MOCK_METHOD(void, ThrowJavaException,
                     (JNIEnv * env, const char* type, const char* message));
+        MOCK_METHOD(jobject, GetObjectField,
+                    (JNIEnv * env, jobject obj, jfieldID fieldID));
+        MOCK_METHOD(jclass, FindClassFromJNIEnv, (JNIEnv * env, const char *name));
+        MOCK_METHOD(jmethodID, GetMethodID, (JNIEnv * env, jclass clazz, const char *name, const char *sig));
+        MOCK_METHOD(jfieldID, GetFieldID, (JNIEnv * env, jclass clazz, const char *name, const char *sig));
+        MOCK_METHOD(jint, CallIntMethodInt, (JNIEnv * env, jobject obj, jmethodID methodID, int intArg));
+        MOCK_METHOD(void *, GetPrimitiveArrayCritical, (JNIEnv * env, jarray array, jboolean *isCopy));
+        MOCK_METHOD(void, ReleasePrimitiveArrayCritical, (JNIEnv * env, jarray array, void *carray, jint mode));
     };
 
 // For our unit tests, we want to ensure that each test tests one function in

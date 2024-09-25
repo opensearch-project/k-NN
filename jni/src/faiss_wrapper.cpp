@@ -423,7 +423,7 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     return (jlong) indexReader;
 }
 
-jlong knn_jni::faiss_wrapper::LoadIndexWithStream(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, faiss::IOReader* ioReader) {
+jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
     if (ioReader == nullptr)  [[unlikely]] {
         throw std::runtime_error("IOReader cannot be null");
     }
@@ -450,7 +450,7 @@ jlong knn_jni::faiss_wrapper::LoadBinaryIndex(knn_jni::JNIUtilInterface * jniUti
     return (jlong) indexReader;
 }
 
-jlong knn_jni::faiss_wrapper::LoadBinaryIndexWithStream(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, faiss::IOReader* ioReader) {
+jlong knn_jni::faiss_wrapper::LoadBinaryIndexWithStream(faiss::IOReader* ioReader) {
     if (ioReader == nullptr) [[unlikely]] {
         throw std::runtime_error("IOReader cannot be null");
     }

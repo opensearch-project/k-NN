@@ -17,7 +17,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.index.util.IndexInputWithBuffer;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -101,25 +101,13 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
             KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
             long indexAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine);
-            SharedIndexState sharedIndexState = null;
-            String modelId = indexEntryContext.getModelId();
-            if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
-                log.info("Index with model: \"{}\" requires shared state. Retrieving shared state.", modelId);
-                sharedIndexState = SharedIndexStateManager.getInstance().get(indexAddress, modelId, knnEngine);
-                JNIService.setSharedIndexState(indexAddress, sharedIndexState.getSharedIndexStateAddress(), knnEngine);
-            }
-
-            final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
-            return new NativeMemoryAllocation.IndexAllocation(
-                executor,
-                indexAddress,
-                indexEntryContext.calculateSizeInKB(),
+            return createIndexAllocation(
+                indexEntryContext,
                 knnEngine,
-                indexPath.toString(),
-                indexEntryContext.getOpenSearchIndexName(),
-                watcherHandle,
-                sharedIndexState,
-                IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters())
+                indexAddress,
+                fileWatcher,
+                indexEntryContext.calculateSizeInKB(),
+                indexPath
             );
         }
 
@@ -143,33 +131,44 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             // Output -> _0_NativeEngines990KnnVectorsFormat_0.vec
             final String logicalIndexPath = absoluteIndexPath.getFileName().toString();
 
-            final int indexSize = (int) directory.fileLength(logicalIndexPath);
+            final long indexSize = directory.fileLength(logicalIndexPath);
 
             try (IndexInput readStream = directory.openInput(logicalIndexPath, IOContext.READONCE)) {
                 IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
                 long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
 
-                SharedIndexState sharedIndexState = null;
-                String modelId = indexEntryContext.getModelId();
-                if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
-                    log.info("Index with model: \"{}\" requires shared state. Retrieving shared state.", modelId);
-                    sharedIndexState = SharedIndexStateManager.getInstance().get(indexAddress, modelId, knnEngine);
-                    JNIService.setSharedIndexState(indexAddress, sharedIndexState.getSharedIndexStateAddress(), knnEngine);
-                }
-
-                final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
-                return new NativeMemoryAllocation.IndexAllocation(
-                    executor,
-                    indexAddress,
-                    indexSize / 1024,  // Convert bytes in KB unit.
-                    knnEngine,
-                    absoluteIndexPath.toString(),
-                    indexEntryContext.getOpenSearchIndexName(),
-                    watcherHandle,
-                    sharedIndexState,
-                    IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters())
-                );
+                return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, fileWatcher, indexSize, absoluteIndexPath);
             }
+        }
+
+        private NativeMemoryAllocation.IndexAllocation createIndexAllocation(
+            final NativeMemoryEntryContext.IndexEntryContext indexEntryContext,
+            final KNNEngine knnEngine,
+            final long indexAddress,
+            final FileWatcher fileWatcher,
+            final long indexSize,
+            final Path absoluteIndexPath
+        ) throws IOException {
+            SharedIndexState sharedIndexState = null;
+            String modelId = indexEntryContext.getModelId();
+            if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
+                log.info("Index with model: \"{}\" requires shared state. Retrieving shared state.", modelId);
+                sharedIndexState = SharedIndexStateManager.getInstance().get(indexAddress, modelId, knnEngine);
+                JNIService.setSharedIndexState(indexAddress, sharedIndexState.getSharedIndexStateAddress(), knnEngine);
+            }
+
+            final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
+            return new NativeMemoryAllocation.IndexAllocation(
+                executor,
+                indexAddress,
+                Math.toIntExact(indexSize / 1024L),  // Convert bytes in KB unit.
+                knnEngine,
+                absoluteIndexPath.toString(),
+                indexEntryContext.getOpenSearchIndexName(),
+                watcherHandle,
+                sharedIndexState,
+                IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters())
+            );
         }
 
         @Override

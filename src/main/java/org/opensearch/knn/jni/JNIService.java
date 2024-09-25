@@ -16,7 +16,7 @@ import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.util.IndexInputWithBuffer;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 
 import java.util.Locale;
@@ -222,7 +222,7 @@ public class JNIService {
      */
     public static long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters, KNNEngine knnEngine) {
         if (KNNEngine.NMSLIB == knnEngine) {
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException("Loading NMSLIB with a read stream is not supported at the moment");
         }
 
         if (KNNEngine.FAISS == knnEngine) {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.store;
 
 import lombok.NonNull;
 import org.apache.lucene.store.IndexInput;
@@ -17,6 +17,10 @@ import java.io.IOException;
  * Therefore, this class servers as a read layer in native engines to read the bytes it wants.
  */
 public class IndexInputWithBuffer {
+    private IndexInput indexInput;
+    // 4K buffer.
+    private byte[] buffer = new byte[4 * 1024];
+
     public IndexInputWithBuffer(@NonNull IndexInput indexInput) {
         this.indexInput = indexInput;
     }
@@ -34,10 +38,6 @@ public class IndexInputWithBuffer {
         indexInput.readBytes(buffer, 0, readBytes);
         return readBytes;
     }
-
-    private IndexInput indexInput;
-    // 4K buffer.
-    private byte[] buffer = new byte[4 * 1024];
 
     @Override
     public String toString() {

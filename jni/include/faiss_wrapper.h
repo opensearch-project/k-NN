@@ -50,7 +50,7 @@ namespace knn_jni {
         // Loads an index with a reader implemented IOReader
         //
         // Returns a pointer of the loaded index
-        jlong LoadIndexWithStream(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, faiss::IOReader* ioReader);
+        jlong LoadIndexWithStream(faiss::IOReader* ioReader);
 
         // Load a binary index from indexPathJ into memory.
         //
@@ -60,7 +60,7 @@ namespace knn_jni {
         // Loads a binary index with a reader implemented IOReader
         //
         // Returns a pointer of the loaded index
-        jlong LoadBinaryIndexWithStream(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, faiss::IOReader* ioReader);
+        jlong LoadBinaryIndexWithStream(faiss::IOReader* ioReader);
 
         // Check if a loaded index requires shared state
         bool IsSharedIndexStateRequired(jlong indexPointerJ);
