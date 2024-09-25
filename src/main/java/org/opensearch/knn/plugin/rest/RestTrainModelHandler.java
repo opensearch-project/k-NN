@@ -126,11 +126,12 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 mode = parser.text();
             } else if (KNNConstants.COMPRESSION_LEVEL_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, compressionLevel)) {
                 compressionLevel = parser.text();
-            } else if (KNNConstants.SPACE_TYPE.equals(fieldName) && ensureSpaceTypeNotSet(topLevelSpaceType)) {
-                topLevelSpaceType = SpaceType.getSpace(parser.text());
-            } else {
-                throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
-            }
+            } else if ((KNNConstants.SPACE_TYPE.equals(fieldName) || KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE.equals(fieldName))
+                && ensureSpaceTypeNotSet(topLevelSpaceType)) {
+                    topLevelSpaceType = SpaceType.getSpace(parser.text());
+                } else {
+                    throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
+                }
         }
 
         ensureAtleastOneSet(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
