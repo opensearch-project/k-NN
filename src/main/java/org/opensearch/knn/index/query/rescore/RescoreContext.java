@@ -21,6 +21,8 @@ public final class RescoreContext {
     public static final float MIN_OVERSAMPLE_FACTOR = 0.0f;
 
     public static final int MAX_FIRST_PASS_RESULTS = 10000;
+    public static final int DIMENSION_THRESHOLD = 1000;
+    public static final float OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD = 5.0f;
 
     @Builder.Default
     private float oversampleFactor = DEFAULT_OVERSAMPLE_FACTOR;

@@ -90,4 +90,36 @@ public enum CompressionLevel {
     public static boolean isConfigured(CompressionLevel compressionLevel) {
         return compressionLevel != null && compressionLevel != NOT_CONFIGURED;
     }
+
+    /**
+     * Returns the appropriate {@link RescoreContext} based on the given {@code mode} and {@code dimension}.
+     *
+     * <p>If the {@code mode} is present in the valid {@code modesForRescore} set, the method checks the value of
+     * {@code dimension}:
+     * <ul>
+     *     <li>If {@code dimension} is less than or equal to 1000, it returns a {@link RescoreContext} with an
+     *         oversample factor of 5.0f.</li>
+     *     <li>If {@code dimension} is greater than 1000, it returns the default {@link RescoreContext} associated with
+     *         the {@link CompressionLevel}. If no default is set, it falls back to {@link RescoreContext#getDefault()}.</li>
+     * </ul>
+     * If the {@code mode} is not valid, the method returns {@code null}.
+     *
+     * @param mode      The {@link Mode} for which to retrieve the {@link RescoreContext}.
+     * @param dimension The dimensional value that determines the {@link RescoreContext} behavior.
+     * @return          A {@link RescoreContext} with an oversample factor of 5.0f if {@code dimension} is less than
+     *                  or equal to 1000, the default {@link RescoreContext} if greater, or {@code null} if the mode
+     *                  is invalid.
+     */
+    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension) {
+        if (modesForRescore.contains(mode)) {
+            // Adjust RescoreContext based on dimension
+            if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
+                // For dimensions <= 1000, return a RescoreContext with 5.0f oversample factor
+                return RescoreContext.builder().oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD).build();
+            } else {
+                return defaultRescoreContext;
+            }
+        }
+        return null;
+    }
 }

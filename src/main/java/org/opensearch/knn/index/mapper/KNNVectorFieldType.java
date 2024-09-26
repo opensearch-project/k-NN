@@ -93,9 +93,10 @@ public class KNNVectorFieldType extends MappedFieldType {
         if (userProvidedContext != null) {
             return userProvidedContext;
         }
-        return ModeBasedResolver.INSTANCE.resolveRescoreContext(
-            getKnnMappingConfig().getMode(),
-            getKnnMappingConfig().getCompressionLevel()
-        );
+        KNNMappingConfig knnMappingConfig = getKnnMappingConfig();
+        int dimension = knnMappingConfig.getDimension();
+        CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
+        Mode mode = knnMappingConfig.getMode();
+        return compressionLevel.getDefaultRescoreContext(mode, dimension);
     }
 }
