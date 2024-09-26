@@ -18,11 +18,14 @@ public final class RescoreContext {
 
     public static final float DEFAULT_OVERSAMPLE_FACTOR = 1.0f;
     public static final float MAX_OVERSAMPLE_FACTOR = 100.0f;
-    public static final float MIN_OVERSAMPLE_FACTOR = 0.0f;
+    public static final float MIN_OVERSAMPLE_FACTOR = 1.0f;
 
     public static final int MAX_FIRST_PASS_RESULTS = 10000;
     public static final int DIMENSION_THRESHOLD = 1000;
     public static final float OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD = 5.0f;
+
+    // Todo:- We will improve this in upcoming releases
+    public static final int MIN_FIRST_PASS_RESULTS = 100;
 
     @Builder.Default
     private float oversampleFactor = DEFAULT_OVERSAMPLE_FACTOR;
@@ -42,6 +45,6 @@ public final class RescoreContext {
      * @return The number of results to return for the first pass of rescoring
      */
     public int getFirstPassK(int finalK) {
-        return Math.min(MAX_FIRST_PASS_RESULTS, (int) Math.ceil(finalK * oversampleFactor));
+        return Math.min(MAX_FIRST_PASS_RESULTS, Math.max(MIN_FIRST_PASS_RESULTS, (int) Math.ceil(finalK * oversampleFactor)));
     }
 }

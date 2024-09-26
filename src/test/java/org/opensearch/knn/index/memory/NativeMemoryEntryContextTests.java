@@ -14,6 +14,7 @@ package org.opensearch.knn.index.memory;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -124,7 +125,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             null,
             0,
             0,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            QuantizationConfig.EMPTY
         );
 
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
@@ -149,7 +151,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             null,
             0,
             0,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            QuantizationConfig.EMPTY
         );
 
         assertEquals(trainIndexName, trainingDataEntryContext.getTrainIndexName());
@@ -165,7 +168,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             null,
             0,
             0,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            QuantizationConfig.EMPTY
         );
 
         assertEquals(trainFieldName, trainingDataEntryContext.getTrainFieldName());
@@ -181,7 +185,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             null,
             maxVectorCount,
             0,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            QuantizationConfig.EMPTY
         );
 
         assertEquals(maxVectorCount, trainingDataEntryContext.getMaxVectorCount());
@@ -197,7 +202,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             null,
             0,
             searchSize,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            QuantizationConfig.EMPTY
         );
 
         assertEquals(searchSize, trainingDataEntryContext.getSearchSize());
@@ -213,7 +219,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             clusterService,
             0,
             0,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            QuantizationConfig.EMPTY
         );
 
         assertEquals(clusterService, trainingDataEntryContext.getClusterService());

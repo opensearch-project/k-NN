@@ -17,7 +17,10 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -45,6 +48,15 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
 
     @Override
     protected void doExecute(Task task, TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {
+        KNNMethodContext knnMethodContext = request.getKnnMethodContext();
+        KNNMethodConfigContext knnMethodConfigContext = request.getKnnMethodConfigContext();
+        QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
+
+        if (knnMethodContext != null && request.getKnnMethodConfigContext() != null) {
+            KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+            quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
+        }
 
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = new NativeMemoryEntryContext.TrainingDataEntryContext(
             request.getTrainingDataSizeInKB(),
@@ -54,7 +66,8 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             clusterService,
             request.getMaximumVectorCount(),
             request.getSearchSize(),
-            request.getVectorDataType()
+            request.getVectorDataType(),
+            quantizationConfig
         );
 
         // Allocation representing size model will occupy in memory during training

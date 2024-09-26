@@ -11,8 +11,10 @@
 
 package org.opensearch.knn.index.memory;
 
+import lombok.Getter;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 
@@ -171,6 +173,8 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         private final int maxVectorCount;
         private final int searchSize;
         private final VectorDataType vectorDataType;
+        @Getter
+        private final QuantizationConfig quantizationConfig;
 
         /**
          * Constructor
@@ -191,7 +195,8 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             ClusterService clusterService,
             int maxVectorCount,
             int searchSize,
-            VectorDataType vectorDataType
+            VectorDataType vectorDataType,
+            QuantizationConfig quantizationConfig
         ) {
             super(generateKey(trainIndexName, trainFieldName));
             this.size = size;
@@ -202,6 +207,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             this.maxVectorCount = maxVectorCount;
             this.searchSize = searchSize;
             this.vectorDataType = vectorDataType;
+            this.quantizationConfig = quantizationConfig;
         }
 
         @Override

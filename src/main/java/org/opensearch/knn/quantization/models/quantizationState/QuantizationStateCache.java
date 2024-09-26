@@ -107,6 +107,11 @@ public class QuantizationStateCache {
     private void onRemoval(RemovalNotification<String, QuantizationState> removalNotification) {
         if (RemovalCause.SIZE == removalNotification.getCause()) {
             updateEvictedDueToSizeAt();
+            log.info(
+                "[KNN] Quantization state evicted from cache. Key {}, Reason: {}",
+                removalNotification.getKey(),
+                removalNotification.getCause()
+            );
         }
     }
 

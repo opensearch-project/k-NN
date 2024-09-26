@@ -10,7 +10,9 @@ import lombok.Getter;
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Enum representing the compression level for float vectors. Compression in this sense refers to compressing a
@@ -19,20 +21,21 @@ import java.util.Locale;
  */
 @AllArgsConstructor
 public enum CompressionLevel {
-    NOT_CONFIGURED(-1, "", null),
-    x1(1, "1x", null),
-    x2(2, "2x", null),
-    x4(4, "4x", new RescoreContext(1.0f)),
-    x8(8, "8x", new RescoreContext(1.5f)),
-    x16(16, "16x", new RescoreContext(2.0f)),
-    x32(32, "32x", new RescoreContext(2.0f));
+    NOT_CONFIGURED(-1, "", null, Collections.emptySet()),
+    x1(1, "1x", null, Collections.emptySet()),
+    x2(2, "2x", null, Collections.emptySet()),
+    x4(4, "4x", null, Collections.emptySet()),
+    x8(8, "8x", new RescoreContext(2.0f), Set.of(Mode.ON_DISK)),
+    x16(16, "16x", new RescoreContext(3.0f), Set.of(Mode.ON_DISK)),
+    x32(32, "32x", new RescoreContext(3.0f), Set.of(Mode.ON_DISK));
 
     // Internally, an empty string is easier to deal with them null. However, from the mapping,
-    // we do not want users to pass in the empty string and instead want null. So we make the conversion herex
+    // we do not want users to pass in the empty string and instead want null. So we make the conversion here
     public static final String[] NAMES_ARRAY = new String[] {
         NOT_CONFIGURED.getName(),
         x1.getName(),
         x2.getName(),
+        x4.getName(),
         x8.getName(),
         x16.getName(),
         x32.getName() };
@@ -64,8 +67,8 @@ public enum CompressionLevel {
     private final int compressionLevel;
     @Getter
     private final String name;
-    @Getter
     private final RescoreContext defaultRescoreContext;
+    private final Set<Mode> modesForRescore;
 
     /**
      * Gets the number of bits used to represent a float in order to achieve this compression. For instance, for
@@ -90,7 +93,7 @@ public enum CompressionLevel {
     public static boolean isConfigured(CompressionLevel compressionLevel) {
         return compressionLevel != null && compressionLevel != NOT_CONFIGURED;
     }
-
+  
     /**
      * Returns the appropriate {@link RescoreContext} based on the given {@code mode} and {@code dimension}.
      *

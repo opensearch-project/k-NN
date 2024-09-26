@@ -7,6 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 public class CompressionLevelTests extends KNNTestCase {
 
@@ -102,6 +103,5 @@ public class CompressionLevelTests extends KNNTestCase {
         // NOT_CONFIGURED with dimension <= 1000 should return a RescoreContext with an oversample factor of 5.0f
         rescoreContext = CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNull(rescoreContext);
-
     }
 }

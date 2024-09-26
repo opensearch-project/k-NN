@@ -22,10 +22,12 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
-import org.opensearch.knn.index.mapper.ModeBasedResolver;
+import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -116,6 +118,7 @@ public class TrainingModelRequest extends ActionRequest {
         this.preferredNodeId = preferredNodeId;
         this.description = description;
         this.vectorDataType = vectorDataType;
+        this.mode = mode;
 
         // Set these as defaults initially. If call wants to override them, they can use the setters.
         this.maximumVectorCount = Integer.MAX_VALUE; // By default, get all vectors in the index
@@ -123,10 +126,6 @@ public class TrainingModelRequest extends ActionRequest {
 
         // Training data size in kilobytes. By default, this is invalid (it cant have negative kb). It eventually gets
         // calculated in transit. A user cannot set this value directly.
-        this.trainingDataSizeInKB = -1;
-        this.mode = mode;
-        this.compressionLevel = compressionLevel;
-
         this.knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(vectorDataType)
             .dimension(dimension)
@@ -135,11 +134,11 @@ public class TrainingModelRequest extends ActionRequest {
             .mode(mode)
             .build();
 
-        if (knnMethodContext == null && (Mode.isConfigured(mode) || CompressionLevel.isConfigured(compressionLevel))) {
-            this.knnMethodContext = ModeBasedResolver.INSTANCE.resolveKNNMethodContext(mode, compressionLevel, true, spaceType);
-        } else {
-            this.knnMethodContext = knnMethodContext;
-        }
+        KNNEngine knnEngine = EngineResolver.INSTANCE.resolveEngine(knnMethodConfigContext, knnMethodContext, true);
+        ResolvedMethodContext resolvedMethodContext = knnEngine.resolveMethod(knnMethodContext, knnMethodConfigContext, true, spaceType);
+        this.knnMethodContext = resolvedMethodContext.getKnnMethodContext();
+        this.compressionLevel = resolvedMethodContext.getCompressionLevel();
+        this.knnMethodConfigContext.setCompressionLevel(resolvedMethodContext.getCompressionLevel());
     }
 
     /**

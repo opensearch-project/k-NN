@@ -48,6 +48,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -93,6 +94,7 @@ import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPE
 @Log4j2
 public class KNNVectorFieldMapperTests extends KNNTestCase {
 
+    private static final String TEST_INDEX_NAME = "test-index-name";
     private static final String TEST_FIELD_NAME = "test-field-name";
 
     private static final int TEST_DIMENSION = 17;
@@ -1633,7 +1635,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
         });
 
-        assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported with"));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("does not support space type"));
     }
 
     public void testBuild_whenInvalidCharsInFieldName_thenThrowException() {
@@ -1650,6 +1652,345 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 new KNNVectorFieldMapper.Builder(invalidVectorFieldName, null, CURRENT, null, null).build(builderContext);
             });
             assertTrue(e.getMessage(), e.getMessage().contains("Vector field name must not include"));
+        }
+    }
+
+    public void testTypeParser_whenModeAndCompressionAreSet_thenHandle() throws IOException {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // Default to nmslib and ensure legacy is in use
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertNull(builder.getOriginalParameters().getKnnMethodContext());
+        assertTrue(builder.getOriginalParameters().isLegacyMapping());
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.NMSLIB,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x1,
+            CompressionLevel.NOT_CONFIGURED,
+            Mode.NOT_CONFIGURED,
+            false
+        );
+
+        // If mode is in memory and 1x compression, again use default legacy
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
+            .field(MODE_PARAMETER, Mode.IN_MEMORY.getName())
+            .endObject();
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertNull(builder.getOriginalParameters().getKnnMethodContext());
+        assertFalse(builder.getOriginalParameters().isLegacyMapping());
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.NMSLIB,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x1,
+            CompressionLevel.x1,
+            Mode.IN_MEMORY,
+            false
+        );
+
+        // Default on disk is faiss with 32x binary quant
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x32,
+            CompressionLevel.NOT_CONFIGURED,
+            Mode.ON_DISK,
+            true
+        );
+
+        // Ensure 2x does not use binary quantization
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x2.getName())
+            .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x2,
+            CompressionLevel.x2,
+            Mode.NOT_CONFIGURED,
+            false
+        );
+
+        // For 8x ensure that it does use binary quantization
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x8.getName())
+            .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x8,
+            CompressionLevel.x8,
+            Mode.ON_DISK,
+            true
+        );
+
+        // For 4x compression on disk, use Lucene
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x4,
+            CompressionLevel.x4,
+            Mode.ON_DISK,
+            false
+        );
+
+        // For 4x compression in memory, use Lucene
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.IN_MEMORY.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x4,
+            CompressionLevel.x4,
+            Mode.IN_MEMORY,
+            false
+        );
+
+        // For override, ensure compression is correct
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, QFrameBitEncoder.NAME)
+            .startObject(PARAMETERS)
+            .field(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x16.numBitsForFloat32())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x16,
+            CompressionLevel.NOT_CONFIGURED,
+            Mode.NOT_CONFIGURED,
+            true
+        );
+
+        // Override with conflicting compression levels should fail
+        XContentBuilder invalidXContentBuilder1 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, QFrameBitEncoder.NAME)
+            .startObject(PARAMETERS)
+            .field(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x16.numBitsForFloat32())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(
+                TEST_FIELD_NAME,
+                xContentBuilderToMap(invalidXContentBuilder1),
+                buildParserContext(TEST_INDEX_NAME, settings)
+            )
+        );
+
+        // Invalid if vector data type is binary
+        XContentBuilder invalidXContentBuilder2 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue())
+            .field(MODE_PARAMETER, Mode.IN_MEMORY.getName())
+            .endObject();
+
+        expectThrows(
+            MapperParsingException.class,
+            () -> typeParser.parse(
+                TEST_FIELD_NAME,
+                xContentBuilderToMap(invalidXContentBuilder2),
+                buildParserContext(TEST_INDEX_NAME, settings)
+            )
+        );
+
+        // Invalid if engine doesnt support the compression
+        XContentBuilder invalidXContentBuilder3 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS)
+            .endObject()
+            .endObject();
+
+        expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(
+                TEST_FIELD_NAME,
+                xContentBuilderToMap(invalidXContentBuilder3),
+                buildParserContext(TEST_INDEX_NAME, settings)
+            )
+        );
+    }
+
+    private void validateBuilderAfterParsing(
+        KNNVectorFieldMapper.Builder builder,
+        KNNEngine expectedEngine,
+        SpaceType expectedSpaceType,
+        VectorDataType expectedVectorDataType,
+        CompressionLevel expectedResolvedCompressionLevel,
+        CompressionLevel expectedOriginalCompressionLevel,
+        Mode expectedMode,
+        boolean shouldUsesBinaryQFramework
+    ) {
+        assertEquals(expectedEngine, builder.getOriginalParameters().getResolvedKnnMethodContext().getKnnEngine());
+        assertEquals(expectedSpaceType, builder.getOriginalParameters().getResolvedKnnMethodContext().getSpaceType());
+        assertEquals(expectedVectorDataType, builder.getKnnMethodConfigContext().getVectorDataType());
+
+        assertEquals(expectedResolvedCompressionLevel, builder.getKnnMethodConfigContext().getCompressionLevel());
+        assertEquals(expectedOriginalCompressionLevel, CompressionLevel.fromName(builder.getOriginalParameters().getCompressionLevel()));
+        assertEquals(expectedMode, Mode.fromName(builder.getOriginalParameters().getMode()));
+        assertEquals(expectedMode, builder.getKnnMethodConfigContext().getMode());
+        assertFalse(builder.getOriginalParameters().getResolvedKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
+
+        if (shouldUsesBinaryQFramework) {
+            assertEquals(
+                QFrameBitEncoder.NAME,
+                ((MethodComponentContext) builder.getOriginalParameters()
+                    .getResolvedKnnMethodContext()
+                    .getMethodComponentContext()
+                    .getParameters()
+                    .get(METHOD_ENCODER_PARAMETER)).getName()
+            );
+            assertEquals(
+                expectedResolvedCompressionLevel.numBitsForFloat32(),
+                (int) ((MethodComponentContext) builder.getOriginalParameters()
+                    .getResolvedKnnMethodContext()
+                    .getMethodComponentContext()
+                    .getParameters()
+                    .get(METHOD_ENCODER_PARAMETER)).getParameters().get(QFrameBitEncoder.BITCOUNT_PARAM)
+            );
+        } else {
+            assertTrue(
+                builder.getOriginalParameters().getResolvedKnnMethodContext().getMethodComponentContext().getParameters().isEmpty()
+                    || builder.getOriginalParameters()
+                        .getResolvedKnnMethodContext()
+                        .getMethodComponentContext()
+                        .getParameters()
+                        .containsKey(METHOD_ENCODER_PARAMETER) == false
+                    || QFrameBitEncoder.NAME.equals(
+                        ((MethodComponentContext) builder.getOriginalParameters()
+                            .getResolvedKnnMethodContext()
+                            .getMethodComponentContext()
+                            .getParameters()
+                            .get(METHOD_ENCODER_PARAMETER)).getName()
+                    ) == false
+            );
         }
     }
 

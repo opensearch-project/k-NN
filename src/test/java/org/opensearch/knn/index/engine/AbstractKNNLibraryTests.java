@@ -168,5 +168,15 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         public void setInitialized(Boolean isInitialized) {
 
         }
+
+        @Override
+        public ResolvedMethodContext resolveMethod(
+            KNNMethodContext knnMethodContext,
+            KNNMethodConfigContext knnMethodConfigContext,
+            boolean shouldRequireTraining,
+            SpaceType spaceType
+        ) {
+            return null;
+        }
     }
 }

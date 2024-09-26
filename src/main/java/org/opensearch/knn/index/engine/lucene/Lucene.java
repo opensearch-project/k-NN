@@ -10,6 +10,10 @@ import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.JVMLibrary;
 import org.opensearch.knn.index.engine.KNNMethod;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodResolver;
+import org.opensearch.knn.index.engine.ResolvedMethodContext;
 
 import java.util.List;
 import java.util.Map;
@@ -37,6 +41,8 @@ public class Lucene extends JVMLibrary {
 
     public final static Lucene INSTANCE = new Lucene(METHODS, Version.LATEST.toString(), DISTANCE_TRANSLATIONS);
 
+    private final MethodResolver methodResolver;
+
     /**
      * Constructor
      *
@@ -47,6 +53,7 @@ public class Lucene extends JVMLibrary {
     Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTransform) {
         super(methods, version);
         this.distanceTransform = distanceTransform;
+        this.methodResolver = new LuceneMethodResolver();
     }
 
     @Override
@@ -85,5 +92,15 @@ public class Lucene extends JVMLibrary {
     @Override
     public List<String> mmapFileExtensions() {
         return List.of("vec", "vex");
+    }
+
+    @Override
+    public ResolvedMethodContext resolveMethod(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        boolean shouldRequireTraining,
+        final SpaceType spaceType
+    ) {
+        return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
 }

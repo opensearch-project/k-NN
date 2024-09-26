@@ -201,4 +201,14 @@ public enum KNNEngine implements KNNLibrary {
     public List<String> mmapFileExtensions() {
         return knnLibrary.mmapFileExtensions();
     }
+
+    @Override
+    public ResolvedMethodContext resolveMethod(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        boolean shouldRequireTraining,
+        final SpaceType spaceType
+    ) {
+        return knnLibrary.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
+    }
 }

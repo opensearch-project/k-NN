@@ -63,6 +63,16 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
                 public int getDimension() {
                     return knnMethodConfigContext.getDimension();
                 }
+
+                @Override
+                public Mode getMode() {
+                    return knnMethodConfigContext.getMode();
+                }
+
+                @Override
+                public CompressionLevel getCompressionLevel() {
+                    return knnMethodConfigContext.getCompressionLevel();
+                }
             }
         );
 
@@ -87,24 +97,23 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             originalMappingParameters
         );
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context is missing"));
+        KNNMethodContext resolvedKnnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
         VectorDataType vectorDataType = mappedFieldType.getVectorDataType();
 
-        final VectorSimilarityFunction vectorSimilarityFunction = knnMethodContext.getSpaceType()
+        final VectorSimilarityFunction vectorSimilarityFunction = resolvedKnnMethodContext.getSpaceType()
             .getKnnVectorSimilarityFunction()
             .getVectorSimilarityFunction();
 
         this.fieldType = vectorDataType.createKnnVectorFieldType(knnMappingConfig.getDimension(), vectorSimilarityFunction);
 
         if (this.hasDocValues) {
-            this.vectorFieldType = buildDocValuesFieldType(knnMethodContext.getKnnEngine());
+            this.vectorFieldType = buildDocValuesFieldType(resolvedKnnMethodContext.getKnnEngine());
         } else {
             this.vectorFieldType = null;
         }
 
-        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = resolvedKnnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(resolvedKnnMethodContext, knnMethodConfigContext);
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
         this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();

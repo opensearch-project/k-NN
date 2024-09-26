@@ -38,12 +38,14 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
         SpaceType.INNER_PRODUCT
     );
 
+    final static MethodComponent HNSW_METHOD_COMPONENT = initMethodComponent();
+
     /**
      * Constructor. Builds the method with the default parameters and supported spaces.
      * @see AbstractKNNMethod
      */
     public NmslibHNSWMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
+        super(HNSW_METHOD_COMPONENT, Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
     }
 
     private static MethodComponent initMethodComponent() {

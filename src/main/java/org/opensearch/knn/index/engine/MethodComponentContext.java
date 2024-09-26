@@ -50,6 +50,29 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     private final Map<String, Object> parameters;
 
     /**
+     * Copy constructor. Creates a deep copy of a {@link MethodComponentContext}
+     *
+     * @param methodComponentContext to be copied. Must NOT be null
+     */
+    public MethodComponentContext(MethodComponentContext methodComponentContext) {
+        if (methodComponentContext == null) {
+            throw new IllegalArgumentException("MethodComponentContext cannot be null");
+        }
+
+        this.name = methodComponentContext.name;
+        this.parameters = new HashMap<>();
+        if (methodComponentContext.parameters != null) {
+            for (Map.Entry<String, Object> entry : methodComponentContext.parameters.entrySet()) {
+                if (entry.getValue() instanceof MethodComponentContext) {
+                    parameters.put(entry.getKey(), new MethodComponentContext((MethodComponentContext) entry.getValue()));
+                } else {
+                    parameters.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+    }
+
+    /**
      * Constructor from stream.
      *
      * @param in StreamInput

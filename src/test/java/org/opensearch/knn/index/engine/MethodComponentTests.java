@@ -11,6 +11,9 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.io.IOException;
 import java.util.Map;
@@ -214,4 +217,41 @@ public class MethodComponentTests extends KNNTestCase {
                 .getLibraryParameters()
         );
     }
+
+    /**
+     * Test the new flow where EF_SEARCH and EF_CONSTRUCTION are set for ON_DISK mode
+     * with binary quantization compression levels.
+     */
+    public void testGetParameterMapWithDefaultsAdded_forOnDiskWithBinaryQuantization() {
+        // Set up MethodComponent and context
+        String methodName = "test-method";
+        String parameterEFSearch = "ef_search";
+        String parameterEFConstruction = "ef_construction";
+
+        MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
+            .addParameter(parameterEFSearch, new Parameter.IntegerParameter(parameterEFSearch, 512, (v, context) -> v > 0))
+            .addParameter(parameterEFConstruction, new Parameter.IntegerParameter(parameterEFConstruction, 512, (v, context) -> v > 0))
+            .build();
+
+        // Simulate ON_DISK mode and binary quantization compression levels
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.ON_DISK)  // ON_DISK mode
+            .compressionLevel(CompressionLevel.x32)  // Binary quantization compression level
+            .build();
+
+        MethodComponentContext methodComponentContext = new MethodComponentContext(methodName, Map.of());
+
+        // Retrieve parameter map with defaults added
+        Map<String, Object> resultMap = MethodComponent.getParameterMapWithDefaultsAdded(
+            methodComponentContext,
+            methodComponent,
+            knnMethodConfigContext
+        );
+
+        // Check that binary quantization values are used
+        assertEquals(IndexHyperParametersUtil.getBinaryQuantizationEFSearchValue(), resultMap.get(parameterEFSearch));
+        assertEquals(IndexHyperParametersUtil.getBinaryQuantizationEFConstructionValue(), resultMap.get(parameterEFConstruction));
+    }
+
 }
