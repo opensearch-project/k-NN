@@ -15,6 +15,7 @@ import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SegmentReadState;
@@ -69,6 +70,13 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
             if (!field.attributes().containsKey(KNN_FIELD)) {
                 continue;
             }
+            // Only segments that contains BinaryDocValues and doesn't have vector values should be considered.
+            // By default, we don't create BinaryDocValues for knn field anymore. However, users can set doc_values = true
+            // to create binary doc values explicitly like any other field. Hence, we only want to include fields
+            // where approximate search is possible only by BinaryDocValues.
+            if (field.getDocValuesType() != DocValuesType.BINARY || field.hasVectorValues() == true) {
+                continue;
+            }
             // Only Native Engine put into indexPathMap
             KNNEngine knnEngine = getNativeKNNEngine(field);
             if (knnEngine == null) {
@@ -77,6 +85,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
             List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), field.name, state.segmentInfo);
             Path indexPath = PathUtils.get(directoryPath, engineFiles.get(0));
             indexPathMap.putIfAbsent(field.getName(), indexPath.toString());
+
         }
     }
 
