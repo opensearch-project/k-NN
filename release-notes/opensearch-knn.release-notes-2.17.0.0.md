@@ -21,7 +21,6 @@ Compatible with OpenSearch 2.17.0
 * Fix memory overflow caused by cache behavior [#2015](https://github.com/opensearch-project/k-NN/pull/2015)
 * Use correct type for binary vector in ivf training [#2086](https://github.com/opensearch-project/k-NN/pull/2086)
 * Switch MINGW32 to MINGW64 [#2090](https://github.com/opensearch-project/k-NN/pull/2090)
-* Does not create additional KNNVectorValues in NativeEngines990KNNVectorWriter when quantization is not needed [#2133](https://github.com/opensearch-project/k-NN/pull/2133)
 ### Infrastructure
 * Parallelize make to reduce build time [#2006] (https://github.com/opensearch-project/k-NN/pull/2006)
 ### Maintenance
