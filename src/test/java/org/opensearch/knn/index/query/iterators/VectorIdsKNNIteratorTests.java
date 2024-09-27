@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.filtered;
+package org.opensearch.knn.index.query.iterators;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class FilteredIdsKNNIteratorTests extends KNNTestCase {
+public class VectorIdsKNNIteratorTests extends KNNTestCase {
     @SneakyThrows
     public void testNextDoc_whenCalled_IterateAllDocs() {
         final SpaceType spaceType = SpaceType.L2;
@@ -44,7 +44,7 @@ public class FilteredIdsKNNIteratorTests extends KNNTestCase {
         }
 
         // Execute and verify
-        FilteredIdsKNNIterator iterator = new FilteredIdsKNNIterator(filterBitSet, queryVector, values, spaceType);
+        VectorIdsKNNIterator iterator = new VectorIdsKNNIterator(filterBitSet, queryVector, values, spaceType);
         for (int i = 0; i < filterIds.length; i++) {
             assertEquals(filterIds[i], iterator.nextDoc());
             assertEquals(expectedScores.get(i), (Float) iterator.score());

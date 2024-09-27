@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.filtered;
+package org.opensearch.knn.index.query.iterators;
 
 import java.io.IOException;
 

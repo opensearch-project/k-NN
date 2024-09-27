@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.filtered;
+package org.opensearch.knn.index.query.iterators;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
@@ -17,9 +17,9 @@ import java.io.IOException;
  * Inspired by DiversifyingChildrenFloatKnnVectorQuery in lucene
  * https://github.com/apache/lucene/blob/7b8aece125aabff2823626d5b939abf4747f63a7/lucene/join/src/java/org/apache/lucene/search/join/DiversifyingChildrenFloatKnnVectorQuery.java#L162
  *
- * The class is used in KNNWeight to score filtered KNN field by iterating filterIdsArray.
+ * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
-public class FilteredIdsKNNByteIterator implements KNNIterator {
+public class ByteVectorIdsKNNIterator implements KNNIterator {
     // Array of doc ids to iterate
     protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
@@ -29,7 +29,7 @@ public class FilteredIdsKNNByteIterator implements KNNIterator {
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
 
-    public FilteredIdsKNNByteIterator(
+    public ByteVectorIdsKNNIterator(
         final BitSet filterIdsBitSet,
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,

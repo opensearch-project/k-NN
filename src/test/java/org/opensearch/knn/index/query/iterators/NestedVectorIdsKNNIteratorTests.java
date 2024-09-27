@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.filtered;
+package org.opensearch.knn.index.query.iterators;
 
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class NestedFilteredIdsKNNIteratorTests extends TestCase {
+public class NestedVectorIdsKNNIteratorTests extends TestCase {
     @SneakyThrows
     public void testNextDoc_whenIterate_ReturnBestChildDocsPerParent() {
         final SpaceType spaceType = SpaceType.L2;
@@ -53,13 +53,7 @@ public class NestedFilteredIdsKNNIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        NestedFilteredIdsKNNIterator iterator = new NestedFilteredIdsKNNIterator(
-            filterBitSet,
-            queryVector,
-            values,
-            spaceType,
-            parentBitSet
-        );
+        NestedVectorIdsKNNIterator iterator = new NestedVectorIdsKNNIterator(filterBitSet, queryVector, values, spaceType, parentBitSet);
         assertEquals(filterIds[0], iterator.nextDoc());
         assertEquals(expectedScores.get(0), iterator.score());
         assertEquals(filterIds[2], iterator.nextDoc());
