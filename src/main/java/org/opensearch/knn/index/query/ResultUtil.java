@@ -33,15 +33,14 @@ public final class ResultUtil {
     public static void reduceToTopK(List<Map<Integer, Float>> perLeafResults, int k) {
         // Iterate over all scores to get min competitive score
         PriorityQueue<Float> topKMinQueue = new PriorityQueue<>(k);
-        for (int i = 0; i < k; i++) {
-            topKMinQueue.add(-Float.MAX_VALUE);
-        }
 
         int count = 0;
         for (Map<Integer, Float> perLeafResult : perLeafResults) {
             count += perLeafResult.size();
             for (Float score : perLeafResult.values()) {
-                if (topKMinQueue.peek() != null && score > topKMinQueue.peek()) {
+                if (topKMinQueue.size() < k) {
+                    topKMinQueue.add(score);
+                } else if (topKMinQueue.peek() != null && score > topKMinQueue.peek()) {
                     topKMinQueue.poll();
                     topKMinQueue.add(score);
                 }
