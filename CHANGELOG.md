@@ -7,7 +7,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.0](https://github.com/opensearch-project/k-NN/compare/2.x...HEAD)
 ### Features
 ### Enhancements
-* Adds concurrent segment search support for mode auto [#2111](https://github.com/opensearch-project/k-NN/pull/2111)
 ### Bug Fixes 
 * Add DocValuesProducers for releasing memory when close index [#1946](https://github.com/opensearch-project/k-NN/pull/1946)
 ### Infrastructure
