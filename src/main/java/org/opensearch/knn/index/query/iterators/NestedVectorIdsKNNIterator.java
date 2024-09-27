@@ -27,8 +27,17 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
-    ) {
+    ) throws IOException {
         this(filterIdsArray, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
+    }
+
+    NestedVectorIdsKNNIterator(
+        final float[] queryVector,
+        final KNNFloatVectorValues knnFloatVectorValues,
+        final SpaceType spaceType,
+        final BitSet parentBitSet
+    ) throws IOException {
+        this(null, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
     }
 
     public NestedVectorIdsKNNIterator(
@@ -39,7 +48,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         final BitSet parentBitSet,
         final byte[] quantizedVector,
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
-    ) {
+    ) throws IOException {
         super(filterIdsArray, queryVector, knnFloatVectorValues, spaceType, quantizedVector, segmentLevelQuantizationInfo);
         this.parentBitSet = parentBitSet;
     }
@@ -61,13 +70,15 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         int bestChild = -1;
 
         while (docId != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
-            knnFloatVectorValues.advance(docId);
+            if (bitSetIterator != null) {
+                knnFloatVectorValues.advance(docId);
+            }
             float score = computeScore();
             if (score > currentScore) {
                 bestChild = docId;
                 currentScore = score;
             }
-            docId = bitSetIterator.nextDoc();
+            docId = getNextDocId();
         }
 
         return bestChild;

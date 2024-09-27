@@ -20,8 +20,6 @@ import java.io.IOException;
  * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
 public class ByteVectorIdsKNNIterator implements KNNIterator {
-    // Array of doc ids to iterate
-    protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
     protected final byte[] queryVector;
     protected final KNNBinaryVectorValues binaryVectorValues;
@@ -34,13 +32,17 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType
-    ) {
-        this.filterIdsBitSet = filterIdsBitSet;
-        this.bitSetIterator = new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
+    ) throws IOException {
+        this.bitSetIterator = filterIdsBitSet == null ? null : new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
         this.queryVector = queryVector;
         this.binaryVectorValues = binaryVectorValues;
         this.spaceType = spaceType;
-        this.docId = bitSetIterator.nextDoc();
+        this.docId = getNextDocId();
+    }
+
+    ByteVectorIdsKNNIterator(final byte[] queryVector, final KNNBinaryVectorValues binaryVectorValues, final SpaceType spaceType)
+        throws IOException {
+        this(null, queryVector, binaryVectorValues, spaceType);
     }
 
     /**
@@ -55,10 +57,13 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
-        int doc = binaryVectorValues.advance(docId);
+        if (bitSetIterator != null) {
+            binaryVectorValues.advance(docId);
+        }
         currentScore = computeScore();
-        docId = bitSetIterator.nextDoc();
-        return doc;
+        int currentDocId = docId;
+        docId = getNextDocId();
+        return currentDocId;
     }
 
     @Override
@@ -71,5 +76,12 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
         return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
+    }
+
+    protected int getNextDocId() throws IOException {
+        if (bitSetIterator != null) {
+            return this.bitSetIterator.nextDoc();
+        }
+        return this.binaryVectorValues.nextDoc();
     }
 }

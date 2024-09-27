@@ -22,8 +22,6 @@ import java.io.IOException;
  * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
 public class VectorIdsKNNIterator implements KNNIterator {
-    // Array of doc ids to iterate
-    protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
     protected final float[] queryVector;
     private final byte[] quantizedQueryVector;
@@ -38,8 +36,13 @@ public class VectorIdsKNNIterator implements KNNIterator {
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType
-    ) {
+    ) throws IOException {
         this(filterIdsBitSet, queryVector, knnFloatVectorValues, spaceType, null, null);
+    }
+
+    VectorIdsKNNIterator(final float[] queryVector, final KNNFloatVectorValues knnFloatVectorValues, final SpaceType spaceType)
+        throws IOException {
+        this(null, queryVector, knnFloatVectorValues, spaceType, null, null);
     }
 
     public VectorIdsKNNIterator(
@@ -49,15 +52,21 @@ public class VectorIdsKNNIterator implements KNNIterator {
         final SpaceType spaceType,
         final byte[] quantizedQueryVector,
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
-    ) {
-        this.filterIdsBitSet = filterIdsBitSet;
-        this.bitSetIterator = new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
+    ) throws IOException {
+        this.bitSetIterator = filterIdsBitSet == null ? null : new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
         this.queryVector = queryVector;
         this.knnFloatVectorValues = knnFloatVectorValues;
         this.spaceType = spaceType;
-        this.docId = bitSetIterator.nextDoc();
+        this.docId = getNextDocId();
         this.quantizedQueryVector = quantizedQueryVector;
         this.segmentLevelQuantizationInfo = segmentLevelQuantizationInfo;
+    }
+
+    protected int getNextDocId() throws IOException {
+        if (bitSetIterator != null) {
+            return this.bitSetIterator.nextDoc();
+        }
+        return this.knnFloatVectorValues.nextDoc();
     }
 
     /**
@@ -72,10 +81,13 @@ public class VectorIdsKNNIterator implements KNNIterator {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
-        int doc = knnFloatVectorValues.advance(docId);
+        if (bitSetIterator != null) {
+            knnFloatVectorValues.advance(docId);
+        }
         currentScore = computeScore();
-        docId = bitSetIterator.nextDoc();
-        return doc;
+        int currentDocId = docId;
+        docId = getNextDocId();
+        return currentDocId;
     }
 
     @Override
