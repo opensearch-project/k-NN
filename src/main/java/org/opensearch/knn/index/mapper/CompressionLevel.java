@@ -93,7 +93,7 @@ public enum CompressionLevel {
     public static boolean isConfigured(CompressionLevel compressionLevel) {
         return compressionLevel != null && compressionLevel != NOT_CONFIGURED;
     }
-  
+
     /**
      * Returns the appropriate {@link RescoreContext} based on the given {@code mode} and {@code dimension}.
      *
