@@ -51,8 +51,9 @@ public class ExactSearcher {
      */
     public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
         throws IOException {
-        KNNIterator iterator = getMatchedKNNIterator(leafReaderContext, exactSearcherContext);
-        if (exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
+        KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        if (exactSearcherContext.getMatchedDocs() != null
+            && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
             return scoreAllDocs(iterator);
         }
         return searchTopK(iterator, exactSearcherContext.getK());
@@ -98,8 +99,7 @@ public class ExactSearcher {
         return docToScore;
     }
 
-    private KNNIterator getMatchedKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext)
-        throws IOException {
+    private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final BitSet matchedDocs = exactSearcherContext.getMatchedDocs();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
@@ -108,19 +108,17 @@ public class ExactSearcher {
 
         boolean isNestedRequired = exactSearcherContext.isParentHits() && knnQuery.getParentsFilter() != null;
 
-        if (VectorDataType.BINARY == knnQuery.getVectorDataType() && isNestedRequired) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            return new NestedByteVectorIdsKNNIterator(
-                matchedDocs,
-                knnQuery.getByteQueryVector(),
-                (KNNBinaryVectorValues) vectorValues,
-                spaceType,
-                knnQuery.getParentsFilter().getBitSet(leafReaderContext)
-            );
-        }
-
         if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+            if (isNestedRequired) {
+                return new NestedByteVectorIdsKNNIterator(
+                    matchedDocs,
+                    knnQuery.getByteQueryVector(),
+                    (KNNBinaryVectorValues) vectorValues,
+                    spaceType,
+                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                );
+            }
             return new ByteVectorIdsKNNIterator(
                 matchedDocs,
                 knnQuery.getByteQueryVector(),
@@ -152,7 +150,6 @@ public class ExactSearcher {
                 segmentLevelQuantizationInfo
             );
         }
-
         return new VectorIdsKNNIterator(
             matchedDocs,
             knnQuery.getQueryVector(),

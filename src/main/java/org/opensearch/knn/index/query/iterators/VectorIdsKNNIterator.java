@@ -58,16 +58,11 @@ public class VectorIdsKNNIterator implements KNNIterator {
         this.queryVector = queryVector;
         this.knnFloatVectorValues = knnFloatVectorValues;
         this.spaceType = spaceType;
+        // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
+        // nextDoc should already be referring to next knnVectorValues
         this.docId = getNextDocId();
         this.quantizedQueryVector = quantizedQueryVector;
         this.segmentLevelQuantizationInfo = segmentLevelQuantizationInfo;
-    }
-
-    protected int getNextDocId() throws IOException {
-        if (bitSetIterator != null) {
-            return bitSetIterator.nextDoc();
-        }
-        return knnFloatVectorValues.nextDoc();
     }
 
     /**
@@ -106,5 +101,12 @@ public class VectorIdsKNNIterator implements KNNIterator {
             // scores correspond to closer vectors.
             return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
         }
+    }
+
+    protected int getNextDocId() throws IOException {
+        if (bitSetIterator != null) {
+            return bitSetIterator.nextDoc();
+        }
+        return knnFloatVectorValues.nextDoc();
     }
 }

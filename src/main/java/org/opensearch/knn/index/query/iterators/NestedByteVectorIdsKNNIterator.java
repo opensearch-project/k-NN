@@ -58,6 +58,11 @@ public class NestedByteVectorIdsKNNIterator extends ByteVectorIdsKNNIterator {
         int currentParent = parentBitSet.nextSetBit(docId);
         int bestChild = -1;
 
+        // In order to traverse all children for given parent, we have to use docId < parentId, because,
+        // kNNVectorValues will not have parent id since DocId is unique per segment. For ex: let's say for doc id 1, there is one child
+        // and for doc id 5, there are three children. In that case knnVectorValues iterator will have [0, 2, 3, 4]
+        // and parentBitSet will have [1,5]
+        // Hence, we have to iterate till docId from knnVectorValues is less than parentId instead of till equal to parentId
         while (docId != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
             if (bitSetIterator != null) {
                 binaryVectorValues.advance(docId);
