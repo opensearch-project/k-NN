@@ -60,9 +60,6 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
-        if (bitSetIterator != null) {
-            binaryVectorValues.advance(docId);
-        }
         currentScore = computeScore();
         int currentDocId = docId;
         docId = getNextDocId();
@@ -82,9 +79,14 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
     }
 
     protected int getNextDocId() throws IOException {
-        if (bitSetIterator != null) {
-            return bitSetIterator.nextDoc();
+        if (bitSetIterator == null) {
+            return binaryVectorValues.nextDoc();
         }
-        return binaryVectorValues.nextDoc();
+        int nextDocID = this.bitSetIterator.nextDoc();
+        // For filter case, advance vector values to corresponding doc id from filter bit set
+        if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
+            binaryVectorValues.advance(nextDocID);
+        }
+        return nextDocID;
     }
 }

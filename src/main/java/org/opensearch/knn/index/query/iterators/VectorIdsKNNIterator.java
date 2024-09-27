@@ -77,9 +77,6 @@ public class VectorIdsKNNIterator implements KNNIterator {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
-        if (bitSetIterator != null) {
-            knnFloatVectorValues.advance(docId);
-        }
         currentScore = computeScore();
         int currentDocId = docId;
         docId = getNextDocId();
@@ -104,9 +101,14 @@ public class VectorIdsKNNIterator implements KNNIterator {
     }
 
     protected int getNextDocId() throws IOException {
-        if (bitSetIterator != null) {
-            return bitSetIterator.nextDoc();
+        if (bitSetIterator == null) {
+            return knnFloatVectorValues.nextDoc();
         }
-        return knnFloatVectorValues.nextDoc();
+        int nextDocID = this.bitSetIterator.nextDoc();
+        // For filter case, advance vector values to corresponding doc id from filter bit set
+        if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
+            knnFloatVectorValues.advance(nextDocID);
+        }
+        return nextDocID;
     }
 }

@@ -76,9 +76,6 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         // and parentBitSet will have [1,5]
         // Hence, we have to iterate till docId from knnVectorValues is less than parentId instead of till equal to parentId
         while (docId != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
-            if (bitSetIterator != null) {
-                knnFloatVectorValues.advance(docId);
-            }
             float score = computeScore();
             if (score > currentScore) {
                 bestChild = docId;
