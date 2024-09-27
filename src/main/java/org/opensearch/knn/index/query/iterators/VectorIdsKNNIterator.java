@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query.iterators;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
@@ -31,8 +32,8 @@ public class VectorIdsKNNIterator implements KNNIterator {
     protected int docId;
     private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
 
-    VectorIdsKNNIterator(
-        final BitSet filterIdsBitSet,
+    public VectorIdsKNNIterator(
+        @Nullable final BitSet filterIdsBitSet,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType
@@ -40,13 +41,13 @@ public class VectorIdsKNNIterator implements KNNIterator {
         this(filterIdsBitSet, queryVector, knnFloatVectorValues, spaceType, null, null);
     }
 
-    VectorIdsKNNIterator(final float[] queryVector, final KNNFloatVectorValues knnFloatVectorValues, final SpaceType spaceType)
+    public VectorIdsKNNIterator(final float[] queryVector, final KNNFloatVectorValues knnFloatVectorValues, final SpaceType spaceType)
         throws IOException {
         this(null, queryVector, knnFloatVectorValues, spaceType, null, null);
     }
 
     public VectorIdsKNNIterator(
-        final BitSet filterIdsBitSet,
+        @Nullable final BitSet filterIdsBitSet,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
@@ -64,9 +65,9 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected int getNextDocId() throws IOException {
         if (bitSetIterator != null) {
-            return this.bitSetIterator.nextDoc();
+            return bitSetIterator.nextDoc();
         }
-        return this.knnFloatVectorValues.nextDoc();
+        return knnFloatVectorValues.nextDoc();
     }
 
     /**

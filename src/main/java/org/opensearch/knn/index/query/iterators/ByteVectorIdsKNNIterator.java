@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query.iterators;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 
@@ -28,7 +29,7 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
     protected int docId;
 
     public ByteVectorIdsKNNIterator(
-        final BitSet filterIdsBitSet,
+        @Nullable final BitSet filterIdsBitSet,
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType
@@ -40,7 +41,7 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         this.docId = getNextDocId();
     }
 
-    ByteVectorIdsKNNIterator(final byte[] queryVector, final KNNBinaryVectorValues binaryVectorValues, final SpaceType spaceType)
+    public ByteVectorIdsKNNIterator(final byte[] queryVector, final KNNBinaryVectorValues binaryVectorValues, final SpaceType spaceType)
         throws IOException {
         this(null, queryVector, binaryVectorValues, spaceType);
     }
@@ -80,8 +81,8 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
 
     protected int getNextDocId() throws IOException {
         if (bitSetIterator != null) {
-            return this.bitSetIterator.nextDoc();
+            return bitSetIterator.nextDoc();
         }
-        return this.binaryVectorValues.nextDoc();
+        return binaryVectorValues.nextDoc();
     }
 }

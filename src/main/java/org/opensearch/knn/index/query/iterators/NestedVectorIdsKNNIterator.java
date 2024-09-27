@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query.iterators;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -21,8 +22,8 @@ import java.io.IOException;
 public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
     private final BitSet parentBitSet;
 
-    NestedVectorIdsKNNIterator(
-        final BitSet filterIdsArray,
+    public NestedVectorIdsKNNIterator(
+        @Nullable final BitSet filterIdsArray,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
@@ -31,7 +32,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         this(filterIdsArray, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
     }
 
-    NestedVectorIdsKNNIterator(
+    public NestedVectorIdsKNNIterator(
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
@@ -41,7 +42,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
     }
 
     public NestedVectorIdsKNNIterator(
-        final BitSet filterIdsArray,
+        @Nullable final BitSet filterIdsArray,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
