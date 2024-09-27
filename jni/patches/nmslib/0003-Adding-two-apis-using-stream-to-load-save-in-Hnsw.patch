@@ -1,0 +1,93 @@
+From 7e099ec111e5c9db4b243da249c73f0ecc206281 Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Thu, 26 Sep 2024 15:20:53 -0700
+Subject: [PATCH] Adding two apis using stream to load/save in Hnsw.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ similarity_search/include/method/hnsw.h |  4 +++
+ similarity_search/src/method/hnsw.cc    | 44 +++++++++++++++++++++++++
+ 2 files changed, 48 insertions(+)
+
+diff --git a/similarity_search/include/method/hnsw.h b/similarity_search/include/method/hnsw.h
+index 57d99d0..7ff3f3d 100644
+--- a/similarity_search/include/method/hnsw.h
++++ b/similarity_search/include/method/hnsw.h
+@@ -455,8 +455,12 @@ namespace similarity {
+     public:
+         virtual void SaveIndex(const string &location) override;
+ 
++        void SaveIndexWithStream(std::ostream& output);
++
+         virtual void LoadIndex(const string &location) override;
+ 
++        void LoadIndexWithStream(std::istream& in);
++
+         Hnsw(bool PrintProgress, const Space<dist_t> &space, const ObjectVector &data);
+         void CreateIndex(const AnyParams &IndexParams) override;
+ 
+diff --git a/similarity_search/src/method/hnsw.cc b/similarity_search/src/method/hnsw.cc
+index 35b372c..e7a2c9e 100644
+--- a/similarity_search/src/method/hnsw.cc
++++ b/similarity_search/src/method/hnsw.cc
+@@ -771,6 +771,25 @@ namespace similarity {
+         output.close();
+     }
+ 
++    template <typename dist_t>
++    void Hnsw<dist_t>::SaveIndexWithStream(std::ostream &output) {
++        output.exceptions(ios::badbit | ios::failbit);
++
++        unsigned int optimIndexFlag = data_level0_memory_ != nullptr;
++
++        writeBinaryPOD(output, optimIndexFlag);
++
++        if (!optimIndexFlag) {
++#if USE_TEXT_REGULAR_INDEX
++            SaveRegularIndexText(output);
++#else
++            SaveRegularIndexBin(output);
++#endif
++        } else {
++            SaveOptimizedIndex(output);
++        }
++    }
++
+     template <typename dist_t>
+     void
+     Hnsw<dist_t>::SaveOptimizedIndex(std::ostream& output) {
+@@ -1021,6 +1040,31 @@ namespace similarity {
+ 
+     }
+ 
++    template <typename dist_t>
++    void Hnsw<dist_t>::LoadIndexWithStream(std::istream& input) {
++        LOG(LIB_INFO) << "Loading index from an input stream.";
++        CHECK_MSG(input, "Cannot open file for reading with an input stream");
++
++        input.exceptions(ios::badbit | ios::failbit);
++
++#if USE_TEXT_REGULAR_INDEX
++        LoadRegularIndexText(input);
++#else
++        unsigned int optimIndexFlag= 0;
++
++        readBinaryPOD(input, optimIndexFlag);
++
++        if (!optimIndexFlag) {
++            LoadRegularIndexBin(input);
++        } else {
++            LoadOptimizedIndex(input);
++        }
++#endif
++
++        LOG(LIB_INFO) << "Finished loading index";
++        visitedlistpool = new VisitedListPool(1, totalElementsStored_);
++    }
++
+ 
+     template <typename dist_t>
+     void
+-- 
+2.39.5 (Apple Git-154)
+
