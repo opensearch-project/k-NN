@@ -20,11 +20,11 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.query.filtered.FilteredIdsKNNByteIterator;
-import org.opensearch.knn.index.query.filtered.FilteredIdsKNNIterator;
-import org.opensearch.knn.index.query.filtered.KNNIterator;
-import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNByteIterator;
-import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.ByteVectorIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.VectorIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.KNNIterator;
+import org.opensearch.knn.index.query.iterators.NestedByteVectorIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.NestedVectorIdsKNNIterator;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -51,8 +51,9 @@ public class ExactSearcher {
      */
     public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
         throws IOException {
-        KNNIterator iterator = getMatchedKNNIterator(leafReaderContext, exactSearcherContext);
-        if (exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
+        KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        if (exactSearcherContext.getMatchedDocs() != null
+            && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
             return scoreAllDocs(iterator);
         }
         return searchTopK(iterator, exactSearcherContext.getK());
@@ -98,8 +99,7 @@ public class ExactSearcher {
         return docToScore;
     }
 
-    private KNNIterator getMatchedKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext)
-        throws IOException {
+    private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final BitSet matchedDocs = exactSearcherContext.getMatchedDocs();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
@@ -108,20 +108,18 @@ public class ExactSearcher {
 
         boolean isNestedRequired = exactSearcherContext.isParentHits() && knnQuery.getParentsFilter() != null;
 
-        if (VectorDataType.BINARY == knnQuery.getVectorDataType() && isNestedRequired) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            return new NestedFilteredIdsKNNByteIterator(
-                matchedDocs,
-                knnQuery.getByteQueryVector(),
-                (KNNBinaryVectorValues) vectorValues,
-                spaceType,
-                knnQuery.getParentsFilter().getBitSet(leafReaderContext)
-            );
-        }
-
         if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            return new FilteredIdsKNNByteIterator(
+            if (isNestedRequired) {
+                return new NestedByteVectorIdsKNNIterator(
+                    matchedDocs,
+                    knnQuery.getByteQueryVector(),
+                    (KNNBinaryVectorValues) vectorValues,
+                    spaceType,
+                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                );
+            }
+            return new ByteVectorIdsKNNIterator(
                 matchedDocs,
                 knnQuery.getByteQueryVector(),
                 (KNNBinaryVectorValues) vectorValues,
@@ -142,7 +140,7 @@ public class ExactSearcher {
 
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
         if (isNestedRequired) {
-            return new NestedFilteredIdsKNNIterator(
+            return new NestedVectorIdsKNNIterator(
                 matchedDocs,
                 knnQuery.getQueryVector(),
                 (KNNFloatVectorValues) vectorValues,
@@ -152,8 +150,7 @@ public class ExactSearcher {
                 segmentLevelQuantizationInfo
             );
         }
-
-        return new FilteredIdsKNNIterator(
+        return new VectorIdsKNNIterator(
             matchedDocs,
             knnQuery.getQueryVector(),
             (KNNFloatVectorValues) vectorValues,
@@ -180,7 +177,7 @@ public class ExactSearcher {
         KNNQuery knnQuery;
         /**
          * whether the matchedDocs contains parent ids or child ids. This is relevant in the case of
-         * filtered nested search where the matchedDocs contain the parent ids and {@link NestedFilteredIdsKNNIterator}
+         * filtered nested search where the matchedDocs contain the parent ids and {@link NestedVectorIdsKNNIterator}
          * needs to be used.
          */
         boolean isParentHits;
