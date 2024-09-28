@@ -110,7 +110,7 @@ public interface NativeMemoryAllocation {
 
         private final ExecutorService executor;
         private final long memoryAddress;
-        private final int size;
+        private final int sizeKb;
         private volatile boolean closed;
         @Getter
         private final KNNEngine knnEngine;
@@ -130,7 +130,7 @@ public interface NativeMemoryAllocation {
          *
          * @param executorService Executor service used to close the allocation
          * @param memoryAddress Pointer in memory to the index
-         * @param size Size this index consumes in kilobytes
+         * @param sizeKb Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
          * @param indexPath File path to index
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
@@ -139,13 +139,13 @@ public interface NativeMemoryAllocation {
         IndexAllocation(
             ExecutorService executorService,
             long memoryAddress,
-            int size,
+            int sizeKb,
             KNNEngine knnEngine,
             String indexPath,
             String openSearchIndexName,
             WatcherHandle<FileWatcher> watcherHandle
         ) {
-            this(executorService, memoryAddress, size, knnEngine, indexPath, openSearchIndexName, watcherHandle, null, false);
+            this(executorService, memoryAddress, sizeKb, knnEngine, indexPath, openSearchIndexName, watcherHandle, null, false);
         }
 
         /**
@@ -153,7 +153,7 @@ public interface NativeMemoryAllocation {
          *
          * @param executorService Executor service used to close the allocation
          * @param memoryAddress Pointer in memory to the index
-         * @param size Size this index consumes in kilobytes
+         * @param sizeKb Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
          * @param indexPath File path to index
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
@@ -163,7 +163,7 @@ public interface NativeMemoryAllocation {
         IndexAllocation(
             ExecutorService executorService,
             long memoryAddress,
-            int size,
+            int sizeKb,
             KNNEngine knnEngine,
             String indexPath,
             String openSearchIndexName,
@@ -178,7 +178,7 @@ public interface NativeMemoryAllocation {
             this.openSearchIndexName = openSearchIndexName;
             this.memoryAddress = memoryAddress;
             this.readWriteLock = new ReentrantReadWriteLock();
-            this.size = size;
+            this.sizeKb = sizeKb;
             this.watcherHandle = watcherHandle;
             this.sharedIndexState = sharedIndexState;
             this.isBinaryIndex = isBinaryIndex;
@@ -269,7 +269,7 @@ public interface NativeMemoryAllocation {
 
         @Override
         public int getSizeInKB() {
-            return size;
+            return sizeKb;
         }
 
         @Override

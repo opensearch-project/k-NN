@@ -131,13 +131,13 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             // Output -> _0_NativeEngines990KnnVectorsFormat_0.vec
             final String logicalIndexPath = absoluteIndexPath.getFileName().toString();
 
-            final long indexSize = directory.fileLength(logicalIndexPath);
+            final int indexSizeKb = Math.toIntExact(directory.fileLength(logicalIndexPath) / 1024);
 
             try (IndexInput readStream = directory.openInput(logicalIndexPath, IOContext.READONCE)) {
                 IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
                 long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
 
-                return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, fileWatcher, indexSize, absoluteIndexPath);
+                return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, fileWatcher, indexSizeKb, absoluteIndexPath);
             }
         }
 
@@ -146,7 +146,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             final KNNEngine knnEngine,
             final long indexAddress,
             final FileWatcher fileWatcher,
-            final long indexSize,
+            final int indexSizeKb,
             final Path absoluteIndexPath
         ) throws IOException {
             SharedIndexState sharedIndexState = null;
@@ -161,7 +161,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             return new NativeMemoryAllocation.IndexAllocation(
                 executor,
                 indexAddress,
-                Math.toIntExact(indexSize / 1024L),  // Convert bytes in KB unit.
+                indexSizeKb,
                 knnEngine,
                 absoluteIndexPath.toString(),
                 indexEntryContext.getOpenSearchIndexName(),
