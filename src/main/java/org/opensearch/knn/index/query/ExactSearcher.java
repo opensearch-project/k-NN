@@ -20,12 +20,15 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
 import org.opensearch.knn.index.query.iterators.ByteVectorIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.NestedBinaryVectorIdsKNNIterator;
 import org.opensearch.knn.index.query.iterators.VectorIdsKNNIterator;
 import org.opensearch.knn.index.query.iterators.KNNIterator;
 import org.opensearch.knn.index.query.iterators.NestedByteVectorIdsKNNIterator;
 import org.opensearch.knn.index.query.iterators.NestedVectorIdsKNNIterator;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -111,7 +114,7 @@ public class ExactSearcher {
         if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
             if (isNestedRequired) {
-                return new NestedByteVectorIdsKNNIterator(
+                return new NestedBinaryVectorIdsKNNIterator(
                     matchedDocs,
                     knnQuery.getByteQueryVector(),
                     (KNNBinaryVectorValues) vectorValues,
@@ -119,12 +122,26 @@ public class ExactSearcher {
                     knnQuery.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
-            return new ByteVectorIdsKNNIterator(
+            return new BinaryVectorIdsKNNIterator(
                 matchedDocs,
                 knnQuery.getByteQueryVector(),
                 (KNNBinaryVectorValues) vectorValues,
                 spaceType
             );
+        }
+
+        if (VectorDataType.BYTE == knnQuery.getVectorDataType()) {
+            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+            if (isNestedRequired) {
+                return new NestedByteVectorIdsKNNIterator(
+                    matchedDocs,
+                    knnQuery.getQueryVector(),
+                    (KNNByteVectorValues) vectorValues,
+                    spaceType,
+                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                );
+            }
+            return new ByteVectorIdsKNNIterator(matchedDocs, knnQuery.getQueryVector(), (KNNByteVectorValues) vectorValues, spaceType);
         }
         final byte[] quantizedQueryVector;
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
