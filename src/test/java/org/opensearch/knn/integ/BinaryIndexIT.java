@@ -115,7 +115,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
         createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128, NEVER_BUILD_GRAPH);
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
-        assertEquals(0, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
+        assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
 
         // update build vector data structure setting
         updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
@@ -138,7 +138,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
         createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128, testData.indexData.docs.length);
         ingestTestData(INDEX_NAME, FIELD_NAME, false);
 
-        assertEquals(0, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
+        assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
 
         // update build vector data structure setting
         updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));

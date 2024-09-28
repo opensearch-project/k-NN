@@ -97,6 +97,5 @@ public class NativeEngineFieldVectorsWriterTests extends KNNCodecTestCase {
             .create(fieldInfo, InfoStream.getDefault());
         // testing for value > 0 as we don't have a concrete way to find out expected bytes. This can OS dependent too.
         Assert.assertTrue(byteWriter.ramBytesUsed() > 0);
-
     }
 }

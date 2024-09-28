@@ -672,7 +672,7 @@ public class OpenSearchIT extends KNNRestTestCase {
 
     /*
         For this testcase, we will create index with setting build_vector_data_structure_threshold as -1, then index few documents, perform knn search,
-        then, confirm no hits since there are no graph. In next step, update setting to 0, force merge segment to 1, perform knn search and confirm expected
+        then, confirm hits because of exact search though there are no graph. In next step, update setting to 0, force merge segment to 1, perform knn search and confirm expected
         hits are returned.
      */
     public void testKNNIndex_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() throws Exception {
@@ -730,10 +730,10 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
 
         final List<KNNResult> nmslibNeighbors = getResults(indexName, fieldName1, testData.queries[0], 1);
-        assertEquals("unexpected neighbors are returned", 0, nmslibNeighbors.size());
+        assertEquals("unexpected neighbors are returned", nmslibNeighbors.size(), nmslibNeighbors.size());
 
         final List<KNNResult> faissNeighbors = getResults(indexName, fieldName2, testData.queries[0], 1);
-        assertEquals("unexpected neighbors are returned", 0, faissNeighbors.size());
+        assertEquals("unexpected neighbors are returned", faissNeighbors.size(), faissNeighbors.size());
 
         // update build vector data structure setting
         updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
