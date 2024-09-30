@@ -9,32 +9,32 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 
 import java.io.IOException;
 
 /**
- * This iterator iterates filterIdsArray to score if filter is provided else it iterates over all docs.
+ * This iterator iterates filterIdsArray to scoreif filter is provided else it iterates over all docs.
  * However, it dedupe docs per each parent doc
  * of which ID is set in parentBitSet and only return best child doc with the highest score.
  */
-public class NestedByteVectorIdsKNNIterator extends ByteVectorIdsKNNIterator {
+public class NestedBinaryVectorIdsKNNIterator extends BinaryVectorIdsKNNIterator {
     private final BitSet parentBitSet;
 
-    public NestedByteVectorIdsKNNIterator(
+    public NestedBinaryVectorIdsKNNIterator(
         @Nullable final BitSet filterIdsArray,
-        final float[] queryVector,
-        final KNNByteVectorValues byteVectorValues,
+        final byte[] queryVector,
+        final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
-        super(filterIdsArray, queryVector, byteVectorValues, spaceType);
+        super(filterIdsArray, queryVector, binaryVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
     }
 
-    public NestedByteVectorIdsKNNIterator(
-        final float[] queryVector,
-        final KNNByteVectorValues binaryVectorValues,
+    public NestedBinaryVectorIdsKNNIterator(
+        final byte[] queryVector,
+        final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
