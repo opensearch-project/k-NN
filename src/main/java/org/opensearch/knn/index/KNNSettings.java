@@ -88,6 +88,7 @@ public class KNNSettings {
     public static final String QUANTIZATION_STATE_CACHE_SIZE_LIMIT = "knn.quantization.cache.size.limit";
     public static final String QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = "knn.quantization.cache.expiry.minutes";
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
+    public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
 
     /**
      * Default setting values
@@ -112,10 +113,30 @@ public class KNNSettings {
     public static final Integer KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // Quantization state cache limit cannot exceed
                                                                                              // 10% of the JVM heap
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = 60;
+    public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = true;
 
     /**
      * Settings Definition
      */
+
+    /**
+     * This setting controls whether shard-level re-scoring for KNN disk-based vectors is turned off.
+     * The setting uses:
+     * <ul>
+     *     <li><b>KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED:</b> The name of the setting.</li>
+     *     <li><b>KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE:</b> The default value (true or false).</li>
+     *     <li><b>IndexScope:</b> The setting works at the index level.</li>
+     *     <li><b>Dynamic:</b> This setting can be changed without restarting the cluster.</li>
+     * </ul>
+     *
+     * @see Setting#boolSetting(String, boolean, Setting.Property...)
+     */
+    public static final Setting<Boolean> KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING = Setting.boolSetting(
+        KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED,
+        KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE,
+        IndexScope,
+        Dynamic
+    );
 
     // This setting controls how much memory should be used to transfer vectors from Java to JNI Layer. The default
     // 1% of the JVM heap
@@ -454,6 +475,10 @@ public class KNNSettings {
             return QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING;
         }
 
+        if (KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED.equals(key)) {
+            return KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -475,7 +500,8 @@ public class KNNSettings {
             KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
             KNN_FAISS_AVX512_DISABLED_SETTING,
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
-            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING
+            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -526,6 +552,14 @@ public class KNNSettings {
             .index(indexName)
             .getSettings()
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
+    }
+
+    public static boolean isShardLevelRescoringDisabledForDiskBasedVector(String indexName) {
+        return KNNSettings.state().clusterService.state()
+            .getMetadata()
+            .index(indexName)
+            .getSettings()
+            .getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, true);
     }
 
     public void initialize(Client client, ClusterService clusterService) {

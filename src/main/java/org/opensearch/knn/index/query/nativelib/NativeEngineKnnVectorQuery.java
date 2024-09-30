@@ -20,6 +20,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
@@ -54,7 +55,6 @@ public class NativeEngineKnnVectorQuery extends Query {
         final IndexReader reader = indexSearcher.getIndexReader();
         final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
-
         List<Map<Integer, Float>> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
         int finalK = knnQuery.getK();
@@ -63,7 +63,9 @@ public class NativeEngineKnnVectorQuery extends Query {
         } else {
             int firstPassK = rescoreContext.getFirstPassK(finalK);
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassK);
-            ResultUtil.reduceToTopK(perLeafResults, firstPassK);
+            if (KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName()) == false) {
+                ResultUtil.reduceToTopK(perLeafResults, firstPassK);
+            }
 
             StopWatch stopWatch = new StopWatch().start();
             perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, finalK);
