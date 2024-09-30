@@ -77,8 +77,10 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         // scores correspond to closer vectors.
 
         // The query vector of Faiss byte vector is a Float array because ScalarQuantizer accepts it as float array.
-        // Now, to compute the score between this query vector and each vector in KNNByteVectorValues we are casting this query vector into
-        // byte array.
+        // To compute the score between this query vector and each vector in KNNByteVectorValues we are casting this query vector into byte
+        // array directly.
+        // This is safe to do so because float query vector already has validated byte values. Do not reuse this direct cast at any other
+        // place.
         final byte[] byteQueryVector = new byte[queryVector.length];
         for (int i = 0; i < queryVector.length; i++) {
             byteQueryVector[i] = (byte) queryVector[i];

@@ -45,8 +45,7 @@ public class BinaryVectorIdsKNNIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator iterator =
-            new org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator(filterBitSet, queryVector, values, spaceType);
+        BinaryVectorIdsKNNIterator iterator = new BinaryVectorIdsKNNIterator(filterBitSet, queryVector, values, spaceType);
         for (int i = 0; i < filterIds.length; i++) {
             assertEquals(filterIds[i], iterator.nextDoc());
             assertEquals(expectedScores.get(i), (Float) iterator.score());
