@@ -84,24 +84,24 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             final FieldInfo fieldInfo = field.getFieldInfo();
             final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
             int totalLiveDocs = field.getVectors().size();
-            if (totalLiveDocs > 0) {
-                final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> getVectorValues(
-                    vectorDataType,
-                    field.getDocsWithField(),
-                    field.getVectors()
-                );
-                final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
-                final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
-                final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
-
-                StopWatch stopWatch = new StopWatch().start();
-                writer.flushIndex(knnVectorValues, totalLiveDocs);
-                long time_in_millis = stopWatch.stop().totalTime().millis();
-                KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
-                log.debug("Flush took {} ms for vector field [{}]", time_in_millis, fieldInfo.getName());
-            } else {
+            if (totalLiveDocs == 0) {
                 log.debug("[Flush] No live docs for field {}", fieldInfo.getName());
+                continue;
             }
+            final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> getVectorValues(
+                vectorDataType,
+                field.getDocsWithField(),
+                field.getVectors()
+            );
+            final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
+            final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
+            final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
+
+            StopWatch stopWatch = new StopWatch().start();
+            writer.flushIndex(knnVectorValues, totalLiveDocs);
+            long time_in_millis = stopWatch.stop().totalTime().millis();
+            KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
+            log.debug("Flush took {} ms for vector field [{}]", time_in_millis, fieldInfo.getName());
         }
     }
 
