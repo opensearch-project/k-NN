@@ -140,6 +140,9 @@ public class KNNWeight extends Weight {
             return doExactSearch(context, filterBitSet, k);
         }
         Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
+        // See whether we have to perform exact search based on approx search results
+        // This is required if there are no native engine files or if approximate search returned
+        // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, docIdsToScoreMap.size())) {
             final BitSet docs = filterWeight != null ? filterBitSet : null;
             return doExactSearch(context, docs, k);
@@ -265,7 +268,7 @@ public class KNNWeight extends Weight {
 
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
         if (engineFiles.isEmpty()) {
-            log.info("[KNN] No native engine files found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
+            log.debug("[KNN] No native engine files found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
             return Collections.emptyMap();
         }
 
@@ -437,7 +440,7 @@ public class KNNWeight extends Weight {
      */
     private boolean isExactSearchRequire(final LeafReaderContext context, final int filterIdsCount, final int annResultCount) {
         if (annResultCount == 0 && isMissingNativeEngineFiles(context)) {
-            log.info("Perform exact search after approximate search since no native engine files are available");
+            log.debug("Perform exact search after approximate search since no native engine files are available");
             return true;
         }
         if (isFilteredExactSearchRequireAfterANNSearch(filterIdsCount, annResultCount)) {
