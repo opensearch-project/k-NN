@@ -814,6 +814,92 @@ public class OpenSearchIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
     }
 
+    /*
+      For this testcase, we will create index with setting build_vector_data_structure_threshold as -1, then index few documents, perform knn search,
+      then, confirm hits because of exact search though there are no graph. In next step, update setting to 0, force merge segment to 1, perform knn search and confirm expected
+      hits are returned.
+    */
+    public void testKNNIndex_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSettingUsingRadialSearch()
+        throws Exception {
+        final String indexName = "test-index-1";
+        final String fieldName1 = "test-field-1";
+        final String fieldName2 = "test-field-2";
+
+        final Integer dimension = testData.indexData.vectors[0].length;
+        final Settings knnIndexSettings = buildKNNIndexSettings(-1);
+
+        // Create an index
+        final XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName1)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject(fieldName2)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, knnIndexSettings, builder.toString());
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                indexName,
+                Integer.toString(testData.indexData.docs[i]),
+                ImmutableList.of(fieldName1, fieldName2),
+                ImmutableList.of(
+                    Floats.asList(testData.indexData.vectors[i]).toArray(),
+                    Floats.asList(testData.indexData.vectors[i]).toArray()
+                )
+            );
+        }
+
+        refreshAllIndices();
+        // Assert we have the right number of documents in the index
+        assertEquals(testData.indexData.docs.length, getDocCount(indexName));
+
+        final List<KNNResult> nmslibNeighbors = getResults(indexName, fieldName1, testData.queries[0], 1);
+        assertEquals("unexpected neighbors are returned", nmslibNeighbors.size(), nmslibNeighbors.size());
+
+        final List<KNNResult> faissNeighbors = getResults(indexName, fieldName2, testData.queries[0], 1);
+        assertEquals("unexpected neighbors are returned", faissNeighbors.size(), faissNeighbors.size());
+
+        // update build vector data structure setting
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
+        forceMergeKnnIndex(indexName, 1);
+
+        final int k = 10;
+        for (int i = 0; i < testData.queries.length; i++) {
+            // Search nmslib field
+            final Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName1, testData.queries[i], k), k);
+            final String responseBody = EntityUtils.toString(response.getEntity());
+            final List<KNNResult> nmslibValidNeighbors = parseSearchResponse(responseBody, fieldName1);
+            assertEquals(k, nmslibValidNeighbors.size());
+            // Search faiss field
+            final List<KNNResult> faissValidNeighbors = getResults(indexName, fieldName2, testData.queries[i], k);
+            assertEquals(k, faissValidNeighbors.size());
+        }
+
+        // Delete index
+        deleteKNNIndex(indexName);
+    }
+
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)
         throws IOException, ParseException {
         final Response searchResponseField = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, vector, k), k);

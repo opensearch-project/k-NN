@@ -21,6 +21,7 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.iterators.ByteVectorIdsKNNIterator;
 import org.opensearch.knn.index.query.iterators.NestedBinaryVectorIdsKNNIterator;
 import org.opensearch.knn.index.query.iterators.VectorIdsKNNIterator;
@@ -36,7 +37,9 @@ import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 
 @Log4j2
 @AllArgsConstructor
@@ -55,11 +58,41 @@ public class ExactSearcher {
     public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
         throws IOException {
         KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        if (exactSearcherContext.getKnnQuery().getRadius() != null) {
+            return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
+        }
         if (exactSearcherContext.getMatchedDocs() != null
             && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
             return scoreAllDocs(iterator);
         }
         return searchTopK(iterator, exactSearcherContext.getK());
+    }
+
+    /**
+     * Perform radial search by comparing scores with min score. Currently, FAISS from native engine supports radial search.
+     * Hence, we assume that Radius from knnQuery is always distance, and we convert it to score since we do exact search uses scores
+     * to filter out the documents that does not have given min score.
+     * @param leafReaderContext
+     * @param exactSearcherContext
+     * @param iterator {@link KNNIterator}
+     * @return Map of docId and score
+     * @throws IOException exception raised by iterator during traversal
+     */
+    private Map<Integer, Float> doRadialSearch(
+        LeafReaderContext leafReaderContext,
+        ExactSearcherContext exactSearcherContext,
+        KNNIterator iterator
+    ) throws IOException {
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
+        final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+        if (KNNEngine.FAISS != engine) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
+        }
+        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        final float minScore = spaceType.scoreTranslation(knnQuery.getRadius());
+        return filterDocsByMinScore(exactSearcherContext, iterator, minScore);
     }
 
     private Map<Integer, Float> scoreAllDocs(KNNIterator iterator) throws IOException {
@@ -71,15 +104,19 @@ public class ExactSearcher {
         return docToScore;
     }
 
-    private Map<Integer, Float> searchTopK(KNNIterator iterator, int k) throws IOException {
+    private Map<Integer, Float> searchTopCandidates(KNNIterator iterator, int limit, Predicate<Float> filterScore) throws IOException {
         // Creating min heap and init with MAX DocID and Score as -INF.
-        final HitQueue queue = new HitQueue(k, true);
+        final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
         final Map<Integer, Float> docToScore = new HashMap<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-            if (iterator.score() > topDoc.score) {
-                topDoc.score = iterator.score();
+            final float currentScore = iterator.score();
+            if (filterScore != null && Predicate.not(filterScore).test(currentScore)) {
+                continue;
+            }
+            if (currentScore > topDoc.score) {
+                topDoc.score = currentScore;
                 topDoc.doc = docId;
                 // As the HitQueue is min heap, updating top will bring the doc with -INF score or worst score we
                 // have seen till now on top.
@@ -98,8 +135,18 @@ public class ExactSearcher {
             final ScoreDoc doc = queue.pop();
             docToScore.put(doc.doc, doc.score);
         }
-
         return docToScore;
+    }
+
+    private Map<Integer, Float> searchTopK(KNNIterator iterator, int k) throws IOException {
+        return searchTopCandidates(iterator, k, null);
+    }
+
+    private Map<Integer, Float> filterDocsByMinScore(ExactSearcherContext context, KNNIterator iterator, float minScore)
+        throws IOException {
+        int maxResultWindow = context.getKnnQuery().getContext().getMaxResultWindow();
+        Predicate<Float> scoreGreaterThanOrEqualToMinScore = score -> score >= minScore;
+        return searchTopCandidates(iterator, maxResultWindow, scoreGreaterThanOrEqualToMinScore);
     }
 
     private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
