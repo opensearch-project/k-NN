@@ -163,6 +163,41 @@ public class KNNSettingsTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testShardLevelRescoringDisabled_whenNoValuesProvidedByUser_thenDefaultSettingsUsed() {
+        Node mockNode = createMockNode(Collections.emptyMap());
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
+        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
+        KNNSettings.state().setClusterService(clusterService);
+
+        boolean shardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(INDEX_NAME);
+        mockNode.close();
+        assertTrue(shardLevelRescoringDisabled);
+    }
+
+    @SneakyThrows
+    public void testShardLevelRescoringDisabled_whenValueProvidedByUser_thenSettingApplied() {
+        boolean userDefinedRescoringDisabled = false;
+        Node mockNode = createMockNode(Collections.emptyMap());
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
+        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
+        KNNSettings.state().setClusterService(clusterService);
+
+        final Settings rescoringDisabledSetting = Settings.builder()
+            .put(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, userDefinedRescoringDisabled)
+            .build();
+
+        mockNode.client().admin().indices().updateSettings(new UpdateSettingsRequest(rescoringDisabledSetting, INDEX_NAME)).actionGet();
+
+        boolean shardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(INDEX_NAME);
+        mockNode.close();
+        assertEquals(userDefinedRescoringDisabled, shardLevelRescoringDisabled);
+    }
+
+    @SneakyThrows
     public void testGetFaissAVX2DisabledSettingValueFromConfig_enableSetting_thenValidateAndSucceed() {
         boolean expectedKNNFaissAVX2Disabled = true;
         Node mockNode = createMockNode(Map.of(KNNSettings.KNN_FAISS_AVX2_DISABLED, expectedKNNFaissAVX2Disabled));
