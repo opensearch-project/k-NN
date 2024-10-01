@@ -24,6 +24,15 @@ public final class RescoreContext {
     public static final int DIMENSION_THRESHOLD = 1000;
     public static final float OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD = 5.0f;
 
+    // Dimension thresholds for adjusting oversample factor
+    public static final int DIMENSION_THRESHOLD_1000 = 1000;
+    public static final int DIMENSION_THRESHOLD_768 = 768;
+
+    // Oversample factors based on dimension thresholds
+    public static final float OVERSAMPLE_FACTOR_1000 = 1.0f;  // No oversampling for dimensions >= 1000
+    public static final float OVERSAMPLE_FACTOR_768 = 2.0f;   // 2x oversampling for dimensions >= 768 and < 1000
+    public static final float OVERSAMPLE_FACTOR_BELOW_768 = 3.0f; // 3x oversampling for dimensions < 768
+
     // Todo:- We will improve this in upcoming releases
     public static final int MIN_FIRST_PASS_RESULTS = 100;
 
