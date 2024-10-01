@@ -42,11 +42,11 @@ class NativeEngineIndexInputMediator {
         copyBytesMethod(getCopyBytesMethod(_jni_interface, _env)) {
   }
 
-  void copyBytes(int32_t nbytes, uint8_t *destination) {
+  void copyBytes(int64_t nbytes, uint8_t *destination) {
     while (nbytes > 0) {
       // Call `copyBytes` to read bytes as many as possible.
       const auto readBytes =
-          jni_interface->CallIntMethodInt(env, indexInput, copyBytesMethod, nbytes);
+          jni_interface->CallIntMethodLong(env, indexInput, copyBytesMethod, nbytes);
 
       // === Critical Section Start ===
 

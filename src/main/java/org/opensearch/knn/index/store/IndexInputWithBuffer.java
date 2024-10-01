@@ -34,7 +34,7 @@ public class IndexInputWithBuffer {
      * @throws IOException
      */
     private int copyBytes(long nbytes) throws IOException {
-        final int readBytes = Math.min(Math.toIntExact(nbytes), buffer.length);
+        final int readBytes = (int) Math.min(nbytes, buffer.length);
         indexInput.readBytes(buffer, 0, readBytes);
         return readBytes;
     }

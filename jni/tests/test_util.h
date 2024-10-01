@@ -111,7 +111,7 @@ namespace test_util {
         MOCK_METHOD(jclass, FindClassFromJNIEnv, (JNIEnv * env, const char *name));
         MOCK_METHOD(jmethodID, GetMethodID, (JNIEnv * env, jclass clazz, const char *name, const char *sig));
         MOCK_METHOD(jfieldID, GetFieldID, (JNIEnv * env, jclass clazz, const char *name, const char *sig));
-        MOCK_METHOD(jint, CallIntMethodInt, (JNIEnv * env, jobject obj, jmethodID methodID, int intArg));
+        MOCK_METHOD(jint, CallIntMethodLong, (JNIEnv * env, jobject obj, jmethodID methodID, int64_t longArg));
         MOCK_METHOD(void *, GetPrimitiveArrayCritical, (JNIEnv * env, jarray array, jboolean *isCopy));
         MOCK_METHOD(void, ReleasePrimitiveArrayCritical, (JNIEnv * env, jarray array, void *carray, jint mode));
     };

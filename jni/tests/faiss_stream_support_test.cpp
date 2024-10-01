@@ -29,12 +29,12 @@ struct JavaIndexInputMock {
   }
 
   // This method is simulating `copyBytes` in IndexInputWithBuffer.
-  int32_t simulateCopyReads(int32_t readBytes) {
-    readBytes = std::min(readBytes, (int32_t) buffer.size());
-    readBytes = std::min(readBytes, (int32_t) (readTargetBytes.size() - nextReadIdx));
+  int32_t simulateCopyReads(int64_t readBytes) {
+    readBytes = std::min(readBytes, (int64_t) buffer.size());
+    readBytes = std::min(readBytes, (int64_t) (readTargetBytes.size() - nextReadIdx));
     std::memcpy(buffer.data(), readTargetBytes.data() + nextReadIdx, readBytes);
     nextReadIdx += readBytes;
-    return readBytes;
+    return (int32_t) readBytes;
   }
 
   static std::string makeRandomBytes(int32_t bytesSize) {
@@ -63,21 +63,21 @@ struct JavaIndexInputMock {
   }
 
   std::string readTargetBytes;
-  int32_t nextReadIdx;
+  int64_t nextReadIdx;
   std::vector<char> buffer;
 };  // struct JavaIndexInputMock
 
-void setUpMockJNIUtil(JavaIndexInputMock& javaIndexInputMock, MockJNIUtil& mockJni) {
+void setUpMockJNIUtil(JavaIndexInputMock &javaIndexInputMock, MockJNIUtil &mockJni) {
   // Set up mocking values + mocking behavior in a method.
   ON_CALL(mockJni, FindClassFromJNIEnv).WillByDefault(Return((jclass) 1));
   ON_CALL(mockJni, GetMethodID).WillByDefault(Return((jmethodID) 1));
   ON_CALL(mockJni, GetFieldID).WillByDefault(Return((jfieldID) 1));
   ON_CALL(mockJni, GetObjectField).WillByDefault(Return((jobject) 1));
-  ON_CALL(mockJni, CallIntMethodInt).WillByDefault([&javaIndexInputMock](JNIEnv *env,
-                                                                         jobject obj,
-                                                                         jmethodID methodID,
-                                                                         int intArg) {
-    return javaIndexInputMock.simulateCopyReads(intArg);
+  ON_CALL(mockJni, CallIntMethodLong).WillByDefault([&javaIndexInputMock](JNIEnv *env,
+                                                                          jobject obj,
+                                                                          jmethodID methodID,
+                                                                          int64_t longArg) {
+    return javaIndexInputMock.simulateCopyReads(longArg);
   });
   ON_CALL(mockJni, GetPrimitiveArrayCritical).WillByDefault([&javaIndexInputMock](JNIEnv *env,
                                                                                   jarray array,
@@ -97,7 +97,7 @@ TEST(FaissStreamSupportTest, NativeEngineIndexInputMediatorCopyWhenEmpty) {
 
     // Prepare copying
     NativeEngineIndexInputMediator mediator{&mockJni, nullptr, nullptr};
-    std::string readBuffer (javaIndexInputMock.readTargetBytes.size(), '\0');
+    std::string readBuffer(javaIndexInputMock.readTargetBytes.size(), '\0');
 
     // Call copyBytes
     mediator.copyBytes((int32_t) javaIndexInputMock.readTargetBytes.size(), (uint8_t *) readBuffer.data());
