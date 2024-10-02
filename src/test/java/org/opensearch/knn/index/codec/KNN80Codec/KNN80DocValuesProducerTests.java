@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
@@ -125,6 +126,59 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
 
         String path = ((KNN80DocValuesProducer) producer).getOpenedIndexPath().get(0);
         assertTrue(path.contains(segmentFiles.get(0)));
+    }
+
+    public void testProduceKNNBinaryField_whenFieldHasNonBinaryDocValues_thenSkipThoseField() throws IOException {
+        // Set information about the segment and the fields
+        DocValuesFormat mockDocValuesFormat = mock(DocValuesFormat.class);
+        Codec mockDelegateCodec = mock(Codec.class);
+        DocValuesProducer mockDocValuesProducer = mock(DocValuesProducer.class);
+        when(mockDelegateCodec.docValuesFormat()).thenReturn(mockDocValuesFormat);
+        when(mockDocValuesFormat.fieldsProducer(any())).thenReturn(mockDocValuesProducer);
+        when(mockDocValuesFormat.getName()).thenReturn("mockDocValuesFormat");
+        Codec codec = new KNN87Codec(mockDelegateCodec);
+
+        String segmentName = "_test";
+        int docsInSegment = 100;
+        String fieldName1 = String.format("test_field1%s", randomAlphaOfLength(4));
+        String fieldName2 = String.format("test_field2%s", randomAlphaOfLength(4));
+        List<String> segmentFiles = Arrays.asList(
+            String.format("%s_2011_%s%s", segmentName, fieldName1, KNNEngine.NMSLIB.getExtension()),
+            String.format("%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
+        );
+
+        KNNEngine knnEngine = KNNEngine.NMSLIB;
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
+
+        for (String name : segmentFiles) {
+            IndexOutput indexOutput = directory.createOutput(name, IOContext.DEFAULT);
+            indexOutput.close();
+        }
+        segmentInfo.setFiles(segmentFiles);
+
+        FieldInfo[] fieldInfoArray = new FieldInfo[] {
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName1)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
+                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .docValuesType(DocValuesType.NONE)
+                .dvGen(-1)
+                .build() };
+
+        FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+        SegmentReadState state = new SegmentReadState(directory, segmentInfo, fieldInfos, IOContext.DEFAULT);
+
+        DocValuesFormat docValuesFormat = codec.docValuesFormat();
+        assertTrue(docValuesFormat instanceof KNN80DocValuesFormat);
+        DocValuesProducer producer = docValuesFormat.fieldsProducer(state);
+        assertTrue(producer instanceof KNN80DocValuesProducer);
+        assertEquals(0, ((KNN80DocValuesProducer) producer).getOpenedIndexPath().size());
     }
 
 }

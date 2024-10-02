@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.filtered;
+package org.opensearch.knn.index.query.iterators;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 
@@ -17,11 +18,9 @@ import java.io.IOException;
  * Inspired by DiversifyingChildrenFloatKnnVectorQuery in lucene
  * https://github.com/apache/lucene/blob/7b8aece125aabff2823626d5b939abf4747f63a7/lucene/join/src/java/org/apache/lucene/search/join/DiversifyingChildrenFloatKnnVectorQuery.java#L162
  *
- * The class is used in KNNWeight to score filtered KNN field by iterating filterIdsArray.
+ * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
-public class FilteredIdsKNNByteIterator implements KNNIterator {
-    // Array of doc ids to iterate
-    protected final BitSet filterIdsBitSet;
+public class BinaryVectorIdsKNNIterator implements KNNIterator {
     protected final BitSetIterator bitSetIterator;
     protected final byte[] queryVector;
     protected final KNNBinaryVectorValues binaryVectorValues;
@@ -29,18 +28,24 @@ public class FilteredIdsKNNByteIterator implements KNNIterator {
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
 
-    public FilteredIdsKNNByteIterator(
-        final BitSet filterIdsBitSet,
+    public BinaryVectorIdsKNNIterator(
+        @Nullable final BitSet filterIdsBitSet,
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType
-    ) {
-        this.filterIdsBitSet = filterIdsBitSet;
-        this.bitSetIterator = new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
+    ) throws IOException {
+        this.bitSetIterator = filterIdsBitSet == null ? null : new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
         this.queryVector = queryVector;
         this.binaryVectorValues = binaryVectorValues;
         this.spaceType = spaceType;
-        this.docId = bitSetIterator.nextDoc();
+        // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
+        // nextDoc should already be referring to next knnVectorValues
+        this.docId = getNextDocId();
+    }
+
+    public BinaryVectorIdsKNNIterator(final byte[] queryVector, final KNNBinaryVectorValues binaryVectorValues, final SpaceType spaceType)
+        throws IOException {
+        this(null, queryVector, binaryVectorValues, spaceType);
     }
 
     /**
@@ -55,10 +60,10 @@ public class FilteredIdsKNNByteIterator implements KNNIterator {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
-        int doc = binaryVectorValues.advance(docId);
         currentScore = computeScore();
-        docId = bitSetIterator.nextDoc();
-        return doc;
+        int currentDocId = docId;
+        docId = getNextDocId();
+        return currentDocId;
     }
 
     @Override
@@ -71,5 +76,17 @@ public class FilteredIdsKNNByteIterator implements KNNIterator {
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
         return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
+    }
+
+    protected int getNextDocId() throws IOException {
+        if (bitSetIterator == null) {
+            return binaryVectorValues.nextDoc();
+        }
+        int nextDocID = this.bitSetIterator.nextDoc();
+        // For filter case, advance vector values to corresponding doc id from filter bit set
+        if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
+            binaryVectorValues.advance(nextDocID);
+        }
+        return nextDocID;
     }
 }

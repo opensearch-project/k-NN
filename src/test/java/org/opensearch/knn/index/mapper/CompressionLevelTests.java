@@ -45,25 +45,83 @@ public class CompressionLevelTests extends KNNTestCase {
         // Test rescore context for ON_DISK mode
         Mode mode = Mode.ON_DISK;
 
-        // x32 should have RescoreContext with an oversample factor of 3.0f
-        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode);
+        // Test various dimensions based on the updated oversampling logic
+        int belowThresholdDimension = 500;  // A dimension below 768
+        int between768and1000Dimension = 800; // A dimension between 768 and 1000
+        int above1000Dimension = 1500; // A dimension above 1000
+
+        // Compression level x32 with dimension < 768 should have an oversample factor of 3.0f
+        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNotNull(rescoreContext);
         assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
 
-        // x16 should have RescoreContext with an oversample factor of 3.0f
-        rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(mode);
-        assertNotNull(rescoreContext);
-        assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
-
-        // x8 should have RescoreContext with an oversample factor of 2.0f
-        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(mode);
+        // Compression level x32 with dimension between 768 and 1000 should have an oversample factor of 2.0f
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, between768and1000Dimension);
         assertNotNull(rescoreContext);
         assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
 
-        // Other compression levels should not have a RescoreContext for ON_DISK mode
-        assertNull(CompressionLevel.x4.getDefaultRescoreContext(mode));
-        assertNull(CompressionLevel.x2.getDefaultRescoreContext(mode));
-        assertNull(CompressionLevel.x1.getDefaultRescoreContext(mode));
-        assertNull(CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode));
+        // Compression level x32 with dimension > 1000 should have no oversampling (1.0f)
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, above1000Dimension);
+        assertNotNull(rescoreContext);
+        assertEquals(1.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Compression level x16 with dimension < 768 should have an oversample factor of 3.0f
+        rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(mode, belowThresholdDimension);
+        assertNotNull(rescoreContext);
+        assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Compression level x16 with dimension between 768 and 1000 should have an oversample factor of 2.0f
+        rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(mode, between768and1000Dimension);
+        assertNotNull(rescoreContext);
+        assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Compression level x16 with dimension > 1000 should have no oversampling (1.0f)
+        rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(mode, above1000Dimension);
+        assertNotNull(rescoreContext);
+        assertEquals(1.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Compression level x8 with dimension < 768 should have an oversample factor of 3.0f
+        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(mode, belowThresholdDimension);
+        assertNotNull(rescoreContext);
+        assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Compression level x8 with dimension between 768 and 1000 should have an oversample factor of 2.0f
+        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(mode, between768and1000Dimension);
+        assertNotNull(rescoreContext);
+        assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Compression level x8 with dimension > 1000 should have no oversampling (1.0f)
+        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(mode, above1000Dimension);
+        assertNotNull(rescoreContext);
+        assertEquals(1.0f, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // Compression level x4 with dimension < 768 should return null (no RescoreContext)
+        rescoreContext = CompressionLevel.x4.getDefaultRescoreContext(mode, belowThresholdDimension);
+        assertNull(rescoreContext);
+
+        // Compression level x4 with dimension > 1000 should return null (no RescoreContext)
+        rescoreContext = CompressionLevel.x4.getDefaultRescoreContext(mode, above1000Dimension);
+        assertNull(rescoreContext);
+
+        // Compression level x2 with dimension < 768 should return null
+        rescoreContext = CompressionLevel.x2.getDefaultRescoreContext(mode, belowThresholdDimension);
+        assertNull(rescoreContext);
+
+        // Compression level x2 with dimension > 1000 should return null
+        rescoreContext = CompressionLevel.x2.getDefaultRescoreContext(mode, above1000Dimension);
+        assertNull(rescoreContext);
+
+        // Compression level x1 with dimension < 768 should return null
+        rescoreContext = CompressionLevel.x1.getDefaultRescoreContext(mode, belowThresholdDimension);
+        assertNull(rescoreContext);
+
+        // Compression level x1 with dimension > 1000 should return null
+        rescoreContext = CompressionLevel.x1.getDefaultRescoreContext(mode, above1000Dimension);
+        assertNull(rescoreContext);
+
+        // NOT_CONFIGURED mode should return null for any dimension
+        rescoreContext = CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode, belowThresholdDimension);
+        assertNull(rescoreContext);
     }
+
 }

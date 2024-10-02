@@ -94,10 +94,38 @@ public enum CompressionLevel {
         return compressionLevel != null && compressionLevel != NOT_CONFIGURED;
     }
 
-    public RescoreContext getDefaultRescoreContext(Mode mode) {
+    /**
+     * Returns the appropriate {@link RescoreContext} based on the given {@code mode} and {@code dimension}.
+     *
+     * <p>If the {@code mode} is present in the valid {@code modesForRescore} set, the method adjusts the oversample factor based on the
+     * {@code dimension} value:
+     * <ul>
+     *     <li>If {@code dimension} is greater than or equal to 1000, no oversampling is applied (oversample factor = 1.0).</li>
+     *     <li>If {@code dimension} is greater than or equal to 768 but less than 1000, a 2x oversample factor is applied (oversample factor = 2.0).</li>
+     *     <li>If {@code dimension} is less than 768, a 3x oversample factor is applied (oversample factor = 3.0).</li>
+     * </ul>
+     * If the {@code mode} is not present in the {@code modesForRescore} set, the method returns {@code null}.
+     *
+     * @param mode      The {@link Mode} for which to retrieve the {@link RescoreContext}.
+     * @param dimension The dimensional value that determines the {@link RescoreContext} behavior.
+     * @return          A {@link RescoreContext} with the appropriate oversample factor based on the dimension, or {@code null} if the mode
+     *                  is not valid.
+     */
+    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension) {
         if (modesForRescore.contains(mode)) {
-            return defaultRescoreContext;
+            // Adjust RescoreContext based on dimension
+            if (dimension >= RescoreContext.DIMENSION_THRESHOLD_1000) {
+                // No oversampling for dimensions >= 1000
+                return RescoreContext.builder().oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_1000).build();
+            } else if (dimension >= RescoreContext.DIMENSION_THRESHOLD_768) {
+                // 2x oversampling for dimensions >= 768 but < 1000
+                return RescoreContext.builder().oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_768).build();
+            } else {
+                // 3x oversampling for dimensions < 768
+                return RescoreContext.builder().oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_768).build();
+            }
         }
         return null;
     }
+
 }

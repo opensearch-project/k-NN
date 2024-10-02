@@ -45,6 +45,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -144,6 +145,10 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             if (!mergedVectors.isEmpty()) {
                 verify(nativeIndexWriter).mergeIndex(knnVectorValues, mergedVectors.size());
                 assertTrue(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() > 0L);
+                knnVectorValuesFactoryMockedStatic.verify(
+                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues),
+                    times(2)
+                );
             } else {
                 verifyNoInteractions(nativeIndexWriter);
             }
@@ -211,6 +216,10 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 verify(knn990QuantWriterMockedConstruction.constructed().get(0)).writeState(0, quantizationState);
                 verify(nativeIndexWriter).mergeIndex(knnVectorValues, mergedVectors.size());
                 assertTrue(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() > 0L);
+                knnVectorValuesFactoryMockedStatic.verify(
+                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues),
+                    times(3)
+                );
             } else {
                 assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
                 verifyNoInteractions(nativeIndexWriter);

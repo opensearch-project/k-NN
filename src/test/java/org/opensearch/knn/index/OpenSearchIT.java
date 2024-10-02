@@ -16,6 +16,7 @@ import com.google.common.primitives.Floats;
 import java.util.Locale;
 import lombok.SneakyThrows;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -483,6 +484,9 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertArrayEquals(vectorForDocumentOne, vectorRestoreInitialValue);
     }
 
+    // This doesn't work since indices that are created post 2.17 don't evict by default when indices are closed or deleted.
+    // Enable this PR once https://github.com/opensearch-project/k-NN/issues/2148 is resolved.
+    @Ignore
     public void testCacheClear_whenCloseIndex() throws Exception {
         String indexName = "test-index-1";
         KNNEngine knnEngine1 = KNNEngine.NMSLIB;
