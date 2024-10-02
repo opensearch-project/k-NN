@@ -576,6 +576,124 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testHNSWSQFP16_whenGraphThresholdIsNegative_whenIndexed_thenSkipCreatingGraph() {
+        final String indexName = "test-index-hnsw-sqfp16";
+        final String fieldName = "test-field-hnsw-sqfp16";
+        final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
+        final Random random = new Random();
+        final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
+
+        final int dimension = 128;
+        final int numDocs = 100;
+
+        // Create an index
+        final XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        final Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        final String mapping = builder.toString();
+        final Settings knnIndexSettings = buildKNNIndexSettings(-1);
+        createKnnIndex(indexName, knnIndexSettings, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        indexTestData(indexName, fieldName, dimension, numDocs);
+
+        final float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        // Assert we have the right number of documents in the index
+        assertEquals(numDocs, getDocCount(indexName));
+        // KNN Query should return empty result
+        final Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, 1, queryVector, null), 1);
+        final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+        assertEquals(0, results.size());
+
+        deleteKNNIndex(indexName);
+        validateGraphEviction();
+    }
+
+    @SneakyThrows
+    public void testHNSWSQFP16_whenGraphThresholdIsMetDuringMerge_thenCreateGraph() {
+        final String indexName = "test-index-hnsw-sqfp16";
+        final String fieldName = "test-field-hnsw-sqfp16";
+        final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
+        final Random random = new Random();
+        final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
+        final int dimension = 128;
+        final int numDocs = 100;
+
+        // Create an index
+        final XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        final Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        final String mapping = builder.toString();
+        final Settings knnIndexSettings = buildKNNIndexSettings(numDocs);
+        createKnnIndex(indexName, knnIndexSettings, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        indexTestData(indexName, fieldName, dimension, numDocs);
+
+        final float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        // Assert we have the right number of documents in the index
+        assertEquals(numDocs, getDocCount(indexName));
+
+        // KNN Query should return empty result
+        final Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, 1, queryVector, null), 1);
+        final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+        assertEquals(0, results.size());
+
+        // update index setting to build graph and do force merge
+        // update build vector data structure setting
+        forceMergeKnnIndex(indexName, 1);
+
+        queryTestData(indexName, fieldName, dimension, numDocs);
+
+        deleteKNNIndex(indexName);
+        validateGraphEviction();
+    }
+
+    @SneakyThrows
     public void testIVFSQFP16_whenIndexedAndQueried_thenSucceed() {
 
         String modelId = "test-model-ivf-sqfp16";
