@@ -221,10 +221,6 @@ public class JNIService {
      * @return Pointer to location in memory the index resides in
      */
     public static long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters, KNNEngine knnEngine) {
-        if (KNNEngine.NMSLIB == knnEngine) {
-            throw new UnsupportedOperationException("Loading NMSLIB with a read stream is not supported at the moment");
-        }
-
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 return FaissService.loadBinaryIndexWithStream(readStream);
