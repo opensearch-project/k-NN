@@ -1186,7 +1186,12 @@ public class JNIServiceTests extends KNNTestCase {
                 try (IndexInput indexInput = directory.openInput(tmpFile.getFileName().toString(), IOContext.READONCE)) {
                     long pointer = JNIService.loadIndex(
                         new IndexInputWithBuffer(indexInput),
-                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue()),
+                        ImmutableMap.of(
+                            INDEX_DESCRIPTION_PARAMETER,
+                            method,
+                            KNNConstants.VECTOR_DATA_TYPE_FIELD,
+                            VectorDataType.BINARY.getValue()
+                        ),
                         KNNEngine.FAISS
                     );
                     assertNotEquals(0, pointer);
