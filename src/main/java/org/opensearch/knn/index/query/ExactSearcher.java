@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.index.query;
 
+import com.google.common.base.Predicates;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
@@ -65,7 +67,7 @@ public class ExactSearcher {
             && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
             return scoreAllDocs(iterator);
         }
-        return searchTopK(iterator, exactSearcherContext.getK());
+        return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
     }
 
     /**
@@ -104,7 +106,8 @@ public class ExactSearcher {
         return docToScore;
     }
 
-    private Map<Integer, Float> searchTopCandidates(KNNIterator iterator, int limit, Predicate<Float> filterScore) throws IOException {
+    private Map<Integer, Float> searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore)
+        throws IOException {
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
@@ -112,10 +115,7 @@ public class ExactSearcher {
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
             final float currentScore = iterator.score();
-            if (filterScore != null && Predicate.not(filterScore).test(currentScore)) {
-                continue;
-            }
-            if (currentScore > topDoc.score) {
+            if (filterScore.test(currentScore) && currentScore > topDoc.score) {
                 topDoc.score = currentScore;
                 topDoc.doc = docId;
                 // As the HitQueue is min heap, updating top will bring the doc with -INF score or worst score we
@@ -136,10 +136,6 @@ public class ExactSearcher {
             docToScore.put(doc.doc, doc.score);
         }
         return docToScore;
-    }
-
-    private Map<Integer, Float> searchTopK(KNNIterator iterator, int k) throws IOException {
-        return searchTopCandidates(iterator, k, null);
     }
 
     private Map<Integer, Float> filterDocsByMinScore(ExactSearcherContext context, KNNIterator iterator, float minScore)

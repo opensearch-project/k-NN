@@ -360,7 +360,6 @@ public class KNNWeightTests extends KNNTestCase {
         final Path path = mock(Path.class);
         when(directory.getDirectory()).thenReturn(path);
         final FieldInfos fieldInfos = mock(FieldInfos.class);
-        final FieldInfo fieldInfo = mock(FieldInfo.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         // When no knn fields are available , field info for vector field will be null
         when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(null);

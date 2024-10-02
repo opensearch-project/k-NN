@@ -623,10 +623,11 @@ public class FaissIT extends KNNRestTestCase {
 
         // Assert we have the right number of documents in the index
         assertEquals(numDocs, getDocCount(indexName));
-        // KNN Query should return empty result
+
         final Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, 1, queryVector, null), 1);
         final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
-        assertEquals(0, results.size());
+        // expect result due to exact search
+        assertEquals(1, results.size());
 
         deleteKNNIndex(indexName);
         validateGraphEviction();
@@ -682,7 +683,7 @@ public class FaissIT extends KNNRestTestCase {
         // KNN Query should return empty result
         final Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, 1, queryVector, null), 1);
         final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
-        assertEquals(0, results.size());
+        assertEquals(1, results.size());
 
         // update index setting to build graph and do force merge
         // update build vector data structure setting

@@ -118,7 +118,10 @@ public class BinaryIndexIT extends KNNRestTestCase {
         assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
 
         // update build vector data structure setting
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
+        updateIndexSettings(
+            INDEX_NAME,
+            Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, ALWAYS_BUILD_GRAPH)
+        );
         forceMergeKnnIndex(INDEX_NAME, 1);
 
         int k = 100;
@@ -133,7 +136,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testFaissHnswBinary_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() throws Exception {
+    public void testFaissHnswBinary_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() {
         // Create Index
         createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128, testData.indexData.docs.length);
         ingestTestData(INDEX_NAME, FIELD_NAME, false);
@@ -141,7 +144,10 @@ public class BinaryIndexIT extends KNNRestTestCase {
         assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
 
         // update build vector data structure setting
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
+        updateIndexSettings(
+            INDEX_NAME,
+            Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, ALWAYS_BUILD_GRAPH)
+        );
         forceMergeKnnIndex(INDEX_NAME, 1);
 
         int k = 100;
@@ -155,6 +161,17 @@ public class BinaryIndexIT extends KNNRestTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testFaissHnswBinary_whenRadialSearch_thenThrowException() {
+        // Create Index
+        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 16);
+
+        // Query
+        float[] queryVector = { (byte) 0b10001111, (byte) 0b10000000 };
+        Exception e = expectThrows(Exception.class, () -> runRnnQuery(INDEX_NAME, FIELD_NAME, queryVector, 1, 4));
+        assertTrue(e.getMessage(), e.getMessage().contains("Binary data type does not support radial search"));
+    }
+
     private float getRecall(final Set<String> truth, final Set<String> result) {
         // Count the number of relevant documents retrieved
         result.retainAll(truth);
@@ -165,6 +182,23 @@ public class BinaryIndexIT extends KNNRestTestCase {
 
         // Calculate recall
         return (float) relevantRetrieved / totalRelevant;
+    }
+
+    private List<KNNResult> runRnnQuery(
+        final String indexName,
+        final String fieldName,
+        final float[] queryVector,
+        final float minScore,
+        final int size
+    ) throws Exception {
+        String query = KNNJsonQueryBuilder.builder()
+            .fieldName(fieldName)
+            .vector(ArrayUtils.toObject(queryVector))
+            .minScore(minScore)
+            .build()
+            .getQueryString();
+        Response response = searchKNNIndex(indexName, query, size);
+        return parseSearchResponse(EntityUtils.toString(response.getEntity()), fieldName);
     }
 
     private List<KNNResult> runKnnQuery(final String indexName, final String fieldName, final float[] queryVector, final int k)
