@@ -13,6 +13,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.common.lucene.Lucene;
@@ -89,11 +90,13 @@ public class KNNIndexShard {
      */
     public void warmup() throws IOException {
         log.info("[KNN] Warming up index: [{}]", getIndexName());
+        final Directory directory = indexShard.store().directory();
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
             getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                 try {
                     nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
+                            directory,
                             engineFileContext.getIndexPath(),
                             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                             getParametersAtLoading(

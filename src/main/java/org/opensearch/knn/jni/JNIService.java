@@ -16,6 +16,7 @@ import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 
 import java.util.Locale;
@@ -203,6 +204,28 @@ public class JNIService {
                 return FaissService.loadBinaryIndex(indexPath);
             } else {
                 return FaissService.loadIndex(indexPath);
+            }
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "LoadIndex not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    /**
+     * Load an index via Lucene's IndexInput.
+     *
+     * @param readStream A wrapper having Lucene's IndexInput to load bytes from a file.
+     * @param parameters Parameters to be used when loading index
+     * @param knnEngine  Engine to load index
+     * @return Pointer to location in memory the index resides in
+     */
+    public static long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters, KNNEngine knnEngine) {
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                return FaissService.loadBinaryIndexWithStream(readStream);
+            } else {
+                return FaissService.loadIndexWithStream(readStream);
             }
         }
 
