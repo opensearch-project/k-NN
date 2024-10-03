@@ -12,8 +12,12 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -87,9 +91,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             };
         }
 
-        @Override
-        public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext indexEntryContext)
-            throws IOException {
+        private NativeMemoryAllocation.IndexAllocation loadWithAbsoluteIndexPath(
+            NativeMemoryEntryContext.IndexEntryContext indexEntryContext
+        ) throws IOException {
             Path indexPath = Paths.get(indexEntryContext.getKey());
             FileWatcher fileWatcher = new FileWatcher(indexPath);
             fileWatcher.addListener(indexFileOnDeleteListener);
@@ -97,6 +101,54 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
             KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
             long indexAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine);
+            return createIndexAllocation(
+                indexEntryContext,
+                knnEngine,
+                indexAddress,
+                fileWatcher,
+                indexEntryContext.calculateSizeInKB(),
+                indexPath
+            );
+        }
+
+        @Override
+        public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext indexEntryContext)
+            throws IOException {
+            final Path absoluteIndexPath = Paths.get(indexEntryContext.getKey());
+            final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(absoluteIndexPath.toString());
+            if (knnEngine != KNNEngine.FAISS) {
+                // We will support other non-FAISS native engines (ex: NMSLIB) soon.
+                return loadWithAbsoluteIndexPath(indexEntryContext);
+            }
+
+            final FileWatcher fileWatcher = new FileWatcher(absoluteIndexPath);
+            fileWatcher.addListener(indexFileOnDeleteListener);
+            fileWatcher.init();
+
+            final Directory directory = indexEntryContext.getDirectory();
+
+            // Ex: Input -> /a/b/c/_0_NativeEngines990KnnVectorsFormat_0.vec
+            // Output -> _0_NativeEngines990KnnVectorsFormat_0.vec
+            final String logicalIndexPath = absoluteIndexPath.getFileName().toString();
+
+            final int indexSizeKb = Math.toIntExact(directory.fileLength(logicalIndexPath) / 1024);
+
+            try (IndexInput readStream = directory.openInput(logicalIndexPath, IOContext.READONCE)) {
+                IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
+                long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
+
+                return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, fileWatcher, indexSizeKb, absoluteIndexPath);
+            }
+        }
+
+        private NativeMemoryAllocation.IndexAllocation createIndexAllocation(
+            final NativeMemoryEntryContext.IndexEntryContext indexEntryContext,
+            final KNNEngine knnEngine,
+            final long indexAddress,
+            final FileWatcher fileWatcher,
+            final int indexSizeKb,
+            final Path absoluteIndexPath
+        ) throws IOException {
             SharedIndexState sharedIndexState = null;
             String modelId = indexEntryContext.getModelId();
             if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
@@ -109,9 +161,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             return new NativeMemoryAllocation.IndexAllocation(
                 executor,
                 indexAddress,
-                indexEntryContext.calculateSizeInKB(),
+                indexSizeKb,
                 knnEngine,
-                indexPath.toString(),
+                absoluteIndexPath.toString(),
                 indexEntryContext.getOpenSearchIndexName(),
                 watcherHandle,
                 sharedIndexState,

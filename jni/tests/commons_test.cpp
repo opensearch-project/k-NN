@@ -179,7 +179,7 @@ TEST(StoreByteVectorTest, BasicAssertions) {
     }
 
     // Check that freeing vector data works
-    knn_jni::commons::freeVectorData(memoryAddress);
+    knn_jni::commons::freeBinaryVectorData(memoryAddress);
 }
 
 TEST(CommonTests, GetIntegerMethodParam) {

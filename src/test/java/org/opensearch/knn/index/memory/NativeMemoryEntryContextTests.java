@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.store.Directory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -44,6 +45,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
     public void testIndexEntryContext_load() throws IOException {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+            (Directory) null,
             "test",
             indexLoadStrategy,
             null,
@@ -82,6 +84,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
         // Check that the indexEntryContext will return the same thing
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+            (Directory) null,
             tmpFile.toAbsolutePath().toString(),
             null,
             null,
@@ -94,6 +97,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
     public void testIndexEntryContext_getOpenSearchIndexName() {
         String openSearchIndexName = "test-index";
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+            (Directory) null,
             "test",
             null,
             null,
@@ -106,6 +110,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
     public void testIndexEntryContext_getParameters() {
         Map<String, Object> parameters = ImmutableMap.of("test-1", 10);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+            (Directory) null,
             "test",
             null,
             parameters,

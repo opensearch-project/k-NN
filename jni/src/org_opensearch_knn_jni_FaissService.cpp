@@ -17,6 +17,7 @@
 
 #include "faiss_wrapper.h"
 #include "jni_util.h"
+#include "faiss_stream_support.h"
 
 static knn_jni::JNIUtil jniUtil;
 static const jint KNN_FAISS_JNI_VERSION = JNI_VERSION_1_1;
@@ -217,6 +218,27 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex(JNIEn
     return NULL;
 }
 
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexWithStream
+  (JNIEnv * env, jclass cls, jobject readStream)
+{
+    try {
+        // Create a mediator locally.
+        // Note that `indexInput` is `IndexInputWithBuffer` type.
+        knn_jni::stream::NativeEngineIndexInputMediator mediator {&jniUtil, env, readStream};
+
+        // Wrap the mediator with a glue code inheriting IOReader.
+        knn_jni::stream::FaissOpenSearchIOReader faissOpenSearchIOReader {&mediator};
+
+        // Pass IOReader to Faiss for loading vector index.
+        return knn_jni::faiss_wrapper::LoadIndexWithStream(
+                 &faissOpenSearchIOReader);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+
+    return NULL;
+}
+
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndex(JNIEnv * env, jclass cls, jstring indexPathJ)
 {
     try {
@@ -224,6 +246,27 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndex
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
+    return NULL;
+}
+
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndexWithStream
+  (JNIEnv * env, jclass cls, jobject readStream)
+{
+    try {
+        // Create a mediator locally.
+        // Note that `indexInput` is `IndexInputWithBuffer` type.
+        knn_jni::stream::NativeEngineIndexInputMediator mediator {&jniUtil, env, readStream};
+
+        // Wrap the mediator with a glue code inheriting IOReader.
+        knn_jni::stream::FaissOpenSearchIOReader faissOpenSearchIOReader {&mediator};
+
+        // Pass IOReader to Faiss for loading vector index.
+        return knn_jni::faiss_wrapper::LoadBinaryIndexWithStream(
+                 &faissOpenSearchIOReader);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+
     return NULL;
 }
 
