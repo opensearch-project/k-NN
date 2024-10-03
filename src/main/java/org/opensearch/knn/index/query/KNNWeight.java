@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
@@ -95,8 +96,13 @@ public class KNNWeight extends Weight {
     }
 
     public static void initialize(ModelDao modelDao) {
+        initialize(modelDao, new ExactSearcher(modelDao));
+    }
+
+    @VisibleForTesting
+    static void initialize(ModelDao modelDao, ExactSearcher exactSearcher) {
         KNNWeight.modelDao = modelDao;
-        KNNWeight.DEFAULT_EXACT_SEARCHER = new ExactSearcher(modelDao);
+        KNNWeight.DEFAULT_EXACT_SEARCHER = exactSearcher;
     }
 
     @Override
