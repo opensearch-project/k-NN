@@ -23,15 +23,9 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.training.TrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
-import org.opensearch.watcher.FileChangesListener;
-import org.opensearch.watcher.FileWatcher;
-import org.opensearch.watcher.ResourceWatcherService;
-import org.opensearch.watcher.WatcherHandle;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -57,8 +51,6 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
         private static IndexLoadStrategy INSTANCE;
 
         private final ExecutorService executor;
-        private final FileChangesListener indexFileOnDeleteListener;
-        private ResourceWatcherService resourceWatcherService;
 
         /**
          * Get Singleton of this load strategy.
@@ -72,47 +64,25 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             return INSTANCE;
         }
 
-        /**
-         * Initialize singleton.
-         *
-         * @param resourceWatcherService service used to monitor index files for deletion
-         */
-        public static void initialize(final ResourceWatcherService resourceWatcherService) {
-            getInstance().resourceWatcherService = resourceWatcherService;
-        }
-
         private IndexLoadStrategy() {
             executor = Executors.newSingleThreadExecutor();
-            indexFileOnDeleteListener = new FileChangesListener() {
-                @Override
-                public void onFileDeleted(Path indexFilePath) {
-                    NativeMemoryCacheManager.getInstance().invalidate(indexFilePath.toString());
-                }
-            };
         }
 
         @Override
         public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext indexEntryContext)
             throws IOException {
-            final Path absoluteIndexPath = Paths.get(indexEntryContext.getKey());
-            final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(absoluteIndexPath.toString());
-            final FileWatcher fileWatcher = new FileWatcher(absoluteIndexPath);
-            fileWatcher.addListener(indexFileOnDeleteListener);
-            fileWatcher.init();
+            // Ex: _0_NativeEngines990KnnVectorsFormat_0.vec
+            final String vectorFileName = indexEntryContext.getKey();
+            final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(vectorFileName);
 
             final Directory directory = indexEntryContext.getDirectory();
+            final int indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
 
-            // Ex: Input -> /a/b/c/_0_NativeEngines990KnnVectorsFormat_0.vec
-            // Output -> _0_NativeEngines990KnnVectorsFormat_0.vec
-            final String logicalIndexPath = absoluteIndexPath.getFileName().toString();
-
-            final int indexSizeKb = Math.toIntExact(directory.fileLength(logicalIndexPath) / 1024);
-
-            try (IndexInput readStream = directory.openInput(logicalIndexPath, IOContext.READONCE)) {
+            try (IndexInput readStream = directory.openInput(vectorFileName, IOContext.READONCE)) {
                 IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
                 long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
 
-                return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, fileWatcher, indexSizeKb, absoluteIndexPath);
+                return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, indexSizeKb, vectorFileName);
             }
         }
 
@@ -120,10 +90,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             final NativeMemoryEntryContext.IndexEntryContext indexEntryContext,
             final KNNEngine knnEngine,
             final long indexAddress,
-            final FileWatcher fileWatcher,
             final int indexSizeKb,
-            final Path absoluteIndexPath
-        ) throws IOException {
+            final String vectorFileName
+        ) {
             SharedIndexState sharedIndexState = null;
             String modelId = indexEntryContext.getModelId();
             if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
@@ -132,15 +101,13 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 JNIService.setSharedIndexState(indexAddress, sharedIndexState.getSharedIndexStateAddress(), knnEngine);
             }
 
-            final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
             return new NativeMemoryAllocation.IndexAllocation(
                 executor,
                 indexAddress,
                 indexSizeKb,
                 knnEngine,
-                absoluteIndexPath.toString(),
+                vectorFileName,
                 indexEntryContext.getOpenSearchIndexName(),
-                watcherHandle,
                 sharedIndexState,
                 IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters())
             );

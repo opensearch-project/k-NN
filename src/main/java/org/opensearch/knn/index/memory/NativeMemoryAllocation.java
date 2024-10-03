@@ -21,8 +21,6 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.watcher.FileWatcher;
-import org.opensearch.watcher.WatcherHandle;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -115,11 +113,10 @@ public interface NativeMemoryAllocation {
         @Getter
         private final KNNEngine knnEngine;
         @Getter
-        private final String indexPath;
+        private final String vectorFileName;
         @Getter
         private final String openSearchIndexName;
         private final ReadWriteLock readWriteLock;
-        private final WatcherHandle<FileWatcher> watcherHandle;
         private final SharedIndexState sharedIndexState;
         @Getter
         private final boolean isBinaryIndex;
@@ -132,20 +129,18 @@ public interface NativeMemoryAllocation {
          * @param memoryAddress Pointer in memory to the index
          * @param sizeKb Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
-         * @param indexPath File path to index
+         * @param vectorFileName File path to index
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
-         * @param watcherHandle Handle for watching index file
          */
         IndexAllocation(
             ExecutorService executorService,
             long memoryAddress,
             int sizeKb,
             KNNEngine knnEngine,
-            String indexPath,
-            String openSearchIndexName,
-            WatcherHandle<FileWatcher> watcherHandle
+            String vectorFileName,
+            String openSearchIndexName
         ) {
-            this(executorService, memoryAddress, sizeKb, knnEngine, indexPath, openSearchIndexName, watcherHandle, null, false);
+            this(executorService, memoryAddress, sizeKb, knnEngine, vectorFileName, openSearchIndexName, null, false);
         }
 
         /**
@@ -155,9 +150,8 @@ public interface NativeMemoryAllocation {
          * @param memoryAddress Pointer in memory to the index
          * @param sizeKb Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
-         * @param indexPath File path to index
+         * @param vectorFileName Vector file name
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
-         * @param watcherHandle Handle for watching index file
          * @param sharedIndexState Shared index state. If not shared state present, pass null.
          */
         IndexAllocation(
@@ -165,21 +159,19 @@ public interface NativeMemoryAllocation {
             long memoryAddress,
             int sizeKb,
             KNNEngine knnEngine,
-            String indexPath,
+            String vectorFileName,
             String openSearchIndexName,
-            WatcherHandle<FileWatcher> watcherHandle,
             SharedIndexState sharedIndexState,
             boolean isBinaryIndex
         ) {
             this.executor = executorService;
             this.closed = false;
             this.knnEngine = knnEngine;
-            this.indexPath = indexPath;
+            this.vectorFileName = vectorFileName;
             this.openSearchIndexName = openSearchIndexName;
             this.memoryAddress = memoryAddress;
             this.readWriteLock = new ReentrantReadWriteLock();
             this.sizeKb = sizeKb;
-            this.watcherHandle = watcherHandle;
             this.sharedIndexState = sharedIndexState;
             this.isBinaryIndex = isBinaryIndex;
             this.refCounted = new RefCountedReleasable<>("IndexAllocation-Reference", this, this::closeInternal);
@@ -217,8 +209,6 @@ public interface NativeMemoryAllocation {
             }
 
             this.closed = true;
-
-            watcherHandle.stop();
 
             // memoryAddress is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
             if (memoryAddress != 0) {
@@ -294,30 +284,31 @@ public interface NativeMemoryAllocation {
         private final ExecutorService executor;
 
         private volatile boolean closed;
+        @Setter
         private long memoryAddress;
-        private final int size;
+        private final int sizeKb;
         @Getter
         @Setter
         private QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
 
         // Implement reader/writer with semaphores to deal with passing lock conditions between threads
         private int readCount;
-        private Semaphore readSemaphore;
-        private Semaphore writeSemaphore;
-        private VectorDataType vectorDataType;
+        private final Semaphore readSemaphore;
+        private final Semaphore writeSemaphore;
+        private final VectorDataType vectorDataType;
 
         /**
          * Constructor
          *
          * @param executor Executor used for allocation close
          * @param memoryAddress pointer in memory to the training data allocation
-         * @param size amount memory needed for allocation in kilobytes
+         * @param sizeKb amount memory needed for allocation in kilobytes
          */
-        public TrainingDataAllocation(ExecutorService executor, long memoryAddress, int size, VectorDataType vectorDataType) {
+        public TrainingDataAllocation(ExecutorService executor, long memoryAddress, int sizeKb, VectorDataType vectorDataType) {
             this.executor = executor;
             this.closed = false;
             this.memoryAddress = memoryAddress;
-            this.size = size;
+            this.sizeKb = sizeKb;
 
             this.readCount = 0;
             this.readSemaphore = new Semaphore(1);
@@ -401,7 +392,7 @@ public interface NativeMemoryAllocation {
         /**
          * A write lock will be obtained either on eviction from {@link NativeMemoryCacheManager NativeMemoryManager's}
          * or when training data is actually being loaded. A semaphore is used because collecting training data
-         * happens asynchrously, so the thread that obtains the lock will not be the same thread that releases the
+         * happens asynchronously, so the thread that obtains the lock will not be the same thread that releases the
          * lock.
          */
         @Override
@@ -438,23 +429,14 @@ public interface NativeMemoryAllocation {
 
         @Override
         public int getSizeInKB() {
-            return size;
-        }
-
-        /**
-         * Setter for memory address to training data
-         *
-         * @param memoryAddress Pointer to training data
-         */
-        public void setMemoryAddress(long memoryAddress) {
-            this.memoryAddress = memoryAddress;
+            return sizeKb;
         }
     }
 
     /**
      * An anonymous allocation is used to reserve space in the native memory cache. It does not have a
      * memory address. This allocation type should be used when a function allocates a large portion of memory in the
-     * function, runs for awhile, and then frees it.
+     * function, runs for a while, and then frees it.
      */
     class AnonymousAllocation implements NativeMemoryAllocation {
 

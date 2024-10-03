@@ -376,7 +376,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             null
         );
 
-        assertEquals(indexPath, indexAllocation.getIndexPath());
+        assertEquals(indexPath, indexAllocation.getVectorFileName());
     }
 
     public void testIndexAllocation_getOsIndexName() {
