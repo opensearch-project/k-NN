@@ -7,7 +7,7 @@
 // Modifications Copyright OpenSearch Contributors. See
 // GitHub history for details.
 
-#include "faiss_stream_support.h"
+#include "native_engines_stream_support.h"
 #include <gmock/gmock.h>
 #include "test_util.h"
 #include <jni.h>

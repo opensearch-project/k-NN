@@ -749,6 +749,31 @@ public class JNIServiceTests extends KNNTestCase {
         assertNotEquals(0, pointer);
     }
 
+    public void testLoadIndex_nmslib_valid_with_stream() throws IOException {
+        Path tmpFile = createTempFile();
+
+        TestUtils.createIndex(
+            testData.indexData.docs,
+            testData.loadDataToMemoryAddress(),
+            testData.indexData.getDimension(),
+            tmpFile.toAbsolutePath().toString(),
+            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+            KNNEngine.NMSLIB
+        );
+        assertTrue(tmpFile.toFile().length() > 0);
+
+        try (final Directory directory = new MMapDirectory(tmpFile.getParent())) {
+            try (IndexInput indexInput = directory.openInput(tmpFile.getFileName().toString(), IOContext.READONCE)) {
+                long pointer = JNIService.loadIndex(
+                    new IndexInputWithBuffer(indexInput),
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                );
+                assertNotEquals(0, pointer);
+            }
+        }
+    }
+
     public void testLoadIndex_faiss_invalid_fileDoesNotExist() {
         expectThrows(Exception.class, () -> JNIService.loadIndex("invalid", Collections.emptyMap(), KNNEngine.FAISS));
     }

@@ -20,6 +20,7 @@
 
 #include <jni.h>
 #include <string>
+#include <istream>
 
 namespace knn_jni {
     namespace nmslib_wrapper {
@@ -32,6 +33,14 @@ namespace knn_jni {
         //
         // Return a pointer to the loaded index
         jlong LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ, jobject parametersJ);
+
+        // Load an index via an input stream into memory. Use parametersJ to set any query time parameters
+        //
+        // Return a pointer to the loaded index
+        jlong LoadIndexWithStream(knn_jni::JNIUtilInterface * jniUtil,
+                                  JNIEnv * env,
+                                  std::istream& input,
+                                  jobject parametersJ);
 
         // Execute a query against the index located in memory at indexPointerJ.
         //
