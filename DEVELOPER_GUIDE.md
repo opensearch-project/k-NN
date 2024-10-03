@@ -115,6 +115,11 @@ source ~/.zshrc
 export CC=/opt/homebrew/opt/llvm/bin/clang
 export CXX=/opt/homebrew/opt/llvm/bin/clang++
 
+// In case of linking issues with the external libraries and clang, you can try setting the CMAKE compiler to gcc/g++ instead through the following commands:
+export CC=gcc
+export CXX=g++
+sed -i '' '/set(CMAKE_CXX_STANDARD_REQUIRED True)/a\'$'\n''set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp -L/opt/homebrew/opt/libomp/lib -I/opt/homebrew/opt/libomp/include -lomp -arch arm64 -fexceptions")'$'\n''' CMakeLists.txt
+
 // Build
 cmake . --fresh
 make
