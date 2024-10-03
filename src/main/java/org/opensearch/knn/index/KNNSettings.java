@@ -92,6 +92,7 @@ public class KNNSettings {
 
     /**
      * Default setting values
+     *
      */
     public static final boolean KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE = false;
@@ -113,7 +114,7 @@ public class KNNSettings {
     public static final Integer KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // Quantization state cache limit cannot exceed
                                                                                              // 10% of the JVM heap
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = 60;
-    public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = true;
+    public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = false;
 
     /**
      * Settings Definition
@@ -554,12 +555,12 @@ public class KNNSettings {
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
     }
 
-    public static boolean isShardLevelRescoringDisabledForDiskBasedVector(String indexName) {
+    public static boolean isShardLevelRescoringEnabledForDiskBasedVector(String indexName) {
         return KNNSettings.state().clusterService.state()
             .getMetadata()
             .index(indexName)
             .getSettings()
-            .getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, true);
+            .getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
     }
 
     public void initialize(Client client, ClusterService clusterService) {

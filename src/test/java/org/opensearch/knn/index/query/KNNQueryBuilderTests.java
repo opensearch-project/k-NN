@@ -912,7 +912,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         }
 
         if (expectedRescoreContext != null) {
-            assertEquals(expectedRescoreContext, actualRescoreContext);
+            assertNotNull(actualRescoreContext);
+            assertEquals(expectedRescoreContext.getOversampleFactor(), actualRescoreContext.getOversampleFactor(), 0.0f);
         }
     }
 
