@@ -423,6 +423,20 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     return (jlong) indexReader;
 }
 
+jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
+    if (ioReader == nullptr)  [[unlikely]] {
+        throw std::runtime_error("IOReader cannot be null");
+    }
+
+    faiss::Index* indexReader =
+      faiss::read_index(ioReader,
+                        faiss::IO_FLAG_READ_ONLY
+                        | faiss::IO_FLAG_PQ_SKIP_SDC_TABLE
+                        | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
+
+    return (jlong) indexReader;
+}
+
 jlong knn_jni::faiss_wrapper::LoadBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ) {
     if (indexPathJ == nullptr) {
         throw std::runtime_error("Index path cannot be null");
@@ -433,6 +447,20 @@ jlong knn_jni::faiss_wrapper::LoadBinaryIndex(knn_jni::JNIUtilInterface * jniUti
     // Skipping IO_PRECOMPUTE_TABLE because it is only needed for IVFPQ-l2 and it leads to high memory consumption if
     // done for each segment. Instead, we will set it later on with `setSharedIndexState`
     faiss::IndexBinary* indexReader = faiss::read_index_binary(indexPathCpp.c_str(), faiss::IO_FLAG_READ_ONLY | faiss::IO_FLAG_PQ_SKIP_SDC_TABLE | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
+    return (jlong) indexReader;
+}
+
+jlong knn_jni::faiss_wrapper::LoadBinaryIndexWithStream(faiss::IOReader* ioReader) {
+    if (ioReader == nullptr) [[unlikely]] {
+        throw std::runtime_error("IOReader cannot be null");
+    }
+
+    faiss::IndexBinary* indexReader =
+      faiss::read_index_binary(ioReader,
+                               faiss::IO_FLAG_READ_ONLY
+                               | faiss::IO_FLAG_PQ_SKIP_SDC_TABLE
+                               | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
+
     return (jlong) indexReader;
 }
 

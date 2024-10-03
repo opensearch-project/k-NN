@@ -547,6 +547,34 @@ void knn_jni::JNIUtil::SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize s
     this->HasExceptionInStack(env, "Unable to set byte array region");
 }
 
+jobject knn_jni::JNIUtil::GetObjectField(JNIEnv * env, jobject obj, jfieldID fieldID) {
+    return env->GetObjectField(obj, fieldID);
+}
+
+jclass knn_jni::JNIUtil::FindClassFromJNIEnv(JNIEnv * env, const char *name) {
+    return env->FindClass(name);
+}
+
+jmethodID knn_jni::JNIUtil::GetMethodID(JNIEnv * env, jclass clazz, const char *name, const char *sig) {
+    return env->GetMethodID(clazz, name, sig);
+}
+
+jfieldID knn_jni::JNIUtil::GetFieldID(JNIEnv * env, jclass clazz, const char *name, const char *sig) {
+    return env->GetFieldID(clazz, name, sig);
+}
+
+jint knn_jni::JNIUtil::CallIntMethodLong(JNIEnv * env, jobject obj, jmethodID methodID, int64_t longArg) {
+    return env->CallIntMethod(obj, methodID, longArg);
+}
+
+void * knn_jni::JNIUtil::GetPrimitiveArrayCritical(JNIEnv * env, jarray array, jboolean *isCopy) {
+    return env->GetPrimitiveArrayCritical(array, isCopy);
+}
+
+void knn_jni::JNIUtil::ReleasePrimitiveArrayCritical(JNIEnv * env, jarray array, void *carray, jint mode) {
+    return env->ReleasePrimitiveArrayCritical(array, carray, mode);
+}
+
 jobject knn_jni::GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key) {
     if(map.find(key) == map.end()) {
         throw std::runtime_error(key + " not found");
