@@ -187,9 +187,12 @@ public interface NativeMemoryAllocation {
 
         protected void closeInternal() {
             Runnable onClose = () -> {
-                writeLock();
-                cleanup();
-                writeUnlock();
+                try {
+                    writeLock();
+                    cleanup();
+                } finally {
+                    writeUnlock();
+                }
             };
 
             // The close operation needs to be blocking to prevent overflow
@@ -325,9 +328,12 @@ public interface NativeMemoryAllocation {
         @Override
         public void close() {
             executor.execute(() -> {
-                writeLock();
-                cleanup();
-                writeUnlock();
+                try {
+                    writeLock();
+                    cleanup();
+                } finally {
+                    writeUnlock();
+                }
             });
         }
 

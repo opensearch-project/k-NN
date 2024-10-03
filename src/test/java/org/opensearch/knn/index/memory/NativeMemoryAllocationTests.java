@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.doNothing;
@@ -259,11 +260,12 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     }
 
     public void testIndexAllocation_closeBlocking() throws InterruptedException, ExecutionException {
+        // Prepare mocking and a thread pool.
         WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
-        AtomicReference<Exception> expectedException = new AtomicReference<>();
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-        // Blocking close
+        // Enable `KNN_FORCE_EVICT_CACHE_ENABLED_SETTING` to force it to block other threads.
+        // Having it false will make `IndexAllocation` to run close logic in a different thread.
         when(clusterSettings.get(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING)).thenReturn(true);
         NativeMemoryAllocation.IndexAllocation blockingIndexAllocation = new NativeMemoryAllocation.IndexAllocation(
             mock(ExecutorService.class),
@@ -275,19 +277,21 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             watcherHandle
         );
 
-        executorService.submit(blockingIndexAllocation::readLock);
+        // Acquire a read lock
+        blockingIndexAllocation.readLock();
+
+        // This should be blocked as a read lock is still being held.
         Future<?> closingThread = executorService.submit(blockingIndexAllocation::close);
 
         // Check if thread is currently blocked
         try {
             closingThread.get(5, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            expectedException.set(e);
-        }
+            fail("Closing should be blocked. We are still holding a read lock.");
+        } catch (TimeoutException ignored) {}
 
-        assertNotNull(expectedException.get());
-
-        executorService.submit(blockingIndexAllocation::readUnlock);
+        // Now, we unlock a read lock.
+        blockingIndexAllocation.readUnlock();
+        // As we don't hold any locking, the closing thread can now good to acquire a write lock.
         closingThread.get();
 
         // Waits until close
