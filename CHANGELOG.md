@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Enhancements
 ### Bug Fixes 
 * Add DocValuesProducers for releasing memory when close index [#1946](https://github.com/opensearch-project/k-NN/pull/1946)
+* Prelaods vec and vex files to address regression in force merge latencies [#2186](https://github.com/opensearch-project/k-NN/pull/2186)
 ### Infrastructure
 ### Documentation
 ### Maintenance

@@ -11,6 +11,7 @@ import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
+import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
@@ -368,12 +369,37 @@ public class KNNPlugin extends Plugin
         // that are set here.
         final List<String> engineSettings = Arrays.stream(KNNEngine.values())
             .flatMap(engine -> engine.mmapFileExtensions().stream())
+            .distinct()
             .collect(Collectors.toList());
+
         final List<String> combinedSettings = Stream.concat(
             IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getDefault(Settings.EMPTY).stream(),
             engineSettings.stream()
         ).collect(Collectors.toList());
+
         return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings).build();
+    }
+
+    @Override
+    public Collection<IndexSettingProvider> getAdditionalIndexSettingProviders() {
+        IndexSettingProvider preloadMmapFiles = new IndexSettingProvider() {
+            @Override
+            public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
+
+                if (templateAndRequestSettings.getAsBoolean(KNNSettings.KNN_INDEX, Boolean.FALSE)) {
+                    final List<String> mmapFileExtensions = Arrays.stream(KNNEngine.values())
+                        .flatMap(engine -> engine.mmapFileExtensions().stream())
+                        .distinct()
+                        .collect(Collectors.toList());
+
+                    return Settings.builder().putList(IndexModule.INDEX_STORE_PRE_LOAD_SETTING.getKey(), mmapFileExtensions).build();
+                }
+
+                return Settings.EMPTY;
+            }
+        };
+
+        return List.of(preloadMmapFiles);
     }
 
     @Override

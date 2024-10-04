@@ -23,6 +23,7 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -365,6 +366,14 @@ public class FaissTests extends KNNTestCase {
         assertEquals(expectedKNNMethodContext.getPerDimensionProcessor(), actualKNNLibraryIndexingContext.getPerDimensionProcessor());
         assertEquals(expectedKNNMethodContext.getPerDimensionValidator(), actualKNNLibraryIndexingContext.getPerDimensionValidator());
         assertEquals(expectedKNNMethodContext.getVectorValidator(), actualKNNLibraryIndexingContext.getVectorValidator());
+    }
+
+    public void testMmapFileExtensions() {
+        final List<String> mMapExtensions = Faiss.INSTANCE.mmapFileExtensions();
+        assertNotNull(mMapExtensions);
+        final List<String> expectedSettings = List.of("vex", "vec");
+        assertTrue(expectedSettings.containsAll(mMapExtensions));
+        assertTrue(mMapExtensions.containsAll(expectedSettings));
     }
 
 }
