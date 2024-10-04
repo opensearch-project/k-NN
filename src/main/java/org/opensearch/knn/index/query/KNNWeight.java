@@ -376,6 +376,10 @@ public class KNNWeight extends Weight {
             return null;
         }
 
+        if (quantizedVector != null) {
+            return Arrays.stream(results)
+                .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), SpaceType.HAMMING)));
+        }
         return Arrays.stream(results)
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
     }

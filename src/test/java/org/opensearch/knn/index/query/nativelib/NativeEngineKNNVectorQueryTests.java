@@ -103,6 +103,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         // Set ClusterService in KNNSettings
         KNNSettings.state().setClusterService(clusterService);
+        when(knnQuery.getQueryVector()).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });  // Example vector
+
     }
 
     @SneakyThrows
@@ -166,7 +168,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         ) {
 
             // When shard-level re-scoring is enabled
-            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(any())).thenReturn(true);
 
             // Mock ResultUtil to return valid TopDocs
             mockedResultUtil.when(() -> ResultUtil.resultMapToTopDocs(any(), anyInt()))
@@ -250,7 +252,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         ) {
 
             // When shard-level re-scoring is enabled
-            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(true);
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(any())).thenReturn(true);
 
             mockedResultUtil.when(() -> ResultUtil.reduceToTopK(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
             mockedResultUtil.when(() -> ResultUtil.resultMapToTopDocs(eq(rescoredLeaf1Results), anyInt())).thenAnswer(t -> topDocs1);
