@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
@@ -95,8 +96,13 @@ public class KNNWeight extends Weight {
     }
 
     public static void initialize(ModelDao modelDao) {
+        initialize(modelDao, new ExactSearcher(modelDao));
+    }
+
+    @VisibleForTesting
+    static void initialize(ModelDao modelDao, ExactSearcher exactSearcher) {
         KNNWeight.modelDao = modelDao;
-        KNNWeight.DEFAULT_EXACT_SEARCHER = new ExactSearcher(modelDao);
+        KNNWeight.DEFAULT_EXACT_SEARCHER = exactSearcher;
     }
 
     @Override
@@ -204,8 +210,8 @@ public class KNNWeight extends Weight {
 
     private Map<Integer, Float> doExactSearch(final LeafReaderContext context, final BitSet acceptedDocs, int k) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
-            .k(k)
             .isParentHits(true)
+            .k(k)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
@@ -398,12 +404,9 @@ public class KNNWeight extends Weight {
             filterIdsCount,
             KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName())
         );
-        if (knnQuery.getRadius() != null) {
-            return false;
-        }
         int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
         // Refer this GitHub around more details https://github.com/opensearch-project/k-NN/issues/1049 on the logic
-        if (filterIdsCount <= knnQuery.getK()) {
+        if (knnQuery.getRadius() == null && filterIdsCount <= knnQuery.getK()) {
             return true;
         }
         // See user has defined Exact Search filtered threshold. if yes, then use that setting.
