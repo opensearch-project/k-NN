@@ -112,7 +112,7 @@ public class KNNCodecUtil {
      * @return if and only if Native Engine we return specific engine, else return null
      */
     private static KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
-        final String modelId = field.attributes().get(MODEL_ID);
+        final String modelId = field.getAttribute(MODEL_ID);
         if (modelId != null) {
             return null;
         }
