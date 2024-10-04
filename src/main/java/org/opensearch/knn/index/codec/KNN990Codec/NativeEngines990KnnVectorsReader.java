@@ -44,7 +44,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private final FlatVectorsReader flatVectorsReader;
     private final SegmentReadState segmentReadState;
     private Map<String, String> quantizationStateCacheKeyPerField;
-    private final Map<String, String> indexToVectorFileName = new HashMap<>();
+    private final Map<String, String> fieldNameToVectorFileName = new HashMap<>();
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.segmentReadState = state;
@@ -57,7 +57,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         for (FieldInfo field : state.fieldInfos) {
             final String vectorIndexFileName = KNNCodecUtil.getEngineFileFromFieldInfo(field, state.segmentInfo);
             if (vectorIndexFileName != null) {
-                indexToVectorFileName.putIfAbsent(field.getName(), vectorIndexFileName);
+                fieldNameToVectorFileName.putIfAbsent(field.getName(), vectorIndexFileName);
             }
         }
     }
@@ -191,10 +191,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     public void close() throws IOException {
         // Clean up allocated vector indices resources from cache.
         final NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
-        // TMP
-        System.out.println(" &&&&&&&&&&&& [KDY] 990KV Cache manager BEFORE - " + nativeMemoryCacheManager.kdyPrintMap());
-        // TMP
-        indexToVectorFileName.values().forEach(nativeMemoryCacheManager::invalidate);
+        fieldNameToVectorFileName.values().forEach(nativeMemoryCacheManager::invalidate);
 
         // Close a reader.
         IOUtils.close(flatVectorsReader);
@@ -206,11 +203,6 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                 quantizationStateCacheManager.evict(cacheKey);
             }
         }
-
-        // TMP
-        System.out.println(" &&&&&&&&&&&& [KDY] 990KV::close() - " + indexToVectorFileName);
-        System.out.println(" &&&&&&&&&&&& [KDY] 990KV Cache manager AFTER - " + nativeMemoryCacheManager.kdyPrintMap());
-        // TMP
     }
 
     /**

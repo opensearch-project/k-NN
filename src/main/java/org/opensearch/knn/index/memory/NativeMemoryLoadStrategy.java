@@ -77,7 +77,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             if (knnEngine != KNNEngine.FAISS) {
                 // We will support other non-FAISS native engines (ex: NMSLIB) soon.
                 // TODO : DO NOT MERGE THIS!
-                //        Remove this after rebase to NMSLIB loading layer commit.
+                // Remove this after rebase to NMSLIB loading layer commit.
                 throw new UnsupportedOperationException("lololololololololololololololol");
             }
 
@@ -97,7 +97,8 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             final KNNEngine knnEngine,
             final long indexAddress,
             final int indexSizeKb,
-            final String vectorFileName) {
+            final String vectorFileName
+        ) {
             SharedIndexState sharedIndexState = null;
             String modelId = indexEntryContext.getModelId();
             if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
