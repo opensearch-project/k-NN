@@ -118,7 +118,10 @@ public class BinaryIndexIT extends KNNRestTestCase {
         assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
 
         // update build vector data structure setting
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
+        updateIndexSettings(
+            INDEX_NAME,
+            Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, ALWAYS_BUILD_GRAPH)
+        );
         forceMergeKnnIndex(INDEX_NAME, 1);
 
         int k = 100;
@@ -133,7 +136,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testFaissHnswBinary_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() throws Exception {
+    public void testFaissHnswBinary_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() {
         // Create Index
         createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128, testData.indexData.docs.length);
         ingestTestData(INDEX_NAME, FIELD_NAME, false);
@@ -141,7 +144,10 @@ public class BinaryIndexIT extends KNNRestTestCase {
         assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
 
         // update build vector data structure setting
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
+        updateIndexSettings(
+            INDEX_NAME,
+            Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, ALWAYS_BUILD_GRAPH)
+        );
         forceMergeKnnIndex(INDEX_NAME, 1);
 
         int k = 100;
