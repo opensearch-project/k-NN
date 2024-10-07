@@ -38,7 +38,7 @@ class NmslibMediatorInputStreamBuffer final : public std::streambuf {
  protected:
   std::streamsize xsgetn(std::streambuf::char_type *destination, std::streamsize count) final {
     if (count > 0) {
-      mediator->copyBytes((int32_t) count, (uint8_t *) destination);
+      mediator->copyBytes(count, (uint8_t *) destination);
     }
     return count;
   }
