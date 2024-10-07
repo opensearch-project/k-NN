@@ -12,12 +12,14 @@
 package org.opensearch.knn.index.codec.params;
 
 import junit.framework.TestCase;
+import org.junit.Assert;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -39,7 +41,7 @@ public class KNNScalarQuantizedVectorsFormatParamsTests extends TestCase {
         assertEquals(DEFAULT_MAX_CONNECTIONS, knnScalarQuantizedVectorsFormatParams.getMaxConnections());
         assertEquals(DEFAULT_BEAM_WIDTH, knnScalarQuantizedVectorsFormatParams.getBeamWidth());
         assertNull(knnScalarQuantizedVectorsFormatParams.getConfidenceInterval());
-        assertTrue(knnScalarQuantizedVectorsFormatParams.isCompressFlag());
+        assertFalse(knnScalarQuantizedVectorsFormatParams.isCompressFlag());
         assertEquals(LUCENE_SQ_DEFAULT_BITS, knnScalarQuantizedVectorsFormatParams.getBits());
     }
 
@@ -65,8 +67,55 @@ public class KNNScalarQuantizedVectorsFormatParamsTests extends TestCase {
         assertEquals(m, knnScalarQuantizedVectorsFormatParams.getMaxConnections());
         assertEquals(efConstruction, knnScalarQuantizedVectorsFormatParams.getBeamWidth());
         assertEquals((float) MINIMUM_CONFIDENCE_INTERVAL, knnScalarQuantizedVectorsFormatParams.getConfidenceInterval());
-        assertTrue(knnScalarQuantizedVectorsFormatParams.isCompressFlag());
+        assertFalse(knnScalarQuantizedVectorsFormatParams.isCompressFlag());
         assertEquals(LUCENE_SQ_DEFAULT_BITS, knnScalarQuantizedVectorsFormatParams.getBits());
+    }
+
+    public void testInitParams_whenBitsIs4_thenReturnParams() {
+        int m = 64;
+        int efConstruction = 128;
+
+        Map<String, Object> encoderParams = new HashMap<>();
+        encoderParams.put(LUCENE_SQ_CONFIDENCE_INTERVAL, MINIMUM_CONFIDENCE_INTERVAL);
+        encoderParams.put(LUCENE_SQ_BITS, 4);
+        MethodComponentContext encoderComponentContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
+        params.put(METHOD_PARAMETER_M, m);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction);
+
+        KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
+            params,
+            DEFAULT_MAX_CONNECTIONS,
+            DEFAULT_BEAM_WIDTH
+        );
+
+        assertEquals(m, knnScalarQuantizedVectorsFormatParams.getMaxConnections());
+        assertEquals(efConstruction, knnScalarQuantizedVectorsFormatParams.getBeamWidth());
+        assertEquals((float) MINIMUM_CONFIDENCE_INTERVAL, knnScalarQuantizedVectorsFormatParams.getConfidenceInterval());
+        assertTrue(knnScalarQuantizedVectorsFormatParams.isCompressFlag());
+        assertEquals(4, knnScalarQuantizedVectorsFormatParams.getBits());
+    }
+
+    public void testInitParams_whenBitsIs0_thenThrowException() {
+        int m = 64;
+        int efConstruction = 128;
+
+        Map<String, Object> encoderParams = new HashMap<>();
+        encoderParams.put(LUCENE_SQ_CONFIDENCE_INTERVAL, MINIMUM_CONFIDENCE_INTERVAL);
+        encoderParams.put(LUCENE_SQ_BITS, 0);
+        MethodComponentContext encoderComponentContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
+        params.put(METHOD_PARAMETER_M, m);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction);
+
+        Assert.assertThrows(
+            IllegalArgumentException.class,
+            () -> new KNNScalarQuantizedVectorsFormatParams(params, DEFAULT_MAX_CONNECTIONS, DEFAULT_BEAM_WIDTH)
+        );
     }
 
     public void testValidate_whenCalled_thenReturnTrue() {

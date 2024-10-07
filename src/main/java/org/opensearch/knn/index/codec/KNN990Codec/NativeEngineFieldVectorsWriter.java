@@ -13,11 +13,13 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 
 import lombok.Getter;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
+import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.RamUsageEstimator;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,22 +46,37 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
     @Getter
     private final DocsWithFieldSet docsWithField;
     private final InfoStream infoStream;
+    private final FlatFieldVectorsWriter<T> flatFieldVectorsWriter;
 
-    static NativeEngineFieldVectorsWriter<?> create(final FieldInfo fieldInfo, final InfoStream infoStream) {
+    @SuppressWarnings("unchecked")
+    static NativeEngineFieldVectorsWriter<?> create(
+        final FieldInfo fieldInfo,
+        final FlatFieldVectorsWriter<?> flatFieldVectorsWriter,
+        final InfoStream infoStream
+    ) {
         switch (fieldInfo.getVectorEncoding()) {
             case FLOAT32:
-                return new NativeEngineFieldVectorsWriter<float[]>(fieldInfo, infoStream);
+                return new NativeEngineFieldVectorsWriter<>(
+                    fieldInfo,
+                    (FlatFieldVectorsWriter<float[]>) flatFieldVectorsWriter,
+                    infoStream
+                );
             case BYTE:
-                return new NativeEngineFieldVectorsWriter<byte[]>(fieldInfo, infoStream);
+                return new NativeEngineFieldVectorsWriter<>(fieldInfo, (FlatFieldVectorsWriter<byte[]>) flatFieldVectorsWriter, infoStream);
         }
         throw new IllegalStateException("Unsupported Vector encoding : " + fieldInfo.getVectorEncoding());
     }
 
-    private NativeEngineFieldVectorsWriter(final FieldInfo fieldInfo, final InfoStream infoStream) {
+    private NativeEngineFieldVectorsWriter(
+        final FieldInfo fieldInfo,
+        final FlatFieldVectorsWriter<T> flatFieldVectorsWriter,
+        final InfoStream infoStream
+    ) {
         this.fieldInfo = fieldInfo;
         this.infoStream = infoStream;
         vectors = new HashMap<>();
         this.docsWithField = new DocsWithFieldSet();
+        this.flatFieldVectorsWriter = flatFieldVectorsWriter;
     }
 
     /**
@@ -70,7 +87,7 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
      * @param vectorValue T
      */
     @Override
-    public void addValue(int docID, T vectorValue) {
+    public void addValue(int docID, T vectorValue) throws IOException {
         if (docID == lastDocID) {
             throw new IllegalArgumentException(
                 "[NativeEngineKNNVectorWriter]VectorValuesField \""
@@ -81,6 +98,8 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
         // TODO: we can build the graph here too iteratively. but right now I am skipping that as we need iterative
         // graph build support on the JNI layer.
         assert docID > lastDocID;
+        // ensuring that vector is provided to flatFieldWriter.
+        flatFieldVectorsWriter.addValue(docID, vectorValue);
         vectors.put(docID, vectorValue);
         docsWithField.add(docID);
         lastDocID = docID;
@@ -105,6 +124,7 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
         return SHALLOW_SIZE + docsWithField.ramBytesUsed() + (long) this.vectors.size() * (long) (RamUsageEstimator.NUM_BYTES_OBJECT_REF
             + RamUsageEstimator.NUM_BYTES_ARRAY_HEADER) + (long) this.vectors.size() * RamUsageEstimator.shallowSizeOfInstance(
                 Integer.class
-            ) + (long) vectors.size() * fieldInfo.getVectorDimension() * fieldInfo.getVectorEncoding().byteSize;
+            ) + (long) vectors.size() * fieldInfo.getVectorDimension() * fieldInfo.getVectorEncoding().byteSize + flatFieldVectorsWriter
+                .ramBytesUsed();
     }
 }
