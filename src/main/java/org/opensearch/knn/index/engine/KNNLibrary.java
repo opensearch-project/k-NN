@@ -8,7 +8,6 @@ package org.opensearch.knn.index.engine;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -137,6 +136,6 @@ public interface KNNLibrary extends MethodResolver {
      * @return list of file extensions that will be read/write with mmap
      */
     default List<String> mmapFileExtensions() {
-        return Collections.emptyList();
+        return List.of("vec", "vex");
     }
 }

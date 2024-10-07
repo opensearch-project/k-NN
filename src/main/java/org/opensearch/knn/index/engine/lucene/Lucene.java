@@ -15,7 +15,6 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -87,11 +86,6 @@ public class Lucene extends JVMLibrary {
     public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
         // Lucene engine uses distance as is and does not need transformation
         return score;
-    }
-
-    @Override
-    public List<String> mmapFileExtensions() {
-        return List.of("vec", "vex");
     }
 
     @Override
