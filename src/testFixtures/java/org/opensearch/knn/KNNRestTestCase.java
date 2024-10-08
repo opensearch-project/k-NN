@@ -100,7 +100,7 @@ import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
@@ -780,7 +780,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
             .put(KNN_INDEX, true)
-            .put(INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, buildVectorDatastructureThreshold)
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, buildVectorDatastructureThreshold)
             .build();
     }
 

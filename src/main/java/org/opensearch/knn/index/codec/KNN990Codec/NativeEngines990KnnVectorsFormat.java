@@ -38,7 +38,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     }
 
     public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat) {
-        this(flatVectorsFormat, KNNSettings.INDEX_KNN_DEFAULT_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
+        this(flatVectorsFormat, KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
     }
 
     public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat, int buildVectorDatastructureThreshold) {

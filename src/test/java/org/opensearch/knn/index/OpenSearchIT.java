@@ -626,7 +626,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         createKnnIndex(indexName, settings, knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
             indexName,
-            KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD
+            KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD
         );
         assertNotNull("build_vector_data_structure_threshold index setting is not found", buildVectorDataStructureThresholdSetting);
         assertEquals(
@@ -643,7 +643,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         createKnnIndex(indexName, knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
             indexName,
-            KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD
+            KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD
         );
         assertNull(
             "build_vector_data_structure_threshold index setting should not be added in index setting",
@@ -658,13 +658,13 @@ public class OpenSearchIT extends KNNRestTestCase {
         createKnnIndex(indexName, knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
             indexName,
-            KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD,
+            KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD,
             true
         );
         assertNotNull("build_vector_data_structure index setting is not found", buildVectorDataStructureThresholdSetting);
         assertEquals(
             "incorrect default setting for build_vector_data_structure_threshold",
-            KNNSettings.INDEX_KNN_DEFAULT_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD,
+            KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
             Integer.valueOf(buildVectorDataStructureThresholdSetting)
         );
         deleteKNNIndex(indexName);
@@ -736,7 +736,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals("unexpected neighbors are returned", faissNeighbors.size(), faissNeighbors.size());
 
         // update build vector data structure setting
-        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
         forceMergeKnnIndex(indexName, 1);
 
         final int k = 10;
@@ -881,7 +881,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals("unexpected neighbors are returned", faissNeighbors.size(), faissNeighbors.size());
 
         // update build vector data structure setting
-        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0));
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
         forceMergeKnnIndex(indexName, 1);
 
         final int k = 10;

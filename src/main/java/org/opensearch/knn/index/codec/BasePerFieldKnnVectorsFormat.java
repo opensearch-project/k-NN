@@ -131,21 +131,21 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private NativeEngines990KnnVectorsFormat nativeEngineVectorsFormat() {
-        int buildVectorDatastructureThreshold = getBuildVectorDatastructureThresholdSetting(mapperService.get());
+        int buildVectorDatastructureThreshold = getBuildVectorDataStructureThresholdSetting(mapperService.get());
         return new NativeEngines990KnnVectorsFormat(
             new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
             buildVectorDatastructureThreshold
         );
     }
 
-    private int getBuildVectorDatastructureThresholdSetting(final MapperService knnMapperService) {
+    private int getBuildVectorDataStructureThresholdSetting(final MapperService knnMapperService) {
         final IndexSettings indexSettings = knnMapperService.getIndexSettings();
-        final Integer buildVectorDatastructureThreshold = indexSettings.getValue(
-            KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_SETTING
+        final Integer buildVectorDataStructureThreshold = indexSettings.getValue(
+            KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING
         );
-        return buildVectorDatastructureThreshold != null
-            ? buildVectorDatastructureThreshold
-            : KNNSettings.INDEX_KNN_DEFAULT_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD;
+        return buildVectorDataStructureThreshold != null
+            ? buildVectorDataStructureThreshold
+            : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
     @Override
