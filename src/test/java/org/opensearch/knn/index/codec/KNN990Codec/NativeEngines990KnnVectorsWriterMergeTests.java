@@ -196,8 +196,9 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             );
 
             NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, mergedVectors);
-            fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
-                .thenReturn(field);
+            fieldWriterMockedStatic.when(
+                () -> NativeEngineFieldVectorsWriter.create(fieldInfo, mockedFlatFieldVectorsWriter, segmentWriteState.infoStream)
+            ).thenReturn(field);
 
             mergedVectorValuesMockedStatic.when(() -> KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState))
                 .thenReturn(floatVectorValues);
@@ -253,8 +254,9 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             );
 
             NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, mergedVectors);
-            fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
-                .thenReturn(field);
+            fieldWriterMockedStatic.when(
+                () -> NativeEngineFieldVectorsWriter.create(fieldInfo, mockedFlatFieldVectorsWriter, segmentWriteState.infoStream)
+            ).thenReturn(field);
 
             mergedVectorValuesMockedStatic.when(() -> KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState))
                 .thenReturn(floatVectorValues);
