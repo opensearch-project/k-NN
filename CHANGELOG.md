@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 ### Enhancements
 * Introducing a loading layer in FAISS [#2033](https://github.com/opensearch-project/k-NN/issues/2033)
+* Introducing a loading layer in NMSLIB [#2185](https://github.com/opensearch-project/k-NN/pull/2185)
 ### Bug Fixes 
 * Add DocValuesProducers for releasing memory when close index [#1946](https://github.com/opensearch-project/k-NN/pull/1946)
 ### Infrastructure
