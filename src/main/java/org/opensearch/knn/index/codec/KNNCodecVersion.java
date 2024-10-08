@@ -12,12 +12,14 @@ import org.apache.lucene.backward_codecs.lucene92.Lucene92Codec;
 import org.apache.lucene.backward_codecs.lucene94.Lucene94Codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.backward_codecs.lucene95.Lucene95Codec;
-import org.apache.lucene.codecs.lucene99.Lucene99Codec;
+import org.apache.lucene.backward_codecs.lucene99.Lucene99Codec;
+import org.apache.lucene.codecs.lucene912.Lucene912Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
+import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120Codec;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN940Codec.KNN940Codec;
@@ -110,9 +112,24 @@ public enum KNNCodecVersion {
             .knnVectorsFormat(new KNN990PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
         KNN990Codec::new
+    ),
+
+    V_9_12_0(
+        "KNN9120Codec",
+        new Lucene912Codec(),
+        new KNN990PerFieldKnnVectorsFormat(Optional.empty()),
+        (delegate) -> new KNNFormatFacade(
+            new KNN80DocValuesFormat(delegate.docValuesFormat()),
+            new KNN80CompoundFormat(delegate.compoundFormat())
+        ),
+        (userCodec, mapperService) -> KNN9120Codec.builder()
+            .delegate(userCodec)
+            .knnVectorsFormat(new KNN990PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .build(),
+        KNN9120Codec::new
     );
 
-    private static final KNNCodecVersion CURRENT = V_9_9_0;
+    private static final KNNCodecVersion CURRENT = V_9_12_0;
 
     private final String codecName;
     private final Codec defaultCodecDelegate;

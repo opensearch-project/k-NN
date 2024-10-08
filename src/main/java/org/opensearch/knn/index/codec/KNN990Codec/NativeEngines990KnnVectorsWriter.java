@@ -65,9 +65,13 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      */
     @Override
     public KnnFieldVectorsWriter<?> addField(final FieldInfo fieldInfo) throws IOException {
-        final NativeEngineFieldVectorsWriter<?> newField = NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream);
+        final NativeEngineFieldVectorsWriter<?> newField = NativeEngineFieldVectorsWriter.create(
+            fieldInfo,
+            flatVectorsWriter.addField(fieldInfo),
+            segmentWriteState.infoStream
+        );
         fields.add(newField);
-        return flatVectorsWriter.addField(fieldInfo, newField);
+        return newField;
     }
 
     /**
