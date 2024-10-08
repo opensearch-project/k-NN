@@ -11,8 +11,10 @@ import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
+import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -110,6 +112,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static java.util.Collections.singletonList;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
@@ -350,6 +353,28 @@ public class KNNPlugin extends Plugin
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
         return ImmutableList.of(new SystemIndexDescriptor(MODEL_INDEX_NAME, "Index for storing models used for k-NN indices"));
+    }
+
+    @Override
+    public Collection<IndexSettingProvider> getAdditionalIndexSettingProviders() {
+        IndexSettingProvider preloadMmapFiles = new IndexSettingProvider() {
+            @Override
+            public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
+
+                if (templateAndRequestSettings.getAsBoolean(KNNSettings.KNN_INDEX, Boolean.FALSE)) {
+                    final List<String> mmapFileExtensions = Arrays.stream(KNNEngine.values())
+                        .flatMap(engine -> engine.mmapFileExtensions().stream())
+                        .distinct()
+                        .collect(Collectors.toList());
+
+                    return Settings.builder().putList(IndexModule.INDEX_STORE_PRE_LOAD_SETTING.getKey(), mmapFileExtensions).build();
+                }
+
+                return Settings.EMPTY;
+            }
+        };
+
+        return List.of(preloadMmapFiles);
     }
 
     @Override
