@@ -66,16 +66,7 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_NmslibService_loadIndexWithS
                                                                                       jobject readStream,
                                                                                       jobject parametersJ) {
   try {
-    // Create a mediator locally.
-    // Note that `indexInput` is `IndexInputWithBuffer` type.
-    knn_jni::stream::NativeEngineIndexInputMediator mediator{&jniUtil, env, readStream};
-
-    // Create NMSLIB buffer.
-    knn_jni::stream::NmslibMediatorInputStreamBuffer nmslib_mediator_stream_buf{&mediator};
-
-    std::istream in{&nmslib_mediator_stream_buf};
-
-    return knn_jni::nmslib_wrapper::LoadIndexWithStream(&jniUtil, env, in, parametersJ);
+    return knn_jni::nmslib_wrapper::LoadIndexWithStream(&jniUtil, env, readStream, parametersJ);
   } catch (...) {
     jniUtil.CatchCppExceptionAndThrowJava(env);
   }
