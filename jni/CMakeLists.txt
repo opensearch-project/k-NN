@@ -156,7 +156,8 @@ if ("${WIN32}" STREQUAL "")
                 tests/commons_test.cpp
                 tests/faiss_stream_support_test.cpp
                 tests/faiss_index_service_test.cpp
-                )
+                tests/nmslib_stream_support_test.cpp
+        )
 
         target_link_libraries(
                 jni_test
