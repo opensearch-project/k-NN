@@ -131,20 +131,22 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private NativeEngines990KnnVectorsFormat nativeEngineVectorsFormat() {
-        int buildVectorDatastructureThreshold = getBuildVectorDataStructureThresholdSetting(mapperService.get());
+        // mapperService is already checked for null or valid instance type at caller, hence we don't need
+        // addition isPresent check here.
+        int approximateThreshold = getApproximateThresholdValue();
         return new NativeEngines990KnnVectorsFormat(
             new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
-            buildVectorDatastructureThreshold
+            approximateThreshold
         );
     }
 
-    private int getBuildVectorDataStructureThresholdSetting(final MapperService knnMapperService) {
-        final IndexSettings indexSettings = knnMapperService.getIndexSettings();
-        final Integer buildVectorDataStructureThreshold = indexSettings.getValue(
-            KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING
-        );
-        return buildVectorDataStructureThreshold != null
-            ? buildVectorDataStructureThreshold
+    private int getApproximateThresholdValue() {
+        // This is private method and mapperService is already checked for null or valid instance type before this call
+        // at caller, hence we don't need additional isPresent check here.
+        final IndexSettings indexSettings = mapperService.get().getIndexSettings();
+        final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
+        return approximateThresholdValue != null
+            ? approximateThresholdValue
             : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 

@@ -31,7 +31,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     /** The format for storing, reading, merging vectors on disk */
     private static FlatVectorsFormat flatVectorsFormat;
     private static final String FORMAT_NAME = "NativeEngines990KnnVectorsFormat";
-    private static int buildVectorDatastructureThreshold;
+    private static int approximateThreshold;
 
     public NativeEngines990KnnVectorsFormat() {
         this(new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer()));
@@ -41,10 +41,10 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
         this(flatVectorsFormat, KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
     }
 
-    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat, int buildVectorDatastructureThreshold) {
+    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat, int approximateThreshold) {
         super(FORMAT_NAME);
         NativeEngines990KnnVectorsFormat.flatVectorsFormat = flatVectorsFormat;
-        NativeEngines990KnnVectorsFormat.buildVectorDatastructureThreshold = buildVectorDatastructureThreshold;
+        NativeEngines990KnnVectorsFormat.approximateThreshold = approximateThreshold;
     }
 
     /**
@@ -54,7 +54,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public KnnVectorsWriter fieldsWriter(final SegmentWriteState state) throws IOException {
-        return new NativeEngines990KnnVectorsWriter(state, flatVectorsFormat.fieldsWriter(state), buildVectorDatastructureThreshold);
+        return new NativeEngines990KnnVectorsWriter(state, flatVectorsFormat.fieldsWriter(state), approximateThreshold);
     }
 
     /**
@@ -73,8 +73,8 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
             + this.getClass().getSimpleName()
             + ", flatVectorsFormat="
             + flatVectorsFormat
-            + ", buildVectorDatastructureThreshold"
-            + buildVectorDatastructureThreshold
+            + ", approximateThreshold="
+            + approximateThreshold
             + ")";
     }
 }

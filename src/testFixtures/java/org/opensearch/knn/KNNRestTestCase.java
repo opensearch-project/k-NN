@@ -775,12 +775,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .build();
     }
 
-    protected Settings buildKNNIndexSettings(int buildVectorDatastructureThreshold) {
+    protected Settings buildKNNIndexSettings(int approximateThreshold) {
         return Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
             .put(KNN_INDEX, true)
-            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, buildVectorDatastructureThreshold)
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold)
             .build();
     }
 

@@ -53,16 +53,16 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private KNN990QuantizationStateWriter quantizationStateWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
-    private final Integer buildVectorDataStructureThreshold;
+    private final Integer approximateThreshold;
 
     public NativeEngines990KnnVectorsWriter(
         SegmentWriteState segmentWriteState,
         FlatVectorsWriter flatVectorsWriter,
-        Integer buildVectorDataStructureThreshold
+        Integer approximateThreshold
     ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
-        this.buildVectorDataStructureThreshold = buildVectorDataStructureThreshold;
+        this.approximateThreshold = approximateThreshold;
     }
 
     /**
@@ -111,7 +111,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                     "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
                     fieldInfo.name,
                     totalLiveDocs,
-                    buildVectorDataStructureThreshold
+                    approximateThreshold
                 );
                 continue;
             }
@@ -151,7 +151,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
                 fieldInfo.name,
                 totalLiveDocs,
-                buildVectorDataStructureThreshold
+                approximateThreshold
             );
             return;
         }
@@ -287,9 +287,9 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     }
 
     private boolean shouldSkipBuildingVectorDataStructure(final long docCount) {
-        if (buildVectorDataStructureThreshold < 0) {
+        if (approximateThreshold < 0) {
             return true;
         }
-        return docCount < buildVectorDataStructureThreshold;
+        return docCount < approximateThreshold;
     }
 }
