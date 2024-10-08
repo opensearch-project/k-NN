@@ -20,7 +20,6 @@
 
 #include <jni.h>
 #include <string>
-#include <istream>
 
 namespace knn_jni {
     namespace nmslib_wrapper {
@@ -39,7 +38,7 @@ namespace knn_jni {
         // Return a pointer to the loaded index
         jlong LoadIndexWithStream(knn_jni::JNIUtilInterface * jniUtil,
                                   JNIEnv * env,
-                                  std::istream& input,
+                                  jobject readStream,
                                   jobject parametersJ);
 
         // Execute a query against the index located in memory at indexPointerJ.

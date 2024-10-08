@@ -11,6 +11,7 @@
 
 #include "jni_util.h"
 #include "nmslib_wrapper.h"
+#include "nmslib_stream_support.h"
 
 #include "commons.h"
 
@@ -25,6 +26,7 @@
 
 #include <jni.h>
 #include <string>
+#include <istream>
 
 #include "hnswquery.h"
 #include "method/hnsw.h"
@@ -232,8 +234,12 @@ jlong knn_jni::nmslib_wrapper::LoadIndex(knn_jni::JNIUtilInterface *jniUtil, JNI
 
 jlong knn_jni::nmslib_wrapper::LoadIndexWithStream(knn_jni::JNIUtilInterface *jniUtil,
                                                    JNIEnv *env,
-                                                   std::istream &input,
+                                                   jobject readStream,
                                                    jobject parametersJ) {
+  if (readStream == nullptr) {
+    throw std::runtime_error("Read stream cannot be null");
+  }
+
   if (parametersJ == nullptr) {
     throw std::runtime_error("Parameters cannot be null");
   }
@@ -254,6 +260,15 @@ jlong knn_jni::nmslib_wrapper::LoadIndexWithStream(knn_jni::JNIUtilInterface *jn
     queryParams.push_back("efSearch=" + efSearch);
   }
 
+  // Create a mediator locally.
+  // Note that `indexInput` is `IndexInputWithBuffer` type.
+  knn_jni::stream::NativeEngineIndexInputMediator mediator{jniUtil, env, readStream};
+
+  // Create NMSLIB buffer.
+  knn_jni::stream::NmslibMediatorInputStreamBuffer nmslib_mediator_stream_buf{&mediator};
+
+  std::istream input{&nmslib_mediator_stream_buf};
+
   // Load index
   knn_jni::nmslib_wrapper::IndexWrapper *indexWrapper = nullptr;
   try {
@@ -262,10 +277,8 @@ jlong knn_jni::nmslib_wrapper::LoadIndexWithStream(knn_jni::JNIUtilInterface *jn
 
     if (auto hnswFloatIndex = dynamic_cast<similarity::Hnsw<float> *>(indexWrapper->index.get())) {
       hnswFloatIndex->LoadIndexWithStream(input);
-    } else if (auto hnswIntIndex = dynamic_cast<similarity::Hnsw<int> *>(indexWrapper->index.get())) {
-      hnswFloatIndex->LoadIndexWithStream(input);
     } else {
-      throw std::runtime_error("Failed to cast index of NMSLIB to similarity::Hnsw<float | int>");
+      throw std::runtime_error("Failed to cast index of NMSLIB to similarity::Hnsw<float>.");
     }
   } catch (...) {
     delete indexWrapper;

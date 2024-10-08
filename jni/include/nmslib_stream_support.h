@@ -23,10 +23,10 @@
 namespace knn_jni {
 namespace stream {
 
-
-
 /**
- * TODO : KDY
+ * std::streambuf implementation delegating NativeEngineIndexInputMediator to read bytes.
+ * This class is expected to be wrapped as std::istream, then to be passed to NMSLIB.
+ * NMSLIB will rely on the passed std::istream to read required bytes.
  */
 class NmslibMediatorInputStreamBuffer final : public std::streambuf {
  public:
