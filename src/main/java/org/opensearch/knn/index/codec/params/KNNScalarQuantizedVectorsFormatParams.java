@@ -31,7 +31,8 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
         Map<String, Object> sqEncoderParams = encoderMethodComponentContext.getParameters();
         this.initConfidenceInterval(sqEncoderParams);
         this.initBits(sqEncoderParams);
-        this.initCompressFlag();
+        // compression flag should be set after bits has been initialised as compressionFlag depends on bits.
+        this.setCompressionFlag();
     }
 
     @Override
@@ -76,7 +77,14 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
         this.bits = LUCENE_SQ_DEFAULT_BITS;
     }
 
-    private void initCompressFlag() {
-        this.compressFlag = true;
+    private void setCompressionFlag() {
+        if (this.bits <= 0) {
+            throw new IllegalArgumentException(
+                "Either bits are set to less than 0 or they have not been initialized." + " Bit value: " + this.bits
+            );
+        }
+        // This check is coming from Lucene. Code ref:
+        // https://github.com/apache/lucene/blob/branch_9_12/lucene/core/src/java/org/apache/lucene/codecs/lucene99/Lucene99ScalarQuantizedVectorsFormat.java#L113-L116
+        this.compressFlag = this.bits <= 4;
     }
 }

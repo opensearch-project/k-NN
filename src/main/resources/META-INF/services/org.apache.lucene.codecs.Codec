@@ -7,4 +7,5 @@ org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec
 org.opensearch.knn.index.codec.KNN940Codec.KNN940Codec
 org.opensearch.knn.index.codec.KNN950Codec.KNN950Codec
 org.opensearch.knn.index.codec.KNN990Codec.KNN990Codec
+org.opensearch.knn.index.codec.KNN9120Codec.KNN9120Codec
 org.opensearch.knn.index.codec.KNN990Codec.UnitTestCodec

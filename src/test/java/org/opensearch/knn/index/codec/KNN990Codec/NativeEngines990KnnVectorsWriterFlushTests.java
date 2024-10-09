@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
@@ -16,6 +17,7 @@ import org.apache.lucene.index.VectorEncoding;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
@@ -68,6 +70,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
     @Mock
     private NativeIndexWriter nativeIndexWriter;
 
+    private FlatFieldVectorsWriter mockedFlatFieldVectorsWriter;
+
     private NativeEngines990KnnVectorsWriter objectUnderTest;
 
     private final String description;
@@ -78,6 +82,9 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
         super.setUp();
         MockitoAnnotations.openMocks(this);
         objectUnderTest = new NativeEngines990KnnVectorsWriter(segmentWriteState, flatVectorsWriter);
+        mockedFlatFieldVectorsWriter = Mockito.mock(FlatFieldVectorsWriter.class);
+        Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
+        Mockito.when(flatVectorsWriter.addField(Mockito.any())).thenReturn(mockedFlatFieldVectorsWriter);
     }
 
     @ParametersFactory
@@ -139,8 +146,9 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 );
 
                 NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, vectorsPerField.get(i));
-                fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
-                    .thenReturn(field);
+                fieldWriterMockedStatic.when(
+                    () -> NativeEngineFieldVectorsWriter.create(fieldInfo, mockedFlatFieldVectorsWriter, segmentWriteState.infoStream)
+                ).thenReturn(field);
 
                 try {
                     objectUnderTest.addField(fieldInfo);
@@ -227,8 +235,9 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 );
 
                 NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fieldInfo, vectorsPerField.get(i));
-                fieldWriterMockedStatic.when(() -> NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream))
-                    .thenReturn(field);
+                fieldWriterMockedStatic.when(
+                    () -> NativeEngineFieldVectorsWriter.create(fieldInfo, mockedFlatFieldVectorsWriter, segmentWriteState.infoStream)
+                ).thenReturn(field);
 
                 try {
                     objectUnderTest.addField(fieldInfo);
