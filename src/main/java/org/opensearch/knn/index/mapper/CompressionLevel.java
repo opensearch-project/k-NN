@@ -29,6 +29,8 @@ public enum CompressionLevel {
     x16(16, "16x", new RescoreContext(3.0f, false), Set.of(Mode.ON_DISK)),
     x32(32, "32x", new RescoreContext(3.0f, false), Set.of(Mode.ON_DISK));
 
+    public static final CompressionLevel MAX_COMPRESSION_LEVEL = CompressionLevel.x32;
+
     // Internally, an empty string is easier to deal with them null. However, from the mapping,
     // we do not want users to pass in the empty string and instead want null. So we make the conversion here
     public static final String[] NAMES_ARRAY = new String[] {
