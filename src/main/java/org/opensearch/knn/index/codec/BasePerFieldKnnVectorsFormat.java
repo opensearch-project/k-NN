@@ -11,7 +11,9 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
@@ -129,7 +131,23 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private NativeEngines990KnnVectorsFormat nativeEngineVectorsFormat() {
-        return new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
+        // mapperService is already checked for null or valid instance type at caller, hence we don't need
+        // addition isPresent check here.
+        int approximateThreshold = getApproximateThresholdValue();
+        return new NativeEngines990KnnVectorsFormat(
+            new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
+            approximateThreshold
+        );
+    }
+
+    private int getApproximateThresholdValue() {
+        // This is private method and mapperService is already checked for null or valid instance type before this call
+        // at caller, hence we don't need additional isPresent check here.
+        final IndexSettings indexSettings = mapperService.get().getIndexSettings();
+        final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
+        return approximateThresholdValue != null
+            ? approximateThresholdValue
+            : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
     @Override
