@@ -92,6 +92,7 @@ public class FaissIT extends KNNRestTestCase {
     private static final String INTEGER_FIELD_NAME = "int_field";
     private static final String FILED_TYPE_INTEGER = "integer";
     private static final String NON_EXISTENT_INTEGER_FIELD_NAME = "nonexistent_int_field";
+    public static final int NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = -1;
 
     static TestUtils.TestData testData;
 
@@ -571,6 +572,125 @@ public class FaissIT extends KNNRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
         indexTestData(indexName, fieldName, dimension, numDocs);
         queryTestData(indexName, fieldName, dimension, numDocs);
+        deleteKNNIndex(indexName);
+        validateGraphEviction();
+    }
+
+    @SneakyThrows
+    public void testHNSWSQFP16_whenGraphThresholdIsNegative_whenIndexed_thenSkipCreatingGraph() {
+        final String indexName = "test-index-hnsw-sqfp16";
+        final String fieldName = "test-field-hnsw-sqfp16";
+        final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
+        final Random random = new Random();
+        final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
+
+        final int dimension = 128;
+        final int numDocs = 100;
+
+        // Create an index
+        final XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        final Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        final String mapping = builder.toString();
+        final Settings knnIndexSettings = buildKNNIndexSettings(-1);
+        createKnnIndex(indexName, knnIndexSettings, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        indexTestData(indexName, fieldName, dimension, numDocs);
+
+        final float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        // Assert we have the right number of documents in the index
+        assertEquals(numDocs, getDocCount(indexName));
+
+        final Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, 1, queryVector, null), 1);
+        final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+        // expect result due to exact search
+        assertEquals(1, results.size());
+
+        deleteKNNIndex(indexName);
+        validateGraphEviction();
+    }
+
+    @SneakyThrows
+    public void testHNSWSQFP16_whenGraphThresholdIsMetDuringMerge_thenCreateGraph() {
+        final String indexName = "test-index-hnsw-sqfp16";
+        final String fieldName = "test-field-hnsw-sqfp16";
+        final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
+        final Random random = new Random();
+        final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
+        final int dimension = 128;
+        final int numDocs = 100;
+
+        // Create an index
+        final XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        final Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        final String mapping = builder.toString();
+        final Settings knnIndexSettings = buildKNNIndexSettings(numDocs);
+        createKnnIndex(indexName, knnIndexSettings, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        indexTestData(indexName, fieldName, dimension, numDocs);
+
+        final float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        // Assert we have the right number of documents in the index
+        assertEquals(numDocs, getDocCount(indexName));
+
+        // KNN Query should return empty result
+        final Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, 1, queryVector, null), 1);
+        final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+        assertEquals(1, results.size());
+
+        // update index setting to build graph and do force merge
+        // update build vector data structure setting
+        forceMergeKnnIndex(indexName, 1);
+
+        queryTestData(indexName, fieldName, dimension, numDocs);
+
         deleteKNNIndex(indexName);
         validateGraphEviction();
     }
@@ -1709,6 +1829,111 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testEndToEnd_whenDoRadiusSearch_whenNoGraphFileIsCreated_whenDistanceThreshold_thenSucceed() {
+        final SpaceType spaceType = SpaceType.L2;
+
+        final List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        final List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
+        final List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
+
+        final Integer dimension = testData.indexData.vectors[0].length;
+        final Settings knnIndexSettings = buildKNNIndexSettings(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
+
+        // Create an index
+        final XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(INDEX_NAME, knnIndexSettings, builder.toString());
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                INDEX_NAME,
+                Integer.toString(testData.indexData.docs[i]),
+                FIELD_NAME,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+
+        // Assert we have the right number of documents
+        refreshAllNonSystemIndices();
+        assertEquals(testData.indexData.docs.length, getDocCount(INDEX_NAME));
+
+        final float distance = 300000000000f;
+        final List<List<KNNResult>> resultsFromDistance = validateRadiusSearchResults(
+            INDEX_NAME,
+            FIELD_NAME,
+            testData.queries,
+            distance,
+            null,
+            spaceType,
+            null,
+            null
+        );
+        assertFalse(resultsFromDistance.isEmpty());
+        resultsFromDistance.forEach(result -> { assertFalse(result.isEmpty()); });
+        final float score = spaceType.scoreTranslation(distance);
+        final List<List<KNNResult>> resultsFromScore = validateRadiusSearchResults(
+            INDEX_NAME,
+            FIELD_NAME,
+            testData.queries,
+            null,
+            score,
+            spaceType,
+            null,
+            null
+        );
+        assertFalse(resultsFromScore.isEmpty());
+        resultsFromScore.forEach(result -> { assertFalse(result.isEmpty()); });
+
+        // Delete index
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testRadialQueryWithFilter_whenNoGraphIsCreated_thenSuccess() {
+        setupKNNIndexForFilterQuery(buildKNNIndexSettings(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD));
+
+        final float[][] searchVector = new float[][] { { 3.3f, 3.0f, 5.0f } };
+        TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("color", "red");
+        List<String> expectedDocIds = Arrays.asList(DOC_ID_3);
+
+        float distance = 15f;
+        List<List<KNNResult>> queryResult = validateRadiusSearchResults(
+            INDEX_NAME,
+            FIELD_NAME,
+            searchVector,
+            distance,
+            null,
+            SpaceType.L2,
+            termQueryBuilder,
+            null
+        );
+
+        assertEquals(1, queryResult.get(0).size());
+        assertEquals(expectedDocIds.get(0), queryResult.get(0).get(0).getDocId());
+
+        // Delete index
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
     public void testQueryWithFilter_whenNonExistingFieldUsedInFilter_thenSuccessful() {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -1780,6 +2005,10 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     protected void setupKNNIndexForFilterQuery() throws Exception {
+        setupKNNIndexForFilterQuery(getKNNDefaultIndexSettings());
+    }
+
+    protected void setupKNNIndexForFilterQuery(Settings settings) throws Exception {
         // Create Mappings
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -1797,7 +2026,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject();
         final String mapping = builder.toString();
 
-        createKnnIndex(INDEX_NAME, mapping);
+        createKnnIndex(INDEX_NAME, settings, mapping);
 
         addKnnDocWithAttributes(
             DOC_ID_1,

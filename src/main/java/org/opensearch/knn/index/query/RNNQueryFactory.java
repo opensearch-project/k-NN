@@ -88,6 +88,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 .indexName(indexName)
                 .parentsFilter(parentFilter)
                 .radius(radius)
+                .vectorDataType(vectorDataType)
                 .methodParameters(methodParameters)
                 .context(knnQueryContext)
                 .filterQuery(filterQuery)

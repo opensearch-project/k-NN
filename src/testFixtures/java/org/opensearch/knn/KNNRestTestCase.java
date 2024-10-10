@@ -100,6 +100,8 @@ import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
@@ -638,7 +640,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Add a single KNN Doc to an index with multiple fields
      */
     protected void addKnnDoc(String index, String docId, List<String> fieldNames, List<Object[]> vectors) throws IOException {
-        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
+        addKnnDoc(index, docId, fieldNames, vectors, true);
+    }
+
+    protected void addKnnDoc(String index, String docId, List<String> fieldNames, List<Object[]> vectors, boolean refresh)
+        throws IOException {
+        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=" + refresh);
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
         for (int i = 0; i < fieldNames.size(); i++) {
@@ -765,6 +772,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .put("number_of_replicas", 1)
             .put("index.knn", true)
             .put("index.replication.type", "SEGMENT")
+            .build();
+    }
+
+    protected Settings buildKNNIndexSettings(int approximateThreshold) {
+        return Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put(KNN_INDEX, true)
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold)
             .build();
     }
 
