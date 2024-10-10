@@ -5,15 +5,12 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.Encoder;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponent;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
-import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Set;
 
@@ -30,11 +27,12 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_PQ_DESCRIPTION;
  * Faiss IVF PQ encoder. Right now, the implementations are slightly different during validation between this an
  * {@link FaissHNSWPQEncoder}. Hence, they are separate classes.
  */
-public class FaissIVFPQEncoder implements Encoder {
+public class FaissIVFPQEncoder extends AbstractFaissPQEncoder {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
-    private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
+    @VisibleForTesting
+    final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
             ENCODER_PARAMETER_PQ_M,
@@ -92,14 +90,5 @@ public class FaissIVFPQEncoder implements Encoder {
     @Override
     public MethodComponent getMethodComponent() {
         return METHOD_COMPONENT;
-    }
-
-    @Override
-    public CompressionLevel calculateCompressionLevel(
-        MethodComponentContext methodComponentContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        // TODO: For now, not supported out of the box
-        return CompressionLevel.NOT_CONFIGURED;
     }
 }
