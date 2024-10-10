@@ -15,7 +15,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
 import java.util.Locale;
 import lombok.SneakyThrows;
-import org.apache.hc.core5.http.ParseException;
+import org.apache.http.ParseException;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.opensearch.knn.KNNRestTestCase;
