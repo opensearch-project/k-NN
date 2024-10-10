@@ -43,30 +43,6 @@ public final class RescoreContext {
      * Flag to track whether the oversample factor is user-provided or default. The Reason to introduce
      * this is to set default when Shard Level rescoring is false,
      * else we end up overriding user provided value in NativeEngineKnnVectorQuery
-     *
-     *
-     * This flag is crucial to differentiate between user-defined oversample factors and system-assigned
-     * default values. The behavior of oversampling logic, especially when shard-level rescoring is disabled,
-     * depends on whether the user explicitly provided an oversample factor or whether the system is using
-     * a default value.
-     *
-     * When shard-level rescoring is disabled, the system applies dimension-based oversampling logic,
-     * overriding any default values. However, if the user provides their own oversample factor, the system
-     * should respect the user’s input and avoid overriding it with the dimension-based logic.
-     *
-     * This flag is set to {@code true} when the oversample factor is provided by the user, ensuring
-     * that their value is not overridden. It is set to {@code false} when the oversample factor is
-     * determined by system defaults (e.g., through a compression level or automatic logic). The system
-     * then applies its own oversampling rules if necessary.
-     *
-     * Key scenarios:
-     * - If {@code userProvided} is {@code true} and shard-level rescoring is disabled, the user's
-     *   oversample factor is used as is, without applying the dimension-based logic.
-     * - If {@code userProvided} is {@code false}, the system applies dimension-based oversampling
-     *   when shard-level rescoring is disabled.
-     *
-     * This flag enables flexibility, allowing the system to handle both user-defined and default
-     * behaviors, ensuring the correct oversampling logic is applied based on the context.
      */
     @Builder.Default
     private boolean userProvided = true;
