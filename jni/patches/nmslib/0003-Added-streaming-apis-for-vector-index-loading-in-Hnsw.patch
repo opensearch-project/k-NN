@@ -1,14 +1,14 @@
-From ea99c7ce2cb1775d8130da9eaaffeff89bb6ffd3 Mon Sep 17 00:00:00 2001
+From 2e9b7f7117842009e081dd79e8ab8b019122a3de Mon Sep 17 00:00:00 2001
 From: Dooyong Kim <kdooyong@amazon.com>
-Date: Fri, 11 Oct 2024 14:05:40 -0700
+Date: Fri, 11 Oct 2024 16:19:45 -0700
 Subject: [PATCH] Added streaming apis for vector index loading in Hnsw.
 
 Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
 ---
  similarity_search/include/method/hnsw.h |   3 +
- similarity_search/include/utils.h       |  12 ++
- similarity_search/src/method/hnsw.cc    | 139 +++++++++++++++++++++++-
- 3 files changed, 153 insertions(+), 1 deletion(-)
+ similarity_search/include/utils.h       |  12 +++
+ similarity_search/src/method/hnsw.cc    | 138 +++++++++++++++++++++++-
+ 3 files changed, 152 insertions(+), 1 deletion(-)
 
 diff --git a/similarity_search/include/method/hnsw.h b/similarity_search/include/method/hnsw.h
 index e6dcea7..433f98f 100644
@@ -61,7 +61,7 @@ index b521c26..a3931b7 100644
  static void readBinaryPOD(istream& in, T& podRef) {
    in.read((char*)&podRef, sizeof(T));
 diff --git a/similarity_search/src/method/hnsw.cc b/similarity_search/src/method/hnsw.cc
-index 4080b3b..63482fd 100644
+index 4080b3b..662f06c 100644
 --- a/similarity_search/src/method/hnsw.cc
 +++ b/similarity_search/src/method/hnsw.cc
 @@ -950,7 +950,6 @@ namespace similarity {
@@ -72,13 +72,12 @@ index 4080b3b..63482fd 100644
      template <typename dist_t>
      void
      Hnsw<dist_t>::LoadRegularIndexBin(std::istream& input) {
-@@ -1034,6 +1033,144 @@ namespace similarity {
+@@ -1034,6 +1033,143 @@ namespace similarity {
  
      }
  
 +    constexpr bool _isLittleEndian() {
-+        uint32_t value = 1;
-+        return (value & 0xFFU) == 1;
++        return (((uint32_t) 1) & 0xFFU) == 1;
 +    }
 +                        
 +    SIZEMASS_TYPE _readIntBigEndian(uint8_t byte0, uint8_t byte1, uint8_t byte2, uint8_t byte3) noexcept {
