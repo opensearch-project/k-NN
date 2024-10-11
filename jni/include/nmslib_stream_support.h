@@ -12,40 +12,36 @@
 #ifndef OPENSEARCH_KNN_JNI_NMSLIB_STREAM_SUPPORT_H
 #define OPENSEARCH_KNN_JNI_NMSLIB_STREAM_SUPPORT_H
 
-#include "jni_util.h"
 #include "native_engines_stream_support.h"
-
-#include <jni.h>
-#include <stdexcept>
-#include <iostream>
-#include <cstring>
 
 namespace knn_jni {
 namespace stream {
 
+
+
 /**
- * std::streambuf implementation delegating NativeEngineIndexInputMediator to read bytes.
- * This class is expected to be wrapped as std::istream, then to be passed to NMSLIB.
- * NMSLIB will rely on the passed std::istream to read required bytes.
+ * NmslibIOReader implementation delegating NativeEngineIndexInputMediator to read bytes.
  */
-class NmslibMediatorInputStreamBuffer final : public std::streambuf {
+class NmslibOpenSearchIOReader final : public similarity::NmslibIOReader {
  public:
-  explicit NmslibMediatorInputStreamBuffer(NativeEngineIndexInputMediator *_mediator)
-      : std::streambuf(),
-        mediator(_mediator) {
+  explicit NmslibOpenSearchIOReader(NativeEngineIndexInputMediator *_mediator)
+      : mediator(_mediator) {
   }
 
- protected:
-  std::streamsize xsgetn(std::streambuf::char_type *destination, std::streamsize count) final {
-    if (count > 0) {
-      mediator->copyBytes(count, (uint8_t *) destination);
+  void read(char *bytes, size_t len) final {
+    if (len > 0) {
+      // Mediator calls IndexInput, then copy read bytes to `ptr`.
+      mediator->copyBytes(len, (uint8_t *) bytes);
     }
-    return count;
+  }
+
+  size_t remainingBytes() final {
+    return mediator->remainingBytes();
   }
 
  private:
   NativeEngineIndexInputMediator *mediator;
-};  // NmslibMediatorInputStreamBuffer
+};  // class NmslibOpenSearchIOReader
 
 
 

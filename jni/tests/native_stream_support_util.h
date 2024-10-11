@@ -36,6 +36,10 @@ struct JavaIndexInputMock {
     return (int32_t) readBytes;
   }
 
+  int64_t remainingBytes() {
+      return readTargetBytes.size() - nextReadIdx;
+  }
+
   static std::string makeRandomBytes(int32_t bytesSize) {
     // Define the list of possible characters
     static const string CHARACTERS
@@ -72,6 +76,14 @@ struct JavaFileIndexInputMock {
   JavaFileIndexInputMock(std::ifstream &_file_input, int32_t _buf_size)
       : file_input(_file_input),
         buffer(_buf_size) {
+  }
+
+  int64_t remainingBytes() {
+    std::streampos currentPos = file_input.tellg();
+    file_input.seekg(0, std::ios::end);
+    std::streamsize fileSize = file_input.tellg();
+    file_input.seekg(currentPos);
+    return fileSize - currentPos;
   }
 
   int32_t copyBytes(int64_t read_size) {

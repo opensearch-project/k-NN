@@ -264,10 +264,7 @@ jlong knn_jni::nmslib_wrapper::LoadIndexWithStream(knn_jni::JNIUtilInterface *jn
   // Note that `indexInput` is `IndexInputWithBuffer` type.
   knn_jni::stream::NativeEngineIndexInputMediator mediator{jniUtil, env, readStream};
 
-  // Create NMSLIB buffer.
-  knn_jni::stream::NmslibMediatorInputStreamBuffer nmslib_mediator_stream_buf{&mediator};
-
-  std::istream input{&nmslib_mediator_stream_buf};
+  knn_jni::stream::NmslibOpenSearchIOReader ioReader {&mediator};
 
   // Load index
   knn_jni::nmslib_wrapper::IndexWrapper *indexWrapper = nullptr;
@@ -276,9 +273,9 @@ jlong knn_jni::nmslib_wrapper::LoadIndexWithStream(knn_jni::JNIUtilInterface *jn
     indexWrapper->index->SetQueryTimeParams(similarity::AnyParams(queryParams));
 
     if (auto hnswFloatIndex = dynamic_cast<similarity::Hnsw<float> *>(indexWrapper->index.get())) {
-      hnswFloatIndex->LoadIndexWithStream(input);
+      hnswFloatIndex->LoadIndexWithStream(ioReader);
     } else {
-      throw std::runtime_error("Failed to cast index of NMSLIB to similarity::Hnsw<float>.");
+      throw std::runtime_error("We only support similarity::Hnsw<float> in NMSLIB.");
     }
   } catch (...) {
     delete indexWrapper;

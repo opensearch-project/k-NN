@@ -15,7 +15,6 @@
 
 #include "jni_util.h"
 #include "nmslib_wrapper.h"
-#include "nmslib_stream_support.h"
 
 static knn_jni::JNIUtil jniUtil;
 static const jint KNN_NMSLIB_JNI_VERSION = JNI_VERSION_1_1;

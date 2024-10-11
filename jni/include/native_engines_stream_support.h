@@ -39,14 +39,19 @@ class NativeEngineIndexInputMediator {
         bufferArray((jbyteArray) (_jni_interface->GetObjectField(_env,
                                                                  _indexInput,
                                                                  getBufferFieldId(_jni_interface, _env)))),
-        copyBytesMethod(getCopyBytesMethod(_jni_interface, _env)) {
+        copyBytesMethod(getCopyBytesMethod(_jni_interface, _env)),
+        remainingBytesMethod(getRemainingBytesMethod(_jni_interface, _env)) {
   }
 
   void copyBytes(int64_t nbytes, uint8_t *destination) {
+    auto jclazz = getIndexInputWithBufferClass(jni_interface, env);
+
     while (nbytes > 0) {
       // Call `copyBytes` to read bytes as many as possible.
+      jvalue args;
+      args.j = nbytes;
       const auto readBytes =
-          jni_interface->CallIntMethodLong(env, indexInput, copyBytesMethod, nbytes);
+          jni_interface->CallNonvirtualIntMethodA(env, indexInput, jclazz, copyBytesMethod, &args);
 
       // === Critical Section Start ===
 
@@ -69,6 +74,14 @@ class NativeEngineIndexInputMediator {
     }  // End while
   }
 
+  int64_t remainingBytes() {
+      return jni_interface->CallNonvirtualLongMethodA(env,
+                                                      indexInput,
+                                                      getIndexInputWithBufferClass(jni_interface, env),
+                                                      remainingBytesMethod,
+                                                      nullptr);
+  }
+
  private:
   static jclass getIndexInputWithBufferClass(JNIUtilInterface *jni_interface, JNIEnv *env) {
     static jclass INDEX_INPUT_WITH_BUFFER_CLASS =
@@ -79,6 +92,12 @@ class NativeEngineIndexInputMediator {
   static jmethodID getCopyBytesMethod(JNIUtilInterface *jni_interface, JNIEnv *env) {
     static jmethodID COPY_METHOD_ID =
         jni_interface->GetMethodID(env, getIndexInputWithBufferClass(jni_interface, env), "copyBytes", "(J)I");
+    return COPY_METHOD_ID;
+  }
+
+  static jmethodID getRemainingBytesMethod(JNIUtilInterface *jni_interface, JNIEnv *env) {
+    static jmethodID COPY_METHOD_ID =
+        jni_interface->GetMethodID(env, getIndexInputWithBufferClass(jni_interface, env), "remainingBytes", "()J");
     return COPY_METHOD_ID;
   }
 
@@ -95,6 +114,7 @@ class NativeEngineIndexInputMediator {
   jobject indexInput;
   jbyteArray bufferArray;
   jmethodID copyBytesMethod;
+  jmethodID remainingBytesMethod;
 }; // class NativeEngineIndexInputMediator
 
 

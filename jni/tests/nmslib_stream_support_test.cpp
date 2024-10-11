@@ -25,12 +25,22 @@ using ::test_util::JavaFileIndexInputMock;
 
 void setUpJavaFileInputMocking(JavaFileIndexInputMock &java_index_input, MockJNIUtil &mockJni) {
   // Set up mocking values + mocking behavior in a method.
-  EXPECT_CALL(mockJni, CallIntMethodLong(_, _, _, _)).WillRepeatedly([&java_index_input](JNIEnv *env,
-                                                                                         jobject obj,
-                                                                                         jmethodID methodID,
-                                                                                         int64_t readBytes) {
-    return java_index_input.copyBytes(readBytes);
-  });
+  EXPECT_CALL(mockJni, CallNonvirtualIntMethodA(_, _, _, _, _))
+      .WillRepeatedly([&java_index_input](JNIEnv *env,
+                                                 jobject obj,
+                                                 jclass clazz,
+                                                 jmethodID methodID,
+                                                 jvalue *args) {
+        return java_index_input.copyBytes(args[0].j);
+      });
+  EXPECT_CALL(mockJni, CallNonvirtualLongMethodA(_, _, _, _, _))
+      .WillRepeatedly([&java_index_input](JNIEnv *env,
+                                          jobject obj,
+                                          jclass clazz,
+                                          jmethodID methodID,
+                                          jvalue *args) {
+        return java_index_input.remainingBytes();
+      });
   EXPECT_CALL(mockJni, GetPrimitiveArrayCritical(_, _, _)).WillRepeatedly([&java_index_input](JNIEnv *env,
                                                                                               jarray array,
                                                                                               jboolean *isCopy) {

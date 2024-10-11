@@ -27,12 +27,21 @@ using ::testing::Return;
 
 void setUpMockJNIUtil(JavaIndexInputMock &javaIndexInputMock, MockJNIUtil &mockJni) {
   // Set up mocking values + mocking behavior in a method.
-  EXPECT_CALL(mockJni, CallIntMethodLong(_, _, _, _))
+  EXPECT_CALL(mockJni, CallNonvirtualIntMethodA(_, _, _, _, _))
       .WillRepeatedly([&javaIndexInputMock](JNIEnv *env,
                                             jobject obj,
+                                            jclass clazz,
                                             jmethodID methodID,
-                                            int64_t longArg) {
-        return javaIndexInputMock.simulateCopyReads(longArg);
+                                            jvalue* args) {
+        return javaIndexInputMock.simulateCopyReads(args[0].j);
+      });
+  EXPECT_CALL(mockJni, CallNonvirtualLongMethodA(_, _, _, _, _))
+      .WillRepeatedly([&javaIndexInputMock](JNIEnv *env,
+                                            jobject obj,
+                                            jclass clazz,
+                                            jmethodID methodID,
+                                            jvalue* args) {
+        return javaIndexInputMock.remainingBytes();
       });
   EXPECT_CALL(mockJni, GetPrimitiveArrayCritical(_, _, _))
       .WillRepeatedly([&javaIndexInputMock](JNIEnv *env,
