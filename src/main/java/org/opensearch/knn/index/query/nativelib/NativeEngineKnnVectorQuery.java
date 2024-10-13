@@ -53,7 +53,7 @@ public class NativeEngineKnnVectorQuery extends Query {
     @Override
     public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException {
         final IndexReader reader = indexSearcher.getIndexReader();
-        final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
+        final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<Map<Integer, Float>> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
