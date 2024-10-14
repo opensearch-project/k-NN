@@ -96,13 +96,17 @@ public class KNNCodecUtil {
             return null;
         }
         // Only Native Engine put into indexPathMap
-        KNNEngine knnEngine = getNativeKNNEngine(field);
+        final KNNEngine knnEngine = getNativeKNNEngine(field);
         if (knnEngine == null) {
             return null;
         }
         final List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), field.name, segmentInfo);
-        final String vectorIndexFileName = engineFiles.get(0);
-        return vectorIndexFileName;
+        if (engineFiles.isEmpty()) {
+            return null;
+        } else {
+            final String vectorIndexFileName = engineFiles.get(0);
+            return vectorIndexFileName;
+        }
     }
 
     /**
@@ -112,11 +116,10 @@ public class KNNCodecUtil {
      * @return if and only if Native Engine we return specific engine, else return null
      */
     private static KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
-        final String modelId = field.getAttribute(MODEL_ID);
-        if (modelId != null) {
+        if (field.attributes().containsKey(MODEL_ID)) {
             return null;
         }
-        KNNEngine engine = FieldInfoExtractor.extractKNNEngine(field);
+        final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(field);
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
             return engine;
         }
