@@ -27,20 +27,10 @@ public enum CompressionLevel {
     x4(4, "4x", null, Collections.emptySet()),
     x8(8, "8x", new RescoreContext(2.0f, false), Set.of(Mode.ON_DISK)),
     x16(16, "16x", new RescoreContext(3.0f, false), Set.of(Mode.ON_DISK)),
-    x32(32, "32x", new RescoreContext(3.0f, false), Set.of(Mode.ON_DISK));
+    x32(32, "32x", new RescoreContext(3.0f, false), Set.of(Mode.ON_DISK)),
+    x64(64, "64x", new RescoreContext(5.0f, false), Set.of(Mode.ON_DISK));
 
-    public static final CompressionLevel MAX_COMPRESSION_LEVEL = CompressionLevel.x32;
-
-    // Internally, an empty string is easier to deal with them null. However, from the mapping,
-    // we do not want users to pass in the empty string and instead want null. So we make the conversion here
-    public static final String[] NAMES_ARRAY = new String[] {
-        NOT_CONFIGURED.getName(),
-        x1.getName(),
-        x2.getName(),
-        x4.getName(),
-        x8.getName(),
-        x16.getName(),
-        x32.getName() };
+    public static final CompressionLevel MAX_COMPRESSION_LEVEL = CompressionLevel.x64;
 
     /**
      * Default is set to 1x and is a noop
