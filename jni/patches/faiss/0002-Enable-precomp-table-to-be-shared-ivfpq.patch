@@ -1,4 +1,4 @@
-From a33e6ef35385009f24200586294f96235cb95d61 Mon Sep 17 00:00:00 2001
+From 9b33874562c9e62abf4a863657c54f0d349b0f67 Mon Sep 17 00:00:00 2001
 From: John Mazanec <jmazane@amazon.com>
 Date: Wed, 21 Feb 2024 15:34:15 -0800
 Subject: [PATCH] Enable precomp table to be shared ivfpq
@@ -22,7 +22,7 @@ Signed-off-by: John Mazanec <jmazane@amazon.com>
  create mode 100644 tests/test_ivfpq_share_table.cpp
 
 diff --git a/faiss/IndexIVFPQ.cpp b/faiss/IndexIVFPQ.cpp
-index 0b7f4d05..07bc7e83 100644
+index 100f499c..09508890 100644
 --- a/faiss/IndexIVFPQ.cpp
 +++ b/faiss/IndexIVFPQ.cpp
 @@ -59,6 +59,29 @@ IndexIVFPQ::IndexIVFPQ(
@@ -55,7 +55,7 @@ index 0b7f4d05..07bc7e83 100644
  }
  
  /****************************************************************
-@@ -466,11 +489,23 @@ void IndexIVFPQ::precompute_table() {
+@@ -464,11 +487,23 @@ void IndexIVFPQ::precompute_table() {
              use_precomputed_table,
              quantizer,
              pq,
@@ -80,7 +80,7 @@ index 0b7f4d05..07bc7e83 100644
  namespace {
  
  #define TIC t0 = get_cycles()
-@@ -650,7 +685,7 @@ struct QueryTables {
+@@ -648,7 +683,7 @@ struct QueryTables {
  
              fvec_madd(
                      pq.M * pq.ksub,
@@ -89,7 +89,7 @@ index 0b7f4d05..07bc7e83 100644
                      -2.0,
                      sim_table_2,
                      sim_table);
-@@ -679,7 +714,7 @@ struct QueryTables {
+@@ -677,7 +712,7 @@ struct QueryTables {
                  k >>= cpq.nbits;
  
                  // get corresponding table
@@ -98,7 +98,7 @@ index 0b7f4d05..07bc7e83 100644
                          (ki * pq.M + cm * Mf) * pq.ksub;
  
                  if (polysemous_ht == 0) {
-@@ -709,7 +744,7 @@ struct QueryTables {
+@@ -707,7 +742,7 @@ struct QueryTables {
              dis0 = coarse_dis;
  
              const float* s =
@@ -107,7 +107,7 @@ index 0b7f4d05..07bc7e83 100644
              for (int m = 0; m < pq.M; m++) {
                  sim_table_ptrs[m] = s;
                  s += pq.ksub;
-@@ -729,7 +764,7 @@ struct QueryTables {
+@@ -727,7 +762,7 @@ struct QueryTables {
                  int ki = k & ((uint64_t(1) << cpq.nbits) - 1);
                  k >>= cpq.nbits;
  
@@ -116,7 +116,7 @@ index 0b7f4d05..07bc7e83 100644
                          (ki * pq.M + cm * Mf) * pq.ksub;
  
                  for (int m = m0; m < m0 + Mf; m++) {
-@@ -1346,6 +1381,8 @@ IndexIVFPQ::IndexIVFPQ() {
+@@ -1344,6 +1379,8 @@ IndexIVFPQ::IndexIVFPQ() {
      do_polysemous_training = false;
      polysemous_ht = 0;
      polysemous_training = nullptr;
@@ -302,13 +302,13 @@ index 00dd2f11..91f35a6e 100644
      /// same as the regular IVFPQ encoder. The codes are not reorganized by
      /// blocks a that point
 diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
-index c888a5a6..83ecedfd 100644
+index 87ab2020..a859516c 100644
 --- a/tests/CMakeLists.txt
 +++ b/tests/CMakeLists.txt
-@@ -37,6 +37,7 @@ set(FAISS_TEST_SRC
-   test_disable_pq_sdc_tables.cpp
+@@ -38,6 +38,7 @@ set(FAISS_TEST_SRC
    test_common_ivf_empty_index.cpp
    test_callback.cpp
+   test_utils.cpp
 +  test_ivfpq_share_table.cpp
  )
  
