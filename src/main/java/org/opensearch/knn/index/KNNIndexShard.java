@@ -14,8 +14,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
@@ -29,7 +27,6 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -166,7 +163,6 @@ public class KNNIndexShard {
 
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
             SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-            Path shardPath = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory();
             String fileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
                 ? knnEngine.getCompoundExtension()
                 : knnEngine.getExtension();
@@ -184,7 +180,6 @@ public class KNNIndexShard {
                             reader.getSegmentInfo().info.name,
                             fieldInfo.name,
                             fileExtension,
-                            shardPath,
                             spaceType,
                             modelId,
                             FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
@@ -206,7 +201,6 @@ public class KNNIndexShard {
         String segmentName,
         String fieldName,
         String fileExtension,
-        Path shardPath,
         SpaceType spaceType,
         String modelId,
         VectorDataType vectorDataType
@@ -216,7 +210,6 @@ public class KNNIndexShard {
         return files.stream()
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
-            .map(fileName -> shardPath.resolve(fileName).toString())
             .map(fileName -> new EngineFileContext(spaceType, modelId, fileName, vectorDataType))
             .collect(Collectors.toList());
     }
