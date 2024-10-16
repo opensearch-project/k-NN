@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
@@ -74,6 +75,17 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     private static KNNVectorFieldMapper toType(FieldMapper in) {
         return (KNNVectorFieldMapper) in;
     }
+
+    // Supported compression levels for knn_vector field type
+    @VisibleForTesting
+    public static final String[] MAPPING_COMPRESSION_NAMES_ARRAY = new String[] {
+        CompressionLevel.NOT_CONFIGURED.getName(),
+        CompressionLevel.x1.getName(),
+        CompressionLevel.x2.getName(),
+        CompressionLevel.x4.getName(),
+        CompressionLevel.x8.getName(),
+        CompressionLevel.x16.getName(),
+        CompressionLevel.x32.getName() };
 
     /**
      * Builder for KNNVectorFieldMapper. This class defines the set of parameters that can be applied to the knn_vector
@@ -161,7 +173,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNConstants.COMPRESSION_LEVEL_PARAMETER,
             false,
             m -> toType(m).originalMappingParameters.getCompressionLevel(),
-            CompressionLevel.NAMES_ARRAY
+            MAPPING_COMPRESSION_NAMES_ARRAY
         ).acceptsNull();
 
         // A top level space Type field.

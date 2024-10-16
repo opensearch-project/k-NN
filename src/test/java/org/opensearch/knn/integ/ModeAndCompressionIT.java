@@ -39,6 +39,7 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.MAPPING_COMPRESSION_NAMES_ARRAY;
 
 public class ModeAndCompressionIT extends KNNRestTestCase {
 
@@ -253,7 +254,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     public void testTraining_whenValid_thenSucceed() {
         setupTrainingIndex();
         XContentBuilder builder;
-        for (String compressionLevel : CompressionLevel.NAMES_ARRAY) {
+        for (String compressionLevel : MAPPING_COMPRESSION_NAMES_ARRAY) {
             if (compressionLevel.equals("4x")) {
                 continue;
             }
