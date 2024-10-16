@@ -70,7 +70,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             }
 
             StopWatch stopWatch = new StopWatch().start();
-            perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, finalK);
+            perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults);
             long rescoreTime = stopWatch.stop().totalTime().millis();
             log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, leafReaderContexts.size());
         }
@@ -104,8 +104,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         final IndexSearcher indexSearcher,
         List<LeafReaderContext> leafReaderContexts,
         KNNWeight knnWeight,
-        List<Map<Integer, Float>> perLeafResults,
-        int k
+        List<Map<Integer, Float>> perLeafResults
     ) throws IOException {
         List<Callable<Map<Integer, Float>>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
         for (int i = 0; i < perLeafResults.size(); i++) {
@@ -117,7 +116,6 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .matchedDocs(convertedBitSet)
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
                     .useQuantizedVectorsForSearch(false)
-                    .k(k)
                     .isParentHits(false)
                     .knnQuery(knnQuery)
                     .build();

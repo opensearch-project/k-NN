@@ -63,11 +63,11 @@ public class ExactSearcher {
         if (exactSearcherContext.getKnnQuery().getRadius() != null) {
             return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
         }
-        if (exactSearcherContext.getMatchedDocs() != null
-            && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
+        final int k = exactSearcherContext.getKnnQuery().getK();
+        if (exactSearcherContext.getMatchedDocs() != null && exactSearcherContext.getMatchedDocs().cardinality() <= k) {
             return scoreAllDocs(iterator);
         }
-        return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
+        return searchTopCandidates(iterator, k, Predicates.alwaysTrue());
     }
 
     /**
@@ -232,7 +232,6 @@ public class ExactSearcher {
          * re-scoring we need to re-score using full precision vectors and not quantized vectors.
          */
         boolean useQuantizedVectorsForSearch;
-        int k;
         BitSet matchedDocs;
         KNNQuery knnQuery;
         /**

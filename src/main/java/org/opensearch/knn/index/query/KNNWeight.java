@@ -143,7 +143,7 @@ public class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            return doExactSearch(context, filterBitSet, k);
+            return doExactSearch(context, filterBitSet);
         }
         Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
         // See whether we have to perform exact search based on approx search results
@@ -151,7 +151,7 @@ public class KNNWeight extends Weight {
         // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, docIdsToScoreMap.size())) {
             final BitSet docs = filterWeight != null ? filterBitSet : null;
-            return doExactSearch(context, docs, k);
+            return doExactSearch(context, docs);
         }
         return docIdsToScoreMap;
     }
@@ -208,10 +208,9 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private Map<Integer, Float> doExactSearch(final LeafReaderContext context, final BitSet acceptedDocs, int k) throws IOException {
+    private Map<Integer, Float> doExactSearch(final LeafReaderContext context, final BitSet acceptedDocs) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
             .isParentHits(true)
-            .k(k)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
