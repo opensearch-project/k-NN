@@ -1712,7 +1712,8 @@ public class FaissIT extends KNNRestTestCase {
             () -> ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount)
         );
         assertTrue(
-            re.getMessage().contains("Validation Failed: 1: parameter validation failed for MethodComponentContext parameter [encoder].;")
+            re.getMessage(),
+            re.getMessage().contains("Validation Failed: 1: parameter validation failed for Integer parameter [m].;")
         );
     }
 
