@@ -53,22 +53,22 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         this.segmentReadState = state;
         this.flatVectorsReader = flatVectorsReader;
         loadCacheKeyMap();
-        fillIndexToVectorFileName(state);
+        fillIndexToVectorFileName();
     }
 
-    private void fillIndexToVectorFileName(SegmentReadState state) {
-        for (FieldInfo field : state.fieldInfos) {
+    private void fillIndexToVectorFileName() {
+        for (FieldInfo field : segmentReadState.fieldInfos) {
             if (!field.attributes().containsKey(KNN_FIELD)) {
                 continue;
             }
             if (!field.hasVectorValues()) {
                 continue;
             }
-            final String vectorIndexFileName = KNNCodecUtil.getEngineFileFromFieldInfo(field, state.segmentInfo);
+            final String vectorIndexFileName = KNNCodecUtil.getEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
             if (vectorIndexFileName == null) {
                 continue;
             }
-            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, state.segmentInfo);
+            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
             fieldNameToVectorFileName.putIfAbsent(field.getName(), cacheKey);
         }
     }
