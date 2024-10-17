@@ -26,6 +26,14 @@ public final class NativeMemoryCacheKeyHelper {
         return cacheKey;
     }
 
+    /**
+     * From cacheKey, we extract a vector file name.
+     * Note that expected format of cacheKey consists of two part with '@' as a delimiter.
+     * First part would be the vector file name, the second one is the segment id.
+     *
+     * @param cacheKey : Cache key for {@link org.opensearch.knn.index.memory.NativeMemoryCacheManager}
+     * @return : Vector file name, if the given cacheKey was invalid format, returns null.
+     */
     public static String extractVectorIndexFileName(final String cacheKey) {
         final int indexOfDelimiter = cacheKey.indexOf('@');
         if (indexOfDelimiter != -1) {

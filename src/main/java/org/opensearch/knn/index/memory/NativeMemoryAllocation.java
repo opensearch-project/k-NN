@@ -129,7 +129,7 @@ public interface NativeMemoryAllocation {
          * @param memoryAddress Pointer in memory to the index
          * @param sizeKb Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
-         * @param vectorFileName File path to index
+         * @param vectorFileName Vector file name. Ex: _0_165_my_field.faiss
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
          */
         IndexAllocation(
@@ -150,7 +150,7 @@ public interface NativeMemoryAllocation {
          * @param memoryAddress Pointer in memory to the index
          * @param sizeKb Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
-         * @param vectorFileName Vector file name
+         * @param vectorFileName Vector file name. Ex: _0_165_my_field.faiss
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
          * @param sharedIndexState Shared index state. If not shared state present, pass null.
          */

@@ -90,6 +90,14 @@ public class KNNCodecUtil {
         return engineFiles;
     }
 
+    /**
+     * Get engine file name from given field and segment info.
+     * Ex: _0_165_my_field.faiss
+     *
+     * @param field : Field info that might have a vector index file. Not always it has it.
+     * @param segmentInfo : Segment where we are collecting an engine file list.
+     * @return : Found vector engine names, if not found, returns null.
+     */
     public static String getEngineFileFromFieldInfo(FieldInfo field, SegmentInfo segmentInfo) {
         if (!field.attributes().containsKey(KNN_FIELD)) {
             return null;
