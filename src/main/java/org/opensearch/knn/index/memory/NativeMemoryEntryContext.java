@@ -80,26 +80,26 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * Constructor
          *
          * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
-         * @param indexPath Path to index file. Also used as key in cache.
+         * @param vectorIndexCacheKey Cache key for {@link NativeMemoryCacheManager}. It must contain a vector file name.
          * @param indexLoadStrategy Strategy to load index into memory
          * @param parameters Load time parameters
          * @param openSearchIndexName Opensearch index associated with index
          */
         public IndexEntryContext(
             Directory directory,
-            String indexPath,
+            String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName
         ) {
-            this(directory, indexPath, indexLoadStrategy, parameters, openSearchIndexName, null);
+            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null);
         }
 
         /**
          * Constructor
          *
          * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
-         * @param indexPath path to index file. Also used as key in cache.
+         * @param vectorIndexCacheKey Cache key for {@link NativeMemoryCacheManager}. It must contain a vector file name.
          * @param indexLoadStrategy strategy to load index into memory
          * @param parameters load time parameters
          * @param openSearchIndexName opensearch index associated with index
@@ -107,13 +107,13 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          */
         public IndexEntryContext(
             Directory directory,
-            String indexPath,
+            String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName,
             String modelId
         ) {
-            super(indexPath);
+            super(vectorIndexCacheKey);
             this.directory = directory;
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;

@@ -19,7 +19,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 public class KNNCodecUtil {
@@ -116,9 +115,6 @@ public class KNNCodecUtil {
      * @return if and only if Native Engine we return specific engine, else return null
      */
     private static KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
-        if (field.attributes().containsKey(MODEL_ID)) {
-            return null;
-        }
         final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(field);
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
             return engine;

@@ -8,6 +8,11 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+import org.apache.lucene.index.SegmentCommitInfo;
+import org.apache.lucene.index.SegmentInfo;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.Version;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.engine.Engine;
@@ -15,8 +20,7 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -113,11 +117,14 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         searcher = indexShard.acquireSearcher("test-hnsw-paths-2");
         engineFileContexts = knnIndexShard.getAllEngineFileContexts(searcher.getIndexReader());
         assertEquals(1, engineFileContexts.size());
-        List<String> paths = engineFileContexts.stream().map(KNNIndexShard.EngineFileContext::getIndexPath).collect(Collectors.toList());
+        List<String> paths = engineFileContexts.stream()
+            .map(KNNIndexShard.EngineFileContext::getVectorFileName)
+            .collect(Collectors.toList());
         assertTrue(paths.get(0).contains("hnsw") || paths.get(0).contains("hnswc"));
         searcher.close();
     }
 
+    @SneakyThrows
     public void testGetEngineFileContexts() {
         // Check that the correct engine paths are being returned by the KNNIndexShard
         String segmentName = "_0";
@@ -143,20 +150,34 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
         KNNIndexShard knnIndexShard = new KNNIndexShard(null);
 
-        Path path = Paths.get("");
-        List<KNNIndexShard.EngineFileContext> included = knnIndexShard.getEngineFileContexts(
-            files,
+        final Directory dummyDirectory = Mockito.mock(Directory.class);
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            dummyDirectory,
+            Version.LATEST,
+            null,
             segmentName,
+            0,
+            false,
+            false,
+            null,
+            Collections.emptyMap(),
+            null,
+            Collections.emptyMap(),
+            null
+        );
+        segmentInfo.setFiles(files);
+        final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, -1, 0, 0, null);
+        List<KNNIndexShard.EngineFileContext> included = knnIndexShard.getEngineFileContexts(
+            segmentCommitInfo,
             fieldName,
             fileExt,
-            path,
             spaceType,
             modelId,
             vectorDataType
         );
 
         assertEquals(includedFileNames.size(), included.size());
-        included.stream().map(KNNIndexShard.EngineFileContext::getIndexPath).forEach(o -> assertTrue(includedFileNames.contains(o)));
+        included.stream().map(KNNIndexShard.EngineFileContext::getVectorFileName).forEach(o -> assertTrue(includedFileNames.contains(o)));
     }
 
     @SneakyThrows

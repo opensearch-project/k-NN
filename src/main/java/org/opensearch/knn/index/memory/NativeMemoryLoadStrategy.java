@@ -16,6 +16,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
@@ -71,16 +72,25 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
         @Override
         public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext indexEntryContext)
             throws IOException {
-            // Ex: _0_NativeEngines990KnnVectorsFormat_0.vec
-            final String vectorFileName = indexEntryContext.getKey();
-            final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(vectorFileName);
+            // Extract vector file name from the given cache key.
+            // Ex: _0_165_my_field.faiss@1vaqiupVUwvkXAG4Qc/RPg==
+            final String cacheKey = indexEntryContext.getKey();
+            final String vectorFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(cacheKey);
+            if (vectorFileName == null) {
+                throw new IllegalStateException(
+                    "Invalid cache key was given. The key [" + cacheKey + "] does not contain corresponding vector file name."
+                );
+            }
 
+            // Prepare for opening index input from directory.
+            final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(vectorFileName);
             final Directory directory = indexEntryContext.getDirectory();
             final int indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
 
+            // Try to open an index input then pass it down to native engine for loading an index.
             try (IndexInput readStream = directory.openInput(vectorFileName, IOContext.READONCE)) {
-                IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
-                long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
+                final long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
 
                 return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, indexSizeKb, vectorFileName);
             }

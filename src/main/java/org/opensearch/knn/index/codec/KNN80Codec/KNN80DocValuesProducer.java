@@ -16,19 +16,22 @@ import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
+import java.io.IOException;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 @Log4j2
 public class KNN80DocValuesProducer extends DocValuesProducer {
@@ -39,17 +42,23 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         this.delegate = delegate;
 
         for (FieldInfo field : state.fieldInfos) {
+            if (!field.attributes().containsKey(KNN_FIELD)) {
+                continue;
+            }
             // Only segments that contains BinaryDocValues and doesn't have vector values should be considered.
             // By default, we don't create BinaryDocValues for knn field anymore. However, users can set doc_values = true
             // to create binary doc values explicitly like any other field. Hence, we only want to include fields
             // where approximate search is possible only by BinaryDocValues.
-            if (field.hasVectorValues() || field.getDocValuesType() != DocValuesType.BINARY) {
+            if (field.getDocValuesType() != DocValuesType.BINARY || field.hasVectorValues()) {
                 continue;
             }
+
             final String vectorIndexFileName = KNNCodecUtil.getEngineFileFromFieldInfo(field, state.segmentInfo);
-            if (vectorIndexFileName != null) {
-                fieldNameToVectorFileName.putIfAbsent(field.getName(), vectorIndexFileName);
+            if (vectorIndexFileName == null) {
+                continue;
             }
+            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, state.segmentInfo);
+            fieldNameToVectorFileName.putIfAbsent(field.getName(), cacheKey);
         }
     }
 

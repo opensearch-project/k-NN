@@ -25,6 +25,7 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -34,6 +35,8 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 /**
  * Vectors reader class for reading the flat vectors for native engines. The class provides methods for iterating
@@ -55,10 +58,18 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private void fillIndexToVectorFileName(SegmentReadState state) {
         for (FieldInfo field : state.fieldInfos) {
-            final String vectorIndexFileName = KNNCodecUtil.getEngineFileFromFieldInfo(field, state.segmentInfo);
-            if (vectorIndexFileName != null) {
-                fieldNameToVectorFileName.putIfAbsent(field.getName(), vectorIndexFileName);
+            if (!field.attributes().containsKey(KNN_FIELD)) {
+                continue;
             }
+            if (!field.hasVectorValues()) {
+                continue;
+            }
+            final String vectorIndexFileName = KNNCodecUtil.getEngineFileFromFieldInfo(field, state.segmentInfo);
+            if (vectorIndexFileName == null) {
+                continue;
+            }
+            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, state.segmentInfo);
+            fieldNameToVectorFileName.putIfAbsent(field.getName(), cacheKey);
         }
     }
 

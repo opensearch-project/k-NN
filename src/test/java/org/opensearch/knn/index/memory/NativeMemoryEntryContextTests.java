@@ -58,8 +58,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             10,
             KNNEngine.DEFAULT,
             "test-path",
-            "test-name",
-            null
+            "test-name"
         );
 
         when(indexLoadStrategy.load(indexEntryContext)).thenReturn(indexAllocation);

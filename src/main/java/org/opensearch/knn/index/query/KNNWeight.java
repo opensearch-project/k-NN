@@ -26,6 +26,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -274,6 +275,7 @@ public class KNNWeight extends Weight {
         }
 
         final String vectorIndexFileName = engineFiles.get(0);
+        final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, reader.getSegmentInfo().info);
 
         final KNNQueryResult[] results;
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
@@ -284,7 +286,7 @@ public class KNNWeight extends Weight {
             indexAllocation = nativeMemoryCacheManager.get(
                 new NativeMemoryEntryContext.IndexEntryContext(
                     reader.directory(),
-                    vectorIndexFileName,
+                    cacheKey,
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                     getParametersAtLoading(
                         spaceType,

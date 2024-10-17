@@ -12,12 +12,15 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SegmentCommitInfo;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.Directory;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -28,7 +31,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -91,14 +93,18 @@ public class KNNIndexShard {
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
             getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                 try {
+                    final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(
+                        engineFileContext.vectorFileName,
+                        engineFileContext.segmentInfo
+                    );
                     nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
                             directory,
-                            engineFileContext.getIndexPath(),
+                            cacheKey,
                             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                             getParametersAtLoading(
                                 engineFileContext.getSpaceType(),
-                                KNNEngine.getEngineNameFromPath(engineFileContext.getIndexPath()),
+                                KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
                                 getIndexName(),
                                 engineFileContext.getVectorDataType()
                             ),
@@ -130,9 +136,13 @@ public class KNNIndexShard {
             indexAllocation.writeLock();
             log.info("[KNN] Evicting index from cache: [{}]", indexName);
             try (Engine.Searcher searcher = indexShard.acquireSearcher(INDEX_SHARD_CLEAR_CACHE_SEARCHER)) {
-                getAllEngineFileContexts(searcher.getIndexReader()).forEach(
-                    (engineFileContext) -> nativeMemoryCacheManager.invalidate(engineFileContext.getIndexPath())
-                );
+                getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
+                    final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(
+                        engineFileContext.vectorFileName,
+                        engineFileContext.segmentInfo
+                    );
+                    nativeMemoryCacheManager.invalidate(cacheKey);
+                });
             } catch (IOException ex) {
                 log.error("[KNN] Failed to evict index from cache: [{}]", indexName, ex);
                 throw new RuntimeException(ex);
@@ -176,8 +186,7 @@ public class KNNIndexShard {
                     String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
                     engineFiles.addAll(
                         getEngineFileContexts(
-                            reader.getSegmentInfo().files(),
-                            reader.getSegmentInfo().info.name,
+                            reader.getSegmentInfo(),
                             fieldInfo.name,
                             fileExtension,
                             spaceType,
@@ -197,20 +206,22 @@ public class KNNIndexShard {
 
     @VisibleForTesting
     List<EngineFileContext> getEngineFileContexts(
-        Collection<String> files,
-        String segmentName,
+        SegmentCommitInfo segmentCommitInfo,
         String fieldName,
         String fileExtension,
         SpaceType spaceType,
         String modelId,
         VectorDataType vectorDataType
-    ) {
-        String prefix = buildEngineFilePrefix(segmentName);
-        String suffix = buildEngineFileSuffix(fieldName, fileExtension);
-        return files.stream()
+    ) throws IOException {
+        // Ex: _0
+        final String prefix = buildEngineFilePrefix(segmentCommitInfo.info.name);
+        // Ex: my_field.faiss
+        final String suffix = buildEngineFileSuffix(fieldName, fileExtension);
+        return segmentCommitInfo.files()
+            .stream()
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
-            .map(fileName -> new EngineFileContext(spaceType, modelId, fileName, vectorDataType))
+            .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
             .collect(Collectors.toList());
     }
 
@@ -220,7 +231,8 @@ public class KNNIndexShard {
     static class EngineFileContext {
         private final SpaceType spaceType;
         private final String modelId;
-        private final String indexPath;
+        private final String vectorFileName;
         private final VectorDataType vectorDataType;
+        private final SegmentInfo segmentInfo;
     }
 }

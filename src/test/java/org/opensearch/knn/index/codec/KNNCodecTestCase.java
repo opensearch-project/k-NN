@@ -185,8 +185,6 @@ public class KNNCodecTestCase extends KNNTestCase {
         writer.flush();
         IndexReader reader = writer.getReader();
         writer.close();
-        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
 
         // there should be 2 hnsw index files created. one for test_vector and one for my_vector
@@ -213,7 +211,6 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         reader.close();
         dir.close();
-        resourceWatcherService.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
@@ -298,8 +295,6 @@ public class KNNCodecTestCase extends KNNTestCase {
 
             // Make sure that search returns the correct results
             KNNWeight.initialize(modelDao);
-            ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
-            NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
             float[] query = { 10.0f, 10.0f, 10.0f };
             IndexSearcher searcher = new IndexSearcher(reader);
             TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy", (BitSetProducer) null), 10);
@@ -311,7 +306,6 @@ public class KNNCodecTestCase extends KNNTestCase {
 
             reader.close();
             dir.close();
-            resourceWatcherService.close();
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
         }
     }
@@ -422,8 +416,6 @@ public class KNNCodecTestCase extends KNNTestCase {
         writer.addDocument(doc1);
         IndexReader reader1 = writer.getReader();
         writer.close();
-        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
 
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_TWO));
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getMaxDimensions(eq(FIELD_NAME_TWO));
@@ -444,7 +436,6 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         reader1.close();
         dir.close();
-        resourceWatcherService.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 }
