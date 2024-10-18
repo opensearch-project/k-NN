@@ -227,6 +227,8 @@ public class JNIService {
             } else {
                 return FaissService.loadIndexWithStream(readStream);
             }
+        } else if (KNNEngine.NMSLIB == knnEngine) {
+            return NmslibService.loadIndexWithStream(readStream, parameters);
         }
 
         throw new IllegalArgumentException(

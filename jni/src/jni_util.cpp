@@ -563,8 +563,14 @@ jfieldID knn_jni::JNIUtil::GetFieldID(JNIEnv * env, jclass clazz, const char *na
     return env->GetFieldID(clazz, name, sig);
 }
 
-jint knn_jni::JNIUtil::CallIntMethodLong(JNIEnv * env, jobject obj, jmethodID methodID, int64_t longArg) {
-    return env->CallIntMethod(obj, methodID, longArg);
+jint knn_jni::JNIUtil::CallNonvirtualIntMethodA(JNIEnv * env, jobject obj, jclass clazz,
+                                                jmethodID methodID, jvalue* args) {
+    return env->CallNonvirtualIntMethodA(obj, clazz, methodID, args);
+}
+
+jlong knn_jni::JNIUtil::CallNonvirtualLongMethodA(JNIEnv * env, jobject obj, jclass clazz,
+                                                  jmethodID methodID, jvalue* args) {
+  return env->CallNonvirtualLongMethodA(obj, clazz, methodID, args);
 }
 
 void * knn_jni::JNIUtil::GetPrimitiveArrayCritical(JNIEnv * env, jarray array, jboolean *isCopy) {
