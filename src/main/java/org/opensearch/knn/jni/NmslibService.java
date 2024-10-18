@@ -14,6 +14,7 @@ package org.opensearch.knn.jni;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -60,6 +61,15 @@ class NmslibService {
      * @return pointer to location in memory the index resides in
      */
     public static native long loadIndex(String indexPath, Map<String, Object> parameters);
+
+    /**
+     * Load an index into memory through the provided read stream wrapping Lucene's IndexInput.
+     *
+     * @param readStream Read stream wrapping Lucene's IndexInput.
+     * @param parameters Parameters to be used when loading index
+     * @return Pointer to location in memory the index resides in
+     */
+    public static native long loadIndexWithStream(IndexInputWithBuffer readStream, Map<String, Object> parameters);
 
     /**
      * Query an index
