@@ -192,7 +192,6 @@ public class KNNPlugin extends Plugin
         this.clusterService = clusterService;
 
         // Initialize Native Memory loading strategies
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         VectorReader vectorReader = new VectorReader(client);
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 

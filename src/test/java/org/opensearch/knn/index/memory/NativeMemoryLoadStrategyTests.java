@@ -28,7 +28,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
-import org.opensearch.watcher.ResourceWatcherService;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -38,10 +37,7 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 public class NativeMemoryLoadStrategyTests extends KNNTestCase {
@@ -66,13 +62,9 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager
-        ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
-        doReturn(null).when(resourceWatcherService).add(any());
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
-
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             luceneDirectory,
-            path,
+            TestUtils.createFakeNativeMamoryCacheKey(indexName),
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
             parameters,
             "test"
@@ -116,13 +108,9 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager
-        ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
-        doReturn(null).when(resourceWatcherService).add(any());
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
-
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             luceneDirectory,
-            path,
+            TestUtils.createFakeNativeMamoryCacheKey(indexName),
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
             parameters,
             "test"

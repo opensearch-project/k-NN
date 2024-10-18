@@ -135,7 +135,6 @@ public class JNIService {
         Map<String, Object> parameters,
         KNNEngine knnEngine
     ) {
-
         if (KNNEngine.NMSLIB == knnEngine) {
             NmslibService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
             return;
