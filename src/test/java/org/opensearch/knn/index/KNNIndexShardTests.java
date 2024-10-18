@@ -11,6 +11,7 @@ import lombok.SneakyThrows;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNSingleNodeTestCase;
@@ -20,7 +21,9 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -161,11 +164,17 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
             false,
             null,
             Collections.emptyMap(),
-            null,
+            new byte[StringHelper.ID_LENGTH],
             Collections.emptyMap(),
             null
         );
-        segmentInfo.setFiles(files);
+        // Inject 'files' into the segment info instance.
+        // Since SegmentInfo class does trim out its given file list, for example removing segment name from a file name etc,
+        // we can't just use 'setFiles' api to assign the file list. Which will lead this unit test to be fail.
+        final Field setFilesPrivateField = SegmentInfo.class.getDeclaredField("setFiles");
+        setFilesPrivateField.setAccessible(true);
+        setFilesPrivateField.set(segmentInfo, new HashSet<>(files));
+
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, -1, 0, 0, null);
         List<KNNIndexShard.EngineFileContext> included = knnIndexShard.getEngineFileContexts(
             segmentCommitInfo,

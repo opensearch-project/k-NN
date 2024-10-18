@@ -213,9 +213,9 @@ public class KNNIndexShard {
         String modelId,
         VectorDataType vectorDataType
     ) throws IOException {
-        // Ex: _0
+        // Ex: 0_
         final String prefix = buildEngineFilePrefix(segmentCommitInfo.info.name);
-        // Ex: my_field.faiss
+        // Ex: _my_field.faiss
         final String suffix = buildEngineFileSuffix(fieldName, fileExtension);
         return segmentCommitInfo.files()
             .stream()

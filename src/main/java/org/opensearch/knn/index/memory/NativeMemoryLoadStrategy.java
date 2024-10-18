@@ -78,7 +78,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             final String vectorFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(cacheKey);
             if (vectorFileName == null) {
                 throw new IllegalStateException(
-                    "Invalid cache key was given. The key [" + cacheKey + "] does not contain corresponding vector file name."
+                    "Invalid cache key was given. The key [" + cacheKey + "] does not contain the corresponding vector file name."
                 );
             }
 

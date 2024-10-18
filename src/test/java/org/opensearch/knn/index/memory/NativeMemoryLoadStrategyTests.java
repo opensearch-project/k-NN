@@ -64,7 +64,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Setup mock resource manager
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             luceneDirectory,
-            path,
+            TestUtils.createFakeNativeMamoryCacheKey(indexName),
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
             parameters,
             "test"
@@ -110,7 +110,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Setup mock resource manager
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             luceneDirectory,
-            path,
+            TestUtils.createFakeNativeMamoryCacheKey(indexName),
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
             parameters,
             "test"

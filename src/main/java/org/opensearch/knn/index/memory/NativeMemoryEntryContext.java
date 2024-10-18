@@ -15,14 +15,13 @@ import lombok.Getter;
 import org.apache.lucene.store.Directory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 
 /**
  * Encapsulates all information needed to load a component into native memory.
@@ -123,24 +122,18 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
         @Override
         public Integer calculateSizeInKB() {
-            return IndexSizeCalculator.INSTANCE.apply(this);
+            final String indexFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(key);
+            try {
+                final long fileLength = directory.fileLength(indexFileName);
+                return (int) (fileLength / 1024L);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
         public NativeMemoryAllocation.IndexAllocation load() throws IOException {
             return indexLoadStrategy.load(this);
-        }
-
-        private static class IndexSizeCalculator implements Function<IndexEntryContext, Integer> {
-
-            static IndexSizeCalculator INSTANCE = new IndexSizeCalculator();
-
-            IndexSizeCalculator() {}
-
-            @Override
-            public Integer apply(IndexEntryContext indexEntryContext) {
-                return IndexUtil.getFileSizeInKB(indexEntryContext.getKey());
-            }
         }
     }
 

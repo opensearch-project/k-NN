@@ -13,23 +13,21 @@ package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 
-import static java.nio.file.StandardOpenOption.APPEND;
-import static java.nio.file.StandardOpenOption.CREATE;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,7 +44,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             (Directory) null,
-            "test",
+            TestUtils.createFakeNativeMamoryCacheKey("test"),
             indexLoadStrategy,
             null,
             "test"
@@ -68,36 +66,37 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_calculateSize() throws IOException {
         // Create a file and write random bytes to it
-        Path tmpFile = createTempFile();
+        final Path tmpDirectory = createTempDir();
+        final Directory directory = new MMapDirectory(tmpDirectory);
+        final String indexFileName = "test.faiss";
         byte[] data = new byte[1024 * 3];
         Arrays.fill(data, (byte) 'c');
 
-        try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(tmpFile, CREATE, APPEND))) {
-            out.write(data, 0, data.length);
-        } catch (IOException x) {
-            fail("Failed to write to file");
+        try (IndexOutput output = directory.createOutput(indexFileName, IOContext.DEFAULT)) {
+            output.writeBytes(data, data.length);
         }
 
         // Get the expected size of this function
-        int expectedSize = IndexUtil.getFileSizeInKB(tmpFile.toAbsolutePath().toString());
+        final long expectedSizeBytes = directory.fileLength(indexFileName);
+        final long expectedSizeKb = expectedSizeBytes / 1024L;
 
         // Check that the indexEntryContext will return the same thing
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-            (Directory) null,
-            tmpFile.toAbsolutePath().toString(),
+            directory,
+            TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
             null,
             null,
             "test"
         );
 
-        assertEquals(expectedSize, indexEntryContext.calculateSizeInKB().longValue());
+        assertEquals(expectedSizeKb, indexEntryContext.calculateSizeInKB().longValue());
     }
 
     public void testIndexEntryContext_getOpenSearchIndexName() {
         String openSearchIndexName = "test-index";
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             (Directory) null,
-            "test",
+            TestUtils.createFakeNativeMamoryCacheKey("test"),
             null,
             null,
             openSearchIndexName
@@ -110,7 +109,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         Map<String, Object> parameters = ImmutableMap.of("test-1", 10);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             (Directory) null,
-            "test",
+            TestUtils.createFakeNativeMamoryCacheKey("test"),
             null,
             parameters,
             "test"
