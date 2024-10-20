@@ -25,6 +25,10 @@ public class KNNEngineTests extends KNNTestCase {
         assertEquals(Lucene.INSTANCE.getVersion(), KNNEngine.LUCENE.getVersion());
     }
 
+    public void testGetDefaultEngine_thenReturnFAISS() {
+        assertEquals(KNNEngine.FAISS, KNNEngine.DEFAULT);
+    }
+
     /**
      * Test name getter
      */
