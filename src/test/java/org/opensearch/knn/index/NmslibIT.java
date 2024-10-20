@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 
 public class NmslibIT extends KNNRestTestCase {
 
@@ -281,6 +282,7 @@ public class NmslibIT extends KNNRestTestCase {
                 .field("dimension", 2)
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
+                .field(KNN_ENGINE, KNNEngine.NMSLIB.getName())
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
@@ -336,6 +338,7 @@ public class NmslibIT extends KNNRestTestCase {
                 .field("dimension", 2)
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
+                .field(KNN_ENGINE, KNNEngine.NMSLIB.getName())
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
