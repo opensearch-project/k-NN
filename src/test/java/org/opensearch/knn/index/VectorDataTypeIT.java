@@ -263,29 +263,6 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         assertTrue(ex.getMessage().contains("is not supported for vector data type"));
     }
 
-    @SneakyThrows
-    public void testByteVectorDataTypeWithLegacyFieldMapperKnnIndexSetting() {
-        // Create an index with byte vector data_type and index.knn as true without setting KnnMethodContext,
-        // which should throw an exception because the LegacyFieldMapper will use NMSLIB engine and byte data_type
-        // is not supported for NMSLIB engine.
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(PROPERTIES_FIELD)
-            .startObject(FIELD_NAME)
-            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION, 2)
-            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
-            .endObject()
-            .endObject()
-            .endObject();
-
-        String mapping = builder.toString();
-
-        ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
-        assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported for vector data type"));
-
-    }
-
     public void testDocValuesWithByteVectorDataTypeLuceneEngine() throws Exception {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
         ingestL2ByteTestData();

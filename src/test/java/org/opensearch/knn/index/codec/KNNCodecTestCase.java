@@ -96,6 +96,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  * Test used for testing Codecs
  */
 public class KNNCodecTestCase extends KNNTestCase {
+    public static final String FAISS_HNSW_EXTENSION = "faiss";
     private static final FieldType sampleFieldType;
     static {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()

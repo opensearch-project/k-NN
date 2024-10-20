@@ -19,6 +19,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.io.IOException;
@@ -35,6 +36,7 @@ import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COU
 
 public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
+    public static final String FAISS_HNSW_EXTENSION = "faiss";
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int dimensions = 2;
@@ -108,7 +110,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
     public void testGetAllEngineFileContexts() throws IOException, ExecutionException, InterruptedException {
         IndexService indexService = createKNNIndex(testIndexName);
-        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions, KNNEngine.NMSLIB);
         updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
 
         IndexShard indexShard = indexService.iterator().next();

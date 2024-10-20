@@ -146,7 +146,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Check that knnMethodContext takes precedent over both model and legacy
         ModelDao modelDao = mock(ModelDao.class);
 
-        SpaceType spaceType = SpaceType.COSINESIMIL;
+        SpaceType spaceType = SpaceType.DEFAULT;
         int mRight = 17;
         int mWrong = 71;
 
@@ -1614,7 +1614,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
     }
 
-    public void testTypeParser_whenBinaryWithLegacyKNNEnabled_thenException() throws IOException {
+    public void testTypeParser_whenBinaryWithLegacyKNNEnabled_thenValid() throws IOException {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
@@ -1631,11 +1631,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue())
             .endObject();
 
-        Exception ex = expectThrows(Exception.class, () -> {
-            typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
-        });
-
-        assertTrue(ex.getMessage(), ex.getMessage().contains("does not support space type"));
+        final KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
+        );
+        assertEquals(SpaceType.HAMMING, builder.getOriginalParameters().getResolvedKnnMethodContext().getSpaceType());
     }
 
     public void testBuild_whenInvalidCharsInFieldName_thenThrowException() {
@@ -1661,7 +1662,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
-        // Default to nmslib and ensure legacy is in use
+        // Default to faiss and ensure legacy is in use
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
@@ -1676,7 +1677,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(builder.getOriginalParameters().isLegacyMapping());
         validateBuilderAfterParsing(
             builder,
-            KNNEngine.NMSLIB,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             VectorDataType.FLOAT,
             CompressionLevel.x1,
@@ -1702,7 +1703,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertFalse(builder.getOriginalParameters().isLegacyMapping());
         validateBuilderAfterParsing(
             builder,
-            KNNEngine.NMSLIB,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             VectorDataType.FLOAT,
             CompressionLevel.x1,

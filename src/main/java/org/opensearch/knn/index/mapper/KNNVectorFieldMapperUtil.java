@@ -203,7 +203,7 @@ public class KNNVectorFieldMapperUtil {
             ? topLevelSpaceType
             : KNNVectorFieldMapperUtil.getSpaceType(indexSettings);
         return new KNNMethodContext(
-            KNNEngine.NMSLIB,
+            KNNEngine.DEFAULT,
             finalSpaceToSet,
             new MethodComponentContext(
                 METHOD_HNSW,
