@@ -118,8 +118,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             indexEntryWeight,
             null,
             key,
-            indexName,
-            null
+            indexName
         );
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
@@ -152,8 +151,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             indexEntryWeight,
             null,
             key,
-            indexName,
-            null
+            indexName
         );
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
@@ -231,8 +229,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             indexEntryWeight,
             null,
             key1,
-            indexName1,
-            null
+            indexName1
         );
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
@@ -247,8 +244,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             indexEntryWeight,
             null,
             key2,
-            indexName1,
-            null
+            indexName1
         );
 
         indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
@@ -263,8 +259,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             indexEntryWeight,
             null,
             key3,
-            indexName2,
-            null
+            indexName2
         );
 
         indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
@@ -408,8 +403,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             size1,
             null,
             testKey1,
-            indexName1,
-            null
+            indexName1
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation2 = new NativeMemoryAllocation.IndexAllocation(
@@ -418,8 +412,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             size2,
             null,
             testKey2,
-            indexName1,
-            null
+            indexName1
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation3 = new NativeMemoryAllocation.IndexAllocation(
@@ -428,8 +421,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             size1,
             null,
             testKey3,
-            indexName2,
-            null
+            indexName2
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation4 = new NativeMemoryAllocation.IndexAllocation(
@@ -438,8 +430,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
             size2,
             null,
             testKey4,
-            indexName2,
-            null
+            indexName2
         );
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext1 = mock(NativeMemoryEntryContext.IndexEntryContext.class);

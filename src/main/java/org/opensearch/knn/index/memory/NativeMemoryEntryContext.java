@@ -15,14 +15,13 @@ import lombok.Getter;
 import org.apache.lucene.store.Directory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 
 /**
  * Encapsulates all information needed to load a component into native memory.
@@ -80,26 +79,26 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * Constructor
          *
          * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
-         * @param indexPath Path to index file. Also used as key in cache.
+         * @param vectorIndexCacheKey Cache key for {@link NativeMemoryCacheManager}. It must contain a vector file name.
          * @param indexLoadStrategy Strategy to load index into memory
          * @param parameters Load time parameters
          * @param openSearchIndexName Opensearch index associated with index
          */
         public IndexEntryContext(
             Directory directory,
-            String indexPath,
+            String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName
         ) {
-            this(directory, indexPath, indexLoadStrategy, parameters, openSearchIndexName, null);
+            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null);
         }
 
         /**
          * Constructor
          *
          * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
-         * @param indexPath path to index file. Also used as key in cache.
+         * @param vectorIndexCacheKey Cache key for {@link NativeMemoryCacheManager}. It must contain a vector file name.
          * @param indexLoadStrategy strategy to load index into memory
          * @param parameters load time parameters
          * @param openSearchIndexName opensearch index associated with index
@@ -107,13 +106,13 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          */
         public IndexEntryContext(
             Directory directory,
-            String indexPath,
+            String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName,
             String modelId
         ) {
-            super(indexPath);
+            super(vectorIndexCacheKey);
             this.directory = directory;
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;
@@ -123,24 +122,18 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
         @Override
         public Integer calculateSizeInKB() {
-            return IndexSizeCalculator.INSTANCE.apply(this);
+            final String indexFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(key);
+            try {
+                final long fileLength = directory.fileLength(indexFileName);
+                return (int) (fileLength / 1024L);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
         public NativeMemoryAllocation.IndexAllocation load() throws IOException {
             return indexLoadStrategy.load(this);
-        }
-
-        private static class IndexSizeCalculator implements Function<IndexEntryContext, Integer> {
-
-            static IndexSizeCalculator INSTANCE = new IndexSizeCalculator();
-
-            IndexSizeCalculator() {}
-
-            @Override
-            public Integer apply(IndexEntryContext indexEntryContext) {
-                return IndexUtil.getFileSizeInKB(indexEntryContext.getKey());
-            }
         }
     }
 

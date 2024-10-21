@@ -22,6 +22,7 @@ import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Random;
@@ -182,6 +183,10 @@ public class TestUtils {
         } else {
             return generateRandomVectors(docCount, dimensions);
         }
+    }
+
+    public static String createFakeNativeMamoryCacheKey(final String fileName) {
+        return fileName + "@" + Base64.getEncoder().encodeToString(fileName.getBytes());
     }
 
     /*

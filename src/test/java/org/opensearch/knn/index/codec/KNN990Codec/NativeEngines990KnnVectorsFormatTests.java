@@ -338,6 +338,8 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         iwc.setUseCompoundFile(false);
         // Set merge policy to no merges so that we create a predictable number of segments.
         iwc.setMergePolicy(NoMergePolicy.INSTANCE);
+        iwc.setMaxBufferedDocs(Integer.MAX_VALUE);
+        iwc.setRAMBufferSizeMB(1024);
         return new RandomIndexWriter(random(), dir, iwc);
     }
 

@@ -15,13 +15,10 @@ import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
-import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
@@ -29,6 +26,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -43,7 +41,6 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -229,7 +226,6 @@ public class KNNWeight extends Weight {
         final int k
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
-        String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
         FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
 
@@ -278,7 +274,9 @@ public class KNNWeight extends Weight {
             return Collections.emptyMap();
         }
 
-        Path indexPath = PathUtils.get(directory, engineFiles.get(0));
+        final String vectorIndexFileName = engineFiles.get(0);
+        final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, reader.getSegmentInfo().info);
+
         final KNNQueryResult[] results;
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
 
@@ -288,7 +286,7 @@ public class KNNWeight extends Weight {
             indexAllocation = nativeMemoryCacheManager.get(
                 new NativeMemoryEntryContext.IndexEntryContext(
                     reader.directory(),
-                    indexPath.toString(),
+                    cacheKey,
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                     getParametersAtLoading(
                         spaceType,
