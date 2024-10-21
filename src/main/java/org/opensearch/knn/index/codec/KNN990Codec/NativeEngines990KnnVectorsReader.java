@@ -33,10 +33,10 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 /**
  * Vectors reader class for reading the flat vectors for native engines. The class provides methods for iterating
@@ -45,32 +45,15 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
-    private final SegmentReadState segmentReadState;
     private Map<String, String> quantizationStateCacheKeyPerField;
-    private final Map<String, String> fieldNameToVectorFileName = new HashMap<>();
+    private SegmentReadState segmentReadState;
+    private final List<String> cacheKeys;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
-        this.segmentReadState = state;
         this.flatVectorsReader = flatVectorsReader;
+        this.segmentReadState = state;
+        this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
         loadCacheKeyMap();
-        fillIndexToVectorFileName();
-    }
-
-    private void fillIndexToVectorFileName() {
-        for (FieldInfo field : segmentReadState.fieldInfos) {
-            if (!field.attributes().containsKey(KNN_FIELD)) {
-                continue;
-            }
-            if (!field.hasVectorValues()) {
-                continue;
-            }
-            final String vectorIndexFileName = KNNCodecUtil.getEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
-            if (vectorIndexFileName == null) {
-                continue;
-            }
-            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
-            fieldNameToVectorFileName.putIfAbsent(field.getName(), cacheKey);
-        }
     }
 
     /**
@@ -202,7 +185,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     public void close() throws IOException {
         // Clean up allocated vector indices resources from cache.
         final NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
-        fieldNameToVectorFileName.values().forEach(nativeMemoryCacheManager::invalidate);
+        cacheKeys.forEach(nativeMemoryCacheManager::invalidate);
 
         // Close a reader.
         IOUtils.close(flatVectorsReader);
@@ -230,5 +213,20 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             String cacheKey = UUIDs.base64UUID();
             quantizationStateCacheKeyPerField.put(fieldInfo.getName(), cacheKey);
         }
+    }
+
+    private static List<String> getVectorCacheKeysFromSegmentReaderState(SegmentReadState segmentReadState) {
+        final List<String> cacheKeys = new ArrayList<>();
+
+        for (FieldInfo field : segmentReadState.fieldInfos) {
+            final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
+            if (vectorIndexFileName == null) {
+                continue;
+            }
+            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
+            cacheKeys.add(cacheKey);
+        }
+
+        return cacheKeys;
     }
 }

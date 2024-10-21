@@ -98,7 +98,7 @@ public class KNNCodecUtil {
      * @param segmentInfo : Segment where we are collecting an engine file list.
      * @return : Found vector engine names, if not found, returns null.
      */
-    public static String getEngineFileFromFieldInfo(FieldInfo field, SegmentInfo segmentInfo) {
+    public static String getNativeEngineFileFromFieldInfo(FieldInfo field, SegmentInfo segmentInfo) {
         if (!field.attributes().containsKey(KNN_FIELD)) {
             return null;
         }
