@@ -26,8 +26,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.watcher.FileWatcher;
-import org.opensearch.watcher.WatcherHandle;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -40,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_FORCE_EVICT_CACHE_ENABLED_SETTING;
@@ -86,10 +83,6 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         // Load index into memory
         long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine);
 
-        @SuppressWarnings("unchecked")
-        WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
-        doNothing().when(watcherHandle).stop();
-
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
             executorService,
@@ -97,8 +90,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             IndexUtil.getFileSizeInKB(path),
             knnEngine,
             path,
-            "test",
-            watcherHandle
+            "test"
         );
 
         indexAllocation.close();
@@ -147,10 +139,6 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         // Load index into memory
         long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine);
 
-        @SuppressWarnings("unchecked")
-        WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
-        doNothing().when(watcherHandle).stop();
-
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
             executorService,
@@ -159,7 +147,6 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             knnEngine,
             path,
             "test",
-            watcherHandle,
             null,
             true
         );
@@ -189,8 +176,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             null,
             "test",
-            "test",
-            null
+            "test"
         );
 
         assertEquals(memoryAddress, indexAllocation.getMemoryAddress());
@@ -205,8 +191,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             null,
             "test",
-            "test",
-            null
+            "test"
         );
 
         int initialValue = 10;
@@ -232,7 +217,6 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     }
 
     public void testIndexAllocation_closeDefault() {
-        WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
         ExecutorService executorService = Executors.newFixedThreadPool(2);
         AtomicReference<Exception> expectedException = new AtomicReference<>();
 
@@ -243,8 +227,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             null,
             "test",
-            "test",
-            watcherHandle
+            "test"
         );
 
         executorService.submit(nonBlockingIndexAllocation::readLock);
@@ -261,7 +244,6 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
 
     public void testIndexAllocation_closeBlocking() throws InterruptedException, ExecutionException {
         // Prepare mocking and a thread pool.
-        WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         // Enable `KNN_FORCE_EVICT_CACHE_ENABLED_SETTING` to force it to block other threads.
@@ -273,8 +255,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             null,
             "test",
-            "test",
-            watcherHandle
+            "test"
         );
 
         // Acquire a read lock
@@ -309,8 +290,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             null,
             "test",
-            "test",
-            null
+            "test"
         );
 
         int initialValue = 10;
@@ -342,8 +322,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             size,
             null,
             "test",
-            "test",
-            null
+            "test"
         );
 
         assertEquals(size, indexAllocation.getSizeInKB());
@@ -357,8 +336,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             knnEngine,
             "test",
-            "test",
-            null
+            "test"
         );
 
         assertEquals(knnEngine, indexAllocation.getKnnEngine());
@@ -372,11 +350,10 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             null,
             indexPath,
-            "test",
-            null
+            "test"
         );
 
-        assertEquals(indexPath, indexAllocation.getIndexPath());
+        assertEquals(indexPath, indexAllocation.getVectorFileName());
     }
 
     public void testIndexAllocation_getOsIndexName() {
@@ -387,8 +364,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             0,
             null,
             "test",
-            osIndexName,
-            null
+            osIndexName
         );
 
         assertEquals(osIndexName, indexAllocation.getOpenSearchIndexName());

@@ -121,11 +121,11 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
         assertTrue(docValuesFormat instanceof KNN80DocValuesFormat);
         DocValuesProducer producer = docValuesFormat.fieldsProducer(state);
         assertTrue(producer instanceof KNN80DocValuesProducer);
-        int pathSize = ((KNN80DocValuesProducer) producer).getOpenedIndexPath().size();
-        assertEquals(pathSize, 1);
+        int cacheKeySize = ((KNN80DocValuesProducer) producer).getCacheKeys().size();
+        assertEquals(cacheKeySize, 1);
 
-        String path = ((KNN80DocValuesProducer) producer).getOpenedIndexPath().get(0);
-        assertTrue(path.contains(segmentFiles.get(0)));
+        String cacheKey = ((KNN80DocValuesProducer) producer).getCacheKeys().get(0);
+        assertTrue(cacheKey.contains(segmentFiles.get(0)));
     }
 
     public void testProduceKNNBinaryField_whenFieldHasNonBinaryDocValues_thenSkipThoseField() throws IOException {
@@ -178,7 +178,7 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
         assertTrue(docValuesFormat instanceof KNN80DocValuesFormat);
         DocValuesProducer producer = docValuesFormat.fieldsProducer(state);
         assertTrue(producer instanceof KNN80DocValuesProducer);
-        assertEquals(0, ((KNN80DocValuesProducer) producer).getOpenedIndexPath().size());
+        assertEquals(0, ((KNN80DocValuesProducer) producer).getCacheKeys().size());
     }
 
 }

@@ -291,8 +291,8 @@ public class NativeMemoryCacheManager implements Closeable {
     public NativeMemoryAllocation get(NativeMemoryEntryContext<?> nativeMemoryEntryContext, boolean isAbleToTriggerEviction)
         throws ExecutionException {
         if (!isAbleToTriggerEviction
-            && !cache.asMap().containsKey(nativeMemoryEntryContext.getKey())
-            && maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKB() <= 0) {
+            && (maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKB()) <= 0
+            && !cache.asMap().containsKey(nativeMemoryEntryContext.getKey())) {
             throw new OutOfNativeMemoryException(
                 "Entry cannot be loaded into cache because it would not fit. "
                     + "Entry size: "
