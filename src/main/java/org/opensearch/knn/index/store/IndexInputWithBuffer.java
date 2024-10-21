@@ -18,11 +18,13 @@ import java.io.IOException;
  */
 public class IndexInputWithBuffer {
     private IndexInput indexInput;
-    // 4K buffer.
-    private byte[] buffer = new byte[4 * 1024];
+    private long contentLength;
+    // 64K buffer.
+    private byte[] buffer = new byte[64 * 1024];
 
     public IndexInputWithBuffer(@NonNull IndexInput indexInput) {
         this.indexInput = indexInput;
+        this.contentLength = indexInput.length();
     }
 
     /**
@@ -37,6 +39,10 @@ public class IndexInputWithBuffer {
         final int readBytes = (int) Math.min(nbytes, buffer.length);
         indexInput.readBytes(buffer, 0, readBytes);
         return readBytes;
+    }
+
+    private long remainingBytes() {
+        return contentLength - indexInput.getFilePointer();
     }
 
     @Override

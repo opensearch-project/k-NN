@@ -187,8 +187,8 @@ public interface NativeMemoryAllocation {
 
         protected void closeInternal() {
             Runnable onClose = () -> {
+                writeLock();
                 try {
-                    writeLock();
                     cleanup();
                 } finally {
                     writeUnlock();
@@ -328,8 +328,8 @@ public interface NativeMemoryAllocation {
         @Override
         public void close() {
             executor.execute(() -> {
+                writeLock();
                 try {
-                    writeLock();
                     cleanup();
                 } finally {
                     writeUnlock();

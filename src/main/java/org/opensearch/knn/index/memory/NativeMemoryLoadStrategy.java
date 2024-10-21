@@ -91,36 +91,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             };
         }
 
-        private NativeMemoryAllocation.IndexAllocation loadWithAbsoluteIndexPath(
-            NativeMemoryEntryContext.IndexEntryContext indexEntryContext
-        ) throws IOException {
-            Path indexPath = Paths.get(indexEntryContext.getKey());
-            FileWatcher fileWatcher = new FileWatcher(indexPath);
-            fileWatcher.addListener(indexFileOnDeleteListener);
-            fileWatcher.init();
-
-            KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
-            long indexAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine);
-            return createIndexAllocation(
-                indexEntryContext,
-                knnEngine,
-                indexAddress,
-                fileWatcher,
-                indexEntryContext.calculateSizeInKB(),
-                indexPath
-            );
-        }
-
         @Override
         public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext indexEntryContext)
             throws IOException {
             final Path absoluteIndexPath = Paths.get(indexEntryContext.getKey());
             final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(absoluteIndexPath.toString());
-            if (knnEngine != KNNEngine.FAISS) {
-                // We will support other non-FAISS native engines (ex: NMSLIB) soon.
-                return loadWithAbsoluteIndexPath(indexEntryContext);
-            }
-
             final FileWatcher fileWatcher = new FileWatcher(absoluteIndexPath);
             fileWatcher.addListener(indexFileOnDeleteListener);
             fileWatcher.init();
@@ -182,7 +157,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             NativeMemoryLoadStrategy<NativeMemoryAllocation.TrainingDataAllocation, NativeMemoryEntryContext.TrainingDataEntryContext>,
             Closeable {
 
-        private static TrainingLoadStrategy INSTANCE;
+        private static volatile TrainingLoadStrategy INSTANCE;
 
         private final ExecutorService executor;
         private VectorReader vectorReader;
