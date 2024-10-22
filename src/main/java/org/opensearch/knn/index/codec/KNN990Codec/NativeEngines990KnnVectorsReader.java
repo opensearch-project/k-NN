@@ -24,13 +24,18 @@ import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,12 +45,14 @@ import java.util.Map;
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
-    private final SegmentReadState segmentReadState;
     private Map<String, String> quantizationStateCacheKeyPerField;
+    private SegmentReadState segmentReadState;
+    private final List<String> cacheKeys;
 
-    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
-        this.segmentReadState = state;
+    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
+        this.segmentReadState = state;
+        this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
         loadCacheKeyMap();
     }
 
@@ -176,10 +183,18 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      */
     @Override
     public void close() throws IOException {
+        // Clean up allocated vector indices resources from cache.
+        final NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+        cacheKeys.forEach(nativeMemoryCacheManager::invalidate);
+
+        // Close a reader.
         IOUtils.close(flatVectorsReader);
+
+        // Clean up quantized state cache.
         if (quantizationStateCacheKeyPerField != null) {
+            final QuantizationStateCacheManager quantizationStateCacheManager = QuantizationStateCacheManager.getInstance();
             for (String cacheKey : quantizationStateCacheKeyPerField.values()) {
-                QuantizationStateCacheManager.getInstance().evict(cacheKey);
+                quantizationStateCacheManager.evict(cacheKey);
             }
         }
     }
@@ -192,11 +207,26 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         return flatVectorsReader.ramBytesUsed();
     }
 
-    private void loadCacheKeyMap() throws IOException {
+    private void loadCacheKeyMap() {
         quantizationStateCacheKeyPerField = new HashMap<>();
         for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
             String cacheKey = UUIDs.base64UUID();
             quantizationStateCacheKeyPerField.put(fieldInfo.getName(), cacheKey);
         }
+    }
+
+    private static List<String> getVectorCacheKeysFromSegmentReaderState(SegmentReadState segmentReadState) {
+        final List<String> cacheKeys = new ArrayList<>();
+
+        for (FieldInfo field : segmentReadState.fieldInfos) {
+            final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
+            if (vectorIndexFileName == null) {
+                continue;
+            }
+            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
+            cacheKeys.add(cacheKey);
+        }
+
+        return cacheKeys;
     }
 }
