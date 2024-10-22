@@ -500,8 +500,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     .build()
             );
 
-            // If the original parameters are from legacy
-            if (builder.originalParameters.isLegacyMapping()) {
+            // If the original parameters are from legacy, and it is created on or before 2_17_2 since default is changed to
+            // FAISS starting 2_18, which doesn't support accepting algo params from index settings
+            if (parserContext.indexVersionCreated().onOrBefore(Version.V_2_17_2) && builder.originalParameters.isLegacyMapping()) {
                 // Then create KNNMethodContext to be used from the legacy index settings
                 builder.originalParameters.setResolvedKnnMethodContext(
                     createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated(), resolvedSpaceType)
