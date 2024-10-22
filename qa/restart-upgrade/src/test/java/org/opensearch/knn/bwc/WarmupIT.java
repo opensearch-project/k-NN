@@ -9,6 +9,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.SpaceType;
 
 import java.util.Collections;
+import java.util.Locale;
 
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_M_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
@@ -87,7 +88,8 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
     public void validateKNNWarmupOnUpgrade() throws Exception {
         int graphCount = getTotalGraphsInCache();
         knnWarmup(Collections.singletonList(testIndex));
-        assertTrue(getTotalGraphsInCache() > graphCount);
+        int totalGraph = getTotalGraphsInCache();
+        assertTrue(String.format(Locale.ROOT, "[%d] is not greater than [%d]", totalGraph, graphCount), totalGraph > graphCount);
 
         QUERY_COUNT = NUM_DOCS;
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
