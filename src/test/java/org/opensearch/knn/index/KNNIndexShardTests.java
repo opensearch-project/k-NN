@@ -36,7 +36,6 @@ import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COU
 
 public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
-    public static final String FAISS_HNSW_EXTENSION = "faiss";
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int dimensions = 2;
