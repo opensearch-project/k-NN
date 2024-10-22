@@ -155,7 +155,7 @@ public class NmslibIT extends KNNRestTestCase {
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = builder.toString();
 
-        createKnnIndex(indexName, mapping);
+        createKnnIndex(indexName, buildKNNIndexSettings(0), mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
         // Index the test data

@@ -119,7 +119,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testCacheRebuiltAfterUpdateIndexSettings() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(0), createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);

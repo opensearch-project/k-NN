@@ -82,7 +82,7 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
         Integer missCount0 = (Integer) nodeStats0.get(StatNames.MISS_COUNT.getName());
 
         // Setup index
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(0), createKnnIndexMapping(FIELD_NAME, 2));
 
         // Index test document
         Float[] vector = { 6.0f, 6.0f };

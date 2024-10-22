@@ -109,7 +109,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Integer knnQueryWithFilterCount0 = (Integer) nodeStats0.get(StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName());
 
         // Setup index
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(0), createKnnIndexMapping(FIELD_NAME, 2));
 
         // Index test document
         Float[] vector = { 6.0f, 6.0f };
@@ -392,7 +392,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * @throws IOException throws IOException
      */
     public void testFieldByEngineStats() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2, METHOD_HNSW, NMSLIB_NAME));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(0), createKnnIndexMapping(FIELD_NAME, 2, METHOD_HNSW, NMSLIB_NAME));
         putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_2, 3, METHOD_HNSW, LUCENE_NAME));
         putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_3, 3, METHOD_HNSW, FAISS_NAME));
 
