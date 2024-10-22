@@ -65,6 +65,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -284,36 +285,43 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
         assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
 
-        // if space type is provided and legacy mappings is hit
-        xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
-            .field(KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE, topLevelSpaceType.getValue())
-            .endObject();
-        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
-            "test-field-name-1",
-            xContentBuilderToMap(xContentBuilder),
-            buildParserContext("test", settings)
-        );
+        // mock useKNNMethodContextFromLegacy to simulate index ix created before 2_18
+        try (MockedStatic<KNNVectorFieldMapper> utilMockedStatic = Mockito.mockStatic(KNNVectorFieldMapper.class)) {
+            utilMockedStatic.when(() -> KNNVectorFieldMapper.useKNNMethodContextFromLegacy(any(), any())).thenReturn(true);
+            // if space type is provided and legacy mappings is hit
+            xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+                .field(KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE, topLevelSpaceType.getValue())
+                .endObject();
+            builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                "test-field-name-1",
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext("test", settings)
+            );
 
-        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
-        knnVectorFieldMapper = builder.build(builderContext);
-        assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
-        assertEquals(topLevelSpaceType, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getSpaceType());
-        // this check ensures that legacy mapping is hit, as in legacy mapping we pick M from index settings
-        assertEquals(
-            mForSetting,
-            knnVectorFieldMapper.fieldType()
-                .getKnnMappingConfig()
-                .getKnnMethodContext()
-                .get()
-                .getMethodComponentContext()
-                .getParameters()
-                .get(METHOD_PARAMETER_M)
-        );
-        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+            builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+            knnVectorFieldMapper = builder.build(builderContext);
+            assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
+            assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+            assertEquals(
+                topLevelSpaceType,
+                knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getSpaceType()
+            );
+            // this check ensures that legacy mapping is hit, as in legacy mapping we pick M from index settings
+            assertEquals(
+                mForSetting,
+                knnVectorFieldMapper.fieldType()
+                    .getKnnMappingConfig()
+                    .getKnnMethodContext()
+                    .get()
+                    .getMethodComponentContext()
+                    .getParameters()
+                    .get(METHOD_PARAMETER_M)
+            );
+            assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+        }
     }
 
     public void testTypeParser_withSpaceTypeAndMode_thenSuccess() throws IOException {
@@ -1703,7 +1711,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertFalse(builder.getOriginalParameters().isLegacyMapping());
         validateBuilderAfterParsing(
             builder,
-            KNNEngine.DEFAULT,
+            KNNEngine.NMSLIB,
             SpaceType.L2,
             VectorDataType.FLOAT,
             CompressionLevel.x1,

@@ -500,9 +500,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     .build()
             );
 
-            // If the original parameters are from legacy, and it is created on or before 2_17_2 since default is changed to
-            // FAISS starting 2_18, which doesn't support accepting algo params from index settings
-            if (parserContext.indexVersionCreated().onOrBefore(Version.V_2_17_2) && builder.originalParameters.isLegacyMapping()) {
+            if (useKNNMethodContextFromLegacy(builder, parserContext)) {
                 // Then create KNNMethodContext to be used from the legacy index settings
                 builder.originalParameters.setResolvedKnnMethodContext(
                     createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated(), resolvedSpaceType)
@@ -549,6 +547,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             knnMethodContext.setKnnEngine(knnEngine);
         }
+    }
+
+    static boolean useKNNMethodContextFromLegacy(Builder builder, Mapper.TypeParser.ParserContext parserContext) {
+        // If the original parameters are from legacy, and it is created on or before 2_17_2 since default is changed to
+        // FAISS starting 2_18, which doesn't support accepting algo params from index settings
+        return parserContext.indexVersionCreated().onOrBefore(Version.V_2_17_2) && builder.originalParameters.isLegacyMapping();
     }
 
     // We store the version of the index with the mapper as different version of Opensearch has different default
