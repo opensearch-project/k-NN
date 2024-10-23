@@ -21,6 +21,9 @@ import java.util.Map;
 import static org.hamcrest.Matchers.containsString;
 
 public class KNNESSettingsTestIT extends KNNRestTestCase {
+
+    public static final int ALWAYS_BUILD_GRAPH = 0;
+
     /**
      * KNN Index writes should be blocked when the plugin disabled
      * @throws Exception Exception from test
