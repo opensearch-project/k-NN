@@ -5,9 +5,6 @@
 
 package org.opensearch.knn.bwc;
 
-import org.opensearch.common.settings.Settings;
-import org.opensearch.knn.index.KNNSettings;
-
 import java.util.Collections;
 
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
@@ -36,7 +33,6 @@ public class WarmupIT extends AbstractRollingUpgradeTestCase {
                     docIdMixed = 2 * NUM_DOCS;
                     totalDocsCountMixed = 3 * NUM_DOCS;
                 }
-                updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
                 validateKNNWarmupOnUpgrade(totalDocsCountMixed, docIdMixed);
                 break;
             case UPGRADED:

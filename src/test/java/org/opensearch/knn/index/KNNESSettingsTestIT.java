@@ -75,7 +75,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     public void testItemRemovedFromCache_expiration() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(FIELD_NAME, 2));
         updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED, true);
         updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
 
@@ -121,8 +121,8 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     @SuppressWarnings("unchecked")
-    public void testCacheRebuiltAfterUpdateIndexSettings() throws IOException {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+    public void testCacheRebuiltAfterUpdateIndexSettings() throws Exception {
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
