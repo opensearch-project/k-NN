@@ -20,6 +20,8 @@ import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
  * Integration tests to test Circuit Breaker functionality
  */
 public class KNNCircuitBreakerIT extends KNNRestTestCase {
+    private static final Integer ALWAYS_BUILD_GRAPH = 0;
+
     /**
      * To trip the circuit breaker, we will create two indices and index documents. Each index will be small enough so
      * that individually they fit into the cache, but together they do not. To prevent Lucene conditions where
@@ -39,6 +41,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
             .put("number_of_shards", 1)
             .put("number_of_replicas", numNodes - 1)
             .put("index.knn", true)
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, ALWAYS_BUILD_GRAPH)
             .build();
 
         String indexName1 = INDEX_NAME + "1";

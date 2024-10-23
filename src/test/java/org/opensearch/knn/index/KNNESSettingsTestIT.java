@@ -21,6 +21,9 @@ import java.util.Map;
 import static org.hamcrest.Matchers.containsString;
 
 public class KNNESSettingsTestIT extends KNNRestTestCase {
+
+    public static final int ALWAYS_BUILD_GRAPH = 0;
+
     /**
      * KNN Index writes should be blocked when the plugin disabled
      * @throws Exception Exception from test
@@ -72,7 +75,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     public void testItemRemovedFromCache_expiration() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(FIELD_NAME, 2));
         updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED, true);
         updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
 
@@ -119,7 +122,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testCacheRebuiltAfterUpdateIndexSettings() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(0), createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);

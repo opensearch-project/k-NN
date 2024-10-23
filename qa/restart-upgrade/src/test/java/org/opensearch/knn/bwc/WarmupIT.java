@@ -6,6 +6,7 @@
 package org.opensearch.knn.bwc;
 
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 
 import java.util.Collections;
@@ -34,6 +35,8 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
+            // update index setting to allow build graph always since we test graph count that are loaded into memory
+            updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
             validateKNNWarmupOnUpgrade();
         }
     }
@@ -65,6 +68,8 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKNNIndexMethodFieldMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
+            // update index setting to allow build graph always since we test graph count that are loaded into memory
+            updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
             validateKNNWarmupOnUpgrade();
         }
     }
@@ -85,21 +90,26 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
     }
 
     public void validateKNNWarmupOnUpgrade() throws Exception {
+        // update index setting to allow build graph always since we test graph count that are loaded into memory
+        updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
         int graphCount = getTotalGraphsInCache();
         knnWarmup(Collections.singletonList(testIndex));
-        assertTrue(getTotalGraphsInCache() > graphCount);
+        int totalGraph = getTotalGraphsInCache();
+        assertTrue(totalGraph > graphCount);
 
         QUERY_COUNT = NUM_DOCS;
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
 
         DOC_ID = NUM_DOCS;
         addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        forceMergeKnnIndex(testIndex);
 
         int updatedGraphCount = getTotalGraphsInCache();
         knnWarmup(Collections.singletonList(testIndex));
         assertTrue(getTotalGraphsInCache() > updatedGraphCount);
 
         QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
         deleteKNNIndex(testIndex);
     }

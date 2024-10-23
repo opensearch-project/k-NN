@@ -21,6 +21,8 @@ import org.opensearch.knn.index.codec.KNNCodecVersion;
  * able to pick this class if its in test folder. Don't use this codec outside of testing
  */
 public class UnitTestCodec extends FilterCodec {
+    private static final Integer BUILD_GRAPH_ALWAYS = 0;
+
     public UnitTestCodec() {
         super("UnitTestCodec", KNNCodecVersion.current().getDefaultKnnCodecSupplier().get());
     }
@@ -30,7 +32,7 @@ public class UnitTestCodec extends FilterCodec {
         return new PerFieldKnnVectorsFormat() {
             @Override
             public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-                return new NativeEngines990KnnVectorsFormat();
+                return new NativeEngines990KnnVectorsFormat(BUILD_GRAPH_ALWAYS);
             }
         };
     }
