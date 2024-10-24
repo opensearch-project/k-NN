@@ -103,7 +103,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             .vectorDataType(VectorDataType.DEFAULT)
             .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.DEFAULT,
+            KNNEngine.NMSLIB,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
