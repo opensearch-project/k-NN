@@ -15,6 +15,7 @@ Compatible with OpenSearch 2.18.0
 * Add CompressionLevel Calculation for PQ [#2200](https://github.com/opensearch-project/k-NN/pull/2200)
 * Remove FSDirectory dependency from native engine constructing side and deprecated FileWatcher [#2182](https://github.com/opensearch-project/k-NN/pull/2182)
 * Update approximate_threshold to 15K documents [#2229](https://github.com/opensearch-project/k-NN/pull/2229)
+* Update default engine to FAISS [#2221](https://github.com/opensearch-project/k-NN/pull/2221)
 ### Bug Fixes
 * Add DocValuesProducers for releasing memory when close index [#1946](https://github.com/opensearch-project/k-NN/pull/1946)
 * KNN80DocValues should only be considered for BinaryDocValues fields [#2147](https://github.com/opensearch-project/k-NN/pull/2147)

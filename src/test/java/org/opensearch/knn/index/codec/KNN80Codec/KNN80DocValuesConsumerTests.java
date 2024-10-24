@@ -279,6 +279,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 .addAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512")
                 .addAttribute(KNNConstants.HNSW_ALGO_M, "16")
                 .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
                 .build() };
 
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);

@@ -49,7 +49,7 @@ public final class EngineResolver {
 
         // For 1x, we need to default to faiss if mode is provided and use nmslib otherwise
         if (CompressionLevel.isConfigured(compressionLevel) == false || compressionLevel == CompressionLevel.x1) {
-            return mode == Mode.ON_DISK ? KNNEngine.FAISS : KNNEngine.DEFAULT;
+            return mode == Mode.ON_DISK ? KNNEngine.FAISS : KNNEngine.NMSLIB;
         }
 
         // Lucene is only engine that supports 4x - so we have to default to it here.

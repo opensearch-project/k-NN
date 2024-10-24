@@ -108,6 +108,7 @@ public class KNNWeightTests extends KNNTestCase {
     private static final int K = 5;
     private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0_2011_target_field.hnswc");
     private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
+    private static final Set<String> SEGMENT_FILES_DEFAULT = SEGMENT_FILES_FAISS;
     private static final Set<String> SEGMENT_MULTI_FIELD_FILES_FAISS = Set.of(
         "_0.cfe",
         "_0_2011_target_field.faissc",
@@ -174,7 +175,11 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testQueryResultScoreNmslib() {
         for (SpaceType space : List.of(SpaceType.L2, SpaceType.L1, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT, SpaceType.LINF)) {
-            testQueryScore(space::scoreTranslation, SEGMENT_FILES_NMSLIB, Map.of(SPACE_TYPE, space.getValue()));
+            testQueryScore(
+                space::scoreTranslation,
+                SEGMENT_FILES_NMSLIB,
+                Map.of(SPACE_TYPE, space.getValue(), KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            );
         }
     }
 
@@ -398,7 +403,7 @@ public class KNNWeightTests extends KNNTestCase {
             Map.of(),
             Sort.RELEVANCE
         );
-        segmentInfo.setFiles(SEGMENT_FILES_NMSLIB);
+        segmentInfo.setFiles(SEGMENT_FILES_DEFAULT);
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
 
