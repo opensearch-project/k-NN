@@ -25,6 +25,7 @@ import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
 public class RestClearCacheHandlerIT extends KNNRestTestCase {
     private static final String TEST_FIELD = "test-field";
     private static final int DIMENSIONS = 2;
+    public static final int ALWAYS_BUILD_GRAPH = 0;
 
     @SneakyThrows
     public void testNonExistentIndex() {
@@ -53,7 +54,7 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
     public void testClearCacheSingleIndex() {
         String testIndex = getTestName().toLowerCase();
         int graphCountBefore = getTotalGraphsInCache();
-        createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        createKnnIndex(testIndex, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
         addKnnDoc(testIndex, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 
         knnWarmup(Collections.singletonList(testIndex));
@@ -70,10 +71,10 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
         String testIndex2 = getTestName().toLowerCase() + 1;
         int graphCountBefore = getTotalGraphsInCache();
 
-        createKnnIndex(testIndex1, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        createKnnIndex(testIndex1, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
         addKnnDoc(testIndex1, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 
-        createKnnIndex(testIndex2, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        createKnnIndex(testIndex2, buildKNNIndexSettings(0), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
         addKnnDoc(testIndex2, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 
         knnWarmup(Arrays.asList(testIndex1, testIndex2));
@@ -91,13 +92,13 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
         String testIndex3 = "abc" + getTestName().toLowerCase();
         int graphCountBefore = getTotalGraphsInCache();
 
-        createKnnIndex(testIndex1, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        createKnnIndex(testIndex1, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
         addKnnDoc(testIndex1, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 
-        createKnnIndex(testIndex2, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        createKnnIndex(testIndex2, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
         addKnnDoc(testIndex2, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 
-        createKnnIndex(testIndex3, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        createKnnIndex(testIndex3, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
         addKnnDoc(testIndex3, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 
         knnWarmup(Arrays.asList(testIndex1, testIndex2, testIndex3));

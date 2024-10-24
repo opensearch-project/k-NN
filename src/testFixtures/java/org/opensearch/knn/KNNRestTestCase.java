@@ -1309,6 +1309,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             Arrays.fill(indexVector, (float) i);
             addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
         }
+        flushIndex(testIndex);
     }
 
     public void addKNNByteDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
@@ -1317,6 +1318,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             Arrays.fill(indexVector, (byte) i);
             addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
         }
+        flushIndex(testIndex);
     }
 
     public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k) throws Exception {
@@ -1787,6 +1789,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected void refreshIndex(final String index) throws IOException {
         Request request = new Request("POST", "/" + index + "/_refresh");
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    protected void flushIndex(final String index) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_flush");
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
