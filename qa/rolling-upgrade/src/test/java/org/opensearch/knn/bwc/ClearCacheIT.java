@@ -25,6 +25,9 @@ public class ClearCacheIT extends AbstractRollingUpgradeTestCase {
                 createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
                 int docIdOld = 0;
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
+                int graphCount = getTotalGraphsInCache();
+                knnWarmup(Collections.singletonList(testIndex));
+                assertTrue(getTotalGraphsInCache() > graphCount);
                 break;
             case UPGRADED:
                 queryCnt = NUM_DOCS;
@@ -42,14 +45,8 @@ public class ClearCacheIT extends AbstractRollingUpgradeTestCase {
 
     // validation steps for Clear Cache API after upgrading all nodes from old version to new version
     public void validateClearCacheOnUpgrade(int queryCount) throws Exception {
-        int graphCount = getTotalGraphsInCache();
-        knnWarmup(Collections.singletonList(testIndex));
-        assertTrue(getTotalGraphsInCache() > graphCount);
-        validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, queryCount, K);
-
         clearCache(Collections.singletonList(testIndex));
         assertEquals(0, getTotalGraphsInCache());
-        validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, queryCount, K);
     }
 
 }

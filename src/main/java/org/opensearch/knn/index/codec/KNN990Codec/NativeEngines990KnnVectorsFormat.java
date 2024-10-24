@@ -37,6 +37,10 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
         this(new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer()));
     }
 
+    public NativeEngines990KnnVectorsFormat(int approximateThreshold) {
+        this(new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer()), approximateThreshold);
+    }
+
     public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat) {
         this(flatVectorsFormat, KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
     }
