@@ -5,7 +5,10 @@
 
 package org.opensearch.knn.bwc;
 
+import org.opensearch.common.settings.Settings;
+
 import java.util.Collections;
+
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
 
 public class ClearCacheIT extends AbstractRestartUpgradeTestCase {
@@ -20,7 +23,11 @@ public class ClearCacheIT extends AbstractRestartUpgradeTestCase {
     public void testClearCache() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
-            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+            // if approximate threshold is supported, set value to 0, to build graph always
+            Settings indexSettings = isApproximateThresholdSupported(getBWCVersion())
+                ? buildKNNIndexSettings(0)
+                : getKNNDefaultIndexSettings();
+            createKnnIndex(testIndex, indexSettings, createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, docId, NUM_DOCS);
             queryCnt = NUM_DOCS;
             int graphCount = getTotalGraphsInCache();
