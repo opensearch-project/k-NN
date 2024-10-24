@@ -27,6 +27,7 @@ import java.util.Collections;
 
 public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
 
+    public static final int ALWAYS_BUILD_GRAPH = 0;
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int dimensions = 2;
@@ -45,7 +46,7 @@ public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
 
     public void testEmptyIndex() throws Exception {
         int graphCountBefore = getTotalGraphsInCache();
-        createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
+        createKnnIndex(testIndexName, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(testFieldName, dimensions));
 
         executeWarmupRequest(Collections.singletonList(testIndexName), KNNPlugin.LEGACY_KNN_BASE_URI);
 
@@ -54,7 +55,7 @@ public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
 
     public void testSingleIndex() throws Exception {
         int graphCountBefore = getTotalGraphsInCache();
-        createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
+        createKnnIndex(testIndexName, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(testFieldName, dimensions));
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 6.0f, 6.0f });
 
         executeWarmupRequest(Collections.singletonList(testIndexName), KNNPlugin.LEGACY_KNN_BASE_URI);
@@ -65,10 +66,10 @@ public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
     public void testMultipleIndices() throws Exception {
         int graphCountBefore = getTotalGraphsInCache();
 
-        createKnnIndex(testIndexName + "1", getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
+        createKnnIndex(testIndexName + "1", buildKNNIndexSettings(0), createKnnIndexMapping(testFieldName, dimensions));
         addKnnDoc(testIndexName + "1", "1", testFieldName, new Float[] { 6.0f, 6.0f });
 
-        createKnnIndex(testIndexName + "2", getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
+        createKnnIndex(testIndexName + "2", buildKNNIndexSettings(0), createKnnIndexMapping(testFieldName, dimensions));
         addKnnDoc(testIndexName + "2", "1", testFieldName, new Float[] { 6.0f, 6.0f });
 
         executeWarmupRequest(Arrays.asList(testIndexName + "1", testIndexName + "2"), KNNPlugin.LEGACY_KNN_BASE_URI);

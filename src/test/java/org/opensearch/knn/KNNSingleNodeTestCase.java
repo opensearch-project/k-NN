@@ -5,6 +5,7 @@
 
 package org.opensearch.knn;
 
+import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.cluster.ClusterName;
@@ -14,6 +15,7 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.block.ClusterBlocks;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -105,6 +107,14 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     }
 
     /**
+     * Create simple k-NN mapping with engine
+     */
+    protected void updateIndexSetting(String indexName, Settings setting) {
+        UpdateSettingsRequest request = new UpdateSettingsRequest(setting, indexName);
+        OpenSearchAssertions.assertAcked(client().admin().indices().updateSettings(request).actionGet());
+    }
+
+    /**
      * Create simple k-NN mapping which can be nested.
      * e.g. fieldPath = "a.b.c" will create mapping for "c" as knn_vector
      */
@@ -138,6 +148,18 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      */
     protected Settings getKNNDefaultIndexSettings() {
         return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build();
+    }
+
+    /**
+     * Get default k-NN settings for test cases with build graph always
+     */
+    protected Settings getKNNDefaultIndexSettingsBuildsGraphAlways() {
+        return Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .build();
     }
 
     /**

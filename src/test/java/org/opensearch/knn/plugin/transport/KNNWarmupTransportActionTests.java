@@ -37,7 +37,7 @@ public class KNNWarmupTransportActionTests extends KNNSingleNodeTestCase {
         KNNWarmupTransportAction knnWarmupTransportAction = node().injector().getInstance(KNNWarmupTransportAction.class);
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
-        indexService = createKNNIndex(testIndexName);
+        indexService = createIndex(testIndexName, getKNNDefaultIndexSettingsBuildsGraphAlways());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         shardRouting = indexService.iterator().next().routingEntry();
 
