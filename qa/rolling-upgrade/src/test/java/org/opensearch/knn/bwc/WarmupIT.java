@@ -22,7 +22,10 @@ public class WarmupIT extends AbstractRollingUpgradeTestCase {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         switch (getClusterType()) {
             case OLD:
-                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+                Settings indexSettings = isApproximateThresholdSupported(getBWCVersion())
+                    ? buildKNNIndexSettings(0)
+                    : getKNNDefaultIndexSettings();
+                createKnnIndex(testIndex, indexSettings, createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
                 break;
             case MIXED:
