@@ -13,6 +13,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
+import org.opensearch.Version;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -64,6 +65,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -1345,15 +1347,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
-    protected Settings createKNNIndexCustomLegacyFieldMappingSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
+    protected Settings.Builder createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(
+        SpaceType spaceType,
+        Integer m,
+        Integer ef_construction
+    ) {
         return Settings.builder()
             .put(NUMBER_OF_SHARDS, 1)
             .put(NUMBER_OF_REPLICAS, 0)
             .put(INDEX_KNN, true)
             .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
             .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
-            .build();
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction);
+    }
+
+    protected Settings createKNNIndexCustomLegacyFieldMappingIndexSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
+        return createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(spaceType, m, ef_construction).build();
     }
 
     public String createKNNIndexMethodFieldMapping(String fieldName, Integer dimensions) throws IOException {
@@ -1858,5 +1867,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         builder.endObject().endObject().endObject().endObject();
         return builder;
+    }
+
+    // approximate threshold parameter is only supported on or after V_2_18_0
+    protected boolean isApproximateThresholdSupported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get();
+        if (versionString.endsWith("-SNAPSHOT")) {
+            versionString = versionString.substring(0, versionString.length() - 9);
+        }
+        final Version version = Version.fromString(versionString);
+        return version.onOrAfter(Version.V_2_18_0);
     }
 }
