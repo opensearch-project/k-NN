@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.vectorvalues;
 
+import org.apache.lucene.codecs.DocValuesProducer;
+import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
@@ -67,6 +69,35 @@ public final class KNNVectorValuesFactory {
             }
         } else {
             docIdSetIterator = DocValues.getBinary(leafReader, fieldInfo.getName());
+        }
+        final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator);
+        return getVectorValues(FieldInfoExtractor.extractVectorDataType(fieldInfo), vectorValuesIterator);
+    }
+
+    /**
+     * Returns a {@link KNNVectorValues} for the given {@link FieldInfo} and {@link LeafReader}
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @param docValuesProducer {@link DocValuesProducer}
+     * @param knnVectorsReader {@link KnnVectorsReader}
+     * @return {@link KNNVectorValues}
+     */
+    public static <T> KNNVectorValues<T> getVectorValues(
+        final FieldInfo fieldInfo,
+        final DocValuesProducer docValuesProducer,
+        final KnnVectorsReader knnVectorsReader
+    ) throws IOException {
+        final DocIdSetIterator docIdSetIterator;
+        if (fieldInfo.hasVectorValues()) {
+            if (fieldInfo.getVectorEncoding() == VectorEncoding.BYTE) {
+                docIdSetIterator = knnVectorsReader.getByteVectorValues(fieldInfo.getName());
+            } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
+                docIdSetIterator = knnVectorsReader.getFloatVectorValues(fieldInfo.getName());
+            } else {
+                throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
+            }
+        } else {
+            docIdSetIterator = docValuesProducer.getBinary(fieldInfo);
         }
         final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator);
         return getVectorValues(FieldInfoExtractor.extractVectorDataType(fieldInfo), vectorValuesIterator);
