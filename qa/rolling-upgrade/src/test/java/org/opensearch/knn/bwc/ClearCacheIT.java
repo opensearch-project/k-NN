@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.bwc;
 
+import org.opensearch.common.settings.Settings;
+
 import java.util.Collections;
 
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
@@ -22,7 +24,10 @@ public class ClearCacheIT extends AbstractRollingUpgradeTestCase {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         switch (getClusterType()) {
             case OLD:
-                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+                Settings indexSettings = isApproximateThresholdSupported(getBWCVersion())
+                    ? buildKNNIndexSettings(0)
+                    : getKNNDefaultIndexSettings();
+                createKnnIndex(testIndex, indexSettings, createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
                 int docIdOld = 0;
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
                 int graphCount = getTotalGraphsInCache();

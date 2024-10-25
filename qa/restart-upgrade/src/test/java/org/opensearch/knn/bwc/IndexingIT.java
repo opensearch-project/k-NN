@@ -143,15 +143,15 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         // When the cluster is in old version, create a KNN index with custom legacy field mapping settings
         // and add documents into that index
         if (isRunningAgainstOldCluster()) {
-            createKnnIndex(
-                testIndex,
-                createKNNIndexCustomLegacyFieldMappingSettings(
-                    SpaceType.LINF,
-                    KNN_ALGO_PARAM_M_MIN_VALUE,
-                    KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE
-                ),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS)
+            Settings.Builder indexMappingSettings = createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(
+                SpaceType.LINF,
+                KNN_ALGO_PARAM_M_MIN_VALUE,
+                KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE
             );
+            if (isApproximateThresholdSupported(getBWCVersion())) {
+                indexMappingSettings.put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
+            }
+            createKnnIndex(testIndex, indexMappingSettings.build(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
             validateKNNIndexingOnUpgrade(NUM_DOCS);

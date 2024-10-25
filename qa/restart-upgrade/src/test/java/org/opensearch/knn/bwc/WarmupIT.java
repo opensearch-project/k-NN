@@ -32,7 +32,10 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
         if (isRunningAgainstOldCluster()) {
-            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+            Settings indexSettings = isApproximateThresholdSupported(getBWCVersion())
+                ? buildKNNIndexSettings(0)
+                : getKNNDefaultIndexSettings();
+            createKnnIndex(testIndex, indexSettings, createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
             // update index setting to allow build graph always since we test graph count that are loaded into memory
@@ -48,13 +51,16 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
         // When the cluster is in old version, create a KNN index with custom legacy field mapping settings
         // and add documents into that index
         if (isRunningAgainstOldCluster()) {
-            Settings indexMappingSettings = createKNNIndexCustomLegacyFieldMappingSettings(
+            Settings.Builder indexMappingSettings = createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(
                 SpaceType.LINF,
                 KNN_ALGO_PARAM_M_MIN_VALUE,
                 KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE
             );
+            if (isApproximateThresholdSupported(getBWCVersion())) {
+                indexMappingSettings.put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
+            }
             String indexMapping = createKnnIndexMapping(TEST_FIELD, DIMENSIONS);
-            createKnnIndex(testIndex, indexMappingSettings, indexMapping);
+            createKnnIndex(testIndex, indexMappingSettings.build(), indexMapping);
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
             validateKNNWarmupOnUpgrade();
@@ -65,7 +71,10 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
     // space_type : "l2", engine : "nmslib", m : 16, ef_construction : 512
     public void testKNNWarmupDefaultMethodFieldMapping() throws Exception {
         if (isRunningAgainstOldCluster()) {
-            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKNNIndexMethodFieldMapping(TEST_FIELD, DIMENSIONS));
+            Settings indexSettings = isApproximateThresholdSupported(getBWCVersion())
+                ? buildKNNIndexSettings(0)
+                : getKNNDefaultIndexSettings();
+            createKnnIndex(testIndex, indexSettings, createKNNIndexMethodFieldMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
             // update index setting to allow build graph always since we test graph count that are loaded into memory
@@ -78,9 +87,12 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
     // space_type : "innerproduct", engine : "faiss", m : 50, ef_construction : 1024
     public void testKNNWarmupCustomMethodFieldMapping() throws Exception {
         if (isRunningAgainstOldCluster()) {
+            Settings indexSettings = isApproximateThresholdSupported(getBWCVersion())
+                ? buildKNNIndexSettings(0)
+                : getKNNDefaultIndexSettings();
             createKnnIndex(
                 testIndex,
-                getKNNDefaultIndexSettings(),
+                indexSettings,
                 createKNNIndexCustomMethodFieldMapping(TEST_FIELD, DIMENSIONS, SpaceType.INNER_PRODUCT, FAISS_NAME, M, EF_CONSTRUCTION)
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
