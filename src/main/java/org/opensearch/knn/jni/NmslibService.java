@@ -12,9 +12,10 @@
 package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -22,7 +23,7 @@ import java.util.Map;
 
 /**
  * Service to interact with nmslib jni layer. Class dependencies should be minimal
- *
+ * <p>
  * In order to compile C++ header file, run:
  * javac -h jni/include src/main/java/org/opensearch/knn/jni/NmslibService.java
  *      src/main/java/org/opensearch/knn/index/KNNQueryResult.java
@@ -48,19 +49,16 @@ class NmslibService {
      * @param ids array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
      * @param dim dimension of the vector to be indexed
-     * @param indexPath path to save index file to
+     * @param output Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      * @param parameters parameters to build index
      */
-    public static native void createIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
-
-    /**
-     * Load an index into memory
-     *
-     * @param indexPath path to index file
-     * @param parameters parameters to be used when loading index
-     * @return pointer to location in memory the index resides in
-     */
-    public static native long loadIndex(String indexPath, Map<String, Object> parameters);
+    public static native void createIndex(
+        int[] ids,
+        long vectorsAddress,
+        int dim,
+        IndexOutputWithBuffer output,
+        Map<String, Object> parameters
+    );
 
     /**
      * Load an index into memory through the provided read stream wrapping Lucene's IndexInput.

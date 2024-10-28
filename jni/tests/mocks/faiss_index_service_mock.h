@@ -21,7 +21,10 @@ typedef std::unordered_map<std::string, jobject> StringToJObjectMap;
 
 class MockIndexService : public IndexService {
 public:
-    MockIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {};
+    explicit MockIndexService(std::unique_ptr<FaissMethods> _faissMethods)
+      : IndexService(std::move(_faissMethods)) {
+    }
+
     MOCK_METHOD(
         long,
         initIndex,
@@ -36,6 +39,7 @@ public:
             StringToJObjectMap parameters
         ),
         (override));
+
     MOCK_METHOD(
         void,
         insertToIndex,
@@ -48,11 +52,12 @@ public:
             long indexPtr
         ),
         (override));
+
     MOCK_METHOD(
         void,
         writeIndex,
         (
-            std::string indexPath,
+            faiss::IOWriter* writer,
             long indexPtr
         ),
         (override));

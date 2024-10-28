@@ -12,9 +12,10 @@
 package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -23,11 +24,11 @@ import java.util.Map;
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX512Disabled;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
-import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;;
+import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
 
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
- *
+ * <p>
  * In order to compile C++ header file, run:
  * javac -h jni/include src/main/java/org/opensearch/knn/jni/FaissService.java
  *      src/main/java/org/opensearch/knn/index/query/KNNQueryResult.java
@@ -129,9 +130,9 @@ class FaissService {
      * NOTE: This will always free the index. Do not call free after this.
      *
      * @param indexAddress address of native memory where index is stored
-     * @param indexPath path to save index file to
+     * @param output Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      */
-    public static native void writeIndex(long indexAddress, String indexPath);
+    public static native void writeIndex(long indexAddress, IndexOutputWithBuffer output);
 
     /**
      * Writes a faiss index.
@@ -139,9 +140,9 @@ class FaissService {
      * NOTE: This will always free the index. Do not call free after this.
      *
      * @param indexAddress address of native memory where index is stored
-     * @param indexPath path to save index file to
+     * @param output Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      */
-    public static native void writeBinaryIndex(long indexAddress, String indexPath);
+    public static native void writeBinaryIndex(long indexAddress, IndexOutputWithBuffer output);
 
     /**
      * Writes a faiss index.
@@ -149,9 +150,9 @@ class FaissService {
      * NOTE: This will always free the index. Do not call free after this.
      *
      * @param indexAddress address of native memory where index is stored
-     * @param indexPath path to save index file to
+     * @param output Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      */
-    public static native void writeByteIndex(long indexAddress, String indexPath);
+    public static native void writeByteIndex(long indexAddress, IndexOutputWithBuffer output);
 
     /**
      * Create an index for the native library with a provided template index
@@ -159,7 +160,7 @@ class FaissService {
      * @param ids array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
      * @param dim dimension of the vector to be indexed
-     * @param indexPath path to save index file to
+     * @param output Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      * @param templateIndex empty template index
      * @param parameters additional build time parameters
      */
@@ -167,7 +168,7 @@ class FaissService {
         int[] ids,
         long vectorsAddress,
         int dim,
-        String indexPath,
+        IndexOutputWithBuffer output,
         byte[] templateIndex,
         Map<String, Object> parameters
     );
@@ -178,7 +179,7 @@ class FaissService {
      * @param ids array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
      * @param dim dimension of the vector to be indexed
-     * @param indexPath path to save index file to
+     * @param output Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      * @param templateIndex empty template index
      * @param parameters additional build time parameters
      */
@@ -186,7 +187,7 @@ class FaissService {
         int[] ids,
         long vectorsAddress,
         int dim,
-        String indexPath,
+        IndexOutputWithBuffer output,
         byte[] templateIndex,
         Map<String, Object> parameters
     );
@@ -197,7 +198,7 @@ class FaissService {
      * @param ids array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
      * @param dim dimension of the vector to be indexed
-     * @param indexPath path to save index file to
+     * @param output Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      * @param templateIndex empty template index
      * @param parameters additional build time parameters
      */
@@ -205,7 +206,7 @@ class FaissService {
         int[] ids,
         long vectorsAddress,
         int dim,
-        String indexPath,
+        IndexOutputWithBuffer output,
         byte[] templateIndex,
         Map<String, Object> parameters
     );

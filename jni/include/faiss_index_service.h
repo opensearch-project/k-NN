@@ -16,8 +16,10 @@
 
 #include <jni.h>
 #include "faiss/MetricType.h"
+#include "faiss/impl/io.h"
 #include "jni_util.h"
 #include "faiss_methods.h"
+#include "faiss_stream_support.h"
 #include <memory>
 
 namespace knn_jni {
@@ -30,7 +32,8 @@ namespace faiss_wrapper {
  */
 class IndexService {
 public:
-    IndexService(std::unique_ptr<FaissMethods> faissMethods);
+    explicit IndexService(std::unique_ptr<FaissMethods> faissMethods);
+
     /**
      * Initialize index
      *
@@ -45,6 +48,7 @@ public:
      * @return memory address of the native index object
      */
     virtual jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters);
+
     /**
      * Add vectors to index
      *
@@ -55,29 +59,34 @@ public:
      * @param idMapAddress memory address of the native index object
      */
     virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress);
+
     /**
      * Write index to disk
      *
-     * @param threadCount number of thread count to be used while adding data
-     * @param indexPath path to write index
-     * @param idMap memory address of the native index object
+     * @param writer IOWriter implementation doing IO processing.
+     *               In most cases, it is expected to have underlying Lucene's IndexOuptut.
+     * @param idMapAddress memory address of the native index object
      */
-    virtual void writeIndex(std::string indexPath, jlong idMapAddress);
+    virtual void writeIndex(faiss::IOWriter* writer, jlong idMapAddress);
+
     virtual ~IndexService() = default;
+
 protected:
     virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors);
+
     std::unique_ptr<FaissMethods> faissMethods;
-};
+};  // class IndexService
 
 /**
  * A class to provide operations on index
  * This class should evolve to have only cpp object but not jni object
  */
-class BinaryIndexService : public IndexService {
+class BinaryIndexService final : public IndexService {
 public:
     //TODO Remove dependency on JNIUtilInterface and JNIEnv
     //TODO Reduce the number of parameters
-    BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods);
+    explicit BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods);
+
     /**
      * Initialize index
      *
@@ -91,7 +100,8 @@ public:
      * @param parameters parameters to be applied to faiss index
      * @return memory address of the native index object
      */
-    virtual jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) override;
+    jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) final;
+
     /**
      * Add vectors to index
      *
@@ -106,7 +116,8 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress) override;
+    void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress) final;
+
     /**
      * Write index to disk
      *
@@ -119,23 +130,23 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void writeIndex(std::string indexPath, jlong idMapAddress) override;
-    virtual ~BinaryIndexService() = default;
+    void writeIndex(faiss::IOWriter* writer, jlong idMapAddress) final;
+
 protected:
-    virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) override;
-};
+    void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
+};  // class BinaryIndexService
 
 /**
  * A class to provide operations on index
  * This class should evolve to have only cpp object but not jni object
  */
-class ByteIndexService : public IndexService {
+class ByteIndexService final : public IndexService {
 public:
     //TODO Remove dependency on JNIUtilInterface and JNIEnv
     //TODO Reduce the number of parameters
-    ByteIndexService(std::unique_ptr<FaissMethods> faissMethods);
+    explicit ByteIndexService(std::unique_ptr<FaissMethods> faissMethods);
 
-/**
+   /**
      * Initialize index
      *
      * @param jniUtil jni util
@@ -148,7 +159,8 @@ public:
      * @param parameters parameters to be applied to faiss index
      * @return memory address of the native index object
      */
-    virtual jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) override;
+    jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) final;
+
     /**
      * Add vectors to index
      *
@@ -163,7 +175,8 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress) override;
+    void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress) final;
+
     /**
      * Write index to disk
      *
@@ -176,11 +189,11 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void writeIndex(std::string indexPath, jlong idMapAddress) override;
-    virtual ~ByteIndexService() = default;
-protected:
-    virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) override;
-};
+    void writeIndex(faiss::IOWriter* writer, jlong idMapAddress) final;
+
+ protected:
+    void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
+};  // class ByteIndexService
 
 }
 }

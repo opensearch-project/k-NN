@@ -13,7 +13,6 @@ package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
@@ -44,98 +43,98 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
 
     public void testIndexLoadStrategy_load() throws IOException {
         // Create basic nmslib HNSW index
-        Path dir = createTempDir();
-        Directory luceneDirectory = new MMapDirectory(dir);
-        KNNEngine knnEngine = KNNEngine.NMSLIB;
-        String indexName = "test1" + knnEngine.getExtension();
-        String path = dir.resolve(indexName).toAbsolutePath().toString();
-        int numVectors = 10;
-        int dimension = 10;
-        int[] ids = new int[numVectors];
-        float[][] vectors = new float[numVectors][dimension];
-        for (int i = 0; i < numVectors; i++) {
-            ids[i] = i;
-            Arrays.fill(vectors[i], 1f);
+        Path tempDirPath = createTempDir();
+        try (Directory luceneDirectory = newFSDirectory(tempDirPath)) {
+            KNNEngine knnEngine = KNNEngine.NMSLIB;
+            String indexFileName = "test1" + knnEngine.getExtension();
+            int numVectors = 10;
+            int dimension = 10;
+            int[] ids = new int[numVectors];
+            float[][] vectors = new float[numVectors][dimension];
+            for (int i = 0; i < numVectors; i++) {
+                ids[i] = i;
+                Arrays.fill(vectors[i], 1f);
+            }
+            Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
+            TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
+
+            // Setup mock resource manager
+            NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+                luceneDirectory,
+                TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
+                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                parameters,
+                "test"
+            );
+
+            // Load
+            NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
+                .load(indexEntryContext);
+
+            // Confirm that the file was loaded by querying
+            float[] query = new float[dimension];
+            Arrays.fill(query, numVectors + 1);
+            KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, null, knnEngine, null, 0, null);
+            assertTrue(results.length > 0);
         }
-        Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
-        long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
-        TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
-
-        // Setup mock resource manager
-        NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-            luceneDirectory,
-            TestUtils.createFakeNativeMamoryCacheKey(indexName),
-            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-            parameters,
-            "test"
-        );
-
-        // Load
-        NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
-            .load(indexEntryContext);
-
-        // Confirm that the file was loaded by querying
-        float[] query = new float[dimension];
-        Arrays.fill(query, numVectors + 1);
-        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, null, knnEngine, null, 0, null);
-        assertTrue(results.length > 0);
     }
 
     public void testLoad_whenFaissBinary_thenSuccess() throws IOException {
-        Path dir = createTempDir();
-        Directory luceneDirectory = new MMapDirectory(dir);
-        KNNEngine knnEngine = KNNEngine.FAISS;
-        String indexName = "test1" + knnEngine.getExtension();
-        String path = dir.resolve(indexName).toAbsolutePath().toString();
-        int numVectors = 10;
-        int dimension = 8;
-        int dataLength = dimension / 8;
-        int[] ids = new int[numVectors];
-        byte[][] vectors = new byte[numVectors][dataLength];
-        for (int i = 0; i < numVectors; i++) {
-            ids[i] = i;
-            vectors[i][0] = 1;
+        Path tempDirPath = createTempDir();
+        try (Directory luceneDirectory = newFSDirectory(tempDirPath)) {
+            KNNEngine knnEngine = KNNEngine.FAISS;
+            String indexFileName = "test1" + knnEngine.getExtension();
+            int numVectors = 10;
+            int dimension = 8;
+            int dataLength = dimension / 8;
+            int[] ids = new int[numVectors];
+            byte[][] vectors = new byte[numVectors][dataLength];
+            for (int i = 0; i < numVectors; i++) {
+                ids[i] = i;
+                vectors[i][0] = 1;
+            }
+            Map<String, Object> parameters = ImmutableMap.of(
+                KNNConstants.SPACE_TYPE,
+                SpaceType.HAMMING.getValue(),
+                KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+                "BHNSW32",
+                KNNConstants.VECTOR_DATA_TYPE_FIELD,
+                VectorDataType.BINARY.getValue()
+            );
+            long memoryAddress = JNICommons.storeBinaryVectorData(0, vectors, numVectors);
+            TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
+
+            // Setup mock resource manager
+            NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+                luceneDirectory,
+                TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
+                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                parameters,
+                "test"
+            );
+
+            // Load
+            NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
+                .load(indexEntryContext);
+
+            // Verify
+            assertTrue(indexAllocation.isBinaryIndex());
+
+            // Confirm that the file was loaded by querying
+            byte[] query = { 1 };
+            KNNQueryResult[] results = JNIService.queryBinaryIndex(
+                indexAllocation.getMemoryAddress(),
+                query,
+                2,
+                null,
+                knnEngine,
+                null,
+                0,
+                null
+            );
+            assertTrue(results.length > 0);
         }
-        Map<String, Object> parameters = ImmutableMap.of(
-            KNNConstants.SPACE_TYPE,
-            SpaceType.HAMMING.getValue(),
-            KNNConstants.INDEX_DESCRIPTION_PARAMETER,
-            "BHNSW32",
-            KNNConstants.VECTOR_DATA_TYPE_FIELD,
-            VectorDataType.BINARY.getValue()
-        );
-        long memoryAddress = JNICommons.storeBinaryVectorData(0, vectors, numVectors);
-        TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
-
-        // Setup mock resource manager
-        NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-            luceneDirectory,
-            TestUtils.createFakeNativeMamoryCacheKey(indexName),
-            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-            parameters,
-            "test"
-        );
-
-        // Load
-        NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
-            .load(indexEntryContext);
-
-        // Verify
-        assertTrue(indexAllocation.isBinaryIndex());
-
-        // Confirm that the file was loaded by querying
-        byte[] query = { 1 };
-        KNNQueryResult[] results = JNIService.queryBinaryIndex(
-            indexAllocation.getMemoryAddress(),
-            query,
-            2,
-            null,
-            knnEngine,
-            null,
-            0,
-            null
-        );
-        assertTrue(results.length > 0);
     }
 
     @SuppressWarnings("unchecked")
