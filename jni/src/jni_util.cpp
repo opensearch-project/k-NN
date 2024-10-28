@@ -88,7 +88,7 @@ void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env) {
     this->HasExceptionInStack(env, "Exception in jni occurred");
 }
 
-void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env, const std::string& message) {
+void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env, const char* message) {
     if (env->ExceptionCheck() == JNI_TRUE) {
         throw std::runtime_error(message);
     }
@@ -252,11 +252,11 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env
             throw std::runtime_error("Unable to get float array elements");
         }
 
-        for(int j = 0; j < dim; ++j) {
+        for (int j = 0; j < dim; ++j) {
             vect->push_back(vector[j]);
         }
         env->ReleaseFloatArrayElements(vectorArray, vector, JNI_ABORT);
-    }
+    }  // End for
     this->HasExceptionInStack(env);
     env->DeleteLocalRef(array2dJ);
 }
@@ -285,7 +285,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToBinaryVector(JNIEnv *en
             throw std::runtime_error("Unable to get byte array elements");
         }
 
-        for(int j = 0; j < dim; ++j) {
+        for (int j = 0; j < dim; ++j) {
             vect->push_back(vector[j]);
         }
         env->ReleaseByteArrayElements(vectorArray, reinterpret_cast<int8_t*>(vector), JNI_ABORT);
@@ -573,6 +573,11 @@ jlong knn_jni::JNIUtil::CallNonvirtualLongMethodA(JNIEnv * env, jobject obj, jcl
   return env->CallNonvirtualLongMethodA(obj, clazz, methodID, args);
 }
 
+void knn_jni::JNIUtil::CallNonvirtualVoidMethodA(JNIEnv * env, jobject obj, jclass clazz,
+                                                 jmethodID methodID, jvalue* args) {
+  return env->CallNonvirtualVoidMethodA(obj, clazz, methodID, args);
+}
+
 void * knn_jni::JNIUtil::GetPrimitiveArrayCritical(JNIEnv * env, jarray array, jboolean *isCopy) {
     return env->GetPrimitiveArrayCritical(array, isCopy);
 }
@@ -582,10 +587,11 @@ void knn_jni::JNIUtil::ReleasePrimitiveArrayCritical(JNIEnv * env, jarray array,
 }
 
 jobject knn_jni::GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key) {
-    if(map.find(key) == map.end()) {
-        throw std::runtime_error(key + " not found");
+    auto it = map.find(key);
+    if (it != map.end()) {
+        return it->second;
     }
-    return map[key];
+    throw std::runtime_error(key + " not found");
 }
 
 //TODO: This potentially should use const char *

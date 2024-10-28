@@ -83,7 +83,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
                         intListToArray(transferredDocIds),
                         vectorAddress,
                         indexBuildSetup.getDimensions(),
-                        indexInfo.getIndexPath(),
+                        indexInfo.getIndexOutputWithBuffer(),
                         (byte[]) params.get(KNNConstants.MODEL_BLOB_PARAMETER),
                         params,
                         indexInfo.getKnnEngine()
@@ -96,7 +96,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
                         intListToArray(transferredDocIds),
                         vectorAddress,
                         indexBuildSetup.getDimensions(),
-                        indexInfo.getIndexPath(),
+                        indexInfo.getIndexOutputWithBuffer(),
                         params,
                         indexInfo.getKnnEngine()
                     );

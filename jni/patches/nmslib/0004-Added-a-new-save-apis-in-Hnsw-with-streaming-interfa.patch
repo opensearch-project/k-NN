@@ -1,0 +1,165 @@
+From eb9ceb60c695f795895b80ea66b251aea1fbf781 Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Wed, 30 Oct 2024 15:44:34 -0700
+Subject: [PATCH] Added a new IOWriter interface in Hnsw node to support
+ streaming writing.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ similarity_search/include/method/hnsw.h |  3 ++
+ similarity_search/include/utils.h       | 20 ++++++++--
+ similarity_search/src/method/hnsw.cc    | 52 +++++++++++++++++++++++--
+ 3 files changed, 68 insertions(+), 7 deletions(-)
+
+diff --git a/similarity_search/include/method/hnsw.h b/similarity_search/include/method/hnsw.h
+index 433f98f..d235c15 100644
+--- a/similarity_search/include/method/hnsw.h
++++ b/similarity_search/include/method/hnsw.h
+@@ -459,6 +459,8 @@ namespace similarity {
+ 
+         void LoadIndexWithStream(similarity::NmslibIOReader& in);
+ 
++        void SaveIndexWithStream(similarity::NmslibIOWriter& out);
++
+         Hnsw(bool PrintProgress, const Space<dist_t> &space, const ObjectVector &data);
+         void CreateIndex(const AnyParams &IndexParams) override;
+ 
+@@ -501,6 +503,7 @@ namespace similarity {
+ 
+ 
+         void SaveOptimizedIndex(std::ostream& output);
++        void SaveOptimizedIndex(NmslibIOWriter& output);
+         void LoadOptimizedIndex(std::istream& input);
+         void LoadOptimizedIndex(NmslibIOReader& input);
+ 
+diff --git a/similarity_search/include/utils.h b/similarity_search/include/utils.h
+index a3931b7..1cc55b2 100644
+--- a/similarity_search/include/utils.h
++++ b/similarity_search/include/utils.h
+@@ -305,19 +305,33 @@ struct NmslibIOReader {
+   virtual void read(char* bytes, size_t len) = 0;
+ 
+   virtual size_t remainingBytes() = 0;
+-};
++};  // class NmslibIOReader
++
++struct NmslibIOWriter {
++  virtual ~NmslibIOWriter() = default;
++
++  virtual void write(char* bytes, size_t len) = 0;
++
++  virtual void flush() {
++  }
++};  // class NmslibIOWriter
+ 
+ template <typename T> 
+ void writeBinaryPOD(ostream& out, const T& podRef) {
+   out.write((char*)&podRef, sizeof(T));
+ }
+ 
+-template <typename T> 
++template <typename T>
++void writeBinaryPOD(NmslibIOWriter& out, const T& podRef) {
++  out.write((char*)&podRef, sizeof(T));
++}
++
++template <typename T>
+ static void readBinaryPOD(NmslibIOReader& in, T& podRef) {
+   in.read((char*)&podRef, sizeof(T));
+ }
+ 
+-template <typename T> 
++template <typename T>
+ static void readBinaryPOD(istream& in, T& podRef) {
+   in.read((char*)&podRef, sizeof(T));
+ }
+diff --git a/similarity_search/src/method/hnsw.cc b/similarity_search/src/method/hnsw.cc
+index 662f06c..bfa3a23 100644
+--- a/similarity_search/src/method/hnsw.cc
++++ b/similarity_search/src/method/hnsw.cc
+@@ -784,6 +784,19 @@ namespace similarity {
+         output.close();
+     }
+ 
++    template <typename dist_t>
++    void Hnsw<dist_t>::SaveIndexWithStream(NmslibIOWriter& output) {
++        unsigned int optimIndexFlag = data_level0_memory_ != nullptr;
++
++        writeBinaryPOD(output, optimIndexFlag);
++
++        if (!optimIndexFlag) {
++            throw std::runtime_error("With stream, we only support optimized index type.");
++        } else {
++            SaveOptimizedIndex(output);
++        }
++    }
++
+     template <typename dist_t>
+     void
+     Hnsw<dist_t>::SaveOptimizedIndex(std::ostream& output) {
+@@ -818,6 +831,37 @@ namespace similarity {
+ 
+     }
+ 
++    template <typename dist_t>
++    void
++    Hnsw<dist_t>::SaveOptimizedIndex(NmslibIOWriter& output) {
++        totalElementsStored_ = ElList_.size();
++
++        writeBinaryPOD(output, totalElementsStored_);
++        writeBinaryPOD(output, memoryPerObject_);
++        writeBinaryPOD(output, offsetLevel0_);
++        writeBinaryPOD(output, offsetData_);
++        writeBinaryPOD(output, maxlevel_);
++        writeBinaryPOD(output, enterpointId_);
++        writeBinaryPOD(output, maxM_);
++        writeBinaryPOD(output, maxM0_);
++        writeBinaryPOD(output, dist_func_type_);
++        writeBinaryPOD(output, searchMethod_);
++
++        const size_t data_plus_links0_size = memoryPerObject_ * totalElementsStored_;
++        LOG(LIB_INFO) << "writing " << data_plus_links0_size << " bytes";
++        output.write(data_level0_memory_, data_plus_links0_size);
++
++        for (size_t i = 0; i < totalElementsStored_; i++) {
++            // TODO Can this one overflow? I really doubt
++            const SIZEMASS_TYPE sizemass = ((ElList_[i]->level) * (maxM_ + 1)) * sizeof(int);
++            writeBinaryPOD(output, sizemass);
++            if (sizemass) {
++                output.write(linkLists_[i], sizemass);
++            }
++        }
++        output.flush();
++    }
++
+     template <typename dist_t>
+     void
+     Hnsw<dist_t>::SaveRegularIndexBin(std::ostream& output) {
+@@ -1036,20 +1080,20 @@ namespace similarity {
+     constexpr bool _isLittleEndian() {
+         return (((uint32_t) 1) & 0xFFU) == 1;
+     }
+-                        
++
+     SIZEMASS_TYPE _readIntBigEndian(uint8_t byte0, uint8_t byte1, uint8_t byte2, uint8_t byte3) noexcept {
+         return (static_cast<SIZEMASS_TYPE>(byte0) << 24) |
+                (static_cast<SIZEMASS_TYPE>(byte1) << 16) |
+                (static_cast<SIZEMASS_TYPE>(byte2) << 8)  |
+                static_cast<SIZEMASS_TYPE>(byte3);
+-    }                   
+-                            
++    }
++
+     SIZEMASS_TYPE _readIntLittleEndian(uint8_t byte0, uint8_t byte1, uint8_t byte2, uint8_t byte3) noexcept {
+         return (static_cast<SIZEMASS_TYPE>(byte3) << 24) |
+                (static_cast<SIZEMASS_TYPE>(byte2) << 16) |
+                (static_cast<SIZEMASS_TYPE>(byte1) << 8)  |
+                static_cast<SIZEMASS_TYPE>(byte0);
+-    } 
++    }
+ 
+     template <typename dist_t>
+     void Hnsw<dist_t>::LoadIndexWithStream(NmslibIOReader& input) {
+-- 
+2.39.5 (Apple Git-154)
+

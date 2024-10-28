@@ -20,17 +20,22 @@
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIVFPQ.h"
 #include "mocks/faiss_index_service_mock.h"
+#include "native_stream_support_util.h"
 
-using ::testing::_;
+using ::test_util::JavaFileIndexOutputMock;
+using ::test_util::MockJNIUtil;
+using ::test_util::StreamIOError;
+using ::test_util::setUpJavaFileOutputMocking;
+using ::testing::Mock;
 using ::testing::NiceMock;
 using ::testing::Return;
-using ::testing::Mock;
+using ::testing::_;
 
-float randomDataMin = -500.0;
-float randomDataMax = 500.0;
-float rangeSearchRandomDataMin = -50;
-float rangeSearchRandomDataMax = 50;
-float rangeSearchRadius = 20000;
+const float randomDataMin = -500.0;
+const float randomDataMax = 500.0;
+const float rangeSearchRandomDataMin = -50;
+const float rangeSearchRandomDataMax = 50;
+const float rangeSearchRadius = 20000;
 
 void createIndexIteratively(
         knn_jni::JNIUtilInterface * JNIUtil, 
@@ -38,23 +43,25 @@ void createIndexIteratively(
         std::vector<faiss::idx_t> & ids,
         std::vector<float> & vectors,
         int dim,
-        std::string & indexPath,
-        std::unordered_map<string, jobject> parametersMap, 
+        jobject javaFileOutputMock,
+        std::unordered_map<string, jobject> parametersMap,
         IndexService * indexService,
         int insertions = 10
     ) {
     long numDocs = ids.size();
-    if(numDocs % insertions != 0) {
+    if (numDocs % insertions != 0) {
         throw std::invalid_argument("Number of documents should be divisible by number of insertions");
     }
     long docsPerInsertion = numDocs / insertions;
     long index_ptr = knn_jni::faiss_wrapper::InitIndex(JNIUtil, jniEnv, numDocs, dim, (jobject)&parametersMap, indexService);
-    for(int i = 0; i < insertions; i++) {
+    std::vector<faiss::idx_t> insertIds;
+    std::vector<float> insertVecs;
+    for (int i = 0; i < insertions; i++) {
+        insertIds.clear();
+        insertVecs.clear();
         int start_idx = i * docsPerInsertion;
         int end_idx = start_idx + docsPerInsertion;
-        std::vector<faiss::idx_t> insertIds;
-        std::vector<float> insertVecs;
-        for(int j = start_idx; j < end_idx; j++) {
+        for (int j = start_idx; j < end_idx; j++) {
             insertIds.push_back(j);
             for(int k = 0; k < dim; k++) {
                 insertVecs.push_back(vectors[j * dim + k]);
@@ -62,7 +69,7 @@ void createIndexIteratively(
         }
         knn_jni::faiss_wrapper::InsertToIndex(JNIUtil, jniEnv, reinterpret_cast<jintArray>(&insertIds), (jlong)&insertVecs, dim, index_ptr, 0, indexService);
     }
-    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, indexService);
+    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, javaFileOutputMock, index_ptr, indexService);
 }
 
 void createBinaryIndexIteratively(
@@ -71,21 +78,25 @@ void createBinaryIndexIteratively(
         std::vector<faiss::idx_t> & ids,
         std::vector<uint8_t> & vectors,
         int dim,
-        std::string & indexPath,
+        jobject javaFileOutputMock,
         std::unordered_map<string, jobject> parametersMap, 
         IndexService * indexService,
         int insertions = 10
     ) {
-    long numDocs = ids.size();;
+    long numDocs = ids.size();
     long index_ptr = knn_jni::faiss_wrapper::InitIndex(JNIUtil, jniEnv, numDocs, dim, (jobject)&parametersMap, indexService);
-    for(int i = 0; i < insertions; i++) {
+    std::vector<faiss::idx_t> insertIds;
+    std::vector<float> insertVecs;
+    for (int i = 0; i < insertions; i++) {
         int start_idx = numDocs * i / insertions;
         int end_idx = numDocs * (i + 1) / insertions;
         int docs_to_insert = end_idx - start_idx;
-        if(docs_to_insert == 0) continue;
-        std::vector<faiss::idx_t> insertIds;
-        std::vector<float> insertVecs;
-        for(int j = start_idx; j < end_idx; j++) {
+        if (docs_to_insert == 0) {
+            continue;
+        }
+        insertIds.clear();
+        insertVecs.clear();
+        for (int j = start_idx; j < end_idx; j++) {
             insertIds.push_back(j);
             for(int k = 0; k < dim / 8; k++) {
                 insertVecs.push_back(vectors[j * (dim / 8) + k]);
@@ -93,7 +104,8 @@ void createBinaryIndexIteratively(
         }
         knn_jni::faiss_wrapper::InsertToIndex(JNIUtil, jniEnv, reinterpret_cast<jintArray>(&insertIds), (jlong)&insertVecs, dim, index_ptr, 0, indexService);
     }
-    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, indexService);
+
+    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, javaFileOutputMock, index_ptr, indexService);
 }
 
 TEST(FaissCreateIndexTest, BasicAssertions) {
@@ -104,10 +116,10 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     int dim = 2;
     vectors.reserve(dim * numIds);
     for (int64_t i = 0; i < numIds; ++i) {
-        ids.push_back(i);
-        for (int j = 0; j < dim; ++j) {
-            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
-        }
+      ids.push_back(i);
+      for (int j = 0; j < dim; ++j) {
+        vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
+      }
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -121,8 +133,10 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     parametersMap[knn_jni::PARAMETERS] = (jobject)&subParametersMap;
 
     // Set up jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock {indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
 
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
@@ -132,10 +146,18 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
         .Times(1);
     EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
         .Times(insertions);
-    EXPECT_CALL(mockIndexService, writeIndex(indexPath, _))
+    EXPECT_CALL(mockIndexService, writeIndex(_, _))
         .Times(1);
 
-    createIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService, insertions);
+    createIndexIteratively(&mockJNIUtil,
+                           &jniEnv,
+                           ids,
+                           vectors,
+                           dim,
+                           (jobject) (&javaFileIndexOutputMock),
+                           parametersMap,
+                           &mockIndexService,
+                           insertions);
 }
 
 TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
@@ -146,10 +168,10 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
     int dim = 128;
     vectors.reserve(numIds);
     for (int64_t i = 0; i < numIds; ++i) {
-        ids.push_back(i);
-        for (int j = 0; j < dim / 8; ++j) {
-            vectors.push_back(test_util::RandomInt(0, 255));
-        }
+      ids.push_back(i);
+      for (int j = 0; j < dim / 8; ++j) {
+        vectors.push_back(test_util::RandomInt(0, 255));
+      }
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -163,8 +185,10 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
     parametersMap[knn_jni::PARAMETERS] = (jobject)&subParametersMap;
 
     // Set up jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock {indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
 
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
@@ -174,109 +198,132 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
         .Times(1);
     EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
         .Times(insertions);
-    EXPECT_CALL(mockIndexService, writeIndex(indexPath, _))
+    EXPECT_CALL(mockIndexService, writeIndex(_, _))
         .Times(1);
 
     // This method calls delete vectors at the end
-    createBinaryIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService, insertions);
+    createBinaryIndexIteratively(&mockJNIUtil,
+                                 &jniEnv,
+                                 ids,
+                                 vectors,
+                                 dim,
+                                 (jobject) (&javaFileIndexOutputMock),
+                                 parametersMap,
+                                 &mockIndexService,
+                                 insertions);
 }
 
 TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
-    // Define the data
-    faiss::idx_t numIds = 100;
-    std::vector<faiss::idx_t> ids;
-    auto *vectors = new std::vector<float>();
-    int dim = 2;
-    vectors->reserve(dim * numIds);
-    for (int64_t i = 0; i < numIds; ++i) {
-        ids.push_back(i);
-        for (int j = 0; j < dim; ++j) {
+    for (auto throwIOException : std::array<bool, 2> {false, true}) {
+        // Define the data
+        faiss::idx_t numIds = 100;
+        std::vector<faiss::idx_t> ids;
+        auto *vectors = new std::vector<float>();
+        int dim = 2;
+        vectors->reserve(dim * numIds);
+        for (int64_t i = 0; i < numIds; ++i) {
+          ids.push_back(i);
+          for (int j = 0; j < dim; ++j) {
             vectors->push_back(test_util::RandomFloat(-500.0, 500.0));
+          }
         }
-    }
 
-    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
-    faiss::MetricType metricType = faiss::METRIC_L2;
-    std::string method = "HNSW32,Flat";
+        std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+        faiss::MetricType metricType = faiss::METRIC_L2;
+        std::string method = "HNSW32,Flat";
 
-    std::unique_ptr<faiss::Index> createdIndex(
+        std::unique_ptr<faiss::Index> createdIndex(
             test_util::FaissCreateIndex(dim, method, metricType));
-    auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
+        auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
 
-    // Setup jni
-    JNIEnv *jniEnv = nullptr;
-    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+        // Setup jni
+        NiceMock<JNIEnv> jniEnv;
+        NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+        JavaFileIndexOutputMock javaFileIndexOutputMock {indexPath};
+        setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, throwIOException);
 
-    EXPECT_CALL(mockJNIUtil,
-                GetJavaObjectArrayLength(
-                        jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
-            .WillRepeatedly(Return(vectors->size()));
+        std::string spaceType = knn_jni::L2;
+        std::unordered_map<std::string, jobject> parametersMap;
+        parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
 
-    std::string spaceType = knn_jni::L2;
-    std::unordered_map<std::string, jobject> parametersMap;
-    parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
+        try {
+            knn_jni::faiss_wrapper::CreateIndexFromTemplate(
+                &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+                (jlong)vectors, dim, (jobject)(&javaFileIndexOutputMock),
+                reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+                (jobject) &parametersMap);
+            javaFileIndexOutputMock.file_writer.close();
+        } catch (const StreamIOError& e) {
+            ASSERT_TRUE(throwIOException);
+            continue;
+        }
 
-    knn_jni::faiss_wrapper::CreateIndexFromTemplate(
-            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            (jlong)vectors, dim, (jstring)&indexPath,
-            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
-            (jobject) &parametersMap
-            );
+        ASSERT_FALSE(throwIOException);
 
-    // Make sure index can be loaded
-    std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
+        // Make sure index can be loaded
+        std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
 
-    // Clean up
-    std::remove(indexPath.c_str());
+        // Clean up
+        std::remove(indexPath.c_str());
+    }  // End for
 }
 
 TEST(FaissCreateByteIndexFromTemplateTest, BasicAssertions) {
-    // Define the data
-    faiss::idx_t numIds = 100;
-    std::vector<faiss::idx_t> ids;
-    auto *vectors = new std::vector<int8_t>();
-    int dim = 8;
-    vectors->reserve(dim * numIds);
-    for (int64_t i = 0; i < numIds; ++i) {
-        ids.push_back(i);
-        for (int j = 0; j < dim; ++j) {
+    for (auto throwIOException : std::array<bool, 2> {false, true}) {
+        // Define the data
+        faiss::idx_t numIds = 100;
+        std::vector<faiss::idx_t> ids;
+        auto *vectors = new std::vector<int8_t>();
+        int dim = 8;
+        vectors->reserve(dim * numIds);
+        for (int64_t i = 0; i < numIds; ++i) {
+          ids.push_back(i);
+          for (int j = 0; j < dim; ++j) {
             vectors->push_back(test_util::RandomInt(-128, 127));
+          }
         }
-    }
 
-    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
-    faiss::MetricType metricType = faiss::METRIC_L2;
-    std::string method = "HNSW32,SQ8_direct_signed";
+        std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+        faiss::MetricType metricType = faiss::METRIC_L2;
+        std::string method = "HNSW32,SQ8_direct_signed";
 
-    std::unique_ptr<faiss::Index> createdIndex(
+        std::unique_ptr<faiss::Index> createdIndex(
             test_util::FaissCreateIndex(dim, method, metricType));
-    auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
+        auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
 
-    // Setup jni
-    JNIEnv *jniEnv = nullptr;
-    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+        // Setup jni
+        NiceMock<JNIEnv> jniEnv;
+        NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+        JavaFileIndexOutputMock javaFileIndexOutputMock {indexPath};
+        setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, throwIOException);
 
-    EXPECT_CALL(mockJNIUtil,
-                GetJavaObjectArrayLength(
-                        jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
-            .WillRepeatedly(Return(vectors->size()));
+        std::string spaceType = knn_jni::L2;
+        std::unordered_map<std::string, jobject> parametersMap;
+        parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
 
-    std::string spaceType = knn_jni::L2;
-    std::unordered_map<std::string, jobject> parametersMap;
-    parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
-
-    knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(
-            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            (jlong)vectors, dim, (jstring)&indexPath,
-            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
-            (jobject) &parametersMap
+        try {
+            knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(
+                &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+                (jlong) vectors, dim, (jstring) (&javaFileIndexOutputMock),
+                reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+                (jobject) &parametersMap
             );
 
-    // Make sure index can be loaded
-    std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
+            // Make sure we close a file stream before reopening the created file.
+            javaFileIndexOutputMock.file_writer.close();
+        } catch (const StreamIOError& e) {
+            ASSERT_TRUE(throwIOException);
+            continue;
+        }
 
-    // Clean up
-    std::remove(indexPath.c_str());
+        ASSERT_FALSE(throwIOException);
+
+        // Make sure index can be loaded
+        std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
+
+        // Clean up
+        std::remove(indexPath.c_str());
+    }  // End for
 }
 
 TEST(FaissLoadIndexTest, BasicAssertions) {
@@ -299,12 +346,12 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
     test_util::FaissWriteIndex(&createdIndexWithData, indexPath);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     std::unique_ptr<faiss::Index> loadedIndexPointer(
             reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
-                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+                    &mockJNIUtil, &jniEnv, (jstring)&indexPath)));
 
     // Compare serialized versions
     auto createIndexSerialization =
@@ -339,7 +386,6 @@ TEST(FaissLoadBinaryIndexTest, BasicAssertions) {
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
-    std::string spaceType = knn_jni::HAMMING;
     std::string method = "BHNSW32";
 
     // Create the index
@@ -351,12 +397,12 @@ TEST(FaissLoadBinaryIndexTest, BasicAssertions) {
     test_util::FaissWriteBinaryIndex(&createdIndexWithData, indexPath);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     std::unique_ptr<faiss::IndexBinary> loadedIndexPointer(
             reinterpret_cast<faiss::IndexBinary *>(knn_jni::faiss_wrapper::LoadBinaryIndex(
-                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+                    &mockJNIUtil, &jniEnv, (jstring)&indexPath)));
 
     // Compare serialized versions
     auto createIndexSerialization =
@@ -394,12 +440,12 @@ TEST(FaissLoadIndexTest, HNSWPQDisableSdcTable) {
     test_util::FaissWriteIndex(&faissIndexWithIDMap, indexPath);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     std::unique_ptr<faiss::Index> loadedIndexPointer(
             reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
-                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+                    &mockJNIUtil, &jniEnv, (jstring)&indexPath)));
 
     // Cast down until we get to the pq backed storage index and checke the size of the table
     auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(loadedIndexPointer.get());
@@ -427,12 +473,12 @@ TEST(FaissLoadIndexTest, IVFPQDisablePrecomputeTable) {
     test_util::FaissWriteIndex(&faissIndexWithIDMap, indexPath);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     std::unique_ptr<faiss::Index> loadedIndexPointer(
             reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
-                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+                    &mockJNIUtil, &jniEnv, (jstring)&indexPath)));
 
     // Cast down until we get to the ivfpq-l2 state
     auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(loadedIndexPointer.get());
@@ -477,7 +523,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
     auto methodParamsJ = reinterpret_cast<jobject>(&methodParams);
 
@@ -485,7 +531,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
                         knn_jni::faiss_wrapper::QueryIndex(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), k, methodParamsJ, nullptr)));
 
@@ -533,14 +579,14 @@ TEST(FaissQueryBinaryIndexTest, BasicAssertions) {
             test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, int32_t> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, int32_t> *> *>(
                         knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jbyteArray>(&query), k, nullptr, nullptr, 0, nullptr)));
 
@@ -594,11 +640,11 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
     EXPECT_CALL(mockJNIUtil,
                 GetJavaLongArrayLength(
-                        jniEnv, reinterpret_cast<jlongArray>(&bitmap)))
+                        &jniEnv, reinterpret_cast<jlongArray>(&bitmap)))
             .WillRepeatedly(Return(bitmap.size()));
 
     int k = 20;
@@ -606,7 +652,7 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
                         knn_jni::faiss_wrapper::QueryIndex_WithFilter(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), k, nullptr,
                                 reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
@@ -671,17 +717,17 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
     methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
     EXPECT_CALL(mockJNIUtil,
                     GetJavaIntArrayLength(
-                            jniEnv, reinterpret_cast<jintArray>(&parentIds)))
+                            &jniEnv, reinterpret_cast<jintArray>(&parentIds)))
                 .WillRepeatedly(Return(parentIds.size()));
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
                         knn_jni::faiss_wrapper::QueryIndex(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), k, reinterpret_cast<jobject>(&methodParams),
                                 reinterpret_cast<jintArray>(&parentIds))));
@@ -749,14 +795,14 @@ TEST(FaissTrainIndexTest, BasicAssertions) {
     std::vector<float> trainingVectors = test_util::RandomVectors(dim, numTrainingVectors, randomDataMin, randomDataMax);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     // Perform training
     std::unique_ptr<std::vector<uint8_t>> trainedIndexSerialization(
             reinterpret_cast<std::vector<uint8_t> *>(
                     knn_jni::faiss_wrapper::TrainIndex(
-                            &mockJNIUtil, jniEnv, (jobject) &parametersMap, dim,
+                            &mockJNIUtil, &jniEnv, (jobject) &parametersMap, dim,
                             reinterpret_cast<jlong>(&trainingVectors))));
 
     std::unique_ptr<faiss::Index> trainedIndex(
@@ -781,14 +827,14 @@ TEST(FaissTrainByteIndexTest, BasicAssertions) {
     std::vector<int8_t> trainingVectors = test_util::RandomByteVectors(dim, numTrainingVectors, -128, 127);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     // Perform training
     std::unique_ptr<std::vector<uint8_t>> trainedIndexSerialization(
             reinterpret_cast<std::vector<uint8_t> *>(
                     knn_jni::faiss_wrapper::TrainByteIndex(
-                            &mockJNIUtil, jniEnv, (jobject) &parametersMap, dim,
+                            &mockJNIUtil, &jniEnv, (jobject) &parametersMap, dim,
                             reinterpret_cast<jlong>(&trainingVectors))));
 
     std::unique_ptr<faiss::Index> trainedIndex(
@@ -812,7 +858,6 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
         }
     }
 
-    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
     std::string spaceType = knn_jni::L2;
     std::string index_description = "HNSW32,SQfp16";
 
@@ -820,31 +865,46 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
     parametersMap[knn_jni::INDEX_DESCRIPTION] = (jobject)&index_description;
 
-    // Set up jni
-    JNIEnv *jniEnv = nullptr;
-    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    for (auto throwIOException : std::array<bool, 2> {false, true}) {
+        const std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
 
-    EXPECT_CALL(mockJNIUtil,
-                GetJavaObjectArrayLength(
-                        jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
+        // Set up jni
+        NiceMock<JNIEnv> jniEnv;
+        NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+        JavaFileIndexOutputMock javaFileIndexOutputMock {indexPath};
+        setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, throwIOException);
+
+        EXPECT_CALL(mockJNIUtil,
+                    GetJavaObjectArrayLength(
+                        &jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
             .WillRepeatedly(Return(vectors.size()));
 
-    // Create the index
-    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
-    knn_jni::faiss_wrapper::IndexService IndexService(std::move(faissMethods));
-    
-    createIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &IndexService);
+        // Create the index
+        std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+        knn_jni::faiss_wrapper::IndexService IndexService(std::move(faissMethods));
 
-    // Make sure index can be loaded
-    std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
-    auto indexIDMap =  dynamic_cast<faiss::IndexIDMap*>(index.get());
+        try {
+            createIndexIteratively(&mockJNIUtil, &jniEnv, ids, vectors, dim, (jobject) (&javaFileIndexOutputMock), parametersMap, &IndexService);
+            // Make sure we close a file stream before reopening the created file.
+            javaFileIndexOutputMock.file_writer.close();
+        } catch (const std::exception& e) {
+            ASSERT_STREQ("Failed to write index to disk", e.what());
+            ASSERT_TRUE(throwIOException);
+            continue;
+        }
+        ASSERT_FALSE(throwIOException);
 
-    // Assert that Index is of type IndexHNSWSQ
-    ASSERT_NE(indexIDMap, nullptr);
-    ASSERT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(indexIDMap->index), nullptr);
-    
-    // Clean up
-    std::remove(indexPath.c_str());
+        // Make sure index can be loaded
+        std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
+        auto indexIDMap =  dynamic_cast<faiss::IndexIDMap*>(index.get());
+
+        // Assert that Index is of type IndexHNSWSQ
+        ASSERT_NE(indexIDMap, nullptr);
+        ASSERT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(indexIDMap->index), nullptr);
+
+        // Clean up
+        std::remove(indexPath.c_str());
+    }  // End for
 }
 
 TEST(FaissIsSharedIndexStateRequired, BasicAssertions) {
@@ -917,12 +977,12 @@ TEST(FaissInitAndSetSharedIndexState, BasicAssertions) {
     test_util::FaissWriteIndex(&faissIndexWithIDMap, indexPath);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     std::unique_ptr<faiss::Index> loadedIndexPointer(
             reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
-                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+                    &mockJNIUtil, &jniEnv, (jstring)&indexPath)));
 
     auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(loadedIndexPointer.get());
     ASSERT_NE(idMapIndex, nullptr);
@@ -973,7 +1033,7 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     int maxResultWindow = 20000;
@@ -983,7 +1043,7 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
 
                         knn_jni::faiss_wrapper::RangeSearch(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, methodParamsJ, maxResultWindow, nullptr)));
 
@@ -1028,7 +1088,7 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     int maxResultWindow = 10;
@@ -1038,7 +1098,7 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
 
                         knn_jni::faiss_wrapper::RangeSearch(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow, nullptr)));
 
@@ -1084,7 +1144,7 @@ TEST(FaissRangeSearchQueryIndexTestWithFilterTest, BasicAssertions) {
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     int num_bits = test_util::bits2words(164);
@@ -1104,7 +1164,7 @@ TEST(FaissRangeSearchQueryIndexTestWithFilterTest, BasicAssertions) {
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
 
                         knn_jni::faiss_wrapper::RangeSearchWithFilter(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow,
                                 reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
@@ -1165,11 +1225,11 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv *jniEnv = nullptr;
+    NiceMock<JNIEnv> jniEnv;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
     EXPECT_CALL(mockJNIUtil,
                 GetJavaIntArrayLength(
-                        jniEnv, reinterpret_cast<jintArray>(&parentIds)))
+                        &jniEnv, reinterpret_cast<jintArray>(&parentIds)))
             .WillRepeatedly(Return(parentIds.size()));
 
     int maxResultWindow = 10000;
@@ -1179,7 +1239,7 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
 
                         knn_jni::faiss_wrapper::RangeSearchWithFilter(
-                                &mockJNIUtil, jniEnv,
+                                &mockJNIUtil, &jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow, nullptr, 0,
                                 reinterpret_cast<jintArray>(&parentIds))));

@@ -62,7 +62,10 @@ TEST(FaissStreamSupportTest, NativeEngineIndexInputMediatorCopyWhenEmpty) {
     setUpMockJNIUtil(javaIndexInputMock, mockJni);
 
     // Prepare copying
-    NativeEngineIndexInputMediator mediator{&mockJni, nullptr, nullptr};
+    NiceMock<JNIEnv> jniEnv;
+    // It's a dummy value, which will not be used. If we pass a null, then NPE will be raised.
+    jobject jobjectDummy = reinterpret_cast<jobject>(1);
+    NativeEngineIndexInputMediator mediator{&mockJni, &jniEnv, jobjectDummy};
     std::string readBuffer(javaIndexInputMock.readTargetBytes.size(), '\0');
 
     // Call copyBytes
@@ -82,7 +85,10 @@ TEST(FaissStreamSupportTest, FaissOpenSearchIOReaderCopy) {
     setUpMockJNIUtil(javaIndexInputMock, mockJni);
 
     // Prepare copying
-    NativeEngineIndexInputMediator mediator{&mockJni, nullptr, nullptr};
+    NiceMock<JNIEnv> jniEnv;
+    // It's a dummy value, which will not be used. If we pass a null, then NPE will be raised.
+    jobject jobjectDummy = reinterpret_cast<jobject>(1);
+    NativeEngineIndexInputMediator mediator{&mockJni, &jniEnv, jobjectDummy};
     std::string readBuffer;
     readBuffer.resize(javaIndexInputMock.readTargetBytes.size());
     FaissOpenSearchIOReader ioReader{&mediator};

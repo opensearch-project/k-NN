@@ -20,9 +20,8 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import java.util.Set;
@@ -31,10 +30,10 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -206,14 +205,21 @@ public class KNNCodecTestUtil {
         SpaceType spaceType,
         int dimension
     ) {
-        String filePath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), fileName)
-            .toString();
-        long indexPtr = JNIService.loadIndex(filePath, Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())), knnEngine);
-        int k = 2;
-        float[] queryVector = new float[dimension];
-        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, methodParameters, knnEngine, null, 0, null);
-        assertTrue(results.length > 0);
-        JNIService.free(indexPtr, knnEngine);
+        try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.LOAD)) {
+            final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+            long indexPtr = JNIService.loadIndex(
+                indexInputWithBuffer,
+                Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())),
+                knnEngine
+            );
+            int k = 2;
+            float[] queryVector = new float[dimension];
+            KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, methodParameters, knnEngine, null, 0, null);
+            assertTrue(results.length > 0);
+            JNIService.free(indexPtr, knnEngine);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void assertBinaryIndexLoadableByEngine(
@@ -224,27 +230,30 @@ public class KNNCodecTestUtil {
         int dimension,
         VectorDataType vectorDataType
     ) {
-        String filePath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), fileName)
-            .toString();
-        long indexPtr = JNIService.loadIndex(
-            filePath,
-            Maps.newHashMap(
-                ImmutableMap.of(
-                    SPACE_TYPE,
-                    spaceType.getValue(),
-                    INDEX_DESCRIPTION_PARAMETER,
-                    "BHNSW32",
-                    VECTOR_DATA_TYPE_FIELD,
-                    vectorDataType.getValue()
-                )
-            ),
-            knnEngine
-        );
-        int k = 2;
-        byte[] queryVector = new byte[dimension];
-        KNNQueryResult[] results = JNIService.queryBinaryIndex(indexPtr, queryVector, k, null, knnEngine, null, 0, null);
-        assertTrue(results.length > 0);
-        JNIService.free(indexPtr, knnEngine);
+        try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.LOAD)) {
+            final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+            long indexPtr = JNIService.loadIndex(
+                indexInputWithBuffer,
+                Maps.newHashMap(
+                    ImmutableMap.of(
+                        SPACE_TYPE,
+                        spaceType.getValue(),
+                        INDEX_DESCRIPTION_PARAMETER,
+                        "BHNSW32",
+                        VECTOR_DATA_TYPE_FIELD,
+                        vectorDataType.getValue()
+                    )
+                ),
+                knnEngine
+            );
+            int k = 2;
+            byte[] queryVector = new byte[dimension];
+            KNNQueryResult[] results = JNIService.queryBinaryIndex(indexPtr, queryVector, k, null, knnEngine, null, 0, null);
+            assertTrue(results.length > 0);
+            JNIService.free(indexPtr, knnEngine);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Builder(builderMethodName = "segmentInfoBuilder")
