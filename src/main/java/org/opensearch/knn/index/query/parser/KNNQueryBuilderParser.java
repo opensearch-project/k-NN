@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
@@ -106,7 +105,8 @@ public final class KNNQueryBuilderParser {
      * @return KNNQueryBuilder.Builder class
      * @throws IOException on stream failure
      */
-    public static KNNQueryBuilder.Builder streamInput(StreamInput in, BiFunction<Version, String, Boolean> minClusterVersionCheck) throws IOException {
+    public static KNNQueryBuilder.Builder streamInput(StreamInput in, BiFunction<Version, String, Boolean> minClusterVersionCheck)
+        throws IOException {
         KNNQueryBuilder.Builder builder = new KNNQueryBuilder.Builder();
         builder.fieldName(in.readString());
         builder.vector(in.readFloatArray());
@@ -126,7 +126,7 @@ public final class KNNQueryBuilderParser {
             builder.methodParameters(MethodParametersParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion));
         }
 
-        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+        if (minClusterVersionCheck.apply(in.getVersion(), RESCORE_PARAMETER)) {
             builder.rescoreContext(RescoreParser.streamInput(in));
         }
 
@@ -159,7 +159,7 @@ public final class KNNQueryBuilderParser {
         if (minClusterVersionCheck.apply(out.getVersion(), METHOD_PARAMETER)) {
             MethodParametersParser.streamOutput(out, builder.getMethodParameters(), IndexUtil::isClusterOnOrAfterMinRequiredVersion);
         }
-        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+        if (minClusterVersionCheck.apply(out.getVersion(), RESCORE_PARAMETER)) {
             RescoreParser.streamOutput(out, builder.getRescoreContext());
         }
     }
