@@ -18,10 +18,11 @@ function usage() {
     echo -e "-p PLATFORM\t[Optional] Platform, ignored."
     echo -e "-a ARCHITECTURE\t[Optional] Build architecture, ignored."
     echo -e "-o OUTPUT\t[Optional] Output path, default is 'artifacts'."
+    echo -e "-j NPROC_COUNT\t[Optional] Number of CPUs to use when building JNI library. Default is 1."
     echo -e "-h help"
 }
 
-while getopts ":h:v:q:s:o:p:a:" arg; do
+while getopts ":h:v:q:s:o:p:a:j:" arg; do
     case $arg in
         h)
             usage
@@ -44,6 +45,9 @@ while getopts ":h:v:q:s:o:p:a:" arg; do
             ;;
         a)
             ARCHITECTURE=$OPTARG
+            ;;
+        j)
+            NPROC_COUNT=$OPTARG
             ;;
         :)
             echo "Error: -${OPTARG} requires an argument"
@@ -118,7 +122,7 @@ fi
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
 ./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dbuild.lib.commit_patches=false
-./gradlew :buildJniLib -Davx512.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false
+./gradlew :buildJniLib -Davx512.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1}
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   echo "Building k-NN library after enabling AVX2"
