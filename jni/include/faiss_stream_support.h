@@ -15,6 +15,7 @@
 #include "faiss/impl/io.h"
 #include "jni_util.h"
 #include "native_engines_stream_support.h"
+#include "parameter_utils.h"
 
 #include <jni.h>
 #include <stdexcept>
@@ -34,7 +35,7 @@ class FaissOpenSearchIOReader final : public faiss::IOReader {
  public:
   explicit FaissOpenSearchIOReader(NativeEngineIndexInputMediator *_mediator)
       : faiss::IOReader(),
-        mediator(_mediator) {
+        mediator(knn_jni::util::ParameterCheck::require_non_null(_mediator, "mediator")) {
     name = "FaissOpenSearchIOReader";
   }
 
@@ -54,6 +55,40 @@ class FaissOpenSearchIOReader final : public faiss::IOReader {
  private:
   NativeEngineIndexInputMediator *mediator;
 };  // class FaissOpenSearchIOReader
+
+
+/**
+ * A glue component inheriting IOWriter to delegate IO processing down to the given
+ * mediator. The mediator is expected to do write bytes via the provided Lucene's IndexOutput.
+ */
+class FaissOpenSearchIOWriter final : public faiss::IOWriter {
+ public:
+  explicit FaissOpenSearchIOWriter(NativeEngineIndexOutputMediator *_mediator)
+      : faiss::IOWriter(),
+        mediator(knn_jni::util::ParameterCheck::require_non_null(_mediator, "mediator")) {
+    name = "FaissOpenSearchIOWriter";
+  }
+
+  size_t operator()(const void *ptr, size_t size, size_t nitems) final {
+    const auto writeBytes = size * nitems;
+    if (writeBytes > 0) {
+      mediator->writeBytes(reinterpret_cast<const uint8_t *>(ptr), writeBytes);
+    }
+    return nitems;
+  }
+
+  // return a file number that can be memory-mapped
+  int filedescriptor() final {
+    throw std::runtime_error("filedescriptor() is not supported in FaissOpenSearchIOWriter.");
+  }
+
+  void flush() {
+    mediator->flush();
+  }
+
+ private:
+  NativeEngineIndexOutputMediator *mediator;
+};  // class FaissOpenSearchIOWriter
 
 
 

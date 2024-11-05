@@ -26,7 +26,6 @@
 
 #include <jni.h>
 #include <string>
-#include <istream>
 
 #include "hnswquery.h"
 #include "method/hnsw.h"
@@ -39,7 +38,7 @@ const similarity::LabelType DEFAULT_LABEL = -1;
 
 void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jintArray idsJ,
                                           jlong vectorsAddressJ, jint dimJ,
-                                          jstring indexPathJ, jobject parametersJ) {
+                                          jobject output, jobject parametersJ) {
 
   if (idsJ == nullptr) {
     throw std::runtime_error("IDs cannot be null");
@@ -53,8 +52,8 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface *jniUtil, JN
     throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
   }
 
-  if (indexPathJ == nullptr) {
-    throw std::runtime_error("Index path cannot be null");
+  if (output == nullptr) {
+    throw std::runtime_error("Index output stream cannot be null");
   }
 
   if (parametersJ == nullptr) {
@@ -89,9 +88,6 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface *jniUtil, JN
   }
 
   jniUtil->DeleteLocalRef(env, parametersJ);
-
-  // Get the path to save the index
-  std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
 
   // Get space type for this index
   jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
@@ -159,7 +155,9 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface *jniUtil, JN
       ptr += vectorSizeInBytes;
       vectorPointer += dim;
     }
-    jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
+    JNIReleaseElements release_int_array_elements {[=](){
+      jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
+    }};
 
     // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
     // This is not the ideal approach, please refer this gh issue for long term solution:
@@ -174,17 +172,24 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface *jniUtil, JN
                                                                                   *(space),
                                                                                   dataset));
     index->CreateIndex(similarity::AnyParams(indexParameters));
-    index->SaveIndex(indexPathCpp);
 
-    for (auto &it : dataset) {
+    knn_jni::stream::NativeEngineIndexOutputMediator mediator {jniUtil, env, output};
+    knn_jni::stream::NmslibOpenSearchIOWriter writer {&mediator};
+
+    if (auto hnswFloatIndex = dynamic_cast<similarity::Hnsw<float> *>(index.get())) {
+      hnswFloatIndex->SaveIndexWithStream(writer);
+    } else {
+      throw std::runtime_error("We only support similarity::Hnsw<float> in NMSLIB.");
+    }
+
+    for (auto it : dataset) {
       delete it;
     }
   } catch (...) {
-    for (auto &it : dataset) {
+    for (auto it : dataset) {
       delete it;
     }
 
-    jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
     throw;
   }
 }
@@ -317,25 +322,16 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface *jniU
   }
 
   int queryEfSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, -1);
-  similarity::KNNQuery<float>
-      *query; // TODO: Replace with smart pointers https://github.com/opensearch-project/k-NN/issues/1785
+  std::unique_ptr<similarity::KNNQuery<float>> query;
   std::unique_ptr<similarity::KNNQueue<float>> neighbors;
-  try {
-    if (queryEfSearch == -1) {
-      query = new similarity::KNNQuery<float>(*(indexWrapper->space), queryObject.get(), kJ);
-    } else {
-      query = new similarity::HNSWQuery<float>(*(indexWrapper->space), queryObject.get(), kJ, queryEfSearch);
-    }
-
-    indexWrapper->index->Search(query);
-    neighbors.reset(query->Result()->Clone());
-  } catch (...) {
-    if (query != nullptr) {
-      delete query;
-    }
-    throw;
+  if (queryEfSearch == -1) {
+    query.reset(new similarity::KNNQuery<float>(*(indexWrapper->space), queryObject.get(), kJ));
+  } else {
+    query.reset(new similarity::HNSWQuery<float>(*(indexWrapper->space), queryObject.get(), kJ, queryEfSearch));
   }
-  delete query;
+
+  indexWrapper->index->Search(query.get());
+  neighbors.reset(query->Result()->Clone());
 
   int resultSize = neighbors->Size();
   jclass resultClass = jniUtil->FindClass(env, "org/opensearch/knn/index/query/KNNQueryResult");

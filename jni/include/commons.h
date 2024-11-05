@@ -8,6 +8,10 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
+
+#ifndef OPENSEARCH_KNN_COMMONS_H
+#define OPENSEARCH_KNN_COMMONS_H
+
 #include "jni_util.h"
 #include <jni.h>
 namespace knn_jni {
@@ -99,3 +103,5 @@ namespace knn_jni {
         int getIntegerMethodParameter(JNIEnv *, knn_jni::JNIUtilInterface *, std::unordered_map<std::string, jobject>, std::string, int);
     }
 }
+
+#endif

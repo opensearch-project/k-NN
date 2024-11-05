@@ -10,6 +10,7 @@ import org.apache.lucene.index.DocsWithFieldSet;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -18,6 +19,7 @@ import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -66,8 +68,9 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
 
             when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
 
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
-                .indexPath("indexPath")
+                .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
@@ -84,7 +87,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                     eq(new int[] { 0, 1, 2 }),
                     eq(200L),
                     eq(knnVectorValues.dimension()),
-                    eq("indexPath"),
+                    eq(indexOutputWithBuffer),
                     eq(Map.of("index", "param")),
                     eq(KNNEngine.NMSLIB)
                 )
@@ -159,8 +162,9 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             when(offHeapVectorTransfer.flush(false)).thenReturn(true);
             when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
 
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
-                .indexPath("indexPath")
+                .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
@@ -206,7 +210,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             );
 
             mockedJNIService.verify(
-                () -> JNIService.writeIndex(eq("indexPath"), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
+                () -> JNIService.writeIndex(eq(indexOutputWithBuffer), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
             );
             assertEquals(200L, vectorAddressCaptor.getValue().longValue());
             assertEquals(vectorAddressCaptor.getValue().longValue(), vectorAddressCaptor.getAllValues().get(0).longValue());
@@ -244,8 +248,9 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
 
             when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
 
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
-                .indexPath("indexPath")
+                .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("model_id", "id", "model_blob", modelBlob))
@@ -262,7 +267,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                     eq(new int[] { 0, 1, 2 }),
                     eq(200L),
                     eq(2),
-                    eq("indexPath"),
+                    eq(indexOutputWithBuffer),
                     eq(modelBlob),
                     eq(Map.of("model_id", "id", "model_blob", modelBlob)),
                     eq(KNNEngine.NMSLIB)

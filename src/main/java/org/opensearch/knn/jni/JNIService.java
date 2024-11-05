@@ -17,6 +17,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 
 import java.util.Locale;
@@ -92,19 +93,19 @@ public class JNIService {
     /**
      * Writes a faiss index to disk.
      *
-     * @param indexPath    path to save index to
+     * @param output       Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      * @param indexAddress address of native memory where index is stored
      * @param knnEngine    knn engine
      * @param parameters   parameters to build index
      */
-    public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
+    public static void writeIndex(IndexOutputWithBuffer output, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.writeBinaryIndex(indexAddress, indexPath);
+                FaissService.writeBinaryIndex(indexAddress, output);
             } else if (IndexUtil.isByteIndex(parameters)) {
-                FaissService.writeByteIndex(indexAddress, indexPath);
+                FaissService.writeByteIndex(indexAddress, output);
             } else {
-                FaissService.writeIndex(indexAddress, indexPath);
+                FaissService.writeIndex(indexAddress, output);
             }
             return;
         }
@@ -123,7 +124,7 @@ public class JNIService {
      * @param ids            array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
      * @param dim            dimension of the vector to be indexed
-     * @param indexPath      path to save index file to
+     * @param output         Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      * @param parameters     parameters to build index
      * @param knnEngine      engine to build index for
      */
@@ -131,12 +132,12 @@ public class JNIService {
         int[] ids,
         long vectorsAddress,
         int dim,
-        String indexPath,
+        IndexOutputWithBuffer output,
         Map<String, Object> parameters,
         KNNEngine knnEngine
     ) {
         if (KNNEngine.NMSLIB == knnEngine) {
-            NmslibService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
+            NmslibService.createIndex(ids, vectorsAddress, dim, output, parameters);
             return;
         }
 
@@ -151,7 +152,7 @@ public class JNIService {
      * @param ids            array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
      * @param dim            dimension of vectors to be indexed
-     * @param indexPath      path to save index file to
+     * @param output         Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
      * @param templateIndex  empty template index
      * @param parameters     parameters to build index
      * @param knnEngine      engine to build index for
@@ -160,54 +161,27 @@ public class JNIService {
         int[] ids,
         long vectorsAddress,
         int dim,
-        String indexPath,
+        IndexOutputWithBuffer output,
         byte[] templateIndex,
         Map<String, Object> parameters,
         KNNEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.createBinaryIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
+                FaissService.createBinaryIndexFromTemplate(ids, vectorsAddress, dim, output, templateIndex, parameters);
                 return;
             }
             if (IndexUtil.isByteIndex(parameters)) {
-                FaissService.createByteIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
+                FaissService.createByteIndexFromTemplate(ids, vectorsAddress, dim, output, templateIndex, parameters);
                 return;
             }
 
-            FaissService.createIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
+            FaissService.createIndexFromTemplate(ids, vectorsAddress, dim, output, templateIndex, parameters);
             return;
-
         }
 
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "CreateIndexFromTemplate not supported for provided engine : %s", knnEngine.getName())
-        );
-    }
-
-    /**
-     * Load an index into memory
-     *
-     * @param indexPath  path to index file
-     * @param parameters parameters to be used when loading index
-     * @param knnEngine  engine to load index
-     * @return pointer to location in memory the index resides in
-     */
-    public static long loadIndex(String indexPath, Map<String, Object> parameters, KNNEngine knnEngine) {
-        if (KNNEngine.NMSLIB == knnEngine) {
-            return NmslibService.loadIndex(indexPath, parameters);
-        }
-
-        if (KNNEngine.FAISS == knnEngine) {
-            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                return FaissService.loadBinaryIndex(indexPath);
-            } else {
-                return FaissService.loadIndex(indexPath);
-            }
-        }
-
-        throw new IllegalArgumentException(
-            String.format(Locale.ROOT, "LoadIndex not supported for provided engine : %s", knnEngine.getName())
         );
     }
 

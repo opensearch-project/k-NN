@@ -17,7 +17,7 @@ import lombok.SneakyThrows;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.store.MMapDirectory;
+import org.apache.lucene.store.IndexOutput;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -25,6 +25,8 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.RaisingIOExceptionIndexInput;
+import org.opensearch.knn.common.RasingIOExceptionIndexOutput;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -34,6 +36,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
 import java.io.IOException;
 import java.net.URL;
@@ -45,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -88,24 +92,37 @@ public class JNIServiceTests extends KNNTestCase {
         testDataNested = new TestUtils.TestData(testIndexVectorsNested.getPath(), testQueries.getPath());
     }
 
+    @SneakyThrows
     public void testCreateIndex_invalid_engineNotSupported() {
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> TestUtils.createIndex(
-                new int[] {},
-                0,
-                0,
-                "test",
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.LUCENE
-            )
-        );
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            expectThrows(
+                IllegalArgumentException.class,
+                () -> TestUtils.createIndex(
+                    new int[] {},
+                    0,
+                    0,
+                    directory,
+                    "DONT_CARE",
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.LUCENE
+                )
+            );
+        }
     }
 
     public void testCreateIndex_invalid_engineNull() {
         expectThrows(
             Exception.class,
-            () -> TestUtils.createIndex(new int[] {}, 0, 0, "test", ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), null)
+            () -> TestUtils.createIndex(
+                new int[] {},
+                0,
+                0,
+                null,
+                "DONT_CARE",
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                null
+            )
         );
     }
 
@@ -116,7 +133,8 @@ public class JNIServiceTests extends KNNTestCase {
                 testData.indexData.docs,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
-                "something",
+                null,
+                "DONT_CARE",
                 Collections.emptyMap(),
                 KNNEngine.NMSLIB
             )
@@ -124,98 +142,109 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_nmslib_invalid_vectorDocIDMismatch() throws IOException {
-
         int[] docIds = new int[] { 1, 2, 3 };
         float[][] vectors1 = new float[][] { { 1, 2 }, { 3, 4 } };
         long memoryAddress = JNICommons.storeVectorData(0, vectors1, vectors1.length * vectors1[0].length);
-        Path tmpFile1 = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors1[0].length,
-                tmpFile1.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.NMSLIB
-            )
-        );
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1.tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors1[0].length,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                )
+            );
 
-        float[][] vectors2 = new float[][] { { 1, 2 }, { 3, 4 }, { 4, 5 }, { 6, 7 }, { 8, 9 } };
-        long memoryAddress2 = JNICommons.storeVectorData(0, vectors2, vectors2.length * vectors2[0].length);
+            float[][] vectors2 = new float[][] { { 1, 2 }, { 3, 4 }, { 4, 5 }, { 6, 7 }, { 8, 9 } };
+            long memoryAddress2 = JNICommons.storeVectorData(0, vectors2, vectors2.length * vectors2[0].length);
 
-        Path tmpFile2 = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress2,
-                vectors2[0].length,
-                tmpFile2.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.NMSLIB
-            )
-        );
+            String indexFileName2 = "test2.tmp";
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress2,
+                    vectors2[0].length,
+                    directory,
+                    indexFileName2,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                )
+            );
+        }
     }
 
     public void testCreateIndex_nmslib_invalid_nullArgument() throws IOException {
+        Path tempDirPath = createTempDir();
+        String indexFileName = "test.tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] {};
+            float[][] vectors = new float[][] {};
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, vectors.length);
 
-        int[] docIds = new int[] {};
-        float[][] vectors = new float[][] {};
-        long memoryAddress = JNICommons.storeVectorData(0, vectors, vectors.length);
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                null,
-                memoryAddress,
-                0,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.NMSLIB
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    null,
+                    memoryAddress,
+                    0,
+                    directory,
+                    indexFileName,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                )
+            );
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                0,
-                0,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.NMSLIB
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    0,
+                    0,
+                    directory,
+                    indexFileName,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                )
+            );
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                0,
-                null,
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.NMSLIB
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    0,
+                    directory,
+                    null,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                )
+            );
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(docIds, memoryAddress, 0, tmpFile.toAbsolutePath().toString(), null, KNNEngine.NMSLIB)
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(docIds, memoryAddress, 0, directory, indexFileName, null, KNNEngine.NMSLIB)
+            );
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                0,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                null
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    0,
+                    directory,
+                    indexFileName,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    null
+                )
+            );
+        }
     }
 
     public void testCreateIndex_nmslib_invalid_badSpace() throws IOException {
@@ -223,18 +252,22 @@ public class JNIServiceTests extends KNNTestCase {
         int[] docIds = new int[] { 1 };
         float[][] vectors = new float[][] { { 2, 3 } };
         long memoryAddress = JNICommons.storeVectorData(0, vectors, vectors.length * vectors[0].length);
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors[0].length,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, "invalid"),
-                KNNEngine.NMSLIB
-            )
-        );
+        Path tempDirPath = createTempDir();
+        String indexFileName = "test.tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors[0].length,
+                    directory,
+                    indexFileName,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, "invalid"),
+                    KNNEngine.NMSLIB
+                )
+            );
+        }
     }
 
     public void testCreateIndex_nmslib_invalid_badParameterType() throws IOException {
@@ -249,74 +282,89 @@ public class JNIServiceTests extends KNNTestCase {
             KNNConstants.METHOD_PARAMETER_M,
             "12"
         );
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors[0].length,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue(), KNNConstants.PARAMETERS, parametersMap),
-                KNNEngine.NMSLIB
-            )
-        );
-    }
-
-    public void testCreateIndex_nmslib_valid() throws IOException {
-
-        for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
-            if (SpaceType.UNDEFINED == spaceType) {
-                continue;
-            }
-
-            Path tmpFile = createTempFile();
-
-            TestUtils.createIndex(
-                testData.indexData.docs,
-                testData.loadDataToMemoryAddress(),
-                testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                KNNEngine.NMSLIB
+        Path tempDirPath = createTempDir();
+        String indexFileName = "test.tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors[0].length,
+                    directory,
+                    indexFileName,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue(), KNNConstants.PARAMETERS, parametersMap),
+                    KNNEngine.NMSLIB
+                )
             );
-            assertTrue(tmpFile.toFile().length() > 0);
-
-            tmpFile = createTempFile();
-
-            TestUtils.createIndex(
-                testData.indexData.docs,
-                testData.loadDataToMemoryAddress(),
-                testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(
-                    KNNConstants.SPACE_TYPE,
-                    spaceType.getValue(),
-                    KNNConstants.HNSW_ALGO_EF_CONSTRUCTION,
-                    14,
-                    KNNConstants.METHOD_PARAMETER_M,
-                    12
-                ),
-                KNNEngine.NMSLIB
-            );
-            assertTrue(tmpFile.toFile().length() > 0);
         }
     }
 
+    public void testCreateIndex_nmslib_valid() throws IOException {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
+                if (SpaceType.UNDEFINED == spaceType) {
+                    continue;
+                }
+
+                final String indexFileName1 = "test" + UUID.randomUUID() + ".tmp";
+
+                TestUtils.createIndex(
+                    testData.indexData.docs,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                    KNNEngine.NMSLIB
+                );
+                assertTrue(directory.fileLength(indexFileName1) > 0);
+
+                final String indexFileName2 = "test" + UUID.randomUUID() + ".tmp";
+
+                TestUtils.createIndex(
+                    testData.indexData.docs,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName2,
+                    ImmutableMap.of(
+                        KNNConstants.SPACE_TYPE,
+                        spaceType.getValue(),
+                        KNNConstants.HNSW_ALGO_EF_CONSTRUCTION,
+                        14,
+                        KNNConstants.METHOD_PARAMETER_M,
+                        12
+                    ),
+                    KNNEngine.NMSLIB
+                );
+                assertTrue(directory.fileLength(indexFileName2) > 0);
+            }
+        }
+    }
+
+    @SneakyThrows
     public void testCreateIndex_faiss_invalid_noSpaceType() {
         int[] docIds = new int[] {};
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                testData.loadDataToMemoryAddress(),
-                testData.indexData.getDimension(),
-                "something",
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod),
-                KNNEngine.FAISS
-            )
-        );
+        Path tempDirPath = createTempDir();
+        String indexFileName = "test.tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod),
+                    KNNEngine.FAISS
+                )
+            );
+
+        }
     }
 
     public void testCreateIndex_faiss_invalid_vectorDocIDMismatch() throws IOException {
@@ -324,251 +372,331 @@ public class JNIServiceTests extends KNNTestCase {
         int[] docIds = new int[] { 1, 2, 3 };
         float[][] vectors1 = new float[][] { { 1, 2 }, { 3, 4 } };
         long memoryAddress = JNICommons.storeVectorData(0, vectors1, vectors1.length * vectors1[0].length);
-        Path tmpFile1 = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors1[0].length,
-                tmpFile1.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.FAISS
-            )
-        );
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors1[0].length,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.FAISS
+                )
+            );
 
-        float[][] vectors2 = new float[][] { { 1, 2 }, { 3, 4 }, { 4, 5 }, { 6, 7 }, { 8, 9 } };
-        long memoryAddress2 = JNICommons.storeVectorData(0, vectors2, vectors2.length * vectors2[0].length);
-        Path tmpFile2 = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors2[0].length,
-                tmpFile2.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.FAISS
-            )
-        );
+            float[][] vectors2 = new float[][] { { 1, 2 }, { 3, 4 }, { 4, 5 }, { 6, 7 }, { 8, 9 } };
+            long memoryAddress2 = JNICommons.storeVectorData(0, vectors2, vectors2.length * vectors2[0].length);
+            String indexFileName2 = "test2" + UUID.randomUUID() + ".tmp";
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress2,
+                    vectors2[0].length,
+                    directory,
+                    indexFileName2,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.FAISS
+                )
+            );
+        }
     }
 
     public void testCreateIndex_faiss_invalid_null() throws IOException {
+        Path tempDirPath = createTempDir();
 
         int[] docIds = new int[] {};
         float[][] vectors = new float[][] {};
         long memoryAddress = JNICommons.storeVectorData(0, vectors, 0);
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    null,
+                    memoryAddress,
+                    0,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.FAISS
+                )
+            );
 
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                null,
-                memoryAddress,
-                0,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.FAISS
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    0,
+                    0,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.FAISS
+                )
+            );
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                0,
-                0,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.FAISS
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    null,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.FAISS
+                )
+            );
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                testData.loadDataToMemoryAddress(),
-                testData.indexData.getDimension(),
-                null,
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.FAISS
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName1,
+                    null,
+                    KNNEngine.FAISS
+                )
+            );
 
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                testData.loadDataToMemoryAddress(),
-                testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                null,
-                KNNEngine.FAISS
-            )
-        );
-
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                testData.loadDataToMemoryAddress(),
-                testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                null
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    null
+                )
+            );
+        }
     }
 
     public void testCreateIndex_faiss_invalid_invalidSpace() throws IOException {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1 };
+            float[][] vectors = new float[][] { { 2, 3 } };
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
 
-        int[] docIds = new int[] { 1 };
-        float[][] vectors = new float[][] { { 2, 3 } };
-        long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
-
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors[0].length,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, "invalid"),
-                KNNEngine.FAISS
-            )
-        );
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors[0].length,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, "invalid"),
+                    KNNEngine.FAISS
+                )
+            );
+        }
     }
 
     public void testCreateIndex_faiss_invalid_noIndexDescription() throws IOException {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1, 2 };
+            float[][] vectors = new float[][] { { 2, 3 }, { 2, 3 } };
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
 
-        int[] docIds = new int[] { 1, 2 };
-        float[][] vectors = new float[][] { { 2, 3 }, { 2, 3 } };
-        long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
-
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors[0].length,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.FAISS
-            )
-        );
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors[0].length,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.FAISS
+                )
+            );
+        }
     }
 
     public void testCreateIndex_faiss_invalid_invalidIndexDescription() throws IOException {
-        int[] docIds = new int[] { 1, 2 };
-        float[][] vectors = new float[][] { { 2, 3 }, { 2, 3 } };
-        long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors[0].length,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "invalid", KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.FAISS
-            )
-        );
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1, 2 };
+            float[][] vectors = new float[][] { { 2, 3 }, { 2, 3 } };
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
+
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors[0].length,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "invalid", KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.FAISS
+                )
+            );
+        }
     }
 
     @SneakyThrows
     public void testCreateIndex_faiss_sqfp16_invalidIndexDescription() {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1, 2 };
+            float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
 
-        int[] docIds = new int[] { 1, 2 };
-        float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
-        long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
+            String sqfp16InvalidIndexDescription = "HNSW16,SQfp1655";
 
-        String sqfp16InvalidIndexDescription = "HNSW16,SQfp1655";
-
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                memoryAddress,
-                vectors[0].length,
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(
-                    INDEX_DESCRIPTION_PARAMETER,
-                    sqfp16InvalidIndexDescription,
-                    KNNConstants.SPACE_TYPE,
-                    SpaceType.L2.getValue()
-                ),
-                KNNEngine.FAISS
-            )
-        );
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors[0].length,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(
+                        INDEX_DESCRIPTION_PARAMETER,
+                        sqfp16InvalidIndexDescription,
+                        KNNConstants.SPACE_TYPE,
+                        SpaceType.L2.getValue()
+                    ),
+                    KNNEngine.FAISS
+                )
+            );
+        }
     }
 
     @SneakyThrows
     public void testLoadIndex_faiss_sqfp16_valid() {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1, 2 };
+            float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
+            String sqfp16IndexDescription = "HNSW16,SQfp16";
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            TestUtils.createIndex(
+                docIds,
+                memoryAddress,
+                vectors[0].length,
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        int[] docIds = new int[] { 1, 2 };
-        float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
-        String sqfp16IndexDescription = "HNSW16,SQfp16";
-        long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
-        Path tmpFile = createTempFile();
-        TestUtils.createIndex(
-            docIds,
-            memoryAddress,
-            vectors[0].length,
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                long pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+            }
+        }
+    }
 
-        long pointer = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, pointer);
+    @SneakyThrows
+    public void testLoadIndex_when_io_exception_was_raised() {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1, 2 };
+            float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
+            String sqfp16IndexDescription = "HNSW16,SQfp16";
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            TestUtils.createIndex(
+                docIds,
+                memoryAddress,
+                vectors[0].length,
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
+
+            final IndexInput raiseIOExceptionIndexInput = new RaisingIOExceptionIndexInput();
+            final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(raiseIOExceptionIndexInput);
+
+            try {
+                JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                fail("Exception thrown is expected.");
+            } catch (Throwable e) {
+                assertTrue(e.getMessage().contains("Reading bytes via IndexInput has failed."));
+            }
+        }
     }
 
     @SneakyThrows
     public void testQueryIndex_faiss_sqfp16_valid() {
-
-        String sqfp16IndexDescription = "HNSW16,SQfp16";
-        int k = 10;
-        Map<String, ?> methodParameters = Map.of("ef_search", 12);
-        float[][] truncatedVectors = truncateToFp16Range(testData.indexData.vectors);
-        long memoryAddress = JNICommons.storeVectorData(0, truncatedVectors, (long) truncatedVectors.length * truncatedVectors[0].length);
-        Path tmpFile = createTempFile();
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            memoryAddress,
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
-
-        long pointer = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, pointer);
-
-        for (float[] query : testData.queries) {
-            KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, methodParameters, KNNEngine.FAISS, null, 0, null);
-            assertEquals(k, results.length);
-        }
-
-        // Filter will result in no ids
-        for (float[] query : testData.queries) {
-            KNNQueryResult[] results = JNIService.queryIndex(
-                pointer,
-                query,
-                k,
-                methodParameters,
-                KNNEngine.FAISS,
-                new long[] { 0 },
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            String sqfp16IndexDescription = "HNSW16,SQfp16";
+            int k = 10;
+            Map<String, ?> methodParameters = Map.of("ef_search", 12);
+            float[][] truncatedVectors = truncateToFp16Range(testData.indexData.vectors);
+            long memoryAddress = JNICommons.storeVectorData(
                 0,
-                null
+                truncatedVectors,
+                (long) truncatedVectors.length * truncatedVectors[0].length
             );
-            assertEquals(0, results.length);
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                memoryAddress,
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
+
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
+
+            for (float[] query : testData.queries) {
+                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, methodParameters, KNNEngine.FAISS, null, 0, null);
+                assertEquals(k, results.length);
+            }
+
+            // Filter will result in no ids
+            for (float[] query : testData.queries) {
+                KNNQueryResult[] results = JNIService.queryIndex(
+                    pointer,
+                    query,
+                    k,
+                    methodParameters,
+                    KNNEngine.FAISS,
+                    new long[] { 0 },
+                    0,
+                    null
+                );
+                assertEquals(0, results.length);
+            }
         }
     }
 
@@ -625,93 +753,103 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_invalidParameterType() throws IOException {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] {};
+            float[][] vectors = new float[][] {};
 
-        int[] docIds = new int[] {};
-        float[][] vectors = new float[][] {};
-
-        Path tmpFile = createTempFile();
-        expectThrows(
-            Exception.class,
-            () -> TestUtils.createIndex(
-                docIds,
-                testData.loadDataToMemoryAddress(),
-                testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(
-                    INDEX_DESCRIPTION_PARAMETER,
-                    "IVF13",
-                    KNNConstants.SPACE_TYPE,
-                    SpaceType.L2.getValue(),
-                    KNNConstants.PARAMETERS,
-                    ImmutableMap.of(KNNConstants.METHOD_PARAMETER_NPROBES, "14")
-                ),
-                KNNEngine.FAISS
-            )
-        );
-
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(
+                        INDEX_DESCRIPTION_PARAMETER,
+                        "IVF13",
+                        KNNConstants.SPACE_TYPE,
+                        SpaceType.L2.getValue(),
+                        KNNConstants.PARAMETERS,
+                        ImmutableMap.of(KNNConstants.METHOD_PARAMETER_NPROBES, "14")
+                    ),
+                    KNNEngine.FAISS
+                )
+            );
+        }
     }
 
     public void testCreateIndex_faiss_valid() throws IOException {
 
         List<String> methods = ImmutableList.of(faissMethod);
         List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
-        for (String method : methods) {
-            for (SpaceType spaceType : spaces) {
-                Path tmpFile1 = createTempFile();
-                TestUtils.createIndex(
-                    testData.indexData.docs,
-                    testData.loadDataToMemoryAddress(),
-                    testData.indexData.getDimension(),
-                    tmpFile1.toAbsolutePath().toString(),
-                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertTrue(tmpFile1.toFile().length() > 0);
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            for (String method : methods) {
+                for (SpaceType spaceType : spaces) {
+                    String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+                    TestUtils.createIndex(
+                        testData.indexData.docs,
+                        testData.loadDataToMemoryAddress(),
+                        testData.indexData.getDimension(),
+                        directory,
+                        indexFileName1,
+                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        KNNEngine.FAISS
+                    );
+                    assertTrue(directory.fileLength(indexFileName1) > 0);
+                }
             }
         }
     }
 
     @SneakyThrows
     public void testCreateIndex_binary_faiss_valid() {
-        Path tmpFile1 = createTempFile();
-        long memoryAddr = testData.loadBinaryDataToMemoryAddress();
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            memoryAddr,
-            testData.indexData.getDimension(),
-            tmpFile1.toAbsolutePath().toString(),
-            ImmutableMap.of(
-                INDEX_DESCRIPTION_PARAMETER,
-                faissBinaryMethod,
-                KNNConstants.SPACE_TYPE,
-                SpaceType.HAMMING.getValue(),
-                KNNConstants.VECTOR_DATA_TYPE_FIELD,
-                VectorDataType.BINARY.getValue()
-            ),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile1.toFile().length() > 0);
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            long memoryAddr = testData.loadBinaryDataToMemoryAddress();
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                memoryAddr,
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(
+                    INDEX_DESCRIPTION_PARAMETER,
+                    faissBinaryMethod,
+                    KNNConstants.SPACE_TYPE,
+                    SpaceType.HAMMING.getValue(),
+                    KNNConstants.VECTOR_DATA_TYPE_FIELD,
+                    VectorDataType.BINARY.getValue()
+                ),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
+        }
     }
 
     public void testLoadIndex_invalidEngine() {
-        expectThrows(IllegalArgumentException.class, () -> JNIService.loadIndex("test", Collections.emptyMap(), KNNEngine.LUCENE));
+        expectThrows(IllegalArgumentException.class, () -> JNIService.loadIndex(null, Collections.emptyMap(), KNNEngine.LUCENE));
     }
 
     public void testLoadIndex_nmslib_invalid_badSpaceType() {
         expectThrows(
             Exception.class,
-            () -> JNIService.loadIndex("test", ImmutableMap.of(KNNConstants.SPACE_TYPE, "invalid"), KNNEngine.NMSLIB)
+            () -> JNIService.loadIndex(null, ImmutableMap.of(KNNConstants.SPACE_TYPE, "invalid"), KNNEngine.NMSLIB)
         );
     }
 
     public void testLoadIndex_nmslib_invalid_noSpaceType() {
-        expectThrows(Exception.class, () -> JNIService.loadIndex("test", Collections.emptyMap(), KNNEngine.NMSLIB));
+        expectThrows(Exception.class, () -> JNIService.loadIndex(null, Collections.emptyMap(), KNNEngine.NMSLIB));
     }
 
     public void testLoadIndex_nmslib_invalid_fileDoesNotExist() {
         expectThrows(
             Exception.class,
-            () -> JNIService.loadIndex("invalid", ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), KNNEngine.NMSLIB)
+            () -> JNIService.loadIndex(null, ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), KNNEngine.NMSLIB)
         );
     }
 
@@ -719,91 +857,142 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         expectThrows(
             Exception.class,
-            () -> JNIService.loadIndex(
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                KNNEngine.NMSLIB
-            )
+            () -> JNIService.loadIndex(null, ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), KNNEngine.NMSLIB)
         );
     }
 
     public void testLoadIndex_nmslib_valid() throws IOException {
 
-        Path tmpFile = createTempFile();
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.NMSLIB
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.NMSLIB
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
-
-        long pointer = JNIService.loadIndex(
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.NMSLIB
-        );
-        assertNotEquals(0, pointer);
-    }
-
-    public void testLoadIndex_nmslib_valid_with_stream() throws IOException {
-        Path tmpFile = createTempFile();
-
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.NMSLIB
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
-
-        try (final Directory directory = new MMapDirectory(tmpFile.getParent())) {
-            try (IndexInput indexInput = directory.openInput(tmpFile.getFileName().toString(), IOContext.READONCE)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long pointer = JNIService.loadIndex(
-                    new IndexInputWithBuffer(indexInput),
+                    indexInputWithBuffer,
                     ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
                     KNNEngine.NMSLIB
                 );
                 assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
             }
         }
     }
 
-    public void testLoadIndex_faiss_invalid_fileDoesNotExist() {
-        expectThrows(Exception.class, () -> JNIService.loadIndex("invalid", Collections.emptyMap(), KNNEngine.FAISS));
+    public void testLoadIndex_nmslib_raise_io_exception() throws IOException {
+
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.NMSLIB
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
+
+            final IndexInput raiseIOExceptionIndexInput = new RaisingIOExceptionIndexInput();
+
+            final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(raiseIOExceptionIndexInput);
+            try {
+                JNIService.loadIndex(
+                    indexInputWithBuffer,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                );
+                fail("Exception expected");
+            } catch (Throwable e) {
+                assertTrue(e.getMessage().contains("Reading bytes via IndexInput has failed."));
+            }
+        }
     }
 
-    public void testLoadIndex_faiss_invalid_badFile() throws IOException {
+    public void testLoadIndex_nmslib_valid_with_stream() throws IOException {
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.NMSLIB
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        Path tmpFile = createTempFile();
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                long pointer = JNIService.loadIndex(
+                    indexInputWithBuffer,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                );
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+            }
+        }
+    }
 
-        expectThrows(
-            Exception.class,
-            () -> JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS)
-        );
+    public void testWriteIndex_nmslib_when_io_exception_occured() {
+        try {
+            final IndexOutput indexOutput = new RasingIOExceptionIndexOutput();
+            final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
+            JNIService.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                indexOutputWithBuffer,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.NMSLIB
+            );
+            fail("Exception thrown is expected.");
+        } catch (Throwable e) {
+            assertTrue(e.getMessage().contains("Writing bytes via IndexOutput has failed."));
+        }
     }
 
     public void testLoadIndex_faiss_valid() throws IOException {
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        Path tmpFile = createTempFile();
-
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
-
-        long pointer = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, pointer);
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                long pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+            }
+        }
     }
 
     public void testQueryIndex_invalidEngine() {
@@ -820,58 +1009,79 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testQueryIndex_nmslib_invalid_nullQueryVector() throws IOException {
 
-        Path tmpFile = createTempFile();
-
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.NMSLIB
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
-
-        long pointer = JNIService.loadIndex(
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.NMSLIB
-        );
-        assertNotEquals(0, pointer);
-
-        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, null, KNNEngine.NMSLIB, null, 0, null));
-    }
-
-    public void testQueryIndex_nmslib_valid() throws IOException {
-
-        int k = 50;
-        for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
-            if (SpaceType.UNDEFINED == spaceType) {
-                continue;
-            }
-
-            Path tmpFile = createTempFile();
-
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
             TestUtils.createIndex(
                 testData.indexData.docs,
                 testData.loadDataToMemoryAddress(),
                 testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
                 KNNEngine.NMSLIB
             );
-            assertTrue(tmpFile.toFile().length() > 0);
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-            long pointer = JNIService.loadIndex(
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                KNNEngine.NMSLIB
-            );
-            assertNotEquals(0, pointer);
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(
+                    indexInputWithBuffer,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                );
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
 
-            for (float[] query : testData.queries) {
-                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, null, KNNEngine.NMSLIB, null, 0, null);
-                assertEquals(k, results.length);
+            expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, null, KNNEngine.NMSLIB, null, 0, null));
+        }
+    }
+
+    public void testQueryIndex_nmslib_valid() throws IOException {
+
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int k = 50;
+            for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
+                if (SpaceType.UNDEFINED == spaceType) {
+                    continue;
+                }
+
+                String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+
+                TestUtils.createIndex(
+                    testData.indexData.docs,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                    KNNEngine.NMSLIB
+                );
+                assertTrue(directory.fileLength(indexFileName1) > 0);
+
+                final long pointer;
+                try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                    final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                    pointer = JNIService.loadIndex(
+                        indexInputWithBuffer,
+                        ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        KNNEngine.NMSLIB
+                    );
+                    assertNotEquals(0, pointer);
+                } catch (Throwable e) {
+                    fail(e.getMessage());
+                    throw e;
+                }
+
+                for (float[] query : testData.queries) {
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, null, KNNEngine.NMSLIB, null, 0, null);
+                    assertEquals(k, results.length);
+                }
             }
         }
     }
@@ -883,44 +1093,60 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testQueryIndex_faiss_invalid_nullQueryVector() throws IOException {
 
-        Path tmpFile = createTempFile();
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
 
-        long pointer = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, pointer);
-
-        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, null, KNNEngine.FAISS, null, 0, null));
+            expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, null, KNNEngine.FAISS, null, 0, null));
+        }
     }
 
     public void testQueryIndex_faiss_streaming_invalid_nullQueryVector() throws IOException {
-        Path tmpFile = createTempFile();
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
-
-        try (final Directory directory = new MMapDirectory(tmpFile.getParent())) {
-            try (IndexInput indexInput = directory.openInput(tmpFile.getFileName().toString(), IOContext.READONCE)) {
-                long pointer = JNIService.loadIndex(new IndexInputWithBuffer(indexInput), Collections.emptyMap(), KNNEngine.FAISS);
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
-
-                expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, null, KNNEngine.FAISS, null, 0, null));
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
             }
+
+            expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, null, KNNEngine.FAISS, null, 0, null));
         }
     }
 
@@ -929,55 +1155,66 @@ public class JNIServiceTests extends KNNTestCase {
         int k = 10;
         int efSearch = 100;
 
-        List<String> methods = ImmutableList.of(faissMethod);
-        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
-        for (String method : methods) {
-            for (SpaceType spaceType : spaces) {
-                Path tmpFile = createTempFile();
-                TestUtils.createIndex(
-                    testData.indexData.docs,
-                    testData.loadDataToMemoryAddress(),
-                    testData.indexData.getDimension(),
-                    tmpFile.toAbsolutePath().toString(),
-                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertTrue(tmpFile.toFile().length() > 0);
-
-                long pointer = JNIService.loadIndex(
-                    tmpFile.toAbsolutePath().toString(),
-                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertNotEquals(0, pointer);
-
-                for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(
-                        pointer,
-                        query,
-                        k,
-                        Map.of("ef_search", efSearch),
-                        KNNEngine.FAISS,
-                        null,
-                        0,
-                        null
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            List<String> methods = ImmutableList.of(faissMethod);
+            List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
+            for (String method : methods) {
+                for (SpaceType spaceType : spaces) {
+                    String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+                    TestUtils.createIndex(
+                        testData.indexData.docs,
+                        testData.loadDataToMemoryAddress(),
+                        testData.indexData.getDimension(),
+                        directory,
+                        indexFileName1,
+                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        KNNEngine.FAISS
                     );
-                    assertEquals(k, results.length);
-                }
+                    assertTrue(directory.fileLength(indexFileName1) > 0);
 
-                // Filter will result in no ids
-                for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(
-                        pointer,
-                        query,
-                        k,
-                        Map.of("ef_search", efSearch),
-                        KNNEngine.FAISS,
-                        new long[] { 0 },
-                        0,
-                        null
-                    );
-                    assertEquals(0, results.length);
+                    final long pointer;
+                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                        final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                        pointer = JNIService.loadIndex(
+                            indexInputWithBuffer,
+                            ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                            KNNEngine.FAISS
+                        );
+                        assertNotEquals(0, pointer);
+                    } catch (Throwable e) {
+                        fail(e.getMessage());
+                        throw e;
+                    }
+
+                    for (float[] query : testData.queries) {
+                        KNNQueryResult[] results = JNIService.queryIndex(
+                            pointer,
+                            query,
+                            k,
+                            Map.of("ef_search", efSearch),
+                            KNNEngine.FAISS,
+                            null,
+                            0,
+                            null
+                        );
+                        assertEquals(k, results.length);
+                    }
+
+                    // Filter will result in no ids
+                    for (float[] query : testData.queries) {
+                        KNNQueryResult[] results = JNIService.queryIndex(
+                            pointer,
+                            query,
+                            k,
+                            Map.of("ef_search", efSearch),
+                            KNNEngine.FAISS,
+                            new long[] { 0 },
+                            0,
+                            null
+                        );
+                        assertEquals(0, results.length);
+                    }
                 }
             }
         }
@@ -987,23 +1224,25 @@ public class JNIServiceTests extends KNNTestCase {
         int k = 10;
         int efSearch = 100;
 
-        List<String> methods = ImmutableList.of(faissMethod);
-        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
-        for (String method : methods) {
-            for (SpaceType spaceType : spaces) {
-                Path tmpFile = createTempFile();
-                TestUtils.createIndex(
-                    testData.indexData.docs,
-                    testData.loadDataToMemoryAddress(),
-                    testData.indexData.getDimension(),
-                    tmpFile.toAbsolutePath().toString(),
-                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertTrue(tmpFile.toFile().length() > 0);
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            List<String> methods = ImmutableList.of(faissMethod);
+            List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
+            for (String method : methods) {
+                for (SpaceType spaceType : spaces) {
+                    String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+                    TestUtils.createIndex(
+                        testData.indexData.docs,
+                        testData.loadDataToMemoryAddress(),
+                        testData.indexData.getDimension(),
+                        directory,
+                        indexFileName1,
+                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        KNNEngine.FAISS
+                    );
+                    assertTrue(directory.fileLength(indexFileName1) > 0);
 
-                try (final Directory directory = new MMapDirectory(tmpFile.getParent())) {
-                    try (IndexInput indexInput = directory.openInput(tmpFile.getFileName().toString(), IOContext.READONCE)) {
+                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.READONCE)) {
                         long pointer = JNIService.loadIndex(
                             new IndexInputWithBuffer(indexInput),
                             ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
@@ -1040,9 +1279,9 @@ public class JNIServiceTests extends KNNTestCase {
                             assertEquals(0, results.length);
                         }  // End for
                     }  // End try
-                }  // End try
+                }  // End for
             }  // End for
-        }  // End for
+        }
     }
 
     public void testQueryIndex_faiss_parentIds() throws IOException {
@@ -1050,44 +1289,55 @@ public class JNIServiceTests extends KNNTestCase {
         int k = 100;
         int efSearch = 100;
 
-        List<String> methods = ImmutableList.of(faissMethod);
-        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
-        int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
-        Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
-        for (String method : methods) {
-            for (SpaceType spaceType : spaces) {
-                Path tmpFile = createTempFile();
-                TestUtils.createIndex(
-                    testDataNested.indexData.docs,
-                    testData.loadDataToMemoryAddress(),
-                    testDataNested.indexData.getDimension(),
-                    tmpFile.toAbsolutePath().toString(),
-                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertTrue(tmpFile.toFile().length() > 0);
-
-                long pointer = JNIService.loadIndex(
-                    tmpFile.toAbsolutePath().toString(),
-                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertNotEquals(0, pointer);
-
-                for (float[] query : testDataNested.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(
-                        pointer,
-                        query,
-                        k,
-                        Map.of("ef_search", efSearch),
-                        KNNEngine.FAISS,
-                        null,
-                        0,
-                        parentIds
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            List<String> methods = ImmutableList.of(faissMethod);
+            List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
+            int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
+            Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
+            for (String method : methods) {
+                for (SpaceType spaceType : spaces) {
+                    String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+                    TestUtils.createIndex(
+                        testDataNested.indexData.docs,
+                        testData.loadDataToMemoryAddress(),
+                        testDataNested.indexData.getDimension(),
+                        directory,
+                        indexFileName1,
+                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        KNNEngine.FAISS
                     );
-                    // Verify there is no more than one result from same parent
-                    Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
-                    assertEquals(results.length, parentIdSet.size());
+                    assertTrue(directory.fileLength(indexFileName1) > 0);
+
+                    final long pointer;
+                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                        final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                        pointer = JNIService.loadIndex(
+                            indexInputWithBuffer,
+                            ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                            KNNEngine.FAISS
+                        );
+                        assertNotEquals(0, pointer);
+                    } catch (Throwable e) {
+                        fail(e.getMessage());
+                        throw e;
+                    }
+
+                    for (float[] query : testDataNested.queries) {
+                        KNNQueryResult[] results = JNIService.queryIndex(
+                            pointer,
+                            query,
+                            k,
+                            Map.of("ef_search", efSearch),
+                            KNNEngine.FAISS,
+                            null,
+                            0,
+                            parentIds
+                        );
+                        // Verify there is no more than one result from same parent
+                        Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
+                        assertEquals(results.length, parentIdSet.size());
+                    }
                 }
             }
         }
@@ -1098,25 +1348,27 @@ public class JNIServiceTests extends KNNTestCase {
         int k = 100;
         int efSearch = 100;
 
-        List<String> methods = ImmutableList.of(faissMethod);
-        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
-        int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
-        Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
-        for (String method : methods) {
-            for (SpaceType spaceType : spaces) {
-                Path tmpFile = createTempFile();
-                TestUtils.createIndex(
-                    testDataNested.indexData.docs,
-                    testData.loadDataToMemoryAddress(),
-                    testDataNested.indexData.getDimension(),
-                    tmpFile.toAbsolutePath().toString(),
-                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertTrue(tmpFile.toFile().length() > 0);
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            List<String> methods = ImmutableList.of(faissMethod);
+            List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
+            int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
+            Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
+            for (String method : methods) {
+                for (SpaceType spaceType : spaces) {
+                    String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+                    TestUtils.createIndex(
+                        testDataNested.indexData.docs,
+                        testData.loadDataToMemoryAddress(),
+                        testDataNested.indexData.getDimension(),
+                        directory,
+                        indexFileName1,
+                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        KNNEngine.FAISS
+                    );
+                    assertTrue(directory.fileLength(indexFileName1) > 0);
 
-                try (final Directory directory = new MMapDirectory(tmpFile.getParent())) {
-                    try (IndexInput indexInput = directory.openInput(tmpFile.getFileName().toString(), IOContext.READONCE)) {
+                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.READONCE)) {
                         long pointer = JNIService.loadIndex(
                             new IndexInputWithBuffer(indexInput),
                             ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
@@ -1140,45 +1392,61 @@ public class JNIServiceTests extends KNNTestCase {
                             assertEquals(results.length, parentIdSet.size());
                         }  // End for
                     }  // End try
-                }  // End try
+                }  // End for
             }  // End for
-        }  // End for
+        }
     }
 
     @SneakyThrows
     public void testQueryBinaryIndex_faiss_valid() {
         int k = 10;
         List<String> methods = ImmutableList.of(faissBinaryMethod);
-        for (String method : methods) {
-            Path tmpFile = createTempFile();
-            long memoryAddr = testData.loadBinaryDataToMemoryAddress();
-            TestUtils.createIndex(
-                testData.indexData.docs,
-                memoryAddr,
-                testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(
-                    INDEX_DESCRIPTION_PARAMETER,
-                    method,
-                    KNNConstants.SPACE_TYPE,
-                    SpaceType.HAMMING.getValue(),
-                    KNNConstants.VECTOR_DATA_TYPE_FIELD,
-                    VectorDataType.BINARY.getValue()
-                ),
-                KNNEngine.FAISS
-            );
-            assertTrue(tmpFile.toFile().length() > 0);
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            for (String method : methods) {
+                String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+                long memoryAddr = testData.loadBinaryDataToMemoryAddress();
+                TestUtils.createIndex(
+                    testData.indexData.docs,
+                    memoryAddr,
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(
+                        INDEX_DESCRIPTION_PARAMETER,
+                        method,
+                        KNNConstants.SPACE_TYPE,
+                        SpaceType.HAMMING.getValue(),
+                        KNNConstants.VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BINARY.getValue()
+                    ),
+                    KNNEngine.FAISS
+                );
+                assertTrue(directory.fileLength(indexFileName1) > 0);
 
-            long pointer = JNIService.loadIndex(
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue()),
-                KNNEngine.FAISS
-            );
-            assertNotEquals(0, pointer);
+                final long pointer;
+                try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                    final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                    pointer = JNIService.loadIndex(
+                        indexInputWithBuffer,
+                        ImmutableMap.of(
+                            INDEX_DESCRIPTION_PARAMETER,
+                            method,
+                            KNNConstants.VECTOR_DATA_TYPE_FIELD,
+                            VectorDataType.BINARY.getValue()
+                        ),
+                        KNNEngine.FAISS
+                    );
+                    assertNotEquals(0, pointer);
+                } catch (Throwable e) {
+                    fail(e.getMessage());
+                    throw e;
+                }
 
-            for (byte[] query : testData.binaryQueries) {
-                KNNQueryResult[] results = JNIService.queryBinaryIndex(pointer, query, k, null, KNNEngine.FAISS, null, 0, null);
-                assertEquals(k, results.length);
+                for (byte[] query : testData.binaryQueries) {
+                    KNNQueryResult[] results = JNIService.queryBinaryIndex(pointer, query, k, null, KNNEngine.FAISS, null, 0, null);
+                    assertEquals(k, results.length);
+                }
             }
         }
     }
@@ -1187,28 +1455,30 @@ public class JNIServiceTests extends KNNTestCase {
     public void testQueryBinaryIndex_faiss_streaming_valid() {
         int k = 10;
         List<String> methods = ImmutableList.of(faissBinaryMethod);
-        for (String method : methods) {
-            Path tmpFile = createTempFile();
-            long memoryAddr = testData.loadBinaryDataToMemoryAddress();
-            TestUtils.createIndex(
-                testData.indexData.docs,
-                memoryAddr,
-                testData.indexData.getDimension(),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(
-                    INDEX_DESCRIPTION_PARAMETER,
-                    method,
-                    KNNConstants.SPACE_TYPE,
-                    SpaceType.HAMMING.getValue(),
-                    KNNConstants.VECTOR_DATA_TYPE_FIELD,
-                    VectorDataType.BINARY.getValue()
-                ),
-                KNNEngine.FAISS
-            );
-            assertTrue(tmpFile.toFile().length() > 0);
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            for (String method : methods) {
+                String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+                long memoryAddr = testData.loadBinaryDataToMemoryAddress();
+                TestUtils.createIndex(
+                    testData.indexData.docs,
+                    memoryAddr,
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(
+                        INDEX_DESCRIPTION_PARAMETER,
+                        method,
+                        KNNConstants.SPACE_TYPE,
+                        SpaceType.HAMMING.getValue(),
+                        KNNConstants.VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BINARY.getValue()
+                    ),
+                    KNNEngine.FAISS
+                );
+                assertTrue(directory.fileLength(indexFileName1) > 0);
 
-            try (final Directory directory = new MMapDirectory(tmpFile.getParent())) {
-                try (IndexInput indexInput = directory.openInput(tmpFile.getFileName().toString(), IOContext.READONCE)) {
+                try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.READONCE)) {
                     long pointer = JNIService.loadIndex(
                         new IndexInputWithBuffer(indexInput),
                         ImmutableMap.of(
@@ -1226,8 +1496,8 @@ public class JNIServiceTests extends KNNTestCase {
                         assertEquals(k, results.length);
                     }  // End for
                 }  // End try
-            }  // End try
-        }  // End for
+            }  // End for
+        }  // End try
     }
 
     private Set<Integer> toParentIdSet(KNNQueryResult[] results, Map<Integer, Integer> idToParentIdMap) {
@@ -1276,46 +1546,66 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testFree_nmslib_valid() throws IOException {
 
-        Path tmpFile = createTempFile();
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.NMSLIB
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.NMSLIB
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(
+                    indexInputWithBuffer,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                    KNNEngine.NMSLIB
+                );
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
 
-        long pointer = JNIService.loadIndex(
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.NMSLIB
-        );
-        assertNotEquals(0, pointer);
-
-        JNIService.free(pointer, KNNEngine.NMSLIB);
+            JNIService.free(pointer, KNNEngine.NMSLIB);
+        }
     }
 
     public void testFree_faiss_valid() throws IOException {
 
-        Path tmpFile = createTempFile();
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        TestUtils.createIndex(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
 
-        long pointer = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, pointer);
-
-        JNIService.free(pointer, KNNEngine.FAISS);
+            JNIService.free(pointer, KNNEngine.FAISS);
+        }
     }
 
     public void testTransferVectors() {
@@ -1492,20 +1782,71 @@ public class JNIServiceTests extends KNNTestCase {
         assertNotEquals(0, faissIndex.length);
         JNICommons.freeVectorData(trainPointer1);
 
-        Path tmpFile1 = createTempFile();
-        JNIService.createIndexFromTemplate(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile1.toAbsolutePath().toString(),
-            faissIndex,
-            ImmutableMap.of(INDEX_THREAD_QTY, 1),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile1.toFile().length() > 0);
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            try (IndexOutput indexOutput = directory.createOutput(indexFileName1, IOContext.DEFAULT)) {
+                final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
+                JNIService.createIndexFromTemplate(
+                    testData.indexData.docs,
+                    testData.loadDataToMemoryAddress(),
+                    testData.indexData.getDimension(),
+                    indexOutputWithBuffer,
+                    faissIndex,
+                    ImmutableMap.of(INDEX_THREAD_QTY, 1),
+                    KNNEngine.FAISS
+                );
+            }
+            assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        long pointer = JNIService.loadIndex(tmpFile1.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, pointer);
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testCreateIndex_whenIOExceptionOccured() {
+        // Plain index
+        Map<String, Object> parameters = new HashMap<>(
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue())
+        );
+
+        long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
+        assertNotEquals(0, trainPointer);
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+
+        assertNotEquals(0, faissIndex.length);
+        JNICommons.freeVectorData(trainPointer);
+
+        final IndexOutput indexOutput = new RasingIOExceptionIndexOutput();
+        final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
+        try {
+            JNIService.createIndexFromTemplate(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                indexOutputWithBuffer,
+                faissIndex,
+                ImmutableMap.of(INDEX_THREAD_QTY, 1),
+                KNNEngine.FAISS
+            );
+            fail("Exception thrown was expected");
+        } catch (Throwable t) {
+            System.out.println("!!!!!!!!!!!!!!!!!!!!! " + t.getMessage());
+        }
     }
 
     @SneakyThrows
@@ -1516,35 +1857,58 @@ public class JNIServiceTests extends KNNTestCase {
         int ivfNlist = 16;
         int pqM = 16;
         int pqCodeSize = 4;
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            String indexIVFPQPath = createFaissIVFPQIndex(directory, ivfNlist, pqM, pqCodeSize, SpaceType.L2);
 
-        String indexIVFPQPath = createFaissIVFPQIndex(ivfNlist, pqM, pqCodeSize, SpaceType.L2);
+            final long indexIVFPQIndexTest1;
+            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexIVFPQIndexTest1 = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, indexIVFPQIndexTest1);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
+            final long indexIVFPQIndexTest2;
+            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexIVFPQIndexTest2 = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, indexIVFPQIndexTest2);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
 
-        long indexIVFPQIndexTest1 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, indexIVFPQIndexTest1);
-        long indexIVFPQIndexTest2 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, indexIVFPQIndexTest2);
+            long sharedStateAddress = JNIService.initSharedIndexState(indexIVFPQIndexTest1, KNNEngine.FAISS);
+            JNIService.setSharedIndexState(indexIVFPQIndexTest1, sharedStateAddress, KNNEngine.FAISS);
+            JNIService.setSharedIndexState(indexIVFPQIndexTest2, sharedStateAddress, KNNEngine.FAISS);
 
-        long sharedStateAddress = JNIService.initSharedIndexState(indexIVFPQIndexTest1, KNNEngine.FAISS);
-        JNIService.setSharedIndexState(indexIVFPQIndexTest1, sharedStateAddress, KNNEngine.FAISS);
-        JNIService.setSharedIndexState(indexIVFPQIndexTest2, sharedStateAddress, KNNEngine.FAISS);
+            assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest1, indexIVFPQIndexTest2));
 
-        assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest1, indexIVFPQIndexTest2));
+            // Free the first test index 1. This will ensure that the shared state persists after index that initialized
+            // shared state is gone.
+            JNIService.free(indexIVFPQIndexTest1, KNNEngine.FAISS);
 
-        // Free the first test index 1. This will ensure that the shared state persists after index that initialized
-        // shared state is gone.
-        JNIService.free(indexIVFPQIndexTest1, KNNEngine.FAISS);
+            final long indexIVFPQIndexTest3;
+            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexIVFPQIndexTest3 = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, indexIVFPQIndexTest3);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
 
-        long indexIVFPQIndexTest3 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, indexIVFPQIndexTest3);
+            JNIService.setSharedIndexState(indexIVFPQIndexTest3, sharedStateAddress, KNNEngine.FAISS);
 
-        JNIService.setSharedIndexState(indexIVFPQIndexTest3, sharedStateAddress, KNNEngine.FAISS);
+            assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest2, indexIVFPQIndexTest3));
 
-        assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest2, indexIVFPQIndexTest3));
-
-        // Ensure everything gets freed
-        JNIService.free(indexIVFPQIndexTest2, KNNEngine.FAISS);
-        JNIService.free(indexIVFPQIndexTest3, KNNEngine.FAISS);
-        JNIService.freeSharedIndexState(sharedStateAddress, KNNEngine.FAISS);
+            // Ensure everything gets freed
+            JNIService.free(indexIVFPQIndexTest2, KNNEngine.FAISS);
+            JNIService.free(indexIVFPQIndexTest3, KNNEngine.FAISS);
+            JNIService.freeSharedIndexState(sharedStateAddress, KNNEngine.FAISS);
+        }
     }
 
     @SneakyThrows
@@ -1552,20 +1916,32 @@ public class JNIServiceTests extends KNNTestCase {
         long dummyAddress = 0;
         assertFalse(JNIService.isSharedIndexStateRequired(dummyAddress, KNNEngine.NMSLIB));
 
-        String faissIVFPQL2Index = createFaissIVFPQIndex(16, 16, 4, SpaceType.L2);
-        long faissIVFPQL2Address = JNIService.loadIndex(faissIVFPQL2Index, Collections.emptyMap(), KNNEngine.FAISS);
-        assertTrue(JNIService.isSharedIndexStateRequired(faissIVFPQL2Address, KNNEngine.FAISS));
-        JNIService.free(faissIVFPQL2Address, KNNEngine.FAISS);
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            String faissIVFPQL2Index = createFaissIVFPQIndex(directory, 16, 16, 4, SpaceType.L2);
+            try (IndexInput indexInput = directory.openInput(faissIVFPQL2Index, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                long faissIVFPQL2Address = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertTrue(JNIService.isSharedIndexStateRequired(faissIVFPQL2Address, KNNEngine.FAISS));
+                JNIService.free(faissIVFPQL2Address, KNNEngine.FAISS);
+            }
 
-        String faissIVFPQIPIndex = createFaissIVFPQIndex(16, 16, 4, SpaceType.INNER_PRODUCT);
-        long faissIVFPQIPAddress = JNIService.loadIndex(faissIVFPQIPIndex, Collections.emptyMap(), KNNEngine.FAISS);
-        assertFalse(JNIService.isSharedIndexStateRequired(faissIVFPQIPAddress, KNNEngine.FAISS));
-        JNIService.free(faissIVFPQIPAddress, KNNEngine.FAISS);
+            String faissIVFPQIPIndex = createFaissIVFPQIndex(directory, 16, 16, 4, SpaceType.INNER_PRODUCT);
+            try (IndexInput indexInput = directory.openInput(faissIVFPQIPIndex, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                long faissIVFPQIPAddress = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertFalse(JNIService.isSharedIndexStateRequired(faissIVFPQIPAddress, KNNEngine.FAISS));
+                JNIService.free(faissIVFPQIPAddress, KNNEngine.FAISS);
+            }
 
-        String faissHNSWIndex = createFaissHNSWIndex(SpaceType.L2);
-        long faissHNSWAddress = JNIService.loadIndex(faissHNSWIndex, Collections.emptyMap(), KNNEngine.FAISS);
-        assertFalse(JNIService.isSharedIndexStateRequired(faissHNSWAddress, KNNEngine.FAISS));
-        JNIService.free(faissHNSWAddress, KNNEngine.FAISS);
+            String faissHNSWIndex = createFaissHNSWIndex(directory, SpaceType.L2);
+            try (IndexInput indexInput = directory.openInput(faissHNSWIndex, IOContext.LOAD)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                long faissHNSWAddress = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertFalse(JNIService.isSharedIndexStateRequired(faissHNSWAddress, KNNEngine.FAISS));
+                JNIService.free(faissHNSWAddress, KNNEngine.FAISS);
+            }
+        }
     }
 
     @SneakyThrows
@@ -1594,7 +1970,8 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
-    private String createFaissIVFPQIndex(int ivfNlist, int pqM, int pqCodeSize, SpaceType spaceType) throws IOException {
+    private String createFaissIVFPQIndex(Directory directory, int ivfNlist, int pqM, int pqCodeSize, SpaceType spaceType)
+        throws IOException {
         long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
         assertNotEquals(0, trainPointer);
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
@@ -1635,32 +2012,36 @@ public class JNIServiceTests extends KNNTestCase {
 
         assertNotEquals(0, faissIndex.length);
         JNICommons.freeVectorData(trainPointer);
-        Path tmpFile = createTempFile();
-        JNIService.createIndexFromTemplate(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            faissIndex,
-            ImmutableMap.of(INDEX_THREAD_QTY, 1),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (IndexOutput indexOutput = directory.createOutput(indexFileName1, IOContext.DEFAULT)) {
+            final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
+            JNIService.createIndexFromTemplate(
+                testData.indexData.docs,
+                testData.loadDataToMemoryAddress(),
+                testData.indexData.getDimension(),
+                indexOutputWithBuffer,
+                faissIndex,
+                ImmutableMap.of(INDEX_THREAD_QTY, 1),
+                KNNEngine.FAISS
+            );
+        }
+        assertTrue(directory.fileLength(indexFileName1) > 0);
 
-        return tmpFile.toAbsolutePath().toString();
+        return indexFileName1;
     }
 
-    private String createFaissHNSWIndex(SpaceType spaceType) throws IOException {
-        Path tmpFile = createTempFile();
+    private String createFaissHNSWIndex(Directory directory, SpaceType spaceType) throws IOException {
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
         TestUtils.createIndex(
             testData.indexData.docs,
             testData.loadDataToMemoryAddress(),
             testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
+            directory,
+            indexFileName1,
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, spaceType.getValue()),
             KNNEngine.FAISS
         );
-        assertTrue(tmpFile.toFile().length() > 0);
-        return tmpFile.toAbsolutePath().toString();
+        assertTrue(directory.fileLength(indexFileName1) > 0);
+        return indexFileName1;
     }
 }
