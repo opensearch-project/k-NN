@@ -24,6 +24,7 @@
 #include "faiss/MetaIndexes.h"
 #include "faiss/MetricType.h"
 #include "faiss/impl/io.h"
+#include "nmslib_stream_support.h"
 #include "index.h"
 #include "init.h"
 #include "jni_util.h"
@@ -84,7 +85,7 @@ namespace test_util {
                     (JNIEnv * env, jobjectArray arrayJ, jsize index));
         MOCK_METHOD(void, HasExceptionInStack, (JNIEnv * env));
         MOCK_METHOD(void, HasExceptionInStack,
-                    (JNIEnv * env, const std::string& message));
+                    (JNIEnv * env, const char* message));
         MOCK_METHOD(jbyteArray, NewByteArray, (JNIEnv * env, jsize len));
         MOCK_METHOD(jobject, NewObject,
                     (JNIEnv * env, jclass clazz, jmethodID methodId, int id,
@@ -115,6 +116,7 @@ namespace test_util {
         MOCK_METHOD(jlong, CallNonvirtualLongMethodA, (JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args));
         MOCK_METHOD(void *, GetPrimitiveArrayCritical, (JNIEnv * env, jarray array, jboolean *isCopy));
         MOCK_METHOD(void, ReleasePrimitiveArrayCritical, (JNIEnv * env, jarray array, void *carray, jint mode));
+        MOCK_METHOD(void, CallNonvirtualVoidMethodA, (JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args));
     };
 
 // For our unit tests, we want to ensure that each test tests one function in
@@ -160,7 +162,7 @@ namespace test_util {
             const std::vector<std::string>& indexParameters);
 
     void NmslibWriteIndex(similarity::Index<float>* index,
-                          const std::string& indexPath);
+                          knn_jni::stream::NmslibOpenSearchIOWriter& writer);
 
     similarity::Index<float>* NmslibLoadIndex(
             const std::string& indexPath, similarity::Space<float>* space,

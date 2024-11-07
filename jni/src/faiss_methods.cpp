@@ -29,11 +29,12 @@ faiss::IndexIDMapTemplate<faiss::IndexBinary>* FaissMethods::indexBinaryIdMap(fa
     return new faiss::IndexBinaryIDMap(index);
 }
 
-void FaissMethods::writeIndex(const faiss::Index* idx, const char* fname) {
-    faiss::write_index(idx, fname);
+void FaissMethods::writeIndex(const faiss::Index* idx, faiss::IOWriter* writer) {
+    faiss::write_index(idx, writer);
 }
-void FaissMethods::writeIndexBinary(const faiss::IndexBinary* idx, const char* fname) {
-    faiss::write_index_binary(idx, fname);
+
+void FaissMethods::writeIndexBinary(const faiss::IndexBinary* idx, faiss::IOWriter* writer) {
+    faiss::write_index_binary(idx, writer);
 }
 
 } // namespace faiss_wrapper

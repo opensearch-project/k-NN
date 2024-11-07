@@ -12,12 +12,14 @@
 #ifndef KNNPLUGIN_JNI_TESTS_NATIVE_STREAM_SUPPORT_UTIL_H_
 #define KNNPLUGIN_JNI_TESTS_NATIVE_STREAM_SUPPORT_UTIL_H_
 
+#include <stdexcept>
+#include <fstream>
+
 #include "test_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace test_util {
-
 
 // Mocking IndexInputWithBuffer.
 struct JavaIndexInputMock {
@@ -37,7 +39,7 @@ struct JavaIndexInputMock {
   }
 
   int64_t remainingBytes() {
-      return readTargetBytes.size() - nextReadIdx;
+    return readTargetBytes.size() - nextReadIdx;
   }
 
   static std::string makeRandomBytes(int32_t bytesSize) {
@@ -94,8 +96,70 @@ struct JavaFileIndexInputMock {
 
   std::ifstream &file_input;
   std::vector<char> buffer;
-};  // class JavaFileIndexInputMock
+};  // struct JavaFileIndexInputMock
 
+
+
+struct JavaFileIndexOutputMock {
+  explicit JavaFileIndexOutputMock(const std::string &_file_path)
+      : file_writer(_file_path, std::ios::out | std::ios::binary),
+        buffer(64 * 1024) {
+    file_writer.exceptions(std::ios::failbit | std::ios::badbit);
+  }
+
+  void writeBytes(int length) {
+    file_writer.write(buffer.data(), length);
+  }
+
+  std::ofstream file_writer;
+  std::vector<char> buffer;
+};  // struct JavaFileIndexOutputMock
+
+struct StreamIOError : public std::runtime_error {
+  StreamIOError()
+    : std::runtime_error(what()) {
+  }
+
+  const char* what() const noexcept final {
+    return "Mocking IOError in Java side.";
+  }
+};  // struct StreamIOError
+
+inline void setUpJavaFileOutputMocking(JavaFileIndexOutputMock &java_index_output,
+                                       MockJNIUtil &mockJni,
+                                       bool throwIOException) {
+  EXPECT_CALL(mockJni, GetPrimitiveArrayCritical(::testing::_, ::testing::_, ::testing::_))
+      .WillRepeatedly([&java_index_output](JNIEnv *env,
+                                           jarray array,
+                                           jboolean *isCopy) {
+        return (jbyte *) java_index_output.buffer.data();
+      });
+
+  EXPECT_CALL(mockJni, CallNonvirtualVoidMethodA(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+      .WillRepeatedly([&java_index_output](JNIEnv *env,
+                                           jobject obj,
+                                           jclass clazz,
+                                           jmethodID methodID,
+                                           jvalue *args) {
+        const auto bytes_to_write = args[0].i;
+        java_index_output.writeBytes(bytes_to_write);
+      });
+
+  EXPECT_CALL(mockJni, GetJavaBytesArrayLength(::testing::_, ::testing::_))
+      .WillRepeatedly([&java_index_output](JNIEnv *env, jbyteArray arrayJ) {
+        return java_index_output.buffer.size();
+      });
+
+  if (throwIOException) {
+    EXPECT_CALL(mockJni, HasExceptionInStack(::testing::_, ::testing::_))
+      .WillRepeatedly([](JNIEnv *env, const char* errorMsg){
+        throw StreamIOError{};
+      });
+  } else {
+    EXPECT_CALL(mockJni, HasExceptionInStack(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return());
+  }
+}
 
 }  // namespace test_util
 

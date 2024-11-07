@@ -15,6 +15,7 @@ import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
@@ -50,15 +51,15 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
             MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
                 OffHeapVectorTransferFactory.class
-            );
+            )
         ) {
-
             // Limits transfer to 2 vectors
             mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
 
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
             mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
                 .thenReturn(offHeapVectorTransfer);
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
 
             when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
             when(offHeapVectorTransfer.transfer(vectorTransferCapture.capture(), eq(false))).thenReturn(false)
@@ -68,7 +69,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
 
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
-                .indexPath("indexPath")
+                .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
@@ -113,7 +114,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             );
 
             mockedJNIService.verify(
-                () -> JNIService.writeIndex(eq("indexPath"), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
+                () -> JNIService.writeIndex(eq(indexOutputWithBuffer), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
             );
             assertEquals(200L, vectorAddressCaptor.getValue().longValue());
             assertEquals(vectorAddressCaptor.getValue().longValue(), vectorAddressCaptor.getAllValues().get(0).longValue());
@@ -185,8 +186,9 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             when(offHeapVectorTransfer.flush(false)).thenReturn(true);
             when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
 
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
-                .indexPath("indexPath")
+                .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
@@ -232,7 +234,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             );
 
             mockedJNIService.verify(
-                () -> JNIService.writeIndex(eq("indexPath"), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
+                () -> JNIService.writeIndex(eq(indexOutputWithBuffer), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
             );
             assertEquals(200L, vectorAddressCaptor.getValue().longValue());
             assertEquals(vectorAddressCaptor.getValue().longValue(), vectorAddressCaptor.getAllValues().get(0).longValue());
