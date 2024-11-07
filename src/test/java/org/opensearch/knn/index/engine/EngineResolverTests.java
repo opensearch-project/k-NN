@@ -41,10 +41,10 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
-    public void testResolveEngine_whenModeSpecifiedAndCompressionIsNotSpecified_thenDefault() {
+    public void testResolveEngine_whenModeSpecifiedAndCompressionIsNotSpecified_thenNMSLIB() {
         assertEquals(KNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, false));
         assertEquals(
-            KNNEngine.DEFAULT,
+            KNNEngine.NMSLIB,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
                 new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
@@ -63,7 +63,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            KNNEngine.DEFAULT,
+            KNNEngine.NMSLIB,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x1).build(), null, false)
         );
     }
