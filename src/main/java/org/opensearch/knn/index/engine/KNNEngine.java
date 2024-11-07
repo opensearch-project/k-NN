@@ -29,7 +29,7 @@ public enum KNNEngine implements KNNLibrary {
     FAISS(FAISS_NAME, Faiss.INSTANCE),
     LUCENE(LUCENE_NAME, Lucene.INSTANCE);
 
-    public static final KNNEngine DEFAULT = NMSLIB;
+    public static final KNNEngine DEFAULT = FAISS;
 
     private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
     private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);

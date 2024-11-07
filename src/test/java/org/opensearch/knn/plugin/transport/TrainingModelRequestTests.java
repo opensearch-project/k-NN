@@ -46,6 +46,7 @@ import java.util.Map;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 public class TrainingModelRequestTests extends KNNTestCase {
 
@@ -290,11 +291,14 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
 
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.DEFAULT, methodComponentContext);
+
         ValidationException validationException = expectThrows(
             ValidationException.class,
             () -> new TrainingModelRequest(
                 modelId,
-                getDefaultKNNMethodContext(),
+                knnMethodContext,
                 dimension,
                 trainingIndex,
                 trainingField,

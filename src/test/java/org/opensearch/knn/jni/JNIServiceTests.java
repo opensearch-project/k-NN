@@ -933,7 +933,7 @@ public class JNIServiceTests extends KNNTestCase {
                 testData.indexData.getDimension(),
                 directory,
                 indexFileName1,
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue(), KNN_ENGINE, KNNEngine.NMSLIB),
                 KNNEngine.NMSLIB
             );
             assertTrue(directory.fileLength(indexFileName1) > 0);

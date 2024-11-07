@@ -30,6 +30,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -76,7 +77,9 @@ public class GetModelResponseTests extends KNNTestCase {
             Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob, modelId);
             GetModelResponse getModelResponse = new GetModelResponse(model);
             String expectedResponseString = String.format(
-                "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\",\"model_version\":\"%s\"}",
+                Locale.ROOT,
+                "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"%s\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\",\"model_version\":\"%s\"}",
+                KNNEngine.DEFAULT.getName(),
                 Version.CURRENT.toString()
             );
             XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
@@ -94,7 +97,9 @@ public class GetModelResponseTests extends KNNTestCase {
             Model model = new Model(getModelMetadata(ModelState.FAILED), null, modelId);
             GetModelResponse getModelResponse = new GetModelResponse(model);
             String expectedResponseString = String.format(
-                "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\",\"model_version\":\"%s\"}",
+                Locale.ROOT,
+                "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"%s\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\",\"model_version\":\"%s\"}",
+                KNNEngine.DEFAULT.getName(),
                 Version.CURRENT.toString()
             );
             XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
