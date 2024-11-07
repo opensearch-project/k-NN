@@ -90,6 +90,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private static final String INTEGER_FIELD_NAME = "int_field";
     private static final String FILED_TYPE_INTEGER = "integer";
     private static final String NON_EXISTENT_INTEGER_FIELD_NAME = "nonexistent_int_field";
+    private final static List<Integer> LUCENE_SQ_BITS_SUPPORTED = ImmutableList.of(4, 7);
+    private static final int DIMENSION_SQ = 2;
 
     @After
     public final void cleanUp() throws IOException {
@@ -593,15 +595,29 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testSQ_4bits_withOddDimension_thenThrowException() {
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+                DIMENSION,
+                SpaceType.L2,
+                VectorDataType.FLOAT,
+                4,
+                MINIMUM_CONFIDENCE_INTERVAL
+            )
+        );
+    }
+
+    @SneakyThrows
     public void testAddDocWithSQEncoder() {
         createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
+            DIMENSION_SQ,
             SpaceType.L2,
             VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
+            LUCENE_SQ_BITS_SUPPORTED.get(random().nextInt(LUCENE_SQ_BITS_SUPPORTED.size())),
             MAXIMUM_CONFIDENCE_INTERVAL
         );
-        Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
+        Float[] vector = new Float[] { 2.0f, 4.5f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
         refreshIndex(INDEX_NAME);
@@ -611,16 +627,16 @@ public class LuceneEngineIT extends KNNRestTestCase {
     @SneakyThrows
     public void testUpdateDocWithSQEncoder() {
         createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
+            DIMENSION_SQ,
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
+            LUCENE_SQ_BITS_SUPPORTED.get(random().nextInt(LUCENE_SQ_BITS_SUPPORTED.size())),
             MAXIMUM_CONFIDENCE_INTERVAL
         );
-        Float[] vector = { 6.0f, 6.0f, 7.0f };
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
-        Float[] updatedVector = { 8.0f, 8.0f, 8.0f };
+        Float[] updatedVector = { 8.0f, 8.0f };
         updateKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, updatedVector);
 
         refreshIndex(INDEX_NAME);
@@ -630,13 +646,13 @@ public class LuceneEngineIT extends KNNRestTestCase {
     @SneakyThrows
     public void testDeleteDocWithSQEncoder() {
         createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
+            DIMENSION_SQ,
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
+            LUCENE_SQ_BITS_SUPPORTED.get(random().nextInt(LUCENE_SQ_BITS_SUPPORTED.size())),
             MAXIMUM_CONFIDENCE_INTERVAL
         );
-        Float[] vector = { 6.0f, 6.0f, 7.0f };
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
         deleteKnnDoc(INDEX_NAME, DOC_ID);
@@ -648,16 +664,16 @@ public class LuceneEngineIT extends KNNRestTestCase {
     @SneakyThrows
     public void testIndexingAndQueryingWithSQEncoder() {
         createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
+            DIMENSION_SQ,
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
+            LUCENE_SQ_BITS_SUPPORTED.get(random().nextInt(LUCENE_SQ_BITS_SUPPORTED.size())),
             MAXIMUM_CONFIDENCE_INTERVAL
         );
 
         int numDocs = 10;
         for (int i = 0; i < numDocs; i++) {
-            float[] indexVector = new float[DIMENSION];
+            float[] indexVector = new float[DIMENSION_SQ];
             Arrays.fill(indexVector, (float) i);
             addKnnDocWithAttributes(INDEX_NAME, Integer.toString(i), FIELD_NAME, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
         }
@@ -666,7 +682,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         refreshAllNonSystemIndices();
         assertEquals(numDocs, getDocCount(INDEX_NAME));
 
-        float[] queryVector = new float[DIMENSION];
+        float[] queryVector = new float[DIMENSION_SQ];
         Arrays.fill(queryVector, (float) numDocs);
         int k = 10;
 
@@ -680,24 +696,20 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
     public void testQueryWithFilterUsingSQEncoder() throws Exception {
         createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
+            DIMENSION_SQ,
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
+            LUCENE_SQ_BITS_SUPPORTED.get(random().nextInt(LUCENE_SQ_BITS_SUPPORTED.size())),
             MAXIMUM_CONFIDENCE_INTERVAL
         );
 
-        addKnnDocWithAttributes(
-            DOC_ID,
-            new float[] { 6.0f, 7.9f, 3.1f },
-            ImmutableMap.of(COLOR_FIELD_NAME, "red", TASTE_FIELD_NAME, "sweet")
-        );
-        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
-        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+        addKnnDocWithAttributes(DOC_ID, new float[] { 6.0f, 7.9f }, ImmutableMap.of(COLOR_FIELD_NAME, "red", TASTE_FIELD_NAME, "sweet"));
+        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
 
         refreshIndex(INDEX_NAME);
 
-        final float[] searchVector = { 6.0f, 6.0f, 4.1f };
+        final float[] searchVector = { 6.0f, 6.0f };
         List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
         List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
