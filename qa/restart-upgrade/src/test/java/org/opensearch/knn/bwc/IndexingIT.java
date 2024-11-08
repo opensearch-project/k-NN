@@ -61,6 +61,23 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    // ensure that index is created using legacy mapping in old cluster, and, then, add docs to both old and new cluster.
+    // when search is requested on new cluster it should return all docs irrespective of cluster.
+    public void testKNNIndexDefaultEngine() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 5);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 5, 5);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 5, 5);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 10, 10);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
     // Ensure that when segments created with old mapping are forcemerged in new cluster, they
     // succeed
     public void testKNNIndexDefaultLegacyFieldMappingForceMerge() throws Exception {
