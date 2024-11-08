@@ -197,7 +197,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         nativeMemoryCacheManager.get(trainingDataEntryContext, true);
 
-        assertEquals((float) allocationEntryWeight, nativeMemoryCacheManager.getTrainingSizeInKilobytes(), 0.001);
+        assertEquals(allocationEntryWeight, nativeMemoryCacheManager.getTrainingSizeInKilobytes(), 1e-3);
         assertEquals(
             100 * (float) allocationEntryWeight / (float) maxWeight,
             nativeMemoryCacheManager.getTrainingSizeAsPercentage(),
