@@ -86,7 +86,6 @@ public class FaissEngineFlatKnnVectorsReader extends FaissEngineKnnVectorsReader
                     continue;
                 }
                 String parameter = FieldInfoExtractor.getParameters(field);
-                System.out.print(parameter);
                 if (parameter == null || parameter.contains("BHNSW")) {
                     continue;
                 }
