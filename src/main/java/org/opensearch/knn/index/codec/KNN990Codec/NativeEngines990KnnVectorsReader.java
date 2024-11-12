@@ -45,14 +45,16 @@ import java.util.Map;
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
+    private final FaissEngineKnnVectorsReader faissEngineKnnVectorsReader;
     private Map<String, String> quantizationStateCacheKeyPerField;
     private SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
 
-    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
+    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
+        this.faissEngineKnnVectorsReader = new FaissEngineFlatKnnVectorsReader(state);
         loadCacheKeyMap();
     }
 
@@ -77,6 +79,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      */
     @Override
     public FloatVectorValues getFloatVectorValues(final String field) throws IOException {
+        if (faissEngineKnnVectorsReader.isNativeVectors(field)) {
+            faissEngineKnnVectorsReader.getFloatVectorValues(field);
+        }
         return flatVectorsReader.getFloatVectorValues(field);
     }
 
@@ -188,7 +193,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         cacheKeys.forEach(nativeMemoryCacheManager::invalidate);
 
         // Close a reader.
-        IOUtils.close(flatVectorsReader);
+        IOUtils.close(flatVectorsReader, faissEngineKnnVectorsReader);
 
         // Clean up quantized state cache.
         if (quantizationStateCacheKeyPerField != null) {
