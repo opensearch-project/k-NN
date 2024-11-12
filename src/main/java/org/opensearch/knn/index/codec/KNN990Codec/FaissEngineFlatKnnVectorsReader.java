@@ -27,7 +27,7 @@ import java.util.Map;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 
 /**
- * There is 3 Index in one faiss file <-id-><-hnsw-><-Storage->
+ * There is 3 Index in one faiss file |id|hnsw|Storage|
  * File Structure like followings:
  * |-typeIDMap-||-id_header-|
  *     |-typeHnsw-||-hnsw_header-||-hnswGraph-|
