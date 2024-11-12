@@ -79,33 +79,32 @@ public class NativeEngineFlatKnnVectorsReaderTests extends KNNTestCase {
         int dimension = 16;
 
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
-                .directory(directory)
-                .segmentName(segmentName)
-                .docsInSegment(docsInSegment)
-                .codec(codec)
-                .build();
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-                .vectorDataType(VectorDataType.FLOAT)
-                .versionCreated(Version.CURRENT)
-                .build();
+            .vectorDataType(VectorDataType.FLOAT)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-                knnEngine,
-                spaceType,
-                new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+            knnEngine,
+            spaceType,
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
         String parameterString = XContentFactory.jsonBuilder()
-                .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext).getLibraryParameters())
-                .toString();
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
-                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                        .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                        .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
-                        .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
-                        .addAttribute(KNNConstants.PARAMETERS, parameterString)
-                        .build() };
-
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
+                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .addAttribute(KNNConstants.PARAMETERS, parameterString)
+                .build() };
 
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
@@ -115,10 +114,12 @@ public class NativeEngineFlatKnnVectorsReaderTests extends KNNTestCase {
         // Add documents to the field
         float[][] vectorsData = TestVectorValues.getRandomVectors(docsInSegment, dimension);
         List<float[]> vectorList = new ArrayList<>();
-        for(int i = 0; i < docsInSegment; i++) {
+        for (int i = 0; i < docsInSegment; i++) {
             vectorList.add(vectorsData[i]);
         }
-        TestVectorValues.PreDefinedFloatVectorValues preDefinedFloatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(vectorList);
+        TestVectorValues.PreDefinedFloatVectorValues preDefinedFloatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorList
+        );
 
         FieldInfo field = fieldInfoArray[0];
         final VectorDataType vectorDataType = extractVectorDataType(field);
@@ -149,7 +150,7 @@ public class NativeEngineFlatKnnVectorsReaderTests extends KNNTestCase {
 
         FaissEngineFlatKnnVectorsReader.MetaInfo metaInfo = faissReader.getFieldMetaMap().get(fieldName);
 
-        for (int i = 0; i < metaInfo.ntotal; i++){
+        for (int i = 0; i < metaInfo.ntotal; i++) {
             vectorValues.nextDoc();
             float[] actualVector = vectorValues.vectorValue();
             float[] expectVector = vectorsData[i];

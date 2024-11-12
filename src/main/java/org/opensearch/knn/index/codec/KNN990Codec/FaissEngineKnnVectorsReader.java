@@ -23,8 +23,6 @@ public abstract class FaissEngineKnnVectorsReader implements Closeable {
      *
      * <p>Note that this may be costly in terms of I/O, e.g. may involve computing a checksum value
      * against large data files.
-     *
-     * @lucene.internal
      */
     public abstract void checkIntegrity() throws IOException;
 

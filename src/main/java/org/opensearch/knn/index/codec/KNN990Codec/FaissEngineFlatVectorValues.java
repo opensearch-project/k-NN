@@ -21,7 +21,7 @@ import static org.opensearch.knn.index.codec.KNN990Codec.FaissEngineFlatKnnVecto
 import static org.opensearch.knn.index.codec.KNN990Codec.FaissEngineFlatKnnVectorsReader.SIZET_SIZE;
 
 public class FaissEngineFlatVectorValues extends FloatVectorValues {
-    private static final int BUCKET_VECTORS = 64; //every time read only bucket size vectors.
+    private static final int BUCKET_VECTORS = 64; // every time read only bucket size vectors.
     protected FaissEngineFlatKnnVectorsReader.MetaInfo metaInfo;
     protected final IndexInput slice;
     protected final VectorSimilarityFunction similarityFunction;
@@ -38,7 +38,7 @@ public class FaissEngineFlatVectorValues extends FloatVectorValues {
         this.similarityFunction = getVectorSimilarityFunction(metaInfo.metricType).getVectorSimilarityFunction();
         this.flatVectorsScorer = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
         this.value = new float[(int) (metaInfo.d * metaInfo.ntotal)];
-        this.ids= new long[(int) metaInfo.ntotal];
+        this.ids = new long[(int) metaInfo.ntotal];
         this.buf = new float[metaInfo.d];
         readIds();
     }
@@ -56,24 +56,22 @@ public class FaissEngineFlatVectorValues extends FloatVectorValues {
         int bucketIndex = ord / BUCKET_VECTORS;
         slice.seek(metaInfo.vectorSeek + SIZET_SIZE + bucketIndex * BUCKET_VECTORS * FLOAT_SIZE * metaInfo.d);
 
-        for (int i = 0, o = ord;
-                i < BUCKET_VECTORS && o < metaInfo.ntotal;
-                i++, o++) {
+        for (int i = 0, o = ord; i < BUCKET_VECTORS && o < metaInfo.ntotal; i++, o++) {
             slice.readFloats(value, i * metaInfo.d, metaInfo.d);
         }
     }
-//    public void readInfo() throws IOException {
-//        slice.seek(metaInfo.idSeek);
-//        long size = slice.readLong();
-//        assert size == metaInfo.ntotal;
-//        slice.readLongs(ids, 0, (int) metaInfo.ntotal);
-//
-//        slice.seek(metaInfo.vectorSeek);
-//        size = slice.readLong();
-//        for(int i = 0; i < metaInfo.ntotal; i++) {
-//            slice.readFloats(value, i * metaInfo.d, metaInfo.d);
-//        }
-//    }
+    // public void readInfo() throws IOException {
+    // slice.seek(metaInfo.idSeek);
+    // long size = slice.readLong();
+    // assert size == metaInfo.ntotal;
+    // slice.readLongs(ids, 0, (int) metaInfo.ntotal);
+    //
+    // slice.seek(metaInfo.vectorSeek);
+    // size = slice.readLong();
+    // for(int i = 0; i < metaInfo.ntotal; i++) {
+    // slice.readFloats(value, i * metaInfo.d, metaInfo.d);
+    // }
+    // }
 
     @Override
     public int dimension() {
@@ -87,7 +85,7 @@ public class FaissEngineFlatVectorValues extends FloatVectorValues {
 
     @Override
     public float[] vectorValue() throws IOException {
-        if(ord % BUCKET_VECTORS == 0) {
+        if (ord % BUCKET_VECTORS == 0) {
             readBucketVectors();
         }
         int bucketOrder = ord % BUCKET_VECTORS;
@@ -98,7 +96,7 @@ public class FaissEngineFlatVectorValues extends FloatVectorValues {
 
     @Override
     public VectorScorer scorer(float[] floats) throws IOException {
-        //TODO
+        // TODO
         return null;
     }
 

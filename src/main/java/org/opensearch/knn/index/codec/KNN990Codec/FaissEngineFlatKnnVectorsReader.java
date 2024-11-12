@@ -21,7 +21,6 @@ import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,6 +58,7 @@ public class FaissEngineFlatKnnVectorsReader extends FaissEngineKnnVectorsReader
 
     private Map<String, IndexInput> fieldFileMap;
     private Map<String, MetaInfo> fieldMetaMap;
+
     @Override
     public void checkIntegrity() throws IOException {
 
@@ -79,7 +79,7 @@ public class FaissEngineFlatKnnVectorsReader extends FaissEngineKnnVectorsReader
                 if (vectorIndexFileName == null) {
                     continue;
                 }
-                //TODO for fp16, pq
+                // TODO for fp16, pq
                 VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(field);
                 SpaceType spaceType = FieldInfoExtractor.getSpaceType(null, field);
                 if (vectorDataType != VectorDataType.FLOAT) {
@@ -89,21 +89,21 @@ public class FaissEngineFlatKnnVectorsReader extends FaissEngineKnnVectorsReader
                 if (parameter == null || parameter.contains("BHNSW")) {
                     continue;
                 }
-                //TODO if not exist file, change to lucene flatVector
+                // TODO if not exist file, change to lucene flatVector
                 IndexInput in = state.directory.openInput(vectorIndexFileName, state.context.withRandomAccess());
-                if(in == null) {
+                if (in == null) {
                     continue;
                 }
                 fieldFileMap.put(field.getName(), in);
             }
             success = true;
-        }  finally {
+        } finally {
             if (success == false) {
                 IOUtils.closeWhileHandlingException(this);
             }
         }
 
-        for(Map.Entry<String, IndexInput> entry : fieldFileMap.entrySet()) {
+        for (Map.Entry<String, IndexInput> entry : fieldFileMap.entrySet()) {
             IndexInput in = entry.getValue();
             int h = in.readInt();
             MetaInfo metaInfo = read_index_header(in);
@@ -132,7 +132,7 @@ public class FaissEngineFlatKnnVectorsReader extends FaissEngineKnnVectorsReader
     private MetaInfo read_index_header(IndexInput in) throws IOException {
 
         int d = in.readInt();
-        long ntotal =  in.readLong();
+        long ntotal = in.readLong();
         long dummy;
         dummy = in.readLong();
         dummy = in.readLong();
@@ -146,34 +146,34 @@ public class FaissEngineFlatKnnVectorsReader extends FaissEngineKnnVectorsReader
         long filesize = in.length();
         // There is (ntotal+1) * idx_t and FOOTER_SIZE
         long idSeek = filesize - (ntotal + 1) * SIZET_SIZE - FOOTER_SIZE;
-        //in.seek(idSeek);
-//        long size = in.readLong();
+        // in.seek(idSeek);
+        // long size = in.readLong();
 
-//        long[] ids = new long[(int) ntotal];
-//        in.readLongs(ids, 0, (int) ntotal);
+        // long[] ids = new long[(int) ntotal];
+        // in.readLongs(ids, 0, (int) ntotal);
         long vectorSeek = idSeek - (FLOAT_SIZE * d) * ntotal - SIZET_SIZE;
-//        in.seek(vectorSeek);
+        // in.seek(vectorSeek);
 
-//        float[] v = new float[(int) (d * ntotal)];
-//        size = in.readLong();
-//        System.out.println("Vector Size: " + size + " d * ntotal" + d * ntotal);
-//        for(int i = 0; i < ntotal; i++) {
-//            in.readFloats(v, i * d, d);
-//            System.out.println("vector:");
-//            for (int j = 0; j < d; j++) {
-//                System.out.println(v[i*d + j]);
-//            }
-//        }
+        // float[] v = new float[(int) (d * ntotal)];
+        // size = in.readLong();
+        // System.out.println("Vector Size: " + size + " d * ntotal" + d * ntotal);
+        // for(int i = 0; i < ntotal; i++) {
+        // in.readFloats(v, i * d, d);
+        // System.out.println("vector:");
+        // for (int j = 0; j < d; j++) {
+        // System.out.println(v[i*d + j]);
+        // }
+        // }
         return new MetaInfo(d, ntotal, is_trained, metric_type, metric_arg, idSeek, vectorSeek);
     }
+
     @Override
     public void close() throws IOException {
-        for(Map.Entry<String, IndexInput> entry : fieldFileMap.entrySet()) {
+        for (Map.Entry<String, IndexInput> entry : fieldFileMap.entrySet()) {
             IndexInput in = entry.getValue();
             IOUtils.close(in);
         }
     }
-
 
     @AllArgsConstructor
     @Getter
