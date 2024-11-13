@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.nativelib;
+package org.opensearch.knn.index.query.common;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.index.IndexReader;
