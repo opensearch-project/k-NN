@@ -71,6 +71,7 @@ public class KNNConstants {
     public static final String QFRAMEWORK_CONFIG = "qframe_config";
 
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
+    public static final String EXPAND_NESTED = "expand_nested_docs";
     public static final String MODEL_VECTOR_DATA_TYPE_KEY = VECTOR_DATA_TYPE_FIELD;
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
     public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";

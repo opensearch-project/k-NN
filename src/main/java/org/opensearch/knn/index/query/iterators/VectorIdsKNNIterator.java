@@ -6,8 +6,6 @@
 package org.opensearch.knn.index.query.iterators;
 
 import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.util.BitSet;
-import org.apache.lucene.util.BitSetIterator;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
@@ -23,7 +21,7 @@ import java.io.IOException;
  * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
 public class VectorIdsKNNIterator implements KNNIterator {
-    protected final BitSetIterator bitSetIterator;
+    protected final DocIdSetIterator filterIdsIterator;
     protected final float[] queryVector;
     private final byte[] quantizedQueryVector;
     protected final KNNFloatVectorValues knnFloatVectorValues;
@@ -33,12 +31,12 @@ public class VectorIdsKNNIterator implements KNNIterator {
     private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
 
     public VectorIdsKNNIterator(
-        @Nullable final BitSet filterIdsBitSet,
+        @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType
     ) throws IOException {
-        this(filterIdsBitSet, queryVector, knnFloatVectorValues, spaceType, null, null);
+        this(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, null, null);
     }
 
     public VectorIdsKNNIterator(final float[] queryVector, final KNNFloatVectorValues knnFloatVectorValues, final SpaceType spaceType)
@@ -47,14 +45,14 @@ public class VectorIdsKNNIterator implements KNNIterator {
     }
 
     public VectorIdsKNNIterator(
-        @Nullable final BitSet filterIdsBitSet,
+        @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
         final byte[] quantizedQueryVector,
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
     ) throws IOException {
-        this.bitSetIterator = filterIdsBitSet == null ? null : new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
+        this.filterIdsIterator = filterIdsIterator;
         this.queryVector = queryVector;
         this.knnFloatVectorValues = knnFloatVectorValues;
         this.spaceType = spaceType;
@@ -101,10 +99,10 @@ public class VectorIdsKNNIterator implements KNNIterator {
     }
 
     protected int getNextDocId() throws IOException {
-        if (bitSetIterator == null) {
+        if (filterIdsIterator == null) {
             return knnFloatVectorValues.nextDoc();
         }
-        int nextDocID = this.bitSetIterator.nextDoc();
+        int nextDocID = this.filterIdsIterator.nextDoc();
         // For filter case, advance vector values to corresponding doc id from filter bit set
         if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
             knnFloatVectorValues.advance(nextDocID);
