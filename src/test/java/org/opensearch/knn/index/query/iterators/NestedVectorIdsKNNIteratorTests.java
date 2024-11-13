@@ -9,6 +9,7 @@ import junit.framework.TestCase;
 import lombok.SneakyThrows;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -56,7 +57,13 @@ public class NestedVectorIdsKNNIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        NestedVectorIdsKNNIterator iterator = new NestedVectorIdsKNNIterator(filterBitSet, queryVector, values, spaceType, parentBitSet);
+        NestedVectorIdsKNNIterator iterator = new NestedVectorIdsKNNIterator(
+            new BitSetIterator(filterBitSet, filterBitSet.length()),
+            queryVector,
+            values,
+            spaceType,
+            parentBitSet
+        );
         assertEquals(filterIds[0], iterator.nextDoc());
         assertEquals(expectedScores.get(0), iterator.score());
         assertEquals(filterIds[2], iterator.nextDoc());
