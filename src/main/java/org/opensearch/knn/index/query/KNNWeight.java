@@ -153,6 +153,26 @@ public class KNNWeight extends Weight {
         return docIdsToScoreMap;
     }
 
+    /**
+     * For given {@link LeafReaderContext}, this api will return will KNNWeight perform exact search or not
+     * always. This decision is based on two properties, 1) if there are no native engine files in segments,
+     * exact search will always be performed, 2) if number of docs after filter is less than 'k'
+     * @param context
+     * @return
+     * @throws IOException
+     */
+    public boolean isExactSearchPreferred(LeafReaderContext context) throws IOException {
+        final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        int cardinality = filterBitSet.cardinality();
+        if (isFilteredExactSearchPreferred(cardinality)) {
+            return true;
+        }
+        if (isMissingNativeEngineFiles(context)) {
+            return true;
+        }
+        return false;
+    }
+
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
         if (this.filterWeight == null) {
             return new FixedBitSet(0);

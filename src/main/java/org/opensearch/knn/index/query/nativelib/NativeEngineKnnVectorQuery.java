@@ -65,7 +65,17 @@ public class NativeEngineKnnVectorQuery extends Query {
             boolean isShardLevelRescoringEnabled = KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(knnQuery.getIndexName());
             int dimension = knnQuery.getQueryVector().length;
             int firstPassK = rescoreContext.getFirstPassK(finalK, isShardLevelRescoringEnabled, dimension);
-            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassK);
+            // split segments into whether exact search will be performed or not
+            List<LeafReaderContext> exactSearchSegments = new ArrayList<>();
+            List<LeafReaderContext> approxSearchSegments = new ArrayList<>();
+            for (LeafReaderContext leafReaderContext : leafReaderContexts) {
+                if (knnWeight.isExactSearchPreferred(leafReaderContext)) {
+                    exactSearchSegments.add(leafReaderContext);
+                } else {
+                    approxSearchSegments.add(leafReaderContext);
+                }
+            }
+            perLeafResults = doSearch(indexSearcher, approxSearchSegments, knnWeight, firstPassK);
             if (isShardLevelRescoringEnabled == true) {
                 ResultUtil.reduceToTopK(perLeafResults, firstPassK);
             }
@@ -73,7 +83,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             StopWatch stopWatch = new StopWatch().start();
             perLeafResults = doRescore(indexSearcher, knnWeight, perLeafResults, finalK);
             long rescoreTime = stopWatch.stop().totalTime().millis();
-            log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, leafReaderContexts.size());
+            log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, perLeafResults.size());
+            // do exact search on rest of segments and append to result lists
+            perLeafResults.addAll(doExactSearch(indexSearcher, knnWeight, exactSearchSegments));
         }
         ResultUtil.reduceToTopK(perLeafResults, finalK);
         TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
@@ -125,6 +137,28 @@ public class NativeEngineKnnVectorQuery extends Query {
             });
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
+    }
+
+    private List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> doExactSearch(
+        final IndexSearcher indexSearcher,
+        KNNWeight knnWeight,
+        List<LeafReaderContext> leafReaderContexts
+    ) throws IOException {
+        List<Callable<Map.Entry<LeafReaderContext, Map<Integer, Float>>>> exactSearchTasks = new ArrayList<>(leafReaderContexts.size());
+        for (LeafReaderContext context : leafReaderContexts) {
+            exactSearchTasks.add(() -> {
+                final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+                    // setting to false because we want to do exact search on full precision vectors
+                    .useQuantizedVectorsForSearch(false)
+                    .k(knnQuery.getK())
+                    .knnQuery(knnQuery)
+                    .isParentHits(true)
+                    .build();
+                final Map<Integer, Float> searchResults = knnWeight.exactSearch(context, exactSearcherContext);
+                return new AbstractMap.SimpleEntry<>(context, searchResults);
+            });
+        }
+        return indexSearcher.getTaskExecutor().invokeAll(exactSearchTasks);
     }
 
     private Query createDocAndScoreQuery(IndexReader reader, TopDocs topK) {
