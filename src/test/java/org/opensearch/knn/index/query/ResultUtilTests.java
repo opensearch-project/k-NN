@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -12,12 +13,15 @@ import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.mockito.Mockito.mock;
 
 public class ResultUtilTests extends KNNTestCase {
 
@@ -27,7 +31,9 @@ public class ResultUtilTests extends KNNTestCase {
         int segmentCount = 5;
 
         List<Map<Integer, Float>> initialLeafResults = getRandomListOfResults(firstPassK, segmentCount);
-        List<Map<Integer, Float>> reducedLeafResults = initialLeafResults.stream().map(HashMap::new).collect(Collectors.toList());
+        List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> reducedLeafResults = initialLeafResults.stream()
+            .map(item -> new AbstractMap.SimpleEntry<>(mock(LeafReaderContext.class), item))
+            .collect(Collectors.toList());
         ResultUtil.reduceToTopK(reducedLeafResults, finalK);
         assertTopK(initialLeafResults, reducedLeafResults, finalK);
 
@@ -36,7 +42,9 @@ public class ResultUtilTests extends KNNTestCase {
         segmentCount = 1;
 
         initialLeafResults = getRandomListOfResults(firstPassK, segmentCount);
-        reducedLeafResults = initialLeafResults.stream().map(HashMap::new).collect(Collectors.toList());
+        reducedLeafResults = initialLeafResults.stream()
+            .map(item -> new AbstractMap.SimpleEntry<>(mock(LeafReaderContext.class), item))
+            .collect(Collectors.toList());
         ResultUtil.reduceToTopK(reducedLeafResults, finalK);
         assertTopK(initialLeafResults, reducedLeafResults, firstPassK);
     }
@@ -75,9 +83,13 @@ public class ResultUtilTests extends KNNTestCase {
         }
     }
 
-    private void assertTopK(List<Map<Integer, Float>> beforeResults, List<Map<Integer, Float>> reducedResults, int expectedK) {
+    private void assertTopK(
+        List<Map<Integer, Float>> beforeResults,
+        List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> reducedResults,
+        int expectedK
+    ) {
         assertEquals(beforeResults.size(), reducedResults.size());
-        assertEquals(expectedK, reducedResults.stream().map(Map::size).reduce(Integer::sum).orElse(-1).intValue());
+        assertEquals(expectedK, reducedResults.stream().map(row -> row.getValue().size()).reduce(Integer::sum).orElse(-1).intValue());
         float minScore = getMinScore(reducedResults);
         int count = 0;
         for (Map<Integer, Float> result : beforeResults) {
@@ -126,10 +138,10 @@ public class ResultUtilTests extends KNNTestCase {
         return results;
     }
 
-    private float getMinScore(List<Map<Integer, Float>> perLeafResults) {
+    private float getMinScore(List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> perLeafResults) {
         float minScore = Float.MAX_VALUE;
-        for (Map<Integer, Float> result : perLeafResults) {
-            for (float score : result.values()) {
+        for (Map.Entry<LeafReaderContext, Map<Integer, Float>> result : perLeafResults) {
+            for (float score : result.getValue().values()) {
                 if (score < minScore) {
                     minScore = score;
                 }
