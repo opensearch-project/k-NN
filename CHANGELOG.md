@@ -25,3 +25,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Select index settings based on cluster version[2236](https://github.com/opensearch-project/k-NN/pull/2236)
 ### Refactoring
+* Refactor scoring to map leaf reader context with results[2271](https://github.com/opensearch-project/k-NN/pull/2271)
