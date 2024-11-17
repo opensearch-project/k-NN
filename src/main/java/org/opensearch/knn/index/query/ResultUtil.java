@@ -13,11 +13,7 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.DocIdSetBuilder;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.PriorityQueue;
+import java.util.*;
 
 /**
  * Utility class used for processing results
@@ -58,19 +54,20 @@ public final class ResultUtil {
     }
 
     /**
-     * Convert map to bit set
+     * Convert map to bit set, if resultMap is empty or null then returns an Optional. Returning an optional here to
+     * ensure that the caller is aware that BitSet may not be present
      *
      * @param resultMap Map of results
-     * @return BitSet of results
+     * @return Optional BitSet of results
      * @throws IOException If an error occurs during the search.
      */
-    public static BitSet resultMapToMatchBitSet(Map<Integer, Float> resultMap) throws IOException {
-        if (resultMap.isEmpty()) {
-            return BitSet.of(DocIdSetIterator.empty(), 0);
+    public static Optional<BitSet> resultMapToMatchBitSet(Map<Integer, Float> resultMap) throws IOException {
+        if (resultMap == null || resultMap.isEmpty()) {
+            return Optional.empty();
         }
 
         final int maxDoc = Collections.max(resultMap.keySet()) + 1;
-        return BitSet.of(resultMapToDocIds(resultMap, maxDoc), maxDoc);
+        return Optional.of(BitSet.of(resultMapToDocIds(resultMap, maxDoc), maxDoc));
     }
 
     /**

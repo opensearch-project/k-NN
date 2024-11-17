@@ -12,11 +12,7 @@ import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ResultUtilTests extends KNNTestCase {
@@ -44,8 +40,8 @@ public class ResultUtilTests extends KNNTestCase {
     public void testResultMapToMatchBitSet() throws IOException {
         int firstPassK = 35;
         Map<Integer, Float> perLeafResults = getRandomResults(firstPassK);
-        BitSet resultBitset = ResultUtil.resultMapToMatchBitSet(perLeafResults);
-        assertResultMapToMatchBitSet(perLeafResults, resultBitset);
+        Optional<BitSet> resultBitset = ResultUtil.resultMapToMatchBitSet(perLeafResults);
+        assertResultMapToMatchBitSet(perLeafResults, resultBitset.get());
     }
 
     public void testResultMapToDocIds() throws IOException {

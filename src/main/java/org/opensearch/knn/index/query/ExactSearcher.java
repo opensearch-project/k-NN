@@ -21,7 +21,6 @@ import org.apache.lucene.util.BitSet;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.iterators.ByteVectorIdsKNNIterator;
@@ -38,9 +37,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Predicate;
 
 @Log4j2
@@ -59,23 +56,27 @@ public class ExactSearcher {
      */
     public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
         throws IOException {
-        KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        final Optional<KNNIterator> iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        // if because of any reason if we are not able to get KNNIterator returning an empty map
+        if (iterator.isEmpty()) {
+            return Collections.emptyMap();
+        }
         if (exactSearcherContext.getKnnQuery().getRadius() != null) {
-            return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
+            return doRadialSearch(leafReaderContext, exactSearcherContext, iterator.get());
         }
         if (exactSearcherContext.getMatchedDocs() != null
             && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
-            return scoreAllDocs(iterator);
+            return scoreAllDocs(iterator.get());
         }
-        return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
+        return searchTopCandidates(iterator.get(), exactSearcherContext.getK(), Predicates.alwaysTrue());
     }
 
     /**
      * Perform radial search by comparing scores with min score. Currently, FAISS from native engine supports radial search.
      * Hence, we assume that Radius from knnQuery is always distance, and we convert it to score since we do exact search uses scores
      * to filter out the documents that does not have given min score.
-     * @param leafReaderContext
-     * @param exactSearcherContext
+     * @param leafReaderContext {@link LeafReaderContext}
+     * @param exactSearcherContext {@link ExactSearcherContext}
      * @param iterator {@link KNNIterator}
      * @return Map of docId and score
      * @throws IOException exception raised by iterator during traversal
@@ -145,79 +146,99 @@ public class ExactSearcher {
         return searchTopCandidates(iterator, maxResultWindow, scoreGreaterThanOrEqualToMinScore);
     }
 
-    private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
+    private Optional<KNNIterator> getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext)
+        throws IOException {
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final BitSet matchedDocs = exactSearcherContext.getMatchedDocs();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        if (fieldInfo == null) {
+            log.debug("[KNN] Cannot get KNNIterator as Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
+            return Optional.empty();
+        }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
 
         boolean isNestedRequired = exactSearcherContext.isParentHits() && knnQuery.getParentsFilter() != null;
-
-        if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            if (isNestedRequired) {
-                return new NestedBinaryVectorIdsKNNIterator(
-                    matchedDocs,
-                    knnQuery.getByteQueryVector(),
-                    (KNNBinaryVectorValues) vectorValues,
-                    spaceType,
-                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+        final KNNIterator knnIterator;
+        KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+        switch (knnQuery.getVectorDataType()) {
+            case BINARY:
+                if (isNestedRequired) {
+                    knnIterator = new NestedBinaryVectorIdsKNNIterator(
+                        matchedDocs,
+                        knnQuery.getByteQueryVector(),
+                        (KNNBinaryVectorValues) vectorValues,
+                        spaceType,
+                        knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                    );
+                } else {
+                    knnIterator = new BinaryVectorIdsKNNIterator(
+                        matchedDocs,
+                        knnQuery.getByteQueryVector(),
+                        (KNNBinaryVectorValues) vectorValues,
+                        spaceType
+                    );
+                }
+                return Optional.of(knnIterator);
+            case BYTE:
+                if (isNestedRequired) {
+                    knnIterator = new NestedByteVectorIdsKNNIterator(
+                        matchedDocs,
+                        knnQuery.getQueryVector(),
+                        (KNNByteVectorValues) vectorValues,
+                        spaceType,
+                        knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                    );
+                } else {
+                    knnIterator = new ByteVectorIdsKNNIterator(
+                        matchedDocs,
+                        knnQuery.getQueryVector(),
+                        (KNNByteVectorValues) vectorValues,
+                        spaceType
+                    );
+                }
+                return Optional.of(knnIterator);
+            case FLOAT:
+                final byte[] quantizedQueryVector;
+                final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
+                if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
+                    // Build Segment Level Quantization info.
+                    segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, knnQuery.getField());
+                    // Quantize the Query Vector Once.
+                    quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
+                        knnQuery.getQueryVector(),
+                        segmentLevelQuantizationInfo
+                    );
+                } else {
+                    segmentLevelQuantizationInfo = null;
+                    quantizedQueryVector = null;
+                }
+                if (isNestedRequired) {
+                    knnIterator = new NestedVectorIdsKNNIterator(
+                        matchedDocs,
+                        knnQuery.getQueryVector(),
+                        (KNNFloatVectorValues) vectorValues,
+                        spaceType,
+                        knnQuery.getParentsFilter().getBitSet(leafReaderContext),
+                        quantizedQueryVector,
+                        segmentLevelQuantizationInfo
+                    );
+                } else {
+                    knnIterator = new VectorIdsKNNIterator(
+                        matchedDocs,
+                        knnQuery.getQueryVector(),
+                        (KNNFloatVectorValues) vectorValues,
+                        spaceType,
+                        quantizedQueryVector,
+                        segmentLevelQuantizationInfo
+                    );
+                }
+                return Optional.of(knnIterator);
+            default:
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Vector data type [%s] is not supported", knnQuery.getVectorDataType())
                 );
-            }
-            return new BinaryVectorIdsKNNIterator(
-                matchedDocs,
-                knnQuery.getByteQueryVector(),
-                (KNNBinaryVectorValues) vectorValues,
-                spaceType
-            );
         }
-
-        if (VectorDataType.BYTE == knnQuery.getVectorDataType()) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            if (isNestedRequired) {
-                return new NestedByteVectorIdsKNNIterator(
-                    matchedDocs,
-                    knnQuery.getQueryVector(),
-                    (KNNByteVectorValues) vectorValues,
-                    spaceType,
-                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
-                );
-            }
-            return new ByteVectorIdsKNNIterator(matchedDocs, knnQuery.getQueryVector(), (KNNByteVectorValues) vectorValues, spaceType);
-        }
-        final byte[] quantizedQueryVector;
-        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
-        if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
-            // Build Segment Level Quantization info.
-            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, knnQuery.getField());
-            // Quantize the Query Vector Once.
-            quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
-        } else {
-            segmentLevelQuantizationInfo = null;
-            quantizedQueryVector = null;
-        }
-
-        final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        if (isNestedRequired) {
-            return new NestedVectorIdsKNNIterator(
-                matchedDocs,
-                knnQuery.getQueryVector(),
-                (KNNFloatVectorValues) vectorValues,
-                spaceType,
-                knnQuery.getParentsFilter().getBitSet(leafReaderContext),
-                quantizedQueryVector,
-                segmentLevelQuantizationInfo
-            );
-        }
-        return new VectorIdsKNNIterator(
-            matchedDocs,
-            knnQuery.getQueryVector(),
-            (KNNFloatVectorValues) vectorValues,
-            spaceType,
-            quantizedQueryVector,
-            segmentLevelQuantizationInfo
-        );
     }
 
     /**
