@@ -122,7 +122,7 @@ public class KNNCodecUtil {
      * @param field which field we need produce from engine
      * @return if and only if Native Engine we return specific engine, else return null
      */
-    private static KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
+    public static KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
         final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(field);
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
             return engine;

@@ -15,6 +15,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
@@ -102,5 +103,10 @@ public class FieldInfoExtractor {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Unable to find the model metadata for model id %s", modelId));
         }
         return modelMetadata.getSpaceType();
+    }
+
+    public static String getParameters(final FieldInfo fieldInfo) {
+        final String parameters = fieldInfo.getAttribute(PARAMETERS);
+        return parameters;
     }
 }
