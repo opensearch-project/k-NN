@@ -118,6 +118,7 @@ jobs:
 
       - name: Install dependencies on macos
         run: |
+          brew install libomp
           brew reinstall gcc
           export FC=/usr/local/Cellar/gcc/12.2.0/bin/gfortran
 
