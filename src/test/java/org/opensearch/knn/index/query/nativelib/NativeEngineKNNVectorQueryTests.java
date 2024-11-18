@@ -91,9 +91,9 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         when(searcher.getTaskExecutor()).thenReturn(taskExecutor);
         when(taskExecutor.invokeAll(any())).thenAnswer(invocationOnMock -> {
-            List<Callable<Map<Integer, Float>>> callables = invocationOnMock.getArgument(0);
-            List<Map<Integer, Float>> results = new ArrayList<>();
-            for (Callable<Map<Integer, Float>> callable : callables) {
+            List<Callable<Map.Entry<LeafReaderContext, Map<Integer, Float>>>> callables = invocationOnMock.getArgument(0);
+            List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> results = new ArrayList<>();
+            for (Callable<Map.Entry<LeafReaderContext, Map<Integer, Float>>> callable : callables) {
                 results.add(callable.call());
             }
             return results;

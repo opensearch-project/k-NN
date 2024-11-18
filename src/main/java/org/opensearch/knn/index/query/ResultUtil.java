@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -30,14 +31,15 @@ public final class ResultUtil {
      * @param perLeafResults Results from the list
      * @param k the number of results across all leaf results to return
      */
-    public static void reduceToTopK(List<Map<Integer, Float>> perLeafResults, int k) {
+    public static void reduceToTopK(List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> perLeafResults, int k) {
         // Iterate over all scores to get min competitive score
         PriorityQueue<Float> topKMinQueue = new PriorityQueue<>(k);
 
         int count = 0;
-        for (Map<Integer, Float> perLeafResult : perLeafResults) {
-            count += perLeafResult.size();
-            for (Float score : perLeafResult.values()) {
+        for (Map.Entry<LeafReaderContext, Map<Integer, Float>> perLeafResult : perLeafResults) {
+            Map<Integer, Float> docIdScoreMap = perLeafResult.getValue();
+            count += docIdScoreMap.size();
+            for (Float score : docIdScoreMap.values()) {
                 if (topKMinQueue.size() < k) {
                     topKMinQueue.add(score);
                 } else if (topKMinQueue.peek() != null && score > topKMinQueue.peek()) {
@@ -54,7 +56,7 @@ public final class ResultUtil {
 
         // Reduce the results based on min competitive score
         float minScore = topKMinQueue.peek() == null ? -Float.MAX_VALUE : topKMinQueue.peek();
-        perLeafResults.forEach(results -> results.entrySet().removeIf(entry -> entry.getValue() < minScore));
+        perLeafResults.forEach(results -> results.getValue().entrySet().removeIf(entry -> entry.getValue() < minScore));
     }
 
     /**
