@@ -116,6 +116,7 @@ import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 public class KNNRestTestCase extends ODFERestTestCase {
     public static final String INDEX_NAME = "test_index";
     public static final String FIELD_NAME = "test_field";
+    public static final String FIELD_NAME_NON_KNN = "test_field_non_knn";
     public static final String PROPERTIES_FIELD = "properties";
     public static final String STORE_FIELD = "store";
     public static final String STORED_QUERY_FIELD = "stored_fields";
@@ -599,6 +600,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
+        request.setJsonEntity(builder.toString());
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + index + "/_refresh");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    protected <T> void addNonKNNDoc(String index, String docId, String fieldName, String text) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, text).endObject();
         request.setJsonEntity(builder.toString());
         client().performRequest(request);
 
