@@ -227,7 +227,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(reader.leaves()).thenReturn(leaves);
 
         int k = 2;
-        int firstPassK = 3;
+        int firstPassK = 100;
         Map<Integer, Float> initialLeaf1Results = new HashMap<>(Map.of(0, 21f, 1, 19f, 2, 17f, 3, 15f));
         Map<Integer, Float> initialLeaf2Results = new HashMap<>(Map.of(0, 20f, 1, 18f, 2, 16f, 3, 14f));
         Map<Integer, Float> rescoredLeaf1Results = new HashMap<>(Map.of(0, 18f, 1, 20f));
@@ -255,6 +255,9 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(any())).thenReturn(true);
 
             mockedResultUtil.when(() -> ResultUtil.reduceToTopK(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
+            mockedResultUtil.when(() -> ResultUtil.resultMapToMatchBitSet(any())).thenAnswer(InvocationOnMock::callRealMethod);
+            mockedResultUtil.when(() -> ResultUtil.resultMapToDocIds(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
+
             mockedResultUtil.when(() -> ResultUtil.resultMapToTopDocs(eq(rescoredLeaf1Results), anyInt())).thenAnswer(t -> topDocs1);
             mockedResultUtil.when(() -> ResultUtil.resultMapToTopDocs(eq(rescoredLeaf2Results), anyInt())).thenAnswer(t -> topDocs2);
             try (MockedStatic<NativeEngineKnnVectorQuery> mockedStaticNativeKnnVectorQuery = mockStatic(NativeEngineKnnVectorQuery.class)) {

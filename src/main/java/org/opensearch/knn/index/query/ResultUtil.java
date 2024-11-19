@@ -58,17 +58,17 @@ public final class ResultUtil {
     }
 
     /**
-     * Convert map to bit set
+     * Convert map to bit set, if resultMap is empty or null then returns an Optional. Returning an optional here to
+     * ensure that the caller is aware that BitSet may not be present
      *
      * @param resultMap Map of results
-     * @return BitSet of results
+     * @return BitSet of results; null is returned if the result map is empty
      * @throws IOException If an error occurs during the search.
      */
     public static BitSet resultMapToMatchBitSet(Map<Integer, Float> resultMap) throws IOException {
-        if (resultMap.isEmpty()) {
-            return BitSet.of(DocIdSetIterator.empty(), 0);
+        if (resultMap == null || resultMap.isEmpty()) {
+            return null;
         }
-
         final int maxDoc = Collections.max(resultMap.keySet()) + 1;
         return BitSet.of(resultMapToDocIds(resultMap, maxDoc), maxDoc);
     }

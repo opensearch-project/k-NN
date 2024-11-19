@@ -11,6 +11,7 @@ import org.junit.Assert;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -218,6 +219,41 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String mapping = builder.toString();
         validateIndexWithDeletedDocs(indexName, mapping);
         validateGreenIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testCompressionIndexWithNonVectorFieldsSegment_whenValid_ThenSucceed() {
+        CompressionLevel compressionLevel = CompressionLevel.x32;
+        String indexName = INDEX_NAME + compressionLevel;
+        try (
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .endObject()
+                .endObject()
+                .endObject()
+        ) {
+            String mapping = builder.toString();
+            Settings indexSettings = buildKNNIndexSettings(0);
+            createKnnIndex(indexName, indexSettings, mapping);
+            // since we are going to delete a document, so its better to have 1 more extra doc so that we can re-use some tests
+            addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS + 1);
+            addNonKNNDoc(indexName, String.valueOf(NUM_DOCS + 2), FIELD_NAME_NON_KNN, "Hello world");
+            deleteKnnDoc(indexName, "0");
+            validateGreenIndex(indexName);
+            validateSearch(
+                indexName,
+                METHOD_PARAMETER_EF_SEARCH,
+                KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                compressionLevel.getName(),
+                Mode.ON_DISK.getName()
+            );
+        }
     }
 
     @SneakyThrows

@@ -30,6 +30,7 @@ import org.opensearch.knn.index.query.rescore.RescoreContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +113,12 @@ public class NativeEngineKnnVectorQuery extends Query {
             LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
             int finalI = i;
             rescoreTasks.add(() -> {
-                BitSet convertedBitSet = ResultUtil.resultMapToMatchBitSet(perLeafResults.get(finalI));
+                final BitSet convertedBitSet = ResultUtil.resultMapToMatchBitSet(perLeafResults.get(finalI));
+                // if there is no docIds to re-score from a segment we should return early to ensure that we are not
+                // wasting any computation
+                if (convertedBitSet == null) {
+                    return Collections.emptyMap();
+                }
                 final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
                     .matchedDocs(convertedBitSet)
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
