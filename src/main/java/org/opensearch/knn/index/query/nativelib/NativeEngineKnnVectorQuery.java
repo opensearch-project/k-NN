@@ -28,6 +28,7 @@ import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -55,7 +56,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         final IndexReader reader = indexSearcher.getIndexReader();
         final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
-        List<Map<Integer, Float>> perLeafResults;
+        List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
         final int finalK = knnQuery.getK();
         if (rescoreContext == null) {
@@ -64,20 +65,33 @@ public class NativeEngineKnnVectorQuery extends Query {
             boolean isShardLevelRescoringEnabled = KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(knnQuery.getIndexName());
             int dimension = knnQuery.getQueryVector().length;
             int firstPassK = rescoreContext.getFirstPassK(finalK, isShardLevelRescoringEnabled, dimension);
-            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassK);
+            // split segments into whether exact search will be performed or not
+            List<LeafReaderContext> exactSearchSegments = new ArrayList<>();
+            List<LeafReaderContext> approxSearchSegments = new ArrayList<>();
+            for (LeafReaderContext leafReaderContext : leafReaderContexts) {
+                if (knnWeight.isExactSearchPreferred(leafReaderContext)) {
+                    exactSearchSegments.add(leafReaderContext);
+                } else {
+                    approxSearchSegments.add(leafReaderContext);
+                }
+            }
+            perLeafResults = doSearch(indexSearcher, approxSearchSegments, knnWeight, firstPassK);
             if (isShardLevelRescoringEnabled == true) {
                 ResultUtil.reduceToTopK(perLeafResults, firstPassK);
             }
 
             StopWatch stopWatch = new StopWatch().start();
-            perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, finalK);
+            perLeafResults = doRescore(indexSearcher, knnWeight, perLeafResults, finalK);
             long rescoreTime = stopWatch.stop().totalTime().millis();
-            log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, leafReaderContexts.size());
+            log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, perLeafResults.size());
+            // do exact search on rest of segments and append to result lists
+            perLeafResults.addAll(doExactSearch(indexSearcher, knnWeight, exactSearchSegments));
         }
         ResultUtil.reduceToTopK(perLeafResults, finalK);
         TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            topDocs[i] = ResultUtil.resultMapToTopDocs(perLeafResults.get(i), leafReaderContexts.get(i).docBase);
+        int i = 0;
+        for (Map.Entry<LeafReaderContext, Map<Integer, Float>> entry : perLeafResults) {
+            topDocs[i++] = ResultUtil.resultMapToTopDocs(entry.getValue(), entry.getKey().docBase);
         }
 
         TopDocs topK = TopDocs.merge(knnQuery.getK(), topDocs);
@@ -87,32 +101,29 @@ public class NativeEngineKnnVectorQuery extends Query {
         return createDocAndScoreQuery(reader, topK).createWeight(indexSearcher, scoreMode, boost);
     }
 
-    private List<Map<Integer, Float>> doSearch(
+    private List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> doSearch(
         final IndexSearcher indexSearcher,
         List<LeafReaderContext> leafReaderContexts,
         KNNWeight knnWeight,
         int k
     ) throws IOException {
-        List<Callable<Map<Integer, Float>>> tasks = new ArrayList<>(leafReaderContexts.size());
+        List<Callable<Map.Entry<LeafReaderContext, Map<Integer, Float>>>> tasks = new ArrayList<>(leafReaderContexts.size());
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
             tasks.add(() -> searchLeaf(leafReaderContext, knnWeight, k));
         }
         return indexSearcher.getTaskExecutor().invokeAll(tasks);
     }
 
-    private List<Map<Integer, Float>> doRescore(
+    private List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> doRescore(
         final IndexSearcher indexSearcher,
-        List<LeafReaderContext> leafReaderContexts,
         KNNWeight knnWeight,
-        List<Map<Integer, Float>> perLeafResults,
+        List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> perLeafResults,
         int k
     ) throws IOException {
-        List<Callable<Map<Integer, Float>>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
-            int finalI = i;
+        List<Callable<Map.Entry<LeafReaderContext, Map<Integer, Float>>>> rescoreTasks = new ArrayList<>(perLeafResults.size());
+        for (Map.Entry<LeafReaderContext, Map<Integer, Float>> entry : perLeafResults) {
             rescoreTasks.add(() -> {
-                BitSet convertedBitSet = ResultUtil.resultMapToMatchBitSet(perLeafResults.get(finalI));
+                BitSet convertedBitSet = ResultUtil.resultMapToMatchBitSet(entry.getValue());
                 final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
                     .matchedDocs(convertedBitSet)
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
@@ -121,10 +132,33 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .isParentHits(false)
                     .knnQuery(knnQuery)
                     .build();
-                return knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
+                final Map<Integer, Float> docIdScoreMap = knnWeight.exactSearch(entry.getKey(), exactSearcherContext);
+                return new AbstractMap.SimpleEntry<>(entry.getKey(), docIdScoreMap);
             });
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
+    }
+
+    private List<Map.Entry<LeafReaderContext, Map<Integer, Float>>> doExactSearch(
+        final IndexSearcher indexSearcher,
+        KNNWeight knnWeight,
+        List<LeafReaderContext> leafReaderContexts
+    ) throws IOException {
+        List<Callable<Map.Entry<LeafReaderContext, Map<Integer, Float>>>> exactSearchTasks = new ArrayList<>(leafReaderContexts.size());
+        for (LeafReaderContext context : leafReaderContexts) {
+            exactSearchTasks.add(() -> {
+                final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+                    // setting to false because we want to do exact search on full precision vectors
+                    .useQuantizedVectorsForSearch(false)
+                    .k(knnQuery.getK())
+                    .knnQuery(knnQuery)
+                    .isParentHits(true)
+                    .build();
+                final Map<Integer, Float> searchResults = knnWeight.exactSearch(context, exactSearcherContext);
+                return new AbstractMap.SimpleEntry<>(context, searchResults);
+            });
+        }
+        return indexSearcher.getTaskExecutor().invokeAll(exactSearchTasks);
     }
 
     private Query createDocAndScoreQuery(IndexReader reader, TopDocs topK) {
@@ -158,13 +192,14 @@ public class NativeEngineKnnVectorQuery extends Query {
         return starts;
     }
 
-    private Map<Integer, Float> searchLeaf(LeafReaderContext ctx, KNNWeight queryWeight, int k) throws IOException {
+    private Map.Entry<LeafReaderContext, Map<Integer, Float>> searchLeaf(LeafReaderContext ctx, KNNWeight queryWeight, int k)
+        throws IOException {
         final Map<Integer, Float> leafDocScores = queryWeight.searchLeaf(ctx, k);
         final Bits liveDocs = ctx.reader().getLiveDocs();
         if (liveDocs != null) {
             leafDocScores.entrySet().removeIf(entry -> liveDocs.get(entry.getKey()) == false);
         }
-        return leafDocScores;
+        return new AbstractMap.SimpleEntry<>(ctx, leafDocScores);
     }
 
     @Override
