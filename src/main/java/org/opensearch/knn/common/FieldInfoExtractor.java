@@ -8,6 +8,8 @@ package org.opensearch.knn.common;
 import lombok.experimental.UtilityClass;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.LeafReader;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -27,7 +29,7 @@ import java.util.Locale;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
- * A utility class to extract information from FieldInfo.
+ * A utility class to extract information from FieldInfo and also provides utility functions to extract fieldInfo
  */
 @UtilityClass
 public class FieldInfoExtractor {
@@ -102,5 +104,16 @@ public class FieldInfoExtractor {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Unable to find the model metadata for model id %s", modelId));
         }
         return modelMetadata.getSpaceType();
+    }
+
+    /**
+     * Get the field info for the given field name, do a null check on the fieldInfo, as this function can return null,
+     * if the field is not found.
+     * @param leafReader {@link LeafReader}
+     * @param fieldName {@link String}
+     * @return {@link FieldInfo}
+     */
+    public static @Nullable FieldInfo getFieldInfo(final LeafReader leafReader, final String fieldName) {
+        return leafReader.getFieldInfos().fieldInfo(fieldName);
     }
 }
