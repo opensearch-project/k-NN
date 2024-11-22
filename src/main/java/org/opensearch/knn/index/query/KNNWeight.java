@@ -227,7 +227,7 @@ public class KNNWeight extends Weight {
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
 
-        FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
 
         if (fieldInfo == null) {
             log.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
@@ -479,7 +479,7 @@ public class KNNWeight extends Weight {
      */
     private boolean isMissingNativeEngineFiles(LeafReaderContext context) {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
-        final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
         // if segment has no documents with at least 1 vector field, field info will be null
         if (fieldInfo == null) {
             return false;
