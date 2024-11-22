@@ -12,6 +12,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.index.fielddata.LeafFieldData;
 import org.opensearch.index.fielddata.ScriptDocValues;
 import org.opensearch.index.fielddata.SortedBinaryDocValues;
+import org.opensearch.knn.common.FieldInfoExtractor;
 
 import java.io.IOException;
 
@@ -40,7 +41,7 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
     @Override
     public ScriptDocValues<float[]> getScriptValues() {
         try {
-            FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(fieldName);
+            FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, fieldName);
             if (fieldInfo == null) {
                 return KNNVectorScriptDocValues.emptyValues(fieldName, vectorDataType);
             }

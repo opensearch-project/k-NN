@@ -6,6 +6,8 @@
 package org.opensearch.knn.common;
 
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.LeafReader;
 import org.junit.Assert;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -62,5 +64,16 @@ public class FieldInfoExtractorTests extends KNNTestCase {
 
         when(fieldInfo.getAttribute("model_id")).thenReturn(null);
         assertEquals(VectorDataType.DEFAULT, FieldInfoExtractor.extractVectorDataType(fieldInfo));
+    }
+
+    public void testGetFieldInfo_whenDifferentInput_thenSuccess() {
+        LeafReader leafReader = Mockito.mock(LeafReader.class);
+        FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+        Mockito.when(fieldInfos.fieldInfo("invalid")).thenReturn(null);
+        Mockito.when(fieldInfos.fieldInfo("valid")).thenReturn(fieldInfo);
+        Assert.assertNull(FieldInfoExtractor.getFieldInfo(leafReader, "invalid"));
+        Assert.assertEquals(fieldInfo, FieldInfoExtractor.getFieldInfo(leafReader, "valid"));
     }
 }
