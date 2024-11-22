@@ -20,6 +20,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -51,6 +52,59 @@ public class ExactSearcherTests extends KNNTestCase {
     private static final String SEGMENT_NAME = "0";
 
     @SneakyThrows
+    public void testExactSearch_whenSegmentHasNoVectorField_thenNoDocsReturned() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final KNNQuery query = KNNQuery.builder().field(FIELD_NAME).queryVector(queryVector).k(10).indexName(INDEX_NAME).build();
+
+        final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
+            ExactSearcher.ExactSearcherContext.builder().knnQuery(query);
+
+        ExactSearcher exactSearcher = new ExactSearcher(null);
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(query.getField())).thenReturn(null);
+        Map<Integer, Float> docIds = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+        Mockito.verify(fieldInfos).fieldInfo(query.getField());
+        Mockito.verify(reader).getFieldInfos();
+        Mockito.verify(leafReaderContext).reader();
+        assertEquals(0, docIds.size());
+    }
+
+    @SneakyThrows
+    public void testRadialSearchExactSearch_whenSegmentHasNoVectorField_thenNoDocsReturned() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        KNNQuery.Context context = new KNNQuery.Context(10);
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(queryVector)
+            .context(context)
+            .radius(1.0f)
+            .indexName(INDEX_NAME)
+            .build();
+
+        final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
+            ExactSearcher.ExactSearcherContext.builder().knnQuery(query);
+
+        ExactSearcher exactSearcher = new ExactSearcher(null);
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(query.getField())).thenReturn(null);
+        Map<Integer, Float> docIds = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+        Mockito.verify(fieldInfos).fieldInfo(query.getField());
+        Mockito.verify(reader).getFieldInfos();
+        Mockito.verify(leafReaderContext).reader();
+        assertEquals(0, docIds.size());
+    }
+
+    @SneakyThrows
     public void testRadialSearch_whenNoEngineFiles_thenSuccess() {
         try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
             final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
@@ -75,6 +129,7 @@ public class ExactSearcherTests extends KNNTestCase {
                 .queryVector(queryVector)
                 .radius(radius)
                 .indexName(INDEX_NAME)
+                .vectorDataType(VectorDataType.FLOAT)
                 .context(context)
                 .build();
 
