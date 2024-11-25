@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
@@ -28,11 +29,11 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder;
 import org.opensearch.knn.indices.ModelDao;
@@ -40,6 +41,8 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.query.QueryTimingType;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -59,6 +62,7 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 /**
  * Calculate query weights and build query scorers.
  */
+@Builder
 @Log4j2
 public class KNNWeight extends Weight {
     private static ModelDao modelDao;
@@ -66,32 +70,35 @@ public class KNNWeight extends Weight {
     private final KNNQuery knnQuery;
     private final float boost;
 
-    private final NativeMemoryCacheManager nativeMemoryCacheManager;
+    private final NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
     @Getter
     private final Weight filterWeight;
-    private final ExactSearcher exactSearcher;
+    private final ExactSearcher exactSearcher = DEFAULT_EXACT_SEARCHER;
 
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
-    private final QuantizationService quantizationService;
+    private final QuantizationService quantizationService = QuantizationService.getInstance();;
+    private ContextualProfileBreakdown<QueryTimingType> knnQueryProfiler;
 
     public KNNWeight(KNNQuery query, float boost) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
-        this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = null;
-        this.exactSearcher = DEFAULT_EXACT_SEARCHER;
-        this.quantizationService = QuantizationService.getInstance();
     }
 
     public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
-        this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = filterWeight;
-        this.exactSearcher = DEFAULT_EXACT_SEARCHER;
-        this.quantizationService = QuantizationService.getInstance();
+    }
+
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, ContextualProfileBreakdown<QueryTimingType> knnQueryProfiler) {
+        super(query);
+        this.knnQuery = query;
+        this.boost = boost;
+        this.filterWeight = filterWeight;
+        this.knnQueryProfiler = knnQueryProfiler;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -333,6 +340,10 @@ public class KNNWeight extends Weight {
                 throw new RuntimeException("Index has already been closed");
             }
             int[] parentIds = getParentIdsArray(context);
+            if (knnQueryProfiler != null) {
+                knnQueryProfiler.context(context).getTimer(QueryTimingType.ANN_SEARCH).start();
+            }
+
             if (k > 0) {
                 if (knnQuery.getVectorDataType() == VectorDataType.BINARY
                     || quantizedVector != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
@@ -378,18 +389,19 @@ public class KNNWeight extends Weight {
         } finally {
             indexAllocation.readUnlock();
             indexAllocation.decRef();
+            if (knnQueryProfiler != null) {
+                knnQueryProfiler.context(context).getTimer(QueryTimingType.ANN_SEARCH).stop();
+            }
         }
+
         if (results.length == 0) {
             log.debug("[KNN] Query yielded 0 results");
             return Collections.emptyMap();
         }
 
-        if (quantizedVector != null) {
-            return Arrays.stream(results)
-                .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), SpaceType.HAMMING)));
-        }
+        final SpaceType scoringSpaceType = quantizedVector != null ? SpaceType.HAMMING : spaceType;
         return Arrays.stream(results)
-            .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
+            .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), scoringSpaceType)));
     }
 
     /**
@@ -401,7 +413,17 @@ public class KNNWeight extends Weight {
         final LeafReaderContext leafReaderContext,
         final ExactSearcher.ExactSearcherContext exactSearcherContext
     ) throws IOException {
-        return exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        if (knnQueryProfiler != null) {
+            knnQueryProfiler.context(leafReaderContext).getTimer(QueryTimingType.EXACT_KNN_SEARCH).start();
+        }
+
+        try {
+            return exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        } finally {
+            if (knnQueryProfiler != null) {
+                knnQueryProfiler.context(leafReaderContext).getTimer(QueryTimingType.EXACT_KNN_SEARCH).stop();
+            }
+        }
     }
 
     @Override

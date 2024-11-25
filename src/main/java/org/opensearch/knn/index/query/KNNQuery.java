@@ -22,6 +22,12 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.search.internal.ContextIndexSearcher;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.ProfileWeight;
+import org.opensearch.search.profile.query.QueryProfiler;
+import org.opensearch.search.profile.query.QueryTimingType;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -168,20 +174,60 @@ public class KNNQuery extends Query {
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
-        final Weight filterWeight = getFilterWeight(searcher);
-        if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight);
-        }
-        return new KNNWeight(this, boost);
+
+        // TODO: We can look into decoupling the profiler logic with main query logic
+        final QueryProfiler profiler = getProfiler(searcher);
+        final ContextualProfileBreakdown<QueryTimingType> knnProfileBreakDown = getProfileBreakdown(profiler, this);
+        ContextualProfileBreakdown<QueryTimingType> filterQueryBreakdown = getProfileBreakdown(profiler, filterQuery);
+
+        return KNNWeight.builder()
+            .knnQuery(this)
+            .boost(boost)
+            .filterWeight(getFilterWeight(searcher, filterQueryBreakdown))
+            .knnQueryProfiler(knnProfileBreakDown)
+            .build();
     }
 
-    private Weight getFilterWeight(IndexSearcher searcher) throws IOException {
+    private ContextualProfileBreakdown<QueryTimingType> getProfileBreakdown(QueryProfiler profiler, Query query) {
+        if (profiler != null && query != null) {
+            return profiler.getQueryBreakdown(query);
+        }
+        return null;
+    }
+
+    private QueryProfiler getProfiler(IndexSearcher searcher) {
+        if (searcher instanceof ContextIndexSearcher) {
+            ContextIndexSearcher contextIndexSearcher = (ContextIndexSearcher) searcher;
+            if (contextIndexSearcher.getProfiler() != null) {
+                return contextIndexSearcher.getProfiler();
+            }
+        }
+        return null;
+    }
+
+    private Weight getFilterWeight(IndexSearcher searcher, ContextualProfileBreakdown<QueryTimingType> profiler) throws IOException {
         if (this.getFilterQuery() != null) {
             // Run the filter query
             final BooleanQuery booleanQuery = new BooleanQuery.Builder().add(this.getFilterQuery(), BooleanClause.Occur.FILTER)
                 .add(new FieldExistsQuery(this.getField()), BooleanClause.Occur.FILTER)
                 .build();
             final Query rewritten = searcher.rewrite(booleanQuery);
+
+            if (profiler != null) {
+                Timer timer = profiler.getTimer(QueryTimingType.CREATE_WEIGHT);
+                timer.start();
+
+                try {
+                    return new ProfileWeight(
+                        this.getFilterQuery(),
+                        searcher.createWeight(rewritten, ScoreMode.COMPLETE_NO_SCORES, 1f),
+                        profiler
+                    );
+                } finally {
+                    timer.stop();
+                }
+            }
+
             return searcher.createWeight(rewritten, ScoreMode.COMPLETE_NO_SCORES, 1f);
         }
         return null;
