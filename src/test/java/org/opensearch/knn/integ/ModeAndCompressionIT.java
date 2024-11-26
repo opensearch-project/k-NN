@@ -25,21 +25,7 @@ import org.opensearch.knn.index.query.parser.RescoreParser;
 
 import java.util.List;
 
-import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
-import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFAULT;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
-import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.MAPPING_COMPRESSION_NAMES_ARRAY;
 
 public class ModeAndCompressionIT extends KNNRestTestCase {
@@ -260,18 +246,32 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     public void testTraining_whenInvalid_thenFail() {
         setupTrainingIndex();
         String modelId = "test";
+
         XContentBuilder builder1 = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
-            .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
-            .field(KNNConstants.DIMENSION, DIMENSION)
-            .startObject(KNN_METHOD)
-            .field(NAME, METHOD_IVF)
-            .field(KNN_ENGINE, FAISS_NAME)
-            .endObject()
-            .field(MODEL_DESCRIPTION, "")
-            .field(MODE_PARAMETER, Mode.ON_DISK)
-            .endObject();
+                .startObject()
+                .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
+                .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
+                .field(KNNConstants.DIMENSION, DIMENSION)
+                .field(VECTOR_DATA_TYPE_FIELD, "float")
+                .field(MODEL_DESCRIPTION, "")
+                .field(MODE_PARAMETER, Mode.ON_DISK)
+                .field(COMPRESSION_LEVEL_PARAMETER, "16x")
+                .startObject(KNN_METHOD)
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 1)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 8)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         expectThrows(ResponseException.class, () -> trainModel(modelId, builder1));
 
         XContentBuilder builder2 = XContentFactory.jsonBuilder()
