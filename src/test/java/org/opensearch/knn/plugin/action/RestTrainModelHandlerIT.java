@@ -515,24 +515,24 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
          */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(NAME, "ivf")
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_NLIST, 16)
-                .endObject()
-                .endObject();
+            .startObject()
+            .field(NAME, "ivf")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 16)
+            .endObject()
+            .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         XContentBuilder outerParams = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
-                .field(TRAIN_FIELD_PARAMETER, nestedFieldPath)
-                .field(DIMENSION, dimension)
-                .field(COMPRESSION_LEVEL_PARAMETER, "16x")
-                .field(MODE_PARAMETER, "on_disk")
-                .field(KNN_METHOD, method)
-                .field(MODEL_DESCRIPTION, "dummy description")
-                .endObject();
+            .startObject()
+            .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
+            .field(TRAIN_FIELD_PARAMETER, nestedFieldPath)
+            .field(DIMENSION, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "16x")
+            .field(MODE_PARAMETER, "on_disk")
+            .field(KNN_METHOD, method)
+            .field(MODEL_DESCRIPTION, "dummy description")
+            .endObject();
 
         Request request = new Request("POST", "/_plugins/_knn/models/" + modelId + "/_train");
         request.setJsonEntity(outerParams.toString());
