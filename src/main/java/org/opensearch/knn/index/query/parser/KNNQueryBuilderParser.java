@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query.parser;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.Version;
 import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -24,7 +25,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
@@ -104,27 +105,28 @@ public final class KNNQueryBuilderParser {
      * @return KNNQueryBuilder.Builder class
      * @throws IOException on stream failure
      */
-    public static KNNQueryBuilder.Builder streamInput(StreamInput in, Function<String, Boolean> minClusterVersionCheck) throws IOException {
+    public static KNNQueryBuilder.Builder streamInput(StreamInput in, BiFunction<Version, String, Boolean> minClusterVersionCheck)
+        throws IOException {
         KNNQueryBuilder.Builder builder = new KNNQueryBuilder.Builder();
         builder.fieldName(in.readString());
         builder.vector(in.readFloatArray());
         builder.k(in.readInt());
         builder.filter(in.readOptionalNamedWriteable(QueryBuilder.class));
 
-        if (minClusterVersionCheck.apply("ignore_unmapped")) {
+        if (minClusterVersionCheck.apply(in.getVersion(), "ignore_unmapped")) {
             builder.ignoreUnmapped(in.readOptionalBoolean());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minClusterVersionCheck.apply(in.getVersion(), KNNConstants.RADIAL_SEARCH_KEY)) {
             builder.maxDistance(in.readOptionalFloat());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minClusterVersionCheck.apply(in.getVersion(), KNNConstants.RADIAL_SEARCH_KEY)) {
             builder.minScore(in.readOptionalFloat());
         }
-        if (minClusterVersionCheck.apply(METHOD_PARAMETER)) {
+        if (minClusterVersionCheck.apply(in.getVersion(), METHOD_PARAMETER)) {
             builder.methodParameters(MethodParametersParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion));
         }
 
-        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+        if (minClusterVersionCheck.apply(in.getVersion(), RESCORE_PARAMETER)) {
             builder.rescoreContext(RescoreParser.streamInput(in));
         }
 
@@ -139,25 +141,25 @@ public final class KNNQueryBuilderParser {
      * @param minClusterVersionCheck function to check min version
      * @throws IOException on stream failure
      */
-    public static void streamOutput(StreamOutput out, KNNQueryBuilder builder, Function<String, Boolean> minClusterVersionCheck)
+    public static void streamOutput(StreamOutput out, KNNQueryBuilder builder, BiFunction<Version, String, Boolean> minClusterVersionCheck)
         throws IOException {
         out.writeString(builder.fieldName());
         out.writeFloatArray((float[]) builder.vector());
         out.writeInt(builder.getK());
         out.writeOptionalNamedWriteable(builder.getFilter());
-        if (minClusterVersionCheck.apply("ignore_unmapped")) {
+        if (minClusterVersionCheck.apply(out.getVersion(), "ignore_unmapped")) {
             out.writeOptionalBoolean(builder.isIgnoreUnmapped());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minClusterVersionCheck.apply(out.getVersion(), KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(builder.getMaxDistance());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minClusterVersionCheck.apply(out.getVersion(), KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(builder.getMinScore());
         }
-        if (minClusterVersionCheck.apply(METHOD_PARAMETER)) {
+        if (minClusterVersionCheck.apply(out.getVersion(), METHOD_PARAMETER)) {
             MethodParametersParser.streamOutput(out, builder.getMethodParameters(), IndexUtil::isClusterOnOrAfterMinRequiredVersion);
         }
-        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+        if (minClusterVersionCheck.apply(out.getVersion(), RESCORE_PARAMETER)) {
             RescoreParser.streamOutput(out, builder.getRescoreContext());
         }
     }
