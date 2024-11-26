@@ -413,7 +413,7 @@ OR
 ./gradlew run --debug-jvm # to just start a cluster that can be debugged
 ```
 
-The OpenSearch server JVM will connect to a debugger attached to `localhost:5005` before starting. If there are multiple nodes, the servers will connect to debuggers listening on ports `5005, 5006, ...`
+The OpenSearch server JVM will connect to a debugger attached to `localhost:5005` before starting. If there are multiple nodes, the servers will connect to debuggers listening on ports `5005, 5006, ...`. A simple debugger configuration for IntelliJ is included in this project and can be found [here](https://github.com/opensearch-project/k-NN/tree/main/.idea/runConfigurations/Debug_OpenSearch.xml).
 
 To debug code running in an integration test (which exercises the server from a separate JVM), first, setup a remote debugger listening on port `8000`, and then run:
 
