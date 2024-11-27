@@ -29,7 +29,8 @@ public enum KNNVectorSimilarityFunction {
 
         @Override
         public VectorSimilarityFunction getVectorSimilarityFunction() {
-            throw new IllegalStateException("VectorSimilarityFunction is not available for Hamming space");
+            // This is not used in binary case
+            return VectorSimilarityFunction.EUCLIDEAN;
         }
     };
 

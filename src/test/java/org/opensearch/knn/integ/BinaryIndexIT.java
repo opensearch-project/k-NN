@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
@@ -27,6 +28,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -41,6 +43,16 @@ public class BinaryIndexIT extends KNNRestTestCase {
     private static TestUtils.TestData testData;
     private static final int NEVER_BUILD_GRAPH = -1;
     private static final int ALWAYS_BUILD_GRAPH = 0;
+    private final KNNEngine engine;
+
+    public BinaryIndexIT(KNNEngine engine) {
+        this.engine = engine;
+    }
+
+    @ParametersFactory
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
+    }
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -68,7 +80,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     @SneakyThrows
     public void testFaissHnswBinary_whenSmallDataSet_thenCreateIngestQueryWorks() {
         // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 16);
+        createKnnHnswBinaryIndex(engine, INDEX_NAME, FIELD_NAME, 16);
 
         // Ingest
         Byte[] vector1 = { 0b00000001, 0b00000001 };
@@ -95,7 +107,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     @SneakyThrows
     public void testFaissHnswBinary_when1000Data_thenRecallIsAboveNinePointZero() {
         // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
+        createKnnHnswBinaryIndex(engine, INDEX_NAME, FIELD_NAME, 128);
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
         int k = 100;
@@ -112,7 +124,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     @SneakyThrows
     public void testFaissHnswBinary_whenBuildVectorGraphThresholdIsNegativeEndToEnd_thenBuildGraphBasedOnSetting() {
         // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128, NEVER_BUILD_GRAPH);
+        createKnnHnswBinaryIndex(engine, INDEX_NAME, FIELD_NAME, 128, NEVER_BUILD_GRAPH);
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
         assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
@@ -135,7 +147,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     @SneakyThrows
     public void testFaissHnswBinary_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() {
         // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128, testData.indexData.docs.length);
+        createKnnHnswBinaryIndex(engine, INDEX_NAME, FIELD_NAME, 128, testData.indexData.docs.length);
         ingestTestData(INDEX_NAME, FIELD_NAME, false);
 
         assertEquals(1, runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[0], 1).size());
@@ -158,7 +170,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     @SneakyThrows
     public void testFaissHnswBinary_whenRadialSearch_thenThrowException() {
         // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 16);
+        createKnnHnswBinaryIndex(engine, INDEX_NAME, FIELD_NAME, 16);
 
         // Query
         float[] queryVector = { (byte) 0b10001111, (byte) 0b10000000 };

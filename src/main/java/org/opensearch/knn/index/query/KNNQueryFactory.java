@@ -106,6 +106,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
         switch (vectorDataType) {
             case BYTE:
+            case BINARY:
                 return getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter);
             case FLOAT:
                 return getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter);
