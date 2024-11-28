@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.18...2.x)
 ### Features
+* Add support for Lucene int4 SQ [2253](https://github.com/opensearch-project/k-NN/pull/2253)
 ### Enhancements
 - Introduced a writing layer in native engines where relies on the writing interface to process IO. (#2241)[https://github.com/opensearch-project/k-NN/pull/2241]
 ### Bug Fixes
