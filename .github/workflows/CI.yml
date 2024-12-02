@@ -30,8 +30,7 @@ on:
       - 'jni/**'
       - 'micro-benchmarks/**'
       - '.github/workflows/CI.yml'
-env:
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 
 jobs:
   Get-CI-Image-Tag:
@@ -52,11 +51,13 @@ jobs:
       # this image tag is subject to change as more dependencies and updates will arrive over time
       image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
       # need to switch to root so that github actions can install runner binary on container without permission issues.
-      options: --user root
+      options: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-options }}
 
     steps:
+      - name: Run start commands
+        run: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-command }}
       - name: Checkout k-NN
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
 
       # Setup git user so that patches for native libraries can be applied and committed
       - name: Setup git user
@@ -65,8 +66,9 @@ jobs:
           su `id -un 1000` -c 'git config --global user.email "github-actions[bot]@users.noreply.github.com"'
 
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v4
         with:
+          distribution: "corretto"
           java-version: ${{ matrix.java }}
 
       - name: Run build
@@ -84,7 +86,7 @@ jobs:
 
 
       - name: Upload Coverage Report
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -99,7 +101,7 @@ jobs:
 
     steps:
       - name: Checkout k-NN
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
 
       # Setup git user so that patches for native libraries can be applied and committed
       - name: Setup git user
