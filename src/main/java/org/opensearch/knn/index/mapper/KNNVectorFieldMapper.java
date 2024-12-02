@@ -182,6 +182,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         @Setter
         @Getter
         private OriginalMappingParameters originalParameters;
+        @Setter
+        private boolean isKnnIndex;
 
         public Builder(
             String name,
@@ -195,6 +197,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             this.indexCreatedVersion = indexCreatedVersion;
             this.knnMethodConfigContext = knnMethodConfigContext;
             this.originalParameters = originalParameters;
+            this.isKnnIndex = true;
         }
 
         @Override
@@ -250,7 +253,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            if (originalParameters.getResolvedKnnMethodContext() == null) {
+            if (originalParameters.getResolvedKnnMethodContext() == null || isKnnIndex == false) {
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -362,10 +365,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     String.format(Locale.ROOT, "Method and model can not be both specified in the mapping: %s", name)
                 );
             }
-
             // Check for flat configuration
             if (isKNNDisabled(parserContext.getSettings())) {
-                validateFromFlat(builder);
+                builder.setKnnIndex(false);
+                if (parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
+                    // on and after 2_17_0 we validate to makes sure that mapping doesn't contain parameters that are
+                    // specific to approximate knn search algorithms
+                    validateFromFlat(builder);
+                }
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
             } else {
