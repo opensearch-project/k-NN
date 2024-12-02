@@ -14,6 +14,7 @@ import org.opensearch.knn.IDVectorProducer;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -119,6 +120,26 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             int expDocID = numDocs - i - 1;
             int actualDocID = Integer.parseInt(results.get(i).getDocId());
             assertEquals(expDocID, actualDocID);
+        }
+    }
+
+    // KNN script scoring for space_type "l2"
+    public void testNonKNNIndex_withMethodParams() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            QUERY_COUNT = NUM_DOCS;
+            DOC_ID = NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            deleteKNNIndex(testIndex);
         }
     }
 
