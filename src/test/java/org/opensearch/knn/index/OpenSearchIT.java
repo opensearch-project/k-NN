@@ -907,4 +907,27 @@ public class OpenSearchIT extends KNNRestTestCase {
         return parseSearchResponse(searchResponseBody, fieldName);
     }
 
+    public void testCreateNonKNNIndex_withKNNModelID() throws Exception {
+        Settings settings = Settings.builder().put(createKNNDefaultScriptScoreSettings()).build();
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, "random-model-id"))
+        );
+        String expMessage = "Cannot set modelId or method parameters when index.knn setting is false";
+        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
+    }
+
+    public void testCreateNonKNNIndex_withKNNMethodParams() throws Exception {
+        Settings settings = Settings.builder().put(createKNNDefaultScriptScoreSettings()).build();
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> createKnnIndex(
+                INDEX_NAME,
+                settings,
+                createKnnIndexMapping(FIELD_NAME, 2, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
+            )
+        );
+        String expMessage = "Cannot set modelId or method parameters when index.knn setting is false";
+        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
+    }
 }
