@@ -44,10 +44,9 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
     private static final int K = 5;
     private static final int NUM_DOCS = 10;
     private static int QUERY_COUNT = 0;
-    private static final String TRAINING_INDEX_DEFAULT = KNN_BWC_PREFIX + "train-index-default";
+    private static final String TRAINING_INDEX_DEFAULT = KNN_BWC_PREFIX + "train-index-default-1";
     private static final String TRAINING_FIELD = "train-field";
-    private static final String TEST_MODEL_ID = "test-model-id";
-    private static final String TEST_MODEL_ID_DEFAULT = "test-model-id-default";
+    private static final String TEST_MODEL_ID_DEFAULT = "test-model-id-default-1";
     private static final String MODEL_DESCRIPTION = "Description for train model test";
 
     // KNN script scoring for space_type "l2"
@@ -168,11 +167,7 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             trainKNNModel(TEST_MODEL_ID_DEFAULT, TRAINING_INDEX_DEFAULT, TRAINING_FIELD, DIMENSIONS, MODEL_DESCRIPTION);
             validateModelCreated(TEST_MODEL_ID_DEFAULT);
 
-            createKnnIndex(
-                testIndex,
-                createKNNDefaultScriptScoreSettings(),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
-            );
+            createKnnIndex(testIndex, createKNNDefaultScriptScoreSettings(), createKnnIndexMapping(TEST_FIELD, TEST_MODEL_ID_DEFAULT));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
             QUERY_COUNT = NUM_DOCS;
