@@ -79,4 +79,8 @@ public final class QuantizationStateCacheManager {
     public void clear() {
         QuantizationStateCache.getInstance().clear();
     }
+
+    public void close() throws IOException {
+        QuantizationStateCache.getInstance().close();
+    }
 }
