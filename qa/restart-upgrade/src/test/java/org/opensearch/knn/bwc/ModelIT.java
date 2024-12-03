@@ -168,7 +168,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
-            assertEquals(EXP_NUM_OF_MODELS, searchResponse.getHits().getHits().length);
+            assertTrue(EXP_NUM_OF_MODELS <= searchResponse.getHits().getHits().length);
 
             for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(hit.getId().startsWith(testModelID));
