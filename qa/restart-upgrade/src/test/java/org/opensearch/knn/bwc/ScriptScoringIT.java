@@ -183,7 +183,7 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(
                 testIndex,
                 createKNNDefaultScriptScoreSettings(),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.LUCENE.getName(), SpaceType.DEFAULT.getValue(), false)
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.NMSLIB.getName(), SpaceType.DEFAULT.getValue(), false)
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
