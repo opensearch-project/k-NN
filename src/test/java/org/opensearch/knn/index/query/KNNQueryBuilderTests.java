@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.lucene.search.FloatVectorSimilarityQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.junit.Before;
@@ -33,6 +32,7 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -512,7 +512,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then
         assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
+        assertTrue(query.getClass().isAssignableFrom(LuceneEngineKnnVectorQuery.class));
     }
 
     @SneakyThrows

@@ -15,6 +15,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.lucenelib.NestedKnnVectorQueryFactory;
+import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
@@ -128,9 +129,13 @@ public class KNNQueryFactory extends BaseQueryFactory {
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
         switch (vectorDataType) {
             case BYTE:
-                return getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter, expandNested);
+                return new LuceneEngineKnnVectorQuery(
+                    getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter, expandNested)
+                );
             case FLOAT:
-                return getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter, expandNested);
+                return new LuceneEngineKnnVectorQuery(
+                    getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter, expandNested)
+                );
             default:
                 throw new IllegalArgumentException(
                     String.format(
