@@ -250,7 +250,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            if (originalParameters.getResolvedKnnMethodContext() == null) {
+            if (originalParameters.getResolvedKnnMethodContext() == null && context.indexCreatedVersion().onOrAfter(Version.V_2_17_0)) {
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -362,9 +362,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     String.format(Locale.ROOT, "Method and model can not be both specified in the mapping: %s", name)
                 );
             }
-
             // Check for flat configuration
-            if (isKNNDisabled(parserContext.getSettings())) {
+            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
+                // on and after 2_17_0 we validate to makes sure that mapping doesn't contain parameters that are
+                // specific to approximate knn search algorithms
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
