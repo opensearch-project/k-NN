@@ -139,7 +139,7 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
-    public void testNonKNNIndex_withMethodParams() throws Exception {
+    public void testNonKNNIndex_withMethodParams_withFaissEngine() throws Exception {
         if (isRunningAgainstOldCluster()) {
             createKnnIndex(
                 testIndex,
@@ -152,6 +152,46 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             DOC_ID = NUM_DOCS;
             validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testNonKNNIndex_withMethodParams_withLuceneEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.LUCENE.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            QUERY_COUNT = NUM_DOCS;
+            DOC_ID = NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            forceMergeKnnIndex(testIndex, 1);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testNonKNNIndex_withMethodParams_withNMSLIBEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.LUCENE.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            QUERY_COUNT = NUM_DOCS;
+            DOC_ID = NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            forceMergeKnnIndex(testIndex, 1);
             QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
             validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
             deleteKNNIndex(testIndex);
@@ -177,6 +217,7 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
             validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
             deleteKNNIndex(testIndex);
+            deleteModel(TEST_MODEL_ID_DEFAULT);
         }
     }
 
