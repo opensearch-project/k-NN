@@ -135,8 +135,6 @@ public class RestTrainModelHandler extends BaseRestHandler {
         }
 
         ensureAtleastOneSet(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
-        ensureMutualExclusion(KNN_METHOD, knnMethodContext, MODE_PARAMETER, mode);
-        ensureMutualExclusion(KNN_METHOD, knnMethodContext, COMPRESSION_LEVEL_PARAMETER, compressionLevel);
 
         ensureSet(DIMENSION, dimension);
         ensureSet(TRAIN_INDEX_PARAMETER, trainingIndex);
