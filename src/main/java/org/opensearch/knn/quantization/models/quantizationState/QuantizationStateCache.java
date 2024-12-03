@@ -14,8 +14,10 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.knn.index.CacheMaintainer;
 import org.opensearch.knn.index.KNNSettings;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
@@ -27,10 +29,11 @@ import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE
  * A thread-safe singleton cache that contains quantization states.
  */
 @Log4j2
-public class QuantizationStateCache {
+public class QuantizationStateCache implements Closeable {
 
     private static volatile QuantizationStateCache instance;
     private Cache<String, QuantizationState> cache;
+    private CacheMaintainer<String, QuantizationState> cacheMaintainer;
     @Getter
     private long maxCacheSizeInKB;
     @Getter
@@ -58,6 +61,10 @@ public class QuantizationStateCache {
     }
 
     private void buildCache() {
+        if (cacheMaintainer != null) {
+            cacheMaintainer.close();
+        }
+
         this.cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumWeight(maxCacheSizeInKB).weigher((k, v) -> {
             try {
                 return ((QuantizationState) v).toByteArray().length;
@@ -71,6 +78,9 @@ public class QuantizationStateCache {
             )
             .removalListener(this::onRemoval)
             .build();
+
+        this.cacheMaintainer = new CacheMaintainer<>(cache);
+        this.cacheMaintainer.startMaintenance();
     }
 
     synchronized void rebuildCache() {
@@ -128,5 +138,10 @@ public class QuantizationStateCache {
      */
     public void clear() {
         cache.invalidateAll();
+    }
+
+    @Override
+    public void close() throws IOException {
+        cacheMaintainer.close();
     }
 }
