@@ -41,6 +41,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         Settings circuitBreakerSettings = Settings.builder().putNull(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED).build();
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
         client().admin().cluster().updateSettings(clusterUpdateSettingsRequest).get();
+        NativeMemoryCacheManager.getInstance().close();
         super.tearDown();
     }
 
@@ -378,6 +379,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         nativeMemoryCacheManager.setCacheCapacityReached(false);
         assertFalse(nativeMemoryCacheManager.isCacheCapacityReached());
+        nativeMemoryCacheManager.close();
     }
 
     public void testGetIndicesCacheStats() throws IOException, ExecutionException {

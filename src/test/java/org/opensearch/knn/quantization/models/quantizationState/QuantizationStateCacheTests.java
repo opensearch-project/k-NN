@@ -16,6 +16,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -417,7 +418,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         assertNull("State should be null", retrievedState);
     }
 
-    public void testCacheEvictionDueToSize() {
+    public void testCacheEvictionDueToSize() throws IOException {
         String fieldName = "evictionField";
         // States have size of slightly over 500 bytes so that adding two will reach the max size of 1 kb for the cache
         int arrayLength = 112;
@@ -445,6 +446,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         cache.addQuantizationState(fieldName, state);
         cache.addQuantizationState(fieldName, state2);
         cache.clear();
+        cache.close();
         assertNotNull(cache.getEvictedDueToSizeAt());
     }
 }

@@ -15,7 +15,9 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.util.ScheduledExecutor;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
@@ -27,10 +29,11 @@ import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE
  * A thread-safe singleton cache that contains quantization states.
  */
 @Log4j2
-public class QuantizationStateCache {
+public class QuantizationStateCache implements Closeable {
 
     private static volatile QuantizationStateCache instance;
     private Cache<String, QuantizationState> cache;
+    private ScheduledExecutor cacheMaintainer;
     @Getter
     private long maxCacheSizeInKB;
     @Getter
@@ -58,6 +61,10 @@ public class QuantizationStateCache {
     }
 
     private void buildCache() {
+        if (cacheMaintainer != null) {
+            cacheMaintainer.close();
+        }
+
         this.cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumWeight(maxCacheSizeInKB).weigher((k, v) -> {
             try {
                 return ((QuantizationState) v).toByteArray().length;
@@ -71,6 +78,16 @@ public class QuantizationStateCache {
             )
             .removalListener(this::onRemoval)
             .build();
+
+        Runnable cleanUp = () -> {
+            try {
+                cache.cleanUp();
+            } catch (Exception e) {
+                log.error("Error cleaning up cache", e);
+            }
+        };
+        long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMillis();
+        this.cacheMaintainer = new ScheduledExecutor(cleanUp, scheduleMillis);
     }
 
     synchronized void rebuildCache() {
@@ -128,5 +145,12 @@ public class QuantizationStateCache {
      */
     public void clear() {
         cache.invalidateAll();
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (cacheMaintainer != null) {
+            cacheMaintainer.close();
+        }
     }
 }

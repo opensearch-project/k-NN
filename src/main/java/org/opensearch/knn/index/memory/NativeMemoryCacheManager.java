@@ -23,6 +23,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.util.ScheduledExecutor;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
@@ -51,6 +52,7 @@ public class NativeMemoryCacheManager implements Closeable {
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
     private final ExecutorService executor;
+    private ScheduledExecutor cacheMaintainer;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
 
@@ -87,6 +89,10 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private void initialize(NativeMemoryCacheManagerDto nativeMemoryCacheDTO) {
+        if (cacheMaintainer != null) {
+            cacheMaintainer.close();
+        }
+
         CacheBuilder<String, NativeMemoryAllocation> cacheBuilder = CacheBuilder.newBuilder()
             .recordStats()
             .concurrencyLevel(1)
@@ -99,6 +105,16 @@ public class NativeMemoryCacheManager implements Closeable {
 
         if (nativeMemoryCacheDTO.isExpirationLimited()) {
             cacheBuilder.expireAfterAccess(nativeMemoryCacheDTO.getExpiryTimeInMin(), TimeUnit.MINUTES);
+            Runnable cleanUp = () -> {
+                try {
+                    cache.cleanUp();
+                } catch (Exception e) {
+                    logger.error("Error cleaning up cache", e);
+                }
+            };
+            long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
+                .getMillis();
+            this.cacheMaintainer = new ScheduledExecutor(cleanUp, scheduleMillis);
         }
 
         cacheCapacityReached = new AtomicBoolean(false);
@@ -142,6 +158,9 @@ public class NativeMemoryCacheManager implements Closeable {
     @Override
     public void close() {
         executor.shutdown();
+        if (cacheMaintainer != null) {
+            cacheMaintainer.close();
+        }
     }
 
     /**
