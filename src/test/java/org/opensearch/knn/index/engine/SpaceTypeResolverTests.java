@@ -16,23 +16,47 @@ public class SpaceTypeResolverTests extends KNNTestCase {
     private static final SpaceTypeResolver SPACE_TYPE_RESOLVER = SpaceTypeResolver.INSTANCE;
 
     public void testResolveSpaceType_whenNoConfigProvided_thenFallbackToVectorDataType() {
-        assertEquals(SpaceType.DEFAULT, SPACE_TYPE_RESOLVER.resolveSpaceType(null, VectorDataType.FLOAT, ""));
-        assertEquals(SpaceType.DEFAULT, SPACE_TYPE_RESOLVER.resolveSpaceType(null, VectorDataType.BYTE, ""));
         assertEquals(
             SpaceType.DEFAULT,
-            SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
-                VectorDataType.FLOAT,
-                ""
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(null, VectorDataType.FLOAT, ""),
+                VectorDataType.FLOAT
             )
         );
-        assertEquals(SpaceType.DEFAULT_BINARY, SPACE_TYPE_RESOLVER.resolveSpaceType(null, VectorDataType.BINARY, ""));
+        assertEquals(
+            SpaceType.DEFAULT,
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(null, VectorDataType.BYTE, ""),
+                VectorDataType.FLOAT
+            )
+        );
+        assertEquals(
+            SpaceType.DEFAULT,
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                    VectorDataType.FLOAT,
+                    ""
+                ),
+                VectorDataType.FLOAT
+            )
+        );
         assertEquals(
             SpaceType.DEFAULT_BINARY,
-            SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
-                VectorDataType.BINARY,
-                ""
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(null, VectorDataType.BINARY, ""),
+                VectorDataType.BINARY
+            )
+        );
+        assertEquals(
+            SpaceType.DEFAULT_BINARY,
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                    VectorDataType.BINARY,
+                    ""
+                ),
+                VectorDataType.BINARY
             )
         );
     }
@@ -49,34 +73,46 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         );
         assertEquals(
             SpaceType.DEFAULT,
-            SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
-                VectorDataType.FLOAT,
-                SpaceType.DEFAULT.getValue()
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                    VectorDataType.FLOAT,
+                    SpaceType.DEFAULT.getValue()
+                ),
+                VectorDataType.FLOAT
             )
         );
         assertEquals(
             SpaceType.DEFAULT,
-            SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
-                VectorDataType.FLOAT,
-                SpaceType.UNDEFINED.getValue()
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                    VectorDataType.FLOAT,
+                    SpaceType.UNDEFINED.getValue()
+                ),
+                VectorDataType.FLOAT
             )
         );
         assertEquals(
             SpaceType.DEFAULT,
-            SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
-                VectorDataType.FLOAT,
-                SpaceType.DEFAULT.getValue()
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                    VectorDataType.FLOAT,
+                    SpaceType.DEFAULT.getValue()
+                ),
+                VectorDataType.FLOAT
             )
         );
         assertEquals(
             SpaceType.DEFAULT,
-            SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
-                VectorDataType.FLOAT,
-                SpaceType.UNDEFINED.getValue()
+            SPACE_TYPE_RESOLVER.pickDefaultSpaceTypeWhenEmpty(
+                SPACE_TYPE_RESOLVER.resolveSpaceType(
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                    VectorDataType.FLOAT,
+                    SpaceType.UNDEFINED.getValue()
+                ),
+                VectorDataType.FLOAT
             )
         );
     }

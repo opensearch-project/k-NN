@@ -385,7 +385,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     SpaceTypeResolver.INSTANCE.pickDefaultSpaceTypeWhenEmpty(resolvedSpaceType, builder.vectorDataType.get())
                 );
                 validateSpaceType(builder);
-                resolveKNNMethodComponents(builder, parserContext, resolvedSpaceType);
+                resolveKNNMethodComponents(builder, parserContext, resolvedSpaceType, builder.vectorDataType.get());
                 validateFromKNNMethod(builder);
             }
 
@@ -476,9 +476,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         private void resolveKNNMethodComponents(
-            KNNVectorFieldMapper.Builder builder,
+            Builder builder,
             ParserContext parserContext,
-            SpaceType resolvedSpaceType
+            SpaceType resolvedSpaceType,
+            VectorDataType vectorDataType
         ) {
             // Setup the initial configuration that is used to help resolve parameters.
             builder.setKnnMethodConfigContext(
@@ -512,7 +513,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 builder.originalParameters.getResolvedKnnMethodContext(),
                 builder.knnMethodConfigContext,
                 false,
-                resolvedSpaceType
+                SpaceTypeResolver.INSTANCE.pickDefaultSpaceTypeWhenEmpty(resolvedSpaceType, vectorDataType)
             );
 
             // The original parameters stores both the resolveMethodContext as well as the original provided by the

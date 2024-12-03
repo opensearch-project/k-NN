@@ -1635,7 +1635,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
         });
 
-        assertTrue(ex.getMessage(), ex.getMessage().contains("does not support space type"));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("Space type [l2] is not supported with [binary] data type"));
     }
 
     public void testBuild_whenInvalidCharsInFieldName_thenThrowException() {
