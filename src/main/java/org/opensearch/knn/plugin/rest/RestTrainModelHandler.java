@@ -165,6 +165,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
             vectorDataType,
             topLevelSpaceType.getValue()
         );
+        resolvedSpaceType = SpaceTypeResolver.INSTANCE.pickDefaultSpaceTypeWhenEmpty(resolvedSpaceType, vectorDataType);
         setSpaceType(knnMethodContext, resolvedSpaceType);
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,

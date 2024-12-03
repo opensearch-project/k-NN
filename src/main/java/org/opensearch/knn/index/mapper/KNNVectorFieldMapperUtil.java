@@ -199,9 +199,7 @@ public class KNNVectorFieldMapperUtil {
         SpaceType topLevelSpaceType
     ) {
         // If top level spaceType is set then use that spaceType otherwise default to spaceType from index-settings
-        final SpaceType finalSpaceToSet = topLevelSpaceType != SpaceType.UNDEFINED
-            ? topLevelSpaceType
-            : KNNVectorFieldMapperUtil.getSpaceType(indexSettings);
+        final SpaceType finalSpaceToSet = topLevelSpaceType != SpaceType.UNDEFINED ? topLevelSpaceType : getSpaceType(indexSettings);
         return new KNNMethodContext(
             KNNEngine.NMSLIB,
             finalSpaceToSet,

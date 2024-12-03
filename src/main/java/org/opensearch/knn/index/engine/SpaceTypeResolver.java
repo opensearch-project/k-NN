@@ -42,7 +42,7 @@ public final class SpaceTypeResolver {
         SpaceType topLevelSpaceType = getSpaceTypeFromString(topLevelSpaceTypeString);
 
         if (isSpaceTypeConfigured(methodSpaceType) == false && isSpaceTypeConfigured(topLevelSpaceType) == false) {
-            return getSpaceTypeFromVectorDataType(vectorDataType);
+            return SpaceType.UNDEFINED;
         }
 
         if (isSpaceTypeConfigured(methodSpaceType) == false) {
@@ -75,13 +75,6 @@ public final class SpaceTypeResolver {
         return knnMethodContext.getSpaceType();
     }
 
-    private SpaceType getSpaceTypeFromVectorDataType(final VectorDataType vectorDataType) {
-        if (vectorDataType == VectorDataType.BINARY) {
-            return SpaceType.DEFAULT_BINARY;
-        }
-        return SpaceType.DEFAULT;
-    }
-
     private SpaceType getSpaceTypeFromString(final String spaceType) {
         if (Strings.isEmpty(spaceType)) {
             return SpaceType.UNDEFINED;
@@ -92,5 +85,16 @@ public final class SpaceTypeResolver {
 
     private boolean isSpaceTypeConfigured(final SpaceType spaceType) {
         return spaceType != null && spaceType != SpaceType.UNDEFINED;
+    }
+
+    public SpaceType pickDefaultSpaceTypeWhenEmpty(SpaceType resolvedSpaceType, VectorDataType vectorDataType) {
+        if (resolvedSpaceType != SpaceType.UNDEFINED) {
+            return resolvedSpaceType;
+        } else {
+            if (vectorDataType == VectorDataType.BINARY) {
+                return SpaceType.DEFAULT_BINARY;
+            }
+            return SpaceType.DEFAULT;
+        }
     }
 }

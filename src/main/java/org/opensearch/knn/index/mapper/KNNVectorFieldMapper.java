@@ -375,12 +375,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // If the original knnMethodContext is not null, resolve its space type and engine from the rest of the
                 // configuration. This is consistent with the existing behavior for space type in 2.16 where we modify the
                 // parsed value
-                SpaceType resolvedSpaceType = SpaceTypeResolver.INSTANCE.resolveSpaceType(
+                final SpaceType resolvedSpaceType = SpaceTypeResolver.INSTANCE.resolveSpaceType(
                     builder.originalParameters.getKnnMethodContext(),
                     builder.vectorDataType.get(),
                     builder.topLevelSpaceType.get()
                 );
-                setSpaceType(builder.originalParameters.getKnnMethodContext(), resolvedSpaceType);
+                setSpaceType(
+                    builder.originalParameters.getKnnMethodContext(),
+                    SpaceTypeResolver.INSTANCE.pickDefaultSpaceTypeWhenEmpty(resolvedSpaceType, builder.vectorDataType.get())
+                );
                 validateSpaceType(builder);
                 resolveKNNMethodComponents(builder, parserContext, resolvedSpaceType);
                 validateFromKNNMethod(builder);
