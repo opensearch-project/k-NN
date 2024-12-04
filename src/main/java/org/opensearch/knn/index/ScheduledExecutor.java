@@ -12,7 +12,6 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Executes a task periodically
-
  */
 public class ScheduledExecutor implements Closeable {
     private final ScheduledExecutorService executor;
@@ -25,12 +24,7 @@ public class ScheduledExecutor implements Closeable {
     public ScheduledExecutor(Runnable task, long scheduleMillis) {
         this.task = task;
         this.executor = Executors.newSingleThreadScheduledExecutor();
-        executor.scheduleAtFixedRate(
-            task,
-            0,
-            scheduleMillis,
-            TimeUnit.MILLISECONDS
-        );
+        executor.scheduleAtFixedRate(task, 0, scheduleMillis, TimeUnit.MILLISECONDS);
     }
 
     @Override
