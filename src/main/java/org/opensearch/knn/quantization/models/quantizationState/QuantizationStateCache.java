@@ -14,8 +14,8 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
-import org.opensearch.knn.index.CacheMaintainer;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.ScheduledExecutor;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -33,7 +33,7 @@ public class QuantizationStateCache implements Closeable {
 
     private static volatile QuantizationStateCache instance;
     private Cache<String, QuantizationState> cache;
-    private CacheMaintainer<String, QuantizationState> cacheMaintainer;
+    private ScheduledExecutor cacheMaintainer;
     @Getter
     private long maxCacheSizeInKB;
     @Getter
@@ -79,8 +79,7 @@ public class QuantizationStateCache implements Closeable {
             .removalListener(this::onRemoval)
             .build();
 
-        this.cacheMaintainer = new CacheMaintainer<>(cache);
-        this.cacheMaintainer.startMaintenance();
+        this.cacheMaintainer = new ScheduledExecutor(() -> cache.cleanUp(), 60 * 1000);
     }
 
     synchronized void rebuildCache() {

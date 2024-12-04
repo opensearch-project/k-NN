@@ -18,16 +18,17 @@ public class CacheMaintainerTests {
     public void testCacheEviction() throws InterruptedException {
         Cache<String, String> testCache = CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.SECONDS).build();
 
-        CacheMaintainer<String, String> cleaner = new CacheMaintainer<>(testCache);
+        ScheduledExecutor executor = new ScheduledExecutor(testCache::cleanUp, 60 * 1000);
 
         testCache.put("key1", "value1");
         assertEquals(testCache.size(), 1);
 
         Thread.sleep(1500);
 
-        cleaner.cleanCache();
+        executor.task.run();
+
         assertEquals(testCache.size(), 0);
 
-        cleaner.close();
+        executor.close();
     }
 }
