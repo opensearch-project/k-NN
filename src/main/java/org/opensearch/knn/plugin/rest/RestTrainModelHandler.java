@@ -151,6 +151,11 @@ public class RestTrainModelHandler extends BaseRestHandler {
             vectorDataType = VectorDataType.DEFAULT;
         }
 
+        if ((knnMethodContext == null || knnMethodContext.getSpaceType() == SpaceType.UNDEFINED)
+            && topLevelSpaceType == SpaceType.UNDEFINED) {
+            topLevelSpaceType = SpaceTypeResolver.getDefaultSpaceType(vectorDataType);
+        }
+
         ensureIfSetThenEquals(
             MODE_PARAMETER,
             mode,
@@ -163,8 +168,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
         );
         SpaceType resolvedSpaceType = SpaceTypeResolver.INSTANCE.resolveSpaceType(
             knnMethodContext,
-            vectorDataType,
-            topLevelSpaceType.getValue()
+            topLevelSpaceType.getValue(),
+            null,
+            vectorDataType
         );
         setSpaceType(knnMethodContext, resolvedSpaceType);
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
