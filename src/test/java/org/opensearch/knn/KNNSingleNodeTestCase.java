@@ -35,6 +35,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.IndexService;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -86,6 +87,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     public void tearDown() throws Exception {
         NativeMemoryCacheManager.getInstance().invalidateAll();
         NativeMemoryCacheManager.getInstance().close();
+        QuantizationStateCacheManager.getInstance().close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
         NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().close();
         NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance().close();
