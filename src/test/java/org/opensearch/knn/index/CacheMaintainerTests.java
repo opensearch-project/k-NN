@@ -8,6 +8,7 @@ package org.opensearch.knn.index;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.junit.Test;
+import org.opensearch.knn.index.util.ScheduledExecutor;
 
 import java.util.concurrent.TimeUnit;
 

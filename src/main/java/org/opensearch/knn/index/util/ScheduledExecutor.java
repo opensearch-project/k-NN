@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.util;
 
 import java.io.Closeable;
 import java.util.concurrent.Executors;
@@ -12,11 +12,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Executes a task periodically
-
  */
 public class ScheduledExecutor implements Closeable {
-    private final ScheduledExecutorService executor;
-    final Runnable task;
+    final ScheduledExecutorService executor;
+    public final Runnable task;
 
     /**
      * @param task task to be completed
@@ -25,12 +24,7 @@ public class ScheduledExecutor implements Closeable {
     public ScheduledExecutor(Runnable task, long scheduleMillis) {
         this.task = task;
         this.executor = Executors.newSingleThreadScheduledExecutor();
-        executor.scheduleAtFixedRate(
-            task,
-            0,
-            scheduleMillis,
-            TimeUnit.MILLISECONDS
-        );
+        executor.scheduleAtFixedRate(task, 0, scheduleMillis, TimeUnit.MILLISECONDS);
     }
 
     @Override

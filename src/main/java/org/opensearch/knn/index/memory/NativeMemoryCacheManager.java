@@ -23,7 +23,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.ScheduledExecutor;
+import org.opensearch.knn.index.util.ScheduledExecutor;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;

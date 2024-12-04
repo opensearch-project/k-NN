@@ -15,7 +15,7 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.ScheduledExecutor;
+import org.opensearch.knn.index.util.ScheduledExecutor;
 
 import java.io.Closeable;
 import java.io.IOException;
