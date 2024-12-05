@@ -7,8 +7,10 @@ package org.opensearch.knn.index.engine;
 
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.index.mapper.MapperParsingException;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.common.settings.Settings;
 
 import java.util.Locale;
 
@@ -25,24 +27,30 @@ public final class SpaceTypeResolver {
     private SpaceTypeResolver() {}
 
     /**
-     * Resolves space type from configuration details. It is guaranteed not to return either null or
-     * {@link SpaceType#UNDEFINED}
+     * Resolves space type from configuration details. It is guaranteed not to return null.
+     * When space is not in either method and top level, UNDEFINED will be returned.
+     * This can happen when it is defined at index level which is deprecated and no longer allowed in the future.
+     * In this case, UNDEFINED will be returned.
      *
-     * @param knnMethodContext Method context
-     * @param vectorDataType Vectordatatype
+     * @param knnMethodContext        Method context
      * @param topLevelSpaceTypeString Alternative top-level space type
      * @return {@link SpaceType} for the method
      */
     public SpaceType resolveSpaceType(
         final KNNMethodContext knnMethodContext,
-        final VectorDataType vectorDataType,
-        final String topLevelSpaceTypeString
+        final String topLevelSpaceTypeString,
+        final Settings indexSettings,
+        final VectorDataType vectorDataType
     ) {
         SpaceType methodSpaceType = getSpaceTypeFromMethodContext(knnMethodContext);
         SpaceType topLevelSpaceType = getSpaceTypeFromString(topLevelSpaceTypeString);
 
         if (isSpaceTypeConfigured(methodSpaceType) == false && isSpaceTypeConfigured(topLevelSpaceType) == false) {
-            return getSpaceTypeFromVectorDataType(vectorDataType);
+            final String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
+            if (spaceType == null) {
+                return getDefaultSpaceType(vectorDataType);
+            }
+            return SpaceType.getSpace(spaceType);
         }
 
         if (isSpaceTypeConfigured(methodSpaceType) == false) {
@@ -67,19 +75,19 @@ public final class SpaceTypeResolver {
         );
     }
 
+    public static SpaceType getDefaultSpaceType(final VectorDataType vectorDataType) {
+        if (vectorDataType == VectorDataType.BINARY) {
+            return SpaceType.DEFAULT_BINARY;
+        }
+        return SpaceType.DEFAULT;
+    }
+
     private SpaceType getSpaceTypeFromMethodContext(final KNNMethodContext knnMethodContext) {
         if (knnMethodContext == null) {
             return SpaceType.UNDEFINED;
         }
 
         return knnMethodContext.getSpaceType();
-    }
-
-    private SpaceType getSpaceTypeFromVectorDataType(final VectorDataType vectorDataType) {
-        if (vectorDataType == VectorDataType.BINARY) {
-            return SpaceType.DEFAULT_BINARY;
-        }
-        return SpaceType.DEFAULT;
     }
 
     private SpaceType getSpaceTypeFromString(final String spaceType) {
