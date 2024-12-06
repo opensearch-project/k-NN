@@ -60,6 +60,28 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         }
     }
 
+    public byte[] getByteValue() {
+        if (!docExists) {
+            String errorMessage = String.format(
+                "One of the document doesn't have a value for field '%s'. "
+                    + "This can be avoided by checking if a document has a value for the field or not "
+                    + "by doc['%s'].size() == 0 ? 0 : {your script}",
+                fieldName,
+                fieldName
+            );
+            throw new IllegalStateException(errorMessage);
+        }
+        try {
+            return doGetByteValue();
+        } catch (IOException e) {
+            throw ExceptionsHelper.convertToOpenSearchException(e);
+        }
+    }
+
+    protected byte[] doGetByteValue() throws IOException {
+        throw new UnsupportedOperationException();
+    }
+
     protected abstract float[] doGetValue() throws IOException;
 
     @Override
@@ -111,6 +133,15 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
             }
             return value;
         }
+
+        @Override
+        public byte[] doGetByteValue() {
+            try {
+                return values.vectorValue();
+            } catch (IOException e) {
+                throw ExceptionsHelper.convertToOpenSearchException(e);
+            }
+        }
     }
 
     private static final class KNNFloatVectorScriptDocValues extends KNNVectorScriptDocValues {
@@ -138,6 +169,15 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         @Override
         protected float[] doGetValue() throws IOException {
             return getVectorDataType().getVectorFromBytesRef(values.binaryValue());
+        }
+
+        @Override
+        public byte[] doGetByteValue() {
+            try {
+                return values.binaryValue().bytes;
+            } catch (IOException e) {
+                throw ExceptionsHelper.convertToOpenSearchException(e);
+            }
         }
     }
 

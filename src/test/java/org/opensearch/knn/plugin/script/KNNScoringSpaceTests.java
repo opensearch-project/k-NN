@@ -217,8 +217,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
 
         KNNScoringSpace.Hamming hamming = new KNNScoringSpace.Hamming(arrayListQueryObject, fieldType);
 
-        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
-        assertEquals(1F, hamming.getScoringMethod().apply(arrayFloat, arrayFloat), 0.1F);
+        byte[] arrayByte = new byte[] { 1, 2, 3 };
+        assertEquals(1F, ((BiFunction<byte[], byte[], Float>) hamming.scoringMethod).apply(arrayByte, arrayByte), 0.1F);
     }
 
     public void testHamming_whenNonBinaryVectorDataType_thenException() {

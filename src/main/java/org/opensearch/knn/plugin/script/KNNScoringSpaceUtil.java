@@ -112,6 +112,24 @@ public class KNNScoringSpaceUtil {
     }
 
     /**
+     * Convert an Object to a byte array.
+     *
+     * @param object Object to be converted to a byte array
+     * @param expectedVectorLength int representing the expected vector length of this array.
+     * @return byte[] of the object
+     */
+    public static byte[] parseToByteArray(Object object, int expectedVectorLength, VectorDataType vectorDataType) {
+        byte[] byteArray = convertVectorToByteArray(object, vectorDataType);
+        if (expectedVectorLength != byteArray.length) {
+            KNNCounter.SCRIPT_QUERY_ERRORS.increment();
+            throw new IllegalStateException(
+                "Object's length=" + byteArray.length + " does not match the " + "expected length=" + expectedVectorLength + "."
+            );
+        }
+        return byteArray;
+    }
+
+    /**
      * Converts Object vector to primitive float[]
      *
      * @param vector input vector
@@ -132,6 +150,29 @@ public class KNNScoringSpaceUtil {
             }
         }
         return primitiveVector;
+    }
+
+    /**
+     * Converts Object vector to byte[]
+     *
+     * @param vector input vector
+     * @return Byte array representing the vector
+     */
+    @SuppressWarnings("unchecked")
+    public static byte[] convertVectorToByteArray(Object vector, VectorDataType vectorDataType) {
+        byte[] byteVector = null;
+        if (vector != null) {
+            final List<Number> tmp = (List<Number>) vector;
+            byteVector = new byte[tmp.size()];
+            for (int i = 0; i < byteVector.length; i++) {
+                float value = tmp.get(i).floatValue();
+                if (VectorDataType.BYTE == vectorDataType || VectorDataType.BINARY == vectorDataType) {
+                    validateByteVectorValue(value, vectorDataType);
+                }
+                byteVector[i] = tmp.get(i).byteValue();
+            }
+        }
+        return byteVector;
     }
 
     /**
