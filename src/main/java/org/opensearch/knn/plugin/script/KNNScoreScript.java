@@ -144,4 +144,39 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
             return this.scoringMethod.apply(this.queryValue, scriptDocValues.getValue());
         }
     }
+
+    /**
+     * KNNVectors with byte[] type. The query value passed in is expected to be byte[]. The fieldType of the docs
+     * being searched over are expected to be KNNVector type.
+     */
+    public static class KNNByteVectorType extends KNNScoreScript<byte[]> {
+
+        public KNNByteVectorType(
+            Map<String, Object> params,
+            byte[] queryValue,
+            String field,
+            BiFunction<byte[], byte[], Float> scoringMethod,
+            SearchLookup lookup,
+            LeafReaderContext leafContext,
+            IndexSearcher searcher
+        ) throws IOException {
+            super(params, queryValue, field, scoringMethod, lookup, leafContext, searcher);
+        }
+
+        /**
+         * This function called for each doc in the segment. We evaluate the score of the vector in the doc
+         *
+         * @param explanationHolder A helper to take in an explanation from a script and turn
+         *                          it into an {@link org.apache.lucene.search.Explanation}
+         * @return score of the vector to the query vector
+         */
+        @Override
+        public double execute(ScoreScript.ExplanationHolder explanationHolder) {
+            KNNVectorScriptDocValues scriptDocValues = (KNNVectorScriptDocValues) getDoc().get(this.field);
+            if (scriptDocValues.isEmpty()) {
+                return 0.0;
+            }
+            return this.scoringMethod.apply(this.queryValue, scriptDocValues.getByteValue());
+        }
+    }
 }
