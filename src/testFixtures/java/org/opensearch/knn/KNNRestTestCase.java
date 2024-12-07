@@ -81,6 +81,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
@@ -381,6 +382,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Utility to create a Knn Index Mapping for given model id
+     */
+    public String createKnnIndexMapping(String fieldName, String modelId) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(fieldName)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
+    /**
      * Utility to create a Knn Index Mapping
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions) throws IOException {
@@ -390,22 +407,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .startObject(fieldName)
             .field("type", "knn_vector")
             .field("dimension", dimensions.toString())
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
-    }
-
-    /**
-     * Utility to create a Knn Index Mapping with model id
-     */
-    protected String createKnnIndexMapping(String fieldName, String modelId) throws IOException {
-        return XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(fieldName)
-            .field("type", "knn_vector")
-            .field("model_id", modelId)
             .endObject()
             .endObject()
             .endObject()
