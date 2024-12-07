@@ -13,7 +13,9 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
-import java.util.Locale;
+
+import java.util.*;
+
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.junit.BeforeClass;
@@ -37,10 +39,6 @@ import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX;
@@ -898,6 +896,117 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         // Delete index
         deleteKNNIndex(indexName);
+    }
+
+    public void testKNNIndexSearchFieldsParameter() throws Exception {
+        createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2", "vector3"), Arrays.asList(2, 3, 5)));
+        for (int i = 1; i <= 10; i++) {
+            Float[] vector1 = { (float) i, (float) (i + 1) };
+            Float[] vector2 = { (float) i, (float) (i + 1), (float) (i + 2) };
+            Float[] vector3 = { (float) i, (float) (i + 1), (float) (i + 2), (float) (i + 3), (float) (i + 4) };
+            addKnnDoc(INDEX_NAME, Integer.toString(i), Arrays.asList("vector1", "vector2", "vector3"), Arrays.asList(vector1, vector2, vector3));
+        }
+        int k = 100; // nearest 100 neighbors
+
+        // Create search body, all fields
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[]{"*"})
+                .startObject("query")
+                .startObject("match_all")
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+        List<KNNResult> resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
+        List<KNNResult> resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
+        List<KNNResult> resultsField3 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector3");
+        assertEquals(10, resultsField1.size());
+        assertEquals(10, resultsField2.size());
+        assertEquals(10, resultsField3.size());
+
+        // Create search body, some fields
+        builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[]{"vector1", "vector2"})
+                .startObject("query")
+                .startObject("match_all")
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
+        resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
+        resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
+        expectThrows(NullPointerException.class, () -> parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "vector3"));
+        assertEquals(10, resultsField1.size());
+        assertEquals(10, resultsField2.size());
+    }
+
+    public void testKNNIndexSearchFieldsParameterWithOtherFields() throws Exception {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject("vector1")
+                .field("type", "knn_vector")
+                .field("dimension", "2")
+                .endObject()
+                .startObject("vector2")
+                .field("type", "knn_vector")
+                .field("dimension", "3")
+                .endObject()
+                .startObject("float1")
+                .field("type", "float")
+                .endObject()
+                .startObject("float2")
+                .field("type", "float")
+                .endObject()
+                .endObject()
+                .endObject();
+        createKnnIndex(INDEX_NAME, xContentBuilder.toString());
+        for (int i = 1; i <= 10; i++) {
+            Float[] vector1 = { (float) i, (float) (i + 1) };
+            Float[] vector2 = { (float) i, (float) (i + 1), (float) (i + 2) };
+            Float[] text1 = { (float) i };
+            Float[] text2 = { (float) (i + 1) };
+            addKnnDoc(INDEX_NAME, Integer.toString(i), Arrays.asList("vector1", "vector2", "float1", "float2"), Arrays.asList(vector1, vector2, text1, text2));
+        }
+        int k = 100; // nearest 100 neighbors
+
+        // Create search body, all fields
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[]{"*"})
+                .startObject("query")
+                .startObject("match_all")
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+        List<KNNResult> resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
+        List<KNNResult> resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
+        List<KNNResult> resultsField3 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float1");
+        List<KNNResult> resultsField4 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float2");
+        assertEquals(10, resultsField1.size());
+        assertEquals(10, resultsField2.size());
+        assertEquals(10, resultsField3.size());
+        assertEquals(10, resultsField4.size());
+
+        // Create search body, some fields
+        builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[]{"vector1", "float2"})
+                .startObject("query")
+                .startObject("match_all")
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
+        resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
+        expectThrows(NullPointerException.class, () -> parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "vector2"));
+        expectThrows(NullPointerException.class, () -> parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "float1"));
+        resultsField4 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float2");
+        assertEquals(10, resultsField1.size());
+        assertEquals(10, resultsField4.size());
     }
 
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)
