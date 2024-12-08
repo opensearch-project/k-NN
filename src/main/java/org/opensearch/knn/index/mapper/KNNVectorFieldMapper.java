@@ -262,7 +262,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            if (originalParameters.getResolvedKnnMethodContext() == null) {
+            // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use either LuceneFieldMapper
+            // or
+            // MethodFieldMapper to maintain backwards compatibility
+            if (originalParameters.getResolvedKnnMethodContext() == null && context.indexCreatedVersion().onOrAfter(Version.V_2_17_0)) {
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -375,8 +378,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // Check for flat configuration
-            if (isKNNDisabled(parserContext.getSettings())) {
+            // Check for flat configuration and validate only if index is created after 2.17
+            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
