@@ -26,7 +26,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
