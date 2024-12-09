@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.nativelib;
+package org.opensearch.knn.index.query.common;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -32,7 +32,7 @@ final class DocAndScoreQuery extends Query {
     private final int[] segmentStarts;
     private final Object contextIdentity;
 
-    DocAndScoreQuery(int k, int[] docs, float[] scores, int[] segmentStarts, Object contextIdentity) {
+    public DocAndScoreQuery(int k, int[] docs, float[] scores, int[] segmentStarts, Object contextIdentity) {
         this.k = k;
         this.docs = docs;
         this.scores = scores;

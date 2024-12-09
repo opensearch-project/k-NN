@@ -17,7 +17,6 @@ import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.util.BitSet;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
@@ -68,8 +67,8 @@ public class ExactSearcher {
         if (exactSearcherContext.getKnnQuery().getRadius() != null) {
             return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
         }
-        if (exactSearcherContext.getMatchedDocs() != null
-            && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
+        if (exactSearcherContext.getMatchedDocsIterator() != null
+            && exactSearcherContext.numberOfMatchedDocs <= exactSearcherContext.getK()) {
             return scoreAllDocs(iterator);
         }
         return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
@@ -155,7 +154,7 @@ public class ExactSearcher {
 
     private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
-        final BitSet matchedDocs = exactSearcherContext.getMatchedDocs();
+        final DocIdSetIterator matchedDocs = exactSearcherContext.getMatchedDocsIterator();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
         if (fieldInfo == null) {
@@ -245,7 +244,8 @@ public class ExactSearcher {
          */
         boolean useQuantizedVectorsForSearch;
         int k;
-        BitSet matchedDocs;
+        DocIdSetIterator matchedDocsIterator;
+        long numberOfMatchedDocs;
         KNNQuery knnQuery;
         /**
          * whether the matchedDocs contains parent ids or child ids. This is relevant in the case of
