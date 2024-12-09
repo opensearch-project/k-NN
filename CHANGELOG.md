@@ -27,4 +27,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Select index settings based on cluster version[2236](https://github.com/opensearch-project/k-NN/pull/2236)
 * Added null checks for fieldInfo in ExactSearcher to avoid NPE while running exact search for segments with no vector field (#2278)[https://github.com/opensearch-project/k-NN/pull/2278]
+* Added Lucene BWC tests (#2313)[https://github.com/opensearch-project/k-NN/pull/2313]
 ### Refactoring
