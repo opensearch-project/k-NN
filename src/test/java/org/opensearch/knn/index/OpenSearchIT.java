@@ -14,8 +14,6 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
 
-import java.util.*;
-
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.junit.BeforeClass;
@@ -39,6 +37,11 @@ import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX;
