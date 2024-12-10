@@ -12,6 +12,7 @@
 package org.opensearch.knn.plugin.action;
 
 import org.apache.http.util.EntityUtils;
+import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -22,15 +23,22 @@ import org.opensearch.core.rest.RestStatus;
 
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 
 public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
@@ -467,6 +475,77 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         assertNotNull(responseBody);
 
         Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+
+        assertTrainingSucceeds(modelId, 30, 1000);
+    }
+
+    // Test to checks when user tries to train a model compression/mode and method
+    public void testTrainModel_success_methodOverrideWithCompressionMode() throws Exception {
+        String modelId = "test-model-id";
+        String trainingIndexName = "train-index";
+        String nestedFieldPath = "a.b.train-field";
+        int dimension = 8;
+
+        // Create a training index and randomly ingest data into it
+        String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath);
+        createKnnIndex(trainingIndexName, mapping);
+        int trainingDataCount = 200;
+        bulkIngestRandomVectorsWithNestedField(trainingIndexName, nestedFieldPath, trainingDataCount, dimension);
+
+        // Call the train API with this definition:
+
+        /*
+        POST /_plugins/_knn/models/test-model/_train
+            {
+                "training_index": "train_index",
+                "training_field": "train_field",
+                "dimension": 8,
+                "description": "model",
+                "space_type": "innerproduct",
+                "mode": "on_disk",
+                "method": {
+                    "name": "ivf",
+                    "params": {
+                      "nlist": 16
+                    }
+                  }
+            }
+
+         */
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 16)
+            .endObject()
+            .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        XContentBuilder outerParams = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
+            .field(TRAIN_FIELD_PARAMETER, nestedFieldPath)
+            .field(DIMENSION, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "16x")
+            .field(MODE_PARAMETER, "on_disk")
+            .field(KNN_METHOD, method)
+            .field(MODEL_DESCRIPTION, "dummy description")
+            .endObject();
+
+        Request request = new Request("POST", "/_plugins/_knn/models/" + modelId + "/_train");
+        request.setJsonEntity(outerParams.toString());
+
+        Response trainResponse = client().performRequest(request);
+
+        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
+
+        Response getResponse = getModel(modelId, null);
+        String responseBody = EntityUtils.toString(getResponse.getEntity());
+        assertNotNull(responseBody);
+
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
