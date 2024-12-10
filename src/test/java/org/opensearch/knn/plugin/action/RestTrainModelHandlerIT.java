@@ -545,7 +545,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
