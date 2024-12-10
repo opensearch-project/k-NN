@@ -135,6 +135,32 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testNonKNNIndex_withModelId() throws Exception {
+        final String modelId = "random-model-id";
+        final String trainingIndex = "random-training-id";
+        if (isRunningAgainstOldCluster()) {
+            // Create a training index and randomly ingest data into it
+            createBasicKnnIndex(trainingIndex, TRAINING_FIELD, DIMENSIONS);
+            bulkIngestRandomVectors(trainingIndex, TRAINING_FIELD, NUM_DOCS, DIMENSIONS);
+
+            trainKNNModel(modelId, trainingIndex, TRAINING_FIELD, DIMENSIONS, MODEL_DESCRIPTION);
+            validateModelCreated(modelId);
+
+            createKnnIndex(testIndex, createKNNDefaultScriptScoreSettings(), createKnnIndexMapping(TEST_FIELD, modelId));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            QUERY_COUNT = NUM_DOCS;
+            DOC_ID = NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            deleteKNNIndex(testIndex);
+            deleteKNNModel(modelId);
+            deleteIndex(trainingIndex);
+        }
+    }
+
     // Delete Models and ".opensearch-knn-models" index to clear cluster metadata
     @AfterClass
     public static void wipeAllModels() throws IOException {
