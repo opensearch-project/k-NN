@@ -815,7 +815,7 @@ public class KNNWeightTests extends KNNTestCase {
             when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
             // scorer will return 2 documents
             when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(1));
-            when(reader.maxDoc()).thenReturn(1);
+            when(reader.maxDoc()).thenReturn(2);
             final Bits liveDocsBits = mock(Bits.class);
             when(reader.getLiveDocs()).thenReturn(liveDocsBits);
             when(liveDocsBits.get(filterDocId)).thenReturn(true);
@@ -891,6 +891,7 @@ public class KNNWeightTests extends KNNTestCase {
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
+        when(reader.maxDoc()).thenReturn(1);
 
         final FSDirectory directory = mock(FSDirectory.class);
         when(reader.directory()).thenReturn(directory);
@@ -968,7 +969,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
         // scorer will return 2 documents
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(1));
-        when(reader.maxDoc()).thenReturn(1);
+        when(reader.maxDoc()).thenReturn(2);
         final Bits liveDocsBits = mock(Bits.class);
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
         when(liveDocsBits.get(filterDocId)).thenReturn(true);
@@ -1168,6 +1169,7 @@ public class KNNWeightTests extends KNNTestCase {
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
+        when(reader.maxDoc()).thenReturn(1);
 
         final Weight filterQueryWeight = mock(Weight.class);
         final Scorer filterScorer = mock(Scorer.class);
@@ -1202,7 +1204,7 @@ public class KNNWeightTests extends KNNTestCase {
         // We will have 0, 1 for filteredIds and 2 will be the parent id for both of them
         final Scorer filterScorer = mock(Scorer.class);
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(2));
-        when(reader.maxDoc()).thenReturn(2);
+        when(reader.maxDoc()).thenReturn(3);
 
         // Query vector is {1.8f, 2.4f}, therefore, second vector {1.9f, 2.5f} should be returned in a result
         final List<float[]> vectors = Arrays.asList(new float[] { 0.1f, 0.3f }, new float[] { 1.9f, 2.5f });

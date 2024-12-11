@@ -127,7 +127,14 @@ public class KNNWeight extends Weight {
      */
     public Map<Integer, Float> searchLeaf(LeafReaderContext context, int k) throws IOException {
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
+        /*
+        * If filters match all docs in this segment, then there is no need to do any extra step
+        * and should directly do ANN Search*/
+        if (cardinality ==  maxDoc){
+            return doANNSearch(context, filterBitSet, cardinality, k);
+        }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
@@ -141,6 +148,12 @@ public class KNNWeight extends Weight {
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
             return doExactSearch(context, filterBitSet, k);
+        }
+        /*
+         * If filters match all docs in this segment, then there is no need to do any extra step
+         * and should directly do ANN Search*/
+        if (filterWeight != null && cardinality == maxDoc) {
+            return doANNSearch(context, new FixedBitSet(0), 0, k);
         }
         Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
         // See whether we have to perform exact search based on approx search results
@@ -312,6 +325,7 @@ public class KNNWeight extends Weight {
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         indexAllocation.incRef();
+
         try {
             if (indexAllocation.isClosed()) {
                 throw new RuntimeException("Index has already been closed");
