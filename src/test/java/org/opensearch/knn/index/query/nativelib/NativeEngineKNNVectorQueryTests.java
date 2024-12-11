@@ -76,6 +76,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
     @InjectMocks
     private NativeEngineKnnVectorQuery objectUnderTest;
 
+    private static ScoreMode scoreMode = ScoreMode.TOP_SCORES;
+
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -85,7 +87,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(leaf2.reader()).thenReturn(leafReader2);
 
         when(searcher.getIndexReader()).thenReturn(reader);
-        when(knnQuery.createWeight(searcher, ScoreMode.COMPLETE, 1)).thenReturn(knnWeight);
+        when(knnQuery.createWeight(searcher, scoreMode, 1)).thenReturn(knnWeight);
 
         when(searcher.getTaskExecutor()).thenReturn(taskExecutor);
         when(taskExecutor.invokeAll(any())).thenAnswer(invocationOnMock -> {
@@ -135,7 +137,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         Query expected = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
 
         // When
-        Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
+        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
         // Then
         assertEquals(expected, actual.getQuery());
@@ -176,7 +178,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             mockedResultUtil.when(() -> ResultUtil.reduceToTopK(any(), anyInt())).thenCallRealMethod();
 
             // When
-            Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
+            Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
             // Then
             mockedResultUtil.verify(() -> ResultUtil.reduceToTopK(any(), anyInt()), times(2));
@@ -199,7 +201,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         Query expected = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
 
         // When
-        Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
+        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
         // Then
         assertEquals(expected, actual.getQuery());
@@ -214,7 +216,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnQuery.getK()).thenReturn(4);
 
         // When
-        Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
+        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
         // Then
         assertEquals(new MatchNoDocsQuery(), actual.getQuery());
@@ -263,7 +265,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             try (MockedStatic<NativeEngineKnnVectorQuery> mockedStaticNativeKnnVectorQuery = mockStatic(NativeEngineKnnVectorQuery.class)) {
                 mockedStaticNativeKnnVectorQuery.when(() -> NativeEngineKnnVectorQuery.findSegmentStarts(any(), any()))
                     .thenReturn(new int[] { 0, 4, 2 });
-                Weight actual = objectUnderTest.createWeight(searcher, ScoreMode.COMPLETE, 1);
+                Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
                 assertEquals(expected, actual.getQuery());
             }
         }

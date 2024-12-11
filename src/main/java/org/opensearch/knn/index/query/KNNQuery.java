@@ -188,7 +188,7 @@ public class KNNQuery extends Query {
 
     @Override
     public void visit(QueryVisitor visitor) {
-
+        visitor.visitLeaf(this);
     }
 
     @Override
