@@ -129,7 +129,14 @@ public class KNNWeight extends Weight {
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
+        /*
+        * If filters match all docs in this segment, then there is no need to do any extra step
+        * and should directly do ANN Search*/
+        if (cardinality ==  maxDoc){
+            return doANNSearch(context, filterBitSet, cardinality, k);
+        }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
