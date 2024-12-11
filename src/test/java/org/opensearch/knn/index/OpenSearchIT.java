@@ -325,6 +325,7 @@ public class OpenSearchIT extends KNNRestTestCase {
                 createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT) + 1)
             )
         );
+
         assertThat(
             ex.getMessage(),
             containsString(
