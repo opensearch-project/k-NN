@@ -50,6 +50,7 @@ public abstract class BaseQueryFactory {
         private QueryBuilder filter;
         private QueryShardContext context;
         private RescoreContext rescoreContext;
+        private boolean expandNested;
 
         public Optional<QueryBuilder> getFilter() {
             return Optional.ofNullable(filter);

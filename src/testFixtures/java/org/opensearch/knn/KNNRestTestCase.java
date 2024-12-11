@@ -5,9 +5,12 @@
 
 package org.opensearch.knn;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
+import com.jayway.jsonpath.JsonPath;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
@@ -52,7 +55,6 @@ import javax.management.ObjectName;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -926,6 +928,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
             searchResponseBody
         ).map().get("hits");
         return ((List) responseMap.get("hits")).size();
+    }
+
+    /**
+     * Get mapping from parent doc Id to inner hits offsets
+     */
+    protected Multimap<String, Integer> parseInnerHits(String searchResponseBody, String fieldName) throws IOException {
+        List<String> ids = JsonPath.read(
+            searchResponseBody,
+            String.format(Locale.ROOT, "$.hits.hits[*].inner_hits.%s.hits.hits[*]._id", fieldName)
+        );
+        List<Integer> offsets = JsonPath.read(
+            searchResponseBody,
+            String.format(Locale.ROOT, "$.hits.hits[*].inner_hits.%s.hits.hits[*]._nested.offset", fieldName)
+        );
+        Multimap<String, Integer> docIdToOffsets = ArrayListMultimap.create();
+        for (int i = 0; i < ids.size(); i++) {
+            docIdToOffsets.put(ids.get(i), offsets.get(i));
+        }
+        return docIdToOffsets;
     }
 
     protected List<String> parseIds(String searchResponseBody) throws IOException {
