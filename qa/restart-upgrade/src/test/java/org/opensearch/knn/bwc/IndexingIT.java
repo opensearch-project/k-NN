@@ -32,6 +32,11 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRU
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -124,6 +129,86 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         } else {
             validateKNNIndexingOnUpgrade(100);
         }
+    }
+
+    // 2.17 and up
+    public void testKNNIndexLuceneByteVector() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                getKNNDefaultIndexSettings(),
+                createKnnIndexMapping(
+                    TEST_FIELD,
+                    DIMENSIONS,
+                    METHOD_HNSW,
+                    LUCENE_NAME,
+                    SpaceType.L2.getValue(),
+                    true,
+                    VectorDataType.BYTE
+                )
+            );
+            addKNNByteDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 50);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 50, 5);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 50, 5);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 50, 25);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 75, 5);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    // 2.16 and up
+    public void testKNNIndexLuceneQuantization() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, DIMENSIONS)
+                .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT)
+                .field("doc_values", true)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_M, M)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_SQ)
+                .startObject(PARAMETERS)
+                .field(LUCENE_SQ_BITS, 7)
+                .field(LUCENE_SQ_CONFIDENCE_INTERVAL, 1.0)
+                .endObject()
+                .endObject()
+                .endObject()
+
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 100);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 100, 5);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 100, 5);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 100, 50);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 150, 5);
+            deleteKNNIndex(testIndex);
+        }
+
     }
 
     // Ensure bwc works for binary force merge

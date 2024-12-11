@@ -86,9 +86,18 @@ testClusters {
                 knn_bwc_version.startsWith("2.14.") ||
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
             }
         }
+        if (knn_bwc_version.startsWith("2.16.") ||
+            knn_bwc_version.startsWith("2.17.")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
+            }
+        }
+
 
         if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
             filter {
@@ -159,7 +168,15 @@ testClusters {
                 knn_bwc_version.startsWith("2.14.") ||
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
+            }
+        }
+        if (knn_bwc_version.startsWith("2.16.") ||
+            knn_bwc_version.startsWith("2.17.")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
             }
         }
 
