@@ -927,10 +927,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         List<KNNResult> resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
-        List<KNNResult> resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
-        List<KNNResult> resultsField3 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector3");
         assertEquals(10, resultsField1.size());
+        List<KNNResult> resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
         assertEquals(10, resultsField2.size());
+        List<KNNResult> resultsField3 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector3");
         assertEquals(10, resultsField3.size());
 
         // Create search body, some fields
@@ -943,14 +943,14 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
-        resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
-        resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
+        resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "vector1");
+        assertEquals(10, resultsField1.size());
+        resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "vector2");
+        assertEquals(10, resultsField2.size());
         expectThrows(
             NullPointerException.class,
             () -> parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "vector3")
         );
-        assertEquals(10, resultsField1.size());
-        assertEquals(10, resultsField2.size());
     }
 
     public void testKNNIndexSearchFieldsParameterWithOtherFields() throws Exception {
@@ -977,13 +977,13 @@ public class OpenSearchIT extends KNNRestTestCase {
         for (int i = 1; i <= 10; i++) {
             Float[] vector1 = { (float) i, (float) (i + 1) };
             Float[] vector2 = { (float) i, (float) (i + 1), (float) (i + 2) };
-            Float[] text1 = { (float) i };
-            Float[] text2 = { (float) (i + 1) };
+            Float[] float1 = { (float) i };
+            Float[] float2 = { (float) (i + 1) };
             addKnnDoc(
                 INDEX_NAME,
                 Integer.toString(i),
                 Arrays.asList("vector1", "vector2", "float1", "float2"),
-                Arrays.asList(vector1, vector2, text1, text2)
+                Arrays.asList(vector1, vector2, float1, float2)
             );
         }
         int k = 100; // nearest 100 neighbors
@@ -999,12 +999,12 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         List<KNNResult> resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
-        List<KNNResult> resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
-        List<KNNResult> resultsField3 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float1");
-        List<KNNResult> resultsField4 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float2");
         assertEquals(10, resultsField1.size());
+        List<KNNResult> resultsField2 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector2");
         assertEquals(10, resultsField2.size());
+        List<KNNResult> resultsField3 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float1");
         assertEquals(10, resultsField3.size());
+        List<KNNResult> resultsField4 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float2");
         assertEquals(10, resultsField4.size());
 
         // Create search body, some fields
@@ -1017,7 +1017,8 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
-        resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "vector1");
+        resultsField1 = parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "vector1");
+        assertEquals(10, resultsField1.size());
         expectThrows(
             NullPointerException.class,
             () -> parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "vector2")
@@ -1026,8 +1027,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             NullPointerException.class,
             () -> parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "float1")
         );
-        resultsField4 = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), "float2");
-        assertEquals(10, resultsField1.size());
+        resultsField4 = parseSearchResponseScriptFields(EntityUtils.toString(response2.getEntity()), "float2");
         assertEquals(10, resultsField4.size());
     }
 
