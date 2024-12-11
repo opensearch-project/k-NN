@@ -80,21 +80,21 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
             }
         */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, "faiss")
-            .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 128)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 128)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
@@ -160,21 +160,21 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
             }
         */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, "faiss")
-            .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 128)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 128)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
@@ -237,26 +237,26 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
             }
         */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, "faiss")
-            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 1)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 1)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         Exception e = expectThrows(
-            ResponseException.class,
-            () -> trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "dummy description, with comma")
+                ResponseException.class,
+                () -> trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "dummy description, with comma")
         );
         assertTrue(e.getMessage().contains("Model description cannot contain any commas: ','"));
     }
@@ -299,21 +299,21 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
             }
         */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, "faiss")
-            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 1)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 1)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
@@ -370,21 +370,21 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
             }
         */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, "faiss")
-            .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 2)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 2)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
@@ -449,21 +449,21 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
              }
          */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, "faiss")
-            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 1)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 1)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         Response trainResponse = trainModel(modelId, trainingIndexName, nestedFieldPath, dimension, method, "dummy description");
@@ -515,24 +515,24 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
          */
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 16)
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 16)
+                .endObject()
+                .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         XContentBuilder outerParams = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
-            .field(TRAIN_FIELD_PARAMETER, nestedFieldPath)
-            .field(DIMENSION, dimension)
-            .field(COMPRESSION_LEVEL_PARAMETER, "16x")
-            .field(MODE_PARAMETER, "on_disk")
-            .field(KNN_METHOD, method)
-            .field(MODEL_DESCRIPTION, "dummy description")
-            .endObject();
+                .startObject()
+                .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
+                .field(TRAIN_FIELD_PARAMETER, nestedFieldPath)
+                .field(DIMENSION, dimension)
+                .field(COMPRESSION_LEVEL_PARAMETER, "16x")
+                .field(MODE_PARAMETER, "on_disk")
+                .field(KNN_METHOD, method)
+                .field(MODEL_DESCRIPTION, "dummy description")
+                .endObject();
 
         Request request = new Request("POST", "/_plugins/_knn/models/" + modelId + "/_train");
         request.setJsonEntity(outerParams.toString());
