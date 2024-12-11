@@ -20,9 +20,12 @@ public abstract class AbstractRestartUpgradeTestCase extends KNNRestTestCase {
 
     @Before
     protected void setIndex() {
-        // Creating index name by concatenating "knn-bwc-" prefix with test method name
-        // for all the tests in this sub-project
-        testIndex = KNN_BWC_PREFIX + getTestName().toLowerCase(Locale.ROOT);
+        // Creating index name by concatenating "knn-bwc-" prefix with test class name and then with method name
+        // for all the tests in this sub-project to generate unique index name
+        testIndex = new StringBuilder().append(KNN_BWC_PREFIX)
+            .append(getTestClass().getName().toLowerCase(Locale.ROOT))
+            .append(getTestName().toLowerCase(Locale.ROOT))
+            .toString();
     }
 
     @Override

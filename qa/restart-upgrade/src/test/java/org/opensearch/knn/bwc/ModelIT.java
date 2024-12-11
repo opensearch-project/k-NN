@@ -43,6 +43,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_MODEL_INDEX_DEFAULT = KNN_BWC_PREFIX + "test-model-index-default";
     private static final String TRAINING_INDEX = KNN_BWC_PREFIX + "train-index";
     private static final String TRAINING_INDEX_DEFAULT = KNN_BWC_PREFIX + "train-index-default";
+    private static final String TRAINING_INDEX_FOR_NON_KNN_INDEX = KNN_BWC_PREFIX + "train-index-for-non-knn-index";
     private static final String TRAINING_FIELD = "train-field";
     private static final String TEST_FIELD = "test-field";
     private static final int DIMENSIONS = 5;
@@ -50,17 +51,19 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static int DOC_ID_TEST_MODEL_INDEX = 0;
     private static int DOC_ID_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final int DELAY_MILLI_SEC = 1000;
-    private static final int EXP_NUM_OF_MODELS = 2;
+    private static final int MIN_NUM_OF_MODELS = 2;
     private static final int K = 5;
     private static final int NUM_DOCS = 10;
     private static final int NUM_DOCS_TEST_MODEL_INDEX = 100;
     private static final int NUM_DOCS_TEST_MODEL_INDEX_DEFAULT = 100;
+    private static final int NUM_DOCS_TEST_MODEL_INDEX_FOR_NON_KNN_INDEX = 100;
     private static final int NUM_OF_ATTEMPTS = 30;
     private static int QUERY_COUNT = 0;
     private static int QUERY_COUNT_TEST_MODEL_INDEX = 0;
     private static int QUERY_COUNT_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final String TEST_MODEL_ID = "test-model-id";
     private static final String TEST_MODEL_ID_DEFAULT = "test-model-id-default";
+    private static final String TEST_MODEL_ID_FOR_NON_KNN_INDEX = "test-model-id-for-non-knn-index";
     private static final String MODEL_DESCRIPTION = "Description for train model test";
 
     // KNN model test
@@ -135,6 +138,32 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testNonKNNIndex_withModelId() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+
+            // Create a training index and randomly ingest data into it
+            createBasicKnnIndex(TRAINING_INDEX_FOR_NON_KNN_INDEX, TRAINING_FIELD, DIMENSIONS);
+            bulkIngestRandomVectors(TRAINING_INDEX_FOR_NON_KNN_INDEX, TRAINING_FIELD, NUM_DOCS, DIMENSIONS);
+
+            trainKNNModel(TEST_MODEL_ID_FOR_NON_KNN_INDEX, TRAINING_INDEX_FOR_NON_KNN_INDEX, TRAINING_FIELD, DIMENSIONS, MODEL_DESCRIPTION);
+            validateModelCreated(TEST_MODEL_ID_FOR_NON_KNN_INDEX);
+
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                modelIndexMapping(TEST_FIELD, TEST_MODEL_ID_FOR_NON_KNN_INDEX)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            Thread.sleep(1000);
+            DOC_ID = NUM_DOCS;
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            deleteKNNIndex(testIndex);
+            deleteKNNIndex(TRAINING_INDEX_FOR_NON_KNN_INDEX);
+            deleteKNNModel(TEST_MODEL_ID_FOR_NON_KNN_INDEX);
+        }
+    }
+
     // Delete Models and ".opensearch-knn-models" index to clear cluster metadata
     @AfterClass
     public static void wipeAllModels() throws IOException {
@@ -168,7 +197,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
-            assertEquals(EXP_NUM_OF_MODELS, searchResponse.getHits().getHits().length);
+            assertTrue(MIN_NUM_OF_MODELS <= searchResponse.getHits().getHits().length);
 
             for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(hit.getId().startsWith(testModelID));
