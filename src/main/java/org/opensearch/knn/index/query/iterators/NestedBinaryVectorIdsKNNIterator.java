@@ -22,13 +22,13 @@ public class NestedBinaryVectorIdsKNNIterator extends BinaryVectorIdsKNNIterator
     private final BitSet parentBitSet;
 
     public NestedBinaryVectorIdsKNNIterator(
-        @Nullable final BitSet filterIdsArray,
+        @Nullable final DocIdSetIterator filterIdsIterator,
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
-        super(filterIdsArray, queryVector, binaryVectorValues, spaceType);
+        super(filterIdsIterator, queryVector, binaryVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
     }
 
