@@ -298,7 +298,9 @@ dependencies {
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.15.10'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.15.4'
-    testFixturesImplementation 'com.jayway.jsonpath:json-path:2.8.0'
+    testFixturesImplementation('com.jayway.jsonpath:json-path:2.9.0') {
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+    }
     testFixturesImplementation "org.opensearch:common-utils:${version}"
     implementation 'com.github.oshi:oshi-core:6.4.13'
     api "net.java.dev.jna:jna:5.13.0"
