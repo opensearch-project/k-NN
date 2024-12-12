@@ -298,10 +298,16 @@ dependencies {
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.15.10'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.15.4'
+    // json-path 2.9.0 depends on slf4j 2.0.11, which conflicts with the version used by OpenSearch core.
+    // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
+    testFixturesImplementation('com.jayway.jsonpath:json-path:2.9.0') {
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+    }
     testFixturesImplementation "org.opensearch:common-utils:${version}"
     implementation 'com.github.oshi:oshi-core:6.4.13'
     api "net.java.dev.jna:jna:5.13.0"
     api "net.java.dev.jna:jna-platform:5.13.0"
+    // OpenSearch core is using slf4j 1.7.36. Therefore, we cannot change the version here.
     implementation 'org.slf4j:slf4j-api:1.7.36'
 
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
