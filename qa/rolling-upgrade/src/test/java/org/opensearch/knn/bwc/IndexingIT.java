@@ -101,17 +101,17 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 if (isFirstMixedRound()) {
                     docIdOld = 0;
                     createKnnIndex(
-                        firstMixRoundIndex,
-                        getKNNDefaultIndexSettings(),
-                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME)
+                            firstMixRoundIndex,
+                            getKNNDefaultIndexSettings(),
+                            createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME)
                     );
                     addKNNDocs(firstMixRoundIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
                 } else {
                     docIdOld = 0;
                     createKnnIndex(
-                        otherMixRoundIndex,
-                        getKNNDefaultIndexSettings(),
-                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME)
+                            otherMixRoundIndex,
+                            getKNNDefaultIndexSettings(),
+                            createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME)
                     );
                     addKNNDocs(otherMixRoundIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
                 }
