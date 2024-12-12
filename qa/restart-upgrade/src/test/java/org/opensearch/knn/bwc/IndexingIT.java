@@ -37,10 +37,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -140,17 +137,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
         if (isRunningAgainstOldCluster()) {
             createKnnIndex(
-                    testIndex,
-                    getKNNDefaultIndexSettings(),
-                    createKnnIndexMapping(
-                            TEST_FIELD,
-                            DIMENSIONS,
-                            METHOD_HNSW,
-                            LUCENE_NAME,
-                            SpaceType.L2.getValue(),
-                            true,
-                            VectorDataType.BYTE
-                    )
+                testIndex,
+                getKNNDefaultIndexSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME, SpaceType.L2.getValue(), true, VectorDataType.BYTE)
             );
             addKNNByteDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 50);
             // Flush to ensure that index is not re-indexed when node comes back up
@@ -164,7 +153,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
-
     public void testKNNIndexLuceneQuantization() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;
@@ -172,27 +160,27 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
         if (isRunningAgainstOldCluster()) {
             String mapping = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject("properties")
-                    .startObject(TEST_FIELD)
-                    .field(VECTOR_TYPE, KNN_VECTOR)
-                    .field(DIMENSION, dimension)
-                    .startObject(KNN_METHOD)
-                    .field(NAME, METHOD_HNSW)
-                    .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-                    .field(KNN_ENGINE, LUCENE_NAME)
-                    .startObject(PARAMETERS)
-                    .startObject(METHOD_ENCODER_PARAMETER)
-                    .field(NAME, ENCODER_SQ)
-                    .endObject()
-                    .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
-                    .field(METHOD_PARAMETER_M, 16)
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .toString();
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_SQ)
+                .endObject()
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
+                .field(METHOD_PARAMETER_M, 16)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
 
             Float[] vector1 = { -10.6f, 25.48f };
