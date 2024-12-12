@@ -13,7 +13,6 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.util.BytesRef;
@@ -107,14 +106,6 @@ public class VectorDataTypeTests extends KNNTestCase {
         writer.addDocument(knnDocument);
         writer.commit();
         writer.close();
-    }
-
-    public void testCreateKnnVectorFieldType_whenBinary_thenException() {
-        Exception ex = expectThrows(
-            IllegalStateException.class,
-            () -> VectorDataType.BINARY.createKnnVectorFieldType(1, VectorSimilarityFunction.EUCLIDEAN)
-        );
-        assertTrue(ex.getMessage().contains("Unsupported method"));
     }
 
     public void testGetVectorFromBytesRef_whenBinary_thenException() {

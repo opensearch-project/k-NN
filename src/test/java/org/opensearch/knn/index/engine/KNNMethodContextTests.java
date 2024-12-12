@@ -284,13 +284,6 @@ public class KNNMethodContextTests extends KNNTestCase {
 
     public void testValidateVectorDataType_whenBinaryNonFaiss_thenException() {
         validateValidateVectorDataType(
-            KNNEngine.LUCENE,
-            KNNConstants.METHOD_HNSW,
-            VectorDataType.BINARY,
-            SpaceType.HAMMING,
-            "UnsupportedMethod"
-        );
-        validateValidateVectorDataType(
             KNNEngine.NMSLIB,
             KNNConstants.METHOD_HNSW,
             VectorDataType.BINARY,

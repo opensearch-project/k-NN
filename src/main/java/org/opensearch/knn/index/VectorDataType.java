@@ -40,7 +40,7 @@ public enum VectorDataType {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
-            throw new IllegalStateException("Unsupported method");
+            return KnnByteVectorField.createFieldType(dimension / Byte.SIZE, vectorSimilarityFunction);
         }
 
         @Override
