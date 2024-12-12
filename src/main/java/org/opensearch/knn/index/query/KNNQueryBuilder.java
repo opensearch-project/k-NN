@@ -109,7 +109,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Getter
     private RescoreContext rescoreContext;
     @Getter
-    private boolean expandNested;
+    private Boolean expandNested;
 
     /**
      * Constructs a new query with the given field name and vector
@@ -151,7 +151,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         private String queryName;
         private float boost = DEFAULT_BOOST;
         private RescoreContext rescoreContext;
-        private boolean expandNested;
+        private Boolean expandNested;
 
         public Builder() {}
 
@@ -210,7 +210,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return this;
         }
 
-        public Builder expandNested(boolean expandNested) {
+        public Builder expandNested(Boolean expandNested) {
             this.expandNested = expandNested;
             return this;
         }
@@ -330,7 +330,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.maxDistance = null;
         this.minScore = null;
         this.rescoreContext = null;
-        this.expandNested = false;
+        this.expandNested = null;
     }
 
     public static void initialize(ModelDao modelDao) {
