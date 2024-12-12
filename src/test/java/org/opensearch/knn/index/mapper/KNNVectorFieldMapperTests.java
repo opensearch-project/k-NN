@@ -1528,8 +1528,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         }
     }
 
-    public void testTypeParser_whenBinaryNonFaiss_thenException() throws IOException {
-        testTypeParserWithBinaryDataType(KNNEngine.LUCENE, SpaceType.HAMMING, METHOD_HNSW, 8, "is not supported for vector data type");
+    public void testTypeParser_whenBinaryNmslib_thenException() throws IOException {
         testTypeParserWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.HAMMING, METHOD_HNSW, 8, "is not supported for vector data type");
     }
 

@@ -47,11 +47,6 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
         return Arrays.asList(
             $$(
                 $(
-                    "Creation of binary index with lucene engine should fail",
-                    createKnnHnswBinaryIndexMapping(KNNEngine.LUCENE, FIELD_NAME, 16, null),
-                    "Validation Failed"
-                ),
-                $(
                     "Creation of binary index with nmslib engine should fail",
                     createKnnHnswBinaryIndexMapping(KNNEngine.NMSLIB, FIELD_NAME, 16, null),
                     "Validation Failed"

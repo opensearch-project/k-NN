@@ -30,13 +30,18 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  */
 public class LuceneHNSWMethod extends AbstractKNNMethod {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BYTE);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
+        VectorDataType.FLOAT,
+        VectorDataType.BYTE,
+        VectorDataType.BINARY
+    );
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
         SpaceType.L2,
         SpaceType.COSINESIMIL,
-        SpaceType.INNER_PRODUCT
+        SpaceType.INNER_PRODUCT,
+        SpaceType.HAMMING
     );
 
     final static Encoder SQ_ENCODER = new LuceneSQEncoder();
