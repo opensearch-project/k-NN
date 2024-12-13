@@ -28,7 +28,7 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
             getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        ValueFetcher valueFetcher = knnVectorFieldType.valueFetcher(mockQueryShardContext, null,null);
+        ValueFetcher valueFetcher = knnVectorFieldType.valueFetcher(mockQueryShardContext, null, null);
         assertTrue(valueFetcher instanceof ArraySourceValueFetcher);
     }
 }
