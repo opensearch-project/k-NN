@@ -334,6 +334,27 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return knnSearchResponses;
     }
 
+    protected int parseSearchResponseFieldsCount(String responseBody, String fieldName) throws IOException {
+        @SuppressWarnings("unchecked")
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
+
+        @SuppressWarnings("unchecked")
+        List<Integer> fieldFound = hits.stream().map(hit -> {
+            if (((Map<String, Object>) hit).get("fields") == null) {
+                return 0;
+            }
+            if (((Map<String, Object>) ((Map<String, Object>) hit).get("fields")).get(fieldName) != null) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }).collect(Collectors.toList());
+        return fieldFound.stream().mapToInt(Integer::intValue).sum();
+    }
+
     /**
      * Parse the response of Aggregation to extract the value
      */
