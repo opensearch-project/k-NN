@@ -133,7 +133,7 @@ public final class KNNQueryBuilderParser {
         }
 
         if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
-            builder.expandNested(in.readBoolean());
+            builder.expandNested(in.readOptionalBoolean());
         }
 
         return builder;
@@ -169,7 +169,7 @@ public final class KNNQueryBuilderParser {
             RescoreParser.streamOutput(out, builder.getRescoreContext());
         }
         if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
-            out.writeBoolean(builder.isExpandNested());
+            out.writeOptionalBoolean(builder.getExpandNested());
         }
     }
 
@@ -245,8 +245,8 @@ public final class KNNQueryBuilderParser {
         if (knnQueryBuilder.queryName() != null) {
             builder.field(NAME_FIELD.getPreferredName(), knnQueryBuilder.queryName());
         }
-        if (knnQueryBuilder.isExpandNested()) {
-            builder.field(EXPAND_NESTED, knnQueryBuilder.isExpandNested());
+        if (knnQueryBuilder.getExpandNested() != null) {
+            builder.field(EXPAND_NESTED, knnQueryBuilder.getExpandNested());
         }
 
         builder.endObject();
