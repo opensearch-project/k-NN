@@ -30,7 +30,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
  * Enum contains data_type of vectors
- * Lucene supports byte and float data type
+ * Lucene supports binary, byte and float data type
  * NMSLib supports only float data type
  * Faiss supports binary and float data type
  */
@@ -39,8 +39,10 @@ public enum VectorDataType {
     BINARY("binary") {
 
         @Override
-        public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
-            throw new IllegalStateException("Unsupported method");
+        public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
+            // For binary vectors using Lucene engine we instead implement a custom BinaryVectorScorer so the VectorSimilarityFunction will
+            // not be used.
+            return KnnByteVectorField.createFieldType(dimension / Byte.SIZE, VectorSimilarityFunction.EUCLIDEAN);
         }
 
         @Override
@@ -68,8 +70,8 @@ public enum VectorDataType {
     BYTE("byte") {
 
         @Override
-        public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
-            return KnnByteVectorField.createFieldType(dimension, vectorSimilarityFunction);
+        public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
+            return KnnByteVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
         }
 
         @Override
@@ -97,8 +99,8 @@ public enum VectorDataType {
     FLOAT("float") {
 
         @Override
-        public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
-            return KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
+        public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
+            return KnnVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
         }
 
         @Override
@@ -129,11 +131,11 @@ public enum VectorDataType {
      * Creates a KnnVectorFieldType based on the VectorDataType using the provided dimension and
      * VectorSimilarityFunction.
      *
-     * @param dimension Dimension of the vector
-     * @param vectorSimilarityFunction VectorSimilarityFunction for a given spaceType
+     * @param dimension                   Dimension of the vector
+     * @param knnVectorSimilarityFunction KNNVectorSimilarityFunction for a given spaceType
      * @return FieldType
      */
-    public abstract FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction);
+    public abstract FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction);
 
     /**
      * Deserializes float vector from BytesRef.
