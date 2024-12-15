@@ -14,6 +14,7 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
@@ -840,7 +841,11 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", enableKnn).build();
+        Settings.Builder builder = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", enableKnn);
+        if (enableKnn) {
+            builder.put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
+        }
+        Settings settings = builder.build();
         createKnnIndex(INDEX_NAME, settings, mapper);
         try {
             final int numDocsWithField = randomIntBetween(4, 10);

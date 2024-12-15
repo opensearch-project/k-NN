@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -622,7 +623,11 @@ public final class PainlessScriptScoreIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", enableKnn).build();
+        Settings.Builder builder = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", enableKnn);
+        if (enableKnn) {
+            builder.put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
+        }
+        Settings settings = builder.build();
         createKnnIndex(INDEX_NAME, settings, mapper);
         try {
             for (Map.Entry<String, Float[]> data : documents.entrySet()) {

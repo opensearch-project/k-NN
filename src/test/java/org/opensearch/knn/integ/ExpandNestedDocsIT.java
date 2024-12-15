@@ -20,6 +20,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.Mode;
@@ -323,6 +324,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
             .put("number_of_shards", numOfShards)
             .put("number_of_replicas", 0)
             .put("index.knn", true)
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
             .build();
         createKnnIndex(INDEX_NAME, settings, mapping);
     }
