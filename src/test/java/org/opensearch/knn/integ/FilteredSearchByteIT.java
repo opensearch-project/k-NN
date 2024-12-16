@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.http.util.EntityUtils;
-import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
@@ -25,15 +24,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 @Log4j2
 public class FilteredSearchByteIT extends KNNRestTestCase {
-    @After
-    public void cleanUp() {
-        try {
-            deleteKNNIndex(INDEX_NAME);
-        } catch (Exception e) {
-            log.error(e);
-        }
-    }
-
     @SneakyThrows
     public void testFilteredSearchWithFaissHnswByte_whenDoingApproximateSearch_thenReturnCorrectResults() {
         validateFilteredSearchWithFaissHnswByte(INDEX_NAME, false);

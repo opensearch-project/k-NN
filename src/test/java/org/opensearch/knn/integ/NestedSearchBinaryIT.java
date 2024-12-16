@@ -9,7 +9,6 @@ import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.http.util.EntityUtils;
-import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
@@ -37,15 +36,6 @@ public class NestedSearchBinaryIT extends KNNRestTestCase {
     @ParametersFactory
     public static Collection<Object[]> parameters() {
         return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
-    }
-
-    @After
-    public void cleanUp() {
-        try {
-            deleteKNNIndex(INDEX_NAME);
-        } catch (Exception e) {
-            log.error(e);
-        }
     }
 
     @SneakyThrows
