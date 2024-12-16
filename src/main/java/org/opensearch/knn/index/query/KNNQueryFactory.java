@@ -51,7 +51,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
         final KNNEngine knnEngine = createQueryRequest.getKnnEngine();
-        final boolean expandNested = createQueryRequest.isExpandNested();
+        final boolean expandNested = createQueryRequest.getExpandNested().orElse(false);
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
             QueryShardContext context = createQueryRequest.getContext().get();
