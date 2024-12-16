@@ -7,7 +7,6 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.junit.After;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
@@ -57,12 +56,6 @@ public class NestedSearchIT extends KNNRestTestCase {
     private static final int EF_CONSTRUCTION = 128;
     private static final int M = 16;
     private static final SpaceType SPACE_TYPE = SpaceType.L2;
-
-    @After
-    @SneakyThrows
-    public final void cleanUp() {
-        deleteKNNIndex(INDEX_NAME);
-    }
 
     @SneakyThrows
     public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {

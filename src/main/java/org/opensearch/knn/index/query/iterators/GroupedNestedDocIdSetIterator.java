@@ -19,9 +19,8 @@ import java.util.Set;
  * A `DocIdSetIterator` that iterates over all nested document IDs belongs to the same parent document for a given
  * set of nested document IDs.
  *
- * The {@link #docIds} should include only a single nested document ID per parent document. Otherwise, the nested documents
- * of that parent document will be iterated multiple times.
- *
+ * It is permissible for {@link #docIds} to contain multiple nested document IDs linked to a single parent document.
+ * In such cases, this iterator will still iterate over each nested document ID only once.
  */
 public class GroupedNestedDocIdSetIterator extends DocIdSetIterator {
     private final BitSet parentBitSet;
@@ -99,9 +98,14 @@ public class GroupedNestedDocIdSetIterator extends DocIdSetIterator {
 
     private long calculateCost() {
         long numDocs = 0;
+        int lastDocId = -1;
         for (int docId : docIds) {
-            for (int i = parentBitSet.prevSetBit(docId) + 1; i < parentBitSet.nextSetBit(docId); i++) {
-                if (filterBits.get(i)) {
+            if (docId < lastDocId) {
+                continue;
+            }
+
+            for (lastDocId = parentBitSet.prevSetBit(docId) + 1; lastDocId < parentBitSet.nextSetBit(docId); lastDocId++) {
+                if (filterBits.get(lastDocId)) {
                     numDocs++;
                 }
             }
@@ -111,12 +115,19 @@ public class GroupedNestedDocIdSetIterator extends DocIdSetIterator {
 
     private void moveToNextIndex() {
         currentIndex++;
-        if (currentIndex >= docIds.size()) {
-            currentDocId = NO_MORE_DOCS;
+        while (currentIndex < docIds.size()) {
+            // Advance currentIndex until the docId at the currentIndex is greater than currentDocId.
+            // This ensures proper handling when docIds contain multiple entries under the same parent ID
+            // that have already been iterated.
+            if (docIds.get(currentIndex) <= currentDocId) {
+                currentIndex++;
+                continue;
+            }
+            currentDocId = parentBitSet.prevSetBit(docIds.get(currentIndex)) + 1;
+            currentParentId = parentBitSet.nextSetBit(docIds.get(currentIndex));
+            assert currentParentId != NO_MORE_DOCS;
             return;
         }
-        currentDocId = parentBitSet.prevSetBit(docIds.get(currentIndex)) + 1;
-        currentParentId = parentBitSet.nextSetBit(docIds.get(currentIndex));
-        assert currentParentId != NO_MORE_DOCS;
+        currentDocId = NO_MORE_DOCS;
     }
 }
