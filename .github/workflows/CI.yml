@@ -14,7 +14,6 @@ on:
       - 'buildSrc/**'
       - 'gradle/**'
       - 'jni/**'
-      - 'micro-benchmarks/**'
       - '.github/workflows/CI.yml'
   pull_request:
     branches:
@@ -28,7 +27,6 @@ on:
       - 'buildSrc/**'
       - 'gradle/**'
       - 'jni/**'
-      - 'micro-benchmarks/**'
       - '.github/workflows/CI.yml'
 
 jobs:
