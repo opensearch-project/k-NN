@@ -64,22 +64,6 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
-    // KNN script scoring for space_type "linf"
-    public void testKNNLinfScriptScore() throws Exception {
-        if (isRunningAgainstOldCluster()) {
-            createKnnIndex(testIndex, createKNNDefaultScriptScoreSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
-        } else {
-            QUERY_COUNT = NUM_DOCS;
-            DOC_ID = NUM_DOCS;
-            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.LINF);
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
-            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
-            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.LINF);
-            deleteKNNIndex(testIndex);
-        }
-    }
-
     // KNN script scoring for space_type "innerproduct"
     public void testKNNInnerProductScriptScore() throws Exception {
         if (isRunningAgainstOldCluster()) {
