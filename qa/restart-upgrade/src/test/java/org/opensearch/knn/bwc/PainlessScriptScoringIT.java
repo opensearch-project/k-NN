@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.bwc;
 
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNEngine;
+
 public class PainlessScriptScoringIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_FIELD = "test-field";
     private static final int DIMENSIONS = 5;
@@ -53,4 +56,72 @@ public class PainlessScriptScoringIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testNonKNNIndex_withMethodParams_withFaissEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            DOC_ID = NUM_DOCS;
+            QUERY_COUNT = NUM_DOCS;
+            String source = createL1PainlessScriptSource(TEST_FIELD, DIMENSIONS, QUERY_COUNT);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            source = createL1PainlessScriptSource(TEST_FIELD, DIMENSIONS, QUERY_COUNT);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            forceMergeKnnIndex(testIndex, 1);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testNonKNNIndex_withMethodParams_withNmslibEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.NMSLIB.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            DOC_ID = NUM_DOCS;
+            QUERY_COUNT = NUM_DOCS;
+            String source = createL1PainlessScriptSource(TEST_FIELD, DIMENSIONS, QUERY_COUNT);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            source = createL1PainlessScriptSource(TEST_FIELD, DIMENSIONS, QUERY_COUNT);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            forceMergeKnnIndex(testIndex, 1);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testNonKNNIndex_withMethodParams_withLuceneEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.LUCENE.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            DOC_ID = NUM_DOCS;
+            QUERY_COUNT = NUM_DOCS;
+            String source = createL1PainlessScriptSource(TEST_FIELD, DIMENSIONS, QUERY_COUNT);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            source = createL1PainlessScriptSource(TEST_FIELD, DIMENSIONS, QUERY_COUNT);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            forceMergeKnnIndex(testIndex, 1);
+            validateKNNPainlessScriptScoreSearch(testIndex, TEST_FIELD, source, QUERY_COUNT, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
 }
