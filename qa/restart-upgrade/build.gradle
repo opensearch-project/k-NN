@@ -112,6 +112,20 @@ testClusters {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
             }
         }
+        if (!(knn_bwc_version.startsWith("2.13.") ||
+                knn_bwc_version.startsWith("2.14.") ||
+                knn_bwc_version.startsWith("2.15.") ||
+                knn_bwc_version.startsWith("2.16."))) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+            }
+        }
 
         nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
         nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
@@ -198,6 +212,21 @@ testClusters {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
+            }
+        }
+
+        if (!(knn_bwc_version.startsWith("2.13.") ||
+                knn_bwc_version.startsWith("2.14.") ||
+                knn_bwc_version.startsWith("2.15.") ||
+                knn_bwc_version.startsWith("2.16."))) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
             }
         }
 
