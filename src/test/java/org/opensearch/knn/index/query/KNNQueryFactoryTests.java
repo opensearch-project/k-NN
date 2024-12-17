@@ -69,7 +69,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
-            Query query = KNNQueryFactory.create(
+            Query query = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(
                 BaseQueryFactory.CreateQueryRequest.builder()
                     .knnEngine(knnEngine)
                     .indexName(testIndexName)
@@ -78,14 +78,14 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                     .k(testK)
                     .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
                     .build()
-            );
+            )).getKnnQuery();
             assertTrue(query instanceof KNNQuery);
             assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
             assertEquals(testFieldName, ((KNNQuery) query).getField());
             assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
             assertEquals(testK, ((KNNQuery) query).getK());
 
-            query = KNNQueryFactory.create(
+            query = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(
                 BaseQueryFactory.CreateQueryRequest.builder()
                     .knnEngine(knnEngine)
                     .indexName(testIndexName)
@@ -94,7 +94,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                     .k(testK)
                     .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
                     .build()
-            );
+            )).getKnnQuery();
 
             assertTrue(query instanceof KNNQuery);
             assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
@@ -269,7 +269,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .filter(FILTER_QUERY_BUILDER)
             .build();
 
-        final Query actual = KNNQueryFactory.create(createQueryRequest);
+        final Query actual = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(createQueryRequest)).getKnnQuery();
 
         // Then
         assertEquals(expectedQuery, actual);
@@ -303,7 +303,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .filter(FILTER_QUERY_BUILDER)
             .build();
 
-        final Query actual = KNNQueryFactory.create(createQueryRequest);
+        final Query actual = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(createQueryRequest)).getKnnQuery();
 
         // Then
         assertEquals(expectedQuery, actual);
@@ -338,7 +338,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();
-        KNNQuery query = (KNNQuery) KNNQueryFactory.create(createQueryRequest);
+        KNNQuery query = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(createQueryRequest)).getKnnQuery();
         mockedNestedHelper.close();
         assertEquals(ToChildBlockJoinQuery.class, query.getFilterQuery().getClass());
     }
@@ -367,7 +367,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();
-        KNNQuery query = (KNNQuery) KNNQueryFactory.create(createQueryRequest);
+        KNNQuery query = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(createQueryRequest)).getKnnQuery();
         mockedNestedHelper.close();
         assertEquals(FILTER_QUERY.getClass(), query.getFilterQuery().getClass());
     }
@@ -388,7 +388,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .vectorDataType(VectorDataType.FLOAT)
             .context(mockQueryShardContext)
             .build();
-        final Query query = KNNQueryFactory.create(createQueryRequest);
+        final Query query = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(createQueryRequest)).getKnnQuery();
         assertTrue(query instanceof KNNQuery);
         assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
         assertEquals(testFieldName, ((KNNQuery) query).getField());
@@ -441,7 +441,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();
-        Query query = KNNQueryFactory.create(createQueryRequest);
+        Query query = ((NativeEngineKnnVectorQuery) KNNQueryFactory.create(createQueryRequest)).getKnnQuery();
         assertTrue(query instanceof KNNQuery);
         assertNotNull(((KNNQuery) query).getByteQueryVector());
         assertNull(((KNNQuery) query).getQueryVector());
@@ -488,7 +488,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreate_whenExpandNestedDocsQueryWithNmslib_thenCreateKNNQuery() {
-        testExpandNestedDocsQuery(KNNEngine.NMSLIB, KNNQuery.class, VectorDataType.FLOAT);
+        testExpandNestedDocsQuery(KNNEngine.NMSLIB, NativeEngineKnnVectorQuery.class, VectorDataType.FLOAT);
     }
 
     public void testCreate_whenExpandNestedDocsQueryWithLucene_thenCreateExpandNestedDocsQuery() {

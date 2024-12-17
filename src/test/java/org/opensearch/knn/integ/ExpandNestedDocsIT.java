@@ -11,7 +11,6 @@ import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.http.util.EntityUtils;
-import org.junit.After;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
@@ -70,12 +69,6 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
     private Mode mode;
     private Integer dimension;
 
-    @After
-    @SneakyThrows
-    public final void cleanUp() {
-        deleteKNNIndex(INDEX_NAME);
-    }
-
     @ParametersFactory(argumentFormatting = "description:%1$s; engine:%2$s, data_type:%3$s, mode:%4$s, dimension:%5$s")
     public static Collection<Object[]> parameters() throws IOException {
         int dimension = 1;
@@ -99,13 +92,19 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
                     Mode.ON_DISK,
                     // Currently, on disk mode only supports dimension of multiple of 8
                     dimension * 8
-                )
+                ),
+                $("Nmslib with float format and in memory mode", KNNEngine.NMSLIB, VectorDataType.FLOAT, Mode.NOT_CONFIGURED, dimension)
             )
         );
     }
 
     @SneakyThrows
     public void testExpandNestedDocs_whenFilteredOnParentDoc_thenReturnAllNestedDoc() {
+        if (engine == KNNEngine.NMSLIB) {
+            // NMSLIB does not support filtering
+            return;
+        }
+
         int numberOfNestedFields = 2;
         createKnnIndex(engine, mode, dimension, dataType);
         addRandomVectorsWithTopLevelField(1, numberOfNestedFields, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
@@ -131,6 +130,11 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testExpandNestedDocs_whenFilteredOnNestedFieldDoc_thenReturnFilteredNestedDoc() {
+        if (engine == KNNEngine.NMSLIB) {
+            // NMSLIB does not support filtering
+            return;
+        }
+
         int numberOfNestedFields = 2;
         createKnnIndex(engine, mode, dimension, dataType);
         addRandomVectorsWithMetadata(1, numberOfNestedFields, FIELD_NAME_STORAGE, Arrays.asList(FIELD_VALUE_FALSE, FIELD_VALUE_FALSE));
@@ -175,7 +179,9 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
         // Run
         Float[] queryVector = createVector();
-        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, numberOfDocuments, queryVector);
+        // NMSLIB does not support dedup per parent documents. Therefore, we need to multiply the k by number of nestedFields.
+        int k = engine == KNNEngine.NMSLIB ? numberOfDocuments * numberOfNestedFields : numberOfDocuments;
+        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, k, queryVector);
 
         // Verify
         String entity = EntityUtils.toString(response.getEntity());
