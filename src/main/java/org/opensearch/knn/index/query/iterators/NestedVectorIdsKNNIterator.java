@@ -23,13 +23,13 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
     private final BitSet parentBitSet;
 
     public NestedVectorIdsKNNIterator(
-        @Nullable final BitSet filterIdsArray,
+        @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
-        this(filterIdsArray, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
+        this(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
     }
 
     public NestedVectorIdsKNNIterator(
@@ -42,7 +42,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
     }
 
     public NestedVectorIdsKNNIterator(
-        @Nullable final BitSet filterIdsArray,
+        @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
@@ -50,7 +50,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         final byte[] quantizedVector,
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
     ) throws IOException {
-        super(filterIdsArray, queryVector, knnFloatVectorValues, spaceType, quantizedVector, segmentLevelQuantizationInfo);
+        super(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, quantizedVector, segmentLevelQuantizationInfo);
         this.parentBitSet = parentBitSet;
     }
 

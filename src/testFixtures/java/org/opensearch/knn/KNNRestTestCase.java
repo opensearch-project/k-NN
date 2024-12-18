@@ -5,9 +5,12 @@
 
 package org.opensearch.knn;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
+import com.jayway.jsonpath.JsonPath;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
@@ -52,7 +55,6 @@ import javax.management.ObjectName;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -81,6 +83,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
@@ -378,6 +381,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
         request.setJsonEntity(mapping);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    /**
+     * Utility to create a Knn Index Mapping for given model id
+     */
+    public String createKnnIndexMapping(String fieldName, String modelId) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(fieldName)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
     }
 
     /**
@@ -926,6 +945,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
             searchResponseBody
         ).map().get("hits");
         return ((List) responseMap.get("hits")).size();
+    }
+
+    /**
+     * Get mapping from parent doc Id to inner hits offsets
+     */
+    protected Multimap<String, Integer> parseInnerHits(String searchResponseBody, String fieldName) throws IOException {
+        List<String> ids = JsonPath.read(
+            searchResponseBody,
+            String.format(Locale.ROOT, "$.hits.hits[*].inner_hits.%s.hits.hits[*]._id", fieldName)
+        );
+        List<Integer> offsets = JsonPath.read(
+            searchResponseBody,
+            String.format(Locale.ROOT, "$.hits.hits[*].inner_hits.%s.hits.hits[*]._nested.offset", fieldName)
+        );
+        Multimap<String, Integer> docIdToOffsets = ArrayListMultimap.create();
+        for (int i = 0; i < ids.size(); i++) {
+            docIdToOffsets.put(ids.get(i), offsets.get(i));
+        }
+        return docIdToOffsets;
     }
 
     protected List<String> parseIds(String searchResponseBody) throws IOException {

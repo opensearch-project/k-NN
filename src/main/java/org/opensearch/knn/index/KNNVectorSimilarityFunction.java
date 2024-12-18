@@ -29,6 +29,7 @@ public enum KNNVectorSimilarityFunction {
 
         @Override
         public VectorSimilarityFunction getVectorSimilarityFunction() {
+            // For binary vectors using Lucene engine we instead implement a custom BinaryVectorScorer
             throw new IllegalStateException("VectorSimilarityFunction is not available for Hamming space");
         }
     };

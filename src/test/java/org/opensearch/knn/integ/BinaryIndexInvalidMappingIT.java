@@ -8,7 +8,6 @@ package org.opensearch.knn.integ;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.junit.After;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.VectorDataType;
@@ -29,15 +28,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 @Log4j2
 @AllArgsConstructor
 public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
-    @After
-    public void cleanUp() {
-        try {
-            deleteKNNIndex(INDEX_NAME);
-        } catch (Exception e) {
-            log.error(e);
-        }
-    }
-
     private String description;
     private String indexMapping;
     private String expectedExceptionMessage;
@@ -46,11 +36,6 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
     public static Collection<Object[]> parameters() throws IOException {
         return Arrays.asList(
             $$(
-                $(
-                    "Creation of binary index with lucene engine should fail",
-                    createKnnHnswBinaryIndexMapping(KNNEngine.LUCENE, FIELD_NAME, 16, null),
-                    "Validation Failed"
-                ),
                 $(
                     "Creation of binary index with nmslib engine should fail",
                     createKnnHnswBinaryIndexMapping(KNNEngine.NMSLIB, FIELD_NAME, 16, null),

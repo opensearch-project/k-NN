@@ -67,7 +67,21 @@ testClusters {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
             }
         }
-        
+
+        if (knn_bwc_version.startsWith("1.") ||
+                knn_bwc_version.startsWith("2.0.") ||
+                knn_bwc_version.startsWith("2.1.") ||
+                knn_bwc_version.startsWith("2.2.") ||
+                knn_bwc_version.startsWith("2.3.") ||
+                knn_bwc_version.startsWith("2.4")  ||
+                knn_bwc_version.startsWith("2.5.") ||
+                knn_bwc_version.startsWith("2.6.") ||
+                knn_bwc_version.startsWith("2.7.") ||
+                knn_bwc_version.startsWith("2.8.")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
+            }
+        }
         if (knn_bwc_version.startsWith("1.") ||
                 knn_bwc_version.startsWith("2.0.") ||
                 knn_bwc_version.startsWith("2.1.") ||
@@ -86,14 +100,30 @@ testClusters {
                 knn_bwc_version.startsWith("2.14.") ||
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
             }
         }
+
 
         if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
+            }
+        }
+        if (!(knn_bwc_version.startsWith("2.13.") ||
+                knn_bwc_version.startsWith("2.14.") ||
+                knn_bwc_version.startsWith("2.15.") ||
+                knn_bwc_version.startsWith("2.16."))) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
             }
         }
 
@@ -150,6 +180,20 @@ testClusters {
                 knn_bwc_version.startsWith("2.5.") ||
                 knn_bwc_version.startsWith("2.6.") ||
                 knn_bwc_version.startsWith("2.7.") ||
+                knn_bwc_version.startsWith("2.8.")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
+            }
+        }
+        if (knn_bwc_version.startsWith("1.") ||
+                knn_bwc_version.startsWith("2.0.") ||
+                knn_bwc_version.startsWith("2.1.") ||
+                knn_bwc_version.startsWith("2.2.") ||
+                knn_bwc_version.startsWith("2.3.") ||
+                knn_bwc_version.startsWith("2.4")  ||
+                knn_bwc_version.startsWith("2.5.") ||
+                knn_bwc_version.startsWith("2.6.") ||
+                knn_bwc_version.startsWith("2.7.") ||
                 knn_bwc_version.startsWith("2.8.") ||
                 knn_bwc_version.startsWith("2.9.") ||
                 knn_bwc_version.startsWith("2.10.") ||
@@ -159,6 +203,7 @@ testClusters {
                 knn_bwc_version.startsWith("2.14.") ||
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
             }
         }
@@ -167,6 +212,21 @@ testClusters {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
+            }
+        }
+
+        if (!(knn_bwc_version.startsWith("2.13.") ||
+                knn_bwc_version.startsWith("2.14.") ||
+                knn_bwc_version.startsWith("2.15.") ||
+                knn_bwc_version.startsWith("2.16."))) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
             }
         }
 

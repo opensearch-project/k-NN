@@ -10,7 +10,6 @@ import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.junit.After;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
@@ -50,15 +49,6 @@ public class IndexIT extends KNNRestTestCase {
         assert testQueries != null;
         assert groundTruthValues != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath(), groundTruthValues.getPath());
-    }
-
-    @After
-    public void cleanUp() {
-        try {
-            deleteKNNIndex(INDEX_NAME);
-        } catch (Exception e) {
-            log.error(e);
-        }
     }
 
     @SneakyThrows
