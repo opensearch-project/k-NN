@@ -131,12 +131,6 @@ public class KNNWeight extends Weight {
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
-        /*
-        * If filters match all docs in this segment, then there is no need to do any extra step
-        * and should directly do ANN Search*/
-        if (cardinality ==  maxDoc){
-            return doANNSearch(context, filterBitSet, cardinality, k);
-        }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
@@ -156,7 +150,7 @@ public class KNNWeight extends Weight {
          * If filters match all docs in this segment, then there is no need to do any extra step
          * and should directly do ANN Search*/
         if (filterWeight != null && cardinality == maxDoc) {
-            return doANNSearch(context, new FixedBitSet(0), 0, k);
+            return new PerLeafResult(new FixedBitSet(0), doANNSearch(context, new FixedBitSet(0), 0, k));
         }
         Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
         // See whether we have to perform exact search based on approx search results
