@@ -22,7 +22,7 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         switch (getClusterType()) {
             case OLD:
-                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+                createKnnIndex(testIndex, getDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
                 int docIdOld = 0;
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
                 break;
