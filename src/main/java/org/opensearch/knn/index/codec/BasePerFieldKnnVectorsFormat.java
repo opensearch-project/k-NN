@@ -114,7 +114,12 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 }
             }
 
-            KNNVectorsFormatParams knnVectorsFormatParams = new KNNVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
+            KNNVectorsFormatParams knnVectorsFormatParams = new KNNVectorsFormatParams(
+                params,
+                defaultMaxConnections,
+                defaultBeamWidth,
+                knnMethodContext.getSpaceType()
+            );
             log.debug(
                 "Initialize KNN vector format for field [{}] with params [{}] = \"{}\" and [{}] = \"{}\"",
                 field,

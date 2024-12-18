@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query.iterators;
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.FixedBitSet;
 import org.mockito.stubbing.OngoingStubbing;
 import org.opensearch.knn.index.SpaceType;
@@ -45,7 +46,12 @@ public class BinaryVectorIdsKNNIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        BinaryVectorIdsKNNIterator iterator = new BinaryVectorIdsKNNIterator(filterBitSet, queryVector, values, spaceType);
+        BinaryVectorIdsKNNIterator iterator = new BinaryVectorIdsKNNIterator(
+            new BitSetIterator(filterBitSet, filterBitSet.length()),
+            queryVector,
+            values,
+            spaceType
+        );
         for (int i = 0; i < filterIds.length; i++) {
             assertEquals(filterIds[i], iterator.nextDoc());
             assertEquals(expectedScores.get(i), (Float) iterator.score());

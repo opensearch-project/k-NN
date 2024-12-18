@@ -29,7 +29,9 @@ import java.util.function.Function;
 import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.EXPAND_NESTED_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.RESCORE_FIELD;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 import static org.opensearch.knn.index.util.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
@@ -89,6 +91,8 @@ public final class KNNQueryBuilderParser {
             RESCORE_FIELD
         );
 
+        internalParser.declareBoolean(KNNQueryBuilder.Builder::expandNested, EXPAND_NESTED_FIELD);
+
         // Declare fields that cannot be set at the same time. Right now, rescore and radial is not supported
         internalParser.declareExclusiveFieldSet(RESCORE_FIELD.getPreferredName(), MAX_DISTANCE_FIELD.getPreferredName());
         internalParser.declareExclusiveFieldSet(RESCORE_FIELD.getPreferredName(), MIN_SCORE_FIELD.getPreferredName());
@@ -128,6 +132,10 @@ public final class KNNQueryBuilderParser {
             builder.rescoreContext(RescoreParser.streamInput(in));
         }
 
+        if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
+            builder.expandNested(in.readOptionalBoolean());
+        }
+
         return builder;
     }
 
@@ -159,6 +167,9 @@ public final class KNNQueryBuilderParser {
         }
         if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
             RescoreParser.streamOutput(out, builder.getRescoreContext());
+        }
+        if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
+            out.writeOptionalBoolean(builder.getExpandNested());
         }
     }
 
@@ -210,6 +221,7 @@ public final class KNNQueryBuilderParser {
 
         builder.field(VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
         builder.field(K_FIELD.getPreferredName(), knnQueryBuilder.getK());
+
         if (knnQueryBuilder.getFilter() != null) {
             builder.field(FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
         }
@@ -232,6 +244,9 @@ public final class KNNQueryBuilderParser {
         builder.field(BOOST_FIELD.getPreferredName(), knnQueryBuilder.boost());
         if (knnQueryBuilder.queryName() != null) {
             builder.field(NAME_FIELD.getPreferredName(), knnQueryBuilder.queryName());
+        }
+        if (knnQueryBuilder.getExpandNested() != null) {
+            builder.field(EXPAND_NESTED, knnQueryBuilder.getExpandNested());
         }
 
         builder.endObject();

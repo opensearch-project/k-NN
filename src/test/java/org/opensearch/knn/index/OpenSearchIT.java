@@ -641,7 +641,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     public void testKNNIndex_whenBuildThresholdIsNotProvided_thenShouldNotReturnSetting() throws Exception {
         final String knnIndexMapping = createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT));
         final String indexName = "test-index-with-build-graph-settings";
-        createKnnIndex(indexName, knnIndexMapping);
+        createKnnIndex(indexName, getDefaultIndexSettings(), knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
             indexName,
             KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD
@@ -656,7 +656,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     public void testKNNIndex_whenGetIndexSettingWithDefaultIsCalled_thenReturnDefaultBuildGraphThresholdValue() throws Exception {
         final String knnIndexMapping = createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT));
         final String indexName = "test-index-with-build-vector-graph-settings";
-        createKnnIndex(indexName, knnIndexMapping);
+        createKnnIndex(indexName, getDefaultIndexSettings(), knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
             indexName,
             KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD,
@@ -813,6 +813,30 @@ public class OpenSearchIT extends KNNRestTestCase {
         }
         // Delete index
         deleteKNNIndex(indexName);
+    }
+
+    public void testCreateNonKNNIndex_withKNNModelID_throwsException() throws Exception {
+        Settings settings = Settings.builder().put(createKNNDefaultScriptScoreSettings()).build();
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, "random-model-id"))
+        );
+        String expMessage = "Cannot set modelId or method parameters when index.knn setting is false";
+        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
+    }
+
+    public void testCreateNonKNNIndex_withKNNMethodParams_throwsException() throws Exception {
+        Settings settings = Settings.builder().put(createKNNDefaultScriptScoreSettings()).build();
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> createKnnIndex(
+                INDEX_NAME,
+                settings,
+                createKnnIndexMapping(FIELD_NAME, 2, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
+            )
+        );
+        String expMessage = "Cannot set modelId or method parameters when index.knn setting is false";
+        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
     }
 
     /*

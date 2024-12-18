@@ -20,9 +20,12 @@ public abstract class AbstractRestartUpgradeTestCase extends KNNRestTestCase {
 
     @Before
     protected void setIndex() {
-        // Creating index name by concatenating "knn-bwc-" prefix with test method name
-        // for all the tests in this sub-project
-        testIndex = KNN_BWC_PREFIX + getTestName().toLowerCase(Locale.ROOT);
+        // Creating index name by concatenating "knn-bwc-" prefix with test class name and then with method name
+        // for all the tests in this sub-project to generate unique index name
+        testIndex = new StringBuilder().append(KNN_BWC_PREFIX)
+            .append(getTestClass().getName().toLowerCase(Locale.ROOT))
+            .append(getTestName().toLowerCase(Locale.ROOT))
+            .toString();
     }
 
     @Override
@@ -57,5 +60,14 @@ public abstract class AbstractRestartUpgradeTestCase extends KNNRestTestCase {
 
     protected final Optional<String> getBWCVersion() {
         return Optional.ofNullable(System.getProperty(BWC_VERSION, null));
+    }
+
+    @Override
+    protected Settings getKNNDefaultIndexSettings() {
+        if (isApproximateThresholdSupported(getBWCVersion())) {
+            return super.getKNNDefaultIndexSettings();
+        }
+        // for bwc will return old default setting without approximate value threshold setting
+        return getDefaultIndexSettings();
     }
 }

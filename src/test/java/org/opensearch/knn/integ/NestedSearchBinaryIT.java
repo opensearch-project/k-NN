@@ -5,10 +5,10 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
@@ -19,25 +19,30 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 @Log4j2
 public class NestedSearchBinaryIT extends KNNRestTestCase {
-    @After
-    public void cleanUp() {
-        try {
-            deleteKNNIndex(INDEX_NAME);
-        } catch (Exception e) {
-            log.error(e);
-        }
+    private final KNNEngine engine;
+
+    public NestedSearchBinaryIT(KNNEngine engine) {
+        this.engine = engine;
+    }
+
+    @ParametersFactory
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
     }
 
     @SneakyThrows
-    public void testNestedSearchWithFaissHnswBinary_whenKIsTwo_thenReturnTwoResults() {
+    public void testNestedSearchHnswBinary_whenKIsTwo_thenReturnTwoResults() {
+
         String nestedFieldName = "nested";
-        createKnnBinaryIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 16, KNNEngine.FAISS);
+        createKnnBinaryIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 16, engine);
 
         int totalDocCount = 15;
         for (byte i = 0; i < totalDocCount; i++) {
@@ -93,10 +98,10 @@ public class NestedSearchBinaryIT extends KNNRestTestCase {
      *
      */
     @SneakyThrows
-    public void testNestedSearchWithFaissHnswBinary_whenDoingExactSearch_thenReturnCorrectResults() {
+    public void testNestedSearchHnswBinary_whenDoingExactSearch_thenReturnCorrectResults() {
         String nestedFieldName = "nested";
         String filterFieldName = "parking";
-        createKnnBinaryIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 24, KNNEngine.FAISS);
+        createKnnBinaryIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 24, engine);
 
         for (byte i = 1; i < 4; i++) {
             String doc = NestedKnnDocBuilder.create(nestedFieldName)
