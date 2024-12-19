@@ -69,8 +69,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             );
 
             // Load
-            NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
-                .load(indexEntryContext);
+            NativeMemoryAllocation.IndexAllocation indexAllocation = indexEntryContext.load();
 
             // Confirm that the file was loaded by querying
             float[] query = new float[dimension];
@@ -115,8 +114,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             );
 
             // Load
-            NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
-                .load(indexEntryContext);
+            NativeMemoryAllocation.IndexAllocation indexAllocation = indexEntryContext.load();
 
             // Verify
             assertTrue(indexAllocation.isBinaryIndex());
