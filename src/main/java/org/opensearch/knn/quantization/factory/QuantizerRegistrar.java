@@ -42,5 +42,10 @@ final class QuantizerRegistrar {
             ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.FOUR_BIT),
             new MultiBitScalarQuantizer(4)
         );
+        // Register ByteScalarQuantizer for SQParams with int8 or 8 bits
+        // QuantizerRegistry.register(
+        // ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.EIGHT_BIT),
+        // new ByteScalarQuantizer(8)
+        // );
     }
 }

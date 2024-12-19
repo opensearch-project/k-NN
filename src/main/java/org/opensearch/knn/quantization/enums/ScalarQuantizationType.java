@@ -31,7 +31,12 @@ public enum ScalarQuantizationType {
     /**
      * FOUR_BIT quantization uses four bits per coordinate.
      */
-    FOUR_BIT(4);
+    FOUR_BIT(4),
+
+    /**
+     * EIGHT_BIT quantization uses eight bits per dimension.
+     */
+    EIGHT_BIT(8);
 
     private final int id;
 
