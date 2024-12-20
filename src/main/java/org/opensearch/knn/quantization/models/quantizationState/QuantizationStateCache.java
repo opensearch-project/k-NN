@@ -86,7 +86,7 @@ public class QuantizationStateCache implements Closeable {
                 log.error("Error cleaning up cache", e);
             }
         };
-        long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMillis();
+        long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES)).getMillis();
         this.cacheMaintainer = new ScheduledExecutor(cleanUp, scheduleMillis);
     }
 
