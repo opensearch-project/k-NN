@@ -124,6 +124,28 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         assertThat(ex.getMessage(), containsString("Failed to parse value [1] for setting [index.knn.algo_param.ef_search] must be >= 2"));
     }
 
+    public void testUpdateIndexSettingKnnFlagImmutable() throws IOException {
+        Settings settings = Settings.builder()
+                .put(KNNSettings.KNN_INDEX, true)
+                .build();
+        createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
+
+        Exception ex = expectThrows(
+                ResponseException.class,
+                () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+        );
+        assertThat(ex.getMessage(), containsString("Can't update non dynamic settings [[index.knn]] for open indices"));
+
+        closeIndex(INDEX_NAME);
+
+        ex = expectThrows(
+                ResponseException.class,
+                () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+        );
+        assertThat(ex.getMessage(), containsString(String.format("final %s setting [index.knn], not updateable", INDEX_NAME)));
+
+    }
+
     @SuppressWarnings("unchecked")
     public void testCacheRebuiltAfterUpdateIndexSettings() throws Exception {
         createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), createKnnIndexMapping(FIELD_NAME, 2));
