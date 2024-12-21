@@ -1180,6 +1180,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
             jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
             throw;
         }
+        jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
     } else {
         faiss::SearchParameters *searchParameters = nullptr;
         faiss::SearchParametersHNSW hnswParams;
@@ -1202,6 +1203,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
             throw;
         }
     }
+    jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryVector, JNI_ABORT);
 
     // lims is structured to support batched queries, it has a length of nq + 1 (where nq is the number of queries),
     // lims[i] - lims[i-1] gives the number of results for the i-th query. With a single query we used in k-NN,
