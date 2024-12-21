@@ -11,6 +11,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.ArraySourceValueFetcher;
 import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
@@ -51,7 +52,12 @@ public class KNNVectorFieldType extends MappedFieldType {
 
     @Override
     public ValueFetcher valueFetcher(QueryShardContext context, SearchLookup searchLookup, String format) {
-        throw new UnsupportedOperationException("KNN Vector do not support fields search");
+        return new ArraySourceValueFetcher(name(), context) {
+            @Override
+            protected Object parseSourceValue(Object value) {
+                return value;
+            }
+        };
     }
 
     @Override
