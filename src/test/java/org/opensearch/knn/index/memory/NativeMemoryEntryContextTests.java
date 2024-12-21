@@ -61,6 +61,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
         when(indexLoadStrategy.load(indexEntryContext)).thenReturn(indexAllocation);
 
+        // since we are returning mock instance, set indexEntryContext.isPreloaded to true.
+        indexEntryContext.setPreloaded(true);
         assertEquals(indexAllocation, indexEntryContext.load());
     }
 
@@ -290,6 +292,11 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         @Override
         public Integer calculateSizeInKB() {
             return size;
+        }
+
+        @Override
+        public void preload() {
+            return;
         }
 
         @Override

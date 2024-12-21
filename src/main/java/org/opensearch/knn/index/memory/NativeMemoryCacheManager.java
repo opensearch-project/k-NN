@@ -328,6 +328,8 @@ public class NativeMemoryCacheManager implements Closeable {
 
             // Cache Miss
             // Evict before put
+            // preload the graph file before proceeding to load the graph into memory
+            nativeMemoryEntryContext.preload();
             synchronized (this) {
                 if (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight) {
                     Iterator<String> lruIterator = accessRecencyQueue.iterator();

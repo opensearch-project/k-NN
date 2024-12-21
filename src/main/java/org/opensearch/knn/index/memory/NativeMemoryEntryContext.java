@@ -12,12 +12,16 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 
 import java.io.IOException;
 import java.util.Map;
@@ -26,7 +30,7 @@ import java.util.UUID;
 /**
  * Encapsulates all information needed to load a component into native memory.
  */
-public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation> {
+public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation> implements AutoCloseable {
 
     protected final String key;
 
@@ -56,6 +60,18 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
     public abstract Integer calculateSizeInKB();
 
     /**
+     * Preloads the entry by opening the indexInput
+     */
+
+    public abstract void preload();
+
+    /**
+     * Provides the capability to close the closable objects in the {@link NativeMemoryEntryContext}
+     */
+    @Override
+    public void close() {}
+
+    /**
      * Loads entry into memory.
      *
      * @return NativeMemoryAllocation associated with NativeMemoryEntryContext
@@ -74,6 +90,18 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         @Nullable
         @Getter
         private final String modelId;
+
+        @Setter
+        @Getter
+        private boolean preloaded = false;
+        @Getter
+        private int indexSizeKb;
+
+        @Getter
+        private IndexInput readStream;
+
+        @Getter
+        IndexInputWithBuffer indexInputWithBuffer;
 
         /**
          * Constructor
@@ -132,8 +160,53 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
+        public void preload() {
+            // Extract vector file name from the given cache key.
+            // Ex: _0_165_my_field.faiss@1vaqiupVUwvkXAG4Qc/RPg==
+            final String cacheKey = this.getKey();
+            final String vectorFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(cacheKey);
+            if (vectorFileName == null) {
+                throw new IllegalStateException(
+                    "Invalid cache key was given. The key [" + cacheKey + "] does not contain the corresponding vector file name."
+                );
+            }
+
+            // Prepare for opening index input from directory.
+            final Directory directory = this.getDirectory();
+
+            // Try to open an index input then pass it down to native engine for loading an index.
+            try {
+                indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
+                readStream = directory.openInput(vectorFileName, IOContext.READONCE);
+                readStream.seek(0);
+                indexInputWithBuffer = new IndexInputWithBuffer(readStream);
+                preloaded = true;
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to preload the index " + openSearchIndexName);
+            }
+        }
+
+        @Override
         public NativeMemoryAllocation.IndexAllocation load() throws IOException {
+            if (!isPreloaded()) {
+                preload();
+            }
             return indexLoadStrategy.load(this);
+        }
+
+        // close the indexInput
+        @Override
+        public void close() {
+            if (readStream != null) {
+                try {
+                    readStream.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(
+                        "Exception while closing the indexInput index [" + openSearchIndexName + "] for loading the graph file.",
+                        e
+                    );
+                }
+            }
         }
     }
 
@@ -190,6 +263,11 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         @Override
         public Integer calculateSizeInKB() {
             return size;
+        }
+
+        @Override
+        public void preload() {
+            return;
         }
 
         @Override
@@ -276,6 +354,11 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         @Override
         public Integer calculateSizeInKB() {
             return size;
+        }
+
+        @Override
+        public void preload() {
+            return;
         }
 
         @Override
