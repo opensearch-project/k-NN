@@ -797,7 +797,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Return default index settings for index creation
      */
     protected Settings getKNNDefaultIndexSettings() {
-        return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build();
+        return buildKNNIndexSettings(0);
+    }
+
+    /**
+     * Return default index settings for index creation
+     */
+    protected Settings getDefaultIndexSettings() {
+        return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put(KNN_INDEX, true).build();
     }
 
     protected Settings getKNNSegmentReplicatedIndexSettings() {
