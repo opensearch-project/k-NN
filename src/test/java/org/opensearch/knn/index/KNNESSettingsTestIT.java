@@ -125,22 +125,20 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     public void testUpdateIndexSettingKnnFlagImmutable() throws IOException {
-        Settings settings = Settings.builder()
-                .put(KNNSettings.KNN_INDEX, true)
-                .build();
+        Settings settings = Settings.builder().put(KNNSettings.KNN_INDEX, true).build();
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
 
         Exception ex = expectThrows(
-                ResponseException.class,
-                () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+            ResponseException.class,
+            () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
         );
         assertThat(ex.getMessage(), containsString("Can't update non dynamic settings [[index.knn]] for open indices"));
 
         closeIndex(INDEX_NAME);
 
         ex = expectThrows(
-                ResponseException.class,
-                () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+            ResponseException.class,
+            () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
         );
         assertThat(ex.getMessage(), containsString(String.format("final %s setting [index.knn], not updateable", INDEX_NAME)));
 
