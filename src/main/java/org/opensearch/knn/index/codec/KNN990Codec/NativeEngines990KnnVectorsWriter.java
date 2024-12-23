@@ -104,9 +104,8 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 field.getVectors()
             );
             final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
-            // Check only after quantization state writer finish writing its state, since it is required
-            // even if there are no graph files in segment, which will be later used by exact search
-            if (shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+            // should skip graph building only for non quantization use case and if threshold is met
+            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
                 log.info(
                     "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
                     fieldInfo.name,
@@ -144,9 +143,8 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         }
 
         final QuantizationState quantizationState = train(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
-        // Check only after quantization state writer finish writing its state, since it is required
-        // even if there are no graph files in segment, which will be later used by exact search
-        if (shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+        // should skip graph building only for non quantization use case and if threshold is met
+        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
             log.info(
                 "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
                 fieldInfo.name,
