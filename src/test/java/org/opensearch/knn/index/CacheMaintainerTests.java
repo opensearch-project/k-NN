@@ -10,6 +10,7 @@ import com.google.common.cache.CacheBuilder;
 import org.junit.Test;
 import org.opensearch.knn.index.util.ScheduledExecutor;
 
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
@@ -19,17 +20,21 @@ public class CacheMaintainerTests {
     public void testCacheEviction() throws InterruptedException {
         Cache<String, String> testCache = CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.SECONDS).build();
 
-        ScheduledExecutor executor = new ScheduledExecutor(testCache::cleanUp, 60 * 1000);
+        ScheduledExecutor cacheMaintainer = new ScheduledExecutor(
+            Executors.newSingleThreadScheduledExecutor(),
+            testCache::cleanUp,
+            60 * 1000
+        );
 
         testCache.put("key1", "value1");
         assertEquals(testCache.size(), 1);
 
         Thread.sleep(1500);
 
-        executor.getTask().run();
+        cacheMaintainer.getTask().run();
 
         assertEquals(testCache.size(), 0);
 
-        executor.close();
+        cacheMaintainer.close();
     }
 }

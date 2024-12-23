@@ -8,7 +8,6 @@ package org.opensearch.knn.index.util;
 import lombok.Getter;
 
 import java.io.Closeable;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -24,9 +23,9 @@ public class ScheduledExecutor implements Closeable {
      * @param task task to be completed
      * @param scheduleMillis time in milliseconds to wait before executing the task again
      */
-    public ScheduledExecutor(Runnable task, long scheduleMillis) {
+    public ScheduledExecutor(ScheduledExecutorService executor, Runnable task, long scheduleMillis) {
         this.task = task;
-        this.executor = Executors.newSingleThreadScheduledExecutor();
+        this.executor = executor;
         executor.scheduleAtFixedRate(task, 0, scheduleMillis, TimeUnit.MILLISECONDS);
     }
 
