@@ -83,6 +83,7 @@ public class QuantizationStateCache implements Closeable {
             try {
                 cache.cleanUp();
             } catch (Exception e) {
+                // Exceptions from Guava shouldn't halt the executor
                 log.error("Error cleaning up cache", e);
             }
         };
