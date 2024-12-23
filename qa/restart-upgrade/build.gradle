@@ -60,7 +60,21 @@ testClusters {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
             }
         }
-        
+
+        if (knn_bwc_version.startsWith("1.") ||
+                knn_bwc_version.startsWith("2.0.") ||
+                knn_bwc_version.startsWith("2.1.") ||
+                knn_bwc_version.startsWith("2.2.") ||
+                knn_bwc_version.startsWith("2.3.") ||
+                knn_bwc_version.startsWith("2.4")  ||
+                knn_bwc_version.startsWith("2.5.") ||
+                knn_bwc_version.startsWith("2.6.") ||
+                knn_bwc_version.startsWith("2.7.") ||
+                knn_bwc_version.startsWith("2.8.")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
+            }
+        }
         if (knn_bwc_version.startsWith("1.") ||
                 knn_bwc_version.startsWith("2.0.") ||
                 knn_bwc_version.startsWith("2.1.") ||
@@ -79,6 +93,7 @@ testClusters {
                 knn_bwc_version.startsWith("2.14.") ||
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
             }
         }
@@ -164,6 +179,20 @@ testClusters {
                 knn_bwc_version.startsWith("2.5.") ||
                 knn_bwc_version.startsWith("2.6.") ||
                 knn_bwc_version.startsWith("2.7.") ||
+                knn_bwc_version.startsWith("2.8.")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
+            }
+        }
+        if (knn_bwc_version.startsWith("1.") ||
+                knn_bwc_version.startsWith("2.0.") ||
+                knn_bwc_version.startsWith("2.1.") ||
+                knn_bwc_version.startsWith("2.2.") ||
+                knn_bwc_version.startsWith("2.3.") ||
+                knn_bwc_version.startsWith("2.4")  ||
+                knn_bwc_version.startsWith("2.5.") ||
+                knn_bwc_version.startsWith("2.6.") ||
+                knn_bwc_version.startsWith("2.7.") ||
                 knn_bwc_version.startsWith("2.8.") ||
                 knn_bwc_version.startsWith("2.9.") ||
                 knn_bwc_version.startsWith("2.10.") ||
@@ -173,6 +202,7 @@ testClusters {
                 knn_bwc_version.startsWith("2.14.") ||
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
             }
         }
