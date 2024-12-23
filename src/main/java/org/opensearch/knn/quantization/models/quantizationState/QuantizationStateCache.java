@@ -20,6 +20,7 @@ import org.opensearch.knn.index.util.ScheduledExecutor;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES;
@@ -88,7 +89,7 @@ public class QuantizationStateCache implements Closeable {
             }
         };
         long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES)).getMillis();
-        this.cacheMaintainer = new ScheduledExecutor(cleanUp, scheduleMillis);
+        this.cacheMaintainer = new ScheduledExecutor(Executors.newSingleThreadScheduledExecutor(), cleanUp, scheduleMillis);
     }
 
     synchronized void rebuildCache() {

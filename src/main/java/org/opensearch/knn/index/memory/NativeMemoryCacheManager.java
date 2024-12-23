@@ -115,7 +115,7 @@ public class NativeMemoryCacheManager implements Closeable {
             };
             long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
                 .getMillis();
-            this.cacheMaintainer = new ScheduledExecutor(cleanUp, scheduleMillis);
+            this.cacheMaintainer = new ScheduledExecutor(Executors.newSingleThreadScheduledExecutor(), cleanUp, scheduleMillis);
         }
 
         cacheCapacityReached = new AtomicBoolean(false);
