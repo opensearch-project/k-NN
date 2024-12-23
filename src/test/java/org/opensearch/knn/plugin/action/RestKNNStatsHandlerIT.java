@@ -25,6 +25,8 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.KNNStats;
@@ -292,7 +294,12 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         // Create an index with a single vector
         createKnnIndex(
             INDEX_NAME,
-            Settings.builder().put("number_of_shards", 2).put("number_of_replicas", 0).put("index.knn", true).build(),
+            Settings.builder()
+                .put("number_of_shards", 2)
+                .put("number_of_replicas", 0)
+                .put("index.knn", true)
+                .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+                .build(),
             createKnnIndexMapping(FIELD_NAME, 2)
         );
 

@@ -106,7 +106,11 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     public void testUpdateIndexSetting() throws IOException {
-        Settings settings = Settings.builder().put("index.knn", true).put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512).build();
+        Settings settings = Settings.builder()
+            .put("index.knn", true)
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512)
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .build();
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
         assertEquals("512", getIndexSettingByName(INDEX_NAME, KNNSettings.KNN_ALGO_PARAM_EF_SEARCH));
 
@@ -122,7 +126,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testCacheRebuiltAfterUpdateIndexSettings() throws Exception {
-        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
