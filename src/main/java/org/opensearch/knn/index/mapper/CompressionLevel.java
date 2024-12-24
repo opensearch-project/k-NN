@@ -24,7 +24,8 @@ public enum CompressionLevel {
     NOT_CONFIGURED(-1, "", null, Collections.emptySet()),
     x1(1, "1x", null, Collections.emptySet()),
     x2(2, "2x", null, Collections.emptySet()),
-    x4(4, "4x", null, Collections.emptySet()),
+    // TODO: Revisit and fix this
+    x4(4, "4x", new RescoreContext(2.0f, false, true), Set.of(Mode.ON_DISK)),
     x8(8, "8x", new RescoreContext(2.0f, false, true), Set.of(Mode.ON_DISK)),
     x16(16, "16x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),
     x32(32, "32x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),

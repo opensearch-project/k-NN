@@ -9,6 +9,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.quantizer.ByteScalarQuantizer;
 import org.opensearch.knn.quantization.quantizer.MultiBitScalarQuantizer;
 import org.opensearch.knn.quantization.quantizer.OneBitScalarQuantizer;
 
@@ -43,9 +44,9 @@ final class QuantizerRegistrar {
             new MultiBitScalarQuantizer(4)
         );
         // Register ByteScalarQuantizer for SQParams with int8 or 8 bits
-        // QuantizerRegistry.register(
-        // ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.EIGHT_BIT),
-        // new ByteScalarQuantizer(8)
-        // );
+        QuantizerRegistry.register(
+            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.EIGHT_BIT),
+            new ByteScalarQuantizer(8)
+        );
     }
 }

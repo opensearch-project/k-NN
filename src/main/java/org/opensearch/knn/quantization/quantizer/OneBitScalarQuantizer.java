@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
+import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
@@ -62,6 +63,11 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         int[] sampledDocIds = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
         float[] meanThresholds = QuantizerHelper.calculateMeanThresholds(trainingRequest, sampledDocIds);
         return new OneBitScalarQuantizationState(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT), meanThresholds);
+    }
+
+    @Override
+    public QuantizationState train(final TrainingRequest<float[]> trainingRequest, final FieldInfo fieldInfo) throws IOException {
+        return null;
     }
 
     /**

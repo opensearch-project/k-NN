@@ -6,6 +6,7 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
+import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
@@ -117,6 +118,11 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
             ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
             : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
         return new MultiBitScalarQuantizationState(params, thresholds);
+    }
+
+    @Override
+    public QuantizationState train(final TrainingRequest<float[]> trainingRequest, final FieldInfo fieldInfo) throws IOException {
+        return null;
     }
 
     /**

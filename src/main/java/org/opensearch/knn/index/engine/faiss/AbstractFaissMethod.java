@@ -106,22 +106,15 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {
             prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
         }
+
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BYTE) {
 
             // If VectorDataType is Byte using Faiss engine then manipulate Index Description to use "SQ8_direct_signed" scalar quantizer
             // For example, Index Description "HNSW16,Flat" will be updated as "HNSW16,SQ8_direct_signed"
-            String indexDescription = methodAsMapBuilder.indexDescription;
-            if (StringUtils.isNotEmpty(indexDescription)) {
-                StringBuilder indexDescriptionBuilder = new StringBuilder();
-                indexDescriptionBuilder.append(indexDescription.split(",")[0]);
-                indexDescriptionBuilder.append(",");
-                indexDescriptionBuilder.append(FAISS_SIGNED_BYTE_SQ);
-                methodAsMapBuilder.indexDescription = indexDescriptionBuilder.toString();
-            }
             methodAsMapBuilder.indexDescription = updateIndexDescription(methodAsMapBuilder.indexDescription, FAISS_SIGNED_BYTE_SQ);
         }
 
-        // If SQ encoder type is 'int8' then manipulate Index Description to use "SQ8" scalar quantizer
+        // If SQ encoder type is 'int8' or the compression level is 4x then manipulate Index Description to use "SQ8" scalar quantizer
         // For example, Index Description "HNSW16,Flat" will be updated as "HNSW16,SQ8"
         if (encoderContext != null
             && Objects.equals(encoderContext.getName(), ENCODER_SQ)

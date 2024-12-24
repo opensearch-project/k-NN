@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
+import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
@@ -30,6 +31,8 @@ public interface Quantizer<T, R> {
      * @return a QuantizationState containing the learned parameters.
      */
     QuantizationState train(TrainingRequest<T> trainingRequest) throws IOException;
+
+    QuantizationState train(TrainingRequest<T> trainingRequest, FieldInfo fieldInfo) throws IOException;
 
     /**
      * Quantizes the provided vector using the specified quantization state.

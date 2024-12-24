@@ -29,7 +29,9 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -232,10 +234,20 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         final QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
         QuantizationState quantizationState = null;
         if (quantizationParams != null && totalLiveDocs > 0) {
-            initQuantizationStateWriterIfNecessary();
             KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
-            quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs);
-            quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
+
+            // We will not be writing quantization state for 8 bits into a segment file because we are not quantizing the query vectors and
+            // we are storing the template index after training in the quantization state to use it later in the index build strategy for
+            // ingesting data
+            if ((quantizationParams.getTypeIdentifier()).equals(
+                ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.EIGHT_BIT)
+            )) {
+                quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs, fieldInfo);
+            } else {
+                initQuantizationStateWriterIfNecessary();
+                quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs, fieldInfo);
+                quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
+            }
         }
 
         return quantizationState;
