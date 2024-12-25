@@ -183,7 +183,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         ) {
 
             // When shard-level re-scoring is enabled
-            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(any())).thenReturn(true);
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
             // Mock ResultUtil to return valid TopDocs
             mockedResultUtil.when(() -> ResultUtil.resultMapToTopDocs(any(), anyInt()))
@@ -265,7 +265,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         ) {
 
             // When shard-level re-scoring is enabled
-            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(any())).thenReturn(true);
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
             mockedResultUtil.when(() -> ResultUtil.reduceToTopK(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
             mockedResultUtil.when(() -> ResultUtil.resultMapToDocIds(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
