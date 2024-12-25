@@ -577,7 +577,7 @@ public class KNNSettings {
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
     }
 
-    public static boolean isShardLevelRescoringEnabledForDiskBasedVector(String indexName) {
+    public static boolean isShardLevelRescoringDisabledForDiskBasedVector(String indexName) {
         return KNNSettings.state().clusterService.state()
             .getMetadata()
             .index(indexName)
