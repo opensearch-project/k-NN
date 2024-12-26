@@ -163,7 +163,7 @@ public class KNNSettingsTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testShardLevelRescoringEnabled_whenNoValuesProvidedByUser_thenDefaultSettingsUsed() {
+    public void testShardLevelRescoringDisabled_whenNoValuesProvidedByUser_thenDefaultSettingsUsed() {
         Node mockNode = createMockNode(Collections.emptyMap());
         mockNode.start();
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
@@ -171,7 +171,7 @@ public class KNNSettingsTests extends KNNTestCase {
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
         KNNSettings.state().setClusterService(clusterService);
 
-        boolean shardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(INDEX_NAME);
+        boolean shardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(INDEX_NAME);
         mockNode.close();
         assertFalse(shardLevelRescoringDisabled);
     }
@@ -192,7 +192,7 @@ public class KNNSettingsTests extends KNNTestCase {
 
         mockNode.client().admin().indices().updateSettings(new UpdateSettingsRequest(rescoringDisabledSetting, INDEX_NAME)).actionGet();
 
-        boolean shardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(INDEX_NAME);
+        boolean shardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(INDEX_NAME);
         mockNode.close();
         assertEquals(userDefinedRescoringDisabled, shardLevelRescoringDisabled);
     }
