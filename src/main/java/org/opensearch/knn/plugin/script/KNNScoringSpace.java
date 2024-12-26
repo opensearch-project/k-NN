@@ -144,7 +144,12 @@ public interface KNNScoringSpace {
         protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
             SpaceType.COSINESIMIL.validateVector(processedQuery);
             float qVectorSquaredMagnitude = getVectorMagnitudeSquared(processedQuery);
-            return (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
+            // To be consistent, we will be using same formula used by lucene as mentioned below
+            // https://github.com/apache/lucene/blob/0494c824e0ac8049b757582f60d085932a890800/lucene/core/src/java/org/apache/lucene/index/VectorSimilarityFunction.java#L73
+            return (float[] q, float[] v) -> Math.max(
+                (1.0F + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude)) / 2.0F,
+                0.0F
+            );
         }
     }
 
