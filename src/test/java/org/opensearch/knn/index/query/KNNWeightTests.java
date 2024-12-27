@@ -769,16 +769,7 @@ public class KNNWeightTests extends KNNTestCase {
         }
 
         jniServiceMockedStatic.when(
-            () -> JNIService.queryIndex(
-                anyLong(),
-                eq(QUERY_VECTOR),
-                eq(k),
-                eq(HNSW_METHOD_PARAMETERS),
-                any(),
-                eq(new FixedBitSet(0).getBits()),
-                anyInt(),
-                any()
-            )
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), eq(null), anyInt(), any())
         ).thenReturn(getFilteredKNNQueryResults());
 
         final Bits liveDocsBits = mock(Bits.class);
