@@ -23,7 +23,6 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
-import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -661,21 +660,29 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return NAME;
     }
 
-
     @Override
     protected QueryBuilder doRewrite(QueryRewriteContext queryShardContext) throws IOException {
         QueryBuilder rewrittenFilter;
         if (Objects.nonNull(filter)) {
             rewrittenFilter = filter.rewrite(queryShardContext);
             if (rewrittenFilter != filter) {
-                KNNQueryBuilder newKNNQuery = new KNNQueryBuilder(this.fieldName, this.vector, this.k, this.maxDistance, this.minScore,
-                        this.methodParameters, rewrittenFilter, this.ignoreUnmapped, this.rescoreContext, this.expandNested);
+                KNNQueryBuilder newKNNQuery = new KNNQueryBuilder(
+                    this.fieldName,
+                    this.vector,
+                    this.k,
+                    this.maxDistance,
+                    this.minScore,
+                    this.methodParameters,
+                    rewrittenFilter,
+                    this.ignoreUnmapped,
+                    this.rescoreContext,
+                    this.expandNested
+                );
                 return newKNNQuery;
             }
         }
         return super.doRewrite(queryShardContext);
     }
-
 
     @Getter
     @AllArgsConstructor
