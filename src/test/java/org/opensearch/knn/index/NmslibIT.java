@@ -248,9 +248,6 @@ public class NmslibIT extends KNNRestTestCase {
 
         // both document should have identical score
         assertEquals(actualScores.get(0), actualScores.get(1), 0.001);
-
-        // Delete index
-        deleteKNNIndex(indexName);
     }
 
     @SneakyThrows
