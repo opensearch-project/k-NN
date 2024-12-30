@@ -1956,7 +1956,8 @@ public class FaissIT extends KNNRestTestCase {
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = builder.toString();
 
-        createKnnIndex(INDEX_NAME, mapping);
+        createIndex(INDEX_NAME, Settings.builder().put("number_of_shards", 2).put("number_of_replicas", 1).put("index.knn", true).build());
+        putMappingRequest(INDEX_NAME, mapping);
 
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
 

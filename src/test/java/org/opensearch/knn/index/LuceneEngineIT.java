@@ -15,6 +15,7 @@ import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Nullable;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.QueryBuilder;
@@ -304,7 +305,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = builder.toString();
 
-        createKnnIndex(INDEX_NAME, mapping);
+        createIndex(INDEX_NAME, Settings.builder().put("number_of_shards", 2).put("number_of_replicas", 1).put("index.knn", true).build());
+        putMappingRequest(INDEX_NAME, mapping);
 
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
 
