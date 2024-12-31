@@ -328,6 +328,9 @@ public class NativeMemoryCacheManager implements Closeable {
 
             // Cache Miss
             // Evict before put
+            // open the graph file before proceeding to load the graph into memory
+            nativeMemoryEntryContext.openGraphFile();
+            logger.debug("[KNN] NativeMemoryCacheManager openGraphFile successful");
             synchronized (this) {
                 if (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight) {
                     Iterator<String> lruIterator = accessRecencyQueue.iterator();
@@ -350,7 +353,11 @@ public class NativeMemoryCacheManager implements Closeable {
                 return result;
             }
         } else {
-            return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
+            // open graphFile before load
+            try (nativeMemoryEntryContext) {
+                nativeMemoryEntryContext.openGraphFile();
+                return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
+            }
         }
     }
 
