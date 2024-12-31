@@ -13,12 +13,9 @@ package org.opensearch.knn.index.memory;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -88,10 +85,16 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             final int indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
 
             // Try to open an index input then pass it down to native engine for loading an index.
-            try (IndexInput readStream = directory.openInput(vectorFileName, IOContext.READONCE)) {
-                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
-                final long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
-
+            // open in NativeMemoryEntryContext takes care of opening the indexInput file
+            if (!indexEntryContext.isIndexGraphFileOpened()) {
+                throw new IllegalStateException("Index [" + indexEntryContext.getOpenSearchIndexName() + "] is not preloaded");
+            }
+            try (indexEntryContext) {
+                final long indexAddress = JNIService.loadIndex(
+                    indexEntryContext.indexInputWithBuffer,
+                    indexEntryContext.getParameters(),
+                    knnEngine
+                );
                 return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, indexSizeKb, vectorFileName);
             }
         }
