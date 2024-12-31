@@ -413,6 +413,51 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testQueryWithFilterMultipleShards() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, "3")
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject(INTEGER_FIELD_NAME)
+            .field(TYPE_FIELD_NAME, FILED_TYPE_INTEGER)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+
+        createIndex(INDEX_NAME, Settings.builder().put("number_of_shards", 10).put("number_of_replicas", 0).put("index.knn", true).build());
+        putMappingRequest(INDEX_NAME, mapping);
+
+        addKnnDocWithAttributes("doc1", new float[] { 7.0f, 7.0f, 3.0f }, ImmutableMap.of("dateReceived", "2024-10-01"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 7.0f, 3.0f };
+        final Response response = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(
+                FIELD_NAME,
+                searchVector,
+                1,
+                QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery("dateReceived").gte("2023-11-01"))
+            ),
+            10
+        );
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(1, knnResults.size());
+    }
+
+    @SneakyThrows
     public void testEndToEnd_whenMethodIsHNSWPQ_thenSucceed() {
         String indexName = "test-index";
         String fieldName = "test-field";
@@ -1956,8 +2001,7 @@ public class FaissIT extends KNNRestTestCase {
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = builder.toString();
 
-        createIndex(INDEX_NAME, Settings.builder().put("number_of_shards", 2).put("number_of_replicas", 1).put("index.knn", true).build());
-        putMappingRequest(INDEX_NAME, mapping);
+        createKnnIndex(INDEX_NAME, mapping);
 
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
 
