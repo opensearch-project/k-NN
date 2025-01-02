@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import org.opensearch.Version;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 
@@ -62,4 +63,12 @@ public interface KNNMappingConfig {
      * @return the dimension of the index; for model based indices, it will be null
      */
     int getDimension();
+
+    /**
+     * Returns index created Version
+     * @return Version
+     */
+    default Version getIndexCreatedVersion() {
+        return Version.CURRENT;
+    }
 }
