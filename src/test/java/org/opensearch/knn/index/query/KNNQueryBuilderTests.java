@@ -1066,10 +1066,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .filter(rewrittenFilter)
             .k(K)
             .build();
+
+        QueryBuilder filterBefore = filter;
+
         // When
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).filter(filter).k(K).build();
 
         QueryBuilder actual = knnQueryBuilder.rewrite(context);
+
+        QueryBuilder filterAfter = knnQueryBuilder.getFilter();
+
+        assertEquals(filterBefore, filterAfter);
 
         // Then
         assertEquals(expected, actual);

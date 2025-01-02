@@ -666,19 +666,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (Objects.nonNull(filter)) {
             rewrittenFilter = filter.rewrite(queryShardContext);
             if (rewrittenFilter != filter) {
-                KNNQueryBuilder newKNNQuery = new KNNQueryBuilder(
-                    this.fieldName,
-                    this.vector,
-                    this.k,
-                    this.maxDistance,
-                    this.minScore,
-                    this.methodParameters,
-                    rewrittenFilter,
-                    this.ignoreUnmapped,
-                    this.rescoreContext,
-                    this.expandNested
-                );
-                return newKNNQuery;
+                KNNQueryBuilder rewrittenQueryBuilder = KNNQueryBuilder.builder()
+                        .fieldName(this.fieldName)
+                        .vector(this.vector)
+                        .k(this.k)
+                        .maxDistance(this.maxDistance)
+                        .minScore(this.minScore)
+                        .methodParameters(this.methodParameters)
+                        .filter(rewrittenFilter)
+                        .ignoreUnmapped(this.ignoreUnmapped)
+                        .rescoreContext(this.rescoreContext)
+                        .expandNested(this.expandNested)
+                        .build();
+                return rewrittenQueryBuilder;
             }
         }
         return super.doRewrite(queryShardContext);
