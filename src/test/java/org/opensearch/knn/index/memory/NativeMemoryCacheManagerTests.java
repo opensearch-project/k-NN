@@ -543,6 +543,9 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
+        public void openGraphFile() {}
+
+        @Override
         public TestNativeMemoryAllocation load() throws IOException {
             return new TestNativeMemoryAllocation(size, memoryAddress);
         }
