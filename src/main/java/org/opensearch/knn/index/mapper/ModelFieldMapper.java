@@ -107,6 +107,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
                 return quantizationConfig;
             }
 
+            @Override
+            public Version getIndexCreatedVersion() {
+                return indexCreatedVersion;
+            }
+
             // ModelMetadata relies on cluster state which may not be available during field mapper creation. Thus,
             // we lazily initialize it.
             private void initFromModelMetadata() {
