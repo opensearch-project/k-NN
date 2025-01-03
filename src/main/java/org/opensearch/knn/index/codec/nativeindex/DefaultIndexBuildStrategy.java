@@ -23,7 +23,7 @@ import java.util.Map;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNVectorUtil.intListToArray;
-import static org.opensearch.knn.common.KNNVectorUtil.iterateVectorValuesOnce;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.iterateVectorValuesOnce;
 import static org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory.getVectorTransfer;
 
 /**

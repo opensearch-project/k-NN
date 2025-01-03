@@ -7,9 +7,7 @@ package org.opensearch.knn.common;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
@@ -61,18 +59,5 @@ public class KNNVectorUtil {
             intArray[i] = integerList.get(i);
         }
         return intArray;
-    }
-
-    /**
-     * Iterates vector values once if it is not at start of the location,
-     * Intended to be done to make sure dimension and bytesPerVector are available
-     * @param vectorValues
-     * @throws IOException
-     */
-    public static void iterateVectorValuesOnce(final KNNVectorValues<?> vectorValues) throws IOException {
-        if (vectorValues.docId() == -1) {
-            vectorValues.nextDoc();
-            vectorValues.getVector();
-        }
     }
 }
