@@ -6,9 +6,14 @@
 package org.opensearch.knn.index.codec.util;
 
 import junit.framework.TestCase;
+import lombok.SneakyThrows;
 import org.apache.lucene.index.SegmentInfo;
+import org.junit.Assert;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 
 import java.util.List;
 import java.util.Set;
@@ -16,6 +21,7 @@ import java.util.Set;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.iterateVectorValuesOnce;
 
 public class KNNCodecUtilTests extends TestCase {
 
@@ -45,5 +51,24 @@ public class KNNCodecUtilTests extends TestCase {
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), "target_field", segmentInfo);
         assertEquals(engineFiles.size(), 2);
         assertTrue(engineFiles.get(0).equals("_0_2011_target_field.faissc"));
+    }
+
+    @SneakyThrows
+    public void testInit() {
+        // Give
+        final List<float[]> floatArray = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
+        final int dimension = floatArray.get(0).length;
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            floatArray
+        );
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        // When
+        iterateVectorValuesOnce(knnVectorValues);
+
+        // Then
+        Assert.assertNotEquals(-1, knnVectorValues.docId());
+        Assert.assertArrayEquals(floatArray.get(0), knnVectorValues.getVector(), 0.001f);
+        assertEquals(dimension, knnVectorValues.dimension());
     }
 }
