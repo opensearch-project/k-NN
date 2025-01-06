@@ -17,6 +17,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
@@ -72,6 +73,11 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
                 @Override
                 public CompressionLevel getCompressionLevel() {
                     return knnMethodConfigContext.getCompressionLevel();
+                }
+
+                @Override
+                public Version getIndexCreatedVersion() {
+                    return knnMethodConfigContext.getVersionCreated();
                 }
             }
         );
