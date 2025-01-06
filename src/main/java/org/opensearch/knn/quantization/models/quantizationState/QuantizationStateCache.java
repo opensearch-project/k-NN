@@ -11,16 +11,17 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.util.ScheduledExecutor;
+import org.opensearch.threadpool.Scheduler.Cancellable;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES;
@@ -34,11 +35,13 @@ public class QuantizationStateCache implements Closeable {
 
     private static volatile QuantizationStateCache instance;
     private Cache<String, QuantizationState> cache;
-    private ScheduledExecutor cacheMaintainer;
     @Getter
     private long maxCacheSizeInKB;
     @Getter
     private Instant evictedDueToSizeAt;
+    private Cancellable maintenanceTask;
+    @Setter
+    private static ThreadPool threadPool;
 
     @VisibleForTesting
     QuantizationStateCache() {
@@ -62,10 +65,6 @@ public class QuantizationStateCache implements Closeable {
     }
 
     private void buildCache() {
-        if (cacheMaintainer != null) {
-            cacheMaintainer.close();
-        }
-
         this.cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumWeight(maxCacheSizeInKB).weigher((k, v) -> {
             try {
                 return ((QuantizationState) v).toByteArray().length;
@@ -79,17 +78,27 @@ public class QuantizationStateCache implements Closeable {
             )
             .removalListener(this::onRemoval)
             .build();
+        startMaintenance(cache);
+    }
+
+    public void startMaintenance(Cache<String, QuantizationState> cacheInstance) {
+        if (maintenanceTask != null) {
+            maintenanceTask.cancel();
+        }
 
         Runnable cleanUp = () -> {
             try {
-                cache.cleanUp();
+                cacheInstance.cleanUp();
             } catch (Exception e) {
-                // Exceptions from Guava shouldn't halt the executor
                 log.error("Error cleaning up cache", e);
             }
         };
-        long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES)).getMillis();
-        this.cacheMaintainer = new ScheduledExecutor(Executors.newSingleThreadScheduledExecutor(), cleanUp, scheduleMillis);
+
+        TimeValue interval = KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES);
+
+        if (threadPool != null) {
+            maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
+        }
     }
 
     synchronized void rebuildCache() {
@@ -151,8 +160,9 @@ public class QuantizationStateCache implements Closeable {
 
     @Override
     public void close() throws IOException {
-        if (cacheMaintainer != null) {
-            cacheMaintainer.close();
+        if (maintenanceTask != null) {
+            maintenanceTask.cancel();
         }
     }
+
 }

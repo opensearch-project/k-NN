@@ -16,6 +16,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
+import lombok.Setter;
 import org.apache.commons.lang.Validate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,8 +24,9 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.util.ScheduledExecutor;
 import org.opensearch.knn.plugin.stats.StatNames;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.threadpool.Scheduler.Cancellable;
 
 import java.io.Closeable;
 import java.util.Deque;
@@ -32,11 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -52,9 +50,11 @@ public class NativeMemoryCacheManager implements Closeable {
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
     private final ExecutorService executor;
-    private ScheduledExecutor cacheMaintainer;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
+    @Setter
+    private static ThreadPool threadPool;
+    private Cancellable maintenanceTask;
 
     NativeMemoryCacheManager() {
         this.executor = Executors.newSingleThreadExecutor();
@@ -89,10 +89,6 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private void initialize(NativeMemoryCacheManagerDto nativeMemoryCacheDTO) {
-        if (cacheMaintainer != null) {
-            cacheMaintainer.close();
-        }
-
         CacheBuilder<String, NativeMemoryAllocation> cacheBuilder = CacheBuilder.newBuilder()
             .recordStats()
             .concurrencyLevel(1)
@@ -105,22 +101,12 @@ public class NativeMemoryCacheManager implements Closeable {
 
         if (nativeMemoryCacheDTO.isExpirationLimited()) {
             cacheBuilder.expireAfterAccess(nativeMemoryCacheDTO.getExpiryTimeInMin(), TimeUnit.MINUTES);
-            Runnable cleanUp = () -> {
-                try {
-                    cache.cleanUp();
-                } catch (Exception e) {
-                    // Exceptions from Guava shouldn't halt the executor
-                    logger.error("Error cleaning up cache", e);
-                }
-            };
-            long scheduleMillis = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
-                .getMillis();
-            this.cacheMaintainer = new ScheduledExecutor(Executors.newSingleThreadScheduledExecutor(), cleanUp, scheduleMillis);
         }
 
         cacheCapacityReached = new AtomicBoolean(false);
         accessRecencyQueue = new ConcurrentLinkedDeque<>();
         cache = cacheBuilder.build();
+        startMaintenance(cache);
     }
 
     /**
@@ -159,8 +145,8 @@ public class NativeMemoryCacheManager implements Closeable {
     @Override
     public void close() {
         executor.shutdown();
-        if (cacheMaintainer != null) {
-            cacheMaintainer.close();
+        if (maintenanceTask != null) {
+            maintenanceTask.cancel();
         }
     }
 
@@ -468,5 +454,25 @@ public class NativeMemoryCacheManager implements Closeable {
             return 0.0F;
         }
         return 100 * size / (float) cbLimit;
+    }
+
+    public void startMaintenance(Cache<String, NativeMemoryAllocation> cacheInstance) {
+        if (maintenanceTask != null) {
+            maintenanceTask.cancel();
+        }
+
+        Runnable cleanUp = () -> {
+            try {
+                cacheInstance.cleanUp();
+            } catch (Exception e) {
+                logger.error("Error cleaning up cache", e);
+            }
+        };
+
+        TimeValue interval = KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES);
+
+        if (threadPool != null) {
+            maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
+        }
     }
 }
