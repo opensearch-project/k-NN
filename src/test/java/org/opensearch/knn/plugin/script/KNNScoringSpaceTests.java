@@ -10,6 +10,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Locale;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -86,7 +87,11 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
-        assertEquals(2F, cosineSimilarity.getScoringMethod().apply(arrayFloat2, arrayFloat), 0.1F);
+        assertEquals(
+            VectorSimilarityFunction.COSINE.compare(arrayFloat2, arrayFloat),
+            cosineSimilarity.getScoringMethod().apply(arrayFloat2, arrayFloat),
+            0.1F
+        );
 
         // invalid zero vector
         final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
