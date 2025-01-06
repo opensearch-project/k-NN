@@ -1511,6 +1511,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
         IDVectorProducer idVectorProducer = new IDVectorProducer(dimension, numDocs);
         float[] queryVector = idVectorProducer.getVector(numDocs);
 
+        final Response response = executeKNNScriptScoreRequest(testIndex, testField, k, spaceType, queryVector);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), testField);
+        assertEquals(k, results.size());
+        PriorityQueue<DistVector> pq = computeGroundTruthValues(k, spaceType, idVectorProducer);
+        for (int i = k - 1; i >= 0; i--) {
+            int expDocID = Integer.parseInt(pq.poll().getDocID());
+            int actualDocID = Integer.parseInt(results.get(i).getDocId());
+            assertEquals(expDocID, actualDocID);
+        }
+    }
+
+    protected Response executeKNNScriptScoreRequest(String testIndex, String testField, int k, SpaceType spaceType, float[] queryVector)
+        throws Exception {
         QueryBuilder qb = new MatchAllQueryBuilder();
         Map<String, Object> params = new HashMap<>();
         params.put(FIELD, testField);
@@ -1520,17 +1533,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Request request = constructKNNScriptQueryRequest(testIndex, qb, params, k, Collections.emptyMap());
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), testField);
-        assertEquals(k, results.size());
-
-        PriorityQueue<DistVector> pq = computeGroundTruthValues(k, spaceType, idVectorProducer);
-
-        for (int i = k - 1; i >= 0; i--) {
-            int expDocID = Integer.parseInt(pq.poll().getDocID());
-            int actualDocID = Integer.parseInt(results.get(i).getDocId());
-            assertEquals(expDocID, actualDocID);
-        }
+        return response;
     }
 
     // validate KNN painless script score search for the space_types : "l2", "l1"

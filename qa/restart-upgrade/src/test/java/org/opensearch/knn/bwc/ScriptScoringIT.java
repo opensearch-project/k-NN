@@ -6,6 +6,7 @@
 package org.opensearch.knn.bwc;
 
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.lucene.util.VectorUtil;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -46,6 +47,38 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
             validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
             deleteKNNIndex(testIndex);
+        }
+    }
+
+    // KNN script scoring for space_type "cosine"
+    public void testKNNCosineScriptScore() throws Exception {
+        float[] indexVector1 = { 1.1f, 2.1f, 3.3f };
+        float[] indexVector2 = { 8.1f, 9.1f, 0.3f };
+        float[] queryVector = { 3.0f, 4.0f, 5.5f };
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, createKNNDefaultScriptScoreSettings(), createKnnIndexMapping(TEST_FIELD, 3));
+            addKnnDoc(testIndex, "1", TEST_FIELD, indexVector1);
+            validateScore(1, queryVector, new float[] { cosineSimilarity(queryVector, indexVector1) });
+        } else {
+            addKnnDoc(testIndex, "2", TEST_FIELD, indexVector2);
+            validateScore(
+                2,
+                queryVector,
+                new float[] { cosineSimilarity(queryVector, indexVector1), cosineSimilarity(queryVector, indexVector2) }
+            );
+        }
+    }
+
+    private float cosineSimilarity(float[] vectorA, float[] vectorB) {
+        return 1 + VectorUtil.cosine(vectorA, vectorB);
+    }
+
+    private void validateScore(int k, float[] queryVector, float[] expectedScore) throws Exception {
+        final Response responseBody = executeKNNScriptScoreRequest(testIndex, TEST_FIELD, k, SpaceType.COSINESIMIL, queryVector);
+        List<Float> actualScores = parseSearchResponseScore(EntityUtils.toString(responseBody.getEntity()), TEST_FIELD);
+        assertEquals(expectedScore.length, actualScores.size());
+        for (int i = 0; i < expectedScore.length; i++) {
+            assertEquals(expectedScore[i], actualScores.get(i), 0.001);
         }
     }
 
