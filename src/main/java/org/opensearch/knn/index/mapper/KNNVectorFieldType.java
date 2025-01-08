@@ -22,10 +22,12 @@ import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
@@ -55,7 +57,26 @@ public class KNNVectorFieldType extends MappedFieldType {
         return new ArraySourceValueFetcher(name(), context) {
             @Override
             protected Object parseSourceValue(Object value) {
-                return value;
+                if (value instanceof ArrayList) {
+                    for (Object item : (ArrayList) value) {
+                        if (VectorDataType.BINARY == vectorDataType || VectorDataType.BYTE == vectorDataType) {
+                            assert item instanceof Integer;
+                        } else if (VectorDataType.FLOAT == vectorDataType) {
+                            assert item instanceof Double;
+                        } else {
+                            throw new IllegalArgumentException(
+                                String.format(
+                                    Locale.ROOT,
+                                    "Cannot parse source value for unsupported values provided for field [%s]",
+                                    VECTOR_DATA_TYPE_FIELD
+                                )
+                            );
+                        }
+                    }
+                    return value;
+                } else {
+                    return deserializeStoredVector((BytesRef) value, vectorDataType);
+                }
             }
         };
     }
