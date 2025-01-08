@@ -81,7 +81,7 @@ public class QuantizationStateCache implements Closeable {
         startMaintenance(cache);
     }
 
-    public void startMaintenance(Cache<String, QuantizationState> cacheInstance) {
+    private void startMaintenance(Cache<String, QuantizationState> cacheInstance) {
         if (maintenanceTask != null) {
             maintenanceTask.cancel();
         }

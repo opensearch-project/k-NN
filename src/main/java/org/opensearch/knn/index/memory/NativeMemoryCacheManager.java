@@ -34,7 +34,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -456,7 +460,7 @@ public class NativeMemoryCacheManager implements Closeable {
         return 100 * size / (float) cbLimit;
     }
 
-    public void startMaintenance(Cache<String, NativeMemoryAllocation> cacheInstance) {
+    private void startMaintenance(Cache<String, NativeMemoryAllocation> cacheInstance) {
         if (maintenanceTask != null) {
             maintenanceTask.cancel();
         }
