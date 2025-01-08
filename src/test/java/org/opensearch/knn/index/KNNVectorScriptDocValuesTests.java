@@ -33,15 +33,16 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
     private static final String MOCK_INDEX_FIELD_NAME = "test-index-field-name";
     private static final float[] SAMPLE_VECTOR_DATA = new float[] { 1.0f, 2.0f };
     private static final byte[] SAMPLE_BYTE_VECTOR_DATA = new byte[] { 1, 2 };
-    private KNNVectorScriptDocValues scriptDocValues;
+    private KNNVectorScriptDocValues<?> scriptDocValues;
     private Directory directory;
     private DirectoryReader reader;
+    private Class<? extends DocIdSetIterator> valuesClass;
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
         directory = newDirectory();
-        Class<? extends DocIdSetIterator> valuesClass = randomFrom(BinaryDocValues.class, ByteVectorValues.class, FloatVectorValues.class);
+        valuesClass = randomFrom(BinaryDocValues.class, ByteVectorValues.class, FloatVectorValues.class);
         createKNNVectorDocument(directory, valuesClass);
         reader = DirectoryReader.open(directory);
         LeafReader leafReader = reader.getContext().leaves().get(0).reader();
@@ -86,9 +87,14 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         directory.close();
     }
 
+    @SuppressWarnings("unchecked")
     public void testGetValue() throws IOException {
         scriptDocValues.setNextDocId(0);
-        Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, scriptDocValues.getValue(), 0.1f);
+        if (ByteVectorValues.class.equals(valuesClass)) {
+            Assert.assertArrayEquals(SAMPLE_BYTE_VECTOR_DATA, ((KNNVectorScriptDocValues<byte[]>) scriptDocValues).getValue());
+        } else {
+            Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, ((KNNVectorScriptDocValues<float[]>) scriptDocValues).getValue(), 0.1f);
+        }
     }
 
     // Test getValue without calling setNextDocId

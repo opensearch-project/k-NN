@@ -114,9 +114,9 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
      * KNNVectors with float[] type. The query value passed in is expected to be float[]. The fieldType of the docs
      * being searched over are expected to be KNNVector type.
      */
-    public static class KNNVectorType extends KNNScoreScript<float[]> {
+    public static class KNNFloatVectorType extends KNNScoreScript<float[]> {
 
-        public KNNVectorType(
+        public KNNFloatVectorType(
             Map<String, Object> params,
             float[] queryValue,
             String field,
@@ -136,8 +136,9 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
          * @return score of the vector to the query vector
          */
         @Override
+        @SuppressWarnings("unchecked")
         public double execute(ScoreScript.ExplanationHolder explanationHolder) {
-            KNNVectorScriptDocValues scriptDocValues = (KNNVectorScriptDocValues) getDoc().get(this.field);
+            KNNVectorScriptDocValues<float[]> scriptDocValues = (KNNVectorScriptDocValues<float[]>) getDoc().get(this.field);
             if (scriptDocValues.isEmpty()) {
                 return 0.0;
             }
@@ -171,12 +172,13 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
          * @return score of the vector to the query vector
          */
         @Override
+        @SuppressWarnings("unchecked")
         public double execute(ScoreScript.ExplanationHolder explanationHolder) {
-            KNNVectorScriptDocValues scriptDocValues = (KNNVectorScriptDocValues) getDoc().get(this.field);
+            KNNVectorScriptDocValues<byte[]> scriptDocValues = (KNNVectorScriptDocValues<byte[]>) getDoc().get(this.field);
             if (scriptDocValues.isEmpty()) {
                 return 0.0;
             }
-            return this.scoringMethod.apply(this.queryValue, scriptDocValues.getByteValue());
+            return this.scoringMethod.apply(this.queryValue, scriptDocValues.getValue());
         }
     }
 }

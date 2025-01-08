@@ -69,16 +69,32 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNScriptScore(SpaceType.L2);
     }
 
+    public void testKNNL2ByteScriptScore() throws Exception {
+        testKNNByteScriptScore(SpaceType.L2);
+    }
+
     public void testKNNL1ScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.L1);
+    }
+
+    public void testKNNL1ByteScriptScore() throws Exception {
+        testKNNByteScriptScore(SpaceType.L1);
     }
 
     public void testKNNLInfScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.LINF);
     }
 
+    public void testKNNLInfByteScriptScore() throws Exception {
+        testKNNByteScriptScore(SpaceType.LINF);
+    }
+
     public void testKNNCosineScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.COSINESIMIL);
+    }
+
+    public void testKNNByteCosineScriptScore() throws Exception {
+        testKNNByteScriptScore(SpaceType.COSINESIMIL);
     }
 
     @SneakyThrows
@@ -86,16 +102,21 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNScriptScoreOnBinaryIndex(SpaceType.HAMMING);
     }
 
+    @SuppressWarnings("unchecked")
     @SneakyThrows
     public void testKNNHammingScriptScore_whenNonBinary_thenException() {
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BYTE);
-        final BiFunction<byte[], byte[], Float> scoreFunction = getHammingScoreFunction();
+        final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
+            SpaceType.HAMMING,
+            queryVector,
+            VectorDataType.BINARY
+        );
         List<VectorDataType> nonBinary = List.of(VectorDataType.FLOAT, VectorDataType.BYTE);
         for (VectorDataType vectorDataType : nonBinary) {
             Exception e = expectThrows(
                 Exception.class,
-                () -> createIndexAndAssertHammingScriptScore(
+                () -> createIndexAndAssertByteScriptScore(
                     createKnnIndexMapping(FIELD_NAME, dims, vectorDataType),
                     SpaceType.HAMMING,
                     scoreFunction,
@@ -110,18 +131,23 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void testKNNNonHammingScriptScore_whenBinary_thenException() {
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
+        final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
+            SpaceType.HAMMING,
+            queryVector,
+            VectorDataType.BINARY
+        );
         Set<SpaceType> spaceTypeToExclude = Set.of(SpaceType.UNDEFINED, SpaceType.HAMMING);
         Arrays.stream(SpaceType.values()).filter(s -> spaceTypeToExclude.contains(s) == false).forEach(s -> {
-            final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(s, queryVector);
             Exception e = expectThrows(
                 Exception.class,
-                () -> createIndexAndAssertScriptScore(
+                () -> createIndexAndAssertByteScriptScore(
                     createKnnIndexMapping(FIELD_NAME, dims, VectorDataType.BINARY),
                     s,
-                    v -> scoreFunction.apply(queryVector, v),
+                    scoreFunction,
                     dims,
                     queryVector,
                     true,
@@ -625,6 +651,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(1, secondQueryCacheMap.get("hit_count"));
     }
 
+    @SuppressWarnings("unchecked")
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
@@ -661,7 +688,11 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 continue;
             }
             final float[] queryVector = randomVector(dimensions);
-            final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(spaceType, queryVector);
+            final BiFunction<float[], float[], Float> scoreFunction = (BiFunction<float[], float[], Float>) getScoreFunction(
+                spaceType,
+                queryVector,
+                VectorDataType.FLOAT
+            );
             createIndexAndAssertScriptScore(testMapping, spaceType, scoreFunction, dimensions, queryVector, true);
         }
     }
@@ -684,6 +715,30 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 KNNEngine.LUCENE.getName(),
                 SpaceType.DEFAULT.getValue(),
                 false
+            )
+        );
+    }
+
+    private List<String> createByteMappers(int dimensions) throws Exception {
+        return List.of(
+            createKnnIndexMapping(FIELD_NAME, dimensions, VectorDataType.BYTE),
+            createKnnIndexMapping(
+                FIELD_NAME,
+                dimensions,
+                KNNConstants.METHOD_HNSW,
+                KNNEngine.LUCENE.getName(),
+                SpaceType.DEFAULT.getValue(),
+                true,
+                VectorDataType.BYTE
+            ),
+            createKnnIndexMapping(
+                FIELD_NAME,
+                dimensions,
+                KNNConstants.METHOD_HNSW,
+                KNNEngine.LUCENE.getName(),
+                SpaceType.DEFAULT.getValue(),
+                false,
+                VectorDataType.BYTE
             )
         );
     }
@@ -724,6 +779,15 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         return vector;
     }
 
+    private byte[] randomByteVector(final int dimensions, final VectorDataType vectorDataType) {
+        int size = VectorDataType.BINARY == vectorDataType ? dimensions / 8 : dimensions;
+        final byte[] vector = new byte[size];
+        for (int i = 0; i < size; i++) {
+            vector[i] = randomByte();
+        }
+        return vector;
+    }
+
     private Map<String, KNNResult> createDataset(
         Function<float[], Float> scoreFunction,
         int dimensions,
@@ -745,10 +809,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         return dataset;
     }
 
-    private BiFunction<byte[], byte[], Float> getHammingScoreFunction() {
-        final int dims = randomIntBetween(2, 10);
-        final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
-        final SpaceType spaceType = SpaceType.HAMMING;
+    private BiFunction<?, ?, Float> getScoreFunction(SpaceType spaceType, float[] queryVector, VectorDataType vectorDataType) {
         List<Float> target = new ArrayList<>(queryVector.length);
         for (float f : queryVector) {
             target.add(f);
@@ -759,27 +820,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             new KNNVectorFieldType(
                 FIELD_NAME,
                 Collections.emptyMap(),
-                VectorDataType.BINARY,
-                getMappingConfigForFlatMapping(queryVector.length * 8)
-            )
-        );
-
-        return ((KNNScoringSpace.Hamming) knnScoringSpace).getHammingScoringMethod();
-    }
-
-    private BiFunction<float[], float[], Float> getScoreFunction(SpaceType spaceType, float[] queryVector) {
-        List<Float> target = new ArrayList<>(queryVector.length);
-        for (float f : queryVector) {
-            target.add(f);
-        }
-        KNNScoringSpace knnScoringSpace = KNNScoringSpaceFactory.create(
-            spaceType.getValue(),
-            target,
-            new KNNVectorFieldType(
-                FIELD_NAME,
-                Collections.emptyMap(),
-                SpaceType.HAMMING == spaceType ? VectorDataType.BINARY : VectorDataType.FLOAT,
-                getMappingConfigForFlatMapping(SpaceType.HAMMING == spaceType ? queryVector.length * 8 : queryVector.length)
+                vectorDataType,
+                getMappingConfigForFlatMapping(vectorDataType.equals(VectorDataType.BINARY) ? queryVector.length * 8 : queryVector.length)
             )
         );
         switch (spaceType) {
@@ -788,35 +830,64 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             case LINF:
             case COSINESIMIL:
             case INNER_PRODUCT:
-                return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod();
+            case HAMMING:
+                if (vectorDataType.equals(VectorDataType.FLOAT)) {
+                    return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(queryVector);
+                }
+                return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(toByte(queryVector));
             default:
                 throw new IllegalArgumentException();
         }
     }
 
+    @SuppressWarnings("unchecked")
     private void testKNNScriptScore(SpaceType spaceType) throws Exception {
         final int dims = randomIntBetween(2, 10);
         final float[] queryVector = randomVector(dims);
-        final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(spaceType, queryVector);
+        final BiFunction<float[], float[], Float> scoreFunction = (BiFunction<float[], float[], Float>) getScoreFunction(
+            spaceType,
+            queryVector,
+            VectorDataType.FLOAT
+        );
         for (String mapper : createMappers(dims)) {
             createIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, true);
             createIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, false);
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private void testKNNByteScriptScore(SpaceType spaceType) throws Exception {
+        final int dims = randomIntBetween(2, 10);
+        final float[] queryVector = randomVector(dims, VectorDataType.BYTE);
+        final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
+            spaceType,
+            queryVector,
+            VectorDataType.BYTE
+        );
+        for (String mapper : createByteMappers(dims)) {
+            createIndexAndAssertByteScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, true, true, VectorDataType.BYTE);
+            createIndexAndAssertByteScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, false, true, VectorDataType.BYTE);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
     private void testKNNScriptScoreOnBinaryIndex(SpaceType spaceType) throws Exception {
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
-        final BiFunction<byte[], byte[], Float> scoreFunction = getHammingScoreFunction();
+        final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
+            spaceType,
+            queryVector,
+            VectorDataType.BINARY
+        );
 
         // Test when knn is enabled and engine is Faiss
         for (String mapper : createBinaryIndexMappers(dims)) {
-            createIndexAndAssertHammingScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, true, true, VectorDataType.BINARY);
-            createIndexAndAssertHammingScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, false, true, VectorDataType.BINARY);
+            createIndexAndAssertByteScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, true, true, VectorDataType.BINARY);
+            createIndexAndAssertByteScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, false, true, VectorDataType.BINARY);
         }
 
         // Test when knn is disabled and engine is default(Nmslib)
-        createIndexAndAssertHammingScriptScore(
+        createIndexAndAssertByteScriptScore(
             createKnnIndexMapping(FIELD_NAME, dims, VectorDataType.BINARY),
             spaceType,
             scoreFunction,
@@ -826,7 +897,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             false,
             VectorDataType.BINARY
         );
-        createIndexAndAssertHammingScriptScore(
+        createIndexAndAssertByteScriptScore(
             createKnnIndexMapping(FIELD_NAME, dims, VectorDataType.BINARY),
             spaceType,
             scoreFunction,
@@ -911,7 +982,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         }
     }
 
-    private void createIndexAndAssertHammingScriptScore(
+    private void createIndexAndAssertByteScriptScore(
         String mapper,
         SpaceType spaceType,
         BiFunction<byte[], byte[], Float> scoreFunction,

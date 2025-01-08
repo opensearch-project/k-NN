@@ -39,7 +39,7 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
     }
 
     @Override
-    public ScriptDocValues<float[]> getScriptValues() {
+    public ScriptDocValues<?> getScriptValues() {
         try {
             FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, fieldName);
             if (fieldInfo == null) {

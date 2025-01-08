@@ -112,24 +112,6 @@ public class KNNScoringSpaceUtil {
     }
 
     /**
-     * Convert an Object to a byte array.
-     *
-     * @param object Object to be converted to a byte array
-     * @param expectedVectorLength int representing the expected vector length of this array.
-     * @return byte[] of the object
-     */
-    public static byte[] parseToByteArray(Object object, int expectedVectorLength, VectorDataType vectorDataType) {
-        byte[] byteArray = convertVectorToByteArray(object, vectorDataType);
-        if (expectedVectorLength != byteArray.length) {
-            KNNCounter.SCRIPT_QUERY_ERRORS.increment();
-            throw new IllegalStateException(
-                "Object's length=" + byteArray.length + " does not match the " + "expected length=" + expectedVectorLength + "."
-            );
-        }
-        return byteArray;
-    }
-
-    /**
      * Converts Object vector to primitive float[]
      *
      * @param vector input vector
@@ -150,6 +132,24 @@ public class KNNScoringSpaceUtil {
             }
         }
         return primitiveVector;
+    }
+
+    /**
+     * Convert an Object to a byte array.
+     *
+     * @param object Object to be converted to a byte array
+     * @param expectedVectorLength int representing the expected vector length of this array.
+     * @return byte[] of the object
+     */
+    public static byte[] parseToByteArray(Object object, int expectedVectorLength, VectorDataType vectorDataType) {
+        byte[] byteArray = convertVectorToByteArray(object, vectorDataType);
+        if (expectedVectorLength != byteArray.length) {
+            KNNCounter.SCRIPT_QUERY_ERRORS.increment();
+            throw new IllegalStateException(
+                "Object's length=" + byteArray.length + " does not match the " + "expected length=" + expectedVectorLength + "."
+            );
+        }
+        return byteArray;
     }
 
     /**
