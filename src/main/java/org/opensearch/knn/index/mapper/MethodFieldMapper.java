@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
@@ -85,6 +86,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
                 @Override
                 public QuantizationConfig getQuantizationConfig() {
                     return quantizationConfig;
+                }
+
+                @Override
+                public Version getIndexCreatedVersion() {
+                    return knnMethodConfigContext.getVersionCreated();
                 }
             }
         );

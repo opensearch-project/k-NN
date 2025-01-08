@@ -662,9 +662,24 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     @Override
     protected QueryBuilder doRewrite(QueryRewriteContext queryShardContext) throws IOException {
-        // rewrite filter query if it exists to avoid runtime errors in next steps of query phase
+        QueryBuilder rewrittenFilter;
         if (Objects.nonNull(filter)) {
-            filter = filter.rewrite(queryShardContext);
+            rewrittenFilter = filter.rewrite(queryShardContext);
+            if (rewrittenFilter != filter) {
+                KNNQueryBuilder rewrittenQueryBuilder = KNNQueryBuilder.builder()
+                    .fieldName(this.fieldName)
+                    .vector(this.vector)
+                    .k(this.k)
+                    .maxDistance(this.maxDistance)
+                    .minScore(this.minScore)
+                    .methodParameters(this.methodParameters)
+                    .filter(rewrittenFilter)
+                    .ignoreUnmapped(this.ignoreUnmapped)
+                    .rescoreContext(this.rescoreContext)
+                    .expandNested(this.expandNested)
+                    .build();
+                return rewrittenQueryBuilder;
+            }
         }
         return super.doRewrite(queryShardContext);
     }
