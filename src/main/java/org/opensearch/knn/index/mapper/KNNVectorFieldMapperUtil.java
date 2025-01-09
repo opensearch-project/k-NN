@@ -146,7 +146,7 @@ public class KNNVectorFieldMapperUtil {
         return indexCreatedVersion.onOrAfter(Version.V_2_17_0);
     }
 
-    private static SpaceType getSpaceType(final Settings indexSettings) {
+    public static SpaceType getSpaceType(final Settings indexSettings) {
         String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
             spaceType = KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
@@ -196,15 +196,11 @@ public class KNNVectorFieldMapperUtil {
     static KNNMethodContext createKNNMethodContextFromLegacy(
         Settings indexSettings,
         Version indexCreatedVersion,
-        SpaceType topLevelSpaceType
+        SpaceType resolvedSpaceType
     ) {
-        // If top level spaceType is set then use that spaceType otherwise default to spaceType from index-settings
-        final SpaceType finalSpaceToSet = topLevelSpaceType != SpaceType.UNDEFINED
-            ? topLevelSpaceType
-            : KNNVectorFieldMapperUtil.getSpaceType(indexSettings);
         return new KNNMethodContext(
             KNNEngine.NMSLIB,
-            finalSpaceToSet,
+            resolvedSpaceType,
             new MethodComponentContext(
                 METHOD_HNSW,
                 Map.of(

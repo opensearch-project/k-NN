@@ -1398,6 +1398,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
+        // TMP
+        for (KNNResult r : results) {
+            System.out.println("+++++++++++++++++++ id:" + r.getDocId() + ", score=" + r.getScore());
+        }
+        // TMP
 
         assertEquals(k, results.size());
         for (int i = 0; i < k; i++) {
