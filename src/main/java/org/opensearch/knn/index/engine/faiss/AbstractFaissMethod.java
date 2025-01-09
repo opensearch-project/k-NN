@@ -17,6 +17,7 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
+import org.opensearch.knn.index.mapper.VectorTransformer;
 
 import java.util.Objects;
 import java.util.Set;
@@ -89,6 +90,11 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         throw new IllegalStateException("Unsupported vector data type " + vectorDataType);
     }
 
+    @Override
+    protected VectorTransformer getVectorTransformer(KNNMethodContext knnMethodContext) {
+        return super.getVectorTransformer(knnMethodContext);
+    }
+
     static KNNLibraryIndexingContext adjustIndexDescription(
         MethodAsMapBuilder methodAsMapBuilder,
         MethodComponentContext methodComponentContext,
@@ -131,5 +137,16 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
             return null;
         }
         return (MethodComponentContext) object;
+    }
+
+    @Override
+    protected SpaceType getCompatibleSpaceType(SpaceType spaceType) {
+        // While FAISS doesn't directly support cosine similarity, we can leverage the mathematical
+        // relationship between cosine similarity and inner product for normalized vectors to add support.
+        // When ||a|| = ||b|| = 1, cos(θ) = a · b
+        if (spaceType == SpaceType.COSINESIMIL) {
+            return SpaceType.INNER_PRODUCT;
+        }
+        return super.getCompatibleSpaceType(spaceType);
     }
 }

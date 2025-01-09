@@ -78,6 +78,11 @@ public enum SpaceType {
         }
 
         @Override
+        public float scoreToDistanceTranslation(float score) {
+            return score;
+        }
+
+        @Override
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.COSINE;
         }

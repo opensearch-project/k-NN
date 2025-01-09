@@ -688,6 +688,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected abstract PerDimensionProcessor getPerDimensionProcessor();
 
+    protected abstract VectorTransformer getVectorTransformer();
+
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();
 
@@ -698,7 +700,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final byte[] array = bytesArrayOptional.get();
             getVectorValidator().validateVector(array);
-            context.doc().addAll(getFieldsForByteVector(array));
+            final byte[] transformedArray = getVectorTransformer().transform(array);
+            context.doc().addAll(getFieldsForByteVector(transformedArray));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
@@ -707,7 +710,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
-            context.doc().addAll(getFieldsForFloatVector(array));
+            final float[] transformedArray = getVectorTransformer().transform(array);
+            context.doc().addAll(getFieldsForFloatVector(transformedArray));
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
