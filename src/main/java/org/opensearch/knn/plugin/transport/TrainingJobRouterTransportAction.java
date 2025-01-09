@@ -23,6 +23,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
@@ -31,6 +32,9 @@ import org.opensearch.transport.TransportService;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.search.internal.SearchContext.DEFAULT_TERMINATE_AFTER;
 
 /**
@@ -132,6 +136,30 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
             // If there are more docs in the index than what the user wants to use for training, take the min
             if (trainingModelRequest.getMaximumVectorCount() < trainingVectors) {
                 trainingVectors = trainingModelRequest.getMaximumVectorCount();
+            }
+
+            long minTrainingVectorCount = 1000;
+            MethodComponentContext encoderContext = (MethodComponentContext) trainingModelRequest.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER);
+
+            if (trainingModelRequest.getKnnMethodContext().getMethodComponentContext().getParameters().containsKey(METHOD_PARAMETER_NLIST)
+                && encoderContext.getParameters().containsKey(ENCODER_PARAMETER_PQ_CODE_SIZE)) {
+
+                int nlist = ((Integer) trainingModelRequest.getKnnMethodContext()
+                    .getMethodComponentContext()
+                    .getParameters()
+                    .get(METHOD_PARAMETER_NLIST));
+                int code_size = ((Integer) encoderContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE));
+                minTrainingVectorCount = (long) Math.max(nlist, Math.pow(2, code_size));
+            }
+
+            if (trainingVectors < minTrainingVectorCount) {
+                ValidationException exception = new ValidationException();
+                exception.addValidationError("Number of training points should be greater than " + minTrainingVectorCount);
+                listener.onFailure(exception);
+                return;
             }
 
             listener.onResponse(
