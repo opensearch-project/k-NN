@@ -6,6 +6,7 @@
 package org.opensearch.knn.bwc;
 
 import org.junit.Assert;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.KNNSettings;
@@ -16,6 +17,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.util.List;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_M_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
@@ -123,6 +125,28 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 100, K);
         } else {
             validateKNNIndexingOnUpgrade(100);
+        }
+    }
+
+    public void testKNNIndexSettingImmutableAfterUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        } else {
+            Exception ex = expectThrows(
+                ResponseException.class,
+                () -> updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+            );
+            assertThat(ex.getMessage(), containsString("Can't update non dynamic settings [[index.knn]] for open indices"));
+
+            closeIndex(testIndex);
+
+            ex = expectThrows(
+                ResponseException.class,
+                () -> updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+            );
+            assertThat(ex.getMessage(), containsString(String.format("final %s setting [index.knn], not updateable", testIndex)));
         }
     }
 
