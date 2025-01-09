@@ -35,6 +35,8 @@ import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+
 /**
  * Request to train and serialize a model
  */
@@ -281,6 +283,15 @@ public class TrainingModelRequest extends ActionRequest {
         if (description != null && description.length() > KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationError("Description exceeds limit of " + KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH + " characters");
+        }
+
+        // Check if ENCODER_PARAMETER_PQ_M is divisible by vector dimension
+        if (knnMethodContext.getMethodComponentContext().getParameters().containsKey(ENCODER_PARAMETER_PQ_M)
+            && knnMethodConfigContext.getDimension() % (Integer) knnMethodContext.getMethodComponentContext()
+                .getParameters()
+                .get(ENCODER_PARAMETER_PQ_M) != 0) {
+            exception = exception == null ? new ActionRequestValidationException() : exception;
+            exception.addValidationError("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions");
         }
 
         // Validate training index exists
