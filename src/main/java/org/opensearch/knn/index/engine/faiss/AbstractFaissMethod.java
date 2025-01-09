@@ -132,4 +132,15 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         }
         return (MethodComponentContext) object;
     }
+
+    @Override
+    protected SpaceType convertUserToMethodSpaceType(SpaceType spaceType) {
+        // While FAISS doesn't directly support cosine similarity, we can leverage the mathematical
+        // relationship between cosine similarity and inner product for normalized vectors to add support.
+        // When ||a|| = ||b|| = 1, cos(θ) = a · b
+        if (spaceType == SpaceType.COSINESIMIL) {
+            return SpaceType.INNER_PRODUCT;
+        }
+        return super.convertUserToMethodSpaceType(spaceType);
+    }
 }

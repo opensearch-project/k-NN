@@ -49,7 +49,8 @@ public class FaissIVFMethod extends AbstractFaissMethod {
         SpaceType.UNDEFINED,
         SpaceType.L2,
         SpaceType.INNER_PRODUCT,
-        SpaceType.HAMMING
+        SpaceType.HAMMING,
+        SpaceType.COSINESIMIL
     );
 
     private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(
