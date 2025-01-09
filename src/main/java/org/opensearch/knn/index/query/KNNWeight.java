@@ -129,6 +129,7 @@ public class KNNWeight extends Weight {
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
@@ -145,7 +146,14 @@ public class KNNWeight extends Weight {
             Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
-        Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
+
+        /*
+         * If filters match all docs in this segment, then null should be passed as filterBitSet
+         * so that it will not do a bitset look up in bottom search layer.
+         */
+        final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
+        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
+
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs

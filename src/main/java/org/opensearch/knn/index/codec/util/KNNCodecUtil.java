@@ -9,12 +9,15 @@ import lombok.NonNull;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentInfo;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
+import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -114,6 +117,31 @@ public class KNNCodecUtil {
             final String vectorIndexFileName = engineFiles.get(0);
             return vectorIndexFileName;
         }
+    }
+
+    /**
+     * Positions the vectorValuesIterator to the first vector document ID if not already positioned there.
+     * This initialization is crucial for setting up vector dimensions and other properties in VectorValues.
+     * <p>
+     * If the VectorValues contains no vector documents, the iterator will be positioned at
+     * {@link DocIdSetIterator#NO_MORE_DOCS}
+     *
+     * @param vectorValues {@link KNNVectorValues}
+     * @throws IOException if there is an error while accessing the vector values
+     */
+    public static void initializeVectorValues(final KNNVectorValues<?> vectorValues) throws IOException {
+        // The docId will be set to -1 if next doc has never been called yet. If it has already been called,
+        // no need to advance the vector values
+        if (vectorValues.docId() != -1) {
+            return;
+        }
+        // Ensure that we are not getting the next vector if there are no more docs
+        vectorValues.nextDoc();
+        if (vectorValues.docId() == DocIdSetIterator.NO_MORE_DOCS) {
+            // Ensure that we are not getting the vector if there are no more docs
+            return;
+        }
+        vectorValues.getVector();
     }
 
     /**

@@ -61,17 +61,17 @@ public final class RescoreContext {
      * based on the vector dimension if shard-level rescoring is disabled.
      *
      * @param finalK The final number of results to return for the entire shard.
-     * @param isShardLevelRescoringEnabled A boolean flag indicating whether shard-level rescoring is enabled.
-     *                                     If true, the dimension-based oversampling logic is bypassed.
+     * @param isShardLevelRescoringDisabled A boolean flag indicating whether shard-level rescoring is disabled.
+     *                                     If false, the dimension-based oversampling logic is bypassed.
      * @param dimension The dimension of the vector. This is used to determine the oversampling factor when
      *                  shard-level rescoring is disabled.
      * @return The number of results to return for the first pass of rescoring, adjusted by the oversample factor.
      */
-    public int getFirstPassK(int finalK, boolean isShardLevelRescoringEnabled, int dimension) {
+    public int getFirstPassK(int finalK, boolean isShardLevelRescoringDisabled, int dimension) {
         // Only apply default dimension-based oversampling logic when:
         // 1. Shard-level rescoring is disabled
         // 2. The oversample factor was not provided by the user
-        if (!isShardLevelRescoringEnabled && !userProvided) {
+        if (isShardLevelRescoringDisabled && !userProvided) {
             // Apply new dimension-based oversampling logic when shard-level rescoring is disabled
             if (dimension >= DIMENSION_THRESHOLD_1000) {
                 oversampleFactor = OVERSAMPLE_FACTOR_1000;  // No oversampling for dimensions >= 1000

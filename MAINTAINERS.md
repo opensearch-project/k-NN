@@ -6,6 +6,7 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 
 | Maintainer              | GitHub ID                                             | Affiliation |
 |-------------------------|-------------------------------------------------------|-------------|
+| Doo Yong Kim             | [0ctopus13prime](https://github.com/0ctopus13prime)               | Amazon      |
 | Heemin Kim              | [heemin32](https://github.com/heemin32)               | Amazon      |
 | Jack Mazanec            | [jmazanec15](https://github.com/jmazanec15)           | Amazon      |
 | Junqiu Lei              | [junqiu-lei](https://github.com/junqiu-lei)           | Amazon      |

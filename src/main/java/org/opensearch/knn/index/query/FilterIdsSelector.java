@@ -78,7 +78,10 @@ public class FilterIdsSelector {
     public static FilterIdsSelector getFilterIdSelector(final BitSet filterIdsBitSet, final int cardinality) throws IOException {
         long[] filterIds;
         FilterIdsSelector.FilterIdsSelectorType filterType;
-        if (filterIdsBitSet instanceof FixedBitSet) {
+        if (filterIdsBitSet == null) {
+            filterIds = null;
+            filterType = FilterIdsSelector.FilterIdsSelectorType.BITMAP;
+        } else if (filterIdsBitSet instanceof FixedBitSet) {
             /**
              * When filterIds is dense filter, using fixed bitset
              */
