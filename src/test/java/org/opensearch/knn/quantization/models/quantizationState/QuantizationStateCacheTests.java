@@ -7,6 +7,8 @@ package org.opensearch.knn.quantization.models.quantizationState;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+import org.junit.After;
+import org.junit.Before;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -15,6 +17,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +31,21 @@ import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE
 import static org.opensearch.knn.quantization.enums.ScalarQuantizationType.ONE_BIT;
 
 public class QuantizationStateCacheTests extends KNNTestCase {
+
+    private ThreadPool threadPool;
+
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        threadPool = new ThreadPool(Settings.builder().put("node.name", "QuantizationStateCacheTests").build());
+        QuantizationStateCache.setThreadPool(threadPool);
+    }
+
+    @After
+    public void shutdown() throws Exception {
+        super.tearDown();
+        terminate(threadPool);
+    }
 
     @SneakyThrows
     public void testSingleThreadedAddAndRetrieve() {

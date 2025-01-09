@@ -34,14 +34,14 @@ import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE
 public class QuantizationStateCache implements Closeable {
 
     private static volatile QuantizationStateCache instance;
+    @Setter
+    private static ThreadPool threadPool;
     private Cache<String, QuantizationState> cache;
     @Getter
     private long maxCacheSizeInKB;
     @Getter
     private Instant evictedDueToSizeAt;
     private Cancellable maintenanceTask;
-    @Setter
-    private static ThreadPool threadPool;
 
     @VisibleForTesting
     QuantizationStateCache() {
@@ -78,7 +78,9 @@ public class QuantizationStateCache implements Closeable {
             )
             .removalListener(this::onRemoval)
             .build();
-        startMaintenance(cache);
+        if (threadPool != null) {
+            startMaintenance(cache);
+        }
     }
 
     private void startMaintenance(Cache<String, QuantizationState> cacheInstance) {
@@ -96,9 +98,7 @@ public class QuantizationStateCache implements Closeable {
 
         TimeValue interval = KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES);
 
-        if (threadPool != null) {
-            maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
-        }
+        maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
     }
 
     synchronized void rebuildCache() {

@@ -50,14 +50,14 @@ public class NativeMemoryCacheManager implements Closeable {
 
     private static final Logger logger = LogManager.getLogger(NativeMemoryCacheManager.class);
     private static NativeMemoryCacheManager INSTANCE;
+    @Setter
+    private static ThreadPool threadPool;
 
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
     private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
-    @Setter
-    private static ThreadPool threadPool;
     private Cancellable maintenanceTask;
 
     NativeMemoryCacheManager() {
@@ -110,7 +110,9 @@ public class NativeMemoryCacheManager implements Closeable {
         cacheCapacityReached = new AtomicBoolean(false);
         accessRecencyQueue = new ConcurrentLinkedDeque<>();
         cache = cacheBuilder.build();
-        startMaintenance(cache);
+        if (threadPool != null) {
+            startMaintenance(cache);
+        }
     }
 
     /**
@@ -475,8 +477,6 @@ public class NativeMemoryCacheManager implements Closeable {
 
         TimeValue interval = KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES);
 
-        if (threadPool != null) {
-            maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
-        }
+        maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
     }
 }

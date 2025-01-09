@@ -12,6 +12,8 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
+import org.junit.After;
+import org.junit.Before;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
@@ -20,6 +22,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -33,6 +36,21 @@ import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COU
 import static org.opensearch.knn.plugin.stats.StatNames.GRAPH_MEMORY_USAGE;
 
 public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase {
+
+    private ThreadPool threadPool;
+
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        threadPool = new ThreadPool(Settings.builder().put("node.name", "NativeMemoryCacheManagerTests").build());
+        NativeMemoryCacheManager.setThreadPool(threadPool);
+    }
+
+    @After
+    public void shutdown() throws Exception {
+        super.tearDown();
+        terminate(threadPool);
+    }
 
     @Override
     public void tearDown() throws Exception {
