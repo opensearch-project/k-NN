@@ -470,7 +470,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
     }
 
     public void testMaintenanceScheduled() throws Exception {
-        QuantizationStateCache quantizationStateCache= new QuantizationStateCache();
+        QuantizationStateCache quantizationStateCache = new QuantizationStateCache();
         Scheduler.Cancellable maintenanceTask = quantizationStateCache.getMaintenanceTask();
 
         assertNotNull(maintenanceTask);
@@ -480,7 +480,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
     }
 
     public void testMaintenanceWithRebuild() throws Exception {
-        QuantizationStateCache quantizationStateCache= new QuantizationStateCache();
+        QuantizationStateCache quantizationStateCache = new QuantizationStateCache();
         Scheduler.Cancellable task1 = quantizationStateCache.getMaintenanceTask();
         assertNotNull(task1);
 
