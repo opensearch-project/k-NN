@@ -41,6 +41,7 @@ public class QuantizationStateCache implements Closeable {
     private long maxCacheSizeInKB;
     @Getter
     private Instant evictedDueToSizeAt;
+    @Getter
     private Cancellable maintenanceTask;
 
     @VisibleForTesting

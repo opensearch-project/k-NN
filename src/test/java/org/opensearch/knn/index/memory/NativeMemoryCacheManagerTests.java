@@ -22,6 +22,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -70,6 +71,8 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
     public void testRebuildCache() throws ExecutionException, InterruptedException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        Cancellable task1 = nativeMemoryCacheManager.getMaintenanceTask();
+        assertNotNull(task1);
 
         // Put entry in cache and check that the weight matches
         int size = 10;
@@ -83,6 +86,9 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // Sleep for a second or two so that the executor can invalidate all entries
         Thread.sleep(2000);
+
+        assertTrue(task1.isCancelled());
+        assertNotNull(nativeMemoryCacheManager.getMaintenanceTask());
 
         assertEquals(0, nativeMemoryCacheManager.getCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
@@ -482,6 +488,16 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         assertEquals((long) size1 + size2, indicesStats.get(indexName2).get(GRAPH_MEMORY_USAGE.getName()));
 
         nativeMemoryCacheManager.close();
+    }
+
+    public void testMaintenanceScheduled() {
+        NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        Cancellable maintenanceTask = nativeMemoryCacheManager.getMaintenanceTask();
+
+        assertNotNull(maintenanceTask);
+
+        nativeMemoryCacheManager.close();
+        assertTrue(maintenanceTask.isCancelled());
     }
 
     private static class TestNativeMemoryAllocation implements NativeMemoryAllocation {

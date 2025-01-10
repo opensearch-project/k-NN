@@ -16,6 +16,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
+import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang.Validate;
 import org.apache.logging.log4j.LogManager;
@@ -58,6 +59,7 @@ public class NativeMemoryCacheManager implements Closeable {
     private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
+    @Getter
     private Cancellable maintenanceTask;
 
     NativeMemoryCacheManager() {

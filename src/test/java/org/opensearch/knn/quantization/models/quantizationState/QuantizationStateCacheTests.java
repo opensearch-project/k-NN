@@ -17,6 +17,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -466,5 +467,28 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         cache.clear();
         cache.close();
         assertNotNull(cache.getEvictedDueToSizeAt());
+    }
+
+    public void testMaintenanceScheduled() throws Exception {
+        QuantizationStateCache quantizationStateCache= new QuantizationStateCache();
+        Scheduler.Cancellable maintenanceTask = quantizationStateCache.getMaintenanceTask();
+
+        assertNotNull(maintenanceTask);
+
+        quantizationStateCache.close();
+        assertTrue(maintenanceTask.isCancelled());
+    }
+
+    public void testMaintenanceWithRebuild() throws Exception {
+        QuantizationStateCache quantizationStateCache= new QuantizationStateCache();
+        Scheduler.Cancellable task1 = quantizationStateCache.getMaintenanceTask();
+        assertNotNull(task1);
+
+        quantizationStateCache.rebuildCache();
+
+        Scheduler.Cancellable task2 = quantizationStateCache.getMaintenanceTask();
+        assertTrue(task1.isCancelled());
+        assertNotNull(task2);
+        quantizationStateCache.close();
     }
 }
