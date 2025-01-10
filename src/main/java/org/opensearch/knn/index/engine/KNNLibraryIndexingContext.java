@@ -49,5 +49,11 @@ public interface KNNLibraryIndexingContext {
      */
     PerDimensionProcessor getPerDimensionProcessor();
 
+    /**
+     * Get the vector transformer that will be used to transform the vector before indexing.
+     * This will be applied at vector level once entire vector is parsed and validated.
+     *
+     * @return VectorTransformer
+     */
     VectorTransformer getVectorTransformer();
 }

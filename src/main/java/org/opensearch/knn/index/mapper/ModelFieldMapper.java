@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
@@ -33,6 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 /**
  * Field mapper for model in mapping
  */
+@Log4j2
 public class ModelFieldMapper extends KNNVectorFieldMapper {
 
     // If the dimension has not yet been set because we do not have access to model metadata, it will be -1
@@ -215,6 +217,9 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
         // Need to handle BWC case
         if (knnMethodContext == null || knnMethodConfigContext == null) {
+            log.debug(
+                "Method Context not available - falling back to Model Metadata for Engine and Space type to determine VectorTransformer instance"
+            );
             vectorTransformer = VectorTransformerFactory.getVectorTransformer(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType());
             return;
         }

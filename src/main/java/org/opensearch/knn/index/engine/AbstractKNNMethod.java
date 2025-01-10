@@ -122,7 +122,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             knnMethodConfigContext
         );
         Map<String, Object> parameterMap = knnLibraryIndexingContext.getLibraryParameters();
-        parameterMap.put(KNNConstants.SPACE_TYPE, getCompatibleSpaceType(knnMethodContext.getSpaceType()).getValue());
+        parameterMap.put(KNNConstants.SPACE_TYPE, convertUserToMethodSpaceType(knnMethodContext.getSpaceType()).getValue());
         parameterMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, knnMethodConfigContext.getVectorDataType().getValue());
         return KNNLibraryIndexingContextImpl.builder()
             .quantizationConfig(knnLibraryIndexingContext.getQuantizationConfig())
@@ -140,17 +140,19 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     }
 
     /**
-     * Gets the compatible space type for the given space type parameter.
+     * Converts user defined space type to method space type that is supported by library.
      * The subclass can override this method and returns the appropriate space type that
-     * is compatible with the library.
+     * is supported by the library. This is required because, some libraries may not
+     * support all the space types supported by OpenSearch, however. this can be achieved by using compatible space type by the library.
+     * For example, faiss does not support cosine similarity. However, we can use inner product space type for cosine similarity after normalization.
+     * In this case, we can return the inner product space type for cosine similarity.
      *
      * @param spaceType The space type to check for compatibility
      * @return The compatible space type for the given input, returns the same
      *         space type if it's already compatible
      * @see SpaceType
      */
-
-    protected SpaceType getCompatibleSpaceType(SpaceType spaceType) {
+    protected SpaceType convertUserToMethodSpaceType(SpaceType spaceType) {
         return spaceType;
     }
 }
