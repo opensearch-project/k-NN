@@ -114,7 +114,7 @@ public class NativeMemoryCacheManager implements Closeable {
         if (threadPool != null) {
             startMaintenance(cache);
         } else {
-            logger.warn("ThreadPool is null during NativeMemoryCacheManager initialization. Scheduled maintenance will not be started.");
+            logger.warn("ThreadPool is null during NativeMemoryCacheManager initialization. Maintenance will not start.");
         }
     }
 

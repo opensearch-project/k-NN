@@ -82,7 +82,7 @@ public class QuantizationStateCache implements Closeable {
         if (threadPool != null) {
             startMaintenance(cache);
         } else {
-            log.warn("ThreadPool is null during QuantizationStateCache initialization. Scheduled maintenance will not be started.");
+            log.warn("ThreadPool is null during QuantizationStateCache initialization. Maintenance will not start.");
         }
     }
 
