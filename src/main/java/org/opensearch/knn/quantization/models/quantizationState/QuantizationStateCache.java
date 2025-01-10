@@ -87,6 +87,13 @@ public class QuantizationStateCache implements Closeable {
         }
     }
 
+    /**
+     * Starts the scheduled maintenance for the cache. Without this thread calling cleanUp(), the Guava cache only
+     * performs maintenance operations (such as evicting expired entries) when the cache is accessed. This
+     * ensures that the cache is also cleaned up based on the configured expiry time.
+     * @see <a href="https://github.com/google/guava/wiki/cachesexplained#timed-eviction"> Guava Cache Guide</a>
+     * @param cacheInstance cache on which to call cleanUp()
+     */
     private void startMaintenance(Cache<String, QuantizationState> cacheInstance) {
         if (maintenanceTask != null) {
             maintenanceTask.cancel();
