@@ -134,7 +134,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
     public void testKNNIndexLuceneByteVector() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
-
         if (isRunningAgainstOldCluster()) {
             createKnnIndex(
                 testIndex,
