@@ -39,6 +39,7 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0") || knn_bwc_version.startsWith("2.1")) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.LuceneFilteringIT.testLuceneFiltering"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNLuceneIndexCreation_withMethodMapper"
         }
     }
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
@@ -92,6 +93,7 @@ task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
     if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0") || knn_bwc_version.startsWith("2.1")) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.LuceneFilteringIT.testLuceneFiltering"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNLuceneIndexCreation_withMethodMapper"
         }
     }
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
@@ -117,6 +119,8 @@ task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
     if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0") || knn_bwc_version.startsWith("2.1")) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.LuceneFilteringIT.testLuceneFiltering"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNLuceneIndexCreation_withMethodMapper"
+
         }
     }
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
