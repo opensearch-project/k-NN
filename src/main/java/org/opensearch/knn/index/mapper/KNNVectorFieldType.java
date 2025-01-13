@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.mapper;
 
 import lombok.Getter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
@@ -23,11 +25,11 @@ import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
@@ -35,6 +37,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deseriali
  */
 @Getter
 public class KNNVectorFieldType extends MappedFieldType {
+    private static final Logger logger = LogManager.getLogger(KNNVectorFieldType.class);
     KNNMappingConfig knnMappingConfig;
     VectorDataType vectorDataType;
 
@@ -58,24 +61,10 @@ public class KNNVectorFieldType extends MappedFieldType {
             @Override
             protected Object parseSourceValue(Object value) {
                 if (value instanceof ArrayList) {
-                    for (Object item : (ArrayList) value) {
-                        if (VectorDataType.BINARY == vectorDataType || VectorDataType.BYTE == vectorDataType) {
-                            assert item instanceof Integer;
-                        } else if (VectorDataType.FLOAT == vectorDataType) {
-                            assert item instanceof Double;
-                        } else {
-                            throw new IllegalArgumentException(
-                                String.format(
-                                    Locale.ROOT,
-                                    "Cannot parse source value for unsupported values provided for field [%s]",
-                                    VECTOR_DATA_TYPE_FIELD
-                                )
-                            );
-                        }
-                    }
                     return value;
                 } else {
-                    return deserializeStoredVector((BytesRef) value, vectorDataType);
+                    logger.warn("Expected type ArrayList for value, but got {} ", value.getClass());
+                    return Collections.emptyList();
                 }
             }
         };
