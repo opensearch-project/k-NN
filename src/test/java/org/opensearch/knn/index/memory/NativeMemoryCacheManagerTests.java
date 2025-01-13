@@ -12,6 +12,8 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
+import org.junit.After;
+import org.junit.Before;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
@@ -20,6 +22,8 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.threadpool.Scheduler.Cancellable;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -34,6 +38,21 @@ import static org.opensearch.knn.plugin.stats.StatNames.GRAPH_MEMORY_USAGE;
 
 public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase {
 
+    private ThreadPool threadPool;
+
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        threadPool = new ThreadPool(Settings.builder().put("node.name", "NativeMemoryCacheManagerTests").build());
+        NativeMemoryCacheManager.setThreadPool(threadPool);
+    }
+
+    @After
+    public void shutdown() throws Exception {
+        super.tearDown();
+        terminate(threadPool);
+    }
+
     @Override
     public void tearDown() throws Exception {
         // Clear out persistent metadata
@@ -41,6 +60,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         Settings circuitBreakerSettings = Settings.builder().putNull(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED).build();
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
         client().admin().cluster().updateSettings(clusterUpdateSettingsRequest).get();
+        NativeMemoryCacheManager.getInstance().close();
         super.tearDown();
     }
 
@@ -51,6 +71,8 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
     public void testRebuildCache() throws ExecutionException, InterruptedException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        Cancellable task1 = nativeMemoryCacheManager.getMaintenanceTask();
+        assertNotNull(task1);
 
         // Put entry in cache and check that the weight matches
         int size = 10;
@@ -64,6 +86,9 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // Sleep for a second or two so that the executor can invalidate all entries
         Thread.sleep(2000);
+
+        assertTrue(task1.isCancelled());
+        assertNotNull(nativeMemoryCacheManager.getMaintenanceTask());
 
         assertEquals(0, nativeMemoryCacheManager.getCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
@@ -378,6 +403,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         nativeMemoryCacheManager.setCacheCapacityReached(false);
         assertFalse(nativeMemoryCacheManager.isCacheCapacityReached());
+        nativeMemoryCacheManager.close();
     }
 
     public void testGetIndicesCacheStats() throws IOException, ExecutionException {
@@ -462,6 +488,16 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         assertEquals((long) size1 + size2, indicesStats.get(indexName2).get(GRAPH_MEMORY_USAGE.getName()));
 
         nativeMemoryCacheManager.close();
+    }
+
+    public void testMaintenanceScheduled() {
+        NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        Cancellable maintenanceTask = nativeMemoryCacheManager.getMaintenanceTask();
+
+        assertNotNull(maintenanceTask);
+
+        nativeMemoryCacheManager.close();
+        assertTrue(maintenanceTask.isCancelled());
     }
 
     private static class TestNativeMemoryAllocation implements NativeMemoryAllocation {
