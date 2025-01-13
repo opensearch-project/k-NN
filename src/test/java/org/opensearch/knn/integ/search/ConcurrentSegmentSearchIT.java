@@ -78,8 +78,6 @@ public class ConcurrentSegmentSearchIT extends KNNRestTestCase {
 
         updateIndexSettings(indexName, Settings.builder().put("index.search.concurrent_segment_search.mode", "all"));
         verifySearch(indexName, fieldName, k);
-
-        deleteKNNIndex(indexName);
     }
 
     /*

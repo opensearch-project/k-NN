@@ -85,4 +85,13 @@ public abstract class AbstractRollingUpgradeTestCase extends KNNRestTestCase {
         return Optional.ofNullable(System.getProperty(BWC_VERSION, null));
     }
 
+    @Override
+    protected Settings getKNNDefaultIndexSettings() {
+        if (isApproximateThresholdSupported(getBWCVersion())) {
+            return super.getKNNDefaultIndexSettings();
+        }
+        // for bwc will return old default setting without approximate value threshold setting
+        return getDefaultIndexSettings();
+    }
+
 }

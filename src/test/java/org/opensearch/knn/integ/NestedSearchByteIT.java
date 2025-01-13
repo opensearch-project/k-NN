@@ -8,7 +8,6 @@ package org.opensearch.knn.integ;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.http.util.EntityUtils;
-import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
@@ -25,15 +24,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 @Log4j2
 public class NestedSearchByteIT extends KNNRestTestCase {
-    @After
-    public void cleanUp() {
-        try {
-            deleteKNNIndex(INDEX_NAME);
-        } catch (Exception e) {
-            log.error(e);
-        }
-    }
-
     @SneakyThrows
     public void testNestedSearchWithFaissHnswByte_whenKIsTwo_thenReturnTwoResults() {
         String nestedFieldName = "nested";

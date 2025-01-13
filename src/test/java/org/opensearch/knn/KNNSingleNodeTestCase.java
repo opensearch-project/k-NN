@@ -96,7 +96,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      * Create a k-NN index with default settings
      */
     protected IndexService createKNNIndex(String indexName) {
-        return createIndex(indexName, getKNNDefaultIndexSettings());
+        return createIndex(indexName, getKNNDefaultIndexSettingsBuildsGraphAlways());
     }
 
     /**
@@ -159,13 +159,6 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         request.source(xContentBuilder);
 
         OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
-    }
-
-    /**
-     * Get default k-NN settings for test cases
-     */
-    protected Settings getKNNDefaultIndexSettings() {
-        return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build();
     }
 
     /**
