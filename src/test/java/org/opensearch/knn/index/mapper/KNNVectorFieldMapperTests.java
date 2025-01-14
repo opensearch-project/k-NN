@@ -391,6 +391,45 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isEmpty());
     }
 
+    public void testSpaceType_build_fromLegacy() throws IOException {
+        // Check legacy is picked up if model context and method context are not set
+        ModelDao modelDao = mock(ModelDao.class);
+        int m = 17;
+        int efConstruction = 17;
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 12)
+            .endObject();
+
+        Settings settings = Settings.builder()
+            .put(settings(CURRENT).build())
+            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+            .put(KNNSettings.KNN_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .put(KNN_INDEX, true)
+            .build();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "test-field-name-1",
+            xContentBuilderToMap(xContentBuilder),
+            buildLegacyParserContext("test", settings, Version.V_2_15_0)
+        );
+
+        // Setup settings
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+        assertEquals(
+            SpaceType.INNER_PRODUCT,
+            knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getSpaceType()
+        );
+    }
+
     public void testBuilder_build_fromLegacy() throws IOException {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
@@ -2082,6 +2121,14 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     }
 
     public Mapper.TypeParser.ParserContext buildParserContext(String indexName, Settings settings) {
+        return dobuildParserContext(indexName, settings, CURRENT);
+    }
+
+    public Mapper.TypeParser.ParserContext buildLegacyParserContext(String indexName, Settings settings, Version version) {
+        return dobuildParserContext(indexName, settings, version);
+    }
+
+    public Mapper.TypeParser.ParserContext dobuildParserContext(String indexName, Settings settings, Version version) {
         IndexSettings indexSettings = new IndexSettings(
             buildIndexMetaData(indexName, settings),
             Settings.EMPTY,
@@ -2096,7 +2143,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             null,
             mapperService,
             type -> new KNNVectorFieldMapper.TypeParser(() -> mockModelDao),
-            CURRENT,
+            version,
             null,
             null,
             null

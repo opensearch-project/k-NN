@@ -45,14 +45,14 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
     }
 
     // Custom Legacy Field Mapping
-    // space_type : "linf", engine : "nmslib", m : 2, ef_construction : 2
+    // space_type : "innerproduct", engine : "nmslib", m : 2, ef_construction : 2
     public void testKNNWarmupCustomLegacyFieldMapping() throws Exception {
 
         // When the cluster is in old version, create a KNN index with custom legacy field mapping settings
         // and add documents into that index
         if (isRunningAgainstOldCluster()) {
             Settings.Builder indexMappingSettings = createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(
-                SpaceType.LINF,
+                SpaceType.INNER_PRODUCT,
                 KNN_ALGO_PARAM_M_MIN_VALUE,
                 KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE
             );
