@@ -770,15 +770,6 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         return vector;
     }
 
-    private byte[] randomByteVector(final int dimensions, final VectorDataType vectorDataType) {
-        int size = VectorDataType.BINARY == vectorDataType ? dimensions / 8 : dimensions;
-        final byte[] vector = new byte[size];
-        for (int i = 0; i < size; i++) {
-            vector[i] = randomByte();
-        }
-        return vector;
-    }
-
     private Map<String, KNNResult> createDataset(
         Function<float[], Float> scoreFunction,
         int dimensions,
@@ -812,7 +803,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 Collections.emptyMap(),
                 vectorDataType,
-                getMappingConfigForFlatMapping(vectorDataType.equals(VectorDataType.BINARY) ? queryVector.length * 8 : queryVector.length)
+                getMappingConfigForFlatMapping(vectorDataType == VectorDataType.BINARY ? queryVector.length * 8 : queryVector.length)
             )
         );
         switch (spaceType) {
@@ -822,7 +813,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             case COSINESIMIL:
             case INNER_PRODUCT:
             case HAMMING:
-                if (vectorDataType.equals(VectorDataType.FLOAT)) {
+                if (vectorDataType == VectorDataType.FLOAT) {
                     return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(queryVector);
                 }
                 return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(toByte(queryVector));
