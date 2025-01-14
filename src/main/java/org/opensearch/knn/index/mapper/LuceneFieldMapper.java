@@ -17,8 +17,8 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
-import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -100,11 +100,10 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         KNNMethodContext resolvedKnnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
         VectorDataType vectorDataType = mappedFieldType.getVectorDataType();
 
-        final VectorSimilarityFunction vectorSimilarityFunction = resolvedKnnMethodContext.getSpaceType()
-            .getKnnVectorSimilarityFunction()
-            .getVectorSimilarityFunction();
+        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = resolvedKnnMethodContext.getSpaceType()
+            .getKnnVectorSimilarityFunction();
 
-        this.fieldType = vectorDataType.createKnnVectorFieldType(knnMappingConfig.getDimension(), vectorSimilarityFunction);
+        this.fieldType = vectorDataType.createKnnVectorFieldType(knnMappingConfig.getDimension(), knnVectorSimilarityFunction);
 
         if (this.hasDocValues) {
             this.vectorFieldType = buildDocValuesFieldType(resolvedKnnMethodContext.getKnnEngine());

@@ -48,6 +48,7 @@ public class KNNQuery extends Query {
 
     @Setter
     private Query filterQuery;
+    @Getter
     private BitSetProducer parentsFilter;
     private Float radius;
     private Context context;
@@ -188,7 +189,7 @@ public class KNNQuery extends Query {
 
     @Override
     public void visit(QueryVisitor visitor) {
-
+        visitor.visitLeaf(this);
     }
 
     @Override

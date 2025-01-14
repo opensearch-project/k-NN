@@ -19,9 +19,9 @@
 #include "gtest/gtest.h"
 #include "commons.h"
 
-using ::testing::_;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::_;
 
 TEST(CreateIndexTest, BasicAssertions) {
     // Define the data
@@ -38,6 +38,7 @@ TEST(CreateIndexTest, BasicAssertions) {
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::FileIOWriter fileIOWriter {indexPath.c_str()};
     faiss::MetricType metricType = faiss::METRIC_L2;
     std::string indexDescription = "HNSW32,Flat";
     int threadCount = 1;
@@ -59,14 +60,14 @@ TEST(CreateIndexTest, BasicAssertions) {
         .WillOnce(Return(index));
     EXPECT_CALL(*mockFaissMethods, indexIdMap(index))
         .WillOnce(Return(indexIdMap));
-    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::StrEq(indexPath.c_str())))
+    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::Eq(&fileIOWriter)))
         .Times(1);
 
     // Create the index
     knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
     long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
-    indexService.writeIndex(indexPath, indexAddress);
+    indexService.writeIndex(&fileIOWriter, indexAddress);
 }
 
 TEST(CreateBinaryIndexTest, BasicAssertions) {
@@ -84,6 +85,7 @@ TEST(CreateBinaryIndexTest, BasicAssertions) {
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::FileIOWriter fileIOWriter {indexPath.c_str()};
     faiss::MetricType metricType = faiss::METRIC_L2;
     std::string indexDescription = "BHNSW32";
     int threadCount = 1;
@@ -105,14 +107,14 @@ TEST(CreateBinaryIndexTest, BasicAssertions) {
         .WillOnce(Return(index));
     EXPECT_CALL(*mockFaissMethods, indexBinaryIdMap(index))
         .WillOnce(Return(indexIdMap));
-    EXPECT_CALL(*mockFaissMethods, writeIndexBinary(indexIdMap, ::testing::StrEq(indexPath.c_str())))
+    EXPECT_CALL(*mockFaissMethods, writeIndexBinary(indexIdMap, ::testing::Eq(&fileIOWriter)))
         .Times(1);
 
     // Create the index
     knn_jni::faiss_wrapper::BinaryIndexService indexService(std::move(mockFaissMethods));
     long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
-    indexService.writeIndex(indexPath, indexAddress);
+    indexService.writeIndex(&fileIOWriter, indexAddress);
 }
 
 TEST(CreateByteIndexTest, BasicAssertions) {
@@ -130,6 +132,7 @@ TEST(CreateByteIndexTest, BasicAssertions) {
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::FileIOWriter fileIOWriter {indexPath.c_str()};
     faiss::MetricType metricType = faiss::METRIC_L2;
     std::string indexDescription = "HNSW16,SQ8_direct_signed";
     int threadCount = 1;
@@ -149,12 +152,12 @@ TEST(CreateByteIndexTest, BasicAssertions) {
         .WillOnce(Return(index));
     EXPECT_CALL(*mockFaissMethods, indexIdMap(index))
         .WillOnce(Return(indexIdMap));
-    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::StrEq(indexPath.c_str())))
+    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::Eq(&fileIOWriter)))
         .Times(1);
 
     // Create the index
     knn_jni::faiss_wrapper::ByteIndexService indexService(std::move(mockFaissMethods));
     long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
-    indexService.writeIndex(indexPath, indexAddress);
+    indexService.writeIndex(&fileIOWriter, indexAddress);
 }

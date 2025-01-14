@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
@@ -74,6 +75,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField K_FIELD = new ParseField("k");
     public static final ParseField FILTER_FIELD = new ParseField("filter");
     public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
+    public static final ParseField EXPAND_NESTED_FIELD = new ParseField(EXPAND_NESTED);
     public static final ParseField MAX_DISTANCE_FIELD = new ParseField(MAX_DISTANCE);
     public static final ParseField MIN_SCORE_FIELD = new ParseField(MIN_SCORE);
     public static final ParseField EF_SEARCH_FIELD = new ParseField(METHOD_PARAMETER_EF_SEARCH);
@@ -106,6 +108,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private boolean ignoreUnmapped;
     @Getter
     private RescoreContext rescoreContext;
+    @Getter
+    private Boolean expandNested;
 
     /**
      * Constructs a new query with the given field name and vector
@@ -147,6 +151,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         private String queryName;
         private float boost = DEFAULT_BOOST;
         private RescoreContext rescoreContext;
+        private Boolean expandNested;
 
         public Builder() {}
 
@@ -205,6 +210,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return this;
         }
 
+        public Builder expandNested(Boolean expandNested) {
+            this.expandNested = expandNested;
+            return this;
+        }
+
         public KNNQueryBuilder build() {
             validate();
             int k = this.k == null ? 0 : this.k;
@@ -217,7 +227,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 methodParameters,
                 filter,
                 ignoreUnmapped,
-                rescoreContext
+                rescoreContext,
+                expandNested
             ).boost(boost).queryName(queryName);
         }
 
@@ -319,6 +330,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.maxDistance = null;
         this.minScore = null;
         this.rescoreContext = null;
+        this.expandNested = null;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -341,6 +353,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         minScore = builder.minScore;
         methodParameters = builder.methodParameters;
         rescoreContext = builder.rescoreContext;
+        expandNested = builder.expandNested;
     }
 
     @Override
@@ -536,6 +549,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .filter(this.filter)
                 .context(context)
                 .rescoreContext(processedRescoreContext)
+                .expandNested(expandNested)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }
@@ -621,7 +635,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             && Objects.equals(methodParameters, other.methodParameters)
             && Objects.equals(filter, other.filter)
             && Objects.equals(ignoreUnmapped, other.ignoreUnmapped)
-            && Objects.equals(rescoreContext, other.rescoreContext);
+            && Objects.equals(rescoreContext, other.rescoreContext)
+            && Objects.equals(expandNested, other.expandNested);
     }
 
     @Override
@@ -635,7 +650,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             ignoreUnmapped,
             maxDistance,
             minScore,
-            rescoreContext
+            rescoreContext,
+            expandNested
         );
     }
 
@@ -646,9 +662,24 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     @Override
     protected QueryBuilder doRewrite(QueryRewriteContext queryShardContext) throws IOException {
-        // rewrite filter query if it exists to avoid runtime errors in next steps of query phase
+        QueryBuilder rewrittenFilter;
         if (Objects.nonNull(filter)) {
-            filter = filter.rewrite(queryShardContext);
+            rewrittenFilter = filter.rewrite(queryShardContext);
+            if (rewrittenFilter != filter) {
+                KNNQueryBuilder rewrittenQueryBuilder = KNNQueryBuilder.builder()
+                    .fieldName(this.fieldName)
+                    .vector(this.vector)
+                    .k(this.k)
+                    .maxDistance(this.maxDistance)
+                    .minScore(this.minScore)
+                    .methodParameters(this.methodParameters)
+                    .filter(rewrittenFilter)
+                    .ignoreUnmapped(this.ignoreUnmapped)
+                    .rescoreContext(this.rescoreContext)
+                    .expandNested(this.expandNested)
+                    .build();
+                return rewrittenQueryBuilder;
+            }
         }
         return super.doRewrite(queryShardContext);
     }

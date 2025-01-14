@@ -12,6 +12,9 @@
 package org.opensearch.knn.training;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexOutput;
 import org.opensearch.Version;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.knn.KNNTestCase;
@@ -26,15 +29,16 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.doAnswer;
@@ -221,17 +225,23 @@ public class TrainingJobTests extends KNNTestCase {
         float[][] vectors = new float[ids.length][dimension];
         fillFloatArrayRandomly(vectors);
         long vectorsMemoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
-        Path indexPath = createTempFile();
-        JNIService.createIndexFromTemplate(
-            ids,
-            vectorsMemoryAddress,
-            vectors[0].length,
-            indexPath.toString(),
-            model.getModelBlob(),
-            ImmutableMap.of(INDEX_THREAD_QTY, 1),
-            knnEngine
-        );
-        assertNotEquals(0, new File(indexPath.toString()).length());
+        Path tempDirPath = createTempDir();
+        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            try (IndexOutput indexOutput = directory.createOutput(indexFileName1, IOContext.DEFAULT)) {
+                final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
+                JNIService.createIndexFromTemplate(
+                    ids,
+                    vectorsMemoryAddress,
+                    vectors[0].length,
+                    indexOutputWithBuffer,
+                    model.getModelBlob(),
+                    ImmutableMap.of(INDEX_THREAD_QTY, 1),
+                    knnEngine
+                );
+            }
+            assertTrue(directory.fileLength(indexFileName1) > 0);
+        }
     }
 
     public void testRun_failure_onGetTrainingDataAllocation() throws ExecutionException {

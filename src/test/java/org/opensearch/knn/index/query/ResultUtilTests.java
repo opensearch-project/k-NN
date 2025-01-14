@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
@@ -27,8 +26,13 @@ public class ResultUtilTests extends KNNTestCase {
         int segmentCount = 5;
 
         List<Map<Integer, Float>> initialLeafResults = getRandomListOfResults(firstPassK, segmentCount);
-        List<Map<Integer, Float>> reducedLeafResults = initialLeafResults.stream().map(HashMap::new).collect(Collectors.toList());
-        ResultUtil.reduceToTopK(reducedLeafResults, finalK);
+        List<PerLeafResult> perLeafLeafResults = initialLeafResults.stream()
+            .map(result -> new PerLeafResult(null, new HashMap<>(result)))
+            .collect(Collectors.toList());
+        ResultUtil.reduceToTopK(perLeafLeafResults, finalK);
+        List<Map<Integer, Float>> reducedLeafResults = perLeafLeafResults.stream()
+            .map(PerLeafResult::getResult)
+            .collect(Collectors.toList());
         assertTopK(initialLeafResults, reducedLeafResults, finalK);
 
         firstPassK = 5;
@@ -36,19 +40,22 @@ public class ResultUtilTests extends KNNTestCase {
         segmentCount = 1;
 
         initialLeafResults = getRandomListOfResults(firstPassK, segmentCount);
-        reducedLeafResults = initialLeafResults.stream().map(HashMap::new).collect(Collectors.toList());
-        ResultUtil.reduceToTopK(reducedLeafResults, finalK);
+        perLeafLeafResults = initialLeafResults.stream()
+            .map(result -> new PerLeafResult(null, new HashMap<>(result)))
+            .collect(Collectors.toList());
+        ResultUtil.reduceToTopK(perLeafLeafResults, finalK);
+        reducedLeafResults = perLeafLeafResults.stream().map(PerLeafResult::getResult).collect(Collectors.toList());
         assertTopK(initialLeafResults, reducedLeafResults, firstPassK);
     }
 
-    public void testResultMapToMatchBitSet() throws IOException {
+    public void testResultMapToDocIds() throws IOException {
         int firstPassK = 35;
         Map<Integer, Float> perLeafResults = getRandomResults(firstPassK);
-        BitSet resultBitset = ResultUtil.resultMapToMatchBitSet(perLeafResults);
-        assertResultMapToMatchBitSet(perLeafResults, resultBitset);
+        DocIdSetIterator resultDocIdSetIterator = ResultUtil.resultMapToDocIds(perLeafResults);
+        assertResultMapToDocIdSetIterator(perLeafResults, resultDocIdSetIterator);
     }
 
-    public void testResultMapToDocIds() throws IOException {
+    public void testResultMapToDocIdsWithMaxDoc() throws IOException {
         int firstPassK = 42;
         Map<Integer, Float> perLeafResults = getRandomResults(firstPassK);
         final int maxDoc = Collections.max(perLeafResults.keySet()) + 1;
@@ -88,13 +95,6 @@ public class ResultUtilTests extends KNNTestCase {
             }
         }
         assertEquals(expectedK, count);
-    }
-
-    private void assertResultMapToMatchBitSet(Map<Integer, Float> resultsMap, BitSet resultBitset) {
-        assertEquals(resultsMap.size(), resultBitset.cardinality());
-        for (Integer docId : resultsMap.keySet()) {
-            assertTrue(resultBitset.get(docId));
-        }
     }
 
     private void assertResultMapToDocIdSetIterator(Map<Integer, Float> resultsMap, DocIdSetIterator resultDocIdSetIterator)

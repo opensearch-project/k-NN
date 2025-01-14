@@ -22,7 +22,7 @@ import java.util.Map;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNVectorUtil.intListToArray;
-import static org.opensearch.knn.common.KNNVectorUtil.iterateVectorValuesOnce;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory.getVectorTransfer;
 
 /**
@@ -48,13 +48,12 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
      * flushed and used to build the index. The index is then written to the specified path using JNI calls.</p>
      *
      * @param indexInfo        The {@link BuildIndexParams} containing the parameters and configuration for building the index.
-     * @param knnVectorValues  The {@link KNNVectorValues} representing the vectors to be indexed.
      * @throws IOException     If an I/O error occurs during the process of building and writing the index.
      */
     public void buildAndWriteIndex(final BuildIndexParams indexInfo) throws IOException {
         final KNNVectorValues<?> knnVectorValues = indexInfo.getVectorValues();
         // Needed to make sure we don't get 0 dimensions while initializing index
-        iterateVectorValuesOnce(knnVectorValues);
+        initializeVectorValues(knnVectorValues);
         KNNEngine engine = indexInfo.getKnnEngine();
         Map<String, Object> indexParameters = indexInfo.getParameters();
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
@@ -123,7 +122,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
 
             // Write vector
             AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                JNIService.writeIndex(indexInfo.getIndexPath(), indexMemoryAddress, engine, indexParameters);
+                JNIService.writeIndex(indexInfo.getIndexOutputWithBuffer(), indexMemoryAddress, engine, indexParameters);
                 return null;
             });
 

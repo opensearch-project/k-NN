@@ -29,6 +29,7 @@
 #include "methodfactory.h"
 #include "params.h"
 #include "space.h"
+#include "method/hnsw.h"
 
 test_util::MockJNIUtil::MockJNIUtil() {
     // Set default for calls. If necessary, these can be overriden with
@@ -374,8 +375,13 @@ similarity::Index<float> *test_util::NmslibCreateIndex(
 }
 
 void test_util::NmslibWriteIndex(similarity::Index<float> *index,
-                                 const std::string &indexPath) {
-    index->SaveIndex(indexPath);
+                                 knn_jni::stream::NmslibOpenSearchIOWriter& writer) {
+    if (auto hnswFloatIndex = dynamic_cast<similarity::Hnsw<float> *>(index)) {
+        hnswFloatIndex->SaveIndexWithStream(writer);
+        writer.flush();
+    } else {
+      throw std::runtime_error("We only support similarity::Hnsw<float> in NMSLIB.");
+    }
 }
 
 similarity::Index<float> *test_util::NmslibLoadIndex(

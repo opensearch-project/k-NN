@@ -18,6 +18,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
+#include <functional>
 
 namespace knn_jni {
 
@@ -33,7 +34,7 @@ namespace knn_jni {
         virtual void HasExceptionInStack(JNIEnv* env) = 0;
 
         // HasExceptionInStack with ability to specify message
-        virtual void HasExceptionInStack(JNIEnv* env, const std::string& message) = 0;
+        virtual void HasExceptionInStack(JNIEnv* env, const char *message) = 0;
 
         // Catches a C++ exception and throws the corresponding exception to the JVM
         virtual void CatchCppExceptionAndThrowJava(JNIEnv* env) = 0;
@@ -144,6 +145,9 @@ namespace knn_jni {
         virtual jlong CallNonvirtualLongMethodA(JNIEnv * env, jobject obj, jclass clazz,
                                                 jmethodID methodID, jvalue* args) = 0;
 
+        virtual void CallNonvirtualVoidMethodA(JNIEnv * env, jobject obj, jclass clazz,
+                                               jmethodID methodID, jvalue* args) = 0;
+
         // --------------------------------------------------------------------------
     };
 
@@ -158,7 +162,7 @@ namespace knn_jni {
 
         void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "") final;
         void HasExceptionInStack(JNIEnv* env) final;
-        void HasExceptionInStack(JNIEnv* env, const std::string& message) final;
+        void HasExceptionInStack(JNIEnv* env, const char* message) final;
         void CatchCppExceptionAndThrowJava(JNIEnv* env) final;
         jclass FindClass(JNIEnv * env, const std::string& className) final;
         jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName) final;
@@ -200,13 +204,38 @@ namespace knn_jni {
         jfieldID GetFieldID(JNIEnv * env, jclass clazz, const char *name, const char *sig) final;
         jint CallNonvirtualIntMethodA(JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, jvalue *args) final;
         jlong CallNonvirtualLongMethodA(JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args) final;
+        void CallNonvirtualVoidMethodA(JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args) final;
         void * GetPrimitiveArrayCritical(JNIEnv * env, jarray array, jboolean *isCopy) final;
         void ReleasePrimitiveArrayCritical(JNIEnv * env, jarray array, void *carray, jint mode) final;
 
     private:
         std::unordered_map<std::string, jclass> cachedClasses;
         std::unordered_map<std::string, jmethodID> cachedMethods;
-    };
+    };  // class JNIUtil
+
+    /**
+     * It's common cleaner to release a primitive array within its destructor.
+     * Ex: JNIReleaseElements release_int_array_elements {[=](){
+     *   jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
+     * }};
+     */
+    struct JNIReleaseElements {
+      explicit JNIReleaseElements(std::function<void()> _release_func)
+          : release_func(std::move(_release_func)) {
+      }
+
+      ~JNIReleaseElements() {
+        try {
+          if (release_func) {
+            release_func();
+          }
+        } catch (...) {
+          // Ignore
+        }
+      }
+
+      std::function<void()> release_func;
+    };  // struct ReleaseIntArrayElements
 
     // ------------------------------- CONSTANTS --------------------------------
     extern const std::string FAISS_NAME;

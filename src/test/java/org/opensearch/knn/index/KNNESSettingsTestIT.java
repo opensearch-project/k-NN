@@ -171,7 +171,11 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     public void testUpdateIndexSetting() throws IOException {
-        Settings settings = Settings.builder().put("index.knn", true).put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512).build();
+        Settings settings = Settings.builder()
+            .put("index.knn", true)
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512)
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .build();
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
         assertEquals("512", getIndexSettingByName(INDEX_NAME, KNNSettings.KNN_ALGO_PARAM_EF_SEARCH));
 
@@ -185,9 +189,29 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         assertThat(ex.getMessage(), containsString("Failed to parse value [1] for setting [index.knn.algo_param.ef_search] must be >= 2"));
     }
 
+    public void testUpdateIndexSettingKnnFlagImmutable() throws IOException {
+        Settings settings = Settings.builder().put(KNNSettings.KNN_INDEX, true).build();
+        createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
+
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+        );
+        assertThat(ex.getMessage(), containsString("Can't update non dynamic settings [[index.knn]] for open indices"));
+
+        closeIndex(INDEX_NAME);
+
+        ex = expectThrows(
+            ResponseException.class,
+            () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+        );
+        assertThat(ex.getMessage(), containsString(String.format("final %s setting [index.knn], not updateable", INDEX_NAME)));
+
+    }
+
     @SuppressWarnings("unchecked")
     public void testCacheRebuiltAfterUpdateIndexSettings() throws Exception {
-        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);

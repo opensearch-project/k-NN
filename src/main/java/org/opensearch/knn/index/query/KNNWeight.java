@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
@@ -66,6 +67,7 @@ public class KNNWeight extends Weight {
     private final float boost;
 
     private final NativeMemoryCacheManager nativeMemoryCacheManager;
+    @Getter
     private final Weight filterWeight;
     private final ExactSearcher exactSearcher;
 
@@ -109,7 +111,7 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
-        final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK());
+        final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
         if (docIdToScoreMap.isEmpty()) {
             return KNNScorer.emptyScorer(this);
         }
@@ -125,14 +127,15 @@ public class KNNWeight extends Weight {
      * @param k Number of results to return
      * @return A Map of docId to scores for top k results
      */
-    public Map<Integer, Float> searchLeaf(LeafReaderContext context, int k) throws IOException {
+    public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
         if (filterWeight != null && cardinality == 0) {
-            return Collections.emptyMap();
+            return PerLeafResult.EMPTY_RESULT;
         }
         /*
          * The idea for this optimization is to get K results, we need to at least look at K vectors in the HNSW graph
@@ -140,17 +143,26 @@ public class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            return doExactSearch(context, filterBitSet, k);
+            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
-        Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
+
+        /*
+         * If filters match all docs in this segment, then null should be passed as filterBitSet
+         * so that it will not do a bitset look up in bottom search layer.
+         */
+        final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
+        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
+
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, docIdsToScoreMap.size())) {
-            final BitSet docs = filterWeight != null ? filterBitSet : null;
-            return doExactSearch(context, docs, k);
+            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
+            Map<Integer, Float> result = doExactSearch(context, docs, cardinality, k);
+            return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
-        return docIdsToScoreMap;
+        return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);
     }
 
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
@@ -205,17 +217,21 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private Map<Integer, Float> doExactSearch(final LeafReaderContext context, final BitSet acceptedDocs, int k) throws IOException {
+    private Map<Integer, Float> doExactSearch(
+        final LeafReaderContext context,
+        final DocIdSetIterator acceptedDocs,
+        final long numberOfAcceptedDocs,
+        int k
+    ) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
             .isParentHits(true)
             .k(k)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .knnQuery(knnQuery);
-        if (acceptedDocs != null) {
-            exactSearcherContextBuilder.matchedDocs(acceptedDocs);
-        }
+            .knnQuery(knnQuery)
+            .matchedDocsIterator(acceptedDocs)
+            .numberOfMatchedDocs(numberOfAcceptedDocs);
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
@@ -227,7 +243,7 @@ public class KNNWeight extends Weight {
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
 
-        FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
 
         if (fieldInfo == null) {
             log.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
@@ -251,7 +267,7 @@ public class KNNWeight extends Weight {
             spaceType = modelMetadata.getSpaceType();
             vectorDataType = modelMetadata.getVectorDataType();
         } else {
-            String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
+            String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.DEFAULT.getName());
             knnEngine = KNNEngine.getEngine(engineName);
             String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
             spaceType = SpaceType.getSpace(spaceTypeName);
@@ -479,7 +495,7 @@ public class KNNWeight extends Weight {
      */
     private boolean isMissingNativeEngineFiles(LeafReaderContext context) {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
-        final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
         // if segment has no documents with at least 1 vector field, field info will be null
         if (fieldInfo == null) {
             return false;

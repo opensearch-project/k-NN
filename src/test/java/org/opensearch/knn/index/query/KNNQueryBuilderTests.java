@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.lucene.search.FloatVectorSimilarityQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.junit.Before;
@@ -33,6 +32,8 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
+import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -191,7 +192,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        KNNQuery query = ((NativeEngineKnnVectorQuery) knnQueryBuilder.doToQuery(mockQueryShardContext)).getKnnQuery();
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
@@ -512,7 +513,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then
         assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
+        assertTrue(query.getClass().isAssignableFrom(LuceneEngineKnnVectorQuery.class));
     }
 
     @SneakyThrows
@@ -599,8 +600,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then
         assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(KNNQuery.class));
-        assertEquals(HNSW_METHOD_PARAMS, ((KNNQuery) query).getMethodParameters());
+        assertTrue(query.getClass().isAssignableFrom(NativeEngineKnnVectorQuery.class));
+        assertEquals(HNSW_METHOD_PARAMS, ((NativeEngineKnnVectorQuery) query).getKnnQuery().getMethodParameters());
     }
 
     public void testDoToQuery_ThrowsIllegalArgumentExceptionForUnknownMethodParameter() {
@@ -670,7 +671,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNQueryBuilder.initialize(modelDao);
 
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        KNNQuery query = ((NativeEngineKnnVectorQuery) knnQueryBuilder.doToQuery(mockQueryShardContext)).getKnnQuery();
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
@@ -1026,7 +1027,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 32));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        KNNQuery query = ((NativeEngineKnnVectorQuery) knnQueryBuilder.doToQuery(mockQueryShardContext)).getKnnQuery();
         assertArrayEquals(expectedQueryVector, query.getByteQueryVector());
         assertNull(query.getQueryVector());
     }
@@ -1065,10 +1066,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .filter(rewrittenFilter)
             .k(K)
             .build();
+
         // When
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).filter(filter).k(K).build();
 
         QueryBuilder actual = knnQueryBuilder.rewrite(context);
+
+        assertEquals(knnQueryBuilder, KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).filter(filter).k(K).build());
 
         // Then
         assertEquals(expected, actual);

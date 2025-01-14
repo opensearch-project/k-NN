@@ -6,8 +6,6 @@
 package org.opensearch.knn.index.query.iterators;
 
 import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.util.BitSet;
-import org.apache.lucene.util.BitSetIterator;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
@@ -21,7 +19,7 @@ import java.io.IOException;
  * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
 public class BinaryVectorIdsKNNIterator implements KNNIterator {
-    protected final BitSetIterator bitSetIterator;
+    protected final DocIdSetIterator docIdSetIterator;
     protected final byte[] queryVector;
     protected final KNNBinaryVectorValues binaryVectorValues;
     protected final SpaceType spaceType;
@@ -29,12 +27,12 @@ public class BinaryVectorIdsKNNIterator implements KNNIterator {
     protected int docId;
 
     public BinaryVectorIdsKNNIterator(
-        @Nullable final BitSet filterIdsBitSet,
+        @Nullable final DocIdSetIterator docIdSetIterator,
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType
     ) throws IOException {
-        this.bitSetIterator = filterIdsBitSet == null ? null : new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
+        this.docIdSetIterator = docIdSetIterator;
         this.queryVector = queryVector;
         this.binaryVectorValues = binaryVectorValues;
         this.spaceType = spaceType;
@@ -79,10 +77,10 @@ public class BinaryVectorIdsKNNIterator implements KNNIterator {
     }
 
     protected int getNextDocId() throws IOException {
-        if (bitSetIterator == null) {
+        if (docIdSetIterator == null) {
             return binaryVectorValues.nextDoc();
         }
-        int nextDocID = this.bitSetIterator.nextDoc();
+        int nextDocID = this.docIdSetIterator.nextDoc();
         // For filter case, advance vector values to corresponding doc id from filter bit set
         if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
             binaryVectorValues.advance(nextDocID);

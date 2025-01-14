@@ -12,12 +12,18 @@ import org.opensearch.common.xcontent.XContentType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexOutput;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
@@ -417,14 +423,32 @@ public class TestUtils {
         }
     }
 
-    public static void createIndex(int[] ids, long address, int dimension, String name, Map<String, Object> parameters, KNNEngine engine) {
+    public static void createIndex(
+        int[] ids,
+        long address,
+        int dimension,
+        Directory directory,
+        String fileName,
+        Map<String, Object> parameters,
+        KNNEngine engine
+    ) {
         if (engine != KNNEngine.FAISS) {
-            JNIService.createIndex(ids, address, dimension, name, parameters, engine);
+            try (IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
+                final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
+                JNIService.createIndex(ids, address, dimension, indexOutputWithBuffer, parameters, engine);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         } else {
             // We can initialize numDocs as 0, this will just not reserve anything.
             long indexAddress = JNIService.initIndex(0, dimension, parameters, engine);
             JNIService.insertToIndex(ids, address, dimension, parameters, indexAddress, engine);
-            JNIService.writeIndex(name, indexAddress, engine, parameters);
+            try (IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
+                final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
+                JNIService.writeIndex(indexOutputWithBuffer, indexAddress, engine, parameters);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

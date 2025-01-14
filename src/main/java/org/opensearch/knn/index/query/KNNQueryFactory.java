@@ -10,17 +10,19 @@ import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
-import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.lucenelib.NestedKnnVectorQueryFactory;
+import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Locale;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
@@ -30,7 +32,6 @@ import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPE
  */
 @Log4j2
 public class KNNQueryFactory extends BaseQueryFactory {
-
     /**
      * Creates a Lucene query for a particular engine.
      * @param createQueryRequest request object that has all required fields to construct the query
@@ -48,11 +49,23 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
-
+        final KNNEngine knnEngine = createQueryRequest.getKnnEngine();
+        final boolean expandNested = createQueryRequest.getExpandNested().orElse(false);
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
             QueryShardContext context = createQueryRequest.getContext().get();
             parentFilter = context.getParentFilter();
+        }
+
+        if (parentFilter == null && expandNested) {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "Invalid value provided for the [%s] field. [%s] is only supported with a nested field.",
+                    EXPAND_NESTED,
+                    EXPAND_NESTED
+                )
+            );
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
@@ -95,7 +108,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .rescoreContext(rescoreContext)
                         .build();
             }
-            return createQueryRequest.getRescoreContext().isPresent() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;
+
+            return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.INSTANCE, expandNested);
         }
 
         Integer requestEfSearch = null;
@@ -106,9 +120,14 @@ public class KNNQueryFactory extends BaseQueryFactory {
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
         switch (vectorDataType) {
             case BYTE:
-                return getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter);
+            case BINARY:
+                return new LuceneEngineKnnVectorQuery(
+                    getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter, expandNested)
+                );
             case FLOAT:
-                return getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter);
+                return new LuceneEngineKnnVectorQuery(
+                    getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter, expandNested)
+                );
             default:
                 throw new IllegalArgumentException(
                     String.format(
@@ -131,38 +150,56 @@ public class KNNQueryFactory extends BaseQueryFactory {
     }
 
     /**
-     * If parentFilter is not null, it is a nested query. Therefore, we return {@link DiversifyingChildrenByteKnnVectorQuery}
-     * which will dedupe search result per parent so that we can get k parent results at the end.
+     * If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link NestedKnnVectorQueryFactory}
+     * which will create query to dedupe search result per parent so that we can get k parent results at the end.
      */
     private static Query getKnnByteVectorQuery(
         final String fieldName,
         final byte[] byteVector,
         final int k,
         final Query filterQuery,
-        final BitSetProducer parentFilter
+        final BitSetProducer parentFilter,
+        final boolean expandNested
     ) {
         if (parentFilter == null) {
+            assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
         } else {
-            return new DiversifyingChildrenByteKnnVectorQuery(fieldName, byteVector, filterQuery, k, parentFilter);
+            return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+                fieldName,
+                byteVector,
+                k,
+                filterQuery,
+                parentFilter,
+                expandNested
+            );
         }
     }
 
     /**
-     * If parentFilter is not null, it is a nested query. Therefore, we return {@link DiversifyingChildrenFloatKnnVectorQuery}
-     * which will dedupe search result per parent so that we can get k parent results at the end.
+     * If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link NestedKnnVectorQueryFactory}
+     * which will create query to dedupe search result per parent so that we can get k parent results at the end.
      */
     private static Query getKnnFloatVectorQuery(
         final String fieldName,
         final float[] floatVector,
         final int k,
         final Query filterQuery,
-        final BitSetProducer parentFilter
+        final BitSetProducer parentFilter,
+        final boolean expandNested
     ) {
         if (parentFilter == null) {
+            assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return new KnnFloatVectorQuery(fieldName, floatVector, k, filterQuery);
         } else {
-            return new DiversifyingChildrenFloatKnnVectorQuery(fieldName, floatVector, filterQuery, k, parentFilter);
+            return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+                fieldName,
+                floatVector,
+                k,
+                filterQuery,
+                parentFilter,
+                expandNested
+            );
         }
     }
 }

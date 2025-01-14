@@ -14,6 +14,7 @@ import org.opensearch.knn.IDVectorProducer;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -80,6 +81,63 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testNonKNNIndex_withMethodParams_withFaissEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            QUERY_COUNT = NUM_DOCS;
+            DOC_ID = NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testNonKNNIndex_withMethodParams_withNmslibEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.NMSLIB.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            QUERY_COUNT = NUM_DOCS;
+            DOC_ID = NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testNonKNNIndex_withMethodParams_withLuceneEngine() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                createKNNDefaultScriptScoreSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.LUCENE.getName(), SpaceType.DEFAULT.getValue(), false)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+        } else {
+            QUERY_COUNT = NUM_DOCS;
+            DOC_ID = NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+            validateKNNScriptScoreSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K, SpaceType.L2);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
     // Validate Script score search for space_type : "inner_product"
     private void validateKNNInnerProductScriptScoreSearch(String testIndex, String testField, int dimension, int numDocs, int k)
         throws Exception {
@@ -105,5 +163,4 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             assertEquals(expDocID, actualDocID);
         }
     }
-
 }

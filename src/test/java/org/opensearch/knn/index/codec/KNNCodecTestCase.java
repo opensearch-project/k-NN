@@ -103,7 +103,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             .vectorDataType(VectorDataType.DEFAULT)
             .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.DEFAULT,
+            KNNEngine.NMSLIB,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
@@ -154,64 +154,67 @@ public class KNNCodecTestCase extends KNNTestCase {
 
     public void testMultiFieldsKnnIndex(Codec codec) throws Exception {
         setUpMockClusterService();
-        Directory dir = newFSDirectory(createTempDir());
-        IndexWriterConfig iwc = newIndexWriterConfig();
-        iwc.setMergeScheduler(new SerialMergeScheduler());
-        iwc.setCodec(codec);
-        // Set merge policy to no merges so that we create a predictable number of segments.
-        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
+        try (Directory dir = newFSDirectory(createTempDir())) {
+            IndexWriterConfig iwc = newIndexWriterConfig();
+            iwc.setMergeScheduler(new SerialMergeScheduler());
+            iwc.setCodec(codec);
+            // Set merge policy to no merges so that we create a predictable number of segments.
+            iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
-        /**
-         * Add doc with field "test_vector"
-         */
-        float[] array = { 1.0f, 3.0f, 4.0f };
-        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
-        RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
-        Document doc = new Document();
-        doc.add(vectorField);
-        writer.addDocument(doc);
-        // ensuring the refresh happens, to create the segment and hnsw file
-        writer.flush();
+            /**
+             * Add doc with field "test_vector"
+             */
+            float[] array = { 1.0f, 3.0f, 4.0f };
+            VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
+            RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
+            Document doc = new Document();
+            doc.add(vectorField);
+            writer.addDocument(doc);
+            // ensuring the refresh happens, to create the segment and hnsw file
+            writer.flush();
 
-        /**
-         * Add doc with field "my_vector"
-         */
-        float[] array1 = { 6.0f, 14.0f };
-        VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
-        Document doc1 = new Document();
-        doc1.add(vectorField1);
-        writer.addDocument(doc1);
-        // ensuring the refresh happens, to create the segment and hnsw file
-        writer.flush();
-        IndexReader reader = writer.getReader();
-        writer.close();
-        List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
+            /**
+             * Add doc with field "my_vector"
+             */
+            float[] array1 = { 6.0f, 14.0f };
+            VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
+            Document doc1 = new Document();
+            doc1.add(vectorField1);
+            writer.addDocument(doc1);
+            // ensuring the refresh happens, to create the segment and hnsw file
+            writer.flush();
+            IndexReader reader = writer.getReader();
+            writer.close();
+            List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
 
-        // there should be 2 hnsw index files created. one for test_vector and one for my_vector
-        assertEquals(2, hnswfiles.size());
-        assertEquals(hnswfiles.stream().filter(x -> x.contains("test_vector")).collect(Collectors.toList()).size(), 1);
-        assertEquals(hnswfiles.stream().filter(x -> x.contains("my_vector")).collect(Collectors.toList()).size(), 1);
+            // there should be 2 hnsw index files created. one for test_vector and one for my_vector
+            assertEquals(2, hnswfiles.size());
+            assertEquals(hnswfiles.stream().filter(x -> x.contains("test_vector")).collect(Collectors.toList()).size(), 1);
+            assertEquals(hnswfiles.stream().filter(x -> x.contains("my_vector")).collect(Collectors.toList()).size(), 1);
 
-        // query to verify distance for each of the field
-        IndexSearcher searcher = new IndexSearcher(reader);
-        float score = searcher.search(
-            new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null),
-            10
-        ).scoreDocs[0].score;
-        float score1 = searcher.search(
-            new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy", (BitSetProducer) null),
-            10
-        ).scoreDocs[0].score;
-        assertEquals(1.0f / (1 + 25), score, 0.01f);
-        assertEquals(1.0f / (1 + 169), score1, 0.01f);
+            // query to verify distance for each of the field
+            IndexSearcher searcher = new IndexSearcher(reader);
+            float score = searcher.search(
+                new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null),
+                10
+            ).scoreDocs[0].score;
+            float score1 = searcher.search(
+                new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy", (BitSetProducer) null),
+                10
+            ).scoreDocs[0].score;
+            assertEquals(1.0f / (1 + 25), score, 0.01f);
+            assertEquals(1.0f / (1 + 169), score1, 0.01f);
 
-        // query to determine the hits
-        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null)));
-        assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy", (BitSetProducer) null)));
+            // query to determine the hits
+            assertEquals(
+                1,
+                searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null))
+            );
+            assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy", (BitSetProducer) null)));
 
-        reader.close();
-        dir.close();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+            reader.close();
+            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+        }
     }
 
     public void testBuildFromModelTemplate(Codec codec) throws IOException, ExecutionException, InterruptedException {

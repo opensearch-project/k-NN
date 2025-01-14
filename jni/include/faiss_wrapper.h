@@ -14,6 +14,7 @@
 
 #include "jni_util.h"
 #include "faiss_index_service.h"
+#include "faiss_stream_support.h"
 #include <jni.h>
 
 namespace knn_jni {
@@ -22,25 +23,25 @@ namespace knn_jni {
 
         void InsertToIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ, jlong indexAddr, jint threadCount, IndexService *indexService);
 
-        void WriteIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jstring indexPathJ, jlong indexAddr, IndexService *indexService);
+        void WriteIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jobject output, jlong indexAddr, IndexService *indexService);
 
         // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
         // based off of the template index passed in. The index is serialized to indexPathJ.
         void CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
+                                     jlong vectorsAddressJ, jint dimJ, jobject output, jbyteArray templateIndexJ,
                                      jobject parametersJ);
 
         // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
         // based off of the template index passed in. The index is serialized to indexPathJ.
         void CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
-                                     jobject parametersJ);
+                                           jlong vectorsAddressJ, jint dimJ, jobject output, jbyteArray templateIndexJ,
+                                           jobject parametersJ);
 
         // Create a index with ids and byte vectors. Instead of creating a new index, this function creates the index
         // based off of the template index passed in. The index is serialized to indexPathJ.
         void CreateByteIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
-                                     jobject parametersJ);
+                                         jlong vectorsAddressJ, jint dimJ, jobject output, jbyteArray templateIndexJ,
+                                         jobject parametersJ);
 
         // Load an index from indexPathJ into memory.
         //
@@ -74,28 +75,28 @@ namespace knn_jni {
         // Sets the sharedIndexState for an index
         void SetSharedIndexState(jlong indexPointerJ, jlong shareIndexStatePointerJ);
 
-         /**
+        /**
          *  Execute a query against the index located in memory at indexPointerJ
-         *  
+         *
          * Parameters:
          * methodParamsJ: introduces a map to have additional method parameters
-         * 
+         *
          * Return an array of KNNQueryResults
-        */
+         */
         jobjectArray QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                 jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ, jintArray parentIdsJ);
 
         /**
          *  Execute a query against the index located in memory at indexPointerJ along with Filters
-         *  
+         *
          * Parameters:
          * methodParamsJ: introduces a map to have additional method parameters
-         * 
+         *
          * Return an array of KNNQueryResults
         */
         jobjectArray QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                                jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ, jlongArray filterIdsJ,
-                                                                jint filterIdsTypeJ, jintArray parentIdsJ);
+                                           jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ, jlongArray filterIdsJ,
+                                           jint filterIdsTypeJ, jintArray parentIdsJ);
 
         // Execute a query against the binary index located in memory at indexPointerJ along with Filters
         //
@@ -124,14 +125,14 @@ namespace knn_jni {
         //
         // Return the serialized representation
         jbyteArray TrainBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
-                         jlong trainVectorsPointerJ);
+                                    jlong trainVectorsPointerJ);
 
         // Create an empty byte index defined by the values in the Java map, parametersJ. Train the index with
         // the byte vectors located at trainVectorsPointerJ.
         //
         // Return the serialized representation
         jbyteArray TrainByteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
-                         jlong trainVectorsPointerJ);
+                                  jlong trainVectorsPointerJ);
 
         /*
          * Perform a range search with filter against the index located in memory at indexPointerJ.
@@ -163,7 +164,7 @@ namespace knn_jni {
          * @return an array of RangeQueryResults
          */
         jobjectArray RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
-                    jfloat radiusJ, jobject methodParamsJ, jint maxResultWindowJ, jintArray parentIdsJ);
+                                 jfloat radiusJ, jobject methodParamsJ, jint maxResultWindowJ, jintArray parentIdsJ);
     }
 }
 

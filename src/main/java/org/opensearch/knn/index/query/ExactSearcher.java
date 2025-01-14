@@ -17,7 +17,6 @@ import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.util.BitSet;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
@@ -38,6 +37,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -59,12 +59,16 @@ public class ExactSearcher {
      */
     public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
         throws IOException {
-        KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        final KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        // because of any reason if we are not able to get KNNIterator, return an empty map
+        if (iterator == null) {
+            return Collections.emptyMap();
+        }
         if (exactSearcherContext.getKnnQuery().getRadius() != null) {
             return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
         }
-        if (exactSearcherContext.getMatchedDocs() != null
-            && exactSearcherContext.getMatchedDocs().cardinality() <= exactSearcherContext.getK()) {
+        if (exactSearcherContext.getMatchedDocsIterator() != null
+            && exactSearcherContext.numberOfMatchedDocs <= exactSearcherContext.getK()) {
             return scoreAllDocs(iterator);
         }
         return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
@@ -74,8 +78,8 @@ public class ExactSearcher {
      * Perform radial search by comparing scores with min score. Currently, FAISS from native engine supports radial search.
      * Hence, we assume that Radius from knnQuery is always distance, and we convert it to score since we do exact search uses scores
      * to filter out the documents that does not have given min score.
-     * @param leafReaderContext
-     * @param exactSearcherContext
+     * @param leafReaderContext {@link LeafReaderContext}
+     * @param exactSearcherContext {@link ExactSearcherContext}
      * @param iterator {@link KNNIterator}
      * @return Map of docId and score
      * @throws IOException exception raised by iterator during traversal
@@ -87,7 +91,10 @@ public class ExactSearcher {
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
-        final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        if (fieldInfo == null) {
+            return Collections.emptyMap();
+        }
         final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
         if (KNNEngine.FAISS != engine) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
@@ -147,9 +154,13 @@ public class ExactSearcher {
 
     private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
-        final BitSet matchedDocs = exactSearcherContext.getMatchedDocs();
+        final DocIdSetIterator matchedDocs = exactSearcherContext.getMatchedDocsIterator();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        if (fieldInfo == null) {
+            log.debug("[KNN] Cannot get KNNIterator as Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
+            return null;
+        }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
 
         boolean isNestedRequired = exactSearcherContext.isParentHits() && knnQuery.getParentsFilter() != null;
@@ -233,7 +244,8 @@ public class ExactSearcher {
          */
         boolean useQuantizedVectorsForSearch;
         int k;
-        BitSet matchedDocs;
+        DocIdSetIterator matchedDocsIterator;
+        long numberOfMatchedDocs;
         KNNQuery knnQuery;
         /**
          * whether the matchedDocs contains parent ids or child ids. This is relevant in the case of

@@ -11,6 +11,7 @@ import org.junit.Assert;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -25,17 +26,23 @@ import org.opensearch.knn.index.query.parser.RescoreParser;
 import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -221,20 +228,69 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testCompressionIndexWithNonVectorFieldsSegment_whenValid_ThenSucceed() {
+        CompressionLevel compressionLevel = CompressionLevel.x32;
+        String indexName = INDEX_NAME + compressionLevel;
+        try (
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .endObject()
+                .endObject()
+                .endObject()
+        ) {
+            String mapping = builder.toString();
+            Settings indexSettings = buildKNNIndexSettings(0);
+            createKnnIndex(indexName, indexSettings, mapping);
+            // since we are going to delete a document, so its better to have 1 more extra doc so that we can re-use some tests
+            addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS + 1);
+            addNonKNNDoc(indexName, String.valueOf(NUM_DOCS + 2), FIELD_NAME_NON_KNN, "Hello world");
+            deleteKnnDoc(indexName, "0");
+            validateGreenIndex(indexName);
+            validateSearch(
+                indexName,
+                METHOD_PARAMETER_EF_SEARCH,
+                KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                compressionLevel.getName(),
+                Mode.ON_DISK.getName()
+            );
+        }
+    }
+
+    @SneakyThrows
     public void testTraining_whenInvalid_thenFail() {
         setupTrainingIndex();
         String modelId = "test";
+
         XContentBuilder builder1 = XContentFactory.jsonBuilder()
             .startObject()
             .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
             .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
             .field(KNNConstants.DIMENSION, DIMENSION)
+            .field(VECTOR_DATA_TYPE_FIELD, "float")
+            .field(MODEL_DESCRIPTION, "")
+            .field(MODE_PARAMETER, Mode.ON_DISK)
+            .field(COMPRESSION_LEVEL_PARAMETER, "16x")
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_IVF)
             .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 8)
             .endObject()
-            .field(MODEL_DESCRIPTION, "")
-            .field(MODE_PARAMETER, Mode.ON_DISK)
+            .endObject()
+            .endObject()
+            .endObject()
             .endObject();
         expectThrows(ResponseException.class, () -> trainModel(modelId, builder1));
 

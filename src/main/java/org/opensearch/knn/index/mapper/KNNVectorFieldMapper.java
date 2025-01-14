@@ -262,7 +262,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            if (originalParameters.getResolvedKnnMethodContext() == null) {
+            // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use either LuceneFieldMapper
+            // or
+            // MethodFieldMapper to maintain backwards compatibility
+            if (originalParameters.getResolvedKnnMethodContext() == null && context.indexCreatedVersion().onOrAfter(Version.V_2_17_0)) {
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -375,8 +378,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // Check for flat configuration
-            if (isKNNDisabled(parserContext.getSettings())) {
+            // Check for flat configuration and validate only if index is created after 2.17
+            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
@@ -507,8 +510,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     .build()
             );
 
-            // If the original parameters are from legacy
-            if (builder.originalParameters.isLegacyMapping()) {
+            if (useKNNMethodContextFromLegacy(builder, parserContext)) {
                 // Then create KNNMethodContext to be used from the legacy index settings
                 builder.originalParameters.setResolvedKnnMethodContext(
                     createKNNMethodContextFromLegacy(parserContext.getSettings(), parserContext.indexVersionCreated(), resolvedSpaceType)
@@ -555,6 +557,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             knnMethodContext.setKnnEngine(knnEngine);
         }
+    }
+
+    static boolean useKNNMethodContextFromLegacy(Builder builder, Mapper.TypeParser.ParserContext parserContext) {
+        // If the original parameters are from legacy, and it is created on or before 2_17_2 since default is changed to
+        // FAISS starting 2_18, which doesn't support accepting algo params from index settings
+        return parserContext.indexVersionCreated().onOrBefore(Version.V_2_17_2) && builder.originalParameters.isLegacyMapping();
     }
 
     // We store the version of the index with the mapper as different version of Opensearch has different default

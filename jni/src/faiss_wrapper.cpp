@@ -13,13 +13,13 @@
 #include "faiss_wrapper.h"
 #include "faiss_util.h"
 #include "faiss_index_service.h"
+#include "faiss_stream_support.h"
 
 #include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIVFFlat.h"
-#include "faiss/MetaIndexes.h"
 #include "faiss/Index.h"
 #include "faiss/impl/IDSelector.h"
 #include "faiss/IndexIVFPQ.h"
@@ -48,18 +48,25 @@ struct IDSelectorJlongBitmap : IDSelector {
      * @param n size of the bitmap array
      * @param bitmap id like Lucene FixedBitSet bits
      */
-    IDSelectorJlongBitmap(size_t n, const jlong* bitmap) : n(n), bitmap(bitmap) {};
+    IDSelectorJlongBitmap(size_t _n, const jlong* _bitmap)
+      : IDSelector(),
+        n(_n),
+        bitmap(_bitmap) {
+    }
+
     bool is_member(idx_t id) const final {
-        uint64_t index = id;
-        uint64_t i = index >> 6;  // div 64
-        if (i >= n ) {
+        const uint64_t index = id;
+        const uint64_t i = index >> 6ULL;  // div 64
+        if (i >= n) {
             return false;
         }
-        return (bitmap[i] >> ( index & 63)) & 1L;
+        return (bitmap[i] >> (index & 63ULL)) & 1ULL;
     }
-    ~IDSelectorJlongBitmap() override {}
-};
-}
+};  // class IDSelectorJlongBitmap
+
+}  // namespace faiss
+
+
 // Translate space type to faiss metric
 faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
 
@@ -136,7 +143,14 @@ jlong knn_jni::faiss_wrapper::InitIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     // end parameters to pass
 
     // Create index
-    return indexService->initIndex(jniUtil, env, metric, indexDescriptionCpp, dim, numDocs, threadCount, subParametersCpp);
+    return indexService->initIndex(jniUtil,
+                                   env,
+                                   metric,
+                                   std::move(indexDescriptionCpp),
+                                   dim,
+                                   numDocs,
+                                   threadCount,
+                                   std::move(subParametersCpp));
 }
 
 void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ,
@@ -170,21 +184,22 @@ void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, 
 }
 
 void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env,
-                                         jstring indexPathJ, jlong index_ptr, IndexService* indexService) {
+                                        jobject output, jlong index_ptr, IndexService* indexService) {
 
-    if (indexPathJ == nullptr) {
-        throw std::runtime_error("Index path cannot be null");
+    if (output == nullptr) {
+        throw std::runtime_error("Index output stream cannot be null");
     }
 
-    // Index path
-    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
+    // IndexOutput wrapper.
+    knn_jni::stream::NativeEngineIndexOutputMediator mediator {jniUtil, env, output};
+    knn_jni::stream::FaissOpenSearchIOWriter writer {&mediator};
 
-    // Create index
-    indexService->writeIndex(indexPathCpp, index_ptr);
+    // Create index.
+    indexService->writeIndex(&writer, index_ptr);
 }
 
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ,
+                                                     jlong vectorsAddressJ, jint dimJ, jobject output,
                                                      jbyteArray templateIndexJ, jobject parametersJ) {
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
@@ -198,8 +213,8 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
         throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
     }
 
-    if (indexPathJ == nullptr) {
-        throw std::runtime_error("Index path cannot be null");
+    if (output == nullptr) {
+        throw std::runtime_error("Index output stream cannot be null");
     }
 
     if (templateIndexJ == nullptr) {
@@ -245,14 +260,17 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     // This is not the ideal approach, please refer this gh issue for long term solution:
     // https://github.com/opensearch-project/k-NN/issues/1600
     delete inputVectors;
+
     // Write the index to disk
-    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
-    faiss::write_index(&idMap, indexPathCpp.c_str());
+    knn_jni::stream::NativeEngineIndexOutputMediator mediator {jniUtil, env, output};
+    knn_jni::stream::FaissOpenSearchIOWriter writer {&mediator};
+    faiss::write_index(&idMap, &writer);
+    mediator.flush();
 }
 
 void knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ,
-                                                     jbyteArray templateIndexJ, jobject parametersJ) {
+                                                           jlong vectorsAddressJ, jint dimJ, jobject output,
+                                                           jbyteArray templateIndexJ, jobject parametersJ) {
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
     }
@@ -261,12 +279,12 @@ void knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInter
         throw std::runtime_error("VectorsAddress cannot be less than 0");
     }
 
-    if(dimJ <= 0) {
+    if (dimJ <= 0) {
         throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
     }
 
-    if (indexPathJ == nullptr) {
-        throw std::runtime_error("Index path cannot be null");
+    if (output == nullptr) {
+        throw std::runtime_error("Index output stream cannot be null");
     }
 
     if (templateIndexJ == nullptr) {
@@ -315,14 +333,17 @@ void knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInter
     // This is not the ideal approach, please refer this gh issue for long term solution:
     // https://github.com/opensearch-project/k-NN/issues/1600
     delete inputVectors;
+
     // Write the index to disk
-    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
-    faiss::write_index_binary(&idMap, indexPathCpp.c_str());
+    knn_jni::stream::NativeEngineIndexOutputMediator mediator {jniUtil, env, output};
+    knn_jni::stream::FaissOpenSearchIOWriter writer {&mediator};
+    faiss::write_index_binary(&idMap, &writer);
+    mediator.flush();
 }
 
 void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ,
-                                                     jbyteArray templateIndexJ, jobject parametersJ) {
+                                                         jlong vectorsAddressJ, jint dimJ, jobject output,
+                                                         jbyteArray templateIndexJ, jobject parametersJ) {
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
     }
@@ -331,12 +352,12 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
         throw std::runtime_error("VectorsAddress cannot be less than 0");
     }
 
-    if(dimJ <= 0) {
+    if (dimJ <= 0) {
         throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
     }
 
-    if (indexPathJ == nullptr) {
-        throw std::runtime_error("Index path cannot be null");
+    if (output == nullptr) {
+        throw std::runtime_error("Index output stream cannot be null");
     }
 
     if (templateIndexJ == nullptr) {
@@ -345,8 +366,9 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
-    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
-        auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+    auto it = parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY);
+    if (it != parametersCpp.end()) {
+        auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, it->second);
         omp_set_num_threads(threadCount);
     }
     jniUtil->DeleteLocalRef(env, parametersJ);
@@ -354,8 +376,8 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
     // Read data set
     // Read vectors from memory address
     auto *inputVectors = reinterpret_cast<std::vector<int8_t>*>(vectorsAddressJ);
-    int dim = (int)dimJ;
-    int numVectors = (int) (inputVectors->size() / (uint64_t) dim);
+    auto dim = (int) dimJ;
+    auto numVectors = (int) (inputVectors->size() / (uint64_t) dim);
     int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
 
     if (numIds != numVectors) {
@@ -367,14 +389,14 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
     jbyte * indexBytesJ = jniUtil->GetByteArrayElements(env, templateIndexJ, nullptr);
 
     faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data.reserve(indexBytesCount);
     for (int i = 0; i < indexBytesCount; i++) {
         vectorIoReader.data.push_back((uint8_t) indexBytesJ[i]);
     }
     jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
 
     // Create faiss index
-    std::unique_ptr<faiss::Index> indexWriter;
-    indexWriter.reset(faiss::read_index(&vectorIoReader, 0));
+    std::unique_ptr<faiss::Index> indexWriter (faiss::read_index(&vectorIoReader, 0));
 
     auto ids = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
@@ -405,9 +427,12 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
     // This is not the ideal approach, please refer this gh issue for long term solution:
     // https://github.com/opensearch-project/k-NN/issues/1600
     delete inputVectors;
+
     // Write the index to disk
-    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
-    faiss::write_index(&idMap, indexPathCpp.c_str());
+    knn_jni::stream::NativeEngineIndexOutputMediator mediator {jniUtil, env, output};
+    knn_jni::stream::FaissOpenSearchIOWriter writer {&mediator};
+    faiss::write_index(&idMap, &writer);
+    mediator.flush();
 }
 
 jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ) {
@@ -424,7 +449,7 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
 }
 
 jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
-    if (ioReader == nullptr)  [[unlikely]] {
+    if (ioReader == nullptr)  {
         throw std::runtime_error("IOReader cannot be null");
     }
 
@@ -451,7 +476,7 @@ jlong knn_jni::faiss_wrapper::LoadBinaryIndex(knn_jni::JNIUtilInterface * jniUti
 }
 
 jlong knn_jni::faiss_wrapper::LoadBinaryIndexWithStream(faiss::IOReader* ioReader) {
-    if (ioReader == nullptr) [[unlikely]] {
+    if (ioReader == nullptr) {
         throw std::runtime_error("IOReader cannot be null");
     }
 
@@ -820,13 +845,13 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
     }
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
-    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+    if (parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
         auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
         omp_set_num_threads(threadCount);
     }
 
     // Add extra parameters that cant be configured with the index factory
-    if(parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
+    if (parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
         jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
         auto subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, subParametersJ);
         SetExtraParameters(jniUtil, env, subParametersCpp, indexWriter.get());
@@ -934,13 +959,13 @@ jbyteArray knn_jni::faiss_wrapper::TrainByteIndex(knn_jni::JNIUtilInterface * jn
     indexWriter.reset(faiss::index_factory((int) dimensionJ, indexDescriptionCpp.c_str(), metric));
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
-    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+    if (parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
         auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
         omp_set_num_threads(threadCount);
     }
 
     // Add extra parameters that cant be configured with the index factory
-    if(parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
+    if (parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
         jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
         auto subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, subParametersJ);
         SetExtraParameters(jniUtil, env, subParametersCpp, indexWriter.get());
@@ -957,7 +982,7 @@ jbyteArray knn_jni::faiss_wrapper::TrainByteIndex(knn_jni::JNIUtilInterface * jn
     trainingFloatVectors[i] = static_cast<float>(*iter);
     }
 
-    if(!indexWriter->is_trained) {
+    if (!indexWriter->is_trained) {
      InternalTrainIndex(indexWriter.get(), numVectors, trainingFloatVectors.data());
     }
     jniUtil->DeleteLocalRef(env, parametersJ);
@@ -1115,11 +1140,11 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
     // The second parameter is always true, as lims is allocated by FAISS
     faiss::RangeSearchResult res(1, true);
 
-    if(filterIdsJ != nullptr) {
+    if (filterIdsJ != nullptr) {
         jlong *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
         int filterIdsLength = jniUtil->GetJavaLongArrayLength(env, filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
-        if(filterIdsTypeJ == BITMAP) {
+        if (filterIdsTypeJ == BITMAP) {
             idSelector.reset(new faiss::IDSelectorJlongBitmap(filterIdsLength, filteredIdsArray));
         } else {
             faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
@@ -1131,7 +1156,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
         std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
         std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
-        if(hnswReader) {
+        if (hnswReader) {
             // Query param ef_search supersedes ef_search provided during index setting.
             hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
             hnswParams.sel = idSelector.get();
@@ -1155,6 +1180,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
             jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
             throw;
         }
+        jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
     } else {
         faiss::SearchParameters *searchParameters = nullptr;
         faiss::SearchParametersHNSW hnswParams;
@@ -1177,6 +1203,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
             throw;
         }
     }
+    jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryVector, JNI_ABORT);
 
     // lims is structured to support batched queries, it has a length of nq + 1 (where nq is the number of queries),
     // lims[i] - lims[i-1] gives the number of results for the i-th query. With a single query we used in k-NN,
@@ -1195,7 +1222,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
     jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
 
     jobject result;
-    for(int i = 0; i < resultSize; ++i) {
+    for (int i = 0; i < resultSize; ++i) {
         result = jniUtil->NewObject(env, resultClass, allArgs, res.labels[i], res.distances[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
     }

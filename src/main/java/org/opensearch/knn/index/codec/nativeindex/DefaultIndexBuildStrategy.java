@@ -23,7 +23,7 @@ import java.util.Map;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNVectorUtil.intListToArray;
-import static org.opensearch.knn.common.KNNVectorUtil.iterateVectorValuesOnce;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory.getVectorTransfer;
 
 /**
@@ -52,7 +52,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
     public void buildAndWriteIndex(final BuildIndexParams indexInfo) throws IOException {
         final KNNVectorValues<?> knnVectorValues = indexInfo.getVectorValues();
         // Needed to make sure we don't get 0 dimensions while initializing index
-        iterateVectorValuesOnce(knnVectorValues);
+        initializeVectorValues(knnVectorValues);
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
         try (
@@ -83,7 +83,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
                         intListToArray(transferredDocIds),
                         vectorAddress,
                         indexBuildSetup.getDimensions(),
-                        indexInfo.getIndexPath(),
+                        indexInfo.getIndexOutputWithBuffer(),
                         (byte[]) params.get(KNNConstants.MODEL_BLOB_PARAMETER),
                         params,
                         indexInfo.getKnnEngine()
@@ -96,7 +96,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
                         intListToArray(transferredDocIds),
                         vectorAddress,
                         indexBuildSetup.getDimensions(),
-                        indexInfo.getIndexPath(),
+                        indexInfo.getIndexOutputWithBuffer(),
                         params,
                         indexInfo.getKnnEngine()
                     );

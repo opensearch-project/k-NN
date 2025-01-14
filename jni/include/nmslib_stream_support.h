@@ -13,11 +13,11 @@
 #define OPENSEARCH_KNN_JNI_NMSLIB_STREAM_SUPPORT_H
 
 #include "native_engines_stream_support.h"
+#include "utils.h"  // This is from NMSLIB
+#include "parameter_utils.h"
 
 namespace knn_jni {
 namespace stream {
-
-
 
 /**
  * NmslibIOReader implementation delegating NativeEngineIndexInputMediator to read bytes.
@@ -25,7 +25,8 @@ namespace stream {
 class NmslibOpenSearchIOReader final : public similarity::NmslibIOReader {
  public:
   explicit NmslibOpenSearchIOReader(NativeEngineIndexInputMediator *_mediator)
-      : mediator(_mediator) {
+      : similarity::NmslibIOReader(),
+        mediator(knn_jni::util::ParameterCheck::require_non_null(_mediator, "mediator")) {
   }
 
   void read(char *bytes, size_t len) final {
@@ -43,6 +44,27 @@ class NmslibOpenSearchIOReader final : public similarity::NmslibIOReader {
   NativeEngineIndexInputMediator *mediator;
 };  // class NmslibOpenSearchIOReader
 
+
+class NmslibOpenSearchIOWriter final : public similarity::NmslibIOWriter {
+ public:
+  explicit NmslibOpenSearchIOWriter(NativeEngineIndexOutputMediator *_mediator)
+      : similarity::NmslibIOWriter(),
+        mediator(knn_jni::util::ParameterCheck::require_non_null(_mediator, "mediator")) {
+  }
+
+  void write(char *bytes, size_t len) final {
+    if (len > 0) {
+      mediator->writeBytes((uint8_t *) bytes, len);
+    }
+  }
+
+  void flush() final {
+    mediator->flush();
+  }
+
+ private:
+  NativeEngineIndexOutputMediator *mediator;
+};  // class NmslibOpenSearchIOWriter
 
 
 }

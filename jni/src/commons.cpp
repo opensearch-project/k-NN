@@ -8,8 +8,6 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-#ifndef OPENSEARCH_KNN_COMMONS_H
-#define OPENSEARCH_KNN_COMMONS_H
 #include <jni.h>
 
 #include <vector>
@@ -109,4 +107,3 @@ int knn_jni::commons::getIntegerMethodParameter(JNIEnv * env, knn_jni::JNIUtilIn
 
     return defaultValue;
 }
-#endif //OPENSEARCH_KNN_COMMONS_H

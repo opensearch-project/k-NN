@@ -9,7 +9,6 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
-import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.DocIdSetBuilder;
 
 import java.io.IOException;
@@ -30,14 +29,14 @@ public final class ResultUtil {
      * @param perLeafResults Results from the list
      * @param k the number of results across all leaf results to return
      */
-    public static void reduceToTopK(List<Map<Integer, Float>> perLeafResults, int k) {
+    public static void reduceToTopK(List<PerLeafResult> perLeafResults, int k) {
         // Iterate over all scores to get min competitive score
         PriorityQueue<Float> topKMinQueue = new PriorityQueue<>(k);
 
         int count = 0;
-        for (Map<Integer, Float> perLeafResult : perLeafResults) {
-            count += perLeafResult.size();
-            for (Float score : perLeafResult.values()) {
+        for (PerLeafResult perLeafResult : perLeafResults) {
+            count += perLeafResult.getResult().size();
+            for (Float score : perLeafResult.getResult().values()) {
                 if (topKMinQueue.size() < k) {
                     topKMinQueue.add(score);
                 } else if (topKMinQueue.peek() != null && score > topKMinQueue.peek()) {
@@ -54,23 +53,22 @@ public final class ResultUtil {
 
         // Reduce the results based on min competitive score
         float minScore = topKMinQueue.peek() == null ? -Float.MAX_VALUE : topKMinQueue.peek();
-        perLeafResults.forEach(results -> results.entrySet().removeIf(entry -> entry.getValue() < minScore));
+        perLeafResults.forEach(results -> results.getResult().entrySet().removeIf(entry -> entry.getValue() < minScore));
     }
 
     /**
-     * Convert map to bit set
+     * Convert map of docs to doc id set iterator
      *
      * @param resultMap Map of results
-     * @return BitSet of results
+     * @return Doc id set iterator
      * @throws IOException If an error occurs during the search.
      */
-    public static BitSet resultMapToMatchBitSet(Map<Integer, Float> resultMap) throws IOException {
+    public static DocIdSetIterator resultMapToDocIds(Map<Integer, Float> resultMap) throws IOException {
         if (resultMap.isEmpty()) {
-            return BitSet.of(DocIdSetIterator.empty(), 0);
+            return DocIdSetIterator.empty();
         }
-
         final int maxDoc = Collections.max(resultMap.keySet()) + 1;
-        return BitSet.of(resultMapToDocIds(resultMap, maxDoc), maxDoc);
+        return resultMapToDocIds(resultMap, maxDoc);
     }
 
     /**

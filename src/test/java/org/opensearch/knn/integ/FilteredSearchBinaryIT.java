@@ -5,11 +5,11 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.http.util.EntityUtils;
-import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
@@ -19,34 +19,38 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 @Log4j2
 public class FilteredSearchBinaryIT extends KNNRestTestCase {
-    @After
-    public void cleanUp() {
-        try {
-            deleteKNNIndex(INDEX_NAME);
-        } catch (Exception e) {
-            log.error(e);
-        }
+    private final KNNEngine engine;
+
+    public FilteredSearchBinaryIT(KNNEngine engine) {
+        this.engine = engine;
+    }
+
+    @ParametersFactory
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
     }
 
     @SneakyThrows
-    public void testFilteredSearchWithFaissHnswBinary_whenDoingApproximateSearch_thenReturnCorrectResults() {
-        validateFilteredSearchWithFaissHnswBinary(INDEX_NAME, false);
+    public void testFilteredSearchHnswBinary_whenDoingApproximateSearch_thenReturnCorrectResults() {
+        validateFilteredSearchHnswBinary(INDEX_NAME, false);
     }
 
     @SneakyThrows
-    public void testFilteredSearchWithFaissHnswBinary_whenDoingExactSearch_thenReturnCorrectResults() {
-        validateFilteredSearchWithFaissHnswBinary(INDEX_NAME, true);
+    public void testFilteredSearchHnswBinary_whenDoingExactSearch_thenReturnCorrectResults() {
+        validateFilteredSearchHnswBinary(INDEX_NAME, true);
     }
 
-    private void validateFilteredSearchWithFaissHnswBinary(final String indexName, final boolean doExactSearch) throws Exception {
+    private void validateFilteredSearchHnswBinary(final String indexName, final boolean doExactSearch) throws Exception {
         String filterFieldName = "parking";
-        createKnnBinaryIndex(indexName, FIELD_NAME, 24, KNNEngine.FAISS);
+        createKnnBinaryIndex(indexName, FIELD_NAME, 24, engine);
 
         for (byte i = 1; i < 4; i++) {
             addKnnDocWithAttributes(

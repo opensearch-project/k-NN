@@ -5,9 +5,12 @@
 
 package org.opensearch.knn;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
+import com.jayway.jsonpath.JsonPath;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
@@ -52,7 +55,6 @@ import javax.management.ObjectName;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -81,6 +83,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
@@ -116,6 +119,7 @@ import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 public class KNNRestTestCase extends ODFERestTestCase {
     public static final String INDEX_NAME = "test_index";
     public static final String FIELD_NAME = "test_field";
+    public static final String FIELD_NAME_NON_KNN = "test_field_non_knn";
     public static final String PROPERTIES_FIELD = "properties";
     public static final String STORE_FIELD = "store";
     public static final String STORED_QUERY_FIELD = "stored_fields";
@@ -380,6 +384,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Utility to create a Knn Index Mapping for given model id
+     */
+    public String createKnnIndexMapping(String fieldName, String modelId) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(fieldName)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
+    /**
      * Utility to create a Knn Index Mapping
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions) throws IOException {
@@ -607,6 +627,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
+    protected <T> void addNonKNNDoc(String index, String docId, String fieldName, String text) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, text).endObject();
+        request.setJsonEntity(builder.toString());
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + index + "/_refresh");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
     /**
      * Add a single KNN Doc to an index with a nested vector field
      *
@@ -765,7 +797,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Return default index settings for index creation
      */
     protected Settings getKNNDefaultIndexSettings() {
-        return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build();
+        return buildKNNIndexSettings(0);
+    }
+
+    /**
+     * Return default index settings for index creation
+     */
+    protected Settings getDefaultIndexSettings() {
+        return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put(KNN_INDEX, true).build();
     }
 
     protected Settings getKNNSegmentReplicatedIndexSettings() {
@@ -913,6 +952,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
             searchResponseBody
         ).map().get("hits");
         return ((List) responseMap.get("hits")).size();
+    }
+
+    /**
+     * Get mapping from parent doc Id to inner hits offsets
+     */
+    protected Multimap<String, Integer> parseInnerHits(String searchResponseBody, String fieldName) throws IOException {
+        List<String> ids = JsonPath.read(
+            searchResponseBody,
+            String.format(Locale.ROOT, "$.hits.hits[*].inner_hits.%s.hits.hits[*]._id", fieldName)
+        );
+        List<Integer> offsets = JsonPath.read(
+            searchResponseBody,
+            String.format(Locale.ROOT, "$.hits.hits[*].inner_hits.%s.hits.hits[*]._nested.offset", fieldName)
+        );
+        Multimap<String, Integer> docIdToOffsets = ArrayListMultimap.create();
+        for (int i = 0; i < ids.size(); i++) {
+            docIdToOffsets.put(ids.get(i), offsets.get(i));
+        }
+        return docIdToOffsets;
     }
 
     protected List<String> parseIds(String searchResponseBody) throws IOException {
