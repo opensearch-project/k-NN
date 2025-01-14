@@ -30,12 +30,14 @@ import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
-
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+import java.util.function.Function;
 
 /**
  * Request to train and serialize a model
@@ -285,11 +287,17 @@ public class TrainingModelRequest extends ActionRequest {
             exception.addValidationError("Description exceeds limit of " + KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH + " characters");
         }
 
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> validateTrainingConfig = knnLibraryIndexingContext
+            .getTrainingConfigValidationSetup();
+        TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
+        TrainingConfigValidationOutput validation = validateTrainingConfig.apply(
+            inputBuilder.knnMethodConfigContext(knnMethodConfigContext).knnMethodContext(knnMethodContext).build()
+        );
+
         // Check if ENCODER_PARAMETER_PQ_M is divisible by vector dimension
-        if (knnMethodContext.getMethodComponentContext().getParameters().containsKey(ENCODER_PARAMETER_PQ_M)
-            && knnMethodConfigContext.getDimension() % (Integer) knnMethodContext.getMethodComponentContext()
-                .getParameters()
-                .get(ENCODER_PARAMETER_PQ_M) != 0) {
+        if (!validation.isValid()) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationError("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions");
         }
