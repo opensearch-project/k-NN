@@ -11,6 +11,7 @@ import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.index.mapper.VectorValidator;
 
 import java.util.Map;
+import java.util.function.BiFunction;
 
 /**
  * Context a library gives to build one of its indices
@@ -47,4 +48,10 @@ public interface KNNLibraryIndexingContext {
      * @return Get the per dimension processor
      */
     PerDimensionProcessor getPerDimensionProcessor();
+
+    /**
+     *
+     * @return Get function that validates training model parameters
+     */
+    BiFunction<Long, KNNMethodContext, TrainingConfigValidationOutput> getTrainingConfigValidationSetup();
 }
