@@ -92,7 +92,7 @@ public interface KNNScoringSpace {
                     ctx,
                     searcher
                 );
-            } else {
+            } else if (processedQuery instanceof byte[]) {
                 return new KNNScoreScript.KNNByteVectorType(
                     params,
                     (byte[]) this.processedQuery,
@@ -101,6 +101,10 @@ public interface KNNScoringSpace {
                     lookup,
                     ctx,
                     searcher
+                );
+            } else {
+                throw new IllegalStateException(
+                    "Unexpected type for processedQuery. Expected float[] or byte[], but got: " + processedQuery.getClass().getName()
                 );
             }
         }
@@ -139,7 +143,7 @@ public interface KNNScoringSpace {
             VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType() == null
                 ? VectorDataType.FLOAT
                 : knnVectorFieldType.getVectorDataType();
-            if (vectorDataType.equals(VectorDataType.FLOAT)) {
+            if (vectorDataType == VectorDataType.FLOAT) {
                 return parseToFloatArray(
                     query,
                     KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType),

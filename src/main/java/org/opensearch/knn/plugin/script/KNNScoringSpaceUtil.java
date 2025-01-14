@@ -155,6 +155,7 @@ public class KNNScoringSpaceUtil {
     /**
      * Converts Object vector to byte[]
      *
+     * Expects all numbers in the Object vector to be in the byte range of [-128 to 127]
      * @param vector input vector
      * @return Byte array representing the vector
      */
