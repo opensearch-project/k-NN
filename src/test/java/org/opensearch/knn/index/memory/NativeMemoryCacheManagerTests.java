@@ -12,7 +12,6 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
-import org.junit.After;
 import org.junit.Before;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.common.settings.Settings;
@@ -41,16 +40,9 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     private ThreadPool threadPool;
 
     @Before
-    public void setUp() throws Exception {
-        super.setUp();
+    public void setThreadPool() {
         threadPool = new ThreadPool(Settings.builder().put("node.name", "NativeMemoryCacheManagerTests").build());
         NativeMemoryCacheManager.setThreadPool(threadPool);
-    }
-
-    @After
-    public void shutdown() throws Exception {
-        super.tearDown();
-        terminate(threadPool);
     }
 
     @Override
@@ -61,6 +53,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
         client().admin().cluster().updateSettings(clusterUpdateSettingsRequest).get();
         NativeMemoryCacheManager.getInstance().close();
+        terminate(threadPool);
         super.tearDown();
     }
 
