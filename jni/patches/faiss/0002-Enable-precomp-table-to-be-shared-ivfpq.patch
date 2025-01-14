@@ -1,4 +1,4 @@
-From 9b33874562c9e62abf4a863657c54f0d349b0f67 Mon Sep 17 00:00:00 2001
+From 1605542c1f4f7982fe0c5447090ae96f84f27484 Mon Sep 17 00:00:00 2001
 From: John Mazanec <jmazane@amazon.com>
 Date: Wed, 21 Feb 2024 15:34:15 -0800
 Subject: [PATCH] Enable precomp table to be shared ivfpq
@@ -22,10 +22,10 @@ Signed-off-by: John Mazanec <jmazane@amazon.com>
  create mode 100644 tests/test_ivfpq_share_table.cpp
 
 diff --git a/faiss/IndexIVFPQ.cpp b/faiss/IndexIVFPQ.cpp
-index 100f499c..09508890 100644
+index e9d6eead2..97c8c010d 100644
 --- a/faiss/IndexIVFPQ.cpp
 +++ b/faiss/IndexIVFPQ.cpp
-@@ -59,6 +59,29 @@ IndexIVFPQ::IndexIVFPQ(
+@@ -58,6 +58,29 @@ IndexIVFPQ::IndexIVFPQ(
      polysemous_training = nullptr;
      do_polysemous_training = false;
      polysemous_ht = 0;
@@ -55,7 +55,7 @@ index 100f499c..09508890 100644
  }
  
  /****************************************************************
-@@ -464,11 +487,23 @@ void IndexIVFPQ::precompute_table() {
+@@ -463,11 +486,23 @@ void IndexIVFPQ::precompute_table() {
              use_precomputed_table,
              quantizer,
              pq,
@@ -80,7 +80,7 @@ index 100f499c..09508890 100644
  namespace {
  
  #define TIC t0 = get_cycles()
-@@ -648,7 +683,7 @@ struct QueryTables {
+@@ -647,7 +682,7 @@ struct QueryTables {
  
              fvec_madd(
                      pq.M * pq.ksub,
@@ -89,7 +89,7 @@ index 100f499c..09508890 100644
                      -2.0,
                      sim_table_2,
                      sim_table);
-@@ -677,7 +712,7 @@ struct QueryTables {
+@@ -676,7 +711,7 @@ struct QueryTables {
                  k >>= cpq.nbits;
  
                  // get corresponding table
@@ -98,7 +98,7 @@ index 100f499c..09508890 100644
                          (ki * pq.M + cm * Mf) * pq.ksub;
  
                  if (polysemous_ht == 0) {
-@@ -707,7 +742,7 @@ struct QueryTables {
+@@ -706,7 +741,7 @@ struct QueryTables {
              dis0 = coarse_dis;
  
              const float* s =
@@ -107,7 +107,7 @@ index 100f499c..09508890 100644
              for (int m = 0; m < pq.M; m++) {
                  sim_table_ptrs[m] = s;
                  s += pq.ksub;
-@@ -727,7 +762,7 @@ struct QueryTables {
+@@ -726,7 +761,7 @@ struct QueryTables {
                  int ki = k & ((uint64_t(1) << cpq.nbits) - 1);
                  k >>= cpq.nbits;
  
@@ -116,7 +116,7 @@ index 100f499c..09508890 100644
                          (ki * pq.M + cm * Mf) * pq.ksub;
  
                  for (int m = m0; m < m0 + Mf; m++) {
-@@ -1344,6 +1379,8 @@ IndexIVFPQ::IndexIVFPQ() {
+@@ -1343,6 +1378,8 @@ IndexIVFPQ::IndexIVFPQ() {
      do_polysemous_training = false;
      polysemous_ht = 0;
      polysemous_training = nullptr;
@@ -126,7 +126,7 @@ index 100f499c..09508890 100644
  
  struct CodeCmp {
 diff --git a/faiss/IndexIVFPQ.h b/faiss/IndexIVFPQ.h
-index d5d21da4..850bbe44 100644
+index 7bf97ec0f..f647e5f87 100644
 --- a/faiss/IndexIVFPQ.h
 +++ b/faiss/IndexIVFPQ.h
 @@ -48,7 +48,8 @@ struct IndexIVFPQ : IndexIVF {
@@ -167,10 +167,10 @@ index d5d21da4..850bbe44 100644
  };
  
 diff --git a/faiss/IndexIVFPQFastScan.cpp b/faiss/IndexIVFPQFastScan.cpp
-index 2844ae49..895df342 100644
+index 9d1cdfcae..647644e36 100644
 --- a/faiss/IndexIVFPQFastScan.cpp
 +++ b/faiss/IndexIVFPQFastScan.cpp
-@@ -46,6 +46,8 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(
+@@ -42,6 +42,8 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(
          : IndexIVFFastScan(quantizer, d, nlist, 0, metric), pq(d, M, nbits) {
      by_residual = false; // set to false by default because it's faster
  
@@ -179,7 +179,7 @@ index 2844ae49..895df342 100644
      init_fastscan(M, nbits, nlist, metric, bbs);
  }
  
-@@ -53,6 +55,17 @@ IndexIVFPQFastScan::IndexIVFPQFastScan() {
+@@ -49,6 +51,17 @@ IndexIVFPQFastScan::IndexIVFPQFastScan() {
      by_residual = false;
      bbs = 0;
      M2 = 0;
@@ -197,7 +197,7 @@ index 2844ae49..895df342 100644
  }
  
  IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
-@@ -71,13 +84,15 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
+@@ -67,13 +80,15 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
      ntotal = orig.ntotal;
      is_trained = orig.is_trained;
      nprobe = orig.nprobe;
@@ -218,7 +218,7 @@ index 2844ae49..895df342 100644
      }
  
      for (size_t i = 0; i < nlist; i++) {
-@@ -102,6 +117,12 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
+@@ -98,6 +113,12 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
      orig_invlists = orig.invlists;
  }
  
@@ -231,7 +231,7 @@ index 2844ae49..895df342 100644
  /*********************************************************
   * Training
   *********************************************************/
-@@ -127,11 +148,23 @@ void IndexIVFPQFastScan::precompute_table() {
+@@ -123,11 +144,23 @@ void IndexIVFPQFastScan::precompute_table() {
              use_precomputed_table,
              quantizer,
              pq,
@@ -256,7 +256,7 @@ index 2844ae49..895df342 100644
  /*********************************************************
   * Code management functions
   *********************************************************/
-@@ -229,7 +262,7 @@ void IndexIVFPQFastScan::compute_LUT(
+@@ -225,7 +258,7 @@ void IndexIVFPQFastScan::compute_LUT(
                      if (cij >= 0) {
                          fvec_madd_simd(
                                  dim12,
@@ -266,7 +266,7 @@ index 2844ae49..895df342 100644
                                  ip_table.get() + i * dim12,
                                  tab);
 diff --git a/faiss/IndexIVFPQFastScan.h b/faiss/IndexIVFPQFastScan.h
-index 00dd2f11..91f35a6e 100644
+index a2cce3266..1e1f0049c 100644
 --- a/faiss/IndexIVFPQFastScan.h
 +++ b/faiss/IndexIVFPQFastScan.h
 @@ -38,7 +38,8 @@ struct IndexIVFPQFastScan : IndexIVFFastScan {
@@ -302,19 +302,19 @@ index 00dd2f11..91f35a6e 100644
      /// same as the regular IVFPQ encoder. The codes are not reorganized by
      /// blocks a that point
 diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
-index 87ab2020..a859516c 100644
+index ae6cc7878..16c99e04d 100644
 --- a/tests/CMakeLists.txt
 +++ b/tests/CMakeLists.txt
 @@ -38,6 +38,7 @@ set(FAISS_TEST_SRC
-   test_common_ivf_empty_index.cpp
    test_callback.cpp
    test_utils.cpp
+   test_hamming.cpp
 +  test_ivfpq_share_table.cpp
  )
  
  add_executable(faiss_test ${FAISS_TEST_SRC})
 diff --git a/tests/test_disable_pq_sdc_tables.cpp b/tests/test_disable_pq_sdc_tables.cpp
-index b211a5c4..a27973d5 100644
+index f94aac870..60c59d7ba 100644
 --- a/tests/test_disable_pq_sdc_tables.cpp
 +++ b/tests/test_disable_pq_sdc_tables.cpp
 @@ -15,7 +15,9 @@
@@ -327,10 +327,10 @@ index b211a5c4..a27973d5 100644
 +}
  
  TEST(IO, TestReadHNSWPQ_whenSDCDisabledFlagPassed_thenDisableSDCTable) {
-     Tempfilename index_filename(&temp_file_mutex, "/tmp/faiss_TestReadHNSWPQ");
+     // Create a temp file name with a randomized component for stress runs
 diff --git a/tests/test_ivfpq_share_table.cpp b/tests/test_ivfpq_share_table.cpp
 new file mode 100644
-index 00000000..f827315d
+index 000000000..f827315d8
 --- /dev/null
 +++ b/tests/test_ivfpq_share_table.cpp
 @@ -0,0 +1,173 @@
