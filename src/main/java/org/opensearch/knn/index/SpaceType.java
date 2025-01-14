@@ -52,6 +52,11 @@ public enum SpaceType {
         }
 
         @Override
+        public KNNVectorDistanceFunction getKnnVectorDistanceFunction() {
+            return KNNVectorDistanceFunction.EUCLIDEAN;
+        }
+
+        @Override
         public float scoreToDistanceTranslation(float score) {
             if (score == 0) {
                 throw new IllegalArgumentException(String.format(Locale.ROOT, "score cannot be 0 when space type is [%s]", getValue()));
@@ -80,6 +85,11 @@ public enum SpaceType {
         @Override
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.COSINE;
+        }
+
+        @Override
+        public KNNVectorDistanceFunction getKnnVectorDistanceFunction() {
+            return KNNVectorDistanceFunction.COSINE;
         }
 
         @Override
@@ -133,6 +143,11 @@ public enum SpaceType {
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
+
+        @Override
+        public KNNVectorDistanceFunction getKnnVectorDistanceFunction() {
+            return KNNVectorDistanceFunction.DOT_PRODUCT;
+        }
     },
     HAMMING("hamming") {
         @Override
@@ -176,6 +191,10 @@ public enum SpaceType {
     }
 
     public abstract float scoreTranslation(float rawScore);
+
+    public KNNVectorDistanceFunction getKnnVectorDistanceFunction() {
+        throw new UnsupportedOperationException(String.format("Space [%s] does not have a knn vector distance function", getValue()));
+    }
 
     /**
      * Get KNNVectorSimilarityFunction that maps to this SpaceType
