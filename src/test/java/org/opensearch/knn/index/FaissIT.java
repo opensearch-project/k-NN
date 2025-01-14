@@ -2053,6 +2053,61 @@ public class FaissIT extends KNNRestTestCase {
         validateGraphEviction();
     }
 
+    public void testEndToEnd_withApproxAndExactSearch_inSameIndex_ForCosineSpaceType() throws Exception {
+        String indexName = randomLowerCaseString();
+        String fieldName = randomLowerCaseString();
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(indexName, buildKNNIndexSettings(0), mapping);
+
+        // Index one document
+        addKnnDoc(indexName, randomAlphaOfLength(5), fieldName, Floats.asList(testData.indexData.vectors[0]).toArray());
+
+        // Assert we have the right number of documents in the index
+        refreshAllIndices();
+        assertEquals(1, getDocCount(indexName));
+        // update threshold setting to skip building graph
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, -1));
+        // add duplicate document with different id
+        addKnnDoc(indexName, randomAlphaOfLength(5), fieldName, Floats.asList(testData.indexData.vectors[0]).toArray());
+        assertEquals(2, getDocCount(indexName));
+        final int k = 2;
+        // search index
+        Response response = searchKNNIndex(
+            indexName,
+            KNNQueryBuilder.builder().fieldName(fieldName).vector(testData.queries[0]).k(k).build(),
+            k
+        );
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
+        assertEquals(k, knnResults.size());
+
+        List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
+
+        // both document should have identical score
+        assertEquals(actualScores.get(0), actualScores.get(1), 0.001);
+    }
+
     protected void setupKNNIndexForFilterQuery() throws Exception {
         setupKNNIndexForFilterQuery(getKNNDefaultIndexSettings());
     }

@@ -17,7 +17,6 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
-import org.opensearch.knn.index.mapper.VectorTransformer;
 
 import java.util.Objects;
 import java.util.Set;
@@ -88,11 +87,6 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         }
 
         throw new IllegalStateException("Unsupported vector data type " + vectorDataType);
-    }
-
-    @Override
-    protected VectorTransformer getVectorTransformer(KNNMethodContext knnMethodContext) {
-        return super.getVectorTransformer(knnMethodContext);
     }
 
     static KNNLibraryIndexingContext adjustIndexDescription(

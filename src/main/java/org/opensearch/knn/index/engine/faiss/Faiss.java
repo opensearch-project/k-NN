@@ -47,11 +47,14 @@ public class Faiss extends NativeLibrary {
     // https://opensearch.org/docs/latest/search-plugins/knn/approximate-knn/#spaces
     private final static Map<SpaceType, Function<Float, Float>> SCORE_TO_DISTANCE_TRANSFORMATIONS = ImmutableMap.<
         SpaceType,
-        Function<Float, Float>>builder().put(SpaceType.INNER_PRODUCT, score -> score > 1 ? 1 - score : 1 / score - 1).build();
+        Function<Float, Float>>builder()
+        .put(SpaceType.INNER_PRODUCT, score -> score > 1 ? 1 - score : (1 / score) - 1)
+        .put(SpaceType.COSINESIMIL, score -> 2 * score - 1)
+        .build();
 
     private final static Map<SpaceType, Function<Float, Float>> DISTANCE_TRANSLATIONS = ImmutableMap.<
         SpaceType,
-        Function<Float, Float>>builder().put(SpaceType.COSINESIMIL, distance -> (2 - distance) / 2).build();
+        Function<Float, Float>>builder().put(SpaceType.COSINESIMIL, distance -> 1 - distance).build();
 
     // Package private so that the method resolving logic can access the methods
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new FaissHNSWMethod(), METHOD_IVF, new FaissIVFMethod());
@@ -99,6 +102,7 @@ public class Faiss extends NativeLibrary {
 
     @Override
     public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
+        // Faiss engine uses distance as is and need transformation
         if (this.scoreTransform.containsKey(spaceType)) {
             return this.scoreTransform.get(spaceType).apply(score);
         }

@@ -21,13 +21,13 @@ public class NormalizeVectorTransformerTests extends KNNTestCase {
 
     public void testNormalizeTransformer_withValidVector_thenSuccess() {
         float[] input = { -3.0f, 4.0f };
-        float[] normalized = transformer.transform(input);
+        transformer.transform(input);
 
-        assertEquals(-0.6f, normalized[0], DELTA);
-        assertEquals(0.8f, normalized[1], DELTA);
+        assertEquals(-0.6f, input[0], DELTA);
+        assertEquals(0.8f, input[1], DELTA);
 
         // Verify the magnitude is 1
-        assertEquals(1.0f, calculateMagnitude(normalized), DELTA);
+        assertEquals(1.0f, calculateMagnitude(input), DELTA);
     }
 
     private float calculateMagnitude(float[] vector) {

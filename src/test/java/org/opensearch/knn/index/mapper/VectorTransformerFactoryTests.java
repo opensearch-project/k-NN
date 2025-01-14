@@ -9,29 +9,41 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.indices.ModelMetadata;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class VectorTransformerFactoryTests extends KNNTestCase {
-    public void testAllSpaceTypes_withFaiss() {
+
+    public void testGetVectorTransformer_withNullModelMetadata() {
+        // Test case for null context
+        assertThrows(IllegalArgumentException.class, () -> VectorTransformerFactory.getVectorTransformer((ModelMetadata) null));
+    }
+
+    public void testAllSpaceTypes_usingModelMetadata_withFaiss() {
         for (SpaceType spaceType : SpaceType.values()) {
-            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType);
+            ModelMetadata metaData = mock(ModelMetadata.class);
+            when(metaData.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+            when(metaData.getSpaceType()).thenReturn(spaceType);
+            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(metaData);
             validateTransformer(spaceType, KNNEngine.FAISS, transformer);
         }
     }
 
-    public void testAllEngines_withCosine() {
-        // Test all engines with COSINESIMIL space type
+    public void testAllEngines_usingModelMetadata_withCosine() {
         for (KNNEngine engine : KNNEngine.values()) {
-            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(engine, SpaceType.COSINESIMIL);
+            ModelMetadata metaData = mock(ModelMetadata.class);
+            when(metaData.getKnnEngine()).thenReturn(engine);
+            when(metaData.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(metaData);
             validateTransformer(SpaceType.COSINESIMIL, engine, transformer);
         }
     }
 
     public void testGetVectorTransformer_withNullContext() {
         // Test case for null context
-        assertThrows(IllegalArgumentException.class, () -> VectorTransformerFactory.getVectorTransformer(null));
+        assertThrows(IllegalArgumentException.class, () -> VectorTransformerFactory.getVectorTransformer((KNNMethodContext) null));
     }
 
     public void testAllSpaceTypes_usingContext_withFaiss() {

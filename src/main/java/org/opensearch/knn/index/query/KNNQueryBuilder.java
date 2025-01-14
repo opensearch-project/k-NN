@@ -12,7 +12,6 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.util.VectorUtil;
 import org.opensearch.common.ValidationException;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.Strings;
@@ -429,6 +428,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         SpaceType spaceType = queryConfigFromMapping.get().getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.get().getVectorDataType();
         RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
+        knnVectorFieldType.transformQueryVector(vector);
 
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         updateQueryStats(vectorQueryType);
@@ -542,7 +542,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, spaceType))
+                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine))
                 .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
@@ -559,8 +559,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, spaceType))
-                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector))
+                .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
+                .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .radius(radius)
                 .methodParameters(this.methodParameters)
@@ -612,13 +612,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
     }
 
-    private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine, SpaceType spaceType) {
-
-        // Cosine similarity is supported as Inner product by FAISS by normalizing input vector, hence, we have to normalize
-        // query vector before applying search
-        if (knnEngine == KNNEngine.FAISS && spaceType == SpaceType.COSINESIMIL && VectorDataType.FLOAT == vectorDataType) {
-            return VectorUtil.l2normalize(this.vector);
-        }
+    private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
         if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
             return this.vector;
         }
