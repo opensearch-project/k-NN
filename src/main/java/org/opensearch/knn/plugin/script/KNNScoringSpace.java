@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin.script;
 import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.IndexSearcher;
+import org.opensearch.Version;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -69,7 +70,7 @@ public interface KNNScoringSpace {
         ) {
             KNNVectorFieldType knnVectorFieldType = toKNNVectorFieldType(fieldType, spaceName, supportingVectorDataTypes);
             this.processedQuery = getProcessedQuery(query, knnVectorFieldType);
-            this.scoringMethod = getScoringMethod(this.processedQuery);
+            this.scoringMethod = getScoringMethod(this.processedQuery, knnVectorFieldType.getKnnMappingConfig().getIndexCreatedVersion());
         }
 
         public ScoreScript getScoreScript(
@@ -122,6 +123,10 @@ public interface KNNScoringSpace {
 
         protected abstract BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery);
 
+        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery, Version indexCreatedVersion) {
+            return getScoringMethod(processedQuery);
+        }
+
     }
 
     class L2 extends KNNFieldSpace {
@@ -141,9 +146,29 @@ public interface KNNScoringSpace {
         }
 
         @Override
-        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
+        protected BiFunction<float[], float[], Float> getScoringMethod(float[] processedQuery) {
+            return getScoringMethod(processedQuery, Version.CURRENT);
+        }
+
+        @Override
+        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery, Version indexCreatedVersion) {
             SpaceType.COSINESIMIL.validateVector(processedQuery);
             float qVectorSquaredMagnitude = getVectorMagnitudeSquared(processedQuery);
+            if (indexCreatedVersion.onOrAfter(Version.V_2_19_0)) {
+                // To be consistent, we will be using same formula used by lucene as mentioned below
+                // https://github.com/apache/lucene/blob/0494c824e0ac8049b757582f60d085932a890800/lucene/core/src/java/org/apache/lucene/index/VectorSimilarityFunction.java#L73
+                // for indices that are created on or after 2.19.0
+                //
+                // OS Score = ( 2 - cosineSimil) / 2
+                // However cosineSimil = 1 - cos x, after applying this to above formula,
+                // OS Score = ( 2 - ( 1 - cos x ) ) / 2
+                // which simplifies to
+                // OS Score = ( 1 + cos x ) / 2
+                return (float[] q, float[] v) -> Math.max(
+                    ((1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude)) / 2.0F),
+                    0
+                );
+            }
             return (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
         }
     }
