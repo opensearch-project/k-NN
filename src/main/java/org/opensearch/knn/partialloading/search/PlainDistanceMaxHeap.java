@@ -86,14 +86,12 @@ public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
 
     @Override
     public void orderResults(DocIdAndDistance[] results) {
-        for (final DocIdAndDistance result : results) {
+        int i = numValidElems - 1;
+        while (i >= 0) {
             DocIdAndDistance popped = pop();
-            if (popped != null) {
-                result.id = popped.id;
-                result.distance = popped.distance;
-            } else {
-                return;
-            }
+            results[i].id = popped.id;
+            results[i].distance = popped.distance;
+            --i;
         }
     }
 
