@@ -60,9 +60,21 @@ public enum SpaceType {
         }
     },
     COSINESIMIL("cosinesimil") {
+        /**
+         * Cosine similarity has range of [-1, 1] where -1 represents vectors are at diametrically opposite, and 1 is where
+         * they are identical in direction and perfectly similar. In Lucene, scores have to be in the range of [0, Float.MAX_VALUE].
+         * Hence, to move the range from [-1, 1] to [ 0, Float.MAX_VALUE], we convert  using following formula which is adopted
+         * by Lucene as mentioned here
+         * https://github.com/apache/lucene/blob/0494c824e0ac8049b757582f60d085932a890800/lucene/core/src/java/org/apache/lucene/index/VectorSimilarityFunction.java#L73
+         * We expect raw score = 1 - cosine(x,y), if underlying library returns different range or other than expected raw score,
+         * they should override this method to either provide valid range or convert raw score to the format as 1 - cosine and call this method
+         *
+         * @param rawScore score returned from underlying library
+         * @return Lucene scaled score
+         */
         @Override
         public float scoreTranslation(float rawScore) {
-            return 1 / (1 + rawScore);
+            return Math.max((2.0F - rawScore) / 2.0F, 0.0F);
         }
 
         @Override
