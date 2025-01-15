@@ -15,7 +15,8 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
 
     private static final String ALGO = "hnsw";
 
-    private static final String ENGINE = "faiss";
+    private static final String FAISS_NAME = "faiss";
+    private static final String LUCENE_NAME = "lucene";
 
     public void testKNNDefaultIndexSettings() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
@@ -91,7 +92,7 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
         final String upgradedIndex = testIndex + "upgraded";
         switch (getClusterType()) {
             case OLD:
-                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, ENGINE));
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME));
                 int docIdOld = 0;
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
                 break;
@@ -101,7 +102,7 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                     createKnnIndex(
                         firstMixRoundIndex,
                         getKNNDefaultIndexSettings(),
-                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, ENGINE)
+                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME)
                     );
                     addKNNDocs(firstMixRoundIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
                 } else {
@@ -109,14 +110,64 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                     createKnnIndex(
                         otherMixRoundIndex,
                         getKNNDefaultIndexSettings(),
-                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, ENGINE)
+                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME)
                     );
                     addKNNDocs(otherMixRoundIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
                 }
                 break;
             case UPGRADED:
                 docIdOld = 0;
-                createKnnIndex(upgradedIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, ENGINE));
+                createKnnIndex(
+                    upgradedIndex,
+                    getKNNDefaultIndexSettings(),
+                    createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME)
+                );
+                addKNNDocs(upgradedIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
+
+                deleteKNNIndex(testIndex);
+                deleteKNNIndex(firstMixRoundIndex);
+                deleteKNNIndex(otherMixRoundIndex);
+                deleteKNNIndex(upgradedIndex);
+        }
+    }
+
+    public void testKNNLuceneIndexCreation_withMethodMapper() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        final String firstMixRoundIndex = testIndex + "first-mix-round";
+        final String otherMixRoundIndex = testIndex + "other-mix-round";
+        final String upgradedIndex = testIndex + "upgraded";
+        switch (getClusterType()) {
+            case OLD:
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, LUCENE_NAME));
+                int docIdOld = 0;
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
+                break;
+            case MIXED:
+                if (isFirstMixedRound()) {
+                    docIdOld = 0;
+                    createKnnIndex(
+                        firstMixRoundIndex,
+                        getKNNDefaultIndexSettings(),
+                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, LUCENE_NAME)
+                    );
+                    addKNNDocs(firstMixRoundIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
+                } else {
+                    docIdOld = 0;
+                    createKnnIndex(
+                        otherMixRoundIndex,
+                        getKNNDefaultIndexSettings(),
+                        createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, LUCENE_NAME)
+                    );
+                    addKNNDocs(otherMixRoundIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
+                }
+                break;
+            case UPGRADED:
+                docIdOld = 0;
+                createKnnIndex(
+                    upgradedIndex,
+                    getKNNDefaultIndexSettings(),
+                    createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, LUCENE_NAME)
+                );
                 addKNNDocs(upgradedIndex, TEST_FIELD, DIMENSIONS, docIdOld, NUM_DOCS);
 
                 deleteKNNIndex(testIndex);
