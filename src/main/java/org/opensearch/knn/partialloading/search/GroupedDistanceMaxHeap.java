@@ -33,38 +33,36 @@ public class GroupedDistanceMaxHeap implements AbstractDistanceMaxHeap {
         this.heap = new HeapNode[heapSize];
 
         for (int i = 1; i < heapSize; i++) {
-            heap[i] = new HeapNode(i, new Entity(INVALID_DOC_ID, Float.MAX_VALUE));
+            heap[i] = new HeapNode(i, new Entity(INVALID_DOC_ID, INVALID_DOC_ID, Float.MAX_VALUE));
         }
 
         this.k = 0;
         this.maxK = heap.length - 1;
     }
 
-    public void insertWithOverflow(int id, float distance) {
+    public void insertWithOverflow(int childId, float distance) {
         if (distance >= heap[1].entity.distance && k == maxK) {
             return;
         }
 
-        final int groupId = docIdGrouper.getGroupId(id);
+        final int groupId = docIdGrouper.getGroupId(childId);
         final Entity child = bestChildDistanceTracker.get(groupId);
 
         if (child == null) {
             if (k == maxK) {
                 bestChildDistanceTracker.remove(heap[1].entity.groupId);
                 bestChildDistanceTracker.put(groupId, heap[1].entity);
-                heap[1].entity.groupId = groupId;
-                heap[1].entity.distance = distance;
+                heap[1].entity.updateGroup(groupId, childId, distance);
                 downHeap(1);
             } else {
                 final int index = k + 1;
-                heap[index].entity.groupId = groupId;
-                heap[index].entity.distance = distance;
+                heap[index].entity.updateGroup(groupId, childId, distance);
                 bestChildDistanceTracker.put(groupId, heap[index].entity);
                 k = index;
                 upHeap(index);
             }
         } else if (distance < child.distance) {
-            child.distance = distance;
+            child.updateChild(childId, distance);
             downHeap(child.nodeIndex);
         }
     }
@@ -91,7 +89,8 @@ public class GroupedDistanceMaxHeap implements AbstractDistanceMaxHeap {
 
     private boolean pop(DocIdAndDistance docIdAndDistance) {
         while (k > 0) {
-            final int id = heap[1].entity.groupId;
+            // We must use childId instead of group id.
+            final int id = heap[1].entity.childId;
             final float distance = heap[1].entity.distance;
             heap[1].exchangeEntity(heap[k]); // move last to first
             k--;
@@ -129,11 +128,22 @@ public class GroupedDistanceMaxHeap implements AbstractDistanceMaxHeap {
 
     private static class Entity {
         int groupId;
+        int childId;
         float distance;
         int nodeIndex;
 
-        public Entity(int groupId, float distance) {
+        public Entity(int groupId, int childId, float distance) {
+            updateGroup(groupId, childId, distance);
+        }
+
+        public void updateGroup(int groupId, int childId, float distance) {
             this.groupId = groupId;
+            this.childId = childId;
+            this.distance = distance;
+        }
+
+        public void updateChild(int childId, float distance) {
+            this.childId = childId;
             this.distance = distance;
         }
     }
