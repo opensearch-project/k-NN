@@ -7,8 +7,8 @@ package org.opensearch.knn.partialloading.search;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.partialloading.PartialLoadingContext;
 
@@ -20,8 +20,10 @@ public class PartialLoadingSearchParameters {
     private PartialLoadingContext partialLoadingContext;
     private int k;
     private Integer efSearch;
-    private BitSet filterIdsBitSet;
-    private int[] parentIds;
+    @Setter
+    private MatchDocSelector matchDocSelector;
+    @Setter
+    private DocIdGrouper docIdGrouper;
     private SpaceType spaceType;
     private IndexInput indexInput;
 }

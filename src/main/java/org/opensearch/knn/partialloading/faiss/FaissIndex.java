@@ -7,8 +7,8 @@ package org.opensearch.knn.partialloading.faiss;
 
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.partialloading.search.DocIdAndDistance;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
-import org.opensearch.knn.partialloading.search.ResultsCollector;
 
 import java.io.IOException;
 
@@ -27,17 +27,17 @@ public abstract class FaissIndex {
         final String indexName = readFourBytes(input);
 
         switch (indexName) {
-            case IXMP : {
+            case IXMP: {
                 return FaissIdMapIndex.load(input);
             }
-            case IHNF : {
+            case IHNF: {
                 return FaissHNSWFlatIndex.load(input);
             }
             case IXF2:
                 // Fallthrough
-            case IXFI :
+            case IXFI:
                 return FaissIndexFlat.load(input, indexName);
-            default : {
+            default: {
                 throw new IllegalStateException("Partial loading does not support [" + indexName + "].");
             }
         }
@@ -71,9 +71,7 @@ public abstract class FaissIndex {
     }
 
     public abstract void searchLeaf(
-        IndexInput indexInput,
-        ResultsCollector resultsCollector,
-        PartialLoadingSearchParameters searchParameters
+        IndexInput indexInput, DocIdAndDistance[] results, PartialLoadingSearchParameters searchParameters
     ) throws IOException;
 
     public abstract String getIndexType();

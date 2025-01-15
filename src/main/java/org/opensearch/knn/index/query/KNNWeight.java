@@ -43,6 +43,7 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.partialloading.PartialLoadingContext;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchStrategy;
+import org.opensearch.knn.partialloading.search.distance.BitSetParentIdGrouper;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
@@ -135,11 +136,12 @@ public class KNNWeight extends Weight {
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
         final int maxDoc = context.reader().maxDoc();
-        int cardinality = filterBitSet.cardinality();
+        final int matchDocsCardinality = filterBitSet.cardinality();
+        System.out.println(" +++++++++++++ searchLeaf, matchDocsCardinality=" + matchDocsCardinality + ", filterWeight=" + filterWeight);
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
-        if (filterWeight != null && cardinality == 0) {
+        if (filterWeight != null && matchDocsCardinality == 0) {
             return PerLeafResult.EMPTY_RESULT;
         }
         /*
@@ -147,11 +149,11 @@ public class KNNWeight extends Weight {
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
          * This improves the recall.
          */
-        if (isFilteredExactSearchPreferred(cardinality)) {
+        if (false && isFilteredExactSearchPreferred(matchDocsCardinality)) {
             // TMP
-            System.out.println("isFilteredExactSearchPreferred(cardinality) == true");
+            System.out.println(" ++++++++++++++ isFilteredExactSearchPreferred(matchDocsCardinality) == true");
             // TMP
-            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, matchDocsCardinality), matchDocsCardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -159,33 +161,40 @@ public class KNNWeight extends Weight {
          * If filters match all docs in this segment, then null should be passed as filterBitSet
          * so that it will not do a bitset look up in bottom search layer.
          */
-        final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
-        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
+        final BitSet annFilter = (filterWeight != null && matchDocsCardinality == maxDoc) ? null : filterBitSet;
+        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, matchDocsCardinality, k);
 
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
-        if (isExactSearchRequire(context, cardinality, docIdsToScoreMap.size())) {
-            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            Map<Integer, Float> result = doExactSearch(context, docs, cardinality, k);
+        if (isExactSearchRequire(context, matchDocsCardinality, docIdsToScoreMap.size())) {
+            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, matchDocsCardinality) : null;
+            Map<Integer, Float> result = doExactSearch(context, docs, matchDocsCardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);
     }
 
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+        // TMP
+        {
+            final Bits liveDocs = ctx.reader().getLiveDocs();
+            final int maxDoc = ctx.reader().maxDoc();
+            System.out.println(" ++++++++++++++++ |liveDocs|=" + (liveDocs != null ? liveDocs.length() : -1) + ", maxDoc=" + maxDoc);
+        }
+        // TMP
+
         if (this.filterWeight == null) {
             return new FixedBitSet(0);
         }
-
-        final Bits liveDocs = ctx.reader().getLiveDocs();
-        final int maxDoc = ctx.reader().maxDoc();
 
         final Scorer scorer = filterWeight.scorer(ctx);
         if (scorer == null) {
             return new FixedBitSet(0);
         }
 
+        final Bits liveDocs = ctx.reader().getLiveDocs();
+        final int maxDoc = ctx.reader().maxDoc();
         return createBitSet(scorer.iterator(), liveDocs, maxDoc);
     }
 
@@ -205,6 +214,7 @@ public class KNNWeight extends Weight {
     }
 
     private int[] getParentIdsArray(final LeafReaderContext context) throws IOException {
+        System.out.println(" +++++++++++++++++++++++++++ knnQuery.getParentsFilter()==" + knnQuery.getParentsFilter());
         if (knnQuery.getParentsFilter() == null) {
             return null;
         }
@@ -219,7 +229,7 @@ public class KNNWeight extends Weight {
         int docId = bitSetIterator.nextDoc();
         while (docId != DocIdSetIterator.NO_MORE_DOCS) {
             assert index < intArray.length;
-            intArray[index++] = docId;
+            intArray[index++] = docId; // docId -> parent id
             docId = bitSetIterator.nextDoc();
         }
         return intArray;
@@ -246,7 +256,7 @@ public class KNNWeight extends Weight {
     private Map<Integer, Float> doANNSearch(
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
-        final int cardinality,
+        final int matchDocsCardinality,
         final int k
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
@@ -329,10 +339,17 @@ public class KNNWeight extends Weight {
             throw new RuntimeException(e);
         }
 
-        // From cardinality select different filterIds type
-        FilterIdsSelector filterIdsSelector = FilterIdsSelector.getFilterIdSelector(filterIdsBitSet, cardinality);
-        long[] filterIds = filterIdsSelector.getFilterIds();
-        FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
+        // Acquire filterIds from cardinality select different filterIds type to pass them down to JNI layer.
+        long[] filterIds = null;
+        FilterIdsSelector.FilterIdsSelectorType filterType = null;
+        final PartialLoadingContext partialLoadingContext = indexAllocation.getPartialLoadingContext();
+        if (partialLoadingContext == null) {
+            // For partial loading, we only need BitSet.
+            final FilterIdsSelector filterIdsSelector = FilterIdsSelector.getFilterIdSelector(filterIdsBitSet, matchDocsCardinality);
+            filterIds = filterIdsSelector.getFilterIds();
+            filterType = filterIdsSelector.getFilterType();
+        }
+
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         indexAllocation.incRef();
@@ -341,14 +358,32 @@ public class KNNWeight extends Weight {
                 throw new RuntimeException("Index has already been closed");
             }
             final int[] parentIds = getParentIdsArray(context);
-            final PartialLoadingContext partialLoadingContext = indexAllocation.getPartialLoadingContext();
+            // TMP
+            System.out.println(" +++++++++ parentIds=" + Arrays.toString(parentIds));
+            // TMP
 
             if (partialLoadingContext == null) {
+                // TMP
                 System.out.println(" +++++++++++++++ queryToJNIService");
+                System.out.println(" +++++++++++++++ queryToJNIService - filter=" + filterIdsBitSet.cardinality());
+                System.out.println(" +++++++++++++++ filterType=" + filterType
+                                       + ", len(filterIds)=" + (filterIds != null ? filterIds.length : -1));
+                System.out.println(" +++++++++++++++ len(parentIds)=" + (parentIds != null ? parentIds.length : -1));
+                // TMP
                 results = queryToJNIService(k, quantizedVector, fieldInfo, indexAllocation, knnEngine, filterIds, filterType, parentIds);
+
+                // TMP
+                for (KNNQueryResult result : results) {
+                    System.out.println(" ++++++++++ " + result.getId() + " / " + result.getScore());
+                }
+                System.out.println("\n\n");
+                // TMP
             } else {
                 // TMP
-                System.out.println(" +++++++++++++++ queryToPartialLoadingIndex");
+                System.out.println(" +++++++++++++++ queryToPartialLoadingIndex - filter=" + filterIdsBitSet.cardinality());
+                System.out.println(" +++++++++++++++ filterType=" + filterType
+                                   + ", len(filterIds)=" + (filterIds != null ? filterIds.length : -1));
+                System.out.println(" +++++++++++++++ len(parentIds)=" + (parentIds != null ? parentIds.length : -1));
                 // TMP
                 results = queryToPartialLoadingIndex(
                     partialLoadingContext,
@@ -360,6 +395,12 @@ public class KNNWeight extends Weight {
                     parentIds,
                     spaceType
                 );
+                // TMP
+                for (KNNQueryResult result : results) {
+                    System.out.println(" ++++++++++ " + result.getId() + " / " + result.getScore());
+                }
+                System.out.println("\n\n");
+                // TMP
             }
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
@@ -420,10 +461,9 @@ public class KNNWeight extends Weight {
             .efSearch(efSearch)
             .indexInput(partialLoadingContext.getIndexInput(directory))
             .spaceType(spaceType)
-            .filterIdsBitSet(filterIdsBitSet)
-            .parentIds(parentIds)
+            .matchDocSelector((filterIdsBitSet != null && filterIdsBitSet.cardinality() > 0) ? filterIdsBitSet::get : null)
+            .docIdGrouper(BitSetParentIdGrouper.createGrouper(parentIds))
             .build();
-
 
         if (knnQuery.getVectorDataType() == VectorDataType.BINARY
             || (quantizedVector != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY)) {
@@ -515,7 +555,7 @@ public class KNNWeight extends Weight {
             filterIdsCount,
             KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName())
         );
-        int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
+        final int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
         // Refer this GitHub around more details https://github.com/opensearch-project/k-NN/issues/1049 on the logic
         if (knnQuery.getRadius() == null && filterIdsCount <= knnQuery.getK()) {
             return true;

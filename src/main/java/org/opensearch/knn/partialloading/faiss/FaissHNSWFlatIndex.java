@@ -7,9 +7,12 @@ package org.opensearch.knn.partialloading.faiss;
 
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.partialloading.faiss.hnsw.FaissHNSW;
+import org.opensearch.knn.partialloading.search.AbstractDistanceMaxHeap;
+import org.opensearch.knn.partialloading.search.DocIdAndDistance;
+import org.opensearch.knn.partialloading.search.GroupedDistanceMaxHeap;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
-import org.opensearch.knn.partialloading.search.ResultsCollector;
-import org.opensearch.knn.partialloading.util.DistanceComputer;
+import org.opensearch.knn.partialloading.search.PlainDistanceMaxHeap;
+import org.opensearch.knn.partialloading.search.distance.DistanceComputer;
 
 import java.io.IOException;
 
@@ -28,22 +31,35 @@ public class FaissHNSWFlatIndex extends FaissIndex {
             faissHNSWFlatIndex.storage = (FaissIndexFlat) faissIndex;
         } else {
             throw new IllegalStateException(
-                "Expected flat vector storage format under [" + IHNF + "] index type, but got " + faissIndex.getIndexType()
-            );
+                "Expected flat vector storage format under [" + IHNF + "] index type, but got " + faissIndex.getIndexType());
         }
         return faissHNSWFlatIndex;
     }
 
     @Override
-    public void searchLeaf(IndexInput indexInput, ResultsCollector resultsCollector, PartialLoadingSearchParameters searchParameters)
+    public void searchLeaf(IndexInput indexInput, DocIdAndDistance[] results, PartialLoadingSearchParameters searchParameters)
         throws IOException {
-        // TODO : params->grp
+        // Determine result heap
+        final AbstractDistanceMaxHeap resultMaxHeap;
+        if (searchParameters.getDocIdGrouper() != null) {
+            resultMaxHeap = new GroupedDistanceMaxHeap(searchParameters.getK(), searchParameters.getDocIdGrouper());
+        } else {
+            resultMaxHeap = new PlainDistanceMaxHeap(searchParameters.getK());
+        }
 
-        final DistanceComputer distanceComputer = DistanceComputer.createDistanceFunctionFromFlatVector(
-            storage.getCodes(),
-            searchParameters
-        );
-        hnsw.search(distanceComputer, resultsCollector, searchParameters);
+        // Create distance computer
+        final DistanceComputer distanceComputer =
+            DistanceComputer.createDistanceFunctionFromFlatVector(storage.getCodes(), searchParameters);
+
+        // Start HNSW searching
+        hnsw.search(distanceComputer, resultMaxHeap, searchParameters, results);
+
+        // Reverse (e.g. negation) if it needs to.
+        if (DistanceComputer.needReverseScore(searchParameters.getSpaceType())) {
+            for (final DocIdAndDistance result : results) {
+                result.distance = -result.distance;
+            }
+        }
     }
 
     @Override

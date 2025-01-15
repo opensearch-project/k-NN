@@ -7,12 +7,14 @@ package org.opensearch.knn.partialloading.faiss.hnsw;
 
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.SparseFixedBitSet;
-import org.opensearch.knn.partialloading.search.DistanceMaxHeap;
+import org.opensearch.knn.index.query.KNNQueryResult;
+import org.opensearch.knn.partialloading.search.AbstractDistanceMaxHeap;
 import org.opensearch.knn.partialloading.search.DocIdAndDistance;
+import org.opensearch.knn.partialloading.search.MatchDocSelector;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
-import org.opensearch.knn.partialloading.search.ResultsCollector;
+import org.opensearch.knn.partialloading.search.PlainDistanceMaxHeap;
+import org.opensearch.knn.partialloading.search.distance.DistanceComputer;
 import org.opensearch.knn.partialloading.storage.Storage;
-import org.opensearch.knn.partialloading.util.DistanceComputer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -29,8 +31,9 @@ public class FaissHNSW {
 
     public void search(
         DistanceComputer distanceComputer,
-        ResultsCollector resultsCollector,
-        PartialLoadingSearchParameters searchParameters
+        AbstractDistanceMaxHeap resultMaxHeap,
+        PartialLoadingSearchParameters searchParameters,
+        DocIdAndDistance[] results
     ) throws IOException {
         // Override `efSearch` with search parameters otherwise use default.
         final int effectiveEfSearch;
@@ -41,34 +44,53 @@ public class FaissHNSW {
         }
 
         // Greedy search for the starting point at the bottom layer
+        final SparseFixedBitSet visited = new SparseFixedBitSet(Math.toIntExact(totalNumberOfVectors));
         final DocIdAndDistance nearest = new DocIdAndDistance(entryPoint, distanceComputer.compute(entryPoint));
         for (int level = maxLevel; level >= 1; --level) {
-            greedyUpdateNearest(searchParameters.getIndexInput(), distanceComputer, level, nearest);
+            greedyUpdateNearest(searchParameters.getIndexInput(), distanceComputer, visited, level, nearest);
         }
 
         // Start exhaustive search at the bottom layer.
-        final SparseFixedBitSet visited = new SparseFixedBitSet(Math.toIntExact(totalNumberOfVectors));
+        visited.clear();
         final int ef = Math.max(effectiveEfSearch, searchParameters.getK());
-        final DistanceMaxHeap candidates = new DistanceMaxHeap(ef);
-        // Put starting point in both candidates max heap and results collector.
-        candidates.insertWithOverflow(nearest.id, nearest.distance);
-        resultsCollector.addResult(nearest.id, nearest.distance);
-        // We've visited starting point.
-        visited.set(candidates.top().id);
-        searchFromCandidates(searchParameters.getIndexInput(), distanceComputer, resultsCollector, candidates, visited);
+        final PlainDistanceMaxHeap candidates = new PlainDistanceMaxHeap(ef);
+        searchFromCandidates(
+            searchParameters.getIndexInput(),
+            distanceComputer,
+            resultMaxHeap,
+            candidates,
+            visited,
+            searchParameters.getMatchDocSelector(),
+            nearest
+        );
+
+        // Make sorted results by distance
+        resultMaxHeap.orderResults(results);
     }
 
     private void searchFromCandidates(
         IndexInput indexInput,
         DistanceComputer distanceComputer,
-        ResultsCollector resultsCollector,
-        DistanceMaxHeap candidates,
-        SparseFixedBitSet visited
+        AbstractDistanceMaxHeap resultMaxHeap,
+        PlainDistanceMaxHeap candidates,
+        SparseFixedBitSet visited,
+        MatchDocSelector matchDocSelector,
+        DocIdAndDistance nearest
     ) throws IOException {
-        DocIdAndDistance minIad = new DocIdAndDistance(0, 0);
+        // We've visited starting point.
+        visited.set(nearest.id);
+        candidates.insertWithOverflow(nearest.id, nearest.distance);
+
+        // Collect starting point in results collector.
+        final boolean hasSelector = matchDocSelector != null;
+        if (!hasSelector || matchDocSelector.test(nearest.id)) {
+            resultMaxHeap.insertWithOverflow(nearest.id, nearest.distance);
+        }
+
+        // Start BFS searching.
         while (!candidates.isEmpty()) {
-            candidates.popMin(minIad);
-            final long o = offsets[minIad.id];
+            candidates.popMin(nearest);
+            final long o = offsets[nearest.id];
             final long begin = o + cumNumberNeighborPerLevel[0];
             final long end = o + cumNumberNeighborPerLevel[1];
             // System.out.println("mid.id=" + minIad.id + ", dist=" + minIad.distance);
@@ -82,15 +104,18 @@ public class FaissHNSW {
                     continue;
                 }
                 final float dist = distanceComputer.compute(neighborId);
-                // System.out.println("neighborId=" + neighborId + ", dist=" + dist);
-                resultsCollector.addResult(neighborId, dist);
                 candidates.insertWithOverflow(neighborId, dist);
+                // System.out.println("neighborId=" + neighborId + ", dist=" + dist);
+                if (!hasSelector || matchDocSelector.test(neighborId)) {
+                    resultMaxHeap.insertWithOverflow(neighborId, dist);
+                }
             }
         }
     }
 
-    private void greedyUpdateNearest(IndexInput indexInput, DistanceComputer distanceComputer, int level, DocIdAndDistance nearest)
-        throws IOException {
+    private void greedyUpdateNearest(
+        IndexInput indexInput, DistanceComputer distanceComputer, SparseFixedBitSet visited, int level, DocIdAndDistance nearest
+    ) throws IOException {
         while (true) {
             final int prevNearest = nearest.id;
 
@@ -105,6 +130,13 @@ public class FaissHNSW {
             for (long i = neighborListStartOffset; i < neighborListEndOffset; ++i) {
                 final int neighborId = neighbors.readInt(indexInput, i);
                 if (neighborId >= 0) {
+                    // We don't need to visit a vector more than once.
+                    // Because, a visited node is either the closed vector to query vector that we've found so far
+                    // or, it's a farther vector than the best one that no need to reconsider.
+                    // Since this is a greedy algorithm, it is so much enough to track the best found vector.
+                    if (visited.getAndSet(neighborId)) {
+                        continue;
+                    }
                     final float distance = distanceComputer.compute(neighborId);
                     if (distance < nearest.distance) {
                         nearest.id = neighborId;

@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.partialloading.search;
 
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.partialloading.PartialLoadingContext;
 import org.opensearch.knn.partialloading.faiss.FaissIndex;
@@ -15,8 +14,7 @@ import java.io.IOException;
 public class MemoryEfficientPartialLoadingSearchStrategy extends PartialLoadingSearchStrategy {
     @Override
     public KNNQueryResult[] queryBinaryIndex(PartialLoadingSearchParameters searchParameters) {
-        // TODO
-        throw new UnsupportedOperationException("NOOOOOOOOOOOOOOOOOOOOOO");
+        throw new UnsupportedOperationException("Partial loading does not support vector search on binary index.");
     }
 
     @Override
@@ -26,21 +24,29 @@ public class MemoryEfficientPartialLoadingSearchStrategy extends PartialLoadingS
         FaissIndex faissIndex = partialLoadingContext.getFaissIndex();
 
         // Start search a single index
-        final DistanceMaxHeap resultMaxHeap = new DistanceMaxHeap(searchParameters.getK());
-        final ResultsCollector resultsCollector = new HeapResultsCollector(resultMaxHeap);
+        final DocIdAndDistance[] results = new DocIdAndDistance[searchParameters.getK()];
+        for (int i = 0; i < searchParameters.getK(); i++) {
+            results[i] = new DocIdAndDistance(DocIdAndDistance.INVALID_DOC_ID, 0);
+        }
+
         try {
-            faissIndex.searchLeaf(partialLoadingContext.getIndexInput(), resultsCollector, searchParameters);
+            faissIndex.searchLeaf(partialLoadingContext.getIndexInput(), results, searchParameters);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        // Translate distance to score
-        final KNNQueryResult[] results = resultsCollector.getResults();
-        final SpaceType spaceType = searchParameters.getSpaceType();
-        for (int i = 0; i < results.length; ++i) {
-            final KNNQueryResult result = results[i];
-            result.reset(result.getId(), spaceType.scoreTranslation(result.getScore()));
+        // Transform results to query results
+        int idx = results.length - 1;
+        while (idx >= 0 && results[idx].id == DocIdAndDistance.INVALID_DOC_ID) {
+            --idx;
         }
-        return results;
+        // Ex: [id0, id2, id3, -1, -1, -1] where k == 6, then resultSize = 3
+        final int resultSize = idx + 1;
+
+        final KNNQueryResult[] queryResults = new KNNQueryResult[resultSize];
+        for (int i = 0; i < resultSize; i++) {
+            queryResults[i] = new KNNQueryResult(results[i].id, results[i].distance);
+        }
+        return queryResults;
     }
 }

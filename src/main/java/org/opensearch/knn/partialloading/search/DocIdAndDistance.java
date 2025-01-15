@@ -6,6 +6,8 @@
 package org.opensearch.knn.partialloading.search;
 
 public class DocIdAndDistance {
+    public static final int INVALID_DOC_ID = -1;
+
     public int id;
     public float distance;
 

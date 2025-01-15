@@ -388,10 +388,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return new MatchNoDocsQuery();
         }
 
-        // TMP
-        System.out.println(" +++++++++++++++++++ mappedFieldType=" + mappedFieldType);
-        // TMP
-
         if (!(mappedFieldType instanceof KNNVectorFieldType)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }

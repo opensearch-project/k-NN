@@ -5,12 +5,15 @@
 
 package org.opensearch.knn.partialloading.faiss;
 
+import lombok.AllArgsConstructor;
 import org.apache.lucene.store.IndexInput;
-import org.opensearch.knn.index.query.KNNQueryResult;
+import org.opensearch.knn.partialloading.search.DocIdAndDistance;
+import org.opensearch.knn.partialloading.search.DocIdGrouper;
+import org.opensearch.knn.partialloading.search.MatchDocSelector;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
-import org.opensearch.knn.partialloading.search.ResultsCollector;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 public class FaissIdMapIndex extends FaissIndex {
     public static final String IXMP = "IxMp";
@@ -29,30 +32,58 @@ public class FaissIdMapIndex extends FaissIndex {
         input.readLongs(idMap, 0, idMap.length);
 
         // If `idMap` is an identity function that maps `i` to `i`, then we don't need to keep it.
-        boolean identityMap = true;
         for (int i = 0; i < idMap.length; i++) {
             if (idMap[i] != i) {
-                identityMap = false;
+                // Only keep it if it's not an identify mapping.
+                faissIdMapIndex.idMap = idMap;
                 break;
             }
         }
-        if (!identityMap) {
-            // Only keep it if it's not an identify mapping.
-            faissIdMapIndex.idMap = idMap;
+
+        // TMP
+        if (faissIdMapIndex.idMap != null) {
+            System.out.println(" ++++++++++ idMap=" + Arrays.toString(faissIdMapIndex.idMap));
         }
+        // TMP
 
         return faissIdMapIndex;
     }
 
     @Override
-    public void searchLeaf(IndexInput indexInput, ResultsCollector resultsCollector, PartialLoadingSearchParameters searchParameters)
+    public void searchLeaf(IndexInput indexInput, DocIdAndDistance[] results, PartialLoadingSearchParameters searchParameters)
         throws IOException {
-        // TODO : params->sel
-        // TODO : params->grp
+        final MatchDocSelector selector = searchParameters.getMatchDocSelector();
+        final DocIdGrouper docIdGrouper = searchParameters.getDocIdGrouper();
 
-        nestedIndex.searchLeaf(indexInput, resultsCollector, searchParameters);
+        try {
+            if (idMap != null && selector != null) {
+                // We only have non-null idMap when it's not an identity mapping.
+                // 1 = True, 0 = False
+                // || identity | sel | selector wrapping |
+                // ||    0     |  0  |      No need      |
+                // ||    0     |  1  |      Need         |
+                // ||    1     |  0  |      No need      |
+                // ||    1     |  1  |      No need      |
+                searchParameters.setMatchDocSelector(new DocIdSelectorTranslated(selector));
+            }
 
-        transformResultDocIds(resultsCollector);
+            if (idMap != null && docIdGrouper != null) {
+                // We only have non-null idMap when it's not an identity mapping.
+                // 1 = True, 0 = False
+                // | identity | grouper | grouper wrapping |
+                // ||    0    |     0   |      No need     |
+                // ||    0    |     1   |      Need        |
+                // ||    1    |     0   |      No need     |
+                // ||    1    |     1   |      No need     |
+                searchParameters.setDocIdGrouper(new DocIdGrouperTranslated(docIdGrouper));
+            }
+
+            nestedIndex.searchLeaf(indexInput, results, searchParameters);
+            transformResultDocIds(results);
+        } finally {
+            searchParameters.setMatchDocSelector(selector);
+            searchParameters.setDocIdGrouper(docIdGrouper);
+        }
     }
 
     @Override
@@ -60,24 +91,38 @@ public class FaissIdMapIndex extends FaissIndex {
         return IXMP;
     }
 
-    private void transformResultDocIds(ResultsCollector resultsCollector) {
-        KNNQueryResult[] results = resultsCollector.getResults();
-        if (idMap == null) {
-            // Identify mapping, transform `i` (which is a negative) to `-i`.
-            // Ex: doc_id=-77 -> doc_id=77
-            for (final KNNQueryResult result : results) {
-                if (result.getId() < 0) {
-                    result.reset(-result.getId(), result.getScore());
-                }
-            }
-        } else {
+    private void transformResultDocIds(DocIdAndDistance[] results) {
+        if (idMap != null) {
             // Transform doc id.
-            // Ex: doc_id=-77 -> doc_id= idMap[-doc_id] = idMap[77]
-            for (final KNNQueryResult result : results) {
-                if (result.getId() < 0) {
-                    result.reset((int) idMap[-result.getId()], result.getScore());
+            // Ex: doc_id=-77 -> doc_id = idMap[-doc_id] = idMap[77]
+            for (final DocIdAndDistance result : results) {
+                if (result.id != DocIdAndDistance.INVALID_DOC_ID) {
+                    result.id = (int) (idMap[result.id]);
+                } else {
+                    // Since `results` is sorted, it is guaranteed that since this point, no valid docs present.
+                    break;
                 }
             }
+        }
+    }
+
+    @AllArgsConstructor
+    private class DocIdSelectorTranslated implements MatchDocSelector {
+        final MatchDocSelector nestedDocSelector;
+
+        @Override
+        public boolean test(int docId) {
+            return nestedDocSelector.test((int) idMap[docId]);
+        }
+    }
+
+    @AllArgsConstructor
+    private class DocIdGrouperTranslated implements DocIdGrouper {
+        final DocIdGrouper nestedDocIdGrouper;
+
+        @Override
+        public int getGroupId(int childDocId) {
+            return nestedDocIdGrouper.getGroupId((int) idMap[childDocId]);
         }
     }
 }

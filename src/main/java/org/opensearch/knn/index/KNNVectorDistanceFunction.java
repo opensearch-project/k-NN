@@ -22,12 +22,12 @@ public enum KNNVectorDistanceFunction {
     DOT_PRODUCT {
         @Override
         public float distance(float[] vec1, float[] vec2) {
-            return VectorUtil.dotProduct(vec1, vec2);
+            return -VectorUtil.dotProduct(vec1, vec2);
         }
 
         @Override
         public float distance(byte[] vec1, byte[] vec2) {
-            return VectorUtil.dotProduct(vec1, vec2);
+            return -VectorUtil.dotProduct(vec1, vec2);
         }
     },
     COSINE {

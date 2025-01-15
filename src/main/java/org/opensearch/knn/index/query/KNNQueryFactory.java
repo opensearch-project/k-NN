@@ -55,6 +55,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         if (createQueryRequest.getContext().isPresent()) {
             QueryShardContext context = createQueryRequest.getContext().get();
             parentFilter = context.getParentFilter();
+            System.out.println(" +++++++++++++++++++++++++++++++++ parentFilter = context.getParentFilter(), " + parentFilter);
         }
 
         if (parentFilter == null && expandNested) {

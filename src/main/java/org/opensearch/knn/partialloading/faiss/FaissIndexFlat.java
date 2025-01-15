@@ -7,8 +7,8 @@ package org.opensearch.knn.partialloading.faiss;
 
 import lombok.Getter;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.partialloading.search.DocIdAndDistance;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
-import org.opensearch.knn.partialloading.search.ResultsCollector;
 import org.opensearch.knn.partialloading.storage.Storage;
 
 import java.io.IOException;
@@ -31,15 +31,9 @@ public class FaissIndexFlat extends FaissIndex {
 
         faissIndexFlat.codes.markSection(input, Float.BYTES);
         if (faissIndexFlat.codes.getSectionSize() != (faissIndexFlat.totalNumberOfVectors * faissIndexFlat.oneVectorByteSize)) {
-            throw new IllegalStateException(
-                "Got an inconsistent bytes size of vector ["
-                    + faissIndexFlat.codes.getSectionSize()
-                    + "] "
-                    + "when faissIndexFlat.totalNumberOfVectors="
-                    + faissIndexFlat.totalNumberOfVectors
-                    + ", faissIndexFlat.oneVectorByteSize="
-                    + faissIndexFlat.oneVectorByteSize
-            );
+            throw new IllegalStateException("Got an inconsistent bytes size of vector [" + faissIndexFlat.codes.getSectionSize() + "] "
+                                                + "when faissIndexFlat.totalNumberOfVectors=" + faissIndexFlat.totalNumberOfVectors
+                                                + ", faissIndexFlat.oneVectorByteSize=" + faissIndexFlat.oneVectorByteSize);
         }
 
         faissIndexFlat.indexType = indexType;
@@ -48,7 +42,7 @@ public class FaissIndexFlat extends FaissIndex {
     }
 
     @Override
-    public void searchLeaf(IndexInput indexInput, ResultsCollector resultsCollector, PartialLoadingSearchParameters searchParameters) {
+    public void searchLeaf(IndexInput indexInput, DocIdAndDistance[] results, PartialLoadingSearchParameters searchParameters) {
         throw new UnsupportedOperationException();
     }
 

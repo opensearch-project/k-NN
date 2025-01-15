@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.partialloading.util;
+package org.opensearch.knn.partialloading.search.distance;
 
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
 import org.opensearch.knn.partialloading.storage.Storage;
 
@@ -28,6 +29,10 @@ public abstract class DistanceComputer {
         } else {
             throw new IllegalArgumentException("Distance function needs at least one query vector. Both float[] and byte[] were null.");
         }
+    }
+
+    public static boolean needReverseScore(SpaceType spaceType) {
+        return spaceType == SpaceType.INNER_PRODUCT;
     }
 
     public abstract float compute(long index) throws IOException;
