@@ -329,11 +329,6 @@ task cmakeJniLib(type:Exec) {
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     if (Os.isFamily(Os.FAMILY_MAC)) {
         args.add("-DJAVA_HOME=\$(/usr/libexec/java_home)")
-        /*
-        environment('OpenMP_ROOT', '/opt/homebrew/opt/libomp')
-        environment('LDFLAGS', "-L/opt/homebrew/opt/libomp/lib")
-        environment('CPPFLAGS', "-I/opt/homebrew/opt/libomp/include")
-         */
     }
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
