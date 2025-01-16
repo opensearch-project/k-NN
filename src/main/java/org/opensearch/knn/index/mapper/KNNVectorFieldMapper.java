@@ -689,11 +689,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected abstract PerDimensionProcessor getPerDimensionProcessor();
 
     /**
-     * Getter for vector transformer after vector parsing and validation
+     * Retrieves the vector transformer for the KNN vector field.
+     * This method provides access to the vector transformer instance that will be used
+     * for processing vectors in the KNN field. The transformer is responsible for any
+     * necessary vector transformations before indexing or searching.
+     * This implementation delegates to the VectorTransformerFactory to obtain
+     * the appropriate transformer instance. The returned transformer is typically
+     * stateless and thread-safe.
      *
-     * @return VectorTransformer
+     * @return VectorTransformer An instance of VectorTransformer that will be used
+     *         for vector transformations in this field
+     *
      */
-    protected abstract VectorTransformer getVectorTransformer();
+    protected VectorTransformer getVectorTransformer() {
+        return VectorTransformerFactory.getVectorTransformer();
+    }
 
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();

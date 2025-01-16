@@ -20,6 +20,12 @@ import org.opensearch.knn.indices.ModelMetadata;
 public final class VectorTransformerFactory {
 
     /**
+     * A no-operation transformer that returns vector values unchanged.
+     */
+    private final static VectorTransformer NOOP_VECTOR_TRANSFORMER = new VectorTransformer() {
+    };
+
+    /**
      * Returns a vector transformer based on the provided KNN method context.
      * For FAISS engine with cosine similarity space type, returns a NormalizeVectorTransformer
      * since FAISS doesn't natively support cosine space type. For all other cases,
@@ -34,6 +40,20 @@ public final class VectorTransformerFactory {
             throw new IllegalArgumentException("KNNMethod context cannot be null");
         }
         return getVectorTransformer(context.getKnnEngine(), context.getSpaceType());
+    }
+
+    /**
+     * Returns a vector transformer instance for vector transformations.
+     * This method provides access to the default no-operation vector transformer
+     * that performs identity transformation on vectors. The transformer does not
+     * modify the input vectors and returns them as-is.This implementation returns a stateless, thread-safe transformer
+     * instance that can be safely shared across multiple calls
+     *
+     * @return VectorTransformer A singleton instance of the no-operation vector
+     *         transformer (NOOP_VECTOR_TRANSFORMER)
+     */
+    public static VectorTransformer getVectorTransformer() {
+        return NOOP_VECTOR_TRANSFORMER;
     }
 
     /**
@@ -69,7 +89,7 @@ public final class VectorTransformerFactory {
      * @return VectorTransformer An appropriate vector transformer instance
      */
     private static VectorTransformer getVectorTransformer(final KNNEngine knnEngine, final SpaceType spaceType) {
-        return shouldNormalizeVector(knnEngine, spaceType) ? new NormalizeVectorTransformer() : VectorTransformer.NOOP_VECTOR_TRANSFORMER;
+        return shouldNormalizeVector(knnEngine, spaceType) ? new NormalizeVectorTransformer() : getVectorTransformer();
     }
 
     private static boolean shouldNormalizeVector(final KNNEngine knnEngine, final SpaceType spaceType) {

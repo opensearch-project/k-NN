@@ -34,10 +34,4 @@ public interface VectorTransformer {
             throw new IllegalArgumentException("Input vector cannot be null");
         }
     }
-
-    /**
-     * A no-operation transformer that returns vector values unchanged.
-     */
-    VectorTransformer NOOP_VECTOR_TRANSFORMER = new VectorTransformer() {
-    };
 }
