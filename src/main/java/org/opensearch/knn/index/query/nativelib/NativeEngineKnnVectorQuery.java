@@ -60,7 +60,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         List<PerLeafResult> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
         final int finalK = knnQuery.getK();
-        if (rescoreContext == null) {
+        if (rescoreContext == null || rescoreContext.isRescoreDisabled()) {
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, finalK);
         } else {
             boolean isShardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName());
