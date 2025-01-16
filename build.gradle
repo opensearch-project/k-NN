@@ -327,6 +327,14 @@ task cmakeJniLib(type:Exec) {
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
+    if (Os.isFamily(Os.FAMILY_MAC)) {
+        args.add("-DJAVA_HOME=\$(/usr/libexec/java_home)")
+        /*
+        environment('OpenMP_ROOT', '/opt/homebrew/opt/libomp')
+        environment('LDFLAGS', "-L/opt/homebrew/opt/libomp/lib")
+        environment('CPPFLAGS', "-I/opt/homebrew/opt/libomp/include")
+         */
+    }
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
         args.add("-G")
@@ -334,6 +342,7 @@ task cmakeJniLib(type:Exec) {
         args.add("-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
         args.add("-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
     }
+
     commandLine args
 }
 
