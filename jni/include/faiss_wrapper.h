@@ -53,6 +53,13 @@ namespace knn_jni {
         // Returns a pointer of the loaded index
         jlong LoadIndexWithStream(faiss::IOReader* ioReader);
 
+        // Loads an index with a reader implemented IOReader. The index
+        // is expected to be a binary index. For ADC, it will be converted into a
+        // float index.
+        //
+        // Returns a pointer of the loaded index
+        jlong LoadIndexWithStreamADC(faiss::IOReader* ioReader);
+
         // Load a binary index from indexPathJ into memory.
         //
         // Return a pointer to the loaded index

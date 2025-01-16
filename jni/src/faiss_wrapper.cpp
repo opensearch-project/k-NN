@@ -14,6 +14,7 @@
 #include "faiss_util.h"
 #include "faiss_index_service.h"
 #include "faiss_stream_support.h"
+#include "FaissIndexBQ.h"
 
 #include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
@@ -26,6 +27,7 @@
 #include "commons.h"
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexBinaryHNSW.h"
+
 
 #include <algorithm>
 #include <jni.h>
@@ -460,6 +462,29 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
                         | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
 
     return (jlong) indexReader;
+}
+
+jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader) {
+    if (ioReader == nullptr)  {
+        throw std::runtime_error("IOReader cannot be null");
+    }
+
+    // Extract the relevant info from the binary index
+    faiss::IndexBinary* indexReader = (faiss::IndexBinary*) LoadBinaryIndexWithStream(ioReader);
+    faiss::IndexBinaryIDMap * binaryIdMap = (faiss::IndexBinaryIDMap *) indexReader;
+    faiss::IndexBinaryHNSW * hnswBinary = (faiss::IndexBinaryHNSW *)(binaryIdMap->index);
+    faiss::IndexBinaryFlat * codesIndex = (faiss::IndexBinaryFlat *) hnswBinary->storage;
+    faiss::HNSW hnsw = hnswBinary->hnsw;
+    std::vector<uint8_t> codes = codesIndex->xb;
+
+    // Create the new float index
+    knn_jni::faiss_wrapper::FaissIndexBQ * alteredStorage = new knn_jni::faiss_wrapper::FaissIndexBQ(indexReader->d, codes);
+    faiss::IndexHNSW * alteredIndexHNSW = new faiss::IndexHNSW(alteredStorage, 16);     //TODO fix M
+    alteredIndexHNSW->hnsw = hnswBinary->hnsw;
+    faiss::IndexIDMap * alteredIdMap = new faiss::IndexIDMap(alteredIndexHNSW);
+    alteredStorage->init(alteredIndexHNSW, alteredIdMap);
+    alteredIdMap->id_map = binaryIdMap->id_map;
+    return (jlong) alteredIdMap;
 }
 
 jlong knn_jni::faiss_wrapper::LoadBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ) {
