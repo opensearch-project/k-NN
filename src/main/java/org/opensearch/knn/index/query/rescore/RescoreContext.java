@@ -54,7 +54,10 @@ public final class RescoreContext {
     private boolean rescoreDisabled = false;
 
     // Rescore context to be used when rescoring should be explicitly disabled
-    public static final RescoreContext EXPLICITLY_DISABLED_RESCORE_CONTEXT = RescoreContext.builder().oversampleFactor(DEFAULT_OVERSAMPLE_FACTOR).rescoreDisabled(true).build();
+    public static final RescoreContext EXPLICITLY_DISABLED_RESCORE_CONTEXT = RescoreContext.builder()
+        .oversampleFactor(DEFAULT_OVERSAMPLE_FACTOR)
+        .rescoreDisabled(true)
+        .build();
 
     /**
      *
