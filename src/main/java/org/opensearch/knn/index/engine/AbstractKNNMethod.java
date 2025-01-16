@@ -109,7 +109,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     }
 
     protected VectorTransformer getVectorTransformer(KNNMethodContext knnMethodContext) {
-        return VectorTransformerFactory.getVectorTransformer(knnMethodContext);
+        return VectorTransformerFactory.getVectorTransformer(knnMethodContext.getKnnEngine(), knnMethodContext.getSpaceType());
     }
 
     @Override

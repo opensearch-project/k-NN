@@ -218,7 +218,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         // Need to handle BWC case
         if (knnMethodContext == null || knnMethodConfigContext == null) {
             log.debug("Method Context not available - falling back to Model Metadata to determine VectorTransformer instance");
-            vectorTransformer = VectorTransformerFactory.getVectorTransformer(modelMetadata);
+            vectorTransformer = VectorTransformerFactory.getVectorTransformer(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType());
             return;
         }
 
