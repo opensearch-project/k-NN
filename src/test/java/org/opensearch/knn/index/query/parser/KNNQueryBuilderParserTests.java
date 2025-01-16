@@ -334,6 +334,78 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         assertTrue(exception.getMessage(), exception.getMessage().contains("[knn] failed to parse field [vector]"));
     }
 
+    public void testFromXContent_rescoreEnabled() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        RescoreContext explicitRescoreContext = RescoreContext.builder().oversampleFactor(1.5f).build();
+        // Test with default rescore
+        KNNQueryBuilder knnQueryBuilderDefaultRescore = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .rescoreContext(RescoreContext.getDefault())
+            .build();
+        XContentBuilder builderDefaultRescore = XContentFactory.jsonBuilder();
+        builderDefaultRescore.startObject();
+        builderDefaultRescore.startObject(knnQueryBuilderDefaultRescore.fieldName());
+        builderDefaultRescore.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilderDefaultRescore.vector());
+        builderDefaultRescore.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilderDefaultRescore.getK());
+        builderDefaultRescore.field(KNNQueryBuilder.RESCORE_FIELD.getPreferredName(), true);
+        builderDefaultRescore.endObject();
+        builderDefaultRescore.endObject();
+        XContentParser contentParserDefaultRescore = createParser(builderDefaultRescore);
+        contentParserDefaultRescore.nextToken();
+        KNNQueryBuilder actualBuilderDefaultRescore = KNNQueryBuilderParser.fromXContent(contentParserDefaultRescore);
+        assertEquals(knnQueryBuilderDefaultRescore, actualBuilderDefaultRescore);
+
+        // Test with explicit rescore
+        KNNQueryBuilder knnQueryBuilderExplicitRescore = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .rescoreContext(explicitRescoreContext)
+            .build();
+        XContentBuilder builderExplicitRescore = XContentFactory.jsonBuilder();
+        builderExplicitRescore.startObject();
+        builderExplicitRescore.startObject(knnQueryBuilderExplicitRescore.fieldName());
+        builderExplicitRescore.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilderExplicitRescore.vector());
+        builderExplicitRescore.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilderExplicitRescore.getK());
+        builderExplicitRescore.startObject(KNNQueryBuilder.RESCORE_FIELD.getPreferredName());
+        builderExplicitRescore.field(
+            KNNQueryBuilder.RESCORE_OVERSAMPLE_FIELD.getPreferredName(),
+            explicitRescoreContext.getOversampleFactor()
+        );
+        builderExplicitRescore.endObject();
+        builderExplicitRescore.endObject();
+        builderExplicitRescore.endObject();
+        XContentParser contentParserExplicitRescore = createParser(builderExplicitRescore);
+        contentParserExplicitRescore.nextToken();
+        KNNQueryBuilder actualBuilderExplicitRescore = KNNQueryBuilderParser.fromXContent(contentParserExplicitRescore);
+        assertEquals(knnQueryBuilderExplicitRescore, actualBuilderExplicitRescore);
+    }
+
+    public void testFromXContent_rescoreDisabled() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        // Test with rescore disabled
+        KNNQueryBuilder knnQueryBuilderRescoreDisabled = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .rescoreContext(RescoreContext.EXPLICITLY_DISABLED_RESCORE_CONTEXT)
+            .build();
+        XContentBuilder builderRescoreDisabled = XContentFactory.jsonBuilder();
+        builderRescoreDisabled.startObject();
+        builderRescoreDisabled.startObject(knnQueryBuilderRescoreDisabled.fieldName());
+        builderRescoreDisabled.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilderRescoreDisabled.vector());
+        builderRescoreDisabled.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilderRescoreDisabled.getK());
+        builderRescoreDisabled.field(KNNQueryBuilder.RESCORE_FIELD.getPreferredName(), false);
+        builderRescoreDisabled.endObject();
+        builderRescoreDisabled.endObject();
+        XContentParser contentParserRescoreDisabled = createParser(builderRescoreDisabled);
+        contentParserRescoreDisabled.nextToken();
+        KNNQueryBuilder actualBuilderRescoreDisabled = KNNQueryBuilderParser.fromXContent(contentParserRescoreDisabled);
+        assertEquals(knnQueryBuilderRescoreDisabled, actualBuilderRescoreDisabled);
+    }
+
     public void testFromXContent_whenFlat_thenException() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         XContentBuilder builder = XContentFactory.jsonBuilder();
