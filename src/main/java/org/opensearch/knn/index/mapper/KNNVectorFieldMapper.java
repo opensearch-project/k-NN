@@ -675,7 +675,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected abstract VectorValidator getVectorValidator();
 
     /**
-     * Getter for per dimension validator during vector parsing
+     * Getter for per dimension validator during vector parsing, and before any transformation
      *
      * @return PerDimensionValidator
      */
@@ -688,6 +688,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected abstract PerDimensionProcessor getPerDimensionProcessor();
 
+    /**
+     * Getter for vector transformer after vector parsing and validation
+     *
+     * @return VectorTransformer
+     */
+    protected abstract VectorTransformer getVectorTransformer();
+
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();
 
@@ -698,6 +705,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final byte[] array = bytesArrayOptional.get();
             getVectorValidator().validateVector(array);
+            getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForByteVector(array));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
@@ -707,6 +715,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
+            getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForFloatVector(array));
         } else {
             throw new IllegalArgumentException(
