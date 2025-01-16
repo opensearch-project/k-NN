@@ -7,7 +7,6 @@ package org.opensearch.knn.partialloading.faiss.hnsw;
 
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.SparseFixedBitSet;
-import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.partialloading.search.AbstractDistanceMaxHeap;
 import org.opensearch.knn.partialloading.search.DocIdAndDistance;
 import org.opensearch.knn.partialloading.search.MatchDocSelector;
@@ -114,7 +113,11 @@ public class FaissHNSW {
     }
 
     private void greedyUpdateNearest(
-        IndexInput indexInput, DistanceComputer distanceComputer, SparseFixedBitSet visited, int level, DocIdAndDistance nearest
+        IndexInput indexInput,
+        DistanceComputer distanceComputer,
+        SparseFixedBitSet visited,
+        int level,
+        DocIdAndDistance nearest
     ) throws IOException {
         while (true) {
             final int prevNearest = nearest.id;

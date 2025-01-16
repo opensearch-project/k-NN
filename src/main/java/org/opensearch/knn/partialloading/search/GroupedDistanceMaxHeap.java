@@ -69,7 +69,11 @@ public class GroupedDistanceMaxHeap implements AbstractDistanceMaxHeap {
 
     @Override
     public void orderResults(DocIdAndDistance[] results) {
-        int i = results.length - 1;
+        assert(results.length >= maxK);
+        // K is pointing to the last valid element in the heap array. Hence, it represents the number of elements in the heap.
+        // Ex: k=3 indicates that there are three elements in heap[1] - heap[3] (inclusive, 1-based index)
+        // Minus 1 to convert 1-based index to 0-based index.
+        int i = k - 1;
         while (i >= 0 && pop(results[i])) {
             --i;
         }

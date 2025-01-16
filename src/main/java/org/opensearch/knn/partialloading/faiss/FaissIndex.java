@@ -70,9 +70,9 @@ public abstract class FaissIndex {
         return new String(fourBytes);
     }
 
-    public abstract void searchLeaf(
-        IndexInput indexInput, DocIdAndDistance[] results, PartialLoadingSearchParameters searchParameters
-    ) throws IOException;
+    public abstract void searchLeaf(IndexInput indexInput,
+                                    DocIdAndDistance[] results,
+                                    PartialLoadingSearchParameters searchParameters) throws IOException;
 
     public abstract String getIndexType();
 }

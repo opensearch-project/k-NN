@@ -153,7 +153,11 @@ public class KNNWeight extends Weight {
             // TMP
             System.out.println(" ++++++++++++++ isFilteredExactSearchPreferred(matchDocsCardinality) == true");
             // TMP
-            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, matchDocsCardinality), matchDocsCardinality, k);
+            Map<Integer, Float> result = doExactSearch(
+                context,
+                new BitSetIterator(filterBitSet, matchDocsCardinality),
+                matchDocsCardinality,
+                k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -366,8 +370,9 @@ public class KNNWeight extends Weight {
                 // TMP
                 System.out.println(" +++++++++++++++ queryToJNIService");
                 System.out.println(" +++++++++++++++ queryToJNIService - filter=" + filterIdsBitSet.cardinality());
-                System.out.println(" +++++++++++++++ filterType=" + filterType
-                                       + ", len(filterIds)=" + (filterIds != null ? filterIds.length : -1));
+                System.out.println(
+                    " +++++++++++++++ filterType=" + filterType + ", len(filterIds)=" + (filterIds != null ? filterIds.length : -1)
+                );
                 System.out.println(" +++++++++++++++ len(parentIds)=" + (parentIds != null ? parentIds.length : -1));
                 // TMP
                 results = queryToJNIService(k, quantizedVector, fieldInfo, indexAllocation, knnEngine, filterIds, filterType, parentIds);
@@ -381,8 +386,9 @@ public class KNNWeight extends Weight {
             } else {
                 // TMP
                 System.out.println(" +++++++++++++++ queryToPartialLoadingIndex - filter=" + filterIdsBitSet.cardinality());
-                System.out.println(" +++++++++++++++ filterType=" + filterType
-                                   + ", len(filterIds)=" + (filterIds != null ? filterIds.length : -1));
+                System.out.println(
+                    " +++++++++++++++ filterType=" + filterType + ", len(filterIds)=" + (filterIds != null ? filterIds.length : -1)
+                );
                 System.out.println(" +++++++++++++++ len(parentIds)=" + (parentIds != null ? parentIds.length : -1));
                 // TMP
                 results = queryToPartialLoadingIndex(
@@ -448,8 +454,8 @@ public class KNNWeight extends Weight {
             if (value instanceof Integer) {
                 efSearch = (Integer) value;
             } else {
-                throw new IllegalAccessException("Failed to parse [" + METHOD_PARAMETER_EF_SEARCH + "] in method parameters. "
-                                                     + "Expected integer type.");
+                throw new IllegalAccessException(
+                    "Failed to parse [" + METHOD_PARAMETER_EF_SEARCH + "] in method parameters. " + "Expected integer type.");
             }
         }
 
