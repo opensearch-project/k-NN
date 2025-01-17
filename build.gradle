@@ -3,6 +3,8 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
+
+import org.gradle.internal.jvm.Jvm
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.OpenSearchCluster
 import org.apache.tools.ant.taskdefs.condition.Os
@@ -336,6 +338,11 @@ task cmakeJniLib(type:Exec) {
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
+    def javaHome = Jvm.current().getJavaHome()
+    logger.lifecycle("Java home directory used by gradle: $javaHome")
+    if (Os.isFamily(Os.FAMILY_MAC)) {
+        environment('JAVA_HOME',javaHome)
+    }
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
         args.add("-G")
@@ -343,6 +350,7 @@ task cmakeJniLib(type:Exec) {
         args.add("-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
         args.add("-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
     }
+
     commandLine args
 }
 
