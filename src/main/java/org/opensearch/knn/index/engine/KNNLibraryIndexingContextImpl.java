@@ -9,6 +9,7 @@ import lombok.Builder;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
+import org.opensearch.knn.index.mapper.VectorTransformer;
 import org.opensearch.knn.index.mapper.VectorValidator;
 
 import java.util.Collections;
@@ -23,6 +24,7 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     private VectorValidator vectorValidator;
     private PerDimensionValidator perDimensionValidator;
     private PerDimensionProcessor perDimensionProcessor;
+    private VectorTransformer vectorTransformer;
     @Builder.Default
     private Map<String, Object> parameters = Collections.emptyMap();
     @Builder.Default
@@ -41,6 +43,11 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     @Override
     public VectorValidator getVectorValidator() {
         return vectorValidator;
+    }
+
+    @Override
+    public VectorTransformer getVectorTransformer() {
+        return vectorTransformer;
     }
 
     @Override
