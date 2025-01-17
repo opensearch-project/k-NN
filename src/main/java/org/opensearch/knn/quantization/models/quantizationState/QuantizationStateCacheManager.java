@@ -9,10 +9,11 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.opensearch.knn.index.codec.KNN990Codec.KNN990QuantizationStateReader;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public final class QuantizationStateCacheManager {
+public final class QuantizationStateCacheManager implements Closeable {
 
     private static volatile QuantizationStateCacheManager instance;
 
@@ -78,5 +79,10 @@ public final class QuantizationStateCacheManager {
      */
     public void clear() {
         QuantizationStateCache.getInstance().clear();
+    }
+
+    @Override
+    public void close() throws IOException {
+        QuantizationStateCache.getInstance().close();
     }
 }

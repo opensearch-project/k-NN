@@ -7,6 +7,8 @@ package org.opensearch.knn.quantization.models.quantizationState;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+import org.junit.After;
+import org.junit.Before;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -15,7 +17,10 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.threadpool.Scheduler;
+import org.opensearch.threadpool.ThreadPool;
 
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,6 +32,19 @@ import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE
 import static org.opensearch.knn.quantization.enums.ScalarQuantizationType.ONE_BIT;
 
 public class QuantizationStateCacheTests extends KNNTestCase {
+
+    private ThreadPool threadPool;
+
+    @Before
+    public void setThreadPool() {
+        threadPool = new ThreadPool(Settings.builder().put("node.name", "QuantizationStateCacheTests").build());
+        QuantizationStateCache.setThreadPool(threadPool);
+    }
+
+    @After
+    public void terminateThreadPool() {
+        terminate(threadPool);
+    }
 
     @SneakyThrows
     public void testSingleThreadedAddAndRetrieve() {
@@ -417,7 +435,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         assertNull("State should be null", retrievedState);
     }
 
-    public void testCacheEvictionDueToSize() {
+    public void testCacheEvictionDueToSize() throws IOException {
         String fieldName = "evictionField";
         // States have size of slightly over 500 bytes so that adding two will reach the max size of 1 kb for the cache
         int arrayLength = 112;
@@ -445,6 +463,30 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         cache.addQuantizationState(fieldName, state);
         cache.addQuantizationState(fieldName, state2);
         cache.clear();
+        cache.close();
         assertNotNull(cache.getEvictedDueToSizeAt());
+    }
+
+    public void testMaintenanceScheduled() throws Exception {
+        QuantizationStateCache quantizationStateCache = new QuantizationStateCache();
+        Scheduler.Cancellable maintenanceTask = quantizationStateCache.getMaintenanceTask();
+
+        assertNotNull(maintenanceTask);
+
+        quantizationStateCache.close();
+        assertTrue(maintenanceTask.isCancelled());
+    }
+
+    public void testMaintenanceWithRebuild() throws Exception {
+        QuantizationStateCache quantizationStateCache = new QuantizationStateCache();
+        Scheduler.Cancellable task1 = quantizationStateCache.getMaintenanceTask();
+        assertNotNull(task1);
+
+        quantizationStateCache.rebuildCache();
+
+        Scheduler.Cancellable task2 = quantizationStateCache.getMaintenanceTask();
+        assertTrue(task1.isCancelled());
+        assertNotNull(task2);
+        quantizationStateCache.close();
     }
 }
