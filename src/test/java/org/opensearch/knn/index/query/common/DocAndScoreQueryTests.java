@@ -50,7 +50,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         int[] expectedDocs = { 0, 1, 2, 3, 4 };
         float[] expectedScores = { 0.1f, 1.2f, 2.3f, 5.1f, 3.4f };
         int[] findSegments = { 0, 2, 5 };
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1, null);
 
         // When
         Scorer scorer1 = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1).scorer(leaf1);
@@ -85,7 +85,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         Explanation expectedExplanation = Explanation.match(1.2f, "within top 4");
 
         // When
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1, null);
         Weight weight = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         Explanation explanation = weight.explain(leaf1, 1);
 
