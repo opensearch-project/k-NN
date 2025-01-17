@@ -18,6 +18,7 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
+import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
 
 import java.io.IOException;
@@ -46,6 +47,10 @@ public class QueryUtils {
      * @return a query representing the given TopDocs
      */
     public Query createDocAndScoreQuery(final IndexReader reader, final TopDocs topDocs) {
+        return createDocAndScoreQuery(reader, topDocs, null);
+    }
+
+    public Query createDocAndScoreQuery(final IndexReader reader, final TopDocs topDocs, final KNNWeight knnWeight) {
         int len = topDocs.scoreDocs.length;
         Arrays.sort(topDocs.scoreDocs, Comparator.comparingInt(a -> a.doc));
         int[] docs = new int[len];
@@ -55,7 +60,7 @@ public class QueryUtils {
             scores[i] = topDocs.scoreDocs[i].score;
         }
         int[] segmentStarts = findSegmentStarts(reader, docs);
-        return new DocAndScoreQuery(len, docs, scores, segmentStarts, reader.getContext().id());
+        return new DocAndScoreQuery(len, docs, scores, segmentStarts, reader.getContext().id(), knnWeight);
     }
 
     private int[] findSegmentStarts(final IndexReader reader, final int[] docs) {
