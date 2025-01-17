@@ -5,11 +5,22 @@
 
 package org.opensearch.knn.partialloading.search;
 
+import static org.opensearch.knn.partialloading.search.IdAndDistance.INVALID_DOC_ID;
+
+/**
+ * A max-heap based on distance with a fixed capacity.
+ * If there is room, it will add elements to the heap; otherwise, it will only add a new element if its distance is competitive with the
+ * maximum distance found so far.
+ */
 public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
+    // Pointing to the last valid element in heap array.
     private int k;
+    // The number of valid elements (e.g. not popped yet) in internal heap array.
     private int numValidElems;
+    // Maximum value k can reach.
     private final int maxK;
-    private final DocIdAndDistance[] heap;
+    // Internal heap array, 1-based for easier node index calculation.
+    private final IdAndDistance[] heap;
 
     public PlainDistanceMaxHeap(int maxSize) {
         final int heapSize;
@@ -24,15 +35,64 @@ public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
         }
 
         // T is an unbounded type, so this unchecked cast works always.
-        this.heap = new DocIdAndDistance[heapSize];
+        this.heap = new IdAndDistance[heapSize];
         this.maxK = heapSize - 1;
 
         for (int i = 1; i < heapSize; i++) {
-            heap[i] = new DocIdAndDistance(0, Float.MAX_VALUE);
+            heap[i] = new IdAndDistance(0, Float.MAX_VALUE);
         }
 
         this.k = 0;
         this.numValidElems = 0;
+    }
+
+    /**
+     * Find the minimum distance and update `minIad`.
+     * Note that this pop operation does not evict the found minimum element from the heap, as outlined in the HNSW paper, to ensure that
+     * the search converges correctly.
+     *
+     * @param minIad Minimum vector id and distance found from the heap.
+     */
+    public void popMin(IdAndDistance minIad) {
+        final int minIdx = findMinimumIndex();
+        minIad.id = heap[minIdx].id;
+        minIad.distance = heap[minIdx].distance;
+        heap[minIdx].id = INVALID_DOC_ID;
+        heap[minIdx].distance = Float.MAX_VALUE;
+        --numValidElems;
+    }
+
+    @Override
+    public void insertWithOverflow(int id, float distance) {
+        if (k == maxK) {
+            if (distance >= heap[1].distance) {
+                // Did not make cut. Return immediately.
+                return;
+            }
+
+            // We are replacing the top. And since it was already popped, we should increase #valid elements.
+            if (heap[1].id == INVALID_DOC_ID) {
+                ++numValidElems;
+            }
+
+            heap[1].id = id;
+            heap[1].distance = distance;
+            downHeap(1);
+        } else {
+            add(id, distance);
+            ++numValidElems;
+        }
+    }
+
+    @Override
+    public void orderResults(IdAndDistance[] results) {
+        int i = numValidElems - 1;
+        while (i >= 0) {
+            final IdAndDistance popped = pop();
+            results[i].id = popped.id;
+            results[i].distance = popped.distance;
+            --i;
+        }
     }
 
     private void add(int id, float distance) {
@@ -48,7 +108,7 @@ public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
         float minDistance = Float.MAX_VALUE;
         int minIdx = -1;
         for (int i = k; i > 0; --i) {
-            if (heap[i].id != -1 && heap[i].distance < minDistance) {
+            if (heap[i].distance < minDistance && heap[i].id != -1) {
                 minIdx = i;
                 minDistance = heap[i].distance;
             }
@@ -57,58 +117,20 @@ public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
         return minIdx;
     }
 
-    public final void popMin(DocIdAndDistance minIad) {
-        final int minIdx = findMinimumIndex();
-        minIad.id = heap[minIdx].id;
-        minIad.distance = heap[minIdx].distance;
-        heap[minIdx].id = -1;
-        --numValidElems;
-    }
+    private IdAndDistance pop() {
+        while (true) {
+            if (k > 0) {
+                IdAndDistance result = heap[1]; // save first value
+                heap[1] = heap[k]; // move last to first
+                k--;
+                downHeap(1); // adjust heap
 
-    @Override
-    public void insertWithOverflow(int id, float distance) {
-        if (k == maxK) {
-            if (distance >= heap[1].distance) {
-                return;
+                if (result.id != INVALID_DOC_ID) {
+                    return result;
+                }
+            } else {
+                return null;
             }
-            if (heap[1].id == -1) {
-                ++numValidElems;
-            }
-
-            heap[1].id = id;
-            heap[1].distance = distance;
-            downHeap(1);
-        } else {
-            add(id, distance);
-            ++numValidElems;
-        }
-    }
-
-    @Override
-    public void orderResults(DocIdAndDistance[] results) {
-        int i = numValidElems - 1;
-        while (i >= 0) {
-            DocIdAndDistance popped = pop();
-            results[i].id = popped.id;
-            results[i].distance = popped.distance;
-            --i;
-        }
-    }
-
-    public final DocIdAndDistance top() {
-        return heap[1];
-    }
-
-    public final DocIdAndDistance pop() {
-        if (k > 0) {
-            DocIdAndDistance result = heap[1]; // save first value
-            heap[1] = heap[k]; // move last to first
-            k--;
-            downHeap(1); // adjust heap
-            --numValidElems;
-            return result;
-        } else {
-            return null;
         }
     }
 
@@ -117,37 +139,33 @@ public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
     }
 
     private void upHeap(int origPos) {
-        int i = origPos;
-        DocIdAndDistance node = heap[i]; // save bottom node
-        int j = i >>> 1;
-        while (j > 0 && node.distance > heap[j].distance) {
-            heap[i] = heap[j]; // shift parents down
-            i = j;
-            j = j >>> 1;
+        int nodeIdx = origPos;
+        IdAndDistance node = heap[nodeIdx]; // save bottom node
+        int parentIdx = nodeIdx >>> 1;
+        while (parentIdx > 0 && node.distance > heap[parentIdx].distance) {
+            heap[nodeIdx] = heap[parentIdx]; // shift parents down
+            nodeIdx = parentIdx;
+            parentIdx = parentIdx >>> 1;
         }
-        heap[i] = node; // install saved node
+        heap[nodeIdx] = node; // install saved node
     }
 
-    private void downHeap(int i) {
-        DocIdAndDistance node = heap[i]; // save top node
-        int j = i << 1; // find bigger child
-        int k = (i << 1) + 1;
-        if (k <= this.k && heap[k].distance > heap[j].distance) {
-            j = k;
+    private void downHeap(int nodeIdx) {
+        IdAndDistance node = heap[nodeIdx]; // save top node
+        int biggestChildIdx = nodeIdx << 1; // find bigger child
+        int rigntChildIdx = (nodeIdx << 1) + 1;
+        if (rigntChildIdx <= this.k && heap[rigntChildIdx].distance > heap[biggestChildIdx].distance) {
+            biggestChildIdx = rigntChildIdx;
         }
-        while (j <= this.k && heap[j].distance > node.distance) {
-            heap[i] = heap[j]; // shift up child
-            i = j;
-            j = i << 1;
-            k = j + 1;
-            if (k <= this.k && heap[k].distance > heap[j].distance) {
-                j = k;
+        while (biggestChildIdx <= this.k && heap[biggestChildIdx].distance > node.distance) {
+            heap[nodeIdx] = heap[biggestChildIdx]; // shift up child
+            nodeIdx = biggestChildIdx;
+            biggestChildIdx = nodeIdx << 1;
+            rigntChildIdx = (nodeIdx << 1) + 1;
+            if (rigntChildIdx <= this.k && heap[rigntChildIdx].distance > heap[biggestChildIdx].distance) {
+                biggestChildIdx = rigntChildIdx;
             }
         }
-        heap[i] = node; // install saved node
-    }
-
-    public DocIdAndDistance[] getHeapArray() {
-        return heap;
+        heap[nodeIdx] = node; // install saved node
     }
 }

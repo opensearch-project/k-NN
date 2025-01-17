@@ -12,6 +12,9 @@ import org.opensearch.knn.partialloading.storage.Storage;
 
 import java.io.IOException;
 
+/**
+ * Calculates the distance between a stored float vector and a float query vector.
+ */
 public class FloatVectorDistanceComputer extends DistanceComputer {
     private final float[] queryVector;
     private final float[] floatBuffer;
@@ -30,9 +33,12 @@ public class FloatVectorDistanceComputer extends DistanceComputer {
         this.indexInput = indexInput;
     }
 
-    public float compute(long index) throws IOException {
-        indexInput.seek(codes.getBaseOffset() + index * oneVectorByteSize);
+    public float compute(long vectorId) throws IOException {
+        // Load float vector
+        indexInput.seek(codes.getBaseOffset() + vectorId * oneVectorByteSize);
         indexInput.readFloats(floatBuffer, 0, floatBuffer.length);
+
+        // Calculate distance
         return distanceFunction.distance(queryVector, floatBuffer);
     }
 }

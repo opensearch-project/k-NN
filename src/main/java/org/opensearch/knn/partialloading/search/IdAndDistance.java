@@ -5,15 +5,15 @@
 
 package org.opensearch.knn.partialloading.search;
 
-public class DocIdAndDistance {
+public class IdAndDistance {
     public static final int INVALID_DOC_ID = -1;
 
     public int id;
     public float distance;
 
-    public DocIdAndDistance() {}
+    public IdAndDistance() {}
 
-    public DocIdAndDistance(int id, float distance) {
+    public IdAndDistance(int id, float distance) {
         this.id = id;
         this.distance = distance;
     }

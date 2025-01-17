@@ -120,7 +120,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             // Try to open an index input then pass it down to native engine for loading an index.
             FaissIndex faissIndex = null;
             try (IndexInput input = directory.openInput(vectorFileName, IOContext.READONCE)) {
-                faissIndex = FaissIndex.load(input);
+                faissIndex = FaissIndex.partiallyLoad(input);
             }
 
             // Create partial loading context.
