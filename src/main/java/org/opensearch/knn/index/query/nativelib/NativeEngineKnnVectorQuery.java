@@ -98,7 +98,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
-        return queryUtils.createDocAndScoreQuery(reader, topK).createWeight(indexSearcher, scoreMode, boost);
+        return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
     }
 
     /**
