@@ -23,6 +23,7 @@ import java.util.stream.Stream;
 import static org.mockito.Mockito.mockStatic;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
 
 public class PlatformUtilTests extends KNNTestCase {
     public static final String MAC_CPU_FEATURES = "machdep.cpu.leaf7_features";
@@ -179,6 +180,64 @@ public class PlatformUtilTests extends KNNTestCase {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: AVX2 avx512vl avx512dq avx512bw avx512vbmi umip pku ospke avx512_vbmi2", "dummy string"));
                 assertFalse(isAVX512SupportedBySystem());
+            }
+        }
+    }
+
+    // Tests AVX512 instructions available since Intel(R) Sapphire Rapids.
+
+    public void testIsAVX512SPRSupportedBySystem_platformIsNotIntel_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(false);
+            assertFalse(isAVX512SPRSupportedBySystem());
+        }
+    }
+
+    public void testIsAVX512SPRSupportedBySystem_platformIsMac_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isMac).thenReturn(false);
+            assertFalse(isAVX512SPRSupportedBySystem());
+        }
+    }
+
+    public void testIsAVX512SPRSupportedBySystem_platformIsIntelMac_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(true);
+            assertFalse(isAVX512SPRSupportedBySystem());
+        }
+    }
+
+    public void testIsAVX512SPRSupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isWindows).thenReturn(true);
+            assertFalse(isAVX512SPRSupportedBySystem());
+        }
+    }
+
+    public void testIsAVX512SPRSupportedBySystem_platformIsLinuxAllAVX512SPRFlagsPresent_returnsTrue() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                    .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq", "dummy string"));
+                assertTrue(isAVX512SPRSupportedBySystem());
+            }
+        }
+    }
+
+    public void testIsAVX512SPRSupportedBySystem_platformIsLinuxSomeAVX512SPRFlagsPresent_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                    .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq", "dummy string"));
+                assertFalse(isAVX512SPRSupportedBySystem());
             }
         }
     }

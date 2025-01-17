@@ -285,21 +285,39 @@ make -j 4
 ### Enable SIMD Optimization
 SIMD(Single Instruction/Multiple Data) Optimization is enabled by default on Linux and Mac which boosts the performance
 by enabling `AVX2` and `AVX512` on `x86 architecture` and `NEON` on `ARM64 architecture` where applicable while building the Faiss library. But to enable SIMD,
-the underlying processor should support these capabilities (AVX512, AVX2 or NEON). It can be disabled by setting the parameter `avx2.enabled` to `false` and
-`avx512.enabled` to `false`. If your processor supports `AVX512` or `AVX2`, they can be set by enabling the setting . By default, these values are enabled on 
-OpenSearch. Some exceptions: As of now, SIMD support is not supported on Windows OS, and AVX512 is not present on MAC systems due to hardware not supporting the
-feature.
+the underlying processor should support these capabilities (AVX512, AVX2 or NEON). It can be disabled by setting the parameter `avx2.enabled`, `avx512.enabled`,
+and `avx512_spr.enabled` to `false`. If your processor supports `AVX512` or `AVX2`, they can be set by enabling the setting. On Intel(R) Sapphire Rapids and
+newer-generation systems, enabling `avx512_spr` offers support for `AVX512-FP16` and other features. By default, these values are enabled on OpenSearch.  
+Some exceptions: As of now, SIMD support is not supported on Windows OS, and AVX512 is not present on MAC systems due to hardware not supporting the feature.
 
 ```
-# While building OpenSearch k-NN
-./gradlew build -Davx2.enabled=true -Davx512.enabled=true
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries
+# else if (system_supports_avx512) generate_avx512_binaries
+# else if (system_supports_ avx2) generate_avx2_binaries
+# else() generate_generic_binaries
+./gradlew build -Davx2.enabled=true
 
-# While running OpenSearch k-NN
-./gradlew run -Davx2.enabled=true -Davx512.enabled=true
+# generate avx2 binaries
+./gradlew build -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false
 
-# While building the JNI libraries
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries
+# else if (system_supports_avx512) generate_avx512_binaries
+# else() generate_generic_binaries 
+./gradlew build -Davx2.enabled=false -Davx512.enabled=true
+
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries
+# else if (system_supports_avx2) generate_avx2_binaries
+# else() generate_generic_binaries
+./gradlew build -Davx512.enabled=false -Davx512_spr.enabled=true
+
+# if (system_supports_avx512) generate_avx512_binaries
+# else if (system_supports_avx2) generate_avx2_binaries
+# else() generate_generic_binaries
+./gradlew build -Davx512.enabled=true -Davx512_spr.enabled=false
+
+# similar logic applies for jni
 cd jni
-cmake . -DAVX2_ENABLED=true -DAVX512_ENABLED=true
+cmake . -DAVX2_ENABLED=true -DAVX512_ENABLED=true -DAVX512_SPR_ENABLED=true
 ```
 
 ## Run OpenSearch k-NN
