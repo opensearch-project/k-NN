@@ -169,6 +169,15 @@ ext {
         )
         cluster.setSecure(true)
     }
+    propertyKeys = [
+        breaker: [
+            useRealMemory: 'tests.opensearch.indices.breaker.total.use_real_memory'
+        ]
+    ]
+}
+
+def getBreakerSetting() {
+    return System.getProperty(propertyKeys.breaker.useRealMemory, 'true')
 }
 
 allprojects {
@@ -407,6 +416,7 @@ integTest {
     if (System.getProperty("test.debug") != null) {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
+    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
 testClusters.integTest {
@@ -436,6 +446,7 @@ testClusters.integTest {
         }
     }
     systemProperty("java.library.path", "$rootDir/jni/release")
+    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
 task integTestRemote(type: RestIntegTestTask) {
