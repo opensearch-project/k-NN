@@ -10,14 +10,16 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexReaderContext;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.mockito.Mock;
+import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.test.OpenSearchTestCase;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
@@ -50,7 +52,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         int[] expectedDocs = { 0, 1, 2, 3, 4 };
         float[] expectedScores = { 0.1f, 1.2f, 2.3f, 5.1f, 3.4f };
         int[] findSegments = { 0, 2, 5 };
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1, null);
 
         // When
         Scorer scorer1 = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1).scorer(leaf1);
@@ -82,18 +84,17 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         int[] expectedDocs = { 0, 1, 2, 3, 4 };
         float[] expectedScores = { 0.1f, 1.2f, 2.3f, 5.1f, 3.4f };
         int[] findSegments = { 0, 2, 5 };
-        Explanation expectedExplanation = Explanation.match(1.2f, "within top 4");
 
         // When
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        KNNWeight knnWeight = mock(KNNWeight.class);
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1, knnWeight);
         Weight weight = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
-        Explanation explanation = weight.explain(leaf1, 1);
+        weight.explain(leaf1, 1);
 
         // Then
         assertEquals(objectUnderTest, weight.getQuery());
         assertTrue(weight.isCacheable(leaf1));
         assertEquals(2, weight.count(leaf1));
-        assertEquals(expectedExplanation, explanation);
-        assertEquals(Explanation.noMatch("not in top 4"), weight.explain(leaf1, 9));
+        verify(knnWeight).explain(leaf1, 1, 1.2f, null);
     }
 }

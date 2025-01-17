@@ -52,6 +52,9 @@ public class KNNQuery extends Query {
     private BitSetProducer parentsFilter;
     private Float radius;
     private Context context;
+    @Setter
+    @Getter
+    private boolean explain;
 
     public KNNQuery(
         final String field,
