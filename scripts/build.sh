@@ -134,7 +134,7 @@ if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   ./gradlew :buildJniLib -Davx512.enabled=true -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 
   echo "Building k-NN library after enabling AVX512_SPR"
-  ./gradlew :buildJniLib -Davx512.enabled=true -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+  ./gradlew :buildJniLib -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 fi
 
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
