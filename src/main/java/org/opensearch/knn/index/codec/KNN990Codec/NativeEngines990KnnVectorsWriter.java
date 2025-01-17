@@ -32,6 +32,7 @@ import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.ByteScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;

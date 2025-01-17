@@ -160,6 +160,39 @@ class FaissService {
     public static native void writeByteIndex(long indexAddress, IndexOutputWithBuffer output);
 
     /**
+     * Initialize an index for the native library with a provided template index. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs number of documents to be added
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param templateIndex template index
+     */
+    public static native long initIndexFromTemplate(long numDocs, int dim, Map<String, Object> parameters, byte[] templateIndex);
+
+    /**
+     * Initialize an index for the native library with a provided template index. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs number of documents to be added
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param templateIndex template index
+     */
+    public static native long initBinaryIndexFromTemplate(long numDocs, int dim, Map<String, Object> parameters, byte[] templateIndex);
+
+    /**
+     * Initialize a byte index for the native library with a provided template index. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs number of documents to be added
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param templateIndex template index
+     */
+    public static native long initByteIndexFromTemplate(long numDocs, int dim, Map<String, Object> parameters, byte[] templateIndex);
+
+    /**
      * Create an index for the native library with a provided template index
      *
      * @param ids array of ids mapping to the data passed in

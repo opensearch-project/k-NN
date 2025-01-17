@@ -12,7 +12,6 @@ import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.quantization.models.quantizationState.ByteScalarQuantizationState;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -78,14 +77,14 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             long vectorAddress = vectorTransfer.getVectorAddress();
             // Currently this is if else as there are only two cases, with more cases this will have to be made
             // more maintainable
-            if (params.containsKey(MODEL_ID) || (indexInfo.getQuantizationState() instanceof ByteScalarQuantizationState)) {
+            if (params.containsKey(MODEL_ID)) {
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                     JNIService.createIndexFromTemplate(
                         intListToArray(transferredDocIds),
                         vectorAddress,
                         indexBuildSetup.getDimensions(),
                         indexInfo.getIndexOutputWithBuffer(),
-                        getIndexTemplate(params, indexInfo),
+                        (byte[]) params.get(KNNConstants.MODEL_BLOB_PARAMETER),
                         params,
                         indexInfo.getKnnEngine()
                     );
@@ -114,12 +113,4 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
         }
     }
 
-    private byte[] getIndexTemplate(Map<String, Object> params, BuildIndexParams indexInfo) {
-        if (params.containsKey(MODEL_ID)) {
-            return (byte[]) params.get(KNNConstants.MODEL_BLOB_PARAMETER);
-        }
-
-        ByteScalarQuantizationState byteSQState = (ByteScalarQuantizationState) indexInfo.getQuantizationState();
-        return byteSQState.getIndexTemplate();
-    }
 }

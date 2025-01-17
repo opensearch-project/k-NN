@@ -39,7 +39,7 @@ public class QuantizationConfigParser {
             return "";
         }
         if (quantizationConfig.getQuantizationType() == ScalarQuantizationType.EIGHT_BIT) {
-            return TYPE_NAME + SEPARATOR + "byte" + "," + BIT_COUNT_NAME + SEPARATOR + quantizationConfig.getQuantizationType().getId();
+            return TYPE_NAME + SEPARATOR + BYTE_TYPE + "," + BIT_COUNT_NAME + SEPARATOR + quantizationConfig.getQuantizationType().getId();
         }
 
         return TYPE_NAME + SEPARATOR + BINARY_TYPE + "," + BIT_COUNT_NAME + SEPARATOR + quantizationConfig.getQuantizationType().getId();

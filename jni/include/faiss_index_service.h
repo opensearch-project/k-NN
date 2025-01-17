@@ -69,6 +69,20 @@ public:
      */
     virtual void writeIndex(faiss::IOWriter* writer, jlong idMapAddress);
 
+    /**
+     * Initialize index from template
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param dim dimension of vectors
+     * @param numVectors number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param templateIndexJ template index
+     * @return memory address of the native index object
+     */
+    virtual jlong initIndexFromTemplate(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, int dim, int numVectors, int threadCount, jbyteArray templateIndexJ);
+
+
     virtual ~IndexService() = default;
 
 protected:
@@ -132,6 +146,19 @@ public:
      */
     void writeIndex(faiss::IOWriter* writer, jlong idMapAddress) final;
 
+    /**
+     * Initialize index from template
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param dim dimension of vectors
+     * @param numVectors number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param templateIndexJ template index
+     * @return memory address of the native index object
+     */
+    virtual jlong initIndexFromTemplate(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, int dim, int numVectors, int threadCount, jbyteArray templateIndexJ);
+
 protected:
     void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
 };  // class BinaryIndexService
@@ -190,6 +217,19 @@ public:
      * @param parameters parameters to be applied to faiss index
      */
     void writeIndex(faiss::IOWriter* writer, jlong idMapAddress) final;
+
+    /**
+     * Initialize index from template
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param dim dimension of vectors
+     * @param numVectors number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param templateIndexJ template index
+     * @return memory address of the native index object
+     */
+    virtual jlong initIndexFromTemplate(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, int dim, int numVectors, int threadCount, jbyteArray templateIndexJ);
 
  protected:
     void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;

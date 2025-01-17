@@ -67,36 +67,29 @@ public class ByteScalarQuantizer implements Quantizer<float[], byte[]> {
             throw new IllegalArgumentException("Vector at sampled index " + sampledIndices[0] + " is null.");
         }
         int dimension = vector.length;
-        byte[] indexTemplate = JNIService.trainIndex(
-            getParameters(fieldInfo),
-            dimension,
-            getVectorAddressOfTrainData(sampledIndices, fieldInfo, trainingRequest, dimension),
-            KNNEngine.FAISS
-        );
 
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.EIGHT_BIT);
-        return new ByteScalarQuantizationState(params, indexTemplate);
-    }
+        try (
+            final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(
+                extractVectorDataType(fieldInfo),
+                4 * dimension,
+                sampledIndices.length
+            )
+        ) {
+            for (int i = 0; i < sampledIndices.length; i++) {
+                Object vectorToTransfer = trainingRequest.getVectorAtThePosition(sampledIndices[i]);
+                vectorTransfer.transfer(vectorToTransfer, true);
+            }
+            vectorTransfer.flush(true);
 
-    private long getVectorAddressOfTrainData(
-        int[] sampledIndices,
-        FieldInfo fieldInfo,
-        final TrainingRequest<float[]> trainingRequest,
-        int dimension
-    ) throws IOException {
-        int totalSamples = sampledIndices.length;
-
-        final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(
-            extractVectorDataType(fieldInfo),
-            4 * dimension,
-            sampledIndices.length
-        );
-        for (int i = 0; i < totalSamples; i++) {
-            Object vectorToTransfer = trainingRequest.getVectorAtThePosition(sampledIndices[i]);
-            vectorTransfer.transfer(vectorToTransfer, true);
+            byte[] indexTemplate = JNIService.trainIndex(
+                getParameters(fieldInfo),
+                dimension,
+                vectorTransfer.getVectorAddress(),
+                KNNEngine.FAISS
+            );
+            ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.EIGHT_BIT);
+            return new ByteScalarQuantizationState(params, indexTemplate);
         }
-        vectorTransfer.flush(true);
-        return vectorTransfer.getVectorAddress();
     }
 
     private Map<String, Object> getParameters(final FieldInfo fieldInfo) throws IOException {

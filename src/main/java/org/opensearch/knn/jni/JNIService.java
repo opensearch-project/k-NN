@@ -147,6 +147,39 @@ public class JNIService {
     }
 
     /**
+     * Initialize an index for the native library with a provided template index. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs    number of documents to be added
+     * @param dim        dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param knnEngine  knn engine
+     * @param templateIndex  template index
+     * @return address of the index in memory
+     */
+    public static long initIndexFromTemplate(
+        long numDocs,
+        int dim,
+        Map<String, Object> parameters,
+        KNNEngine knnEngine,
+        byte[] templateIndex
+    ) {
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                return FaissService.initBinaryIndexFromTemplate(numDocs, dim, parameters, templateIndex);
+            }
+            if (IndexUtil.isByteIndex(parameters)) {
+                return FaissService.initByteIndexFromTemplate(numDocs, dim, parameters, templateIndex);
+            }
+            return FaissService.initIndexFromTemplate(numDocs, dim, parameters, templateIndex);
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "initIndexFromTemplate not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    /**
      * Create an index for the native library with a provided template index
      *
      * @param ids            array of ids mapping to the data passed in
