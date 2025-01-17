@@ -34,7 +34,7 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
         } else {
             assertSame(
                 "Should return NOOP transformer for " + engine + " with COSINESIMIL",
-                VectorTransformerFactory.getVectorTransformer(),
+                VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER,
                 transformer
             );
         }

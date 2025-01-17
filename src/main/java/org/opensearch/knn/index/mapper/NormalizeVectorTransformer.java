@@ -18,6 +18,18 @@ public class NormalizeVectorTransformer implements VectorTransformer {
         VectorUtil.l2normalize(vector);
     }
 
+    /**
+     * Transforms a byte array vector by normalizing it.
+     * This operation is currently not supported for byte arrays.
+     *
+     * @param vector the byte array to be normalized
+     * @throws UnsupportedOperationException when this method is called, as byte array normalization is not supported
+     */
+    @Override
+    public void transform(byte[] vector) {
+        throw new UnsupportedOperationException("Byte array normalization is not supported");
+    }
+
     private void validateVector(float[] vector) {
         if (vector == null || vector.length == 0) {
             throw new IllegalArgumentException("Vector cannot be null or empty");

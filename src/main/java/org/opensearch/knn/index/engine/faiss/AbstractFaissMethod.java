@@ -8,15 +8,11 @@ package org.opensearch.knn.index.engine.faiss;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.AbstractKNNMethod;
-import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
-import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.MethodComponent;
-import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.*;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
+import org.opensearch.knn.index.mapper.VectorTransformer;
+import org.opensearch.knn.index.mapper.VectorTransformerFactory;
 
 import java.util.Objects;
 import java.util.Set;
@@ -142,5 +138,10 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
             return SpaceType.INNER_PRODUCT;
         }
         return super.convertUserToMethodSpaceType(spaceType);
+    }
+
+    @Override
+    protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
+        return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType);
     }
 }

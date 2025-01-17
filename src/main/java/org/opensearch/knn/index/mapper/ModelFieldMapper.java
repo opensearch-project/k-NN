@@ -197,8 +197,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
     @Override
     protected VectorTransformer getVectorTransformer() {
+        // we don't want to call model metadata to get space type and engine for every vector,
+        // since getVectorTransformer() will be called once per vector. Hence,
+        // we initialize it once, and use it every other time
         initVectorTransformer();
-        return vectorTransformer;
+        return this.vectorTransformer;
     }
 
     /**
@@ -207,6 +210,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
      * and KNN method context.
      * @throws IllegalStateException if model metadata cannot be retrieved
      */
+
     private void initVectorTransformer() {
         if (vectorTransformer != null) {
             return;
@@ -215,13 +219,14 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
         KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
         KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
-        // Need to handle BWC case
+        // Need to handle BWC case where method context is not available
         if (knnMethodContext == null || knnMethodConfigContext == null) {
-            log.debug("Method Context not available - falling back to Model Metadata to determine VectorTransformer instance");
-            vectorTransformer = VectorTransformerFactory.getVectorTransformer(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType());
+            vectorTransformer = VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
             return;
         }
-
+        // get vector transformer from Indexing Context. We want Engine/Library to provide necessary
+        // input rather than creating Transformer from the engine and space type. This design
+        // decision is taken to make sure that Engine will drive the implementation than Field Mapper.
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
         vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();

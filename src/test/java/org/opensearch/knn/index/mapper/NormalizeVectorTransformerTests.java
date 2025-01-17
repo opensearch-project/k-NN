@@ -19,6 +19,10 @@ public class NormalizeVectorTransformerTests extends KNNTestCase {
         assertThrows(IllegalArgumentException.class, () -> transformer.transform(new float[0]));
     }
 
+    public void testNormalizeTransformer_withByteVector_thenThrowsException() {
+        assertThrows(UnsupportedOperationException.class, () -> transformer.transform(new byte[0]));
+    }
+
     public void testNormalizeTransformer_withValidVector_thenSuccess() {
         float[] input = { -3.0f, 4.0f };
         transformer.transform(input);

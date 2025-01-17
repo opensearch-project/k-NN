@@ -702,7 +702,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      *
      */
     protected VectorTransformer getVectorTransformer() {
-        return VectorTransformerFactory.getVectorTransformer();
+        return VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
     }
 
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
