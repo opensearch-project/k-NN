@@ -84,11 +84,11 @@ public class PlatformUtils {
     }
 
     public static boolean isAVX512SupportedBySystem() {
-	return areAVX512FlagsAvailable(new String[] { "avx512f", "avx512cd", "avx512vl", "avx512dq", "avx512bw" });
+        return areAVX512FlagsAvailable(new String[] { "avx512f", "avx512cd", "avx512vl", "avx512dq", "avx512bw" });
     }
 
     public static boolean isAVX512SPRSupportedBySystem() {
-	return areAVX512FlagsAvailable(new String[] { "avx512_fp16", "avx512_bf16", "avx512_vpopcntdq" });
+        return areAVX512FlagsAvailable(new String[] { "avx512_fp16", "avx512_bf16", "avx512_vpopcntdq" });
     }
 
     private static boolean areAVX512FlagsAvailable(String[] avx512) {

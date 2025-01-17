@@ -295,7 +295,6 @@ Some exceptions: As of now, SIMD support is not supported on Windows OS, and AVX
 # else if (system_supports_avx512) generate_avx512_binaries()
 # else if (system_supports_ avx2) generate_avx2_binaries()
 # else() generate_generic_binaries()
-./gradlew build -Davx2.enabled=true
 
 # generate avx2 binaries
 ./gradlew build -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false
