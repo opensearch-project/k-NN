@@ -291,28 +291,28 @@ newer-generation systems, enabling `avx512_spr` offers support for `AVX512-FP16`
 Some exceptions: As of now, SIMD support is not supported on Windows OS, and AVX512 is not present on MAC systems due to hardware not supporting the feature.
 
 ```
-# if (system_supports_avx512_spr) generate_avx512_spr_binaries
-# else if (system_supports_avx512) generate_avx512_binaries
-# else if (system_supports_ avx2) generate_avx2_binaries
-# else() generate_generic_binaries
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries()
+# else if (system_supports_avx512) generate_avx512_binaries()
+# else if (system_supports_ avx2) generate_avx2_binaries()
+# else() generate_generic_binaries()
 ./gradlew build -Davx2.enabled=true
 
 # generate avx2 binaries
 ./gradlew build -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false
 
-# if (system_supports_avx512_spr) generate_avx512_spr_binaries
-# else if (system_supports_avx512) generate_avx512_binaries
-# else() generate_generic_binaries 
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries()
+# else if (system_supports_avx512) generate_avx512_binaries()
+# else() generate_generic_binaries() 
 ./gradlew build -Davx2.enabled=false -Davx512.enabled=true
 
-# if (system_supports_avx512_spr) generate_avx512_spr_binaries
-# else if (system_supports_avx2) generate_avx2_binaries
-# else() generate_generic_binaries
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries()
+# else if (system_supports_avx2) generate_avx2_binaries()
+# else() generate_generic_binaries()
 ./gradlew build -Davx512.enabled=false -Davx512_spr.enabled=true
 
-# if (system_supports_avx512) generate_avx512_binaries
-# else if (system_supports_avx2) generate_avx2_binaries
-# else() generate_generic_binaries
+# if (system_supports_avx512) generate_avx512_binaries()
+# else if (system_supports_avx2) generate_avx2_binaries()
+# else() generate_generic_binaries()
 ./gradlew build -Davx512.enabled=true -Davx512_spr.enabled=false
 
 # similar logic applies for jni
