@@ -58,7 +58,6 @@ public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
         minIad.id = heap[minIdx].id;
         minIad.distance = heap[minIdx].distance;
         heap[minIdx].id = INVALID_DOC_ID;
-        heap[minIdx].distance = Float.MAX_VALUE;
         --numValidElems;
     }
 
@@ -108,7 +107,7 @@ public class PlainDistanceMaxHeap implements AbstractDistanceMaxHeap {
         float minDistance = Float.MAX_VALUE;
         int minIdx = -1;
         for (int i = k; i > 0; --i) {
-            if (heap[i].distance < minDistance && heap[i].id != -1) {
+            if (heap[i].distance < minDistance && heap[i].id != INVALID_DOC_ID) {
                 minIdx = i;
                 minDistance = heap[i].distance;
             }

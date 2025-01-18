@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.partialloading.search.distance;
 
+import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
 import org.opensearch.knn.partialloading.storage.Storage;
@@ -22,17 +23,22 @@ public abstract class DistanceComputer {
     public static DistanceComputer createDistanceFunctionFromFlatVector(
         Storage flatVectors, PartialLoadingSearchParameters searchParameters
     ) {
-        if (searchParameters.getFloatQueryVector() != null) {
-            return new FloatVectorDistanceComputer(searchParameters.getSpaceType(),
-                                                   searchParameters.getFloatQueryVector(),
-                                                   flatVectors,
-                                                   searchParameters.getIndexInput()
-            );
-        } else if (searchParameters.getByteQueryVector() != null) {
-            // TODO : KDY
-            return null;
-        } else {
-            throw new IllegalArgumentException("Distance function needs at least one query vector. Both float[] and byte[] were null.");
+        try {
+            IndexInput vectorIndexInput =
+                searchParameters.getIndexInput().slice("FaissDistanceComputer", flatVectors.getBaseOffset(), flatVectors.getSectionSize());
+
+            if (searchParameters.getFloatQueryVector() != null) {
+                return new FloatVectorDistanceComputer(searchParameters.getSpaceType(),
+                                                       searchParameters.getFloatQueryVector(),
+                                                       vectorIndexInput
+                );
+            } else if (searchParameters.getByteQueryVector() != null) {
+                throw new UnsupportedOperationException("Partial loading does not support byte query yet.");
+            } else {
+                throw new IllegalArgumentException("Distance function needs at least one query vector. Both float[] and byte[] were null.");
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

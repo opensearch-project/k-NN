@@ -92,7 +92,8 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             final int indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
 
             // TMP
-            final PartialLoadingMode partialLoadingMode = PartialLoadingMode.MEMORY_EFFICIENT;
+            final PartialLoadingMode partialLoadingMode = PartialLoadingMode.DISABLED;
+            // final PartialLoadingMode partialLoadingMode = PartialLoadingMode.MEMORY_EFFICIENT;
             // TMP
 
             if (partialLoadingMode != PartialLoadingMode.DISABLED) {

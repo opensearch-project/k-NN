@@ -7,6 +7,7 @@ package org.opensearch.knn.partialloading.faiss.hnsw;
 
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.SparseFixedBitSet;
+import org.opensearch.knn.partialloading.KdyPerfCheck;
 import org.opensearch.knn.partialloading.search.AbstractDistanceMaxHeap;
 import org.opensearch.knn.partialloading.search.IdAndDistance;
 import org.opensearch.knn.partialloading.search.MatchDocSelector;
@@ -62,6 +63,16 @@ public class FaissHNSW {
         PartialLoadingSearchParameters searchParameters,
         IdAndDistance[] results
     ) throws IOException {
+        KdyPerfCheck.setHnswEntryPoint(entryPoint);
+        KdyPerfCheck.faissHnswStart();
+
+        if (entryPoint == -1) {
+            return;
+        }
+
+        IndexInput neighborListInput =
+            searchParameters.getIndexInput().slice("FaissHNSWNeighborList", neighbors.getBaseOffset(), neighbors.getSectionSize());
+
         // Override `efSearch` with search parameters otherwise use default.
         final int effectiveEfSearch;
         if (searchParameters.getEfSearch() != null) {
@@ -71,32 +82,37 @@ public class FaissHNSW {
         }
 
         // Greedy search for the starting point at the bottom layer
-        final SparseFixedBitSet visited = new SparseFixedBitSet(Math.toIntExact(totalNumberOfVectors));
         final IdAndDistance nearest = new IdAndDistance(entryPoint, distanceComputer.compute(entryPoint));
+        final IntArray neighborList = new IntArray(16);
         for (int level = maxLevel; level >= 1; --level) {
-            greedyUpdateNearest(searchParameters.getIndexInput(), distanceComputer, visited, level, nearest);
+            greedyUpdateNearest(neighborListInput, distanceComputer, level, nearest, neighborList);
         }
+        KdyPerfCheck.hnswGreedyDone();
+        KdyPerfCheck.setEntryPointAfterGreedy(nearest.id, nearest.distance);
 
         // Start exhaustive search at the bottom layer.
-        visited.clear();
+        final SparseFixedBitSet visited = new SparseFixedBitSet(Math.toIntExact(totalNumberOfVectors));
         final int ef = Math.max(effectiveEfSearch, searchParameters.getK());
         final PlainDistanceMaxHeap candidates = new PlainDistanceMaxHeap(ef);
         searchFromCandidates(
-            searchParameters.getIndexInput(),
+            neighborListInput,
             distanceComputer,
             resultMaxHeap,
             candidates,
             visited,
             searchParameters.getMatchDocSelector(),
-            nearest
+            nearest,
+            neighborList
         );
+        KdyPerfCheck.hnswBfsDone();
 
         // Make sorted results by distance
         resultMaxHeap.orderResults(results);
+
+        KdyPerfCheck.faissHnswDone();
     }
 
     /**
-     *
      * Performs a breadth-first search (BFS) using a distance-based max-heap to narrow down vectors that are approximately closest to the
      * query vector.
      * This is a ported version of the FAISS implementation, based on the paper *"Efficient and Robust Approximate Nearest Neighbor
@@ -105,13 +121,14 @@ public class FaissHNSW {
      * <a href="https://github.com/facebookresearch/faiss/blob/main/faiss/impl/HNSW">...</a>
      * .cpp#L584).
      *
-     * @param indexInput An input stream for a FAISS HNSW graph file, allowing access to the neighbor list and vector locations.
+     * @param indexInput       An input stream for a FAISS HNSW graph file, allowing access to the neighbor list and vector locations.
      * @param distanceComputer A distance computer that accepts a vector and returns the distance between it and the query vector.
-     * @param resultMaxHeap A max-heap used to collect the top-k nearest vectors based on distance.
-     * @param candidates A max-distance heap for candidate vectors, where newly discovered competitive vectors are added.
-     * @param visited A bit set used to mark visited vectors during the search, ensuring each vector is visited only once.
+     * @param resultMaxHeap    A max-heap used to collect the top-k nearest vectors based on distance.
+     * @param candidates       A max-distance heap for candidate vectors, where newly discovered competitive vectors are added.
+     * @param visited          A bit set used to mark visited vectors during the search, ensuring each vector is visited only once.
      * @param matchDocSelector The selector determines whether a vector should be added to the results heap.
-     * @param nearest {@link IdAndDistance} instance used to track the closest vector found so far.
+     * @param nearest          {@link IdAndDistance} instance used to track the closest vector found so far.
+     * @param neighborList     Neighbor list having an integer array.
      * @throws IOException
      */
     private void searchFromCandidates(
@@ -121,7 +138,8 @@ public class FaissHNSW {
         PlainDistanceMaxHeap candidates,
         SparseFixedBitSet visited,
         MatchDocSelector matchDocSelector,
-        IdAndDistance nearest
+        IdAndDistance nearest,
+        IntArray neighborList
     ) throws IOException {
         // We've visited starting point.
         visited.set(nearest.id);
@@ -136,19 +154,28 @@ public class FaissHNSW {
         // Start BFS searching.
         while (!candidates.isEmpty()) {
             candidates.popMin(nearest);
-            final long o = offsets[nearest.id];
-            final long begin = o + cumNumberNeighborPerLevel[0];
-            final long end = o + cumNumberNeighborPerLevel[1];
+
+            final long neighborListOffset = offsets[nearest.id];
+            final long neighborListStartOffset = neighborListOffset + cumNumberNeighborPerLevel[0];
+            final long neighborListEndOffset = neighborListOffset + cumNumberNeighborPerLevel[1];
             // System.out.println("mid.id=" + minIad.id + ", dist=" + minIad.distance);
 
-            for (long offset = begin; offset < end; offset++) {
-                final int neighborId = neighbors.readInt(indexInput, offset);
-                if (neighborId < 0) {
+            neighborList.reset();
+            indexInput.seek(neighborListEndOffset * Integer.BYTES);
+            for (long left = neighborListEndOffset - neighborListStartOffset; left > 0 ; --left) {
+                final int neighborId = indexInput.readInt();
+                if (neighborId >= 0) {
+                    if (visited.getAndSet(neighborId)) {
+                        continue;
+                    }
+                    neighborList.add(neighborId);
+                } else {
                     break;
                 }
-                if (visited.getAndSet(neighborId)) {
-                    continue;
-                }
+            }
+
+            for (int i = 0 ; i < neighborList.i ; ++i) {
+                final int neighborId = neighborList.array[i];
                 final float dist = distanceComputer.compute(neighborId);
                 candidates.insertWithOverflow(neighborId, dist);
                 // System.out.println("neighborId=" + neighborId + ", dist=" + dist);
@@ -159,22 +186,50 @@ public class FaissHNSW {
         }
     }
 
+    private static class IntArray {
+        int[] array;
+        int i;
+
+        public IntArray(int size) {
+            array = new int[size];
+        }
+
+        void reset() {
+            i = 0;
+        }
+
+        void add(int value) {
+            if (i < array.length) {
+                array[i++] = value;
+            } else {
+                int[] newArray = new int[array.length * 2];
+                System.arraycopy(array, 0, newArray, 0, array.length);
+                array = newArray;
+                array[i++] = value;
+            }
+        }
+    }
+
     /**
      * Performs a greedy search at each layer to find the closest vector to the query vector. While this step focuses on a single layer,
      * the process generally continues until reaching the bottom layer. The goal of the algorithm is to quickly identify the entry point
      * in the bottom graph layer, where the actual candidate narrowing down occurs. As the name suggests, it follows the closest vector
      * found to the query vector and restarts the search with that vector in the next layer.
      *
-     * @param indexInput An input stream for a FAISS HNSW graph file, allowing access to the neighbor list and vector locations.
+     * @param indexInput       An input stream for a FAISS HNSW graph file, allowing access to the neighbor list and vector locations.
      * @param distanceComputer A distance computer that accepts a vector and returns the distance between it and the query vector.
-     * @param visited A bit set used to mark visited vectors during the search, ensuring each vector is visited only once.
-     * @param level The layer level at which the greedy search will be performed.
-     * @param nearest {@link IdAndDistance} instance used to track the closed vector found so far. It will be used as an input for the
-     *                                        next iteration.
+     * @param level            The layer level at which the greedy search will be performed.
+     * @param nearest          {@link IdAndDistance} instance used to track the closed vector found so far. It will be used as an input for the
+     *                         next iteration.
+     * @param neighborList     Neighbor list having an integer array.
      * @throws IOException
      */
     private void greedyUpdateNearest(
-        IndexInput indexInput, DistanceComputer distanceComputer, SparseFixedBitSet visited, int level, IdAndDistance nearest
+        IndexInput indexInput,
+        DistanceComputer distanceComputer,
+        int level,
+        IdAndDistance nearest,
+        IntArray neighborList
     ) throws IOException {
         while (true) {
             final int prevNearest = nearest.id;
@@ -187,24 +242,23 @@ public class FaissHNSW {
             // System.out.println(" +++++++++++++++++++++++++ greedyUpdateNearest, begin="
             // + begin + ", end=" + end + ", prevNearest=" + prevNearest);
 
-            for (long i = neighborListStartOffset; i < neighborListEndOffset; ++i) {
-                final int neighborId = neighbors.readInt(indexInput, i);
+            neighborList.reset();
+            indexInput.seek(neighborListStartOffset * Integer.BYTES);
+            for (long left = neighborListEndOffset - neighborListStartOffset ; left > 0 ; --left) {
+                final int neighborId = indexInput.readInt();
                 if (neighborId >= 0) {
-                    // We don't need to visit a vector more than once.
-                    // Because, a visited node is either the closed vector to query vector that we've found so far
-                    // or, it's a farther vector than the best one that no need to reconsider.
-                    // Since this is a greedy algorithm, it is so much enough to track the best found vector.
-                    if (visited.getAndSet(neighborId)) {
-                        continue;
-                    }
-                    final float distance = distanceComputer.compute(neighborId);
-                    if (distance < nearest.distance) {
-                        nearest.id = neighborId;
-                        nearest.distance = distance;
-                    }
+                    neighborList.add(neighborId);
                 } else {
-                    // Reached end of neighbor list.
                     break;
+                }
+            }
+
+            for (int i = 0 ; i < neighborList.i ; ++i) {
+                final int neighborId = neighborList.array[i];
+                final float distance = distanceComputer.compute(neighborId);
+                if (distance < nearest.distance) {
+                    nearest.id = neighborId;
+                    nearest.distance = distance;
                 }
             }
 

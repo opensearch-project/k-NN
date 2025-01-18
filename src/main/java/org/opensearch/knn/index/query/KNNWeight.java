@@ -40,6 +40,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.partialloading.KdyPerfCheck;
 import org.opensearch.knn.partialloading.PartialLoadingContext;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchParameters;
 import org.opensearch.knn.partialloading.search.PartialLoadingSearchStrategy;
@@ -137,7 +138,7 @@ public class KNNWeight extends Weight {
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
         final int maxDoc = context.reader().maxDoc();
         final int matchDocsCardinality = filterBitSet.cardinality();
-        System.out.println(" +++++++++++++ searchLeaf, matchDocsCardinality=" + matchDocsCardinality + ", filterWeight=" + filterWeight);
+//        System.out.println(" +++++++++++++ searchLeaf, matchDocsCardinality=" + matchDocsCardinality + ", filterWeight=" + filterWeight);
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
@@ -182,9 +183,9 @@ public class KNNWeight extends Weight {
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
         // TMP
         {
-            final Bits liveDocs = ctx.reader().getLiveDocs();
-            final int maxDoc = ctx.reader().maxDoc();
-            System.out.println(" ++++++++++++++++ |liveDocs|=" + (liveDocs != null ? liveDocs.length() : -1) + ", maxDoc=" + maxDoc);
+//            final Bits liveDocs = ctx.reader().getLiveDocs();
+//            final int maxDoc = ctx.reader().maxDoc();
+//            System.out.println(" ++++++++++++++++ |liveDocs|=" + (liveDocs != null ? liveDocs.length() : -1) + ", maxDoc=" + maxDoc);
         }
         // TMP
 
@@ -410,6 +411,9 @@ public class KNNWeight extends Weight {
             }
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
+            // TMP
+            e.printStackTrace();
+            // TMP
             throw new RuntimeException(e);
         } finally {
             indexAllocation.readUnlock();
@@ -440,6 +444,8 @@ public class KNNWeight extends Weight {
         int[] parentIds,
         SpaceType spaceType
     ) throws IllegalAccessException, IOException {
+        KdyPerfCheck.start();
+
         if (k <= 0) {
             throw new UnsupportedOperationException("Partial loading does not support radius query with k=0");
         }

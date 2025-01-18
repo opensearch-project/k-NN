@@ -8,7 +8,7 @@ package org.opensearch.knn.partialloading.search.distance;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.KNNVectorDistanceFunction;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.partialloading.storage.Storage;
+import org.opensearch.knn.partialloading.KdyPerfCheck;
 
 import java.io.IOException;
 
@@ -18,24 +18,24 @@ import java.io.IOException;
 public class FloatVectorDistanceComputer extends DistanceComputer {
     private final float[] queryVector;
     private final float[] floatBuffer;
-    private final Storage codes;
     private final KNNVectorDistanceFunction distanceFunction;
     private final IndexInput indexInput;
     private final int oneVectorByteSize;
 
-    public FloatVectorDistanceComputer(SpaceType spaceType, float[] queryVector, Storage codes, IndexInput indexInput) {
+    public FloatVectorDistanceComputer(SpaceType spaceType, float[] queryVector, IndexInput indexInput) {
         this.queryVector = queryVector;
         final int dimension = queryVector.length;
         floatBuffer = new float[dimension];
         oneVectorByteSize = Float.BYTES * dimension;
-        this.codes = codes;
         this.distanceFunction = spaceType.getKnnVectorDistanceFunction();
         this.indexInput = indexInput;
     }
 
     public float compute(long vectorId) throws IOException {
+        KdyPerfCheck.incVectorVisit();
+
         // Load float vector
-        indexInput.seek(codes.getBaseOffset() + vectorId * oneVectorByteSize);
+        indexInput.seek(vectorId * oneVectorByteSize);
         indexInput.readFloats(floatBuffer, 0, floatBuffer.length);
 
         // Calculate distance
