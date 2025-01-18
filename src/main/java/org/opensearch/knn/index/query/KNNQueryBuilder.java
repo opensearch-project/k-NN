@@ -344,7 +344,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
      */
     public KNNQueryBuilder(StreamInput in) throws IOException {
         super(in);
-        KNNQueryBuilder.Builder builder = KNNQueryBuilderParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+        KNNQueryBuilder.Builder builder = KNNQueryBuilderParser.streamInput(in, IndexUtil::isStreamOnOrAfterMinRequiredVersion);
         fieldName = builder.fieldName;
         vector = builder.vector;
         k = builder.k;
@@ -359,7 +359,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
-        KNNQueryBuilderParser.streamOutput(out, this, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+        KNNQueryBuilderParser.streamOutput(out, this, IndexUtil::isStreamOnOrAfterMinRequiredVersion);
     }
 
     /**
