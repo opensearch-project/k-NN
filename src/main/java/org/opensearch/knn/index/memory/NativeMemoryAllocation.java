@@ -21,7 +21,9 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.partialloading.PartialLoadingContext;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -100,6 +102,10 @@ public interface NativeMemoryAllocation {
         return true;
     }
 
+    default PartialLoadingContext getPartialLoadingContext() {
+        return null;
+    }
+
     /**
      * Represents native indices loaded into memory. Because these indices are backed by files, they should be
      * freed when file is deleted.
@@ -121,6 +127,27 @@ public interface NativeMemoryAllocation {
         @Getter
         private final boolean isBinaryIndex;
         private final RefCountedReleasable<IndexAllocation> refCounted;
+        @Getter
+        private final PartialLoadingContext partialLoadingContext;
+
+        /**
+         * Constructor
+         *
+         * @param executorService Executor service used to close the allocation
+         * @param knnEngine KNNEngine associated with the index allocation
+         * @param vectorFileName Vector file name. Ex: _0_165_my_field.faiss
+         * @param openSearchIndexName Name of OpenSearch index this index is associated with
+         */
+        IndexAllocation(
+            ExecutorService executorService,
+            KNNEngine knnEngine,
+            String vectorFileName,
+            String openSearchIndexName,
+            boolean isBinaryIndex,
+            PartialLoadingContext partialLoadingContext
+        ) {
+            this(executorService, 0, 0, knnEngine, vectorFileName, openSearchIndexName, null, isBinaryIndex, partialLoadingContext);
+        }
 
         /**
          * Constructor
@@ -140,7 +167,7 @@ public interface NativeMemoryAllocation {
             String vectorFileName,
             String openSearchIndexName
         ) {
-            this(executorService, memoryAddress, sizeKb, knnEngine, vectorFileName, openSearchIndexName, null, false);
+            this(executorService, memoryAddress, sizeKb, knnEngine, vectorFileName, openSearchIndexName, null, false, null);
         }
 
         /**
@@ -164,6 +191,41 @@ public interface NativeMemoryAllocation {
             SharedIndexState sharedIndexState,
             boolean isBinaryIndex
         ) {
+            this(
+                executorService,
+                memoryAddress,
+                sizeKb,
+                knnEngine,
+                vectorFileName,
+                openSearchIndexName,
+                sharedIndexState,
+                isBinaryIndex,
+                null
+            );
+        }
+
+        /**
+         * Constructor
+         *
+         * @param executorService Executor service used to close the allocation
+         * @param memoryAddress Pointer in memory to the index
+         * @param sizeKb Size this index consumes in kilobytes
+         * @param knnEngine KNNEngine associated with the index allocation
+         * @param vectorFileName Vector file name. Ex: _0_165_my_field.faiss
+         * @param openSearchIndexName Name of OpenSearch index this index is associated with
+         * @param sharedIndexState Shared index state. If not shared state present, pass null.
+         */
+        IndexAllocation(
+            ExecutorService executorService,
+            long memoryAddress,
+            int sizeKb,
+            KNNEngine knnEngine,
+            String vectorFileName,
+            String openSearchIndexName,
+            SharedIndexState sharedIndexState,
+            boolean isBinaryIndex,
+            PartialLoadingContext partialLoadingContext
+        ) {
             this.executor = executorService;
             this.closed = false;
             this.knnEngine = knnEngine;
@@ -175,6 +237,7 @@ public interface NativeMemoryAllocation {
             this.sharedIndexState = sharedIndexState;
             this.isBinaryIndex = isBinaryIndex;
             this.refCounted = new RefCountedReleasable<>("IndexAllocation-Reference", this, this::closeInternal);
+            this.partialLoadingContext = partialLoadingContext;
         }
 
         protected void closeInternal() {
@@ -217,6 +280,14 @@ public interface NativeMemoryAllocation {
 
             if (sharedIndexState != null) {
                 SharedIndexStateManager.getInstance().release(sharedIndexState);
+            }
+
+            if (partialLoadingContext != null) {
+                try {
+                    partialLoadingContext.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
 

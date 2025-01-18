@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 ### Infrastructure
 * Removed JDK 11 and 17 version from CI runs [#1921](https://github.com/opensearch-project/k-NN/pull/1921)
+* Added initial implementation of partial loading [#2405](https://github.com/opensearch-project/k-NN/pull/2405)
 ### Documentation
 ### Maintenance
 ### Refactoring

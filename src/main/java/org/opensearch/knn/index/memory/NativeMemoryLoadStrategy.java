@@ -22,11 +22,15 @@ import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.partialloading.PartialLoadingContext;
+import org.opensearch.knn.partialloading.faiss.FaissIndex;
+import org.opensearch.knn.partialloading.search.PartialLoadingMode;
 import org.opensearch.knn.training.TrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -87,12 +91,60 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             final Directory directory = indexEntryContext.getDirectory();
             final int indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
 
+            // TMP
+            final PartialLoadingMode partialLoadingMode = PartialLoadingMode.DISABLED;
+            // final PartialLoadingMode partialLoadingMode = PartialLoadingMode.MEMORY_EFFICIENT;
+            // TMP
+
+            if (partialLoadingMode != PartialLoadingMode.DISABLED) {
+                return createPartialLoadedIndexAllocation(directory, indexEntryContext, knnEngine, vectorFileName, partialLoadingMode);
+            }
+
             // Try to open an index input then pass it down to native engine for loading an index.
             try (IndexInput readStream = directory.openInput(vectorFileName, IOContext.READONCE)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
                 final long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
 
                 return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, indexSizeKb, vectorFileName);
+            }
+        }
+
+        private NativeMemoryAllocation.IndexAllocation createPartialLoadedIndexAllocation(
+            Directory directory,
+            NativeMemoryEntryContext.IndexEntryContext indexEntryContext,
+            KNNEngine knnEngine,
+            String vectorFileName,
+            PartialLoadingMode partialLoadingMode
+        ) throws IOException {
+            validatePartialLoadingSupported(indexEntryContext, knnEngine);
+
+            // Try to open an index input then pass it down to native engine for loading an index.
+            FaissIndex faissIndex = null;
+            try (IndexInput input = directory.openInput(vectorFileName, IOContext.READONCE)) {
+                faissIndex = FaissIndex.partiallyLoad(input);
+            }
+
+            // Create partial loading context.
+            final PartialLoadingContext partialLoadingContext = new PartialLoadingContext(faissIndex, vectorFileName, partialLoadingMode);
+
+            return new NativeMemoryAllocation.IndexAllocation(
+                executor,
+                knnEngine,
+                vectorFileName,
+                indexEntryContext.getOpenSearchIndexName(),
+                IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters()),
+                partialLoadingContext
+            );
+        }
+
+        private void validatePartialLoadingSupported(NativeMemoryEntryContext.IndexEntryContext indexEntryContext, KNNEngine knnEngine)
+            throws UnsupportedEncodingException {
+            if (IndexUtil.isBinaryIndex(knnEngine, indexEntryContext.getParameters())) {
+                throw new UnsupportedEncodingException("Partial loading search does not support binary index.");
+            }
+
+            if (IndexUtil.isByteIndex(indexEntryContext.getParameters())) {
+                throw new UnsupportedEncodingException("Partial loading search does not support byte index.");
             }
         }
 
