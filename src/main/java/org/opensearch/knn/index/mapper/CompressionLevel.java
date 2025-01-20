@@ -7,6 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
@@ -102,11 +103,17 @@ public enum CompressionLevel {
      *
      * @param mode      The {@link Mode} for which to retrieve the {@link RescoreContext}.
      * @param dimension The dimensional value that determines the {@link RescoreContext} behavior.
+     * @param indexVersionCreated OpenSearch cluster version in which the index was created
      * @return          A {@link RescoreContext} with an oversample factor of 5.0f if {@code dimension} is less than
      *                  or equal to 1000, the default {@link RescoreContext} if greater, or {@code null} if the mode
      *                  is invalid.
      */
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension) {
+    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version indexVersionCreated) {
+
+        // x4 compression was supported by Lucene engine before version 2.19.0 and there is no default rescore context
+        if (compressionLevel == CompressionLevel.x4.compressionLevel && indexVersionCreated.before(Version.V_2_19_0)) {
+            return null;
+        }
         if (modesForRescore.contains(mode)) {
             // Adjust RescoreContext based on dimension
             if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
