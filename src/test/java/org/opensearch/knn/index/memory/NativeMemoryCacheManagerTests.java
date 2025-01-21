@@ -54,6 +54,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         client().admin().cluster().updateSettings(clusterUpdateSettingsRequest).get();
         NativeMemoryCacheManager.getInstance().close();
         terminate(threadPool);
+        NativeMemoryCacheManager.setThreadPool(null);
         super.tearDown();
     }
 

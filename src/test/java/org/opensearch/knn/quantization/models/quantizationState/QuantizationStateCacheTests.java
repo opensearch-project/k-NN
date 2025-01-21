@@ -44,6 +44,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
     @After
     public void stopMaintenance() throws IOException {
         terminate(threadPool);
+        QuantizationStateCache.setThreadPool(null);
         QuantizationStateCache.getInstance().close();
     }
 
