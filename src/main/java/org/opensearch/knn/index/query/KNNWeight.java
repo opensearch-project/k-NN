@@ -314,7 +314,8 @@ public class KNNWeight extends Weight {
                     knnQuery.getIndexName(),
                     modelId
                 ),
-                true
+                true,
+                    true
             );
         } catch (ExecutionException e) {
             GRAPH_QUERY_ERRORS.increment();
