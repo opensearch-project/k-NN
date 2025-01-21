@@ -143,6 +143,21 @@ export OPENSEARCH_HOME=the directory of opensearch...
 export JAVA_LIBRARY_PATH=$JAVA_LIBRARY_PATH:$OPENSEARCH_HOME/plugins/opensearch-knn/lib
 ```
 
+CMAKE will use as JAVA_HOME environment whatever your gradle is currently using. For example:
+```bash
+Java home directory found by gradle: /opt/homebrew/Cellar/openjdk@21/21.0.5/libexec/openjdk.jdk/Contents/Home
+=======================================
+OpenSearch Build Hamster says Hello!
+  Gradle Version        : 8.4
+  OS Info               : Mac OS X 14.4 (aarch64)
+  JDK Version           : 21 (Homebrew JDK)
+  JAVA_HOME             : /opt/homebrew/Cellar/openjdk@21/21.0.5/libexec/openjdk.jdk/Contents/Home
+  Random Testing Seed   : 8AB32A4719AA345E
+  In FIPS 140 mode      : false
+=======================================
+```
+The JAVA_HOME used by gradle will be the default that the project will be using.
+
 #### Environment
 
 Currently, the plugin only supports Linux on x64 and arm platforms.
