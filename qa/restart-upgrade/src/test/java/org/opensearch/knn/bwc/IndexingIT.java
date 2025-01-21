@@ -8,6 +8,7 @@ package org.opensearch.knn.bwc;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Assert;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
@@ -20,6 +21,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import java.util.List;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_M_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
@@ -132,6 +134,28 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testKNNIndexSettingImmutableAfterUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+        } else {
+            Exception ex = expectThrows(
+                ResponseException.class,
+                () -> updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+            );
+            assertThat(ex.getMessage(), containsString("Can't update non dynamic settings [[index.knn]] for open indices"));
+
+            closeIndex(testIndex);
+
+            ex = expectThrows(
+                ResponseException.class,
+                () -> updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.KNN_INDEX, false))
+            );
+            assertThat(ex.getMessage(), containsString(String.format("final %s setting [index.knn], not updateable", testIndex)));
+        }
+    }
+
     public void testKNNIndexLuceneByteVector() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
@@ -239,14 +263,14 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     }
 
     // Custom Legacy Field Mapping
-    // space_type : "linf", engine : "nmslib", m : 2, ef_construction : 2
+    // space_type : "innerproduct", engine : "nmslib", m : 2, ef_construction : 2
     public void testKNNIndexCustomLegacyFieldMapping() throws Exception {
 
         // When the cluster is in old version, create a KNN index with custom legacy field mapping settings
         // and add documents into that index
         if (isRunningAgainstOldCluster()) {
             Settings.Builder indexMappingSettings = createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(
-                SpaceType.LINF,
+                SpaceType.INNER_PRODUCT,
                 KNN_ALGO_PARAM_M_MIN_VALUE,
                 KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE
             );

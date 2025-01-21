@@ -24,8 +24,10 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -73,7 +75,7 @@ public class KNNTestCase extends OpenSearchTestCase {
         return false;
     }
 
-    public void resetState() {
+    public void resetState() throws IOException {
         // Reset all of the counters
         for (KNNCounter knnCounter : KNNCounter.values()) {
             knnCounter.set(0L);
@@ -83,6 +85,7 @@ public class KNNTestCase extends OpenSearchTestCase {
         // Clean up the cache
         NativeMemoryCacheManager.getInstance().invalidateAll();
         NativeMemoryCacheManager.getInstance().close();
+        QuantizationStateCacheManager.getInstance().close();
     }
 
     private void initKNNSettings() {
