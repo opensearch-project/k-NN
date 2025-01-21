@@ -65,6 +65,7 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -264,6 +265,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         );
         // do it at the end so that all search is completed
         indexReader.close();
+        QuantizationStateCacheManager.getInstance().close();
     }
 
     @SneakyThrows
@@ -301,6 +303,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertEquals(1, floatVectorValues.size());
         assertEquals(8, floatVectorValues.dimension());
         indexReader.close();
+        QuantizationStateCacheManager.getInstance().close();
     }
 
     public void testFormatName_withValidInput_thenSuccess() {

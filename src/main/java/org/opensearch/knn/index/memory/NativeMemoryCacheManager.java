@@ -113,12 +113,10 @@ public class NativeMemoryCacheManager implements Closeable {
         accessRecencyQueue = new ConcurrentLinkedDeque<>();
         cache = cacheBuilder.build();
 
-        if (threadPool != null && !threadPool.scheduler().isShutdown()) {
+        if (threadPool != null) {
             startMaintenance(cache);
         } else {
-            logger.warn(
-                "ThreadPool is null or scheduler is terminated during NativeMemoryCacheManager initialization. Maintenance will not start."
-            );
+            logger.warn("ThreadPool is null or during NativeMemoryCacheManager initialization. Maintenance will not start.");
         }
     }
 
