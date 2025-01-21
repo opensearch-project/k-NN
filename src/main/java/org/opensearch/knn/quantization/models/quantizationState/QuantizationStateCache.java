@@ -80,10 +80,12 @@ public class QuantizationStateCache implements Closeable {
             .removalListener(this::onRemoval)
             .build();
 
-        if (threadPool != null) {
+        if (threadPool != null && !threadPool.scheduler().isShutdown()) {
             startMaintenance(cache);
         } else {
-            log.warn("ThreadPool is null during QuantizationStateCache initialization. Maintenance will not start.");
+            log.warn(
+                "ThreadPool is null or scheduler is terminated during QuantizationStateCache initialization. Maintenance will not start."
+            );
         }
     }
 
