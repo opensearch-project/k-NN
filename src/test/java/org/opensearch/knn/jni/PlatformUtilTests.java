@@ -236,7 +236,7 @@ public class PlatformUtilTests extends KNNTestCase {
 
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
-                    .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq", "dummy string"));
+                    .thenReturn(Stream.of("flags: avx512_fp16 avx512_vpopcntdq", "dummy string"));
                 assertFalse(isAVX512SPRSupportedBySystem());
             }
         }
