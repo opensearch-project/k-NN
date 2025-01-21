@@ -4,7 +4,13 @@ grant {
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_common";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx2";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx512";
+    permission java.lang.RuntimePermission "modifyThreadGroup";
+    permission java.lang.RuntimePermission "modifyThread";
+    permission java.lang.RuntimePermission "getStackTrace";
+    permission java.lang.RuntimePermission "setContextClassLoader";
     permission java.net.SocketPermission "*", "connect,resolve";
+    permission java.util.PropertyPermission "*", "write";
+    permission java.util.PropertyPermission "*", "read";
     permission java.lang.RuntimePermission "accessDeclaredMembers";
     permission java.io.FilePermission "/proc/cpuinfo", "read";
 };

@@ -17,6 +17,7 @@ public class KNNConstants {
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
     public static final String METHOD_HNSW = "hnsw";
+    public static final String DISK_ANN = "disk_ann";
     public static final String TYPE = "type";
     public static final String TYPE_NESTED = "nested";
     public static final String PATH = "path";
@@ -120,6 +121,9 @@ public class KNNConstants {
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
     public static final String FAISS_SIGNED_BYTE_SQ = "SQ8_direct_signed";
     public static final String FAISS_SQ_CLIP = "clip";
+
+    // JVector specific constants
+    public static final String JVECTOR_NAME = "jvector";
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

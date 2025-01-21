@@ -10,6 +10,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.jvector.JVectorFormat;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Optional;
@@ -26,16 +27,28 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
             Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
             Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
             Lucene99HnswVectorsFormat::new,
-            knnVectorsFormatParams -> {
-                // There is an assumption here that hamming space will only be used for binary vectors. This will need to be fixed if that
-                // changes in the future.
-                if (knnVectorsFormatParams.getSpaceType() == SpaceType.HAMMING) {
-                    return new KNN9120HnswBinaryVectorsFormat(
-                        knnVectorsFormatParams.getMaxConnections(),
-                        knnVectorsFormatParams.getBeamWidth()
-                    );
-                } else {
-                    return new Lucene99HnswVectorsFormat(knnVectorsFormatParams.getMaxConnections(), knnVectorsFormatParams.getBeamWidth());
+                (knnEngine, knnVectorsFormatParams) -> {
+
+
+                switch (knnEngine) {
+                    case LUCENE:
+                        // There is an assumption here that hamming space will only be used for binary vectors. This will need to be fixed if that
+                        // changes in the future.
+                        if (knnVectorsFormatParams.getSpaceType() == SpaceType.HAMMING) {
+                            return new KNN9120HnswBinaryVectorsFormat(
+                                    knnVectorsFormatParams.getMaxConnections(),
+                                    knnVectorsFormatParams.getBeamWidth()
+                            );
+                        } else {
+                            return new Lucene99HnswVectorsFormat(knnVectorsFormatParams.getMaxConnections(), knnVectorsFormatParams.getBeamWidth());
+                        }
+                    case JVECTOR:
+                        return new JVectorFormat(
+                            knnVectorsFormatParams.getMaxConnections(),
+                            knnVectorsFormatParams.getBeamWidth()
+                        );
+                    default:
+                        throw new IllegalArgumentException("Unsupported java engine: " + knnEngine);
                 }
             },
             knnScalarQuantizedVectorsFormatParams -> new Lucene99HnswScalarQuantizedVectorsFormat(

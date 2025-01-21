@@ -161,7 +161,6 @@ public class KNNPlugin extends Plugin
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
 
-    private KNNStats knnStats;
     private ClusterService clusterService;
 
     @Override
@@ -212,8 +211,7 @@ public class KNNPlugin extends Plugin
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
-        knnStats = new KNNStats();
-        return ImmutableList.of(knnStats);
+        return ImmutableList.of(new KNNStats());
     }
 
     @Override

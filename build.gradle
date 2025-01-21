@@ -316,6 +316,10 @@ dependencies {
     }
     testFixturesImplementation "org.opensearch:common-utils:${version}"
     implementation 'com.github.oshi:oshi-core:6.4.13'
+
+    implementation 'io.github.jbellis:jvector:4.0.0-beta.2-SNAPSHOT'
+    implementation 'org.agrona:agrona:1.20.0'
+
     api "net.java.dev.jna:jna:5.13.0"
     api "net.java.dev.jna:jna-platform:5.13.0"
     // OpenSearch core is using slf4j 1.7.36. Therefore, we cannot change the version here.
@@ -331,7 +335,7 @@ task windowsPatches(type:Exec) {
 task cmakeJniLib(type:Exec) {
     workingDir 'jni'
     def args = []
-    args.add("cmake")
+    args.add("/opt/homebrew/bin/cmake")
     args.add(".")
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DAVX2_ENABLED=${avx2_enabled}")
@@ -364,6 +368,8 @@ test {
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty 'log4j.configurationFile', "$rootDir/src/test/resources/log4j2.properties"
+
     //this change enables mockito-inline that supports mocking of static classes/calls
     systemProperty "jdk.attach.allowAttachSelf", true
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -378,6 +384,11 @@ integTest {
         dependsOn buildJniLib
     }
     systemProperty 'tests.security.manager', 'false'
+    println "Project root directory: ${project.rootDir}"
+    systemProperty "java.security.policy", "file://${project.rootDir}/src/main/plugin-metadata/plugin-security.policy"
+    systemProperty 'log4j.configurationFile', "${project.rootDir}/src/test/resources/log4j2.properties"
+    testLogging.showStandardStreams = true
+    systemProperty 'tests.output', 'true'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
     systemProperty "java.library.path", "$rootDir/jni/release"
     // allows integration test classes to access test resource from project root path
@@ -421,7 +432,8 @@ integTest {
 
 testClusters.integTest {
     testDistribution = "ARCHIVE"
-
+    systemProperty "java.security.policy", "file://${project.rootDir}/src/main/plugin-metadata/plugin-security.policy"
+    systemProperty 'log4j.configurationFile', "${project.rootDir}/src/test/resources/log4j2.properties"
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(testClusters.integTest)
@@ -460,7 +472,7 @@ task integTestRemote(type: RestIntegTestTask) {
     systemProperty 'cluster.number_of_nodes', "${_numNodes}"
 
     systemProperty 'tests.security.manager', 'false'
-
+    systemProperty 'tests.output', 'true'
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {

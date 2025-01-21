@@ -25,7 +25,7 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
             Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
             Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
             Lucene99HnswVectorsFormat::new,
-            knnVectorsFormatParams -> new Lucene99HnswVectorsFormat(
+                (knnEngine, knnVectorsFormatParams) -> new Lucene99HnswVectorsFormat(
                 knnVectorsFormatParams.getMaxConnections(),
                 knnVectorsFormatParams.getBeamWidth()
             ),

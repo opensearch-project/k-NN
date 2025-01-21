@@ -29,6 +29,8 @@ import org.opensearch.knn.index.codec.KNN950Codec.KNN950Codec;
 import org.opensearch.knn.index.codec.KNN950Codec.KNN950PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.KNN990Codec;
 import org.opensearch.knn.index.codec.KNN990Codec.KNN990PerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.jvector.JVectorCodec;
+import org.opensearch.knn.index.codec.jvector.JVectorCompoundFormat;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -128,6 +130,22 @@ public enum KNNCodecVersion {
             .knnVectorsFormat(new KNN9120PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
         KNN9120Codec::new
+    ),
+
+    /**
+     * Version 9.12.0 with JVector codec. This is for demosntration purposes of direct encoding of JVector and
+     * potentially other JVM KNN libraries direct encoding into Lucene compound file without creating new files
+     */
+    V_9_12_0_WITH_JVECTOR(
+            JVectorCodec.CODEC_NAME,
+            new JVectorCodec(),
+            new KNN9120PerFieldKnnVectorsFormat(Optional.empty()),
+            (delegate) -> new KNNFormatFacade(
+                    new KNN80DocValuesFormat(delegate.docValuesFormat()),
+                    new JVectorCompoundFormat(delegate.compoundFormat())
+            ),
+            (userCodec, mapperService) -> new JVectorCodec(),
+            JVectorCodec::new
     );
 
     private static final KNNCodecVersion CURRENT = V_9_12_0;

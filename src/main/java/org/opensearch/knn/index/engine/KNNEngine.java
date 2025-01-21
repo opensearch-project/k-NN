@@ -11,6 +11,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
+import org.opensearch.knn.index.engine.jvector.JVector;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ import java.util.Set;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.JVECTOR_NAME;
 
 /**
  * KNNEngine provides the functionality to validate and transform user defined indices into information that can be
@@ -27,7 +29,8 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 public enum KNNEngine implements KNNLibrary {
     NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE),
     FAISS(FAISS_NAME, Faiss.INSTANCE),
-    LUCENE(LUCENE_NAME, Lucene.INSTANCE);
+    LUCENE(LUCENE_NAME, Lucene.INSTANCE),
+    JVECTOR(JVECTOR_NAME, JVector.INSTANCE);
 
     public static final KNNEngine DEFAULT = FAISS;
 
@@ -75,6 +78,10 @@ public enum KNNEngine implements KNNLibrary {
 
         if (LUCENE.getName().equalsIgnoreCase(name)) {
             return LUCENE;
+        }
+
+        if (JVECTOR.getName().equalsIgnoreCase(name)) {
+            return JVECTOR;
         }
 
         throw new IllegalArgumentException(String.format("Invalid engine type: %s", name));
