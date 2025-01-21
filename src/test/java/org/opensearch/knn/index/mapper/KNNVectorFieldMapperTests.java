@@ -681,7 +681,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         XContentBuilder xContentBuilder4 = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION, 10)
             .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
             .field(MODEL_ID, "test")
             .field(MODE_PARAMETER, Mode.ON_DISK.getName())
