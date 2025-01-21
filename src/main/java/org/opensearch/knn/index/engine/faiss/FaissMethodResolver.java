@@ -21,6 +21,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -82,6 +83,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
 
         // Validate that resolved compression doesnt have any conflicts
         validateCompressionConflicts(knnMethodConfigContext.getCompressionLevel(), resolvedCompressionLevel);
+        validateMethodWithCompression(method, resolvedCompressionLevel);
         knnMethodConfigContext.setCompressionLevel(resolvedCompressionLevel);
         resolveMethodParams(resolvedKNNMethodContext.getMethodComponentContext(), knnMethodConfigContext, method);
 
@@ -195,5 +197,15 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             return CompressionLevel.x32;
         }
         return CompressionLevel.x1;
+    }
+
+    private void validateMethodWithCompression(MethodComponent method, CompressionLevel compressionLevel) {
+        if (method == IVF_COMPONENT && compressionLevel == CompressionLevel.x4) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(
+                String.format(Locale.ROOT, "sq \"%s\" encoder does not support \"%s\" method", FAISS_SQ_ENCODER_INT8, METHOD_IVF)
+            );
+            throw validationException;
+        }
     }
 }
