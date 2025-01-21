@@ -13,6 +13,7 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
+import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.util.InfoStream;
@@ -115,6 +116,7 @@ public class NativeEngineFieldVectorsWriterTests extends KNNCodecTestCase {
         Mockito.when(fieldInfo.getVectorDimension()).thenReturn(2);
         FlatFieldVectorsWriter<?> mockedFlatFieldVectorsWriter = Mockito.mock(FlatFieldVectorsWriter.class);
         Mockito.when(mockedFlatFieldVectorsWriter.ramBytesUsed()).thenReturn(1L);
+        Mockito.when(mockedFlatFieldVectorsWriter.getDocsWithFieldSet()).thenReturn(new DocsWithFieldSet());
         final NativeEngineFieldVectorsWriter<float[]> floatWriter = (NativeEngineFieldVectorsWriter<float[]>) NativeEngineFieldVectorsWriter
             .create(fieldInfo, mockedFlatFieldVectorsWriter, InfoStream.getDefault());
         // testing for value > 0 as we don't have a concrete way to find out expected bytes. This can OS dependent too.

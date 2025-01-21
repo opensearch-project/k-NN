@@ -100,7 +100,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             }
             final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> getVectorValues(
                 vectorDataType,
-                field.getDocsWithField(),
+                field.getFlatFieldVectorsWriter().getDocsWithFieldSet(),
                 field.getVectors()
             );
             final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
