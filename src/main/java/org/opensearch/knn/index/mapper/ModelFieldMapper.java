@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
@@ -33,6 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 /**
  * Field mapper for model in mapping
  */
+@Log4j2
 public class ModelFieldMapper extends KNNVectorFieldMapper {
 
     // If the dimension has not yet been set because we do not have access to model metadata, it will be -1
@@ -41,6 +43,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     private PerDimensionProcessor perDimensionProcessor;
     private PerDimensionValidator perDimensionValidator;
     private VectorValidator vectorValidator;
+    private VectorTransformer vectorTransformer;
 
     private final String modelId;
 
@@ -190,6 +193,43 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     protected PerDimensionProcessor getPerDimensionProcessor() {
         initPerDimensionProcessor();
         return perDimensionProcessor;
+    }
+
+    @Override
+    protected VectorTransformer getVectorTransformer() {
+        // we don't want to call model metadata to get space type and engine for every vector,
+        // since getVectorTransformer() will be called once per vector. Hence,
+        // we initialize it once, and use it every other time
+        initVectorTransformer();
+        return this.vectorTransformer;
+    }
+
+    /**
+     * Initializes the vector transformer for the model field if not already initialized.
+     * This method handles the vector transformation configuration based on the model metadata
+     * and KNN method context.
+     * @throws IllegalStateException if model metadata cannot be retrieved
+     */
+
+    private void initVectorTransformer() {
+        if (vectorTransformer != null) {
+            return;
+        }
+        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
+        // Need to handle BWC case where method context is not available
+        if (knnMethodContext == null || knnMethodConfigContext == null) {
+            vectorTransformer = VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
+            return;
+        }
+        // get vector transformer from Indexing Context. We want Engine/Library to provide necessary
+        // input rather than creating Transformer from the engine and space type. This design
+        // decision is taken to make sure that Engine will drive the implementation than Field Mapper.
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
     }
 
     private void initVectorValidator() {
