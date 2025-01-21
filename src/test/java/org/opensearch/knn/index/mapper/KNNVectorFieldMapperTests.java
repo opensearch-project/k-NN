@@ -892,6 +892,27 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
 
         assertEquals(modelId, builder.modelId.get());
+
+        // Fails if both model_id and dimension are set after 2.19
+        XContentBuilder xContentBuilder2 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+            .field(MODEL_ID, modelId)
+            .endObject();
+
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder2), buildParserContext(indexName, settings))
+        );
+
+        // Should not fail if both are set before 2.19
+        typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder2),
+            buildLegacyParserContext(indexName, settings, Version.V_2_18_1)
+        );
+
     }
 
     public void testTypeParser_parse_fromLegacy() throws IOException {
