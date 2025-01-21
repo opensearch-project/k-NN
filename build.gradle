@@ -319,7 +319,7 @@ dependencies {
     api "net.java.dev.jna:jna:5.13.0"
     api "net.java.dev.jna:jna-platform:5.13.0"
     // OpenSearch core is using slf4j 1.7.36. Therefore, we cannot change the version here.
-    implementation 'org.slf4j:slf4j-api:1.7.36'
+    compileOnly 'org.slf4j:slf4j-api:1.7.36'
 
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
 }
