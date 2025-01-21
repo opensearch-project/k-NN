@@ -65,7 +65,6 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -94,7 +93,6 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         if (dir != null) {
             dir.close();
         }
-        QuantizationStateCacheManager.getInstance().close();
         super.tearDown();
     }
 
