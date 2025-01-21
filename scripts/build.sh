@@ -112,7 +112,7 @@ fi
 # https://github.com/opensearch-project/k-NN/issues/1138
 # https://github.com/opensearch-project/opensearch-build/issues/4386
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
-GCC_REQUIRED_VERSION=9.0.0
+GCC_REQUIRED_VERSION=12.4
 COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
 if [ "$COMPARE_VERSION" != "$GCC_REQUIRED_VERSION" ]; then
     echo "gcc version on this env is older than $GCC_REQUIRED_VERSION, exit 1"
@@ -128,7 +128,7 @@ if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   echo "Building k-NN library after enabling AVX2"
   # Skip applying patches as patches were applied already from previous :buildJniLib task
   # If we apply patches again, it fails with conflict
-  ./gradlew :buildJniLib -Davx2.enabled=true -Davx512.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+  ./gradlew :buildJniLib -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 
   echo "Building k-NN library after enabling AVX512"
   ./gradlew :buildJniLib -Davx512.enabled=true -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
