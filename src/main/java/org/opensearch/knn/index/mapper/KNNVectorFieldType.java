@@ -17,12 +17,16 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
@@ -94,5 +98,39 @@ public class KNNVectorFieldType extends MappedFieldType {
             return userProvidedContext;
         }
         return getKnnMappingConfig().getCompressionLevel().getDefaultRescoreContext(getKnnMappingConfig().getMode());
+    }
+
+    /**
+     * Transforms a query vector based on the field's configuration. The transformation is performed
+     * in-place on the input vector according to either the KNN method context or the model ID.
+     *
+     * @param vector The float array to be transformed in-place. Must not be null.
+     * @throws IllegalStateException if neither KNN method context nor Model ID is configured
+     *
+     * The transformation process follows this order:
+     * 1. If vector is not FLOAT type, no transformation is performed
+     * 2. Attempts to use KNN method context if present
+     * 3. Falls back to model ID if KNN method context is not available
+     * 4. Throws exception if neither configuration is present
+     */
+    public void transformQueryVector(float[] vector) {
+        if (VectorDataType.FLOAT != vectorDataType) {
+            return;
+        }
+        final Optional<KNNMethodContext> knnMethodContext = knnMappingConfig.getKnnMethodContext();
+        if (knnMethodContext.isPresent()) {
+            KNNMethodContext context = knnMethodContext.get();
+            VectorTransformerFactory.getVectorTransformer(context.getKnnEngine(), context.getSpaceType()).transform(vector);
+            return;
+        }
+        final Optional<String> modelId = knnMappingConfig.getModelId();
+        if (modelId.isPresent()) {
+            ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+            final ModelMetadata metadata = modelDao.getMetadata(modelId.get());
+            VectorTransformerFactory.getVectorTransformer(metadata.getKnnEngine(), metadata.getSpaceType()).transform(vector);
+            return;
+        }
+        throw new IllegalStateException("Either KNN method context or Model Id should be configured");
+
     }
 }
