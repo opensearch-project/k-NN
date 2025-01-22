@@ -24,7 +24,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
@@ -34,6 +37,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EXPAND_NESTED_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.RESCORE_FIELD;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
+import static org.opensearch.knn.index.query.rescore.RescoreContext.EXPLICITLY_DISABLED_RESCORE_CONTEXT;
 import static org.opensearch.knn.index.util.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.FILTER_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.IGNORE_UNMAPPED_FIELD;
@@ -84,12 +88,22 @@ public final class KNNQueryBuilderParser {
         );
         internalParser.declareObject(KNNQueryBuilder.Builder::filter, (p, v) -> parseInnerQueryBuilder(p), FILTER_FIELD);
 
-        internalParser.declareObjectOrDefault(
-            KNNQueryBuilder.Builder::rescoreContext,
-            (p, v) -> RescoreParser.fromXContent(p),
-            RescoreContext::getDefault,
-            RESCORE_FIELD
-        );
+        internalParser.declareField((p, v, c) -> {
+            BiConsumer<KNNQueryBuilder.Builder, RescoreContext> consumer = KNNQueryBuilder.Builder::rescoreContext;
+            BiFunction<XContentParser, Void, RescoreContext> objectParser = (_p, _v) -> RescoreParser.fromXContent(_p);
+            Supplier<RescoreContext> defaultValue = RescoreContext::getDefault;
+            if (p.currentToken() == XContentParser.Token.VALUE_BOOLEAN) {
+                if (p.booleanValue()) {
+                    consumer.accept(v, defaultValue.get());
+                } else {
+                    // If the user specifies false, we explicitly set to null so we don't
+                    // accidentally resolve.
+                    consumer.accept(v, EXPLICITLY_DISABLED_RESCORE_CONTEXT);
+                }
+            } else {
+                consumer.accept(v, objectParser.apply(p, c));
+            }
+        }, RESCORE_FIELD, ObjectParser.ValueType.OBJECT_OR_BOOLEAN);
 
         internalParser.declareBoolean(KNNQueryBuilder.Builder::expandNested, EXPAND_NESTED_FIELD);
 
