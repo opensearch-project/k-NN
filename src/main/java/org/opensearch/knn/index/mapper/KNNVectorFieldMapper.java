@@ -675,7 +675,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected abstract VectorValidator getVectorValidator();
 
     /**
-     * Getter for per dimension validator during vector parsing
+     * Getter for per dimension validator during vector parsing, and before any transformation
      *
      * @return PerDimensionValidator
      */
@@ -688,6 +688,23 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected abstract PerDimensionProcessor getPerDimensionProcessor();
 
+    /**
+     * Retrieves the vector transformer for the KNN vector field.
+     * This method provides access to the vector transformer instance that will be used
+     * for processing vectors in the KNN field. The transformer is responsible for any
+     * necessary vector transformations before indexing or searching.
+     * This implementation delegates to the VectorTransformerFactory to obtain
+     * the appropriate transformer instance. The returned transformer is typically
+     * stateless and thread-safe.
+     *
+     * @return VectorTransformer An instance of VectorTransformer that will be used
+     *         for vector transformations in this field
+     *
+     */
+    protected VectorTransformer getVectorTransformer() {
+        return VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
+    }
+
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();
 
@@ -698,6 +715,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final byte[] array = bytesArrayOptional.get();
             getVectorValidator().validateVector(array);
+            getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForByteVector(array));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
@@ -707,6 +725,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
+            getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForFloatVector(array));
         } else {
             throw new IllegalArgumentException(
