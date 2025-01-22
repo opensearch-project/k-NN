@@ -251,7 +251,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
-                ;
                 knnVectorValuesFactoryMockedStatic.when(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValues.get(i));
@@ -354,7 +353,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
-                ;
                 knnVectorValuesFactoryMockedStatic.when(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValues.get(i));
@@ -432,7 +430,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
-                ;
                 knnVectorValuesFactoryMockedStatic.when(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValues.get(i));
@@ -511,7 +508,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
-                ;
                 knnVectorValuesFactoryMockedStatic.when(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValues.get(i));
@@ -598,7 +594,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
-                ;
                 knnVectorValuesFactoryMockedStatic.when(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValues.get(i));
@@ -689,7 +684,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
-                ;
                 knnVectorValuesFactoryMockedStatic.when(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValues.get(i));
@@ -793,7 +787,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
-                ;
                 knnVectorValuesFactoryMockedStatic.when(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValues.get(i));
