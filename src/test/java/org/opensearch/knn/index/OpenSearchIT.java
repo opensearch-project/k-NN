@@ -951,9 +951,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector2"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector3"));
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "vector2"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "vector3"));
 
         // Create match_all search body, some fields
         builder = XContentFactory.jsonBuilder()
@@ -965,9 +966,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector2"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector3"));
+        String entity2 = EntityUtils.toString(response2.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity2, "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity2, "vector2"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity2, "vector3"));
 
         // Create knn search body, all fields
         builder = XContentFactory.jsonBuilder()
@@ -983,9 +985,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response3 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector3"));
+        String entity3 = EntityUtils.toString(response3.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "vector2"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "vector3"));
 
         // Create knn search body, some fields
         builder = XContentFactory.jsonBuilder()
@@ -1001,9 +1004,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response4 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector2"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector3"));
+        String entity4 = EntityUtils.toString(response4.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity4, "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity4, "vector2"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity4, "vector3"));
     }
 
     public void testKNNIndexSearchFieldsParameterWithOtherFields() throws Exception {
@@ -1052,10 +1056,11 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector2"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "float1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "float2"));
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "vector2"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "float1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "float2"));
 
         // Create match_all search body, some fields
         builder = XContentFactory.jsonBuilder()
@@ -1067,10 +1072,11 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector1"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector2"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "float1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "float2"));
+        String entity2 = EntityUtils.toString(response2.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity2, "vector1"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity2, "vector2"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity2, "float1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity2, "float2"));
 
         // Create knn search body, all fields
         builder = XContentFactory.jsonBuilder()
@@ -1086,10 +1092,11 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response3 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "float1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "float2"));
+        String entity3 = EntityUtils.toString(response3.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "vector2"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "float1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "float2"));
 
         // Create knn search body, some fields
         builder = XContentFactory.jsonBuilder()
@@ -1105,10 +1112,11 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response4 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector1"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector2"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "float1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "float2"));
+        String entity4 = EntityUtils.toString(response4.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity4, "vector1"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity4, "vector2"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity4, "float1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity4, "float2"));
     }
 
     public void testKNNIndexSearchFieldsParameterDocsWithOnlyOtherFields() throws Exception {
@@ -1152,9 +1160,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector1"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector2"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "text1"));
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseSearchResponseFieldsCount(entity, "vector1"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity, "vector2"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity, "text1"));
 
         // Create match search body, all vector fields
         builder = XContentFactory.jsonBuilder()
@@ -1167,9 +1176,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector1"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector2"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "text1"));
+        String entity2 = EntityUtils.toString(response2.getEntity());
+        assertEquals(0, parseSearchResponseFieldsCount(entity2, "vector1"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity2, "vector2"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity2, "text1"));
 
         // Create knn search body, all vector fields
         builder = XContentFactory.jsonBuilder()
@@ -1185,9 +1195,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response3 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "text1"));
+        String entity3 = EntityUtils.toString(response3.getEntity());
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(entity3, "vector2"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity3, "text1"));
 
         // Create knn search body, all non vector fields
         builder = XContentFactory.jsonBuilder()
@@ -1203,9 +1214,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response4 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector1"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector2"));
-        assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "text1"));
+        String entity4 = EntityUtils.toString(response4.getEntity());
+        assertEquals(0, parseSearchResponseFieldsCount(entity4, "vector1"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity4, "vector2"));
+        assertEquals(0, parseSearchResponseFieldsCount(entity4, "text1"));
     }
 
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)
