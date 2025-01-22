@@ -383,7 +383,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 && builder.modelId.get() != null
                 && parserContext.indexVersionCreated().onOrAfter(Version.V_2_19_0)) {
                 throw new IllegalArgumentException(
-                    String.format(Locale.ROOT, "Dimension and model can not be both specified in the mapping: %s", name)
+                    String.format(Locale.ROOT, "Cannot specify both a modelId and dimension in the mapping: %s", name)
                 );
             }
 
