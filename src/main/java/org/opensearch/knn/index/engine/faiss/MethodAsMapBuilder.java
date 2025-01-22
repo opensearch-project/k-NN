@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import lombok.AllArgsConstructor;
+import org.opensearch.Version;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
@@ -19,13 +20,7 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_INT8;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -119,18 +114,8 @@ class MethodAsMapBuilder {
         );
 
         QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
-        MethodComponentContext encoderComponentContext = null;
-        if (methodComponentContext.getParameters().containsKey(METHOD_ENCODER_PARAMETER)) {
-            encoderComponentContext = (MethodComponentContext) methodComponentContext.getParameters().get(METHOD_ENCODER_PARAMETER);
-        }
-
         if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4
-            || (encoderComponentContext != null
-                && Objects.equals(ENCODER_SQ, encoderComponentContext.getName())
-                && Objects.equals(
-                    FAISS_SQ_ENCODER_INT8,
-                    encoderComponentContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-                ))) {
+            && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_2_19_0)) {
             quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.EIGHT_BIT).build();
         }
         return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext, quantizationConfig);

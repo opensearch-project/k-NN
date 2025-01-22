@@ -339,6 +339,11 @@ public class MethodComponent {
             || compressionLevel == CompressionLevel.x16
             || compressionLevel == CompressionLevel.x8);
 
+        // Check if the mode is ON_DISK and the compression level is x4 and index created version is >= 2.19.0
+        // This determines whether to use faiss byte quantization-specific values for parameters like ef_search and ef_construction.
+        boolean isFaissOnDiskWithByteQuantization = compressionLevel == CompressionLevel.x4
+            && indexCreationVersion.onOrAfter(Version.V_2_19_0);
+
         for (Parameter<?> parameter : methodComponent.getParameters().values()) {
             if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
                 parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));
@@ -346,7 +351,7 @@ public class MethodComponent {
                 // Picking the right values for the parameters whose values are different based on different index
                 // created version.
                 if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_SEARCH)) {
-                    if (isOnDiskWithBinaryQuantization) {
+                    if (isOnDiskWithBinaryQuantization || isFaissOnDiskWithByteQuantization) {
                         parametersWithDefaultsMap.put(parameter.getName(), IndexHyperParametersUtil.getBinaryQuantizationEFSearchValue());
                     } else {
                         parametersWithDefaultsMap.put(
@@ -355,7 +360,7 @@ public class MethodComponent {
                         );
                     }
                 } else if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
-                    if (isOnDiskWithBinaryQuantization) {
+                    if (isOnDiskWithBinaryQuantization || isFaissOnDiskWithByteQuantization) {
                         parametersWithDefaultsMap.put(
                             parameter.getName(),
                             IndexHyperParametersUtil.getBinaryQuantizationEFConstructionValue()
