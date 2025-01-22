@@ -225,7 +225,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
 
             // Add training data
             createBasicKnnIndex(TRAIN_INDEX, TRAIN_TEST_FIELD, DIMENSION);
-            int trainingDataCount = 200;
+            int trainingDataCount = 1100;
             bulkIngestRandomVectors(TRAIN_INDEX, TRAIN_TEST_FIELD, trainingDataCount, DIMENSION);
 
             XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -278,7 +278,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
 
             // Add training data
             createBasicKnnIndex(TRAIN_INDEX, TRAIN_TEST_FIELD, dimension);
-            int trainingDataCount = 200;
+            int trainingDataCount = 1100;
             bulkIngestRandomVectors(TRAIN_INDEX, TRAIN_TEST_FIELD, trainingDataCount, dimension);
 
             XContentBuilder builder = XContentFactory.jsonBuilder()
