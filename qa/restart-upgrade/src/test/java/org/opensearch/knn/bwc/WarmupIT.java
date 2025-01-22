@@ -46,6 +46,7 @@ public class WarmupIT extends AbstractRestartUpgradeTestCase {
 
     // Custom Legacy Field Mapping
     // space_type : "innerproduct", engine : "nmslib", m : 2, ef_construction : 2
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/2415")
     public void testKNNWarmupCustomLegacyFieldMapping() throws Exception {
 
         // When the cluster is in old version, create a KNN index with custom legacy field mapping settings
