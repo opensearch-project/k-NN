@@ -129,6 +129,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected static final int DELAY_MILLI_SEC = 1000;
     protected static final int NUM_OF_ATTEMPTS = 30;
     private static final String SYSTEM_INDEX_PREFIX = ".opendistro";
+    public static final int MIN_CODE_UNITS = 4;
+    public static final int MAX_CODE_UNITS = 10;
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -1938,5 +1940,23 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         final Version version = Version.fromString(versionString);
         return version.onOrAfter(Version.V_2_18_0);
+    }
+
+    /**
+     * Generates a random lowercase string with length between MIN_CODE_UNITS and MAX_CODE_UNITS.
+     * This method is used for test fixtures to generate random string values that can be used
+     * as identifiers, names, or other string-based test data.
+     * Example usage:
+     * <pre>
+     * String randomId = randomLowerCaseString();
+     * String indexName = randomLowerCaseString();
+     * String fieldName = randomLowerCaseString();
+     * </pre>
+     *
+     * @return A random lowercase string of variable length between MIN_CODE_UNITS and MAX_CODE_UNITS
+     * @see #randomAlphaOfLengthBetween(int, int)
+     */
+    protected static String randomLowerCaseString() {
+        return randomAlphaOfLengthBetween(MIN_CODE_UNITS, MAX_CODE_UNITS).toLowerCase(Locale.ROOT);
     }
 }

@@ -46,7 +46,8 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         SpaceType.UNDEFINED,
         SpaceType.HAMMING,
         SpaceType.L2,
-        SpaceType.INNER_PRODUCT
+        SpaceType.INNER_PRODUCT,
+        SpaceType.COSINESIMIL
     );
 
     private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(
