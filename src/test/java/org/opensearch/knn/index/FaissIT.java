@@ -17,6 +17,7 @@ import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.lucene.util.VectorUtil;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
@@ -43,6 +44,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
@@ -93,6 +95,7 @@ public class FaissIT extends KNNRestTestCase {
     private static final String FILED_TYPE_INTEGER = "integer";
     private static final String NON_EXISTENT_INTEGER_FIELD_NAME = "nonexistent_int_field";
     public static final int NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = -1;
+    public static final int ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = 0;
 
     static TestUtils.TestData testData;
 
@@ -373,16 +376,7 @@ public class FaissIT extends KNNRestTestCase {
         deleteModel(modelId);
 
         // Search every 5 seconds 14 times to confirm graph gets evicted
-        int intervals = 14;
-        for (int i = 0; i < intervals; i++) {
-            if (getTotalGraphsInCache() == 0) {
-                return;
-            }
-
-            Thread.sleep(5 * 1000);
-        }
-
-        fail("Graphs are not getting evicted");
+        validateGraphEviction();
     }
 
     @SneakyThrows
@@ -555,17 +549,7 @@ public class FaissIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
         deleteModel(modelId);
 
-        // Search every 5 seconds 14 times to confirm graph gets evicted
-        int intervals = 14;
-        for (int i = 0; i < intervals; i++) {
-            if (getTotalGraphsInCache() == 0) {
-                return;
-            }
-
-            Thread.sleep(5 * 1000);
-        }
-
-        fail("Graphs are not getting evicted");
+        validateGraphEviction();
     }
 
     @SneakyThrows
@@ -1239,17 +1223,7 @@ public class FaissIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
         deleteModel(modelId);
 
-        // Search every 5 seconds 14 times to confirm graph gets evicted
-        int intervals = 14;
-        for (int i = 0; i < intervals; i++) {
-            if (getTotalGraphsInCache() == 0) {
-                return;
-            }
-
-            Thread.sleep(5 * 1000);
-        }
-
-        fail("Graphs are not getting evicted");
+        validateGraphEviction();
     }
 
     /**
@@ -2050,6 +2024,90 @@ public class FaissIT extends KNNRestTestCase {
         assertEquals(1, resultsQuery2.size());
     }
 
+    public void testCosineSimilarity_withHNSW_withExactSearch_thenSucceed() throws Exception {
+        testCosineSimilarityForApproximateSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
+    }
+
+    public void testCosineSimilarity_withHNSW_withApproximate_thenSucceed() throws Exception {
+        testCosineSimilarityForApproximateSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
+        validateGraphEviction();
+    }
+
+    public void testCosineSimilarity_withGraph_withRadialSearch_withDistanceThreshold_thenSucceed() throws Exception {
+        testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, null, 0.1f);
+        validateGraphEviction();
+    }
+
+    public void testCosineSimilarity_withGraph_withRadialSearch_withScore_thenSucceed() throws Exception {
+        testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0.9f, null);
+        validateGraphEviction();
+    }
+
+    public void testCosineSimilarity_withNoGraphs_withRadialSearch_withDistanceThreshold_thenSucceed() throws Exception {
+        testCosineSimilarityForRadialSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, null, 0.1f);
+        validateGraphEviction();
+    }
+
+    public void testCosineSimilarity_withNoGraphs_withRadialSearch_withScore_thenSucceed() throws Exception {
+        testCosineSimilarityForRadialSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0.9f, null);
+        validateGraphEviction();
+    }
+
+    public void testEndToEnd_withApproxAndExactSearch_inSameIndex_ForCosineSpaceType() throws Exception {
+        String indexName = randomLowerCaseString();
+        String fieldName = randomLowerCaseString();
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(indexName, buildKNNIndexSettings(0), mapping);
+
+        // Index one document
+        addKnnDoc(indexName, randomAlphaOfLength(5), fieldName, Floats.asList(testData.indexData.vectors[0]).toArray());
+
+        // Assert we have the right number of documents in the index
+        refreshAllIndices();
+        assertEquals(1, getDocCount(indexName));
+        // update threshold setting to skip building graph
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, -1));
+        // add duplicate document with different id
+        addKnnDoc(indexName, randomAlphaOfLength(5), fieldName, Floats.asList(testData.indexData.vectors[0]).toArray());
+        assertEquals(2, getDocCount(indexName));
+        final int k = 2;
+        // search index
+        Response response = searchKNNIndex(
+            indexName,
+            KNNQueryBuilder.builder().fieldName(fieldName).vector(testData.queries[0]).k(k).build(),
+            k
+        );
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
+        assertEquals(k, knnResults.size());
+
+        List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
+
+        // both document should have identical score
+        assertEquals(actualScores.get(0), actualScores.get(1), 0.001);
+    }
+
     protected void setupKNNIndexForFilterQuery() throws Exception {
         setupKNNIndexForFilterQuery(getKNNDefaultIndexSettings());
     }
@@ -2161,7 +2219,7 @@ public class FaissIT extends KNNRestTestCase {
             if (filterQuery != null) {
                 queryBuilder.field("filter", filterQuery);
             }
-            if (methodParameters != null) {
+            if (methodParameters != null && methodParameters.size() > 0) {
                 queryBuilder.startObject(METHOD_PARAMETER);
                 for (Map.Entry<String, ?> entry : methodParameters.entrySet()) {
                     queryBuilder.field(entry.getKey(), entry.getValue());
@@ -2182,6 +2240,8 @@ public class FaissIT extends KNNRestTestCase {
                     assertTrue(KNNScoringUtil.l2Squared(queryVector, vector) <= distance);
                 } else if (spaceType == SpaceType.INNER_PRODUCT) {
                     assertTrue(KNNScoringUtil.innerProduct(queryVector, vector) >= distance);
+                } else if (spaceType == SpaceType.COSINESIMIL) {
+                    assertTrue(KNNScoringUtil.cosinesimil(queryVector, vector) >= distance);
                 } else {
                     throw new IllegalArgumentException("Invalid space type");
                 }
@@ -2190,4 +2250,97 @@ public class FaissIT extends KNNRestTestCase {
         }
         return queryResults;
     }
+
+    private void testCosineSimilarityForApproximateSearch(int approximateThreshold) throws Exception {
+        String indexName = randomLowerCaseString();
+        String fieldName = randomLowerCaseString();
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+        indexTestData(approximateThreshold, indexName, spaceType, fieldName);
+
+        // search index
+        validateNearestNeighborsSearch(indexName, fieldName, spaceType, 10, VectorUtil::cosine);
+
+        // Delete index
+        deleteKNNIndex(indexName);
+    }
+
+    private void testCosineSimilarityForRadialSearch(int approximateThreshold, Float score, Float distance) throws Exception {
+        String indexName = randomLowerCaseString();
+        String fieldName = randomLowerCaseString();
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+        indexTestData(approximateThreshold, indexName, spaceType, fieldName);
+
+        // search index
+        validateRadiusSearchResults(indexName, fieldName, testData.queries, distance, score, spaceType, null, null);
+
+        // Delete index
+        deleteKNNIndex(indexName);
+    }
+
+    private void indexTestData(int approximateThreshold, String indexName, SpaceType spaceType, String fieldName) throws Exception {
+        Integer dimension = testData.indexData.vectors[0].length;
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(indexName, buildKNNIndexSettings(approximateThreshold), mapping);
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                indexName,
+                Integer.toString(testData.indexData.docs[i]),
+                fieldName,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+
+        refreshAllIndices();
+        // Assert we have the right number of documents in the index
+        assertEquals(testData.indexData.docs.length, getDocCount(indexName));
+    }
+
+    @SneakyThrows
+    private void validateNearestNeighborsSearch(
+        final String indexName,
+        final String fieldName,
+        final SpaceType spaceType,
+        final int k,
+        final BiFunction<float[], float[], Float> scoringFunction
+    ) {
+        for (int i = 0; i < testData.queries.length; i++) {
+            final Response response = searchKNNIndex(
+                indexName,
+                KNNQueryBuilder.builder().fieldName(fieldName).vector(testData.queries[i]).k(k).build(),
+                k
+            );
+            final String responseBody = EntityUtils.toString(response.getEntity());
+            final List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
+            assertEquals(k, knnResults.size());
+
+            final List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
+            for (int j = 0; j < k; j++) {
+                final float[] primitiveArray = knnResults.get(j).getVector();
+                assertEquals(
+                    KNNEngine.FAISS.score(scoringFunction.apply(testData.queries[i], primitiveArray), spaceType),
+                    actualScores.get(j),
+                    0.0001
+                );
+            }
+        }
+    }
+
 }
