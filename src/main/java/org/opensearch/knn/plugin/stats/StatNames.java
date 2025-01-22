@@ -57,6 +57,11 @@ public enum StatNames {
     CLIENT_STATS("client_stats"),
     REPOSITORY_STATS("repository_stats"),
     BUILD_STATS("build_stats"),
+
+    // KNN Query Stats
+    KNN_QUERY_REQUESTS(KNNCounter.KNN_QUERY_REQUESTS.getName()),
+    KNN_QUERY_WITH_FILTER_REQUESTS(KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.getName()),
+
     MIN_SCORE_QUERY_REQUESTS(KNNCounter.MIN_SCORE_QUERY_REQUESTS.getName()),
     MIN_SCORE_QUERY_WITH_FILTER_REQUESTS(KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS.getName()),
 
