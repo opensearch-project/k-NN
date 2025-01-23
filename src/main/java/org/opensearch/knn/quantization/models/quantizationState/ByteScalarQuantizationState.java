@@ -10,7 +10,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
-import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
@@ -36,20 +35,9 @@ public class ByteScalarQuantizationState implements QuantizationState {
         out.writeByteArray(indexTemplate);
     }
 
-    public ByteScalarQuantizationState(StreamInput in) throws IOException {
-        int version = in.readVInt(); // Read the version
-        this.quantizationParams = new ScalarQuantizationParams(in, version);
-        this.indexTemplate = in.readByteArray();
-
-    }
-
     @Override
     public byte[] toByteArray() throws IOException {
         return QuantizationStateSerializer.serialize(this);
-    }
-
-    public static ByteScalarQuantizationState fromByteArray(final byte[] bytes) throws IOException {
-        return (ByteScalarQuantizationState) QuantizationStateSerializer.deserialize(bytes, ByteScalarQuantizationState::new);
     }
 
     @Override

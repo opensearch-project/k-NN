@@ -134,9 +134,6 @@ public final class QuantizationService<T, R> {
     public QuantizationOutput<R> createQuantizationOutput(final QuantizationParams quantizationParams) {
         if (quantizationParams instanceof ScalarQuantizationParams) {
             ScalarQuantizationParams scalarParams = (ScalarQuantizationParams) quantizationParams;
-            // if (scalarParams.getSqType() == ScalarQuantizationType.EIGHT_BIT) {
-            // return (QuantizationOutput<R>) new ByteQuantizationOutput(scalarParams.getSqType().getId());
-            // }
             return (QuantizationOutput<R>) new BinaryQuantizationOutput(scalarParams.getSqType().getId());
         }
         throw new IllegalArgumentException("Unsupported quantization parameters: " + quantizationParams.getClass().getName());

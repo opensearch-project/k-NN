@@ -194,11 +194,11 @@ public class KNNIndexShard {
                             spaceType,
                             modelId,
                             quantizationConfig == QuantizationConfig.EMPTY
-                                || quantizationConfig.getQuantizationType() == ScalarQuantizationType.EIGHT_BIT
-                                    ? VectorDataType.get(
-                                        fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-                                    )
-                                    : VectorDataType.BINARY
+                                ? VectorDataType.get(
+                                    fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+                                )
+                                : quantizationConfig.getQuantizationType() == ScalarQuantizationType.EIGHT_BIT ? VectorDataType.BYTE
+                                : VectorDataType.BINARY
                         )
                     );
                 }

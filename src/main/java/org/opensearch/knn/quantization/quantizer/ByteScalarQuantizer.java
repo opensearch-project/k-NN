@@ -13,7 +13,6 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -33,7 +32,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory.getVectorTransfer;
 
 public class ByteScalarQuantizer implements Quantizer<float[], byte[]> {
@@ -97,32 +95,14 @@ public class ByteScalarQuantizer implements Quantizer<float[], byte[]> {
         Map<String, String> fieldAttributes = fieldInfo.attributes();
         String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
 
-        // parametersString will be null when legacy mapper is used
-        if (parametersString == null) {
-            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue()));
-
-            Map<String, Object> algoParams = new HashMap<>();
-
-            String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
-            if (efConstruction != null) {
-                algoParams.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
-            }
-
-            String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
-            if (m != null) {
-                algoParams.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
-            }
-            parameters.put(PARAMETERS, algoParams);
-        } else {
-            parameters.putAll(
-                XContentHelper.createParser(
-                    NamedXContentRegistry.EMPTY,
-                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                    new BytesArray(parametersString),
-                    MediaTypeRegistry.getDefaultMediaType()
-                ).map()
-            );
-        }
+        parameters.putAll(
+            XContentHelper.createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                new BytesArray(parametersString),
+                MediaTypeRegistry.getDefaultMediaType()
+            ).map()
+        );
 
         parameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT);
 
