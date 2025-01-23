@@ -196,21 +196,6 @@ public class FaissMethodResolverTests extends KNNTestCase {
     }
 
     public void testResolveMethod_whenInvalid_thenThrow() {
-        // Invalid compression
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                null,
-                KNNMethodConfigContext.builder()
-                    .vectorDataType(VectorDataType.FLOAT)
-                    .compressionLevel(CompressionLevel.x4)
-                    .versionCreated(Version.CURRENT)
-                    .build(),
-                false,
-                SpaceType.L2
-            )
-        );
-
         expectThrows(
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
