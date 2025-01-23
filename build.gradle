@@ -192,7 +192,7 @@ allprojects {
     }
     apply from: rootProject.file('build-tools/repositories.gradle').absoluteFile
     plugins.withId('java') {
-        sourceCompatibility = targetCompatibility = "11"
+        sourceCompatibility = targetCompatibility = "21"
     }
 
     afterEvaluate {
