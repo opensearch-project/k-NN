@@ -14,7 +14,6 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 import lombok.Getter;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
-import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.RamUsageEstimator;
@@ -43,9 +42,8 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
     @Getter
     private final Map<Integer, T> vectors;
     private int lastDocID = -1;
-    @Getter
-    private final DocsWithFieldSet docsWithField;
     private final InfoStream infoStream;
+    @Getter
     private final FlatFieldVectorsWriter<T> flatFieldVectorsWriter;
 
     @SuppressWarnings("unchecked")
@@ -75,7 +73,6 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
         this.fieldInfo = fieldInfo;
         this.infoStream = infoStream;
         vectors = new HashMap<>();
-        this.docsWithField = new DocsWithFieldSet();
         this.flatFieldVectorsWriter = flatFieldVectorsWriter;
     }
 
@@ -101,7 +98,6 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
         // ensuring that vector is provided to flatFieldWriter.
         flatFieldVectorsWriter.addValue(docID, vectorValue);
         vectors.put(docID, vectorValue);
-        docsWithField.add(docID);
         lastDocID = docID;
     }
 
@@ -121,10 +117,9 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
      */
     @Override
     public long ramBytesUsed() {
-        return SHALLOW_SIZE + docsWithField.ramBytesUsed() + (long) this.vectors.size() * (long) (RamUsageEstimator.NUM_BYTES_OBJECT_REF
-            + RamUsageEstimator.NUM_BYTES_ARRAY_HEADER) + (long) this.vectors.size() * RamUsageEstimator.shallowSizeOfInstance(
-                Integer.class
-            ) + (long) vectors.size() * fieldInfo.getVectorDimension() * fieldInfo.getVectorEncoding().byteSize + flatFieldVectorsWriter
-                .ramBytesUsed();
+        return SHALLOW_SIZE + flatFieldVectorsWriter.getDocsWithFieldSet().ramBytesUsed() + (long) this.vectors.size()
+            * (long) (RamUsageEstimator.NUM_BYTES_OBJECT_REF + RamUsageEstimator.NUM_BYTES_ARRAY_HEADER) + (long) this.vectors.size()
+                * RamUsageEstimator.shallowSizeOfInstance(Integer.class) + (long) vectors.size() * fieldInfo.getVectorDimension()
+                    * fieldInfo.getVectorEncoding().byteSize + flatFieldVectorsWriter.ramBytesUsed();
     }
 }
