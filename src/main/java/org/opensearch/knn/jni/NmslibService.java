@@ -28,7 +28,11 @@ import java.util.Map;
  * javac -h jni/include src/main/java/org/opensearch/knn/jni/NmslibService.java
  *      src/main/java/org/opensearch/knn/index/KNNQueryResult.java
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
+ *
+ *  @deprecated As of 2.19.0, please use {@link FaissService} or Lucene.
+ *  This engine will be removed in a future release.
  */
+@Deprecated(since = "2.19.0", forRemoval = true)
 class NmslibService {
 
     static {

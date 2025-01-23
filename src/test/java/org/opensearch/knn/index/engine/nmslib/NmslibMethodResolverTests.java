@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
+@Deprecated(since = "2.19.0", forRemoval = true)
 public class NmslibMethodResolverTests extends KNNTestCase {
 
     MethodResolver TEST_RESOLVER = new NmslibMethodResolver();
