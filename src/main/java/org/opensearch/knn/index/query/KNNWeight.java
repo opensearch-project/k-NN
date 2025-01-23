@@ -15,6 +15,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
@@ -110,13 +111,27 @@ public class KNNWeight extends Weight {
     }
 
     @Override
-    public Scorer scorer(LeafReaderContext context) throws IOException {
-        final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
-        if (docIdToScoreMap.isEmpty()) {
-            return KNNScorer.emptyScorer(this);
-        }
-        final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-        return new KNNScorer(this, ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+    public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
+        return new ScorerSupplier() {
+            long cost = -1L;
+
+            @Override
+            public Scorer get(long leadCost) throws IOException {
+                final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
+                cost = docIdToScoreMap.size();
+                if (docIdToScoreMap.isEmpty()) {
+                    return KNNScorer.emptyScorer();
+                }
+                final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
+                return new KNNScorer(KNNWeight.this, ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+            }
+
+            @Override
+            public long cost() {
+                // Estimate the cost of the scoring operation, if applicable.
+                return cost == -1L ? knnQuery.getK() : cost;
+            }
+        };
     }
 
     /**

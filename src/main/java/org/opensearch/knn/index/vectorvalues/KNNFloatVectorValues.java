@@ -8,6 +8,7 @@ package org.opensearch.knn.index.vectorvalues;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -32,7 +33,7 @@ public class KNNFloatVectorValues extends KNNVectorValues<float[]> {
     @Override
     public float[] conditionalCloneVector() throws IOException {
         float[] vector = getVector();
-        if (vectorValuesIterator.getDocIdSetIterator() instanceof FloatVectorValues) {
+        if (vectorValuesIterator.getDocIdSetIterator() instanceof KnnVectorValues.DocIndexIterator) {
             return Arrays.copyOf(vector, vector.length);
         }
         return vector;

@@ -127,7 +127,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         searchSourceBuilder.terminateAfter(DEFAULT_TERMINATE_AFTER);
 
         client.search(countRequest, ActionListener.wrap(searchResponse -> {
-            long trainingVectors = searchResponse.getHits().getTotalHits().value;
+            long trainingVectors = searchResponse.getHits().getTotalHits().value();
 
             // If there are more docs in the index than what the user wants to use for training, take the min
             if (trainingModelRequest.getMaximumVectorCount() < trainingVectors) {

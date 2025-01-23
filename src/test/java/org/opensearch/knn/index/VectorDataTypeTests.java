@@ -8,7 +8,6 @@ package org.opensearch.knn.index;
 import lombok.SneakyThrows;
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -18,6 +17,7 @@ import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Assert;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.io.IOException;
 
@@ -82,12 +82,8 @@ public class VectorDataTypeTests extends KNNTestCase {
         IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
         IndexWriter writer = new IndexWriter(directory, conf);
         Document knnDocument = new Document();
-        knnDocument.add(
-            new BinaryDocValuesField(
-                MOCK_FLOAT_INDEX_FIELD_NAME,
-                new VectorField(MOCK_FLOAT_INDEX_FIELD_NAME, SAMPLE_FLOAT_VECTOR_DATA, new FieldType()).binaryValue()
-            )
-        );
+        BytesRef bytesRef = new BytesRef(KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(SAMPLE_FLOAT_VECTOR_DATA));
+        knnDocument.add(new BinaryDocValuesField(MOCK_FLOAT_INDEX_FIELD_NAME, bytesRef));
         writer.addDocument(knnDocument);
         writer.commit();
         writer.close();
@@ -97,12 +93,7 @@ public class VectorDataTypeTests extends KNNTestCase {
         IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
         IndexWriter writer = new IndexWriter(directory, conf);
         Document knnDocument = new Document();
-        knnDocument.add(
-            new BinaryDocValuesField(
-                MOCK_BYTE_INDEX_FIELD_NAME,
-                new VectorField(MOCK_BYTE_INDEX_FIELD_NAME, SAMPLE_BYTE_VECTOR_DATA, new FieldType()).binaryValue()
-            )
-        );
+        knnDocument.add(new BinaryDocValuesField(MOCK_BYTE_INDEX_FIELD_NAME, new BytesRef(SAMPLE_BYTE_VECTOR_DATA)));
         writer.addDocument(knnDocument);
         writer.commit();
         writer.close();
