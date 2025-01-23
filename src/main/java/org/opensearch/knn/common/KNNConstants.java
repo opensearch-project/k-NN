@@ -91,6 +91,7 @@ public class KNNConstants {
     public static final int LUCENE_SQ_DEFAULT_BITS = 7;
 
     // nmslib specific constants
+    @Deprecated(since = "2.19.0", forRemoval = true)
     public static final String NMSLIB_NAME = "nmslib";
     public static final String COMMONS_NAME = "common";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
