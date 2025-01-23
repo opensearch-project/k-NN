@@ -48,6 +48,17 @@ public final class RescoreContext {
     private boolean userProvided = true;
 
     /**
+     * Flag to track whether rescoring has been disabled by the query parameters.
+     */
+    @Builder.Default
+    private boolean rescoreEnabled = true;
+
+    public static final RescoreContext EXPLICITLY_DISABLED_RESCORE_CONTEXT = RescoreContext.builder()
+        .oversampleFactor(DEFAULT_OVERSAMPLE_FACTOR)
+        .rescoreEnabled(false)
+        .build();
+
+    /**
      *
      * @return default RescoreContext
      */
