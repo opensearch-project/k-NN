@@ -23,6 +23,7 @@ import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -298,6 +299,7 @@ public class KNNWeight extends Weight {
 
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
+        boolean acquirePreemptiveReadLock = KNNFeatureFlags.isForceEvictCacheEnabled();
         try {
             indexAllocation = nativeMemoryCacheManager.get(
                 new NativeMemoryEntryContext.IndexEntryContext(
@@ -315,7 +317,7 @@ public class KNNWeight extends Weight {
                     modelId
                 ),
                 true,
-                    true
+                acquirePreemptiveReadLock
             );
         } catch (ExecutionException e) {
             GRAPH_QUERY_ERRORS.increment();
@@ -328,7 +330,9 @@ public class KNNWeight extends Weight {
         FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
-        indexAllocation.incRef();
+        if (!acquirePreemptiveReadLock) {
+            indexAllocation.incRef();
+        }
         try {
             if (indexAllocation.isClosed()) {
                 throw new RuntimeException("Index has already been closed");
