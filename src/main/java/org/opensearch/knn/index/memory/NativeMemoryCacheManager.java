@@ -333,6 +333,7 @@ public class NativeMemoryCacheManager implements Closeable {
         }
 
         if (KNNFeatureFlags.isForceEvictCacheEnabled()) {
+            logger.info("NEWEST CHANGES: Synchronized force evict path, testing new race condition fix");
             String key = nativeMemoryEntryContext.getKey();
             NativeMemoryAllocation result = cache.getIfPresent(key);
 
@@ -362,14 +363,14 @@ public class NativeMemoryCacheManager implements Closeable {
                             lruIterator.remove();
                         }
                     }
+                    result = cache.get(key, nativeMemoryEntryContext::load);
+                    if (acquirePreemptiveReadLock) {
+                        result.incRef();
+                        lockAcquired = true;
+                    }
+                    accessRecencyQueue.addLast(key);
+                    return result;
                 }
-                result = cache.get(key, nativeMemoryEntryContext::load);
-                if (acquirePreemptiveReadLock) {
-                    result.incRef();
-                    lockAcquired = true;
-                }
-                accessRecencyQueue.addLast(key);
-                return result;
             } catch (Exception e) {
                 if (result != null && lockAcquired) {
                     result.decRef();
