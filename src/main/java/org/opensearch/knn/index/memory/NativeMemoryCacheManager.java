@@ -375,8 +375,7 @@ public class NativeMemoryCacheManager implements Closeable {
                         }
                     }
                     result = cache.get(key, () -> {
-                        NativeMemoryAllocation.IndexAllocation allocation =
-                            (NativeMemoryAllocation.IndexAllocation) nativeMemoryEntryContext.load();
+                        NativeMemoryAllocation allocation = nativeMemoryEntryContext.load();
                         if (acquirePreemptiveReadLock) {
                             allocation.incRef();
                             lockAcquired.set(true);
