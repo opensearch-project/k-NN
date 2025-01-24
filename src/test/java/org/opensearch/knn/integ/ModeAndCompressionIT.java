@@ -52,7 +52,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
 
     private static final String TRAINING_INDEX_NAME = "training_index";
     private static final String TRAINING_FIELD_NAME = "training_field";
-    private static final int TRAINING_VECS = 20;
+    private static final int TRAINING_VECS = 1100;
 
     private static final int DIMENSION = 16;
     private static final int NUM_DOCS = 20;

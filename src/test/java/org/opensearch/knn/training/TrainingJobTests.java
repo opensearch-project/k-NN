@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -217,7 +218,6 @@ public class TrainingJobTests extends KNNTestCase {
 
         Model model = trainingJob.getModel();
         assertNotNull(model);
-
         assertEquals(ModelState.CREATED, model.getModelMetadata().getState());
 
         // Simple test that creates the index from template and doesnt fail
@@ -308,6 +308,10 @@ public class TrainingJobTests extends KNNTestCase {
 
         Model model = trainingJob.getModel();
         assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
+        assertThat(
+            "Failed to load training data into memory. " + "Check if there is enough memory to perform the request.",
+            containsString(trainingJob.getModel().getModelMetadata().getError())
+        );
         assertNotNull(model);
         assertFalse(model.getModelMetadata().getError().isEmpty());
     }
@@ -382,6 +386,10 @@ public class TrainingJobTests extends KNNTestCase {
 
         Model model = trainingJob.getModel();
         assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
+        assertThat(
+            "Failed to allocate space in native memory for the model. " + "Check if there is enough memory to perform the request.",
+            containsString(trainingJob.getModel().getModelMetadata().getError())
+        );
         assertNotNull(model);
         assertFalse(model.getModelMetadata().getError().isEmpty());
     }
@@ -435,7 +443,7 @@ public class TrainingJobTests extends KNNTestCase {
         when(nativeMemoryAllocation.isClosed()).thenReturn(true);
         when(nativeMemoryAllocation.getMemoryAddress()).thenReturn((long) 0);
 
-        // Throw error on getting data
+        // Throw error on allocation is closed
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
 
         TrainingJob trainingJob = new TrainingJob(
@@ -443,7 +451,7 @@ public class TrainingJobTests extends KNNTestCase {
             knnMethodContext,
             nativeMemoryCacheManager,
             trainingDataEntryContext,
-            mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
+            modelContext,
             knnMethodConfigContext,
             "",
             "test-node",
@@ -454,6 +462,86 @@ public class TrainingJobTests extends KNNTestCase {
         trainingJob.run();
 
         Model model = trainingJob.getModel();
+        assertThat(
+            "Failed to execute training. Unable to load training data into memory: allocation is already closed",
+            containsString(trainingJob.getModel().getModelMetadata().getError())
+        );
+        assertNotNull(model);
+        assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
+    }
+
+    public void testRun_failure_closedModelAnonymousAllocation() throws ExecutionException {
+        // In this test, the model anonymous allocation should be closed. Then, run should fail and update the error of
+        // the model
+        String modelId = "test-model-id";
+
+        // Define the method setup for method that requires training
+        int nlists = 5;
+        int dimension = 16;
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+        );
+
+        String tdataKey = "t-data-key";
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
+        when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
+
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for model that's closed
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(true);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        // Throw error on allocation is closed
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
+
+        // Setup mock allocation thats not closed
+        NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readUnlock();
+        when(nativeMemoryAllocation.isClosed()).thenReturn(false);
+        when(nativeMemoryAllocation.getMemoryAddress()).thenReturn((long) 0);
+
+        when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
+
+        TrainingJob trainingJob = new TrainingJob(
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            modelContext,
+            knnMethodConfigContext,
+            "",
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
+        );
+
+        trainingJob.run();
+
+        Model model = trainingJob.getModel();
+        assertThat(
+            "Failed to execute training. Unable to reserve memory for model: allocation is already closed",
+            containsString(trainingJob.getModel().getModelMetadata().getError())
+        );
         assertNotNull(model);
         assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
     }

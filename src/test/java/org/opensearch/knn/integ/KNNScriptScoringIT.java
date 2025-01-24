@@ -629,7 +629,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);
-        bulkIngestRandomVectors(TRAIN_INDEX_PARAMETER, TRAIN_FIELD_PARAMETER, dimensions * 3, dimensions);
+        bulkIngestRandomVectors(TRAIN_INDEX_PARAMETER, TRAIN_FIELD_PARAMETER, 1100, dimensions);
 
         XContentBuilder methodBuilder = XContentFactory.jsonBuilder()
             .startObject()

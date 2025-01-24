@@ -22,6 +22,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 
 /**
  * Abstract class for KNN methods. This class provides the common functionality for all KNN methods.
@@ -108,6 +114,55 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         return PerDimensionProcessor.NOOP_PROCESSOR;
     }
 
+    protected Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> doGetTrainingConfigValidationSetup() {
+        return (trainingConfigValidationInput) -> {
+
+            KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
+            KNNMethodConfigContext knnMethodConfigContext = trainingConfigValidationInput.getKnnMethodConfigContext();
+            Long trainingVectors = trainingConfigValidationInput.getTrainingVectorsCount();
+
+            TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+
+            // validate ENCODER_PARAMETER_PQ_M is divisible by vector dimension
+            if (knnMethodContext != null && knnMethodConfigContext != null) {
+                if (knnMethodContext.getMethodComponentContext().getParameters().containsKey(ENCODER_PARAMETER_PQ_M)
+                    && knnMethodConfigContext.getDimension() % (Integer) knnMethodContext.getMethodComponentContext()
+                        .getParameters()
+                        .get(ENCODER_PARAMETER_PQ_M) != 0) {
+                    builder.valid(false);
+                    return builder.build();
+                } else {
+                    builder.valid(true);
+                }
+            }
+
+            // validate number of training points should be greater than minimum clustering criteria defined in faiss
+            if (knnMethodContext != null && trainingVectors != null) {
+                long minTrainingVectorCount = 1000;
+
+                MethodComponentContext encoderContext = (MethodComponentContext) knnMethodContext.getMethodComponentContext()
+                    .getParameters()
+                    .get(METHOD_ENCODER_PARAMETER);
+
+                if (knnMethodContext.getMethodComponentContext().getParameters().containsKey(METHOD_PARAMETER_NLIST)
+                    && encoderContext.getParameters().containsKey(ENCODER_PARAMETER_PQ_CODE_SIZE)) {
+
+                    int nlist = ((Integer) knnMethodContext.getMethodComponentContext().getParameters().get(METHOD_PARAMETER_NLIST));
+                    int code_size = ((Integer) encoderContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE));
+                    minTrainingVectorCount = (long) Math.max(nlist, Math.pow(2, code_size));
+                }
+
+                if (trainingVectors < minTrainingVectorCount) {
+                    builder.valid(false).minTrainingVectorCount(minTrainingVectorCount);
+                    return builder.build();
+                } else {
+                    builder.valid(true);
+                }
+            }
+            return builder.build();
+        };
+    }
+
     protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
         return VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
     }
@@ -131,6 +186,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
             .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType()))
+            .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())
             .build();
     }
 

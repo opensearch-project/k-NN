@@ -67,7 +67,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     private final static String TRAIN_FIELD_NAME = "train_field";
     private final static String TEST_MODEL_ID = "test_model_id";
     private final static int TEST_DIMENSION = 32;
-    private final static int DOC_COUNT = 500;
+    private final static int DOC_COUNT = 1100;
     private final static int QUERY_COUNT = 100;
     private final static int TEST_K = 100;
     private final static double PERFECT_RECALL = 1.0;

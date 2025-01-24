@@ -12,6 +12,7 @@ import org.opensearch.knn.index.mapper.VectorTransformer;
 import org.opensearch.knn.index.mapper.VectorValidator;
 
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Context a library gives to build one of its indices
@@ -48,6 +49,12 @@ public interface KNNLibraryIndexingContext {
      * @return Get the per dimension processor
      */
     PerDimensionProcessor getPerDimensionProcessor();
+
+    /**
+     *
+     * @return Get function that validates training model parameters
+     */
+    Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> getTrainingConfigValidationSetup();
 
     /**
      * Get the vector transformer that will be used to transform the vector before indexing.
