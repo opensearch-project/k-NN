@@ -36,6 +36,7 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.common.io.PathUtils;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
@@ -99,6 +100,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_FORCE_EVICT_CACHE_ENABLED_SETTING;
 
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
@@ -134,6 +136,9 @@ public class KNNWeightTests extends KNNTestCase {
     public static void setUpClass() throws Exception {
         final KNNSettings knnSettings = mock(KNNSettings.class);
         knnSettingsMockedStatic = mockStatic(KNNSettings.class);
+        ClusterSettings clusterSettings = mock(ClusterSettings.class);
+        when(knnSettings.getSettingValue("knn.feature.cache.force_evict.enabled")).thenReturn(true);
+        when(clusterSettings.get(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING)).thenReturn(false);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
