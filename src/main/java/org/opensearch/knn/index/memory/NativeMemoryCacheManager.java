@@ -307,7 +307,7 @@ public class NativeMemoryCacheManager implements Closeable {
      *
      * @param nativeMemoryEntryContext Context from which to get NativeMemoryAllocation
      * @param isAbleToTriggerEviction Determines if getting this allocation can evict other entries
-     * @param acquirePreemptiveReadLock Determines if a preemptive read lock is necessary to avoid race condition
+     * @param acquirePreemptiveReadLock Determines whether to increment ref count during cache loading to prevent eviction race condition
      * @return NativeMemoryAllocation associated with nativeMemoryEntryContext
      * @throws ExecutionException if there is an exception when loading from the cache
      */
