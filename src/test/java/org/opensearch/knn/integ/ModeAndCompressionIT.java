@@ -207,6 +207,125 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testQueryRescoreEnabledAndDisabled() {
+        XContentBuilder builder;
+        String mode = Mode.ON_DISK.getName();
+        String compressionLevel = CompressionLevel.x32.getName();
+        String indexName = INDEX_NAME + compressionLevel;
+        builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(MODE_PARAMETER, mode)
+            .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        validateIndex(indexName, mapping);
+        logger.info("Compression level {}", compressionLevel);
+        // Do exact search and gather right scores for the documents
+        Response exactSearchResponse = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("script_score")
+                .startObject("query")
+                .field("match_all")
+                .startObject()
+                .endObject()
+                .endObject()
+                .startObject("script")
+                .field("source", "knn_score")
+                .field("lang", "knn")
+                .startObject("params")
+                .field("field", FIELD_NAME)
+                .field("query_value", TEST_VECTOR)
+                .field("space_type", SpaceType.L2.getValue())
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(exactSearchResponse);
+        String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
+        List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
+        assertEquals(NUM_DOCS, exactSearchKnnResults.size());
+        // Search without rescore
+        Response response = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", TEST_VECTOR)
+                .field("k", K)
+                .field(RescoreParser.RESCORE_PARAMETER, false)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(response);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(K, knnResults.size());
+        Assert.assertNotEquals(exactSearchKnnResults, knnResults);
+        // Search with explicit rescore
+        response = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", TEST_VECTOR)
+                .field("k", K)
+                .startObject(RescoreParser.RESCORE_PARAMETER)
+                .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(response);
+        responseBody = EntityUtils.toString(response.getEntity());
+        knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(K, knnResults.size());
+        Assert.assertEquals(exactSearchKnnResults, knnResults);
+        // Search with default rescore
+        response = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", TEST_VECTOR)
+                .field("k", K)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(response);
+        responseBody = EntityUtils.toString(response.getEntity());
+        knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(K, knnResults.size());
+        Assert.assertEquals(exactSearchKnnResults, knnResults);
+    }
+
+    @SneakyThrows
     public void testDeletedDocsWithSegmentMerge_whenValid_ThenSucceed() {
         XContentBuilder builder;
         CompressionLevel compressionLevel = CompressionLevel.x32;
