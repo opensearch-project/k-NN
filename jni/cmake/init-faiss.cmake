@@ -108,9 +108,23 @@ if(NOT DEFINED AVX512_ENABLED)
     set(AVX512_ENABLED true)   # set default value as true if the argument is not set
 endif()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" OR ( NOT AVX2_ENABLED AND NOT AVX512_ENABLED))
+if(NOT DEFINED AVX512_SPR_ENABLED)
+    # Check if the system is Intel(R) Sapphire Rapids or a newer-generation processor
+    execute_process(COMMAND bash -c "lscpu | grep -q 'GenuineIntel' && lscpu | grep -i 'avx512_fp16' | grep -i 'avx512_bf16' | grep -i 'avx512_vpopcntdq'" OUTPUT_VARIABLE SPR_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if (AND NOT "${SPR_FLAGS}" STREQUAL "")
+	set(AVX512_SPR_ENABLED true)
+    else()
+	set(AVX512_SPR_ENABLED false)
+    endif()
+endif()
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" OR ( NOT AVX2_ENABLED AND NOT AVX512_ENABLED AND NOT AVX512_SPR_ENABLED))
     set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue. Also, on aarch64 avx2 is not supported.
     set(TARGET_LINK_FAISS_LIB faiss)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux AND AVX512_SPR_ENABLED)
+    set(FAISS_OPT_LEVEL avx512_spr)
+    set(TARGET_LINK_FAISS_LIB faiss_avx512_spr)
+    string(PREPEND LIB_EXT "_avx512_spr")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux AND AVX512_ENABLED)
     set(FAISS_OPT_LEVEL avx512)       # Keep optimization level as avx512 to improve performance on Linux. This is not present on mac systems, and presently not supported on Windows OS.
     set(TARGET_LINK_FAISS_LIB faiss_avx512)

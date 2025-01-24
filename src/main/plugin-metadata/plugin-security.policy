@@ -4,6 +4,7 @@ grant {
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_common";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx2";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx512";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx512_spr";
     permission java.net.SocketPermission "*", "connect,resolve";
     permission java.lang.RuntimePermission "accessDeclaredMembers";
     permission java.io.FilePermission "/proc/cpuinfo", "read";

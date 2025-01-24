@@ -84,6 +84,17 @@ public class PlatformUtils {
     }
 
     public static boolean isAVX512SupportedBySystem() {
+        return areAVX512FlagsAvailable(new String[] { "avx512f", "avx512cd", "avx512vl", "avx512dq", "avx512bw" });
+    }
+
+    public static boolean isAVX512SPRSupportedBySystem() {
+        return areAVX512FlagsAvailable(new String[] { "avx512_fp16", "avx512_bf16", "avx512_vpopcntdq" });
+    }
+
+    private static boolean areAVX512FlagsAvailable(String[] avx512) {
+        // AVX512 has multiple flags, which control various features. k-nn requires the same set of flags as faiss to compile
+        // using avx512. Please update these if faiss updates their compilation instructions in the future.
+        // https://github.com/facebookresearch/faiss/blob/main/faiss/CMakeLists.txt
 
         if (!Platform.isIntel() || Platform.isMac() || Platform.isWindows()) {
             return false;
@@ -97,11 +108,6 @@ public class PlatformUtils {
             // Here, we are trying to read the details of all processors used by system and find if any of the processor
             // supports AVX512 instructions supported by faiss.
             String fileName = "/proc/cpuinfo";
-
-            // AVX512 has multiple flags, which control various features. k-nn requires the same set of flags as faiss to compile
-            // using avx512. Please update these if faiss updates their compilation instructions in the future.
-            // https://github.com/facebookresearch/faiss/blob/main/faiss/CMakeLists.txt
-            String[] avx512 = { "avx512f", "avx512cd", "avx512vl", "avx512dq", "avx512bw" };
 
             try {
                 return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
