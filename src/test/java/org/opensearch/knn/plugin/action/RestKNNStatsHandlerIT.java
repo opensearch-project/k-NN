@@ -71,7 +71,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
     private static final String FIELD_LUCENE_NAME = "lucene_test_field";
     private static final int DIMENSION = 4;
     private static int DOC_ID = 0;
-    private static final int NUM_DOCS = 10;
+    private static final int NUM_DOCS = 1100;
     private static final int DELAY_MILLI_SEC = 1000;
     private static final int NUM_OF_ATTEMPTS = 30;
 
