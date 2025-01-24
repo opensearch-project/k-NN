@@ -22,6 +22,7 @@ buildscript {
         avx2_enabled = System.getProperty("avx2.enabled", "true")
         nproc_count = System.getProperty("nproc.count", "1")
         avx512_enabled = System.getProperty("avx512.enabled", "true")
+        avx512_spr_enabled = System.getProperty("avx512_spr.enabled", "true")
         // This flag determines whether the CMake build system should apply a custom patch. It prevents build failures
         // when the cmakeJniLib task is run multiple times. If the build.lib.commit_patches is true, the CMake build
         // system skips applying the patch if the patches have been applied already. If build.lib.commit_patches is
@@ -336,6 +337,7 @@ task cmakeJniLib(type:Exec) {
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DAVX2_ENABLED=${avx2_enabled}")
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
+    args.add("-DAVX512_SPR_ENABLED=${avx512_spr_enabled}")
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     def javaHome = Jvm.current().getJavaHome()
