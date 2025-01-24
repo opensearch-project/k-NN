@@ -54,6 +54,15 @@ public class ByteScalarQuantizer implements Quantizer<float[], byte[]> {
         return null;
     }
 
+    /**
+     * Samples vectors and train them using Faiss Scalar Quantizer which returns the templateIndex after training.
+     * The templateIndex contains trained parameters which will be used later to quantize the ingested vectors inside Faiss.
+     *
+     * @param trainingRequest the request containing data and parameters for training.
+     * @param fieldInfo fieldInfo
+     * @return a QuantizationState containing the learned parameters.
+     * @throws IOException
+     */
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest, final FieldInfo fieldInfo) throws IOException {
         int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);

@@ -203,7 +203,13 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         if (method == IVF_COMPONENT && compressionLevel == CompressionLevel.x4) {
             ValidationException validationException = new ValidationException();
             validationException.addValidationError(
-                String.format(Locale.ROOT, "sq \"%s\" encoder does not support \"%s\" method", FAISS_SQ_ENCODER_INT8, METHOD_IVF)
+                String.format(
+                    Locale.ROOT,
+                    "sq \"%s\" encoder or compression level \"%s\" does not support \"%s\" method",
+                    FAISS_SQ_ENCODER_INT8,
+                    CompressionLevel.x4.getName(),
+                    METHOD_IVF
+                )
             );
             throw validationException;
         }

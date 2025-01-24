@@ -58,31 +58,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
         KNNEngine engine = indexInfo.getKnnEngine();
         Map<String, Object> indexParameters = indexInfo.getParameters();
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
-        long indexMemoryAddress;
-
-        if (isTemplate(indexInfo)) {
-            // Initialize the index from Template
-            indexMemoryAddress = AccessController.doPrivileged(
-                (PrivilegedAction<Long>) () -> JNIService.initIndexFromTemplate(
-                    indexInfo.getTotalLiveDocs(),
-                    indexBuildSetup.getDimensions(),
-                    indexParameters,
-                    engine,
-                    getIndexTemplate(indexInfo)
-                )
-            );
-
-        } else {
-            // Initialize the index
-            indexMemoryAddress = AccessController.doPrivileged(
-                (PrivilegedAction<Long>) () -> JNIService.initIndex(
-                    indexInfo.getTotalLiveDocs(),
-                    indexBuildSetup.getDimensions(),
-                    indexParameters,
-                    engine
-                )
-            );
-        }
+        long indexMemoryAddress = initializeIndex(indexInfo, indexBuildSetup, indexParameters, engine);
 
         try (
             final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(
@@ -148,6 +124,36 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                 exception
             );
         }
+    }
+
+    private long initializeIndex(
+        BuildIndexParams indexInfo,
+        IndexBuildSetup indexBuildSetup,
+        Map<String, Object> indexParameters,
+        KNNEngine engine
+    ) {
+        if (isTemplate(indexInfo)) {
+            // Initialize the index from Template
+            return AccessController.doPrivileged(
+                (PrivilegedAction<Long>) () -> JNIService.initIndexFromTemplate(
+                    indexInfo.getTotalLiveDocs(),
+                    indexBuildSetup.getDimensions(),
+                    indexParameters,
+                    engine,
+                    getIndexTemplate(indexInfo)
+                )
+            );
+
+        }
+        // Initialize the index
+        return AccessController.doPrivileged(
+            (PrivilegedAction<Long>) () -> JNIService.initIndex(
+                indexInfo.getTotalLiveDocs(),
+                indexBuildSetup.getDimensions(),
+                indexParameters,
+                engine
+            )
+        );
     }
 
     private static boolean isTemplate(final BuildIndexParams indexInfo) {

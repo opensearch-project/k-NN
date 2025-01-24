@@ -254,4 +254,36 @@ public class MethodComponentTests extends KNNTestCase {
         assertEquals(IndexHyperParametersUtil.getBinaryQuantizationEFConstructionValue(), resultMap.get(parameterEFConstruction));
     }
 
+    public void testGetParameterMapWithDefaultsAdded_forOnDiskWithByteQuantization() {
+        // Set up MethodComponent and context
+        String methodName = "test-method";
+        String parameterEFSearch = "ef_search";
+        String parameterEFConstruction = "ef_construction";
+
+        MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
+            .addParameter(parameterEFSearch, new Parameter.IntegerParameter(parameterEFSearch, 512, (v, context) -> v > 0))
+            .addParameter(parameterEFConstruction, new Parameter.IntegerParameter(parameterEFConstruction, 512, (v, context) -> v > 0))
+            .build();
+
+        // Simulate ON_DISK mode and byte quantization compression level
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.ON_DISK)  // ON_DISK mode
+            .compressionLevel(CompressionLevel.x4)  // Byte quantization compression level
+            .build();
+
+        MethodComponentContext methodComponentContext = new MethodComponentContext(methodName, Map.of());
+
+        // Retrieve parameter map with defaults added
+        Map<String, Object> resultMap = MethodComponent.getParameterMapWithDefaultsAdded(
+            methodComponentContext,
+            methodComponent,
+            knnMethodConfigContext
+        );
+
+        // Check that byte quantization values are used
+        assertEquals(IndexHyperParametersUtil.getBinaryQuantizationEFSearchValue(), resultMap.get(parameterEFSearch));
+        assertEquals(IndexHyperParametersUtil.getBinaryQuantizationEFConstructionValue(), resultMap.get(parameterEFConstruction));
+    }
+
 }

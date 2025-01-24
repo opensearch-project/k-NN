@@ -112,5 +112,4 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             );
         }
     }
-
 }

@@ -193,12 +193,7 @@ public class KNNIndexShard {
                             fileExtension,
                             spaceType,
                             modelId,
-                            quantizationConfig == QuantizationConfig.EMPTY
-                                ? VectorDataType.get(
-                                    fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-                                )
-                                : quantizationConfig.getQuantizationType() == ScalarQuantizationType.EIGHT_BIT ? VectorDataType.BYTE
-                                : VectorDataType.BINARY
+                            getVectorDataType(quantizationConfig, fieldInfo)
                         )
                     );
                 }
@@ -226,6 +221,16 @@ public class KNNIndexShard {
             .filter(fileName -> fileName.endsWith(suffix))
             .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
             .collect(Collectors.toList());
+    }
+
+    private VectorDataType getVectorDataType(QuantizationConfig quantizationConfig, FieldInfo fieldInfo) {
+        if (quantizationConfig == QuantizationConfig.EMPTY) {
+            return VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()));
+        }
+        if (quantizationConfig.getQuantizationType() == ScalarQuantizationType.EIGHT_BIT) {
+            return VectorDataType.BYTE;
+        }
+        return VectorDataType.BINARY;
     }
 
     @AllArgsConstructor

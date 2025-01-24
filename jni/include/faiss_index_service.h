@@ -87,6 +87,7 @@ public:
 
 protected:
     virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors);
+    virtual jlong initAndAllocateIndex(std::unique_ptr<faiss::Index> &index, size_t threadCount, size_t dim, size_t numVectors);
 
     std::unique_ptr<FaissMethods> faissMethods;
 };  // class IndexService
@@ -157,10 +158,11 @@ public:
      * @param templateIndexJ template index
      * @return memory address of the native index object
      */
-    virtual jlong initIndexFromTemplate(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, int dim, int numVectors, int threadCount, jbyteArray templateIndexJ);
+    jlong initIndexFromTemplate(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, int dim, int numVectors, int threadCount, jbyteArray templateIndexJ) final;
 
 protected:
     void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
+    jlong initAndAllocateIndex(std::unique_ptr<faiss::IndexBinary> &index, size_t threadCount, size_t dim, size_t numVectors);
 };  // class BinaryIndexService
 
 /**
@@ -229,10 +231,11 @@ public:
      * @param templateIndexJ template index
      * @return memory address of the native index object
      */
-    virtual jlong initIndexFromTemplate(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, int dim, int numVectors, int threadCount, jbyteArray templateIndexJ);
+    jlong initIndexFromTemplate(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, int dim, int numVectors, int threadCount, jbyteArray templateIndexJ) final;
 
  protected:
     void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
+    jlong initAndAllocateIndex(std::unique_ptr<faiss::Index> &index, size_t threadCount, size_t dim, size_t numVectors) final;
 };  // class ByteIndexService
 
 }

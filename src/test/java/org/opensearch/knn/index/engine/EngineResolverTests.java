@@ -114,6 +114,29 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveEngine_whenCompressionIs4x_VersionIsOnOrAfter2_19_thenEngineIsFaiss() {
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder()
+                    .mode(Mode.ON_DISK)
+                    .compressionLevel(CompressionLevel.x4)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                null,
+                false
+            )
+        );
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).versionCreated(Version.CURRENT).build(),
+                null,
+                false
+            )
+        );
+    }
+
     public void testResolveEngine_whenConfiguredForBQ_thenEngineIsFaiss() {
         assertEquals(
             KNNEngine.FAISS,

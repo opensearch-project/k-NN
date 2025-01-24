@@ -9,6 +9,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.KNNTestCase;
 import org.junit.Before;
 
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -18,6 +19,7 @@ import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.ByteScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -130,6 +132,28 @@ public class QuantizationServiceTests extends KNNTestCase {
         }
     }
 
+    public void testTrain_eightBitQuantizer_success() throws IOException {
+        ScalarQuantizationParams byteSQParams = new ScalarQuantizationParams(ScalarQuantizationType.EIGHT_BIT);
+        String parameterString =
+            "{\"index_description\":\"HNSW16,SQ8\",\"spaceType\":\"l2\",\"name\":\"hnsw\",\"data_type\":\"float\",\"parameters\":{\"ef_search\":256,\"ef_construction\":256,\"encoder\":{\"name\":\"sq\",\"parameters\":{\"clip\":false}}}}";
+        fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.PARAMETERS, parameterString)
+            .build();
+        QuantizationState quantizationState = quantizationService.train(
+            byteSQParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
+        assertTrue(quantizationState instanceof ByteScalarQuantizationState);
+        ByteScalarQuantizationState byteScalarQuantizationState = (ByteScalarQuantizationState) quantizationState;
+
+        // Validate the template index obtained from the training
+        byte[] indexTemplate = byteScalarQuantizationState.getIndexTemplate();
+        assertNotNull("Index Template should not be null", indexTemplate);
+    }
+
     public void testQuantize_oneBitQuantizer_success() throws IOException {
         ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         QuantizationState quantizationState = quantizationService.train(
@@ -185,6 +209,20 @@ public class QuantizationServiceTests extends KNNTestCase {
         // Expected quantized vector values for four-bit quantization (packed bits)
         byte[] expectedQuantizedVector = new byte[] { (byte) 0xFF, (byte) 0xF0 };
         assertArrayEquals(expectedQuantizedVector, quantizedVector);
+    }
+
+    public void testGetVectorDataTypeForTransfer_success() {
+        fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.QFRAMEWORK_CONFIG, "type=byte,bits=8")
+            .build();
+        assertEquals(VectorDataType.FLOAT, quantizationService.getVectorDataTypeForTransfer(fieldInfo));
+
+        fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.QFRAMEWORK_CONFIG, "type=binary,bits=2")
+            .build();
+        assertEquals(VectorDataType.BINARY, quantizationService.getVectorDataTypeForTransfer(fieldInfo));
     }
 
     public void testQuantize_whenInvalidInput_thenThrows() throws IOException {

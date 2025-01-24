@@ -464,6 +464,16 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             .field(MODE_PARAMETER, Mode.ON_DISK)
             .endObject();
         expectThrows(ResponseException.class, () -> trainModel(modelId, builder2));
+
+        XContentBuilder builder3 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TRAIN_INDEX_PARAMETER, TRAINING_INDEX_NAME)
+            .field(TRAIN_FIELD_PARAMETER, TRAINING_FIELD_NAME)
+            .field(KNNConstants.DIMENSION, DIMENSION)
+            .field(MODEL_DESCRIPTION, "test")
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .endObject();
+        expectThrows(ResponseException.class, () -> trainModel(modelId, builder3));
     }
 
     @SneakyThrows
@@ -651,7 +661,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
         assertEquals(NUM_DOCS, exactSearchKnnResults.size());
 
-        if (CompressionLevel.x4.getName().equals(compressionLevelString) == false && Mode.ON_DISK.getName().equals(mode)) {
+        if (Mode.ON_DISK.getName().equals(mode)) {
             Assert.assertEquals(exactSearchKnnResults, knnResults);
         }
 
@@ -681,7 +691,8 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         responseBody = EntityUtils.toString(response.getEntity());
         knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
         assertEquals(K, knnResults.size());
-        if (CompressionLevel.x4.getName().equals(compressionLevelString) == false && Mode.ON_DISK.getName().equals(mode)) {
+
+        if (Mode.ON_DISK.getName().equals(mode)) {
             Assert.assertEquals(exactSearchKnnResults, knnResults);
         }
     }
