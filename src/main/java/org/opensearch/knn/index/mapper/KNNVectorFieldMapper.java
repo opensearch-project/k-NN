@@ -378,6 +378,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
+            // Ensure user-defined dimension and model are mutually exclusive for indicies created after 2.19
+            if (builder.dimension.getValue() != UNSET_MODEL_DIMENSION_IDENTIFIER
+                && builder.modelId.get() != null
+                && parserContext.indexVersionCreated().onOrAfter(Version.V_2_19_0)) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Cannot specify both a modelId and dimension in the mapping: %s", name)
+                );
+            }
+
             // Check for flat configuration and validate only if index is created after 2.17
             if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
@@ -390,13 +399,20 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // If the original knnMethodContext is not null, resolve its space type and engine from the rest of the
                 // configuration. This is consistent with the existing behavior for space type in 2.16 where we modify the
                 // parsed value
-                SpaceType resolvedSpaceType = SpaceTypeResolver.INSTANCE.resolveSpaceType(
+                final SpaceType resolvedSpaceType = SpaceTypeResolver.INSTANCE.resolveSpaceType(
                     builder.originalParameters.getKnnMethodContext(),
-                    builder.vectorDataType.get(),
-                    builder.topLevelSpaceType.get()
+                    builder.topLevelSpaceType.get(),
+                    parserContext.getSettings(),
+                    builder.vectorDataType.get()
                 );
+
+                // Set space type to the original knnMethodContext. Since the resolved one can be UNDEFINED,
+                // we must wrap it and pick up the default when it is UNDEFINED.
                 setSpaceType(builder.originalParameters.getKnnMethodContext(), resolvedSpaceType);
                 validateSpaceType(builder);
+
+                // Resolve method component. For the legacy case where space type can be configured at index level,
+                // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
                 resolveKNNMethodComponents(builder, parserContext, resolvedSpaceType);
                 validateFromKNNMethod(builder);
             }
@@ -668,7 +684,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected abstract VectorValidator getVectorValidator();
 
     /**
-     * Getter for per dimension validator during vector parsing
+     * Getter for per dimension validator during vector parsing, and before any transformation
      *
      * @return PerDimensionValidator
      */
@@ -681,6 +697,23 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected abstract PerDimensionProcessor getPerDimensionProcessor();
 
+    /**
+     * Retrieves the vector transformer for the KNN vector field.
+     * This method provides access to the vector transformer instance that will be used
+     * for processing vectors in the KNN field. The transformer is responsible for any
+     * necessary vector transformations before indexing or searching.
+     * This implementation delegates to the VectorTransformerFactory to obtain
+     * the appropriate transformer instance. The returned transformer is typically
+     * stateless and thread-safe.
+     *
+     * @return VectorTransformer An instance of VectorTransformer that will be used
+     *         for vector transformations in this field
+     *
+     */
+    protected VectorTransformer getVectorTransformer() {
+        return VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
+    }
+
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();
 
@@ -691,6 +724,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final byte[] array = bytesArrayOptional.get();
             getVectorValidator().validateVector(array);
+            getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForByteVector(array));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
@@ -700,6 +734,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
+            getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForFloatVector(array));
         } else {
             throw new IllegalArgumentException(

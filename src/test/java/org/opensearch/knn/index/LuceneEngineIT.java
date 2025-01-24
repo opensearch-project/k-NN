@@ -15,6 +15,7 @@ import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Nullable;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.QueryBuilder;
@@ -280,6 +281,51 @@ public class LuceneEngineIT extends KNNRestTestCase {
         List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
         List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
+    }
+
+    @SneakyThrows
+    public void testQueryWithFilterMultipleShards() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, DIMENSION)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .startObject(INTEGER_FIELD_NAME)
+            .field(TYPE_FIELD_NAME, FILED_TYPE_INTEGER)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+
+        createIndex(INDEX_NAME, Settings.builder().put("number_of_shards", 10).put("number_of_replicas", 0).put("index.knn", true).build());
+        putMappingRequest(INDEX_NAME, mapping);
+
+        addKnnDocWithAttributes("doc1", new float[] { 7.0f, 7.0f, 3.0f }, ImmutableMap.of("dateReceived", "2024-10-01"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 7.0f, 3.0f };
+        final Response response = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(
+                FIELD_NAME,
+                searchVector,
+                1,
+                QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery("dateReceived").gte("2023-11-01"))
+            ),
+            10
+        );
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(1, knnResults.size());
     }
 
     @SneakyThrows

@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
@@ -38,6 +39,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
     private final PerDimensionProcessor perDimensionProcessor;
     private final PerDimensionValidator perDimensionValidator;
     private final VectorValidator vectorValidator;
+    private final VectorTransformer vectorTransformer;
 
     public static MethodFieldMapper createFieldMapper(
         String fullname,
@@ -85,6 +87,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
                 @Override
                 public QuantizationConfig getQuantizationConfig() {
                     return quantizationConfig;
+                }
+
+                @Override
+                public Version getIndexCreatedVersion() {
+                    return knnMethodConfigContext.getVersionCreated();
                 }
             }
         );
@@ -174,6 +181,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
         this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
+        this.vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
     }
 
     @Override
@@ -189,5 +197,10 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
     @Override
     protected PerDimensionProcessor getPerDimensionProcessor() {
         return perDimensionProcessor;
+    }
+
+    @Override
+    protected VectorTransformer getVectorTransformer() {
+        return vectorTransformer;
     }
 }

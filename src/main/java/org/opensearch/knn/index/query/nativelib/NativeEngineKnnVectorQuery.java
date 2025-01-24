@@ -60,14 +60,14 @@ public class NativeEngineKnnVectorQuery extends Query {
         List<PerLeafResult> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
         final int finalK = knnQuery.getK();
-        if (rescoreContext == null) {
+        if (rescoreContext == null || !rescoreContext.isRescoreEnabled()) {
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, finalK);
         } else {
-            boolean isShardLevelRescoringEnabled = KNNSettings.isShardLevelRescoringEnabledForDiskBasedVector(knnQuery.getIndexName());
+            boolean isShardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName());
             int dimension = knnQuery.getQueryVector().length;
-            int firstPassK = rescoreContext.getFirstPassK(finalK, isShardLevelRescoringEnabled, dimension);
+            int firstPassK = rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension);
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassK);
-            if (isShardLevelRescoringEnabled == true) {
+            if (isShardLevelRescoringDisabled == false) {
                 ResultUtil.reduceToTopK(perLeafResults, firstPassK);
             }
 
