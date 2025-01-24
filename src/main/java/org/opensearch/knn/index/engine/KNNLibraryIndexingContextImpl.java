@@ -13,6 +13,7 @@ import org.opensearch.knn.index.mapper.VectorValidator;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Simple implementation of {@link KNNLibraryIndexingContext}
@@ -27,6 +28,7 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     private Map<String, Object> parameters = Collections.emptyMap();
     @Builder.Default
     private QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
+    private Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> trainingConfigValidationSetup;
 
     @Override
     public Map<String, Object> getLibraryParameters() {
@@ -51,5 +53,10 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     @Override
     public PerDimensionProcessor getPerDimensionProcessor() {
         return perDimensionProcessor;
+    }
+
+    @Override
+    public Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> getTrainingConfigValidationSetup() {
+        return trainingConfigValidationSetup;
     }
 }

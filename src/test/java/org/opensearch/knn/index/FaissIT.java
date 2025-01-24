@@ -301,7 +301,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // training data needs to be at least equal to the number of centroids for PQ
         // which is 2^8 = 256. 8 because that's the only valid code_size for HNSWPQ
-        int trainingDataCount = 256;
+        int trainingDataCount = 1100;
 
         SpaceType spaceType = SpaceType.L2;
 
@@ -429,7 +429,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // training data needs to be at least equal to the number of centroids for PQ
         // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
-        int trainingDataCount = 256;
+        int trainingDataCount = 1100;
 
         SpaceType spaceType = SpaceType.L2;
 
@@ -707,7 +707,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -931,7 +931,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -1035,7 +1035,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -1115,7 +1115,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // training data needs to be at least equal to the number of centroids for PQ
         // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
-        int trainingDataCount = 256;
+        int trainingDataCount = 1100;
 
         SpaceType spaceType = SpaceType.L2;
 
@@ -1395,7 +1395,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         // Call train API - IVF with nlists = 1 is brute force, but will require training
@@ -1750,7 +1750,7 @@ public class FaissIT extends KNNRestTestCase {
 
         createKnnIndex(trainingIndexName, trainIndexMapping);
 
-        int trainingDataCount = 40;
+        int trainingDataCount = 1100;
         bulkIngestRandomBinaryVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder trainModelXContentBuilder = XContentFactory.jsonBuilder()
