@@ -333,10 +333,19 @@ public class NativeMemoryCacheManager implements Closeable {
         }
 
         if (KNNFeatureFlags.isForceEvictCacheEnabled()) {
-            logger.info("NEWEST CHANGES: Synchronized force evict path, testing new race condition fix");
+            // Utilizes a force eviction mechanism to free up memory before the entry can be added to the cache
+            // In case of a cache hit, the operation just updates the locally maintained recency list
+            // In case of a cache miss, least recently accessed entries are evicted in a blocking manner
+            // before the new entry can be added to the cache.
             String key = nativeMemoryEntryContext.getKey();
             NativeMemoryAllocation result = cache.getIfPresent(key);
 
+            // Cache Hit
+            // In case of a cache hit, moving the item to the end of the recency queue adds
+            // some overhead to the get operation. This can be optimized further to make this operation
+            // as lightweight as possible. Multiple approaches and their outcomes were documented
+            // before moving forward with the current solution.
+            // The details are outlined here: https://github.com/opensearch-project/k-NN/pull/2015#issuecomment-2327064680
             if (result != null) {
                 accessRecencyQueue.remove(key);
                 accessRecencyQueue.addLast(key);
@@ -346,6 +355,8 @@ public class NativeMemoryCacheManager implements Closeable {
                 return result;
             }
 
+            // Cache Miss
+            // Evict before put
             AtomicBoolean lockAcquired = new AtomicBoolean(false);
             try {
                 synchronized (this) {
