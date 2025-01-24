@@ -157,6 +157,7 @@ public class KNNWeightTests extends KNNTestCase {
         final NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
         final NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
         when(nativeMemoryCacheManager.get(any(), anyBoolean())).thenReturn(nativeMemoryAllocation);
+        when(nativeMemoryCacheManager.get(any(), anyBoolean(), anyBoolean())).thenReturn(nativeMemoryAllocation);
 
         nativeMemoryCacheManagerMockedStatic.when(NativeMemoryCacheManager::getInstance).thenReturn(nativeMemoryCacheManager);
 
