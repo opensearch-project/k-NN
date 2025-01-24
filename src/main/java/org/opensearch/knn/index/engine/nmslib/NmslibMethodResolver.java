@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.engine.nmslib;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
@@ -23,10 +25,15 @@ import static org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod.HNSW_METHO
 /**
  * Method resolution logic for nmslib. Because nmslib does not support quantization, it is in general a validation
  * before returning the original request
+ *
+ * @deprecated As of 2.19.0, please use {@link org.opensearch.knn.index.engine.faiss.Faiss} or Lucene engine.
+ * This engine will be removed in a future release.
  */
+@Deprecated(since = "2.19.0", forRemoval = true)
 public class NmslibMethodResolver extends AbstractMethodResolver {
 
     private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(CompressionLevel.x1);
+    private static Logger logger = LogManager.getLogger(NmslibMethodResolver.class);
 
     @Override
     public ResolvedMethodContext resolveMethod(
@@ -35,6 +42,9 @@ public class NmslibMethodResolver extends AbstractMethodResolver {
         boolean shouldRequireTraining,
         final SpaceType spaceType
     ) {
+        logger.warn(
+            "[Deprecation] nmslib engine is deprecated and will be removed in a future release. Please use Faiss or Lucene engine instead."
+        );
         validateConfig(knnMethodConfigContext, shouldRequireTraining);
         KNNMethodContext resolvedKNNMethodContext = initResolvedKNNMethodContext(
             knnMethodContext,
