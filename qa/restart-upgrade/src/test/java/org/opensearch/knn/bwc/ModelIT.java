@@ -53,7 +53,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static final int DELAY_MILLI_SEC = 1000;
     private static final int MIN_NUM_OF_MODELS = 2;
     private static final int K = 5;
-    private static final int NUM_DOCS = 10;
+    private static final int NUM_DOCS = 1100;
     private static final int NUM_DOCS_TEST_MODEL_INDEX = 100;
     private static final int NUM_DOCS_TEST_MODEL_INDEX_DEFAULT = 100;
     private static final int NUM_DOCS_TEST_MODEL_INDEX_FOR_NON_KNN_INDEX = 100;
