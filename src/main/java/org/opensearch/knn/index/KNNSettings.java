@@ -44,6 +44,7 @@ import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.common.settings.Setting.Property.Final;
+import static org.opensearch.common.settings.Setting.Property.UnmodifiableOnRestore;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
@@ -269,7 +270,13 @@ public class KNNSettings {
     /**
      * This setting identifies KNN index.
      */
-    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope, Final);
+    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(
+        KNN_INDEX,
+        false,
+        IndexScope,
+        Final,
+        UnmodifiableOnRestore
+    );
 
     /**
      * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.
