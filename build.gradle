@@ -333,7 +333,7 @@ task cmakeJniLib(type:Exec) {
     workingDir 'jni'
     def args = []
     args.add("cmake")
-    args.add(".")
+    args.add("-B build")
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DAVX2_ENABLED=${avx2_enabled}")
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
