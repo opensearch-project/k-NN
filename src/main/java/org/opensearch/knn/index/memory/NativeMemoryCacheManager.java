@@ -297,16 +297,25 @@ public class NativeMemoryCacheManager implements Closeable {
         return cache.stats();
     }
 
+    public NativeMemoryAllocation get(NativeMemoryEntryContext<?> nativeMemoryEntryContext, boolean isAbleToTriggerEviction)
+        throws ExecutionException {
+        return get(nativeMemoryEntryContext, isAbleToTriggerEviction, false);
+    }
+
     /**
      * Retrieves NativeMemoryAllocation associated with the nativeMemoryEntryContext.
      *
      * @param nativeMemoryEntryContext Context from which to get NativeMemoryAllocation
      * @param isAbleToTriggerEviction Determines if getting this allocation can evict other entries
+     * @param acquirePreemptiveReadLock Determines whether to increment ref count during cache loading to prevent eviction race condition
      * @return NativeMemoryAllocation associated with nativeMemoryEntryContext
      * @throws ExecutionException if there is an exception when loading from the cache
      */
-    public NativeMemoryAllocation get(NativeMemoryEntryContext<?> nativeMemoryEntryContext, boolean isAbleToTriggerEviction)
-        throws ExecutionException {
+    public NativeMemoryAllocation get(
+        NativeMemoryEntryContext<?> nativeMemoryEntryContext,
+        boolean isAbleToTriggerEviction,
+        boolean acquirePreemptiveReadLock
+    ) throws ExecutionException {
         if (!isAbleToTriggerEviction
             && (maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKB()) <= 0
             && !cache.asMap().containsKey(nativeMemoryEntryContext.getKey())) {
@@ -340,31 +349,47 @@ public class NativeMemoryCacheManager implements Closeable {
             if (result != null) {
                 accessRecencyQueue.remove(key);
                 accessRecencyQueue.addLast(key);
+                if (acquirePreemptiveReadLock) {
+                    result.incRef();
+                }
                 return result;
             }
 
             // Cache Miss
             // Evict before put
-            synchronized (this) {
-                if (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight) {
-                    Iterator<String> lruIterator = accessRecencyQueue.iterator();
-                    while (lruIterator.hasNext()
-                        && (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight)) {
+            AtomicBoolean lockAcquired = new AtomicBoolean(false);
+            try {
+                synchronized (this) {
+                    if (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight) {
+                        Iterator<String> lruIterator = accessRecencyQueue.iterator();
+                        while (lruIterator.hasNext()
+                            && (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight)) {
 
-                        String keyToRemove = lruIterator.next();
-                        NativeMemoryAllocation allocationToRemove = cache.getIfPresent(keyToRemove);
-                        if (allocationToRemove != null) {
-                            allocationToRemove.close();
-                            cache.invalidate(keyToRemove);
+                            String keyToRemove = lruIterator.next();
+                            NativeMemoryAllocation allocationToRemove = cache.getIfPresent(keyToRemove);
+                            if (allocationToRemove != null) {
+                                allocationToRemove.close();
+                                cache.invalidate(keyToRemove);
+                            }
+                            lruIterator.remove();
                         }
-                        lruIterator.remove();
                     }
+                    result = cache.get(key, () -> {
+                        NativeMemoryAllocation allocation = nativeMemoryEntryContext.load();
+                        if (acquirePreemptiveReadLock) {
+                            allocation.incRef();
+                            lockAcquired.set(true);
+                        }
+                        return allocation;
+                    });
+                    accessRecencyQueue.addLast(key);
+                    return result;
                 }
-
-                result = cache.get(key, nativeMemoryEntryContext::load);
-                accessRecencyQueue.addLast(key);
-
-                return result;
+            } catch (Exception e) {
+                if (result != null && lockAcquired.get()) {
+                    result.decRef();
+                }
+                throw e;
             }
         } else {
             return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
