@@ -378,6 +378,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
+            // Ensure user-defined dimension and model are mutually exclusive for indicies created after 2.19
+            if (builder.dimension.getValue() != UNSET_MODEL_DIMENSION_IDENTIFIER
+                && builder.modelId.get() != null
+                && parserContext.indexVersionCreated().onOrAfter(Version.V_2_19_0)) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Cannot specify both a modelId and dimension in the mapping: %s", name)
+                );
+            }
+
             // Check for flat configuration and validate only if index is created after 2.17
             if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
