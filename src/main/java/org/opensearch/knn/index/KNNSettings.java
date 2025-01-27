@@ -283,7 +283,13 @@ public class KNNSettings {
     /**
      * This setting identifies KNN index.
      */
-    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope, Final);
+    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(
+        KNN_INDEX,
+        false,
+        IndexScope,
+        Final,
+        UnmodifiableOnRestore
+    );
 
     /**
      * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.

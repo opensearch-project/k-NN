@@ -19,6 +19,7 @@ import org.apache.hc.core5.net.URIBuilder;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.Version;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
@@ -86,6 +87,8 @@ import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -2369,5 +2372,30 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected static String randomLowerCaseString() {
         return randomAlphaOfLengthBetween(MIN_CODE_UNITS, MAX_CODE_UNITS).toLowerCase(Locale.ROOT);
+    }
+
+    @SneakyThrows
+    protected void setupSnapshotRestore(String index, String snapshot, String repository) {
+        Request clusterSettingsRequest = new Request("GET", "/_cluster/settings");
+        clusterSettingsRequest.addParameter("include_defaults", "true");
+        Response clusterSettingsResponse = client().performRequest(clusterSettingsRequest);
+        Map<String, Object> clusterSettings = entityAsMap(clusterSettingsResponse);
+
+        @SuppressWarnings("unchecked")
+        List<String> pathRepos = (List<String>) XContentMapValues.extractValue("defaults.path.repo", clusterSettings);
+        assertThat(pathRepos, notNullValue());
+        assertThat(pathRepos, hasSize(1));
+
+        final String pathRepo = pathRepos.get(0);
+
+        // create index
+        createIndex(index, getDefaultIndexSettings());
+
+        // create repo
+        Settings repoSettings = Settings.builder().put("compress", randomBoolean()).put("location", pathRepo).build();
+        registerRepository(repository, "fs", true, repoSettings);
+
+        // create snapshot
+        createSnapshot(repository, snapshot, true);
     }
 }
