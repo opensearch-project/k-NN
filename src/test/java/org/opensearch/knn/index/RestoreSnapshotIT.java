@@ -8,25 +8,26 @@ package org.opensearch.knn.index;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.index.IndexSettings;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import java.util.List;
 import java.util.Map;
 
-import static org.hamcrest.Matchers.*;
-import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.hasSize;
 
 public class RestoreSnapshotIT extends OpenSearchRestTestCase {
 
     private String index;
     private String snapshot;
+    private String repository;
 
-    public void setupSnapshotRestore() throws Exception {
+    private void setupSnapshotRestore() throws Exception {
         Request clusterSettingsRequest = new Request("GET", "/_cluster/settings");
         clusterSettingsRequest.addParameter("include_defaults", "true");
         Response clusterSettingsResponse = client().performRequest(clusterSettingsRequest);
@@ -41,45 +42,18 @@ public class RestoreSnapshotIT extends OpenSearchRestTestCase {
 
         index = "test-index";
         snapshot = "snapshot-" + index;
+        repository = "repo";
 
         // create index
-        XContentBuilder settings = jsonBuilder();
-        settings.startObject();
-        {
-            settings.startObject("settings");
-            settings.field(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1);
-            settings.field(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1);
-            settings.field(IndexSettings.INDEX_SOFT_DELETES_SETTING.getKey(), true);
-            settings.endObject();
-        }
-        settings.endObject();
-
-        Request createIndex = new Request("PUT", "/" + index);
-        createIndex.setJsonEntity(settings.toString());
-        createIndex.setOptions(allowTypesRemovalWarnings());
-        client().performRequest(createIndex);
+        Settings indexSettings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 1).put("index.knn", true).build();
+        createIndex(index, indexSettings);
 
         // create repo
-        XContentBuilder repoConfig = JsonXContent.contentBuilder().startObject();
-        {
-            repoConfig.field("type", "fs");
-            repoConfig.startObject("settings");
-            {
-                repoConfig.field("compress", randomBoolean());
-                repoConfig.field("location", pathRepo);
-            }
-            repoConfig.endObject();
-        }
-        repoConfig.endObject();
-        Request createRepoRequest = new Request("PUT", "/_snapshot/repo");
-        createRepoRequest.setJsonEntity(repoConfig.toString());
-        client().performRequest(createRepoRequest);
+        Settings repoSettings = Settings.builder().put("compress", randomBoolean()).put("location", pathRepo).build();
+        registerRepository(repository, "fs", true, repoSettings);
 
         // create snapshot
-        Request createSnapshot = new Request("PUT", "/_snapshot/repo/" + snapshot);
-        createSnapshot.addParameter("wait_for_completion", "true");
-        createSnapshot.setJsonEntity("{\"indices\": \"" + index + "\"}");
-        client().performRequest(createSnapshot);
+        createSnapshot(repository, snapshot, true);
     }
 
     public void testUnmodifiableOnRestoreSettingModifiedOnRestore() throws Exception {
@@ -96,7 +70,7 @@ public class RestoreSnapshotIT extends OpenSearchRestTestCase {
         }
         restoreCommand.endObject();
         restoreCommand.endObject();
-        Request restoreRequest = new Request("POST", "/_snapshot/repo/" + snapshot + "/_restore");
+        Request restoreRequest = new Request("POST", "/_snapshot/" + repository + "/" + snapshot + "/_restore");
         restoreRequest.addParameter("wait_for_completion", "true");
         restoreRequest.setJsonEntity(restoreCommand.toString());
         final ResponseException error = expectThrows(ResponseException.class, () -> client().performRequest(restoreRequest));
@@ -113,7 +87,7 @@ public class RestoreSnapshotIT extends OpenSearchRestTestCase {
         restoreCommand.field("rename_replacement", "restored-" + index);
         restoreCommand.field("ignore_index_settings", "index.knn");
         restoreCommand.endObject();
-        Request restoreRequest = new Request("POST", "/_snapshot/repo/" + snapshot + "/_restore");
+        Request restoreRequest = new Request("POST", "/_snapshot/" + repository + "/" + snapshot + "/_restore");
         restoreRequest.addParameter("wait_for_completion", "true");
         restoreRequest.setJsonEntity(restoreCommand.toString());
         final ResponseException error = expectThrows(ResponseException.class, () -> client().performRequest(restoreRequest));
