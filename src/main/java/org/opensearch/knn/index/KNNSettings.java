@@ -43,6 +43,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
+import static org.opensearch.common.settings.Setting.Property.Final;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
@@ -89,6 +90,7 @@ public class KNNSettings {
     public static final String QUANTIZATION_STATE_CACHE_SIZE_LIMIT = "knn.quantization.cache.size.limit";
     public static final String QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = "knn.quantization.cache.expiry.minutes";
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
+    public static final String KNN_FAISS_AVX512_SPR_DISABLED = "knn.faiss.avx512_spr.disabled";
     public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
 
     /**
@@ -97,6 +99,7 @@ public class KNNSettings {
      */
     public static final boolean KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE = false;
+    public static final boolean KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 15_000;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
@@ -268,7 +271,7 @@ public class KNNSettings {
     /**
      * This setting identifies KNN index.
      */
-    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope);
+    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope, Final);
 
     /**
      * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.
@@ -349,6 +352,12 @@ public class KNNSettings {
     public static final Setting<Boolean> KNN_FAISS_AVX512_DISABLED_SETTING = Setting.boolSetting(
         KNN_FAISS_AVX512_DISABLED,
         KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
+        NodeScope
+    );
+
+    public static final Setting<Boolean> KNN_FAISS_AVX512_SPR_DISABLED_SETTING = Setting.boolSetting(
+        KNN_FAISS_AVX512_SPR_DISABLED,
+        KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE,
         NodeScope
     );
 
@@ -483,6 +492,10 @@ public class KNNSettings {
             return KNN_FAISS_AVX512_DISABLED_SETTING;
         }
 
+        if (KNN_FAISS_AVX512_SPR_DISABLED.equals(key)) {
+            return KNN_FAISS_AVX512_SPR_DISABLED_SETTING;
+        }
+
         if (KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB.equals(key)) {
             return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
         }
@@ -520,6 +533,7 @@ public class KNNSettings {
             KNN_FAISS_AVX2_DISABLED_SETTING,
             KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
             KNN_FAISS_AVX512_DISABLED_SETTING,
+            KNN_FAISS_AVX512_SPR_DISABLED_SETTING,
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
             KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING
@@ -565,6 +579,15 @@ public class KNNSettings {
             Objects.requireNonNullElse(
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED),
                 KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE
+            ).toString()
+        );
+    }
+
+    public static boolean isFaissAVX512SPRDisabled() {
+        return Booleans.parseBoolean(
+            Objects.requireNonNullElse(
+                KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED),
+                KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
             ).toString()
         );
     }

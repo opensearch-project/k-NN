@@ -16,6 +16,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.lang.Validate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,6 +26,8 @@ import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.stats.StatNames;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.threadpool.Scheduler.Cancellable;
 
 import java.io.Closeable;
 import java.util.Deque;
@@ -47,12 +51,16 @@ public class NativeMemoryCacheManager implements Closeable {
 
     private static final Logger logger = LogManager.getLogger(NativeMemoryCacheManager.class);
     private static NativeMemoryCacheManager INSTANCE;
+    @Setter
+    private static ThreadPool threadPool;
 
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
     private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
+    @Getter
+    private Cancellable maintenanceTask;
 
     NativeMemoryCacheManager() {
         this.executor = Executors.newSingleThreadExecutor();
@@ -104,6 +112,12 @@ public class NativeMemoryCacheManager implements Closeable {
         cacheCapacityReached = new AtomicBoolean(false);
         accessRecencyQueue = new ConcurrentLinkedDeque<>();
         cache = cacheBuilder.build();
+
+        if (threadPool != null) {
+            startMaintenance(cache);
+        } else {
+            logger.warn("ThreadPool is null during NativeMemoryCacheManager initialization. Maintenance will not start.");
+        }
     }
 
     /**
@@ -142,6 +156,9 @@ public class NativeMemoryCacheManager implements Closeable {
     @Override
     public void close() {
         executor.shutdown();
+        if (maintenanceTask != null) {
+            maintenanceTask.cancel();
+        }
     }
 
     /**
@@ -448,5 +465,30 @@ public class NativeMemoryCacheManager implements Closeable {
             return 0.0F;
         }
         return 100 * size / (float) cbLimit;
+    }
+
+    /**
+     * Starts the scheduled maintenance for the cache. Without this thread calling cleanUp(), the Guava cache only
+     * performs maintenance operations (such as evicting expired entries) when the cache is accessed. This
+     * ensures that the cache is also cleaned up based on the configured expiry time.
+     * @see <a href="https://github.com/google/guava/wiki/cachesexplained#timed-eviction"> Guava Cache Guide</a>
+     * @param cacheInstance cache on which to call cleanUp()
+     */
+    private void startMaintenance(Cache<String, NativeMemoryAllocation> cacheInstance) {
+        if (maintenanceTask != null) {
+            maintenanceTask.cancel();
+        }
+
+        Runnable cleanUp = () -> {
+            try {
+                cacheInstance.cleanUp();
+            } catch (Exception e) {
+                logger.error("Error cleaning up cache", e);
+            }
+        };
+
+        TimeValue interval = KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES);
+
+        maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
     }
 }

@@ -23,6 +23,7 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.index.query.WithFieldName;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -68,7 +69,7 @@ import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAME
 // The builder validates the member variables so access to the constructor is prohibited to not accidentally bypass validations
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Log4j2
-public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
+public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> implements WithFieldName {
     private static ModelDao modelDao;
 
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
@@ -364,6 +365,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     /**
      * @return The field name used in this query
      */
+    @Override
     public String fieldName() {
         return this.fieldName;
     }
@@ -428,6 +430,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         SpaceType spaceType = queryConfigFromMapping.get().getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.get().getVectorDataType();
         RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
+        knnVectorFieldType.transformQueryVector(vector);
 
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         updateQueryStats(vectorQueryType);

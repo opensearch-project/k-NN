@@ -46,6 +46,13 @@ if (Os.isFamily(Os.FAMILY_WINDOWS)) {
     file_ext = "zip"
 }
 
+allprojects {
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+}
+
 // Task to pull k-NN plugin from archive
 task pullBwcPlugin {
     doFirst {

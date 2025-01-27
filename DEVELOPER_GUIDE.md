@@ -2,7 +2,7 @@
   - [Getting Started](#getting-started)
     - [Fork OpenSearch k-NN Repo](#fork-opensearch-k-nn-repo)
     - [Install Prerequisites](#install-prerequisites)
-      - [JDK 11](#jdk-11)
+      - [JDK 21](#jdk-21)
       - [CMake](#cmake)
       - [Faiss Dependencies](#Faiss-Dependencies)
       - [Environment](#Environment)
@@ -39,22 +39,19 @@ git clone https://github.com/[your username]/OpenSearch.git
 
 ### Install Prerequisites
 
-#### JDK 11
+#### JDK 21
 
-OpenSearch builds using Java 11 at a minimum. This means you must have a JDK 11 installed with the environment variable 
-`JAVA_HOME` referencing the path to Java home for your JDK 11 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-11`.
+OpenSearch builds using Java 21 at a minimum. This means you must have a JDK 21 installed with the environment variable 
+`JAVA_HOME` referencing the path to Java home for your JDK 21 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-21`.
 
-One easy way to get Java 11 on *nix is to use [sdkman](https://sdkman.io/).
+One easy way to get Java 21 on *nix is to use [sdkman](https://sdkman.io/).
 
 ```bash
 curl -s "https://get.sdkman.io" | bash
 source ~/.sdkman/bin/sdkman-init.sh
-sdk install java 11.0.2-open
-sdk use java 11.0.2-open
+sdk install java 21.0.2-open
+sdk use java 21.0.2-open
 ```
-
-Team has to replace minimum JDK version 14 as it was not an LTS release. JDK 14 should still work for most scenarios.
-In addition to this, the plugin has been tested with JDK 17, and this JDK version is fully supported.
 
 #### CMake
 
@@ -143,6 +140,21 @@ export OPENSEARCH_HOME=the directory of opensearch...
 export JAVA_LIBRARY_PATH=$JAVA_LIBRARY_PATH:$OPENSEARCH_HOME/plugins/opensearch-knn/lib
 ```
 
+CMAKE will use as JAVA_HOME environment whatever your gradle is currently using. For example:
+```bash
+Java home directory found by gradle: /opt/homebrew/Cellar/openjdk@21/21.0.5/libexec/openjdk.jdk/Contents/Home
+=======================================
+OpenSearch Build Hamster says Hello!
+  Gradle Version        : 8.4
+  OS Info               : Mac OS X 14.4 (aarch64)
+  JDK Version           : 21 (Homebrew JDK)
+  JAVA_HOME             : /opt/homebrew/Cellar/openjdk@21/21.0.5/libexec/openjdk.jdk/Contents/Home
+  Random Testing Seed   : 8AB32A4719AA345E
+  In FIPS 140 mode      : false
+=======================================
+```
+The JAVA_HOME used by gradle will be the default that the project will be using.
+
 #### Environment
 
 Currently, the plugin only supports Linux on x64 and arm platforms.
@@ -186,10 +198,10 @@ Please follow these formatting guidelines:
 OpenSearch k-NN uses a [Gradle](https://docs.gradle.org/6.6.1/userguide/userguide.html) wrapper for its build. 
 Run `gradlew` on Unix systems.
 
-Tests use `JAVA11_HOME` environment variable, make sure to add it in the export path else the tests might fail. 
+Tests use `JAVA21_HOME` environment variable, make sure to add it in the export path else the tests might fail. 
 e.g 
 ```
-echo "export JAVA11_HOME=<JDK11 path>" >> ~/.zshrc
+echo "export JAVA21_HOME=<JDK21 path>" >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -285,21 +297,38 @@ make -j 4
 ### Enable SIMD Optimization
 SIMD(Single Instruction/Multiple Data) Optimization is enabled by default on Linux and Mac which boosts the performance
 by enabling `AVX2` and `AVX512` on `x86 architecture` and `NEON` on `ARM64 architecture` where applicable while building the Faiss library. But to enable SIMD,
-the underlying processor should support these capabilities (AVX512, AVX2 or NEON). It can be disabled by setting the parameter `avx2.enabled` to `false` and
-`avx512.enabled` to `false`. If your processor supports `AVX512` or `AVX2`, they can be set by enabling the setting . By default, these values are enabled on 
-OpenSearch. Some exceptions: As of now, SIMD support is not supported on Windows OS, and AVX512 is not present on MAC systems due to hardware not supporting the
-feature.
+the underlying processor should support these capabilities (AVX512, AVX2 or NEON). It can be disabled by setting the parameter `avx2.enabled`, `avx512.enabled`,
+and `avx512_spr.enabled` to `false`. If your processor supports `AVX512` or `AVX2`, they can be set by enabling the setting. On Intel(R) Sapphire Rapids and
+newer-generation systems, enabling `avx512_spr` offers support for `AVX512-FP16` and other features. By default, these values are enabled on OpenSearch.  
+Some exceptions: As of now, SIMD support is not supported on Windows OS, and AVX512 is not present on MAC systems due to hardware not supporting the feature.
 
 ```
-# While building OpenSearch k-NN
-./gradlew build -Davx2.enabled=true -Davx512.enabled=true
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries()
+# else if (system_supports_avx512) generate_avx512_binaries()
+# else if (system_supports_ avx2) generate_avx2_binaries()
+# else() generate_generic_binaries()
 
-# While running OpenSearch k-NN
-./gradlew run -Davx2.enabled=true -Davx512.enabled=true
+# generate avx2 binaries
+./gradlew build -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false
 
-# While building the JNI libraries
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries()
+# else if (system_supports_avx512) generate_avx512_binaries()
+# else() generate_generic_binaries() 
+./gradlew build -Davx2.enabled=false -Davx512.enabled=true
+
+# if (system_supports_avx512_spr) generate_avx512_spr_binaries()
+# else if (system_supports_avx2) generate_avx2_binaries()
+# else() generate_generic_binaries()
+./gradlew build -Davx512.enabled=false -Davx512_spr.enabled=true
+
+# if (system_supports_avx512) generate_avx512_binaries()
+# else if (system_supports_avx2) generate_avx2_binaries()
+# else() generate_generic_binaries()
+./gradlew build -Davx512.enabled=true -Davx512_spr.enabled=false
+
+# similar logic applies for jni
 cd jni
-cmake . -DAVX2_ENABLED=true -DAVX512_ENABLED=true
+cmake . -DAVX2_ENABLED=true -DAVX512_ENABLED=true -DAVX512_SPR_ENABLED=true
 ```
 
 ## Run OpenSearch k-NN
