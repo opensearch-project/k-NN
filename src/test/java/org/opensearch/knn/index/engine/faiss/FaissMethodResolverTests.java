@@ -22,8 +22,12 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_INT8;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
 
 public class FaissMethodResolverTests extends KNNTestCase {
 
@@ -163,6 +167,34 @@ public class FaissMethodResolverTests extends KNNTestCase {
         );
         assertEquals(knnMethodConfigContext.getCompressionLevel(), CompressionLevel.x8);
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x8, SpaceType.L2, QFrameBitEncoder.NAME, true);
+
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .mode(Mode.ON_DISK)
+                .compressionLevel(CompressionLevel.x4)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x4, SpaceType.INNER_PRODUCT, ENCODER_SQ, false);
+
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            new KNNMethodContext(
+                KNNEngine.FAISS,
+                SpaceType.L2,
+                new MethodComponentContext(
+                    METHOD_HNSW,
+                    Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(TYPE, FAISS_SQ_ENCODER_INT8)))
+                )
+            ),
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.L2
+        );
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x4, SpaceType.L2, ENCODER_SQ, false);
     }
 
     private void validateResolveMethodContext(
@@ -195,21 +227,6 @@ public class FaissMethodResolverTests extends KNNTestCase {
     }
 
     public void testResolveMethod_whenInvalid_thenThrow() {
-        // Invalid compression
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                null,
-                KNNMethodConfigContext.builder()
-                    .vectorDataType(VectorDataType.FLOAT)
-                    .compressionLevel(CompressionLevel.x4)
-                    .versionCreated(Version.CURRENT)
-                    .build(),
-                false,
-                SpaceType.L2
-            )
-        );
-
         expectThrows(
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
@@ -262,6 +279,30 @@ public class FaissMethodResolverTests extends KNNTestCase {
                     .vectorDataType(VectorDataType.FLOAT)
                     .mode(Mode.ON_DISK)
                     .compressionLevel(CompressionLevel.x8)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                false,
+                SpaceType.INNER_PRODUCT
+            )
+
+        );
+
+        // Using IVF with Faiss 4x compression
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                new KNNMethodContext(
+                    KNNEngine.FAISS,
+                    SpaceType.INNER_PRODUCT,
+                    new MethodComponentContext(
+                        METHOD_IVF,
+                        Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(TYPE, FAISS_SQ_ENCODER_INT8)))
+                    )
+                ),
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .mode(Mode.ON_DISK)
+                    .compressionLevel(CompressionLevel.x4)
                     .versionCreated(Version.CURRENT)
                     .build(),
                 false,

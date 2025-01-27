@@ -28,6 +28,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -184,6 +185,7 @@ public class KNNIndexShard {
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
+                    QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
                     engineFiles.addAll(
                         getEngineFileContexts(
                             reader.getSegmentInfo(),
@@ -191,11 +193,7 @@ public class KNNIndexShard {
                             fileExtension,
                             spaceType,
                             modelId,
-                            FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
-                                ? VectorDataType.get(
-                                    fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-                                )
-                                : VectorDataType.BINARY
+                            getVectorDataType(quantizationConfig, fieldInfo)
                         )
                     );
                 }
@@ -223,6 +221,16 @@ public class KNNIndexShard {
             .filter(fileName -> fileName.endsWith(suffix))
             .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
             .collect(Collectors.toList());
+    }
+
+    private VectorDataType getVectorDataType(QuantizationConfig quantizationConfig, FieldInfo fieldInfo) {
+        if (quantizationConfig == QuantizationConfig.EMPTY) {
+            return VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()));
+        }
+        if (quantizationConfig.getQuantizationType() == ScalarQuantizationType.EIGHT_BIT) {
+            return VectorDataType.BYTE;
+        }
+        return VectorDataType.BINARY;
     }
 
     @AllArgsConstructor

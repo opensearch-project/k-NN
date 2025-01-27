@@ -32,6 +32,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_INT8;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -127,6 +128,40 @@ public class FaissTests extends KNNTestCase {
             .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
             .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
+    @SneakyThrows
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWSQINT8_thenCreateCorrectIndexDescription() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        int hnswMParam = 24;
+        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,SQ8", hnswMParam);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, hnswMParam)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_INT8)
             .endObject()
             .endObject()
             .endObject()

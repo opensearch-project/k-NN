@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -36,7 +38,10 @@ public class SegmentLevelQuantizationInfo {
     public static SegmentLevelQuantizationInfo build(final LeafReader leafReader, final FieldInfo fieldInfo, final String fieldName)
         throws IOException {
         final QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo);
-        if (quantizationParams == null) {
+        if (quantizationParams == null
+            || (quantizationParams.getTypeIdentifier()).equals(
+                ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.EIGHT_BIT)
+            )) {
             return null;
         }
         final QuantizationState quantizationState = SegmentLevelQuantizationUtil.getQuantizationState(leafReader, fieldName);

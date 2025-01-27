@@ -30,7 +30,9 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.test.OpenSearchTestCase;
 
@@ -324,8 +326,13 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 .thenReturn(knnVectorValues);
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
+            when(quantizationParams.getTypeIdentifier()).thenReturn(
+                ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT)
+            );
             try {
-                when(quantizationService.train(quantizationParams, knnVectorValues, mergedVectors.size())).thenReturn(quantizationState);
+                when(quantizationService.train(quantizationParams, knnVectorValues, mergedVectors.size(), fieldInfo)).thenReturn(
+                    quantizationState
+                );
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

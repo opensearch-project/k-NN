@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -21,6 +22,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_INT8;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_TYPES;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 
@@ -58,7 +60,29 @@ public class FaissSQEncoder implements Encoder {
         MethodComponentContext methodComponentContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
-        // TODO: Hard code for now
-        return CompressionLevel.x2;
+        // Faiss Scalar Quantizer by default sets to fp16 or compression level x2 when encoder type is not set
+        if (methodComponentContext.getParameters().size() == 0 || !methodComponentContext.getParameters().containsKey(FAISS_SQ_TYPE)) {
+            return CompressionLevel.x2;
+        }
+
+        // Map the sq encoder type passed in, back to the compression level
+        Object value = methodComponentContext.getParameters().get(FAISS_SQ_TYPE);
+        ValidationException validationException = METHOD_COMPONENT.getParameters()
+            .get(FAISS_SQ_TYPE)
+            .validate(value, knnMethodConfigContext);
+        if (validationException != null) {
+            throw validationException;
+        }
+
+        String SQEncoderType = (String) value;
+        if (FAISS_SQ_ENCODER_FP16.equals(SQEncoderType)) {
+            return CompressionLevel.x2;
+        }
+
+        if (FAISS_SQ_ENCODER_INT8.equals(SQEncoderType)) {
+            return CompressionLevel.x4;
+        }
+
+        return CompressionLevel.NOT_CONFIGURED;
     }
 }
