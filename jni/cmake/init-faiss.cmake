@@ -111,7 +111,7 @@ endif()
 if(NOT DEFINED AVX512_SPR_ENABLED)
     # Check if the system is Intel(R) Sapphire Rapids or a newer-generation processor
     execute_process(COMMAND bash -c "lscpu | grep -q 'GenuineIntel' && lscpu | grep -i 'avx512_fp16' | grep -i 'avx512_bf16' | grep -i 'avx512_vpopcntdq'" OUTPUT_VARIABLE SPR_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if (AND NOT "${SPR_FLAGS}" STREQUAL "")
+    if (NOT "${SPR_FLAGS}" STREQUAL "")
 	set(AVX512_SPR_ENABLED true)
     else()
 	set(AVX512_SPR_ENABLED false)
