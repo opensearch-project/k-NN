@@ -9,8 +9,8 @@ allprojects {
         java {
             target 'src/**/*.java'
             removeUnusedImports()
-            eclipse().configFile rootProject.file('buildSrc/formatterConfig.xml')
-            trimTrailingWhitespace()
+	    eclipse().withP2Mirrors(Map.of("https://download.eclipse.org/", "https://mirror.umd.edu/eclipse/")).configFile rootProject.file('buildSrc/formatterConfig.xml')
+	    trimTrailingWhitespace()
         }
     }
 }
