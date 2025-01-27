@@ -56,4 +56,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Upgrade jsonpath from 2.8.0 to 2.9.0[2325](https://github.com/opensearch-project/k-NN/pull/2325)
 * Bump Faiss commit from 1f42e81 to 0cbc2a8 to accelerate hamming distance calculation using _mm512_popcnt_epi64  intrinsic and also add avx512-fp16 instructions to boost performance [#2381](https://github.com/opensearch-project/k-NN/pull/2381)
 * Deprecate nmslib engine (#2427)[https://github.com/opensearch-project/k-NN/pull/2427]
+* Add spotless mirror repo for fixing builds [#2453](https://github.com/opensearch-project/k-NN/pull/2453)
 ### Refactoring
