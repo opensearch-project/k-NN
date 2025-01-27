@@ -56,7 +56,7 @@ public class RestoreSnapshotIT extends OpenSearchRestTestCase {
         createSnapshot(repository, snapshot, true);
     }
 
-    public void testUnmodifiableOnRestoreSettingModifiedOnRestore() throws Exception {
+    public void testKnnSettingIsUnmodifiableOnRestore() throws Exception {
         setupSnapshotRestore();
 
         // invalid restore
@@ -77,7 +77,7 @@ public class RestoreSnapshotIT extends OpenSearchRestTestCase {
         assertThat(error.getMessage(), containsString("cannot modify UnmodifiableOnRestore setting [index.knn]" + " on restore"));
     }
 
-    public void testUnmodifiableOnRestoreSettingIgnoredOnRestore() throws Exception {
+    public void testKnnSettingCannotBeIgnoredDuringRestore() throws Exception {
         setupSnapshotRestore();
 
         // invalid restore
