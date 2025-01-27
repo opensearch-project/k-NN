@@ -40,7 +40,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     private ThreadPool threadPool;
 
     @Before
-    public void setThreadPool() {
+    public void setUp() {
         threadPool = new ThreadPool(Settings.builder().put("node.name", "NativeMemoryCacheManagerTests").build());
         NativeMemoryCacheManager.setThreadPool(threadPool);
     }

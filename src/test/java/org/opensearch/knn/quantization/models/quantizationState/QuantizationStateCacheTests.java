@@ -36,13 +36,13 @@ public class QuantizationStateCacheTests extends KNNTestCase {
     private ThreadPool threadPool;
 
     @Before
-    public void setThreadPool() {
+    public void setUp() {
         threadPool = new ThreadPool(Settings.builder().put("node.name", "QuantizationStateCacheTests").build());
         QuantizationStateCache.setThreadPool(threadPool);
     }
 
     @After
-    public void stopMaintenance() throws IOException {
+    public void tearDown() throws IOException {
         terminate(threadPool);
         QuantizationStateCache.setThreadPool(null);
         QuantizationStateCache.getInstance().close();
