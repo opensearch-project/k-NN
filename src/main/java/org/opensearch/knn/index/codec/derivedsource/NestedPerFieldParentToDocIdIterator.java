@@ -69,15 +69,6 @@ public class NestedPerFieldParentToDocIdIterator {
     }
 
     /**
-     * Get the number of children for this parent.
-     *
-     * @return number of children for this parent
-     */
-    public int numChildren() {
-        return children.size();
-    }
-
-    /**
      * Get the next child for this parent
      *
      * @return the next child docId. If this has not been set, return -1. If there are no more children, return

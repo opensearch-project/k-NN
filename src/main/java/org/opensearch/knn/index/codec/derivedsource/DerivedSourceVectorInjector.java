@@ -20,8 +20,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * This class is responsible for injecting vectors into the source of a document. From a high level, it uses alternative
@@ -31,6 +33,7 @@ import java.util.Map;
 public class DerivedSourceVectorInjector {
 
     private final List<PerFieldDerivedVectorInjector> perFieldDerivedVectorInjectors;
+    private final Set<String> fieldNames;
 
     /**
      * Constructor for DerivedSourceVectorInjector.
@@ -46,10 +49,12 @@ public class DerivedSourceVectorInjector {
     ) throws IOException {
         DerivedSourceReaders derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         this.perFieldDerivedVectorInjectors = new ArrayList<>();
+        this.fieldNames = new HashSet<>();
         for (FieldInfo fieldInfo : fieldsToInjectVector) {
             this.perFieldDerivedVectorInjectors.add(
                 PerFieldDerivedVectorInjectorFactory.create(fieldInfo, derivedSourceReaders, segmentReadState)
             );
+            this.fieldNames.add(fieldInfo.name);
         }
     }
 
@@ -83,5 +88,35 @@ public class DerivedSourceVectorInjector {
         XContentBuilder builder = MediaTypeRegistry.contentBuilder(actualContentType, bStream).map(sourceAsMap);
         builder.close();
         return BytesReference.toBytes(BytesReference.bytes(builder));
+    }
+
+    /**
+     * Whether or not to inject vectors based on what fields are explicitly required
+     *
+     * @param includes List of fields that are required to be injected
+     * @param excludes List of fields that are not required to be injected
+     * @return true if vectors should be injected, false otherwise
+     */
+    public boolean shouldInject(String[] includes, String[] excludes) {
+        // If any of the vector fields are explicitly required we should inject
+        if (includes != null) {
+            for (String includedField : includes) {
+                if (fieldNames.contains(includedField)) {
+                    return true;
+                }
+            }
+        }
+
+        // If all of the vector fields are explicitly excluded we should not inject
+        if (excludes != null) {
+            int excludedVectorFieldCount = 0;
+            for (String excludedField : excludes) {
+                if (fieldNames.contains(excludedField)) {
+                    excludedVectorFieldCount++;
+                }
+            }
+            return excludedVectorFieldCount >= fieldNames.size();
+        }
+        return true;
     }
 }

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.derivedsource;
 
+import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.PostingsEnum;
@@ -26,21 +27,12 @@ import java.util.Map;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
 @Log4j2
+@AllArgsConstructor
 public class NestedPerFieldDerivedVectorInjector implements PerFieldDerivedVectorInjector {
 
     private final FieldInfo childFieldInfo;
     private final DerivedSourceReaders derivedSourceReaders;
     private final SegmentReadState segmentReadState;
-
-    public NestedPerFieldDerivedVectorInjector(
-        FieldInfo childFieldInfo,
-        DerivedSourceReaders derivedSourceReaders,
-        SegmentReadState segmentReadState
-    ) {
-        this.childFieldInfo = childFieldInfo;
-        this.derivedSourceReaders = derivedSourceReaders;
-        this.segmentReadState = segmentReadState;
-    }
 
     @Override
     public void inject(Integer parentDocId, Map<String, Object> sourceAsMap) throws IOException {

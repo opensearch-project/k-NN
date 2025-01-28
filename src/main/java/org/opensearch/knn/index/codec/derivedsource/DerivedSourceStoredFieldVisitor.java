@@ -25,7 +25,6 @@ public class DerivedSourceStoredFieldVisitor extends StoredFieldVisitor {
 
     @Override
     public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
-        // TODO: Add skip condition here if the delegate specifies which fields are not required for source
         if (fieldInfo.name.equals(SourceFieldMapper.NAME)) {
             delegate.binaryField(fieldInfo, derivedSourceVectorInjector.injectVectors(documentId, value));
             return;
