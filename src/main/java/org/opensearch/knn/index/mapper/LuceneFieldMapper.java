@@ -129,7 +129,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         }
 
         if (isDerivedSourceEnabled) {
+            this.fieldType = new FieldType(this.fieldType);
             this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
+            this.fieldType.freeze();
         }
 
         KNNLibraryIndexingContext knnLibraryIndexingContext = resolvedKnnMethodContext.getKnnEngine()
