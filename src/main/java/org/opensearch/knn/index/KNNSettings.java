@@ -272,7 +272,7 @@ public class KNNSettings {
 
     public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = Setting.boolSetting(
         KNN_DERIVED_SOURCE_ENABLED,
-        true,
+        false,
         IndexScope,
         Setting.Property.Final
     );
