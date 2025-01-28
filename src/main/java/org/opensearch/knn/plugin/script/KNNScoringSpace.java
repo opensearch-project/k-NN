@@ -200,11 +200,11 @@ public interface KNNScoringSpace {
                     // https://github.com/apache/lucene/blob/0494c824e0ac8049b757582f60d085932a890800/lucene/core/src/java/org/apache/lucene/index/VectorSimilarityFunction.java#L73
                     // for indices that are created on or after 2.19.0
                     //
-                    // OS Score = ( 2 − cosineSimil) / 2
-                    // However cosineSimil = 1 - cos θ, after applying this to above formula,
-                    // OS Score = ( 2 − ( 1 − cos θ ) ) / 2
+                    // OS Score = ( 2 - cosineSimil) / 2
+                    // However cosineSimil = 1 - cos x, after applying this to above formula,
+                    // OS Score = ( 2 - ( 1 - cos x ) ) / 2
                     // which simplifies to
-                    // OS Score = ( 1 + cos θ ) / 2
+                    // OS Score = ( 1 + cos x ) / 2
                     return (float[] q, float[] v) -> Math.max(
                         ((1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude)) / 2.0F),
                         0
