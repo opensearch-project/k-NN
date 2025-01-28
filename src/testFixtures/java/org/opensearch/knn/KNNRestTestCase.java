@@ -786,8 +786,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected void updateKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
-
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        String parent = ParentChildHelper.getParentField(fieldName);
+        if (parent != null) {
+            builder.startObject(parent).field(fieldName, vector).endObject();
+        } else {
+            builder.field(fieldName, vector);
+        }
+        builder.endObject();
 
         request.setJsonEntity(builder.toString());
 
@@ -800,16 +806,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected void updateKnnDocWithUpdateAPI(String index, String docId, String fieldName, Object[] vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_update/" + docId + "?refresh=true");
-
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("doc")
-            .field(fieldName, vector)
-            .endObject()
-            .endObject();
-
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("doc");
+        String parent = ParentChildHelper.getParentField(fieldName);
+        if (parent != null) {
+            builder.startObject(parent).field(fieldName, vector).endObject();
+        } else {
+            builder.field(fieldName, vector);
+        }
+        builder.endObject().endObject();
         request.setJsonEntity(builder.toString());
-
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
@@ -1408,18 +1413,24 @@ public class KNNRestTestCase extends ODFERestTestCase {
         for (int i = 0; i < numVectors; i++) {
             float[] vector1 = vectors1[i];
             float[] vector2 = vectors2[i];
-            if (random.nextFloat() > skipProb) {
-                addKnnDoc(
-                    indexName,
-                    String.valueOf(i + 1),
-                    XContentFactory.jsonBuilder()
-                        .startObject()
-                        .field(fieldName1, vector1)
-                        .field(fieldName2, vector2)
-                        .field(fieldName3, "test-test")
-                        .endObject()
-                        .toString()
-                );
+
+            boolean includeFieldOne = random.nextFloat() > skipProb;
+            boolean includeFieldTwo = random.nextFloat() > skipProb;
+            boolean includeFieldThree = random.nextFloat() > skipProb;
+
+            if (includeFieldOne || includeFieldTwo || includeFieldThree) {
+                XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject();
+                if (includeFieldOne) {
+                    xContentBuilder.field(fieldName1, vector1);
+                }
+                if (includeFieldTwo) {
+                    xContentBuilder.field(fieldName2, vector2);
+                }
+                if (includeFieldThree) {
+                    xContentBuilder.field(fieldName3, "test-test");
+                }
+                xContentBuilder.endObject();
+                addKnnDoc(indexName, String.valueOf(i + 1), xContentBuilder.toString());
             } else {
                 addDocWithNumericField(indexName, String.valueOf(i + 1), "numeric-field", 1);
             }

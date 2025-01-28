@@ -11,6 +11,7 @@ import org.apache.lucene.index.SegmentReadState;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
@@ -99,7 +100,7 @@ public class DerivedSourceVectorInjector {
      */
     public boolean shouldInject(String[] includes, String[] excludes) {
         // If any of the vector fields are explicitly required we should inject
-        if (includes != null) {
+        if (includes != null && includes != Strings.EMPTY_ARRAY) {
             for (String includedField : includes) {
                 if (fieldNames.contains(includedField)) {
                     return true;
@@ -108,14 +109,15 @@ public class DerivedSourceVectorInjector {
         }
 
         // If all of the vector fields are explicitly excluded we should not inject
-        if (excludes != null) {
+        if (excludes != null && excludes != Strings.EMPTY_ARRAY) {
             int excludedVectorFieldCount = 0;
             for (String excludedField : excludes) {
                 if (fieldNames.contains(excludedField)) {
                     excludedVectorFieldCount++;
                 }
             }
-            return excludedVectorFieldCount >= fieldNames.size();
+            // Inject if we havent excluded all of the fields
+            return excludedVectorFieldCount < fieldNames.size();
         }
         return true;
     }
