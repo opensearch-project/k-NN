@@ -1473,6 +1473,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             }
             builder.endArray();
             builder.endObject();
+            // log.info(builder.toString());
             addKnnDoc(indexName, String.valueOf(i + 1), builder.toString());
         }
     }

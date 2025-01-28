@@ -7,7 +7,6 @@ package org.opensearch.knn.integ;
 
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
-import org.junit.Ignore;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -273,7 +272,6 @@ public class DerivedSourceIT extends KNNRestTestCase {
         assertDocsMatch(DOCS, originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
     }
 
-    @Ignore
     @SneakyThrows
     public void testNestedSingleDocBasic() {
         // For basic tests, we will have 0-5 nested documents per document
@@ -300,19 +298,18 @@ public class DerivedSourceIT extends KNNRestTestCase {
             0.1f
         );
         refreshAllIndices();
-        assertDocsMatch(DOCS, originalIndexNameDerivedSourceEnabled, originalIndexNameDerivedSourceDisabled);
+        assertDocsMatch(DOCS, originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
         forceMergeKnnIndex(originalIndexNameDerivedSourceEnabled, 10);
         forceMergeKnnIndex(originalIndexNameDerivedSourceDisabled, 10);
         refreshAllIndices();
         assertIndexBigger(originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
-        assertDocsMatch(DOCS, originalIndexNameDerivedSourceEnabled, originalIndexNameDerivedSourceDisabled);
+        assertDocsMatch(DOCS, originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
         refreshAllIndices();
         forceMergeKnnIndex(originalIndexNameDerivedSourceEnabled, 1);
         forceMergeKnnIndex(originalIndexNameDerivedSourceDisabled, 1);
         refreshAllIndices();
     }
 
-    @Ignore
     @SneakyThrows
     public void testNestedMultiDocBasic() {
         String originalIndexNameDerivedSourceEnabled = ("original-enable-" + randomAlphaOfLength(6).toLowerCase(Locale.ROOT)); // "test");

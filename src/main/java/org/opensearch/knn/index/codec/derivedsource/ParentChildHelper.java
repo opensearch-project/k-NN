@@ -36,4 +36,16 @@ public class ParentChildHelper {
         int lastDot = field.lastIndexOf('.');
         return field.substring(lastDot + 1);
     }
+
+    /**
+     * Construct a sibling field path. For instance, if the field is "parent.to.child" and the sibling is "sibling", this
+     * would return "parent.to.sibling".
+     *
+     * @param field   nested field path
+     * @param sibling sibling field
+     * @return sibling field path
+     */
+    public static String constructSiblingField(String field, String sibling) {
+        return getParentField(field) + "." + sibling;
+    }
 }

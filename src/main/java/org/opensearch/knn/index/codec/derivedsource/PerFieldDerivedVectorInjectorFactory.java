@@ -27,9 +27,7 @@ public class PerFieldDerivedVectorInjectorFactory {
     ) {
         // Nested case
         if (ParentChildHelper.getParentField(fieldInfo.name) != null) {
-            throw new IllegalArgumentException(
-                String.format("Field %s is a nested field. Nested fields are not supported by the derived source codec.", fieldInfo.name)
-            );
+            return new NestedPerFieldDerivedVectorInjector(fieldInfo, derivedSourceReaders, segmentReadState);
         }
 
         // Non-nested case
