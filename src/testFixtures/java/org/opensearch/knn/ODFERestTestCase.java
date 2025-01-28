@@ -86,10 +86,6 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return builder.build();
     }
 
-    protected boolean preserveClusterUponCompletion() {
-        return false;
-    }
-
     protected static void configureHttpsClient(RestClientBuilder builder, Settings settings) throws IOException {
         // Similar to client configuration with OpenSearch:
         // https://github.com/opensearch-project/OpenSearch/blob/2.11.1/test/framework/src/main/java/org/opensearch/test/rest/OpenSearchRestTestCase.java#L841-L863
