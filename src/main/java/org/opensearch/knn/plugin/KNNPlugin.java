@@ -14,6 +14,7 @@ import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.query.profile.KNNProfileTimingType;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -112,6 +113,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -178,6 +180,11 @@ public class KNNPlugin extends Plugin
     @Override
     public List<QuerySpec<?>> getQueries() {
         return singletonList(new QuerySpec<>(KNNQueryBuilder.NAME, KNNQueryBuilder::new, KNNQueryBuilderParser::fromXContent));
+    }
+
+    @Override
+    public Set<String> registerProfilerTimingTypes() {
+        return Set.of(KNNProfileTimingType.EXACT_KNN_SEARCH.name(), KNNProfileTimingType.ANN_SEARCH.name());
     }
 
     @Override

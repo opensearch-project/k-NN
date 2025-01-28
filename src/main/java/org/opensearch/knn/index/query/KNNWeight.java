@@ -36,6 +36,7 @@ import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder;
+import org.opensearch.knn.index.query.profile.KNNProfileTimingType;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -341,7 +342,7 @@ public class KNNWeight extends Weight {
             }
             int[] parentIds = getParentIdsArray(context);
             if (knnQueryProfiler != null) {
-                knnQueryProfiler.context(context).getTimer(QueryTimingType.ANN_SEARCH).start();
+                knnQueryProfiler.context(context).getTimer(KNNProfileTimingType.ANN_SEARCH.name()).start();
             }
 
             if (k > 0) {
@@ -390,7 +391,7 @@ public class KNNWeight extends Weight {
             indexAllocation.readUnlock();
             indexAllocation.decRef();
             if (knnQueryProfiler != null) {
-                knnQueryProfiler.context(context).getTimer(QueryTimingType.ANN_SEARCH).stop();
+                knnQueryProfiler.context(context).getTimer(KNNProfileTimingType.ANN_SEARCH.name()).stop();
             }
         }
 
@@ -414,14 +415,14 @@ public class KNNWeight extends Weight {
         final ExactSearcher.ExactSearcherContext exactSearcherContext
     ) throws IOException {
         if (knnQueryProfiler != null) {
-            knnQueryProfiler.context(leafReaderContext).getTimer(QueryTimingType.EXACT_KNN_SEARCH).start();
+            knnQueryProfiler.context(leafReaderContext).getTimer(KNNProfileTimingType.EXACT_KNN_SEARCH.name()).start();
         }
 
         try {
             return exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
         } finally {
             if (knnQueryProfiler != null) {
-                knnQueryProfiler.context(leafReaderContext).getTimer(QueryTimingType.EXACT_KNN_SEARCH).stop();
+                knnQueryProfiler.context(leafReaderContext).getTimer(KNNProfileTimingType.EXACT_KNN_SEARCH.name()).stop();
             }
         }
     }
