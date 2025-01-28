@@ -114,9 +114,12 @@ fi
 # 20250127: Require at least GCC 12 to support avx512_spr on x64, while keep GCC 10 on arm64
 # https://github.com/opensearch-project/opensearch-build/issues/5226
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
-GCC_REQUIRED_VERSION=10.0.0
-if [ `uname -m` = "x86_64" ]; then
-    GCC_REQUIRED_VERSION=12.4.0
+if [ "$ARCHITECTURE" = "x64" ]; then
+  # https://github.com/opensearch-project/opensearch-build/issues/5226
+  # We need gcc version >=12.4 to build Faiss Sapphire library(avx512_spr)
+  GCC_REQUIRED_VERSION=12.4
+else
+  GCC_REQUIRED_VERSION=9.0.0
 fi
 COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
 if [ "$COMPARE_VERSION" != "$GCC_REQUIRED_VERSION" ]; then
