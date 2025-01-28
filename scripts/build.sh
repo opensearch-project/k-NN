@@ -111,6 +111,8 @@ fi
 # https://github.com/opensearch-project/k-NN/issues/975
 # https://github.com/opensearch-project/k-NN/issues/1138
 # https://github.com/opensearch-project/opensearch-build/issues/4386
+# 20250127: Require at least GCC 12 to support avx512_spr on x64, while keep GCC 10 on arm64
+# https://github.com/opensearch-project/opensearch-build/issues/5226
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
 if [ "$ARCHITECTURE" = "x64" ]; then
   # https://github.com/opensearch-project/opensearch-build/issues/5226
