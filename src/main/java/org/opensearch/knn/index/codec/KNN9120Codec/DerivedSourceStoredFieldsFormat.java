@@ -46,6 +46,10 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
                 derivedVectorFields.add(fieldInfo);
             }
         }
+        // If no fields have it enabled,
+        if (derivedVectorFields.isEmpty()) {
+            return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
+        }
         DerivedSourceVectorInjector derivedSourceVectorInjector = new DerivedSourceVectorInjector(
             derivedSourceReadersSupplier,
             new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext),
@@ -67,7 +71,9 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
                     vectorFieldTypes.add(fieldType.name());
                 }
             }
-            return new DerivedSourceStoredFieldsWriter(delegateWriter, vectorFieldTypes);
+            if (vectorFieldTypes.isEmpty() == false) {
+                return new DerivedSourceStoredFieldsWriter(delegateWriter, vectorFieldTypes);
+            }
         }
         return delegateWriter;
     }
