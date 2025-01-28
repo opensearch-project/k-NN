@@ -1910,11 +1910,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
-    protected void addKnnDocWithAttributes(
+    protected <T> void addKnnDocWithAttributes(
         String indexName,
         String docId,
         String vectorFieldName,
-        float[] vector,
+        T vector,
         Map<String, String> fieldValues
     ) throws IOException {
         Request request = new Request("POST", "/" + indexName + "/_doc/" + docId + "?refresh=true");
