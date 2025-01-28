@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.After;
@@ -17,6 +18,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
@@ -25,11 +27,13 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.script.Script;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -62,6 +66,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     private static final String KNN_VECTOR_TYPE = "knn_vector";
     private static final int EF_CONSTRUCTION = 128;
     private static final int M = 16;
+    private static final String COLOR_FIELD_NAME = "color";
     private static final QueryBuilder MATCH_ALL_QUERY_BUILDER = new MatchAllQueryBuilder();
 
     @After
@@ -664,6 +669,99 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
         Thread.sleep(45 * 1000);
         deleteModel(modelId);
+    }
+
+    @SneakyThrows
+    public void testQueryWithFilterFaissByteVector_withDifferentCombination_thenSuccess() {
+        setupKNNFaissByteIndexForFilterQuery();
+        final Byte[] searchVector = { 6, 6, 4 };
+        // K > filteredResults
+        int kGreaterThanFilterResult = 5;
+        List<String> expectedDocIds = Arrays.asList("1", "3");
+        final Response response = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(
+                FIELD_NAME,
+                convertByteToFloatArray(searchVector),
+                kGreaterThanFilterResult,
+                QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")
+            ),
+            kGreaterThanFilterResult
+        );
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(expectedDocIds.size(), knnResults.size());
+        assertTrue(knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toList()).containsAll(expectedDocIds));
+
+        // K Limits Filter results
+        int kLimitsFilterResult = 1;
+        List<String> expectedDocIdsKLimitsFilterResult = List.of("1");
+        final Response responseKLimitsFilterResult = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(
+                FIELD_NAME,
+                convertByteToFloatArray(searchVector),
+                kLimitsFilterResult,
+                QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")
+            ),
+            kLimitsFilterResult
+        );
+        final String responseBodyKLimitsFilterResult = EntityUtils.toString(responseKLimitsFilterResult.getEntity());
+        final List<KNNResult> knnResultsKLimitsFilterResult = parseSearchResponse(responseBodyKLimitsFilterResult, FIELD_NAME);
+
+        assertEquals(expectedDocIdsKLimitsFilterResult.size(), knnResultsKLimitsFilterResult.size());
+        assertTrue(
+            knnResultsKLimitsFilterResult.stream()
+                .map(KNNResult::getDocId)
+                .collect(Collectors.toList())
+                .containsAll(expectedDocIdsKLimitsFilterResult)
+        );
+
+        // Empty filter docIds
+        int k = 10;
+        final Response emptyFilterResponse = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(
+                FIELD_NAME,
+                convertByteToFloatArray(searchVector),
+                kLimitsFilterResult,
+                QueryBuilders.termQuery(COLOR_FIELD_NAME, "color_not_present")
+            ),
+            k
+        );
+        final String responseBodyForEmptyDocIds = EntityUtils.toString(emptyFilterResponse.getEntity());
+        final List<KNNResult> emptyKNNFilteredResultsFromResponse = parseSearchResponse(responseBodyForEmptyDocIds, FIELD_NAME);
+
+        assertEquals(0, emptyKNNFilteredResultsFromResponse.size());
+    }
+
+    protected void setupKNNFaissByteIndexForFilterQuery() throws Exception {
+        // Create Mappings
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD)
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 3)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        final String mapping = builder.toString();
+
+        createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), mapping);
+
+        addKnnDocWithAttributes(INDEX_NAME, "1", FIELD_NAME, new Byte[] { 6, 7, 3 }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+        addKnnDocWithAttributes(INDEX_NAME, "2", FIELD_NAME, new Byte[] { 3, 2, 4 }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+        addKnnDocWithAttributes(INDEX_NAME, "3", FIELD_NAME, new Byte[] { 4, 5, 7 }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+
+        refreshIndex(INDEX_NAME);
     }
 
     @SneakyThrows
