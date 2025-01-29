@@ -171,10 +171,17 @@ public class KNNQuery extends Query {
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
-        StopWatch stopWatch = new StopWatch().start();
+        StopWatch stopWatch = null;
+        if (log.isDebugEnabled()) {
+            stopWatch = new StopWatch().start();
+        }
+
         final Weight filterWeight = getFilterWeight(searcher);
-        stopWatch.stop();
-        log.debug("Creating filter weight for field [{}] took [{}] nanos", field, stopWatch.totalTime().nanos());
+        if (log.isDebugEnabled() && stopWatch != null) {
+            stopWatch.stop();
+            log.debug("Creating filter weight for field [{}] took [{}] nanos", field, stopWatch.totalTime().nanos());
+        }
+
         if (filterWeight != null) {
             return new KNNWeight(this, boost, filterWeight);
         }

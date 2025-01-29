@@ -20,6 +20,7 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -130,10 +131,9 @@ public class KNNWeight extends Weight {
      * @return A Map of docId to scores for top k results
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
-        StopWatch stopWatch = new StopWatch().start();
+        StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
-        stopWatch.stop();
-        log.debug("Creating filter bitset for field [{}] took [{}] nanos", knnQuery.getField(), stopWatch.totalTime().nanos());
+        stopStopWatchAndLog(stopWatch, "Creating filter bitset for field [{}] took [{}] nanos");
 
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
@@ -158,10 +158,10 @@ public class KNNWeight extends Weight {
          * so that it will not do a bitset look up in bottom search layer.
          */
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
-        StopWatch annStopWatch = new StopWatch().start();
+        StopWatch annStopWatch = startStopWatch();
+        ;
         final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
-        annStopWatch.stop();
-        log.debug("ANN search for field [{}] took [{}] nanos", knnQuery.getField(), annStopWatch.totalTime().nanos());
+        stopStopWatchAndLog(annStopWatch, "ANN search for field [{}] took [{}] nanos");
 
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
@@ -172,6 +172,13 @@ public class KNNWeight extends Weight {
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);
+    }
+
+    private void stopStopWatchAndLog(@Nullable StopWatch stopWatch, String message) {
+        if (log.isDebugEnabled() && stopWatch != null) {
+            stopWatch.stop();
+            log.debug(message, knnQuery.getField(), stopWatch.totalTime().nanos());
+        }
     }
 
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
@@ -410,10 +417,9 @@ public class KNNWeight extends Weight {
         final LeafReaderContext leafReaderContext,
         final ExactSearcher.ExactSearcherContext exactSearcherContext
     ) throws IOException {
-        StopWatch stopWatch = new StopWatch().start();
+        StopWatch stopWatch = startStopWatch();
         Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
-        stopWatch.stop();
-        log.debug("Exact search for field [{}] took [{}] nanos", knnQuery.getField(), stopWatch.totalTime().nanos());
+        stopStopWatchAndLog(stopWatch, "Exact search for field [{}] took [{}] nanos");
         return exactSearchResults;
     }
 
@@ -534,5 +540,12 @@ public class KNNWeight extends Weight {
             reader.getSegmentInfo().info
         );
         return engineFiles.isEmpty();
+    }
+
+    private StopWatch startStopWatch() {
+        if (log.isDebugEnabled()) {
+            return new StopWatch().start();
+        }
+        return null;
     }
 }
