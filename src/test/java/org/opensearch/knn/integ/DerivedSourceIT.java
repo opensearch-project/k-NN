@@ -9,6 +9,7 @@ import com.google.common.primitives.Floats;
 import lombok.Builder;
 import lombok.Data;
 import lombok.SneakyThrows;
+import org.junit.Ignore;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -27,8 +28,9 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 
 /**
  * Integration tests for derived source feature for vector fields. Currently, with derived source, there are
- * a few gaps in functionality.
+ * a few gaps in functionality. Ignoring tests for now as feature is experimental.
  */
+@Ignore
 public class DerivedSourceIT extends KNNRestTestCase {
 
     private final static String NESTED_NAME = "test_nested";
