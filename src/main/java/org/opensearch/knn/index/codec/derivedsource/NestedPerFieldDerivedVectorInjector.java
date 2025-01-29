@@ -38,14 +38,9 @@ public class NestedPerFieldDerivedVectorInjector implements PerFieldDerivedVecto
     @Override
     public void inject(int parentDocId, Map<String, Object> sourceAsMap) throws IOException {
         // If the parent has the field, then it is just an object field.
-        if (getLowestDocIdForField(childFieldInfo.name, parentDocId) == parentDocId) {
+        int lowestDocIdForFieldWithParentAsOffset = getLowestDocIdForField(childFieldInfo.name, parentDocId);
+        if (lowestDocIdForFieldWithParentAsOffset == parentDocId) {
             injectObject(parentDocId, sourceAsMap);
-            return;
-        }
-
-        if (ParentChildHelper.splitPath(childFieldInfo.name).length > 2) {
-            // We do not support nested fields beyond one level
-            log.warn("Nested fields beyond one level are not supported. Field: {}", childFieldInfo.name);
             return;
         }
 
@@ -61,6 +56,10 @@ public class NestedPerFieldDerivedVectorInjector implements PerFieldDerivedVecto
             derivedSourceReaders,
             parentDocId
         );
+
+        if (nestedPerFieldParentToDocIdIterator.numChildren() == 0) {
+            return;
+        }
 
         // Initializes the parent field so that there is a list to put each of the children
         Object originalParentValue = sourceAsMap.get(parentFieldName);

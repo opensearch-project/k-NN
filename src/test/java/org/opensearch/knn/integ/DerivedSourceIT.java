@@ -9,7 +9,6 @@ import com.google.common.primitives.Floats;
 import lombok.Builder;
 import lombok.Data;
 import lombok.SneakyThrows;
-import org.junit.Ignore;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -30,7 +29,7 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
  * Integration tests for derived source feature for vector fields. Currently, with derived source, there are
  * a few gaps in functionality. Ignoring tests for now as feature is experimental.
  */
-@Ignore
+// @Ignore
 public class DerivedSourceIT extends KNNRestTestCase {
 
     private final static String NESTED_NAME = "test_nested";
@@ -52,10 +51,14 @@ public class DerivedSourceIT extends KNNRestTestCase {
         .build();
 
     /**
-     * Testing flat, single field base case with index configuration:
+     * Testing flat, single field base case with index configuration. The test will automatically skip adding fields for
+     *  random documents to ensure it works robustly. To ensure correctness, we repeat same operations against an
+     *  index without derived source enabled (baseline).
+     * Test mapping:
      * {
      *     "settings": {
      *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
      *     },
      *     "mappings":{
      *         "properties": {
@@ -66,10 +69,11 @@ public class DerivedSourceIT extends KNNRestTestCase {
      *         }
      *     }
      * }
-     * Comparing to the baseline:
+     * Baseline mapping:
      * {
      *     "settings": {
      *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
      *     },
      *     "mappings":{
      *         "properties": {
@@ -155,6 +159,53 @@ public class DerivedSourceIT extends KNNRestTestCase {
         testDerivedSourceE2E(indexConfigContexts);
     }
 
+    /**
+     * Testing multiple flat fields.
+     * Test mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_vector1": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128
+     *             },
+     *             "test_vector1": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128
+     *             },
+     *             "text": {
+     *                 "type": "text",
+     *             },
+     *         }
+     *     }
+     * }
+     * Baseline mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": false
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_vector1": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128
+     *             },
+     *             "test_vector1": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128
+     *             },
+     *             "text": {
+     *                 "type": "text",
+     *             },
+     *         }
+     *     }
+     * }
+     */
     @SneakyThrows
     public void testMultiFlatFields() {
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -263,6 +314,55 @@ public class DerivedSourceIT extends KNNRestTestCase {
         testDerivedSourceE2E(indexConfigContexts);
     }
 
+    /**
+     * Testing single nested doc per parent doc.
+     * Test mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_nested" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             }
+     *         }
+     *     }
+     * }
+     * Baseline mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": false
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_nested" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             }
+     *         }
+     *     }
+     * }
+     */
     public void testNestedSingleDocBasic() {
         String nestedMapping = createVectorNestedMappings(TEST_DIMENSION);
         List<IndexConfigContext> indexConfigContexts = List.of(
@@ -351,6 +451,56 @@ public class DerivedSourceIT extends KNNRestTestCase {
         testDerivedSourceE2E(indexConfigContexts);
     }
 
+    /**
+     * Testing single nested doc per parent doc.
+     * Test mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_nested" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             }
+     *
+     *         }
+     *     }
+     * }
+     * Baseline mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": false
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_nested" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             }
+     *         }
+     *     }
+     * }
+     */
     @SneakyThrows
     public void testNestedMultiDocBasic() {
         String nestedMapping = createVectorNestedMappings(TEST_DIMENSION);
@@ -443,28 +593,71 @@ public class DerivedSourceIT extends KNNRestTestCase {
     }
 
     /**
+     * Test object (non-nested field)
+     * Test
      * {
-     *     "properties": {
-     *         "vector_field_1" : {
-     *           "type" : "knn_vector",
-     *           "dimension" : 2
-     *         },
-     *         "path_1": {
-     *             "properties" : {
-     *                 "vector_field_2" : {
-     *                   "type" : "knn_vector",
-     *                   "dimension" : 2
-     *                 },
-     *                 "path_2": {
-     *                     "properties" : {
-     *                         "vector_field_3" : {
-     *                           "type" : "knn_vector",
-     *                           "dimension" : 2
-     *                         },
-     *                     }
-     *                 }
-     *             }
-     *         }
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
+     *     },
+     *     "mappings":{
+     *       {
+     *           "properties": {
+     *               "vector_field_1" : {
+     *                 "type" : "knn_vector",
+     *                 "dimension" : 2
+     *               },
+     *               "path_1": {
+     *                   "properties" : {
+     *                       "vector_field_2" : {
+     *                         "type" : "knn_vector",
+     *                         "dimension" : 2
+     *                       },
+     *                       "path_2": {
+     *                           "properties" : {
+     *                               "vector_field_3" : {
+     *                                 "type" : "knn_vector",
+     *                                 "dimension" : 2
+     *                               },
+     *                           }
+     *                       }
+     *                   }
+     *               }
+     *           }
+     *       }
+     *     }
+     * }
+     * Baseline
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": false
+     *     },
+     *     "mappings":{
+     *       {
+     *           "properties": {
+     *               "vector_field_1" : {
+     *                 "type" : "knn_vector",
+     *                 "dimension" : 2
+     *               },
+     *               "path_1": {
+     *                   "properties" : {
+     *                       "vector_field_2" : {
+     *                         "type" : "knn_vector",
+     *                         "dimension" : 2
+     *                       },
+     *                       "path_2": {
+     *                           "properties" : {
+     *                               "vector_field_3" : {
+     *                                 "type" : "knn_vector",
+     *                                 "dimension" : 2
+     *                               },
+     *                           }
+     *                       }
+     *                   }
+     *               }
+     *           }
+     *       }
      *     }
      * }
      */
@@ -625,8 +818,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
     }
 
     // TODO Test configurations
-    // 1. Object fields
-    // 2. FLS index
+    // 1. Ensure compatibility with FLS
 
     // We need to write a single method that will run through all the different possible combinations and
     // abstact when necessary.

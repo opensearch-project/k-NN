@@ -92,6 +92,14 @@ public class NestedPerFieldParentToDocIdIterator {
     }
 
     /**
+     *
+     * @return the number of children for this parent
+     */
+    public int numChildren() {
+        return children.size();
+    }
+
+    /**
      * For parentDocId of this class, find the one just before it to be used for matching children.
      *
      * @return the parent docId just before the parentDocId. -1 if none exist
@@ -122,6 +130,10 @@ public class NestedPerFieldParentToDocIdIterator {
      * @throws IOException if there is an error reading the children
      */
     private List<Integer> getChildren() throws IOException {
+        if (this.parentDocId - this.previousParentDocId <= 1) {
+            return Collections.emptyList();
+        }
+
         // First, we need to get the currect PostingsEnum for the key as _nested_path and the value the actual parent
         // path.
         String childField = childFieldInfo.name;

@@ -1477,7 +1477,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
                         for (int k = 0; k < fields.length - 1; k++) {
                             String field = fields[k];
                             Object value = currentMap.get(field);
-                            log.info("Value: " + value);
                             currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, t -> new HashMap<>());
                         }
                         currentMap.put(fields[fields.length - 1], vectors.get(j)[i]);
@@ -1486,14 +1485,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 for (int j = 0; j < includeTextFields.size(); j++) {
                     if (includeTextFields.get(j)) {
                         String[] fields = ParentChildHelper.splitPath(textFields.get(j));
-                        log.info("Fields: " + Arrays.toString(fields));
                         Map<String, Object> currentMap = source;
                         for (int k = 0; k < fields.length - 1; k++) {
                             String field = fields[k];
                             Object value = currentMap.get(field);
-                            log.info("FUll path: " + textFields.get(j));
-                            log.info("Key: " + field);
-                            log.info("Value: " + value);
                             currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, t -> new HashMap<>());
                         }
                         currentMap.put(fields[fields.length - 1], "test-test");
@@ -1503,7 +1498,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
                 mapToBuilder(builder, source);
                 builder.endObject();
-                log.info(builder.toString());
                 addKnnDoc(indexName, String.valueOf(i + 1), builder.toString());
             }
         }
@@ -1569,7 +1563,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
             }
             builder.endArray();
             builder.endObject();
-            // log.info(builder.toString());
             addKnnDoc(indexName, String.valueOf(i + 1), builder.toString());
         }
     }
