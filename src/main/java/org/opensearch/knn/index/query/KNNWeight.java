@@ -133,7 +133,7 @@ public class KNNWeight extends Weight {
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
         StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
-        stopStopWatchAndLog(stopWatch, "Creating filter bitset for field [{}] took [{}] nanos");
+        stopStopWatchAndLog(stopWatch, "FilterBitSet creation");
 
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
@@ -158,10 +158,10 @@ public class KNNWeight extends Weight {
          * so that it will not do a bitset look up in bottom search layer.
          */
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
+
         StopWatch annStopWatch = startStopWatch();
-        ;
         final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
-        stopStopWatchAndLog(annStopWatch, "ANN search for field [{}] took [{}] nanos");
+        stopStopWatchAndLog(annStopWatch, "ANN search");
 
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
@@ -174,10 +174,11 @@ public class KNNWeight extends Weight {
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);
     }
 
-    private void stopStopWatchAndLog(@Nullable StopWatch stopWatch, String message) {
+    private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage) {
         if (log.isDebugEnabled() && stopWatch != null) {
             stopWatch.stop();
-            log.debug(message, knnQuery.getField(), stopWatch.totalTime().nanos());
+            final String logMessage = prefixMessage + ", field: [{}], time in nanos:[{}] ";
+            log.debug(logMessage, knnQuery.getField(), stopWatch.totalTime().nanos());
         }
     }
 
@@ -419,7 +420,7 @@ public class KNNWeight extends Weight {
     ) throws IOException {
         StopWatch stopWatch = startStopWatch();
         Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
-        stopStopWatchAndLog(stopWatch, "Exact search for field [{}] took [{}] nanos");
+        stopStopWatchAndLog(stopWatch, "Exact search");
         return exactSearchResults;
     }
 
