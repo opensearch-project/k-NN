@@ -136,7 +136,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
             List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
             List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
 
-            int dimension = 2;
+            int dimension = 128;
 
             // Create an index
             /**
@@ -199,16 +199,35 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
 
             createKnnIndex(testIndex, mapping);
             assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(testIndex)));
-            Float[] vector1 = { -65523.76f, 65504.2f };
-            Float[] vector2 = { -270.85f, 65514.2f };
-            Float[] vector3 = { -150.9f, 65504.0f };
-            Float[] vector4 = { -20.89f, 100000000.0f };
+
+            Float[] vector1 = new Float[dimension];
+            Float[] vector2 = new Float[dimension];
+            Float[] vector3 = new Float[dimension];
+            Float[] vector4 = new Float[dimension];
+            float[] queryVector = new float[dimension];
+            int halfDimension = dimension / 2;
+
+            for (int i = 0; i < dimension; i++) {
+                if (i < halfDimension) {
+                    vector1[i] = -65523.76f;
+                    vector2[i] = -270.85f;
+                    vector3[i] = -150.9f;
+                    vector4[i] = -20.89f;
+                    queryVector[i] = -10.5f;
+                } else {
+                    vector1[i] = 65504.2f;
+                    vector2[i] = 65514.2f;
+                    vector3[i] = 65504.0f;
+                    vector4[i] = 100000000.0f;
+                    queryVector[i] = 25.48f;
+                }
+            }
+
             addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
             addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
             addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
             addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
 
-            float[] queryVector = { -10.5f, 25.48f };
             int k = 4;
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
