@@ -626,56 +626,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertTrue(validationErrors.get(0).contains("Description exceeds limit"));
     }
 
-    public void testValidation_invalid_mNotDivisibleByDimension() {
-
-        // Setup the training request
-        String modelId = "test-model-id";
-        int dimension = 10;
-        String trainingIndex = "test-training-index";
-        String trainingField = "test-training-field";
-        String trainingFieldModeId = "training-field-model-id";
-
-        Map<String, Object> parameters = Map.of("m", 3);
-
-        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
-        final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.DEFAULT, methodComponentContext);
-
-        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-            modelId,
-            knnMethodContext,
-            dimension,
-            trainingIndex,
-            trainingField,
-            null,
-            null,
-            VectorDataType.DEFAULT,
-            Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
-        );
-
-        // Mock the model dao to return metadata for modelId to recognize it is a duplicate
-        ModelMetadata trainingFieldModelMetadata = mock(ModelMetadata.class);
-        when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
-
-        ModelDao modelDao = mock(ModelDao.class);
-        when(modelDao.getMetadata(modelId)).thenReturn(null);
-        when(modelDao.getMetadata(trainingFieldModeId)).thenReturn(trainingFieldModelMetadata);
-
-        // Cluster service that wont produce validation exception
-        ClusterService clusterService = getClusterServiceForValidReturns(trainingIndex, trainingField, dimension);
-
-        // Initialize static components with the mocks
-        TrainingModelRequest.initialize(modelDao, clusterService);
-
-        // Test that validation produces m not divisible by vector dimension error message
-        ActionRequestValidationException exception = trainingModelRequest.validate();
-        assertNotNull(exception);
-        List<String> validationErrors = exception.validationErrors();
-        logger.error("Validation errors " + validationErrors);
-        assertEquals(2, validationErrors.size());
-        assertTrue(validationErrors.get(1).contains("Training request ENCODER_PARAMETER_PQ_M"));
-    }
-
     public void testValidation_valid_trainingIndexBuiltFromMethod() {
         // This cluster service will result in no validation exceptions
 

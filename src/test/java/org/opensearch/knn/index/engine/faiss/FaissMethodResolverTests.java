@@ -269,5 +269,29 @@ public class FaissMethodResolverTests extends KNNTestCase {
             )
 
         );
+
+        Map<String, Object> parameters = Map.of("m", 3);
+
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
+        final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.DEFAULT, methodComponentContext);
+
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(10)
+            .versionCreated(Version.CURRENT)
+            .compressionLevel(CompressionLevel.x8)
+            .mode(Mode.ON_DISK)
+            .build();
+
+        ValidationException validationException = expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(knnMethodContext, knnMethodConfigContext, false, SpaceType.INNER_PRODUCT)
+
+        );
+
+        assertTrue(
+            validationException.getMessage().contains("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions")
+        );
+
     }
 }

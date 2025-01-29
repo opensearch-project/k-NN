@@ -16,9 +16,12 @@ import org.opensearch.knn.index.mapper.VectorTransformerFactory;
 
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_SIGNED_BYTE_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.isFaissSQClipToFP16RangeEnabled;
 import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.isFaissSQfp16;
@@ -143,5 +146,41 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
     @Override
     protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
         return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType);
+    }
+
+    @Override
+    protected Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> doGetTrainingConfigValidationSetup() {
+        return (trainingConfigValidationInput) -> {
+
+            KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
+            Long trainingVectors = trainingConfigValidationInput.getTrainingVectorsCount();
+
+            TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+
+            // validate number of training points should be greater than minimum clustering criteria defined in faiss
+            if (knnMethodContext != null && trainingVectors != null) {
+                long minTrainingVectorCount = 1000;
+
+                MethodComponentContext encoderContext = (MethodComponentContext) knnMethodContext.getMethodComponentContext()
+                    .getParameters()
+                    .get(METHOD_ENCODER_PARAMETER);
+
+                if (knnMethodContext.getMethodComponentContext().getParameters().containsKey(METHOD_PARAMETER_NLIST)
+                    && encoderContext.getParameters().containsKey(ENCODER_PARAMETER_PQ_CODE_SIZE)) {
+
+                    int nlist = ((Integer) knnMethodContext.getMethodComponentContext().getParameters().get(METHOD_PARAMETER_NLIST));
+                    int code_size = ((Integer) encoderContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE));
+                    minTrainingVectorCount = (long) Math.max(nlist, Math.pow(2, code_size));
+                }
+
+                if (trainingVectors < minTrainingVectorCount) {
+                    builder.valid(false).minTrainingVectorCount(minTrainingVectorCount);
+                    return builder.build();
+                } else {
+                    builder.valid(true);
+                }
+            }
+            return builder.build();
+        };
     }
 }

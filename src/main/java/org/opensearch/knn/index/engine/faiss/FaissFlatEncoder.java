@@ -16,6 +16,11 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+
 /**
  * Flat faiss encoder. Flat encoding means that it does nothing. It needs an encoder, though, because it
  * is used in generating the index description.
@@ -51,5 +56,27 @@ public class FaissFlatEncoder implements Encoder {
         KNNMethodConfigContext knnMethodConfigContext
     ) {
         return CompressionLevel.x1;
+    }
+
+    @Override
+    public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
+        KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
+        KNNMethodConfigContext knnMethodConfigContext = trainingConfigValidationInput.getKnnMethodConfigContext();
+
+        TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+
+        // validate ENCODER_PARAMETER_PQ_M is divisible by vector dimension
+        if (knnMethodContext != null && knnMethodConfigContext != null) {
+            if (knnMethodContext.getMethodComponentContext().getParameters().containsKey(ENCODER_PARAMETER_PQ_M)
+                && knnMethodConfigContext.getDimension() % (Integer) knnMethodContext.getMethodComponentContext()
+                    .getParameters()
+                    .get(ENCODER_PARAMETER_PQ_M) != 0) {
+                builder.valid(false);
+                return builder.build();
+            } else {
+                builder.valid(true);
+            }
+        }
+        return builder.build();
     }
 }

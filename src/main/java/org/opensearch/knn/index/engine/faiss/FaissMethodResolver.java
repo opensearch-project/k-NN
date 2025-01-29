@@ -73,6 +73,9 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             encoderMap
         );
 
+        // Validate ENCODER_PARAMETER_PQ_M is divisible by vector dimension
+        validateMDivisibleByVectorDimension(resolvedKNNMethodContext, knnMethodConfigContext, encoderMap);
+
         // Validate that resolved compression doesnt have any conflicts
         validateCompressionConflicts(knnMethodConfigContext.getCompressionLevel(), resolvedCompressionLevel);
         knnMethodConfigContext.setCompressionLevel(resolvedCompressionLevel);
