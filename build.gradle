@@ -463,6 +463,8 @@ integTest {
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
     systemProperty "java.library.path", "$rootDir/jni/build/release"
+    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
 
@@ -530,6 +532,10 @@ testClusters.integTest {
         }
     }
     systemProperty("java.library.path", "$rootDir/jni/build/release")
+    systemProperty("java.library.path", "$rootDir/jni/release")
+    final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
+    testSnapshotFolder.mkdirs()
+    setting 'path.repo', "${buildDir}/testSnapshotFolder"
     systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
