@@ -16,7 +16,7 @@ import java.util.Map;
 /**
  * {@link PerFieldDerivedVectorInjector} for root fields (i.e. non nested fields).
  */
-public class RootPerFieldDerivedVectorInjector implements PerFieldDerivedVectorInjector {
+class RootPerFieldDerivedVectorInjector implements PerFieldDerivedVectorInjector {
 
     private final FieldInfo fieldInfo;
     private final CheckedSupplier<KNNVectorValues<?>, IOException> vectorValuesSupplier;

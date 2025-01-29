@@ -174,6 +174,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Gives the ability for certain, more exhaustive checks, to be disabled by default
+     *
+     * @return If the test is running in exhaustive mode
+     */
+    protected boolean isExhaustive() {
+        return Boolean.parseBoolean(System.getProperty("test.exhaustive", "false"));
+    }
+
+    /**
      * Create KNN Index with default settings
      */
     protected void createKnnIndex(String index, String mapping) throws IOException {
@@ -274,6 +283,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         return response;
+    }
+
+    protected List<Object> parseSearchResponseHits(String responseBody) throws IOException {
+        return (List<Object>) ((Map<String, Object>) createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map()
+            .get("hits")).get("hits");
     }
 
     /**
@@ -378,10 +392,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         final Map<String, Object> values = (Map<String, Object>) aggregations.get(aggregationName);
         return Double.valueOf(String.valueOf(values.get("value")));
     }
-
-    /**
-     * Parse the score from the KNN search response
-     */
 
     /**
      * Delete KNN index
@@ -802,7 +812,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * Update a KNN Doc with a new vector for the given fieldName
+     * Update a KNN Doc using the POST /\<index_name\>/_update/\<doc_id\>. Only the vector field will be updated.
      */
     protected void updateKnnDocWithUpdateAPI(String index, String docId, String fieldName, Object[] vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_update/" + docId + "?refresh=true");

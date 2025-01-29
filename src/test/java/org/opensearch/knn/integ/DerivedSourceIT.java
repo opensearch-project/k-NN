@@ -9,10 +9,16 @@ import com.google.common.primitives.Floats;
 import lombok.Builder;
 import lombok.Data;
 import lombok.SneakyThrows;
+import org.apache.http.util.EntityUtils;
+import org.opensearch.client.Request;
+import org.opensearch.client.Response;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
 
@@ -29,7 +35,6 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
  * Integration tests for derived source feature for vector fields. Currently, with derived source, there are
  * a few gaps in functionality. Ignoring tests for now as feature is experimental.
  */
-// @Ignore
 public class DerivedSourceIT extends KNNRestTestCase {
 
     private final static String NESTED_NAME = "test_nested";
@@ -73,7 +78,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
      * {
      *     "settings": {
      *         "index.knn" true,
-     *         "index.knn.derived_source.enabled": true
+     *         "index.knn.derived_source.enabled": false
      *     },
      *     "mappings":{
      *         "properties": {
@@ -473,7 +478,6 @@ public class DerivedSourceIT extends KNNRestTestCase {
      *                 },
      *               }
      *             }
-     *
      *         }
      *     }
      * }
@@ -817,11 +821,12 @@ public class DerivedSourceIT extends KNNRestTestCase {
         testDerivedSourceE2E(indexConfigContexts);
     }
 
-    // TODO Test configurations
-    // 1. Ensure compatibility with FLS
-
-    // We need to write a single method that will run through all the different possible combinations and
-    // abstact when necessary.
+    /**
+     * Single method for running end to end tests for different index configurations for derived source. In general,
+     * flow of operations are
+     *
+     * @param indexConfigContexts {@link IndexConfigContext}
+     */
     @SneakyThrows
     private void testDerivedSourceE2E(List<IndexConfigContext> indexConfigContexts) {
         // Make sure there are 6
@@ -833,9 +838,8 @@ public class DerivedSourceIT extends KNNRestTestCase {
         // Merging
         testMerging(indexConfigContexts);
 
-        // Update
-        // TODO: Skipping nested for now
-        if (indexConfigContexts.get(0).isNested == false) {
+        // Update. Skipping update tests for nested docs for now. Will add in the future.
+        if (indexConfigContexts.get(0).isNested() == false) {
             testUpdate(indexConfigContexts);
         }
 
@@ -932,6 +936,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
             originalIndexNameDerivedSourceEnabled
         );
 
+        // Sets the doc to an empty doc
         setDocToEmpty(originalIndexNameDerivedSourceEnabled, String.valueOf(docWithVectorRemoval));
         setDocToEmpty(originalIndexNameDerivedSourceDisabled, String.valueOf(docWithVectorRemoval));
         refreshAllIndices();
@@ -991,6 +996,79 @@ public class DerivedSourceIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    private void testSearch(List<IndexConfigContext> indexConfigContexts) {
+        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
+
+        // Default - all fields should be there
+        validateSearch(originalIndexNameDerivedSourceEnabled, derivedSourceEnabledContext.docCount, true, null, null);
+
+        // Default - no fields should be there
+        validateSearch(originalIndexNameDerivedSourceEnabled, derivedSourceEnabledContext.docCount, false, null, null);
+
+        // Exclude all vectors
+        validateSearch(
+            originalIndexNameDerivedSourceEnabled,
+            derivedSourceEnabledContext.docCount,
+            true,
+            null,
+            derivedSourceEnabledContext.vectorFieldNames
+        );
+
+        // Include all vectors
+        validateSearch(
+            originalIndexNameDerivedSourceEnabled,
+            derivedSourceEnabledContext.docCount,
+            true,
+            derivedSourceEnabledContext.vectorFieldNames,
+            null
+        );
+    }
+
+    @SneakyThrows
+    private void validateSearch(String indexName, int size, boolean isSourceEnabled, List<String> includes, List<String> excludes) {
+        // TODO: We need to figure out a way to enhance validation
+        QueryBuilder qb = new MatchAllQueryBuilder();
+        Request request = new Request("POST", "/" + indexName + "/_search");
+
+        request.addParameter("size", Integer.toString(size));
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder.field("query", qb);
+        if (isSourceEnabled == false) {
+            builder.field("_source", false);
+        }
+        if (includes != null) {
+            builder.startObject("_source");
+            builder.startArray("includes");
+            for (String include : includes) {
+                builder.value(include);
+            }
+            builder.endArray();
+            builder.endObject();
+        }
+        if (excludes != null) {
+            builder.startObject("_source");
+            builder.startArray("excludes");
+            for (String exclude : excludes) {
+                builder.value(exclude);
+            }
+            builder.endArray();
+            builder.endObject();
+        }
+
+        builder.endObject();
+        request.setJsonEntity(builder.toString());
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<Object> hits = parseSearchResponseHits(responseBody);
+
+        assertNotEquals(0, hits.size());
+    }
+
+    @SneakyThrows
     private void testDelete(List<IndexConfigContext> indexConfigContexts) {
         int docToDelete = 8;
         int docToDeleteByQuery = 11;
@@ -1019,12 +1097,6 @@ public class DerivedSourceIT extends KNNRestTestCase {
             originalIndexNameDerivedSourceDisabled,
             originalIndexNameDerivedSourceEnabled
         );
-    }
-
-    @SneakyThrows
-    private void testSearch(List<IndexConfigContext> indexConfigContexts) {
-        // TODO
-
     }
 
     @SneakyThrows
@@ -1117,12 +1189,17 @@ public class DerivedSourceIT extends KNNRestTestCase {
 
     @SneakyThrows
     private void assertIndexBigger(String expectedBiggerIndex, String expectedSmallerIndex) {
-        int expectedSmaller = indexSizeInBytes(expectedSmallerIndex);
-        int expectedBigger = indexSizeInBytes(expectedBiggerIndex);
-        assertTrue(
-            "Expected smaller index " + expectedSmaller + " was bigger than the expected bigger index:" + expectedBigger,
-            expectedSmaller < expectedBigger
-        );
+        if (isExhaustive()) {
+            logger.info("Checking index bigger assertion because running in exhaustive mode");
+            int expectedSmaller = indexSizeInBytes(expectedSmallerIndex);
+            int expectedBigger = indexSizeInBytes(expectedBiggerIndex);
+            assertTrue(
+                "Expected smaller index " + expectedSmaller + " was bigger than the expected bigger index:" + expectedBigger,
+                expectedSmaller < expectedBigger
+            );
+        } else {
+            logger.info("Skipping index bigger assertion because not running in exhaustive mode");
+        }
     }
 
     private void assertDocsMatch(int docCount, String index1, String index2) {

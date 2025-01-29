@@ -71,6 +71,7 @@ public class DerivedSourceVectorInjector implements Closeable {
      * @throws IOException if there is an issue reading from the formats
      */
     public byte[] injectVectors(int docId, byte[] sourceAsBytes) throws IOException {
+        // TODO: Add link to core code
         // Deserialize the source into a modifiable map
         Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
             BytesReference.fromByteBuffer(ByteBuffer.wrap(sourceAsBytes)),
