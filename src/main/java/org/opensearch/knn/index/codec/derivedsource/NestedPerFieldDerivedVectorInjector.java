@@ -116,7 +116,7 @@ public class NestedPerFieldDerivedVectorInjector implements PerFieldDerivedVecto
                 reconstructedSource.add(position, new HashMap<>());
                 positions.add(position, docId);
             }
-            reconstructedSource.get(position).put(childFieldName, vectorValues.getVector());
+            reconstructedSource.get(position).put(childFieldName, vectorValues.conditionalCloneVector());
             offsetPositionsIndex = position + 1;
         }
         sourceAsMap.put(parentFieldName, reconstructedSource);
