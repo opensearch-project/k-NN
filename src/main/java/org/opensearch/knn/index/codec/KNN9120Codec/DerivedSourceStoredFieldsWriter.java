@@ -65,10 +65,6 @@ public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
 
     @Override
     public int merge(MergeState mergeState) throws IOException {
-        // We have to wrap these here to avoid storing the vectors during merge
-        for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
-            mergeState.storedFieldsReaders[i] = DerivedSourceStoredFieldsReader.wrapForMerge(mergeState.storedFieldsReaders[i]);
-        }
         return delegate.merge(mergeState);
     }
 

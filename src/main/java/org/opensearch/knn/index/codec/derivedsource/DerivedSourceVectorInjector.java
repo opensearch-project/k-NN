@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentHelper;
@@ -17,6 +18,7 @@ import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -31,8 +33,9 @@ import java.util.Set;
  *  format readers and information about the fields to inject vectors into the source.
  */
 @Log4j2
-public class DerivedSourceVectorInjector {
+public class DerivedSourceVectorInjector implements Closeable {
 
+    private final DerivedSourceReaders derivedSourceReaders;
     private final List<PerFieldDerivedVectorInjector> perFieldDerivedVectorInjectors;
     private final Set<String> fieldNames;
 
@@ -48,7 +51,7 @@ public class DerivedSourceVectorInjector {
         SegmentReadState segmentReadState,
         List<FieldInfo> fieldsToInjectVector
     ) throws IOException {
-        DerivedSourceReaders derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
+        this.derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         this.perFieldDerivedVectorInjectors = new ArrayList<>();
         this.fieldNames = new HashSet<>();
         for (FieldInfo fieldInfo : fieldsToInjectVector) {
@@ -67,7 +70,7 @@ public class DerivedSourceVectorInjector {
      * @return byte array of the source with the vector fields added
      * @throws IOException if there is an issue reading from the formats
      */
-    public byte[] injectVectors(Integer docId, byte[] sourceAsBytes) throws IOException {
+    public byte[] injectVectors(int docId, byte[] sourceAsBytes) throws IOException {
         // Deserialize the source into a modifiable map
         Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
             BytesReference.fromByteBuffer(ByteBuffer.wrap(sourceAsBytes)),
@@ -120,5 +123,10 @@ public class DerivedSourceVectorInjector {
             return excludedVectorFieldCount < fieldNames.size();
         }
         return true;
+    }
+
+    @Override
+    public void close() throws IOException {
+        IOUtils.close(derivedSourceReaders);
     }
 }

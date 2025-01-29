@@ -19,7 +19,6 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceVectorInjector;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.io.IOException;
@@ -40,24 +39,25 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
-        List<FieldInfo> derivedVectorFields = new ArrayList<>();
+        List<FieldInfo> derivedVectorFields = null;
         for (FieldInfo fieldInfo : fieldInfos) {
             if (DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE.equals(fieldInfo.attributes().get(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY))) {
+                // Lazily initialize the list of fields
+                if (derivedVectorFields == null) {
+                    derivedVectorFields = new ArrayList<>();
+                }
                 derivedVectorFields.add(fieldInfo);
             }
         }
-        // If no fields have it enabled,
-        if (derivedVectorFields.isEmpty()) {
+        // If no fields have it enabled, we can just short-circuit and return the delegate's fieldReader
+        if (derivedVectorFields == null || derivedVectorFields.isEmpty()) {
             return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
         }
-        DerivedSourceVectorInjector derivedSourceVectorInjector = new DerivedSourceVectorInjector(
-            derivedSourceReadersSupplier,
-            new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext),
-            derivedVectorFields
-        );
         return new DerivedSourceStoredFieldsReader(
             delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
-            derivedSourceVectorInjector
+            derivedVectorFields,
+            derivedSourceReadersSupplier,
+            new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext)
         );
     }
 

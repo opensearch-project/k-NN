@@ -35,7 +35,7 @@ public class NestedPerFieldDerivedVectorInjector implements PerFieldDerivedVecto
     private final SegmentReadState segmentReadState;
 
     @Override
-    public void inject(Integer parentDocId, Map<String, Object> sourceAsMap) throws IOException {
+    public void inject(int parentDocId, Map<String, Object> sourceAsMap) throws IOException {
         // Setup the iterator. Return if not-relevant
         String childFieldName = ParentChildHelper.getChildField(childFieldInfo.name);
         String parentFieldName = ParentChildHelper.getParentField(childFieldInfo.name);

@@ -21,5 +21,5 @@ public interface PerFieldDerivedVectorInjector {
      * @param sourceAsMap Source as map
      * @throws IOException if there is an issue reading from the formats
      */
-    void inject(Integer docId, Map<String, Object> sourceAsMap) throws IOException;
+    void inject(int docId, Map<String, Object> sourceAsMap) throws IOException;
 }

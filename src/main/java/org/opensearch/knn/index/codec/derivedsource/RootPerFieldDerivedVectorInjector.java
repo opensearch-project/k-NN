@@ -37,7 +37,7 @@ public class RootPerFieldDerivedVectorInjector implements PerFieldDerivedVectorI
     }
 
     @Override
-    public void inject(Integer docId, Map<String, Object> sourceAsMap) throws IOException {
+    public void inject(int docId, Map<String, Object> sourceAsMap) throws IOException {
         KNNVectorValues<?> vectorValues = vectorValuesSupplier.get();
         if (vectorValues.docId() == docId || vectorValues.advance(docId) == docId) {
             sourceAsMap.put(fieldInfo.name, vectorValues.getVector());
