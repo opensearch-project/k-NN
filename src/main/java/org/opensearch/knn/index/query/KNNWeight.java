@@ -20,6 +20,7 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
@@ -129,7 +130,11 @@ public class KNNWeight extends Weight {
      * @return A Map of docId to scores for top k results
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
+        StopWatch stopWatch = new StopWatch().start();
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        stopWatch.stop();
+        log.debug("Creating filter bitset for field [{}] took [{}] nanos", knnQuery.getField(), stopWatch.totalTime().nanos());
+
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
@@ -153,7 +158,10 @@ public class KNNWeight extends Weight {
          * so that it will not do a bitset look up in bottom search layer.
          */
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
+        StopWatch annStopWatch = new StopWatch().start();
         final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
+        annStopWatch.stop();
+        log.debug("ANN search for field [{}] took [{}] nanos", knnQuery.getField(), annStopWatch.totalTime().nanos());
 
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
@@ -402,7 +410,11 @@ public class KNNWeight extends Weight {
         final LeafReaderContext leafReaderContext,
         final ExactSearcher.ExactSearcherContext exactSearcherContext
     ) throws IOException {
-        return exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        StopWatch stopWatch = new StopWatch().start();
+        Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        stopWatch.stop();
+        log.debug("Exact search for field [{}] took [{}] nanos", knnQuery.getField(), stopWatch.totalTime().nanos());
+        return exactSearchResults;
     }
 
     @Override
