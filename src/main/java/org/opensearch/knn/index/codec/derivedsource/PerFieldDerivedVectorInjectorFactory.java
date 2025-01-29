@@ -11,7 +11,7 @@ import org.apache.lucene.index.SegmentReadState;
 /**
  * Factory for creating {@link PerFieldDerivedVectorInjector} instances.
  */
-public class PerFieldDerivedVectorInjectorFactory {
+class PerFieldDerivedVectorInjectorFactory {
 
     /**
      * Create a {@link PerFieldDerivedVectorInjector} instance based on information in field info.

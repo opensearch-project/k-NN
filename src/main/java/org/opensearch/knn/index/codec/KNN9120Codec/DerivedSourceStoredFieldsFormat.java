@@ -15,6 +15,7 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.opensearch.common.Nullable;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
@@ -34,6 +35,7 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
     private final StoredFieldsFormat delegate;
     private final DerivedSourceReadersSupplier derivedSourceReadersSupplier;
     // IMPORTANT Do not rely on this for the reader, it will be null if SPI is used
+    @Nullable
     private final MapperService mapperService;
 
     @Override

@@ -71,7 +71,8 @@ public class DerivedSourceVectorInjector implements Closeable {
      * @throws IOException if there is an issue reading from the formats
      */
     public byte[] injectVectors(int docId, byte[] sourceAsBytes) throws IOException {
-        // TODO: Add link to core code
+        // Reference:
+        // https://github.com/opensearch-project/OpenSearch/blob/2.18.0/server/src/main/java/org/opensearch/index/mapper/SourceFieldMapper.java#L322
         // Deserialize the source into a modifiable map
         Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
             BytesReference.fromByteBuffer(ByteBuffer.wrap(sourceAsBytes)),
@@ -88,6 +89,8 @@ public class DerivedSourceVectorInjector implements Closeable {
         }
 
         // At this point, we can serialize the modified source map
+        // Setting to 1024 based on
+        // https://github.com/opensearch-project/OpenSearch/blob/2.18.0/server/src/main/java/org/opensearch/search/fetch/subphase/FetchSourcePhase.java#L106
         BytesStreamOutput bStream = new BytesStreamOutput(1024);
         MediaType actualContentType = mapTuple.v1();
         XContentBuilder builder = MediaTypeRegistry.contentBuilder(actualContentType, bStream).map(sourceAsMap);

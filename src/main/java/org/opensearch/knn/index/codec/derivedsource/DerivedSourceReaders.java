@@ -12,6 +12,7 @@ import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.NormsProducer;
 import org.apache.lucene.util.IOUtils;
+import org.opensearch.common.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -23,9 +24,13 @@ import java.io.IOException;
 @RequiredArgsConstructor
 @Getter
 public class DerivedSourceReaders implements Closeable {
+    @Nullable
     private final KnnVectorsReader knnVectorsReader;
+    @Nullable
     private final DocValuesProducer docValuesProducer;
+    @Nullable
     private final FieldsProducer fieldsProducer;
+    @Nullable
     private final NormsProducer normsProducer;
 
     @Override

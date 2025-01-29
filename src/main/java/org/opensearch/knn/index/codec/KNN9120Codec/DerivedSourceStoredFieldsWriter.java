@@ -72,6 +72,8 @@ public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
     public void writeField(FieldInfo fieldInfo, BytesRef bytesRef) throws IOException {
         // Parse out the vectors from the source
         if (Objects.equals(fieldInfo.name, SourceFieldMapper.NAME) && !vectorFieldTypes.isEmpty()) {
+            // Reference:
+            // https://github.com/opensearch-project/OpenSearch/blob/2.18.0/server/src/main/java/org/opensearch/index/mapper/SourceFieldMapper.java#L322
             Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
                 BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes)),
                 true,
