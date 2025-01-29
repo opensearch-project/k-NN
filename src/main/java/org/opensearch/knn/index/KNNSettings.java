@@ -274,7 +274,8 @@ public class KNNSettings {
         KNN_DERIVED_SOURCE_ENABLED,
         false,
         IndexScope,
-        Setting.Property.Final
+        Final,
+        UnmodifiableOnRestore
     );
 
     /**
