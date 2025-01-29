@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.codecs.NormsProducer;
 import org.apache.lucene.index.SegmentReadState;
 
 import java.io.IOException;
@@ -23,6 +24,7 @@ public class DerivedSourceReadersSupplier {
     private final DerivedSourceReaderSupplier<KnnVectorsReader> knnVectorsReaderSupplier;
     private final DerivedSourceReaderSupplier<DocValuesProducer> docValuesProducerSupplier;
     private final DerivedSourceReaderSupplier<FieldsProducer> fieldsProducerSupplier;
+    private final DerivedSourceReaderSupplier<NormsProducer> normsProducer;
 
     /**
      * Get the readers for the segment
@@ -35,7 +37,8 @@ public class DerivedSourceReadersSupplier {
         return new DerivedSourceReaders(
             knnVectorsReaderSupplier.apply(state),
             docValuesProducerSupplier.apply(state),
-            fieldsProducerSupplier.apply(state)
+            fieldsProducerSupplier.apply(state),
+            normsProducer.apply(state)
         );
     }
 }

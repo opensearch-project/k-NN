@@ -128,6 +128,9 @@ public class NestedPerFieldParentToDocIdIterator {
         String parentField = ParentChildHelper.getParentField(childField);
 
         Terms terms = derivedSourceReaders.getFieldsProducer().terms("_nested_path");
+        if (terms == null) {
+            return Collections.emptyList();
+        }
         TermsEnum nestedFieldsTerms = terms.iterator();
         BytesRef childPathRef = new BytesRef(parentField);
         PostingsEnum postingsEnum = null;

@@ -440,15 +440,191 @@ public class DerivedSourceIT extends KNNRestTestCase {
         testDerivedSourceE2E(indexConfigContexts);
     }
 
+    /**
+     * {
+     *     "properties": {
+     *         "vector_field_1" : {
+     *           "type" : "knn_vector",
+     *           "dimension" : 2
+     *         },
+     *         "path_1": {
+     *             "properties" : {
+     *                 "vector_field_2" : {
+     *                   "type" : "knn_vector",
+     *                   "dimension" : 2
+     *                 },
+     *                 "path_2": {
+     *                     "properties" : {
+     *                         "vector_field_3" : {
+     *                           "type" : "knn_vector",
+     *                           "dimension" : 2
+     *                         },
+     *                     }
+     *                 }
+     *             }
+     *         }
+     *     }
+     * }
+     */
+    @SneakyThrows
+    public void testObjectFieldTypes() {
+        String PATH_1_NAME = "path_1";
+        String PATH_2_NAME = "path_2";
+
+        String objectFieldTypeMapping = XContentFactory.jsonBuilder()
+            .startObject() // 1-open
+            .startObject(PROPERTIES_FIELD) // 2-open
+            .startObject(FIELD_NAME + "1")
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(DIMENSION, TEST_DIMENSION)
+            .endObject()
+
+            .startObject(PATH_1_NAME)
+            .startObject(PROPERTIES_FIELD)
+
+            .startObject(FIELD_NAME + "2")
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(DIMENSION, TEST_DIMENSION)
+            .endObject()
+            .startObject(PATH_2_NAME)
+            .startObject(PROPERTIES_FIELD)
+            .startObject(FIELD_NAME + "3")
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(DIMENSION, TEST_DIMENSION)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        List<IndexConfigContext> indexConfigContexts = List.of(
+            IndexConfigContext.builder()
+                .indexName(("original-enable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(
+                    List.of(
+                        FIELD_NAME + "1",
+                        PATH_1_NAME + "." + FIELD_NAME + "2",
+                        PATH_1_NAME + "." + PATH_2_NAME + "." + FIELD_NAME + "3"
+                    )
+                )
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(objectFieldTypeMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsMultiFieldsWithSkips(
+                        context.indexName,
+                        context.vectorFieldNames,
+                        List.of("text", PATH_1_NAME + "." + "text", PATH_1_NAME + "." + PATH_2_NAME + "." + "text"),
+                        context.docCount,
+                        context.dimension,
+                        0.1f
+                    );
+                    refreshAllIndices();
+                })
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(
+                    List.of(
+                        FIELD_NAME + "1",
+                        PATH_1_NAME + "." + FIELD_NAME + "2",
+                        PATH_1_NAME + "." + PATH_2_NAME + "." + FIELD_NAME + "3"
+                    )
+                )
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(objectFieldTypeMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsMultiFieldsWithSkips(
+                        context.indexName,
+                        context.vectorFieldNames,
+                        List.of("text", PATH_1_NAME + "." + "text", PATH_1_NAME + "." + PATH_2_NAME + "." + "text"),
+                        context.docCount,
+                        context.dimension,
+                        0.1f
+                    );
+                    refreshAllIndices();
+                })
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(
+                    List.of(
+                        FIELD_NAME + "1",
+                        PATH_1_NAME + "." + FIELD_NAME + "2",
+                        PATH_1_NAME + "." + PATH_2_NAME + "." + FIELD_NAME + "3"
+                    )
+                )
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(objectFieldTypeMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(
+                    List.of(
+                        FIELD_NAME + "1",
+                        PATH_1_NAME + "." + FIELD_NAME + "2",
+                        PATH_1_NAME + "." + PATH_2_NAME + "." + FIELD_NAME + "3"
+                    )
+                )
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(objectFieldTypeMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(
+                    List.of(
+                        FIELD_NAME + "1",
+                        PATH_1_NAME + "." + FIELD_NAME + "2",
+                        PATH_1_NAME + "." + PATH_2_NAME + "." + FIELD_NAME + "3"
+                    )
+                )
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(objectFieldTypeMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(
+                    List.of(
+                        FIELD_NAME + "1",
+                        PATH_1_NAME + "." + FIELD_NAME + "2",
+                        PATH_1_NAME + "." + PATH_2_NAME + "." + FIELD_NAME + "3"
+                    )
+                )
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(objectFieldTypeMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .build()
+
+        );
+        testDerivedSourceE2E(indexConfigContexts);
+    }
+
     // TODO Test configurations
-    // 1. Baseline flat
-    // 2. Multi-field flat
-    // 3. Nested single doc
-    // 4. Nested multi-docs
-    // 5. Nested multi-fields multi docs
-    // 6. All types of fields
-    // 7. FLS index
-    // 8. Object fields
+    // 1. Object fields
+    // 2. FLS index
 
     // We need to write a single method that will run through all the different possible combinations and
     // abstact when necessary.

@@ -1437,6 +1437,91 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
+    @SneakyThrows
+    public void bulkIngestRandomVectorsMultiFieldsWithSkips(
+        String indexName,
+        List<String> vectorFields,
+        List<String> textFields,
+        int numVectors,
+        int dimension,
+        float skipProb
+    ) {
+        List<float[][]> vectors = new ArrayList<>();
+        int seed = 1;
+        for (String ignored : vectorFields) {
+            vectors.add(TestUtils.randomlyGenerateStandardVectors(numVectors, dimension, seed++));
+        }
+
+        Random random = new Random();
+        random.setSeed(2);
+        for (int i = 0; i < numVectors; i++) {
+
+            List<Boolean> includeVectorFields = new ArrayList<>();
+            for (String ignored : vectorFields) {
+                includeVectorFields.add(random.nextFloat() > skipProb);
+            }
+            List<Boolean> includeTextFields = new ArrayList<>();
+            for (String ignored : textFields) {
+                includeTextFields.add(random.nextFloat() > skipProb);
+            }
+
+            // If all are skipped, just add a random field
+            if (includeVectorFields.stream().allMatch((t) -> !t) && includeTextFields.stream().allMatch((t) -> !t)) {
+                addDocWithNumericField(indexName, String.valueOf(i + 1), "numeric-field", 1);
+            } else {
+                Map<String, Object> source = new HashMap<>();
+                for (int j = 0; j < includeVectorFields.size(); j++) {
+                    if (includeVectorFields.get(j)) {
+                        String[] fields = ParentChildHelper.splitPath(vectorFields.get(j));
+                        Map<String, Object> currentMap = source;
+                        for (int k = 0; k < fields.length - 1; k++) {
+                            String field = fields[k];
+                            Object value = currentMap.get(field);
+                            log.info("Value: " + value);
+                            currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, t -> new HashMap<>());
+                        }
+                        currentMap.put(fields[fields.length - 1], vectors.get(j)[i]);
+                    }
+                }
+                for (int j = 0; j < includeTextFields.size(); j++) {
+                    if (includeTextFields.get(j)) {
+                        String[] fields = ParentChildHelper.splitPath(textFields.get(j));
+                        log.info("Fields: " + Arrays.toString(fields));
+                        Map<String, Object> currentMap = source;
+                        for (int k = 0; k < fields.length - 1; k++) {
+                            String field = fields[k];
+                            Object value = currentMap.get(field);
+                            log.info("FUll path: " + textFields.get(j));
+                            log.info("Key: " + field);
+                            log.info("Value: " + value);
+                            currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, t -> new HashMap<>());
+                        }
+                        currentMap.put(fields[fields.length - 1], "test-test");
+                    }
+                }
+
+                XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+                mapToBuilder(builder, source);
+                builder.endObject();
+                log.info(builder.toString());
+                addKnnDoc(indexName, String.valueOf(i + 1), builder.toString());
+            }
+        }
+    }
+
+    @SneakyThrows
+    void mapToBuilder(XContentBuilder xContentBuilder, Map<String, Object> source) {
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            if (entry.getValue() instanceof Map) {
+                xContentBuilder.startObject(entry.getKey());
+                mapToBuilder(xContentBuilder, (Map<String, Object>) entry.getValue());
+                xContentBuilder.endObject();
+            } else {
+                xContentBuilder.field(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
     public void bulkIngestRandomVectorsWithSkipsAndNested(
         String indexName,
         String nestedFieldName,

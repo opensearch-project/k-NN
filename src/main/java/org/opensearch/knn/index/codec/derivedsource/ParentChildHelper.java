@@ -48,4 +48,15 @@ public class ParentChildHelper {
     public static String constructSiblingField(String field, String sibling) {
         return getParentField(field) + "." + sibling;
     }
+
+    /**
+     * Split a nested field path into an array of strings. For instance, if the field is "parent.to.child", this would
+     * return ["parent", "to", "child"].
+     *
+     * @param field nested field path
+     * @return array of strings representing the nested field path
+     */
+    public static String[] splitPath(String field) {
+        return field.split("\\.");
+    }
 }

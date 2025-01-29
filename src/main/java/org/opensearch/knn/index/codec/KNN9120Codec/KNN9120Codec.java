@@ -67,11 +67,29 @@ public class KNN9120Codec extends FilterCodec {
 
     @Override
     public StoredFieldsFormat storedFieldsFormat() {
-        DerivedSourceReadersSupplier derivedSourceReadersSupplier = new DerivedSourceReadersSupplier(
-            (segmentReadState) -> knnVectorsFormat().fieldsReader(segmentReadState),
-            (segmentReadState) -> docValuesFormat().fieldsProducer(segmentReadState),
-            (segmentReadState) -> postingsFormat().fieldsProducer(segmentReadState)
-        );
+        DerivedSourceReadersSupplier derivedSourceReadersSupplier = new DerivedSourceReadersSupplier((segmentReadState) -> {
+            if (segmentReadState.fieldInfos.hasVectorValues()) {
+                return knnVectorsFormat().fieldsReader(segmentReadState);
+            }
+            return null;
+        }, (segmentReadState) -> {
+            if (segmentReadState.fieldInfos.hasDocValues()) {
+                return docValuesFormat().fieldsProducer(segmentReadState);
+            }
+            return null;
+
+        }, (segmentReadState) -> {
+            if (segmentReadState.fieldInfos.hasPostings()) {
+                return postingsFormat().fieldsProducer(segmentReadState);
+            }
+            return null;
+
+        }, (segmentReadState -> {
+            if (segmentReadState.fieldInfos.hasNorms()) {
+                return normsFormat().normsProducer(segmentReadState);
+            }
+            return null;
+        }));
         return new DerivedSourceStoredFieldsFormat(delegate.storedFieldsFormat(), derivedSourceReadersSupplier, mapperService);
     }
 }

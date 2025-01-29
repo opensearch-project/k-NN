@@ -88,7 +88,7 @@ public final class KNNVectorValuesFactory {
         final KnnVectorsReader knnVectorsReader
     ) throws IOException {
         final DocIdSetIterator docIdSetIterator;
-        if (fieldInfo.hasVectorValues()) {
+        if (fieldInfo.hasVectorValues() && knnVectorsReader != null) {
             if (fieldInfo.getVectorEncoding() == VectorEncoding.BYTE) {
                 docIdSetIterator = knnVectorsReader.getByteVectorValues(fieldInfo.getName());
             } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
@@ -96,8 +96,10 @@ public final class KNNVectorValuesFactory {
             } else {
                 throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
             }
-        } else {
+        } else if (docValuesProducer != null) {
             docIdSetIterator = docValuesProducer.getBinary(fieldInfo);
+        } else {
+            throw new IllegalArgumentException("Field does not have vector values and DocValues");
         }
         final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator);
         return getVectorValues(FieldInfoExtractor.extractVectorDataType(fieldInfo), vectorValuesIterator);
