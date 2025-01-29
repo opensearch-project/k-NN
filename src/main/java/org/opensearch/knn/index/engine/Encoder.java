@@ -36,4 +36,11 @@ public interface Encoder {
      *          return {@link CompressionLevel#NOT_CONFIGURED}
      */
     CompressionLevel calculateCompressionLevel(MethodComponentContext encoderContext, KNNMethodConfigContext knnMethodConfigContext);
+
+    /**
+     * Validates config of encoder
+     *
+     * @return Validation output of encoder parameters
+     */
+    TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput validationInput);
 }

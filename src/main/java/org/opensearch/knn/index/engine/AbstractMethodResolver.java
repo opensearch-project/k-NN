@@ -182,4 +182,30 @@ public abstract class AbstractMethodResolver implements MethodResolver {
             throw validationException;
         }
     }
+
+    protected void validateMDivisibleByVectorDimension(
+        KNNMethodContext resolvedKnnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        Map<String, Encoder> encoderMap
+    ) {
+        if (isEncoderSpecified(resolvedKnnMethodContext) == false) {
+            return;
+        }
+        Encoder encoder = encoderMap.get(getEncoderName(resolvedKnnMethodContext));
+        if (encoder == null) {
+            return;
+        }
+
+        TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
+
+        TrainingConfigValidationOutput validationOutput = encoder.validateEncoderConfig(
+            inputBuilder.knnMethodContext(resolvedKnnMethodContext).knnMethodConfigContext(knnMethodConfigContext).build()
+        );
+
+        if (!validationOutput.isValid()) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions");
+            throw validationException;
+        }
+    }
 }
