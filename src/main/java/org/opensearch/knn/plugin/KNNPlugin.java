@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin;
 
+import org.apache.lucene.search.Query;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.core.ParseField;
@@ -14,6 +15,8 @@ import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.query.KNNQuery;
+import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.profile.KNNProfileTimingType;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.index.util.KNNClusterUtil;
@@ -183,8 +186,13 @@ public class KNNPlugin extends Plugin
     }
 
     @Override
-    public Set<String> registerProfilerTimingTypes() {
-        return Set.of(KNNProfileTimingType.EXACT_KNN_SEARCH.name(), KNNProfileTimingType.ANN_SEARCH.name());
+    public Map<Class<? extends Query>, Set<String>> registerProfilerTimingTypes() {
+        return Map.of(
+            KNNQuery.class,
+            KNNProfileTimingType.getAllValues(),
+            NativeEngineKnnVectorQuery.class,
+            KNNProfileTimingType.getAllValues()
+        );
     }
 
     @Override
