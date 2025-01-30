@@ -131,9 +131,12 @@ public class KNNWeight extends Weight {
      * @return A Map of docId to scores for top k results
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
+        final SegmentReader reader = Lucene.segmentReader(context.reader());
+        final String segmentName = reader.getSegmentName();
+
         StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
-        stopStopWatchAndLog(stopWatch, "FilterBitSet creation");
+        stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
 
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
@@ -149,7 +152,7 @@ public class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k, segmentName);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -160,25 +163,25 @@ public class KNNWeight extends Weight {
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
 
         StopWatch annStopWatch = startStopWatch();
-        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
-        stopStopWatchAndLog(annStopWatch, "ANN search");
+        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
+        stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
 
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, docIdsToScoreMap.size())) {
             final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            Map<Integer, Float> result = doExactSearch(context, docs, cardinality, k);
+            Map<Integer, Float> result = doExactSearch(context, docs, cardinality, k, segmentName);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);
     }
 
-    private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage) {
+    private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage, String segmentName) {
         if (log.isDebugEnabled() && stopWatch != null) {
             stopWatch.stop();
-            final String logMessage = prefixMessage + ", field: [{}], time in nanos:[{}] ";
-            log.debug(logMessage, knnQuery.getField(), stopWatch.totalTime().nanos());
+            final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in nanos:[{}] ";
+            log.debug(logMessage, knnQuery.getShardId(), segmentName, knnQuery.getField(), stopWatch.totalTime().nanos());
         }
     }
 
@@ -238,7 +241,8 @@ public class KNNWeight extends Weight {
         final LeafReaderContext context,
         final DocIdSetIterator acceptedDocs,
         final long numberOfAcceptedDocs,
-        int k
+        final int k,
+        final String segmentName
     ) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
             .isParentHits(true)
@@ -253,13 +257,12 @@ public class KNNWeight extends Weight {
     }
 
     private Map<Integer, Float> doANNSearch(
+        final SegmentReader reader,
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
         final int cardinality,
         final int k
     ) throws IOException {
-        final SegmentReader reader = Lucene.segmentReader(context.reader());
-
         FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
 
         if (fieldInfo == null) {
@@ -420,7 +423,8 @@ public class KNNWeight extends Weight {
     ) throws IOException {
         StopWatch stopWatch = startStopWatch();
         Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
-        stopStopWatchAndLog(stopWatch, "Exact search");
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
         return exactSearchResults;
     }
 

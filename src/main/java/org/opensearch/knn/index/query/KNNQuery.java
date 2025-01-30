@@ -48,13 +48,16 @@ public class KNNQuery extends Query {
     private final String indexName;
     private final VectorDataType vectorDataType;
     private final RescoreContext rescoreContext;
-
     @Setter
     private Query filterQuery;
     @Getter
     private BitSetProducer parentsFilter;
     private Float radius;
     private Context context;
+
+    // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
+    // TODO: ThreadContext does not work with logger, remove this from here once its figured out
+    private int shardId;
 
     public KNNQuery(
         final String field,
@@ -179,7 +182,12 @@ public class KNNQuery extends Query {
         final Weight filterWeight = getFilterWeight(searcher);
         if (log.isDebugEnabled() && stopWatch != null) {
             stopWatch.stop();
-            log.debug("Creating filter weight for field [{}] took [{}] nanos", field, stopWatch.totalTime().nanos());
+            log.debug(
+                "Creating filter weight, Shard: [{}], field: [{}] took in nanos: [{}]",
+                shardId,
+                field,
+                stopWatch.totalTime().nanos()
+            );
         }
 
         if (filterWeight != null) {
