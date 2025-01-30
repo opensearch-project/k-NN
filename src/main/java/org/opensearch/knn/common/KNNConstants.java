@@ -35,6 +35,8 @@ public class KNNConstants {
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
     // used for defining toplevel parameter
     public static final String TOP_LEVEL_PARAMETER_SPACE_TYPE = METHOD_PARAMETER_SPACE_TYPE;
+
+    public static final String SEARCH_MODE_PARAMETER = "search_mode";
     public static final String COMPOUND_EXTENSION = "c";
     public static final String MODEL = "model";
     public static final String MODELS = "models";

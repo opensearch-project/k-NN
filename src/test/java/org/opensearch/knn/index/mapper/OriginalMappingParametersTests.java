@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.mapper;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SearchMode;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -18,12 +19,28 @@ public class OriginalMappingParametersTests extends KNNTestCase {
 
     public void testIsLegacy() {
         assertTrue(
-            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, null, SpaceType.UNDEFINED.getValue())
-                .isLegacyMapping()
+            new OriginalMappingParameters(
+                VectorDataType.DEFAULT,
+                123,
+                null,
+                null,
+                null,
+                null,
+                SpaceType.UNDEFINED.getValue(),
+                SearchMode.ANN.getValue()
+            ).isLegacyMapping()
         );
         assertFalse(
-            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, "model-id", SpaceType.UNDEFINED.getValue())
-                .isLegacyMapping()
+            new OriginalMappingParameters(
+                VectorDataType.DEFAULT,
+                123,
+                null,
+                null,
+                null,
+                "model-id",
+                SpaceType.UNDEFINED.getValue(),
+                SearchMode.ANN.getValue()
+            ).isLegacyMapping()
         );
         assertFalse(
             new OriginalMappingParameters(
@@ -33,7 +50,8 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 Mode.ON_DISK.getName(),
                 null,
                 null,
-                SpaceType.UNDEFINED.getValue()
+                SpaceType.UNDEFINED.getValue(),
+                SearchMode.ANN.getValue()
             ).isLegacyMapping()
         );
         assertFalse(
@@ -44,7 +62,8 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 null,
                 CompressionLevel.x2.getName(),
                 null,
-                SpaceType.UNDEFINED.getValue()
+                SpaceType.UNDEFINED.getValue(),
+                SearchMode.ANN.getValue()
             ).isLegacyMapping()
         );
         assertFalse(
@@ -55,7 +74,8 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 null,
                 null,
                 null,
-                SpaceType.UNDEFINED.getValue()
+                SpaceType.UNDEFINED.getValue(),
+                SearchMode.ANN.getValue()
             ).isLegacyMapping()
         );
     }

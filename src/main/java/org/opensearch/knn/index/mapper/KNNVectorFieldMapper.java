@@ -39,13 +39,10 @@ import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.*;
 import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
@@ -184,6 +181,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             SpaceType.UNDEFINED.getValue()
         ).setValidator(SpaceType::getSpace);
 
+        protected final Parameter<String> searchMode = Parameter.stringParam(
+            KNNConstants.SEARCH_MODE_PARAMETER,
+            false,
+            m -> toType(m).originalMappingParameters.getSearchMode(),
+            SearchMode.ANN.getValue()
+        ).setValidator(SearchMode::getSearchMode);
+
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
         protected ModelDao modelDao;
@@ -221,7 +225,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 modelId,
                 mode,
                 compressionLevel,
-                topLevelSpaceType
+                topLevelSpaceType,
+                searchMode
             );
         }
 
@@ -378,6 +383,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
+            // TODO: validate and make sure this would work even if knn setting is disabled.
+            validateSearchMode(builder);
+
             // Check for flat configuration and validate only if index is created after 2.17
             if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
@@ -402,6 +410,17 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             return builder;
+        }
+
+        private void validateSearchMode(KNNVectorFieldMapper.Builder builder) {
+            final KNNMethodContext knnMethodContext = builder.knnMethodContext.get();
+            final SpaceType spaceType = SpaceType.getSpace(builder.topLevelSpaceType.get());
+            final SearchMode searchMode = SearchMode.getSearchMode(builder.searchMode.get());
+            if (SearchMode.EXACT.equals(searchMode) && (knnMethodContext != null || spaceType != SpaceType.UNDEFINED)) {
+                throw new MapperParsingException(
+                    "knnMethodContext or space type is not expected to be passed if the" + " field have exact search mode."
+                );
+            }
         }
 
         private void validateSpaceType(KNNVectorFieldMapper.Builder builder) {

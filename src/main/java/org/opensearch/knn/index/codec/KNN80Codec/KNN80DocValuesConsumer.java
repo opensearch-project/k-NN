@@ -7,6 +7,8 @@ package org.opensearch.knn.index.codec.KNN80Codec;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SearchMode;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -90,6 +92,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
             assert mergeState != null;
             assert mergeState.mergeFieldInfos != null;
             for (FieldInfo fieldInfo : mergeState.mergeFieldInfos) {
+                if (fieldInfo.attributes().containsKey(KNNConstants.SEARCH_MODE_PARAMETER)
+                    && SearchMode.EXACT.equals(fieldInfo.attributes().get(KNNConstants.SEARCH_MODE_PARAMETER))) {
+                    logger.debug("Field with exact search mode, skipping graph creation during merge.");
+                    continue;
+                }
                 DocValuesType type = fieldInfo.getDocValuesType();
                 if (type == DocValuesType.BINARY && fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
                     StopWatch stopWatch = new StopWatch();
