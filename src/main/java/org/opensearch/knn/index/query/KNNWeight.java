@@ -152,7 +152,7 @@ public class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k, segmentName);
+            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -241,8 +241,7 @@ public class KNNWeight extends Weight {
         final LeafReaderContext context,
         final DocIdSetIterator acceptedDocs,
         final long numberOfAcceptedDocs,
-        final int k,
-        final String segmentName
+        final int k
     ) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
             .isParentHits(true)
