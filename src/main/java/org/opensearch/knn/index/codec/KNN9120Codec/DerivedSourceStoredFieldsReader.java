@@ -107,12 +107,12 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
 
     /**
      * For merging, we need to tell the derived source stored fields reader to skip injecting the source. Otherwise,
-     * on merge we will end up just writing the source to disk
+     * on merge we will end up just writing the source to disk. We cant override
+     * {@link StoredFieldsReader#getMergeInstance()} because it is used elsewhere than just merging.
      *
      * @return Merged instance that wont inject by default
      */
-    @Override
-    public StoredFieldsReader getMergeInstance() {
+    private StoredFieldsReader cloneForMerge() {
         try {
             return new DerivedSourceStoredFieldsReader(
                 delegate.getMergeInstance(),
@@ -124,5 +124,19 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * For merging, we need to tell the derived source stored fields reader to skip injecting the source. Otherwise,
+     * on merge we will end up just writing the source to disk
+     *
+     * @param storedFieldsReader stored fields reader to wrap
+     * @return wrapped stored fields reader
+     */
+    public static StoredFieldsReader wrapForMerge(StoredFieldsReader storedFieldsReader) {
+        if (storedFieldsReader instanceof DerivedSourceStoredFieldsReader) {
+            return ((DerivedSourceStoredFieldsReader) storedFieldsReader).cloneForMerge();
+        }
+        return storedFieldsReader;
     }
 }
