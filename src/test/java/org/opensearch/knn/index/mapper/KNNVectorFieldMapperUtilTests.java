@@ -77,4 +77,13 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_17_0));
         Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_3_0_0));
     }
+
+    /**
+     * Test useFullFieldNameValidation method for different OpenSearch versions
+     */
+    public void testUseFullFieldNameValidation() {
+        Assert.assertFalse(KNNVectorFieldMapperUtil.useFullFieldNameValidation(Version.V_2_16_0));
+        Assert.assertTrue(KNNVectorFieldMapperUtil.useFullFieldNameValidation(Version.V_2_17_0));
+        Assert.assertTrue(KNNVectorFieldMapperUtil.useFullFieldNameValidation(Version.V_2_18_0));
+    }
 }
