@@ -1176,6 +1176,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 when(parseContext.parser()).thenReturn(createXContentParser(dataType));
 
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(true);
+                utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(true);
 
                 OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(
                     dataType,
@@ -1220,6 +1221,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 );
 
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(false);
+                utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(false);
 
                 document = new ParseContext.Document();
                 contentPath = new ContentPath();
@@ -1284,6 +1286,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 when(parseContext.parser()).thenReturn(createXContentParser(dataType));
 
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(true);
+                utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(true);
 
                 OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(
                     VectorDataType.DEFAULT,
@@ -1331,6 +1334,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 );
 
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(false);
+                utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(true);
 
                 document = new ParseContext.Document();
                 contentPath = new ContentPath();
