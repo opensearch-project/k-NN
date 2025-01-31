@@ -146,6 +146,16 @@ public class KNNVectorFieldMapperUtil {
         return indexCreatedVersion.onOrAfter(Version.V_2_17_0);
     }
 
+    /**
+     * Determines if full field name validation should be applied based on the index creation version.
+     *
+     * @param indexCreatedVersion The version when the index was created
+     * @return true if the index version is 2.17.0 or later, false otherwise
+     */
+    static boolean useFullFieldNameValidation(final Version indexCreatedVersion) {
+        return indexCreatedVersion != null && indexCreatedVersion.onOrAfter(Version.V_2_17_0);
+    }
+
     public static SpaceType getSpaceType(final Settings indexSettings) {
         String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
