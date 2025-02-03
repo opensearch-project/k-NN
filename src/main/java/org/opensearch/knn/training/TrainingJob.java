@@ -203,9 +203,7 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to run training job for model \"" + modelId + "\": ", e);
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError(
-                "Failed to execute training. May be caused by an invalid method definition or " + "not enough memory to perform training."
-            );
+            modelMetadata.setError("Failed to execute training. " + e.getMessage());
 
             KNNCounter.TRAINING_ERRORS.increment();
 

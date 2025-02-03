@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -339,6 +340,55 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         ActionListener<Integer> listener = ActionListener.wrap(
             size -> assertEquals(expectedSize, size.intValue()),
             e -> fail(e.getMessage())
+        );
+
+        transportAction.getTrainingIndexSizeInKB(trainingModelRequest, listener);
+    }
+
+    public void testTrainingIndexSizeFailure() {
+
+        String trainingIndexName = "training-index";
+        int dimension = 133;
+        int vectorCount = 100;
+
+        // Setup the request
+        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
+            null,
+            getDefaultKNNMethodContextForModel(),
+            dimension,
+            trainingIndexName,
+            "training-field",
+            null,
+            "description",
+            VectorDataType.DEFAULT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
+        );
+
+        // Mock client to return the right number of docs
+        TotalHits totalHits = new TotalHits(vectorCount, TotalHits.Relation.EQUAL_TO);
+        SearchHits searchHits = new SearchHits(new SearchHit[2], totalHits, 1.0f);
+        SearchResponse searchResponse = mock(SearchResponse.class);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+        Client client = mock(Client.class);
+        doAnswer(invocationOnMock -> {
+            ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        // Setup the action
+        ClusterService clusterService = mock(ClusterService.class);
+        TransportService transportService = mock(TransportService.class);
+        TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
+
+        ActionListener<Integer> listener = ActionListener.wrap(
+            size -> size.intValue(),
+            e -> assertThat(e.getMessage(), containsString("Number of training points should be greater than"))
         );
 
         transportAction.getTrainingIndexSizeInKB(trainingModelRequest, listener);

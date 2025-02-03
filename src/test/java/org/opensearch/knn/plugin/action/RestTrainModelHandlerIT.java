@@ -97,28 +97,11 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
             .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
-        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
-
-        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
-
-        // Grab the model id from the response
-        String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
-        assertNotNull(trainResponseBody);
-
-        Map<String, Object> trainResponseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), trainResponseBody).map();
-        String modelId = (String) trainResponseMap.get(MODEL_ID);
-        assertNotNull(modelId);
-
-        // Confirm that the model fails to create
-        Response getResponse = getModel(modelId, null);
-        String responseBody = EntityUtils.toString(getResponse.getEntity());
-        assertNotNull(responseBody);
-
-        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
-
-        assertEquals(modelId, responseMap.get(MODEL_ID));
-
-        assertTrainingFails(modelId, 30, 1000);
+        ResponseException exception = expectThrows(
+            ResponseException.class,
+            () -> trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description")
+        );
+        assertTrue(exception.getMessage().contains("Number of training points should be greater than"));
     }
 
     public void testTrainModel_fail_tooMuchData() throws Exception {
@@ -132,7 +115,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
         // Create a training index and randomly ingest data into it
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 20; // 20 * 16 * 4 ~= 10 kb
+        int trainingDataCount = 128;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         // Call the train API with this definition:
@@ -491,7 +474,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         // Create a training index and randomly ingest data into it
         String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath);
         createKnnIndex(trainingIndexName, mapping);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectorsWithNestedField(trainingIndexName, nestedFieldPath, trainingDataCount, dimension);
 
         // Call the train API with this definition:
