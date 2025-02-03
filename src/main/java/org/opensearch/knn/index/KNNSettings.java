@@ -737,6 +737,14 @@ public class KNNSettings {
         });
     }
 
+    /**
+     * Get the index thread quantity setting value from cluster setting.
+     * @return int
+     */
+    public static int getIndexThreadQty() {
+        return KNNSettings.state().getSettingValue(KNN_ALGO_PARAM_INDEX_THREAD_QTY);
+    }
+
     private static String percentageAsString(Integer percentage) {
         return percentage + "%";
     }
