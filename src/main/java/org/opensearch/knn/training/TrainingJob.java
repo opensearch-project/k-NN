@@ -179,10 +179,7 @@ public class TrainingJob implements Runnable {
                 .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
 
             Map<String, Object> trainParameters = libraryIndexingContext.getLibraryParameters();
-            trainParameters.put(
-                KNNConstants.INDEX_THREAD_QTY,
-                KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
-            );
+            trainParameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.getIndexThreadQty());
 
             if (libraryIndexingContext.getQuantizationConfig() != QuantizationConfig.EMPTY) {
                 trainParameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());

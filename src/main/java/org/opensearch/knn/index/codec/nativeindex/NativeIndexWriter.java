@@ -226,7 +226,7 @@ public class NativeIndexWriter {
         maybeAddBinaryPrefixForFaissBWC(knnEngine, parameters, fieldAttributes);
 
         // Used to determine how many threads to use when indexing
-        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.getIndexThreadQty());
 
         return parameters;
     }
@@ -258,7 +258,7 @@ public class NativeIndexWriter {
 
     private Map<String, Object> getTemplateParameters(FieldInfo fieldInfo, Model model) throws IOException {
         Map<String, Object> parameters = new HashMap<>();
-        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.getIndexThreadQty());
         parameters.put(KNNConstants.MODEL_ID, fieldInfo.attributes().get(MODEL_ID));
         parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, model.getModelBlob());
         if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo) != QuantizationConfig.EMPTY) {
