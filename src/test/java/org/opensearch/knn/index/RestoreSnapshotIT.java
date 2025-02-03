@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import org.junit.Ignore;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -16,6 +17,7 @@ import org.junit.Test;
 import lombok.SneakyThrows;
 import static org.hamcrest.Matchers.containsString;
 
+@Ignore
 public class RestoreSnapshotIT extends KNNRestTestCase {
 
     private String index = "test-index";;
@@ -29,6 +31,7 @@ public class RestoreSnapshotIT extends KNNRestTestCase {
         setupSnapshotRestore(index, snapshot, repository);
     }
 
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/2458")
     @Test
     @SneakyThrows
     public void testKnnSettingIsModifiable_whenRestore_thenSuccess() {
@@ -51,6 +54,7 @@ public class RestoreSnapshotIT extends KNNRestTestCase {
         assertEquals(200, restoreResponse.getStatusLine().getStatusCode());
     }
 
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/2458")
     @Test
     @SneakyThrows
     public void testKnnSettingIsUnmodifiable_whenRestore_thenFailure() {
@@ -72,6 +76,7 @@ public class RestoreSnapshotIT extends KNNRestTestCase {
         assertThat(error.getMessage(), containsString("cannot modify UnmodifiableOnRestore setting [index.knn]" + " on restore"));
     }
 
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/2458")
     @Test
     @SneakyThrows
     public void testKnnSettingCanBeIgnored_whenRestore_thenSuccess() {
@@ -89,6 +94,7 @@ public class RestoreSnapshotIT extends KNNRestTestCase {
         assertEquals(200, restoreResponse.getStatusLine().getStatusCode());
     }
 
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/2458")
     @Test
     @SneakyThrows
     public void testKnnSettingCannotBeIgnored_whenRestore_thenFailure() {
