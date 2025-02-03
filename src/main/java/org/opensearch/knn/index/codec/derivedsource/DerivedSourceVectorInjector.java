@@ -39,6 +39,8 @@ public class DerivedSourceVectorInjector implements Closeable {
     private final List<PerFieldDerivedVectorInjector> perFieldDerivedVectorInjectors;
     private final Set<String> fieldNames;
 
+    private final String segmentName;
+
     /**
      * Constructor for DerivedSourceVectorInjector.
      *
@@ -60,6 +62,7 @@ public class DerivedSourceVectorInjector implements Closeable {
             );
             this.fieldNames.add(fieldInfo.name);
         }
+        this.segmentName = segmentReadState.segmentInfo.name;
     }
 
     /**
@@ -131,6 +134,7 @@ public class DerivedSourceVectorInjector implements Closeable {
 
     @Override
     public void close() throws IOException {
+        log.info("Closing derived source injector reader for segment" + segmentName);
         IOUtils.close(derivedSourceReaders);
     }
 }

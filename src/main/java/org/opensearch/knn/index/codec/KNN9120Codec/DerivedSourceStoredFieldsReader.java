@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN9120Codec;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
@@ -18,6 +19,7 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceVectorInjector;
 import java.io.IOException;
 import java.util.List;
 
+@Log4j2
 public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     private final StoredFieldsReader delegate;
     private final List<FieldInfo> derivedVectorFields;
@@ -102,6 +104,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
 
     @Override
     public void close() throws IOException {
+        log.info("Closing derived source stored fields reader for segment: " + segmentReadState.segmentInfo.name);
         IOUtils.close(delegate, derivedSourceVectorInjector);
     }
 

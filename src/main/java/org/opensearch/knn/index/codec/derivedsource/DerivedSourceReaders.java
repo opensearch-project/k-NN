@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
@@ -23,6 +24,7 @@ import java.io.IOException;
  */
 @RequiredArgsConstructor
 @Getter
+@Log4j2
 public class DerivedSourceReaders implements Closeable {
     @Nullable
     private final KnnVectorsReader knnVectorsReader;
@@ -35,6 +37,7 @@ public class DerivedSourceReaders implements Closeable {
 
     @Override
     public void close() throws IOException {
+        log.info("Closing derived source readers");
         IOUtils.close(knnVectorsReader, docValuesProducer, fieldsProducer, normsProducer);
     }
 }
