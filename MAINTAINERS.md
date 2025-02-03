@@ -17,6 +17,6 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Tejas Shah              | [shatejas](https://github.com/shatejas)               | Amazon      |
 | Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                 | Amazon      |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)               | Amazon      |
-| Vikasht34               | [Vikasht34](https://github.com/Vikasht34)             | Amazon      |
+| Vikash Tiwari           | [Vikasht34](https://github.com/Vikasht34)             | Amazon      |
 | Yuncheng Lu             | [luyuncheng](https://github.com/luyuncheng)           | Bytedance   |
 
