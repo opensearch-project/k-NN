@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.common.lifecycle.LifecycleListener;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
@@ -26,7 +27,7 @@ import java.util.List;
  */
 public class KNNCircuitBreaker {
     private static Logger logger = LogManager.getLogger(KNNCircuitBreaker.class);
-    public static int CB_TIME_INTERVAL = 2 * 60; // seconds
+    public static int CB_TIME_INTERVAL = 10; // seconds
 
     private static KNNCircuitBreaker INSTANCE;
     private ThreadPool threadPool;
@@ -56,10 +57,11 @@ public class KNNCircuitBreaker {
         this.clusterService = clusterService;
         this.client = client;
         NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+
         Runnable runnable = () -> {
             if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
                 long currentSizeKiloBytes = nativeMemoryCacheManager.getCacheSizeInKilobytes();
-                long circuitBreakerLimitSizeKiloBytes = KNNSettings.getCircuitBreakerLimit().getKb();
+                long circuitBreakerLimitSizeKiloBytes = KNNSettings.state().getCircuitBreakerLimit().getKb();
                 long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage() / 100)
                     * circuitBreakerLimitSizeKiloBytes);
                 /**
@@ -106,5 +108,14 @@ public class KNNCircuitBreaker {
             }
         };
         this.threadPool.scheduleWithFixedDelay(runnable, TimeValue.timeValueSeconds(CB_TIME_INTERVAL), ThreadPool.Names.GENERIC);
+
+        // Update when node is fully joined
+        clusterService.addLifecycleListener(new LifecycleListener() {
+            @Override
+            public void afterStart() {
+                // Node is fully initialized, rebuild the cache to fetch node-specific limits
+                nativeMemoryCacheManager.rebuildCache();
+            }
+        });
     }
 }

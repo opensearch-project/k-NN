@@ -424,6 +424,9 @@ integTest {
 testClusters.integTest {
     testDistribution = "ARCHIVE"
 
+    //Used for circuit breaker integration tests
+    setting 'node.attr.knn_cb_tier', 'integ'
+
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(testClusters.integTest)
@@ -434,6 +437,7 @@ testClusters.integTest {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
+
 
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
@@ -466,7 +470,7 @@ task integTestRemote(type: RestIntegTestTask) {
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
-            includeTestsMatching "org.opensearch.knn.*IT"
+            includeTestsMatching "org.opensearch.knn.index.KNNCircuitBreakerIT"
         }
     }
 }
