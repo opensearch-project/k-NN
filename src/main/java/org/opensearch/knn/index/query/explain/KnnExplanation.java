@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query.explain;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.opensearch.knn.index.query.KNNScorer;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,6 +24,9 @@ public class KnnExplanation {
     @Getter
     private final Map<Integer, Float> rawScores;
 
+    @Getter
+    private final Map<Object, KNNScorer> knnScorerPerLeaf;
+
     @Setter
     @Getter
     private int cardinality;
@@ -30,6 +34,7 @@ public class KnnExplanation {
     public KnnExplanation() {
         this.annResultPerLeaf = new ConcurrentHashMap<>();
         this.rawScores = new ConcurrentHashMap<>();
+        this.knnScorerPerLeaf = new ConcurrentHashMap<>();
         this.cardinality = 0;
     }
 }

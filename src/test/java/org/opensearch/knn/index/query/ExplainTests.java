@@ -381,7 +381,8 @@ public class ExplainTests extends KNNWeightTestCase {
     public void testANN_FilteredExactSearchAfterANN() {
         ExactSearcher mockedExactSearcher = mock(ExactSearcher.class);
         KNNWeight.initialize(null, mockedExactSearcher);
-        when(mockedExactSearcher.searchLeaf(any(), any())).thenReturn(DOC_ID_TO_SCORES);
+        final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
+        when(mockedExactSearcher.searchLeaf(any(), any())).thenReturn(translatedScores);
         // Given
         int k = 4;
         jniServiceMockedStatic.when(
@@ -428,7 +429,6 @@ public class ExplainTests extends KNNWeightTestCase {
         );
 
         final List<Integer> actualDocIds = new ArrayList<>();
-        final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
             float score = translatedScores.get(docId) * boost;

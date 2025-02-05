@@ -117,18 +117,18 @@ public class KNNWeight extends Weight {
     // This method is called for ANN/Exact/Disk-based/Efficient-filtering search
     public Explanation explain(LeafReaderContext context, int doc, float score, KNNScorer knnScorer) {
         knnQuery.setExplain(true);
-        if (knnScorer == null) {
-            float knnScore;
-            try {
-                knnScore = getKnnScore(context, doc);
-            } catch (IOException e) {
-                throw new RuntimeException("Error while getting KNN score during explanation", e);
-            }
+        try {
+            knnScorer = getOrCreateKnnScorer(context, knnScorer);
+            float knnScore = getKnnScore(knnScorer, doc);
+
             if (score == 0) {
                 score = knnScore;
             }
             assert score == knnScore : "Score mismatch in explain: provided score does not match KNN score";
+        } catch (IOException e) {
+            throw new RuntimeException("Error while explaining KNN score", e);
         }
+
         final String highLevelExplanation = getHighLevelExplanation();
         final StringBuilder leafLevelExplanation = getLeafLevelExplanation(context);
 
@@ -243,13 +243,23 @@ public class KNNWeight extends Weight {
         return sb.toString();
     }
 
-    private float getKnnScore(LeafReaderContext context, int doc) throws IOException {
-        KNNScorer knnScorer = (KNNScorer) scorer(context);
-        int resDoc = knnScorer.iterator().advance(doc);
-        if (resDoc == doc) {
-            return knnScorer.score();
+    private KNNScorer getOrCreateKnnScorer(LeafReaderContext context, KNNScorer existingScorer) throws IOException {
+        if (existingScorer != null) {
+            return existingScorer;
         }
-        return 0;
+
+        KNNScorer cachedScorer = knnExplanation.getKnnScorerPerLeaf().get(context);
+        if (cachedScorer != null) {
+            return cachedScorer;
+        }
+
+        KNNScorer newScorer = (KNNScorer) scorer(context);
+        knnExplanation.getKnnScorerPerLeaf().put(context, newScorer);
+        return newScorer;
+    }
+
+    private float getKnnScore(KNNScorer knnScorer, int doc) throws IOException {
+        return (knnScorer.iterator().advance(doc) == doc) ? knnScorer.score() : 0;
     }
 
     @Override
