@@ -47,12 +47,6 @@ public class AbstractMethodResolverTests extends KNNTestCase {
         ) {
             return DEFAULT_COMPRESSION;
         }
-
-        @Override
-        public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
-            TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
-            return builder.build();
-        }
     };
 
     private final static Map<String, Encoder> ENCODER_MAP = Map.of(ENCODER_NAME, TEST_ENCODER);

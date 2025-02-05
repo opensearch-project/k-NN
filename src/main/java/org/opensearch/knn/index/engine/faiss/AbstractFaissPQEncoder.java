@@ -13,6 +13,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
@@ -98,6 +99,7 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
     public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
         KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
         KNNMethodConfigContext knnMethodConfigContext = trainingConfigValidationInput.getKnnMethodConfigContext();
+        Long trainingVectors = trainingConfigValidationInput.getTrainingVectorsCount();
 
         TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
 
@@ -113,6 +115,29 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
                 builder.valid(true);
             }
         }
+
+        // validate number of training points should be greater than minimum clustering criteria defined in faiss
+        if (knnMethodContext != null && trainingVectors != null) {
+            long minTrainingVectorCount = 1000;
+
+            MethodComponentContext encoderContext = (MethodComponentContext) knnMethodContext.getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER);
+
+            if (encoderContext.getParameters().containsKey(ENCODER_PARAMETER_PQ_CODE_SIZE)) {
+
+                int code_size = ((Integer) encoderContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE));
+                minTrainingVectorCount = (long) Math.pow(2, code_size);
+            }
+
+            if (trainingVectors < minTrainingVectorCount) {
+                builder.valid(false).minTrainingVectorCount(minTrainingVectorCount);
+                return builder.build();
+            } else {
+                builder.valid(true);
+            }
+        }
+
         return builder.build();
     }
 }

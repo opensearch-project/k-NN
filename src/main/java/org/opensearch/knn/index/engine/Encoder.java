@@ -42,5 +42,8 @@ public interface Encoder {
      *
      * @return Validation output of encoder parameters
      */
-    TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput validationInput);
+    default TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput validationInput) {
+        TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+        return builder.build();
+    }
 }
