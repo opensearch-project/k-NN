@@ -36,6 +36,11 @@ public enum SpaceType {
         }
 
         @Override
+        public String explainScoreTranslation(float rawScore) {
+            throw new IllegalStateException("Unsupported method");
+        }
+
+        @Override
         public void validateVectorDataType(VectorDataType vectorDataType) {
             throw new IllegalStateException("Unsupported method");
         }
@@ -44,6 +49,11 @@ public enum SpaceType {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
+        }
+
+        @Override
+        public String explainScoreTranslation(float rawScore) {
+            return "`1 / (1 + rawScore)`";
         }
 
         @Override
@@ -78,6 +88,11 @@ public enum SpaceType {
         }
 
         @Override
+        public String explainScoreTranslation(float rawScore) {
+            return "`Math.max((2.0F - rawScore) / 2.0F, 0.0F)`";
+        }
+
+        @Override
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.COSINE;
         }
@@ -105,11 +120,21 @@ public enum SpaceType {
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
         }
+
+        @Override
+        public String explainScoreTranslation(float rawScore) {
+            return "`1 / (1 + rawScore)`";
+        }
     },
     LINF("linf") {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
+        }
+
+        @Override
+        public String explainScoreTranslation(float rawScore) {
+            return "`1 / (1 + rawScore)`";
         }
     },
     INNER_PRODUCT("innerproduct") {
@@ -130,6 +155,14 @@ public enum SpaceType {
         }
 
         @Override
+        public String explainScoreTranslation(float rawScore) {
+            if (rawScore >= 0) {
+                return "`1 / (1 + rawScore)`";
+            }
+            return "`-rawScore + 1`";
+        }
+
+        @Override
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
@@ -138,6 +171,11 @@ public enum SpaceType {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
+        }
+
+        @Override
+        public String explainScoreTranslation(float rawScore) {
+            return "`1 / (1 + rawScore)`";
         }
 
         @Override
@@ -176,6 +214,8 @@ public enum SpaceType {
     }
 
     public abstract float scoreTranslation(float rawScore);
+
+    public abstract String explainScoreTranslation(float rawScore);
 
     /**
      * Get KNNVectorSimilarityFunction that maps to this SpaceType
