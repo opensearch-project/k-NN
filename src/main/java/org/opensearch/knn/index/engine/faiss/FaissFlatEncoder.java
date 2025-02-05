@@ -16,9 +16,6 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Set;
 
-import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
-import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
-
 /**
  * Flat faiss encoder. Flat encoding means that it does nothing. It needs an encoder, though, because it
  * is used in generating the index description.
@@ -54,11 +51,5 @@ public class FaissFlatEncoder implements Encoder {
         KNNMethodConfigContext knnMethodConfigContext
     ) {
         return CompressionLevel.x1;
-    }
-
-    @Override
-    public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
-        TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
-        return builder.build();
     }
 }

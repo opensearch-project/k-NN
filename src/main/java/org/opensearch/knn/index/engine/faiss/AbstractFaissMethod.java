@@ -129,6 +129,33 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         return (MethodComponentContext) object;
     }
 
+    protected String getEncoderName(KNNMethodContext knnMethodContext) {
+        if (isEncoderSpecified(knnMethodContext) == false) {
+            return null;
+        }
+
+        MethodComponentContext methodComponentContext = getEncoderComponentContext(knnMethodContext);
+        if (methodComponentContext == null) {
+            return null;
+        }
+
+        return methodComponentContext.getName();
+    }
+
+    protected MethodComponentContext getEncoderComponentContext(KNNMethodContext knnMethodContext) {
+        if (isEncoderSpecified(knnMethodContext) == false) {
+            return null;
+        }
+
+        return (MethodComponentContext) knnMethodContext.getMethodComponentContext().getParameters().get(METHOD_ENCODER_PARAMETER);
+    }
+
+    protected boolean isEncoderSpecified(KNNMethodContext knnMethodContext) {
+        return knnMethodContext != null
+            && knnMethodContext.getMethodComponentContext().getParameters() != null
+            && knnMethodContext.getMethodComponentContext().getParameters().containsKey(METHOD_ENCODER_PARAMETER);
+    }
+
     @Override
     protected SpaceType convertUserToMethodSpaceType(SpaceType spaceType) {
         // While FAISS doesn't directly support cosine similarity, we can leverage the mathematical

@@ -13,8 +13,6 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.mapper.CompressionLevel;
-import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
-import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 
 import java.util.Objects;
 import java.util.Set;
@@ -62,11 +60,5 @@ public class FaissSQEncoder implements Encoder {
     ) {
         // TODO: Hard code for now
         return CompressionLevel.x2;
-    }
-
-    @Override
-    public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
-        TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
-        return builder.build();
     }
 }

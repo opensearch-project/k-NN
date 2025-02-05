@@ -17,9 +17,6 @@ import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
-import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
-import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -27,7 +24,6 @@ import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 
 /**
  * Quantization framework binary encoder,
@@ -113,27 +109,5 @@ public class QFrameBitEncoder implements Encoder {
 
         // Validation will ensure that only 1 of the supported bit count will be selected.
         return CompressionLevel.x8;
-    }
-
-    @Override
-    public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
-        KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
-        KNNMethodConfigContext knnMethodConfigContext = trainingConfigValidationInput.getKnnMethodConfigContext();
-
-        TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
-
-        // validate ENCODER_PARAMETER_PQ_M is divisible by vector dimension
-        if (knnMethodContext != null && knnMethodConfigContext != null) {
-            if (knnMethodContext.getMethodComponentContext().getParameters().containsKey(ENCODER_PARAMETER_PQ_M)
-                && knnMethodConfigContext.getDimension() % (Integer) knnMethodContext.getMethodComponentContext()
-                    .getParameters()
-                    .get(ENCODER_PARAMETER_PQ_M) != 0) {
-                builder.valid(false);
-                return builder.build();
-            } else {
-                builder.valid(true);
-            }
-        }
-        return builder.build();
     }
 }
