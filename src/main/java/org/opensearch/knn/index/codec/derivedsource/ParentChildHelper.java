@@ -15,9 +15,12 @@ public class ParentChildHelper {
      * this would return "parent.to".
      *
      * @param field nested field path
-     * @return parent field path without the child
+     * @return parent field path without the child. Null if no parent exists
      */
     public static String getParentField(String field) {
+        if (field == null) {
+            return null;
+        }
         int lastDot = field.lastIndexOf('.');
         if (lastDot == -1) {
             return null;
@@ -30,10 +33,16 @@ public class ParentChildHelper {
      * return "child".
      *
      * @param field nested field path
-     * @return child field path without the parent path
+     * @return child field path without the parent path. Null if no child exists
      */
     public static String getChildField(String field) {
+        if (field == null) {
+            return null;
+        }
         int lastDot = field.lastIndexOf('.');
+        if (lastDot == -1) {
+            return null;
+        }
         return field.substring(lastDot + 1);
     }
 
@@ -46,7 +55,11 @@ public class ParentChildHelper {
      * @return sibling field path
      */
     public static String constructSiblingField(String field, String sibling) {
-        return getParentField(field) + "." + sibling;
+        String parent = getParentField(field);
+        if (parent == null) {
+            return sibling;
+        }
+        return parent + "." + sibling;
     }
 
     /**
