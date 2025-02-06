@@ -12,12 +12,16 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.store.IndexInputWithBuffer;
 
 import java.io.IOException;
 import java.util.Map;
@@ -26,7 +30,7 @@ import java.util.UUID;
 /**
  * Encapsulates all information needed to load a component into native memory.
  */
-public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation> {
+public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation> implements AutoCloseable {
 
     protected final String key;
 
@@ -56,12 +60,26 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
     public abstract Integer calculateSizeInKB();
 
     /**
+     * Opens the graph file by opening the corresponding indexInput so
+     * that it is available for graph loading
+     */
+
+    public void openVectorIndex() {}
+
+    /**
+     * Provides the capability to close the closable objects in the {@link NativeMemoryEntryContext}
+     */
+    @Override
+    public void close() {}
+
+    /**
      * Loads entry into memory.
      *
      * @return NativeMemoryAllocation associated with NativeMemoryEntryContext
      */
     public abstract T load() throws IOException;
 
+    @Log4j2
     public static class IndexEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.IndexAllocation> {
 
         @Getter
@@ -74,6 +92,17 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         @Nullable
         @Getter
         private final String modelId;
+
+        @Getter
+        private boolean indexGraphFileOpened = false;
+        @Getter
+        private int indexSizeKb;
+
+        @Getter
+        private IndexInput readStream;
+
+        @Getter
+        IndexInputWithBuffer indexInputWithBuffer;
 
         /**
          * Constructor
@@ -132,8 +161,59 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
+        public void openVectorIndex() {
+            // if graph file is already opened for index, do nothing
+            if (isIndexGraphFileOpened()) {
+                return;
+            }
+            // Extract vector file name from the given cache key.
+            // Ex: _0_165_my_field.faiss@1vaqiupVUwvkXAG4Qc/RPg==
+            final String cacheKey = this.getKey();
+            final String vectorFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(cacheKey);
+            if (vectorFileName == null) {
+                throw new IllegalStateException(
+                    "Invalid cache key was given. The key [" + cacheKey + "] does not contain the corresponding vector file name."
+                );
+            }
+
+            // Prepare for opening index input from directory.
+            final Directory directory = this.getDirectory();
+
+            // Try to open an index input then pass it down to native engine for loading an index.
+            try {
+                indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
+                readStream = directory.openInput(vectorFileName, IOContext.READONCE);
+                readStream.seek(0);
+                indexInputWithBuffer = new IndexInputWithBuffer(readStream);
+                indexGraphFileOpened = true;
+                log.debug("[KNN] NativeMemoryCacheManager openVectorIndex successful");
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to openVectorIndex the index " + openSearchIndexName);
+            }
+        }
+
+        @Override
         public NativeMemoryAllocation.IndexAllocation load() throws IOException {
+            if (!isIndexGraphFileOpened()) {
+                throw new IllegalStateException("Index graph file is not open");
+            }
             return indexLoadStrategy.load(this);
+        }
+
+        // close the indexInput
+        @Override
+        public void close() {
+            if (readStream != null) {
+                try {
+                    readStream.close();
+                    indexGraphFileOpened = false;
+                } catch (IOException e) {
+                    throw new RuntimeException(
+                        "Exception while closing the indexInput index [" + openSearchIndexName + "] for loading the graph file.",
+                        e
+                    );
+                }
+            }
         }
     }
 
