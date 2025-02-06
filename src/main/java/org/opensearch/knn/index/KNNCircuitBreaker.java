@@ -27,7 +27,7 @@ import java.util.List;
  */
 public class KNNCircuitBreaker {
     private static Logger logger = LogManager.getLogger(KNNCircuitBreaker.class);
-    public static int CB_TIME_INTERVAL = 10; // seconds
+    public static int CB_TIME_INTERVAL = 2 * 60; // seconds
 
     private static KNNCircuitBreaker INSTANCE;
     private ThreadPool threadPool;
@@ -57,7 +57,6 @@ public class KNNCircuitBreaker {
         this.clusterService = clusterService;
         this.client = client;
         NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
-
         Runnable runnable = () -> {
             if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
                 long currentSizeKiloBytes = nativeMemoryCacheManager.getCacheSizeInKilobytes();

@@ -470,7 +470,7 @@ task integTestRemote(type: RestIntegTestTask) {
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
-            includeTestsMatching "org.opensearch.knn.index.KNNCircuitBreakerIT"
+            includeTestsMatching "org.opensearch.knn.*IT"
         }
     }
 }
