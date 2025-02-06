@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -41,10 +42,23 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
-    public void testResolveEngine_whenModeSpecifiedAndCompressionIsNotSpecified_thenNMSLIB() {
+    public void testResolveEngine_whenModeSpecifiedAndCompressionIsNotSpecified_whenVersionBefore2_19_thenNMSLIB() {
         assertEquals(KNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, false));
         assertEquals(
             KNNEngine.NMSLIB,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                false,
+                Version.V_2_18_0
+            )
+        );
+    }
+
+    public void testResolveEngine_whenModeSpecifiedAndCompressionIsNotSpecified_thenFAISS() {
+        assertEquals(KNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, false));
+        assertEquals(
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
                 new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
@@ -63,8 +77,17 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            KNNEngine.NMSLIB,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x1).build(), null, false)
+        );
+        assertEquals(
+            KNNEngine.NMSLIB,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x1).build(),
+                null,
+                false,
+                Version.V_2_18_0
+            )
         );
     }
 
