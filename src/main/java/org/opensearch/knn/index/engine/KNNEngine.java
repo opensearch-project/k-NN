@@ -6,8 +6,6 @@
 package org.opensearch.knn.index.engine;
 
 import com.google.common.collect.ImmutableSet;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
@@ -37,7 +35,7 @@ public enum KNNEngine implements KNNLibrary {
     private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
     private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
     public static final Set<KNNEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
-    private static Logger logger = LogManager.getLogger(KNNEngine.class);
+    public static final Set<KNNEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
 
     private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
@@ -70,9 +68,6 @@ public enum KNNEngine implements KNNLibrary {
      */
     public static KNNEngine getEngine(String name) {
         if (NMSLIB.getName().equalsIgnoreCase(name)) {
-            logger.warn(
-                "[Deprecation] nmslib engine is deprecated and will be removed in a future release. Please use Faiss or Lucene engine instead."
-            );
             return NMSLIB;
         }
 
@@ -95,9 +90,6 @@ public enum KNNEngine implements KNNLibrary {
      */
     public static KNNEngine getEngineNameFromPath(String path) {
         if (path.endsWith(KNNEngine.NMSLIB.getExtension()) || path.endsWith(KNNEngine.NMSLIB.getCompoundExtension())) {
-            logger.warn(
-                "[Deprecation] nmslib engine is deprecated and will be removed in a future release. Please use Faiss or Lucene engine instead."
-            );
             return KNNEngine.NMSLIB;
         }
 
