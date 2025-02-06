@@ -13,7 +13,7 @@ package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.Version;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.stream.BytesStreamOutput;

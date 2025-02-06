@@ -24,21 +24,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
-import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.FloatVectorValues;
-import org.apache.lucene.index.IndexOptions;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.NoMergePolicy;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentReadState;
-import org.apache.lucene.index.SegmentReader;
-import org.apache.lucene.index.SegmentWriteState;
-import org.apache.lucene.index.SerialMergeScheduler;
-import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.index.*;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.Directory;
@@ -236,20 +222,24 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         }
 
         final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD);
-        floatVectorValues.nextDoc();
-        assertArrayEquals(floatVector, floatVectorValues.vectorValue(), 0.0f);
+        floatVectorValues.iterator().nextDoc();
+        assertArrayEquals(floatVector, floatVectorValues.vectorValue(floatVectorValues.iterator().index()), 0.0f);
         assertEquals(1, floatVectorValues.size());
         assertEquals(3, floatVectorValues.dimension());
 
         final ByteVectorValues byteVectorValues = leafReader.getByteVectorValues(BYTE_VECTOR_FIELD);
-        byteVectorValues.nextDoc();
-        assertArrayEquals(byteVector, byteVectorValues.vectorValue());
+        byteVectorValues.iterator().nextDoc();
+        assertArrayEquals(byteVector, byteVectorValues.vectorValue(byteVectorValues.iterator().index()));
         assertEquals(1, byteVectorValues.size());
         assertEquals(2, byteVectorValues.dimension());
 
         final FloatVectorValues floatVectorValuesForBinaryQuantization = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
-        floatVectorValuesForBinaryQuantization.nextDoc();
-        assertArrayEquals(floatVectorForBinaryQuantization_1, floatVectorValuesForBinaryQuantization.vectorValue(), 0.0f);
+        floatVectorValuesForBinaryQuantization.iterator().nextDoc();
+        assertArrayEquals(
+            floatVectorForBinaryQuantization_1,
+            floatVectorValuesForBinaryQuantization.vectorValue(floatVectorValuesForBinaryQuantization.iterator().index()),
+            0.0f
+        );
         assertEquals(2, floatVectorValuesForBinaryQuantization.size());
         assertEquals(8, floatVectorValuesForBinaryQuantization.dimension());
 
@@ -296,8 +286,9 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         }
 
         final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
-        floatVectorValues.nextDoc();
-        assertArrayEquals(floatVectorForBinaryQuantization, floatVectorValues.vectorValue(), 0.0f);
+        KnnVectorValues.DocIndexIterator docIndexIterator = floatVectorValues.iterator();
+        docIndexIterator.nextDoc();
+        assertArrayEquals(floatVectorForBinaryQuantization, floatVectorValues.vectorValue(docIndexIterator.index()), 0.0f);
         assertEquals(1, floatVectorValues.size());
         assertEquals(8, floatVectorValues.dimension());
         indexReader.close();

@@ -8,7 +8,6 @@ package org.opensearch.knn.index.vectorvalues;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.search.DocIdSetIterator;
-import org.junit.Assert;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 
@@ -37,7 +36,6 @@ public class KNNVectorValuesTests extends KNNTestCase {
             vectorsMap
         );
         new CompareVectorValues<float[]>().validateVectorValues(knnVectorValuesForFieldWriter, floatArray, 8, dimension, false);
-
         final TestVectorValues.PredefinedFloatVectorBinaryDocValues preDefinedFloatVectorValues =
             new TestVectorValues.PredefinedFloatVectorBinaryDocValues(floatArray);
         final KNNVectorValues<float[]> knnFloatVectorValuesBinaryDocValues = KNNVectorValuesFactory.getVectorValues(
@@ -99,13 +97,6 @@ public class KNNVectorValuesTests extends KNNTestCase {
             preDefinedByteVectorValues
         );
         new CompareVectorValues<byte[]>().validateVectorValues(knnBinaryVectorValuesBinaryDocValues, byteArray, 3, dimension, false);
-    }
-
-    public void testDocIdsIteratorValues_whenInvalidDisi_thenThrowException() {
-        Assert.assertThrows(
-            IllegalArgumentException.class,
-            () -> new KNNVectorValuesIterator.DocIdsIteratorValues(new TestVectorValues.NotBinaryDocValues())
-        );
     }
 
     private DocsWithFieldSet getDocIdSetIterator(int numberOfDocIds) {

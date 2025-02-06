@@ -99,6 +99,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES;
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE_LIMIT;
 
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
@@ -146,6 +148,12 @@ public class KNNWeightTests extends KNNTestCase {
         knnSettingsMockedStatic.when(KNNSettings::getCircuitBreakerLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
         knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
+        ByteSizeValue cacheSize = ByteSizeValue.parseBytesSizeValue("1024kb", QUANTIZATION_STATE_CACHE_SIZE_LIMIT); // Setting 1MB as an
+                                                                                                                    // example
+        when(knnSettings.getSettingValue(eq(QUANTIZATION_STATE_CACHE_SIZE_LIMIT))).thenReturn(cacheSize);
+        // Mock QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES setting
+        TimeValue mockTimeValue = TimeValue.timeValueMinutes(10);
+        when(knnSettings.getSettingValue(eq(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES))).thenReturn(mockTimeValue);
 
         nativeMemoryCacheManagerMockedStatic = mockStatic(NativeMemoryCacheManager.class);
 
@@ -371,7 +379,7 @@ public class KNNWeightTests extends KNNTestCase {
         // When no knn fields are available , field info for vector field will be null
         when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(null);
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
+        assertEquals(KNNScorer.emptyScorer(), knnScorer);
     }
 
     @SneakyThrows
@@ -415,7 +423,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
 
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
+        assertEquals(KNNScorer.emptyScorer(), knnScorer);
     }
 
     @SneakyThrows

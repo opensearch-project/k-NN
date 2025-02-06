@@ -54,7 +54,7 @@ public final class KNN990QuantizationStateReader {
         String quantizationStateFileName = getQuantizationStateFileName(segmentReadState);
         int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
 
-        try (IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.READ)) {
+        try (IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.DEFAULT)) {
 
             CodecUtil.retrieveChecksum(input);
             int numFields = getNumFields(input);

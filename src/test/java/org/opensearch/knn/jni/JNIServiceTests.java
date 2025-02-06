@@ -601,7 +601,7 @@ public class JNIServiceTests extends KNNTestCase {
             );
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
@@ -669,7 +669,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             final long pointer;
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
@@ -877,7 +877,7 @@ public class JNIServiceTests extends KNNTestCase {
             );
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long pointer = JNIService.loadIndex(
                     indexInputWithBuffer,
@@ -938,7 +938,7 @@ public class JNIServiceTests extends KNNTestCase {
             );
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long pointer = JNIService.loadIndex(
                     indexInputWithBuffer,
@@ -985,7 +985,7 @@ public class JNIServiceTests extends KNNTestCase {
             );
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
@@ -1024,7 +1024,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             final long pointer;
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 pointer = JNIService.loadIndex(
                     indexInputWithBuffer,
@@ -1065,7 +1065,7 @@ public class JNIServiceTests extends KNNTestCase {
                 assertTrue(directory.fileLength(indexFileName1) > 0);
 
                 final long pointer;
-                try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                     final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                     pointer = JNIService.loadIndex(
                         indexInputWithBuffer,
@@ -1108,7 +1108,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             final long pointer;
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
@@ -1137,7 +1137,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             final long pointer;
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
@@ -1174,7 +1174,7 @@ public class JNIServiceTests extends KNNTestCase {
                     assertTrue(directory.fileLength(indexFileName1) > 0);
 
                     final long pointer;
-                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                         final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                         pointer = JNIService.loadIndex(
                             indexInputWithBuffer,
@@ -1310,7 +1310,7 @@ public class JNIServiceTests extends KNNTestCase {
                     assertTrue(directory.fileLength(indexFileName1) > 0);
 
                     final long pointer;
-                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                    try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                         final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                         pointer = JNIService.loadIndex(
                             indexInputWithBuffer,
@@ -1425,7 +1425,7 @@ public class JNIServiceTests extends KNNTestCase {
                 assertTrue(directory.fileLength(indexFileName1) > 0);
 
                 final long pointer;
-                try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+                try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                     final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                     pointer = JNIService.loadIndex(
                         indexInputWithBuffer,
@@ -1561,7 +1561,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             final long pointer;
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 pointer = JNIService.loadIndex(
                     indexInputWithBuffer,
@@ -1595,7 +1595,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             final long pointer;
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
@@ -1800,7 +1800,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             final long pointer;
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
@@ -1862,7 +1862,7 @@ public class JNIServiceTests extends KNNTestCase {
             String indexIVFPQPath = createFaissIVFPQIndex(directory, ivfNlist, pqM, pqCodeSize, SpaceType.L2);
 
             final long indexIVFPQIndexTest1;
-            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 indexIVFPQIndexTest1 = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, indexIVFPQIndexTest1);
@@ -1871,7 +1871,7 @@ public class JNIServiceTests extends KNNTestCase {
                 throw e;
             }
             final long indexIVFPQIndexTest2;
-            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 indexIVFPQIndexTest2 = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, indexIVFPQIndexTest2);
@@ -1891,7 +1891,7 @@ public class JNIServiceTests extends KNNTestCase {
             JNIService.free(indexIVFPQIndexTest1, KNNEngine.FAISS);
 
             final long indexIVFPQIndexTest3;
-            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(indexIVFPQPath, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 indexIVFPQIndexTest3 = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, indexIVFPQIndexTest3);
@@ -1919,7 +1919,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tempDirPath = createTempDir();
         try (Directory directory = newFSDirectory(tempDirPath)) {
             String faissIVFPQL2Index = createFaissIVFPQIndex(directory, 16, 16, 4, SpaceType.L2);
-            try (IndexInput indexInput = directory.openInput(faissIVFPQL2Index, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(faissIVFPQL2Index, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long faissIVFPQL2Address = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertTrue(JNIService.isSharedIndexStateRequired(faissIVFPQL2Address, KNNEngine.FAISS));
@@ -1927,7 +1927,7 @@ public class JNIServiceTests extends KNNTestCase {
             }
 
             String faissIVFPQIPIndex = createFaissIVFPQIndex(directory, 16, 16, 4, SpaceType.INNER_PRODUCT);
-            try (IndexInput indexInput = directory.openInput(faissIVFPQIPIndex, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(faissIVFPQIPIndex, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long faissIVFPQIPAddress = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertFalse(JNIService.isSharedIndexStateRequired(faissIVFPQIPAddress, KNNEngine.FAISS));
@@ -1935,7 +1935,7 @@ public class JNIServiceTests extends KNNTestCase {
             }
 
             String faissHNSWIndex = createFaissHNSWIndex(directory, SpaceType.L2);
-            try (IndexInput indexInput = directory.openInput(faissHNSWIndex, IOContext.LOAD)) {
+            try (IndexInput indexInput = directory.openInput(faissHNSWIndex, IOContext.DEFAULT)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
                 long faissHNSWAddress = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertFalse(JNIService.isSharedIndexStateRequired(faissHNSWAddress, KNNEngine.FAISS));
