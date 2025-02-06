@@ -59,7 +59,7 @@ public class DerivedSourceVectorInjectorTests extends KNNTestCase {
             });
 
             DerivedSourceVectorInjector derivedSourceVectorInjector = new DerivedSourceVectorInjector(
-                new DerivedSourceReadersSupplier(s -> null, s -> null, s -> null, s -> null),
+                new DerivedSourceReaders(null, null, null, null, false),
                 null,
                 fields
             );
@@ -119,7 +119,7 @@ public class DerivedSourceVectorInjectorTests extends KNNTestCase {
 
         try (
             DerivedSourceVectorInjector vectorInjector = new DerivedSourceVectorInjector(
-                new DerivedSourceReadersSupplier(s -> null, s -> null, s -> null, s -> null),
+                new DerivedSourceReaders(null, null, null, null, false),
                 null,
                 fields
             )

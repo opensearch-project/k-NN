@@ -13,7 +13,7 @@ public class PerFieldDerivedVectorInjectorFactoryTests extends KNNTestCase {
         // Non-nested case
         PerFieldDerivedVectorInjector perFieldDerivedVectorInjector = PerFieldDerivedVectorInjectorFactory.create(
             KNNCodecTestUtil.FieldInfoBuilder.builder("test").build(),
-            new DerivedSourceReaders(null, null, null, null),
+            new DerivedSourceReaders(null, null, null, null, false),
             null
         );
         assertTrue(perFieldDerivedVectorInjector instanceof RootPerFieldDerivedVectorInjector);
@@ -21,7 +21,7 @@ public class PerFieldDerivedVectorInjectorFactoryTests extends KNNTestCase {
         // Nested case
         perFieldDerivedVectorInjector = PerFieldDerivedVectorInjectorFactory.create(
             KNNCodecTestUtil.FieldInfoBuilder.builder("parent.test").build(),
-            new DerivedSourceReaders(null, null, null, null),
+            new DerivedSourceReaders(null, null, null, null, false),
             null
         );
         assertTrue(perFieldDerivedVectorInjector instanceof NestedPerFieldDerivedVectorInjector);

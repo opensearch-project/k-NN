@@ -25,7 +25,7 @@ import java.io.IOException;
 @RequiredArgsConstructor
 @Getter
 @Log4j2
-public class DerivedSourceReaders implements Closeable {
+public class DerivedSourceReaders implements Cloneable, Closeable {
     @Nullable
     private final KnnVectorsReader knnVectorsReader;
     @Nullable
@@ -35,9 +35,17 @@ public class DerivedSourceReaders implements Closeable {
     @Nullable
     private final NormsProducer normsProducer;
 
+    private final boolean isCloned;
+
     @Override
     public void close() throws IOException {
-        log.info("Closing derived source readers");
-        IOUtils.close(knnVectorsReader, docValuesProducer, fieldsProducer, normsProducer);
+        if (isCloned == false) {
+            IOUtils.close(knnVectorsReader, docValuesProducer, fieldsProducer, normsProducer);
+        }
+    }
+
+    @Override
+    public DerivedSourceReaders clone() {
+        return new DerivedSourceReaders(knnVectorsReader, docValuesProducer, fieldsProducer, normsProducer, true);
     }
 }

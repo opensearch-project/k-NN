@@ -7,7 +7,6 @@ package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.search.DocIdSetIterator;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
@@ -15,11 +14,12 @@ import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
-import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.FIELD_NAME;
 
 public class RootPerFieldDerivedVectorInjectorTests extends KNNTestCase {
@@ -29,39 +29,17 @@ public class RootPerFieldDerivedVectorInjectorTests extends KNNTestCase {
     public void testInject() {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(FIELD_NAME).build();
         try (MockedStatic<KNNVectorValuesFactory> mockedKnnVectorValues = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+
+            final KNNVectorValuesIterator vectorValuesIterator = Mockito.mock(KNNVectorValuesIterator.class);
+            when(vectorValuesIterator.docId()).thenReturn(0);
+            when(vectorValuesIterator.advance(anyInt())).thenReturn(0);
+            when(vectorValuesIterator.nextDoc()).thenReturn(0);
+            when(vectorValuesIterator.getDocIdSetIterator()).thenReturn(null);
+            when(vectorValuesIterator.liveDocs()).thenReturn(0L);
+            when(vectorValuesIterator.getVectorExtractorStrategy()).thenReturn(null);
+
             mockedKnnVectorValues.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, null, null))
-                .thenReturn(new KNNVectorValues<float[]>(new KNNVectorValuesIterator() {
-                    @Override
-                    public int docId() {
-                        return 0;
-                    }
-
-                    @Override
-                    public int advance(int docId) {
-                        return 0;
-                    }
-
-                    @Override
-                    public int nextDoc() {
-                        return 0;
-                    }
-
-                    @Override
-                    public DocIdSetIterator getDocIdSetIterator() {
-                        return null;
-                    }
-
-                    @Override
-                    public long liveDocs() {
-                        return 0;
-                    }
-
-                    @Override
-                    public VectorValueExtractorStrategy getVectorExtractorStrategy() {
-                        return null;
-                    }
-                }) {
-
+                .thenReturn(new KNNVectorValues<float[]>(vectorValuesIterator) {
                     @Override
                     public float[] getVector() {
                         return TEST_VECTOR;
@@ -74,7 +52,7 @@ public class RootPerFieldDerivedVectorInjectorTests extends KNNTestCase {
                 });
             PerFieldDerivedVectorInjector perFieldDerivedVectorInjector = new RootPerFieldDerivedVectorInjector(
                 fieldInfo,
-                new DerivedSourceReaders(null, null, null, null)
+                new DerivedSourceReaders(null, null, null, null, false)
             );
 
             Map<String, Object> source = new HashMap<>();
