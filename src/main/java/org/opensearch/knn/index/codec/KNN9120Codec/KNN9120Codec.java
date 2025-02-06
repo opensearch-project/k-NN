@@ -25,6 +25,7 @@ public class KNN9120Codec extends FilterCodec {
     private static final KNNCodecVersion VERSION = KNNCodecVersion.V_9_12_0;
     private final KNNFormatFacade knnFormatFacade;
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
+    private final StoredFieldsFormat storedFieldsFormat;
 
     private final MapperService mapperService;
 
@@ -48,6 +49,7 @@ public class KNN9120Codec extends FilterCodec {
         knnFormatFacade = VERSION.getKnnFormatFacadeSupplier().apply(delegate);
         perFieldKnnVectorsFormat = knnVectorsFormat;
         this.mapperService = mapperService;
+        this.storedFieldsFormat = getStoredFieldsFormat();
     }
 
     @Override
@@ -67,6 +69,10 @@ public class KNN9120Codec extends FilterCodec {
 
     @Override
     public StoredFieldsFormat storedFieldsFormat() {
+        return storedFieldsFormat;
+    }
+
+    private StoredFieldsFormat getStoredFieldsFormat() {
         DerivedSourceReadersSupplier derivedSourceReadersSupplier = new DerivedSourceReadersSupplier((segmentReadState) -> {
             if (segmentReadState.fieldInfos.hasVectorValues()) {
                 return knnVectorsFormat().fieldsReader(segmentReadState);

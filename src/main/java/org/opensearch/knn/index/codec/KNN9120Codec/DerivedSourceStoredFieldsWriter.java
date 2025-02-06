@@ -79,7 +79,7 @@ public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
             // Reference:
             // https://github.com/opensearch-project/OpenSearch/blob/2.18.0/server/src/main/java/org/opensearch/index/mapper/SourceFieldMapper.java#L322
             Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
-                BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes)),
+                BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length)),
                 true,
                 MediaTypeRegistry.JSON
             );
