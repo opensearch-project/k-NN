@@ -27,6 +27,7 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
+
     /**
      * Initialize an index for the native library. Takes in numDocs to
      * allocate the correct amount of memory.
