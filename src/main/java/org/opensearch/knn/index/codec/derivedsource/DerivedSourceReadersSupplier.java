@@ -27,7 +27,7 @@ public class DerivedSourceReadersSupplier {
     private final DerivedSourceReaderSupplier<NormsProducer> normsProducer;
 
     /**
-     * Get the readers for the segment
+     * Get the readers for the segment.
      *
      * @param state SegmentReadState
      * @return DerivedSourceReaders
@@ -38,7 +38,8 @@ public class DerivedSourceReadersSupplier {
             knnVectorsReaderSupplier.apply(state),
             docValuesProducerSupplier.apply(state),
             fieldsProducerSupplier.apply(state),
-            normsProducer.apply(state)
+            normsProducer.apply(state),
+            false
         );
     }
 }
