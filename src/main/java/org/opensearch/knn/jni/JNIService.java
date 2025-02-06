@@ -12,8 +12,6 @@
 package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -29,8 +27,6 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
-
-    private static Logger logger = LogManager.getLogger(JNIService.class);
 
     /**
      * Initialize an index for the native library. Takes in numDocs to
@@ -142,9 +138,6 @@ public class JNIService {
         KNNEngine knnEngine
     ) {
         if (KNNEngine.NMSLIB == knnEngine) {
-            logger.warn(
-                "[Deprecation] nmslib engine is deprecated and will be removed in a future release. Please use Faiss or Lucene engine instead."
-            );
             NmslibService.createIndex(ids, vectorsAddress, dim, output, parameters);
             return;
         }
@@ -209,9 +202,6 @@ public class JNIService {
                 return FaissService.loadIndexWithStream(readStream);
             }
         } else if (KNNEngine.NMSLIB == knnEngine) {
-            logger.warn(
-                "[Deprecation] nmslib engine is deprecated and will be removed in a future release. Please use Faiss or Lucene engine instead."
-            );
             return NmslibService.loadIndexWithStream(readStream, parameters);
         }
 
