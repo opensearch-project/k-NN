@@ -40,6 +40,11 @@ jobs:
       matrix:
         java: [11, 17, 21]
 
+    env:
+       CC: gcc10-gcc
+       CXX: gcc10-g++
+       FC: gcc10-gfortran
+
     name: Build and Test k-NN Plugin on Linux
     runs-on: ubuntu-latest
     needs: Get-CI-Image-Tag
