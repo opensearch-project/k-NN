@@ -405,22 +405,36 @@ tasks.register('cmakeJniLib', Exec) {
     standardOutput = outputStream
 }
 
-task buildJniLib(type:Exec) {
+task buildNmslib(type:Exec) {
     dependsOn cmakeJniLib
     def makePath = findExecutable("make")
     logger.lifecycle("Using make at: ${makePath}")
-    println "Make path: ${makePath}"
     // Ensure makePath is treated as a String. If parsing to an int is required,
     // handle it explicitly, though a path typically should not be parsed as an int.
     if (makePath.isEmpty()) {
         throw new GradleException("Make not found in PATH. Please install Make.")
     }
     def outputStream = new ByteArrayOutputStream()
-    commandLine makePath, '-Cjni/build','opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
+    commandLine makePath, '-Cjni/build', 'opensearchknn_nmslib', '-j', "${nproc_count}"
+    standardOutput = outputStream
+}
+
+task buildJniLib(type:Exec) {
+    dependsOn cmakeJniLib
+    def makePath = findExecutable("make")
+    logger.lifecycle("Using make at: ${makePath}")
+    // Ensure makePath is treated as a String. If parsing to an int is required,
+    // handle it explicitly, though a path typically should not be parsed as an int.
+    if (makePath.isEmpty()) {
+        throw new GradleException("Make not found in PATH. Please install Make.")
+    }
+    def outputStream = new ByteArrayOutputStream()
+    commandLine makePath, '-Cjni/build', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
     standardOutput = outputStream
 }
 
 test {
+    dependsOn buildNmslib
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/release"
@@ -435,6 +449,7 @@ test {
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 integTest {
     if (integTestDependOnJniLib) {
+        dependsOn buildNmslib
         dependsOn buildJniLib
     }
     systemProperty 'tests.security.manager', 'false'
@@ -533,6 +548,7 @@ task integTestRemote(type: RestIntegTestTask) {
 
 run {
     useCluster project.testClusters.integTest
+    dependsOn buildNmslib
     dependsOn buildJniLib
     doFirst {
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
