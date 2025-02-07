@@ -391,10 +391,19 @@ public class KNNSettings {
             /**
              * Group setting that manages node-level circuit breaker configurations based on node tiers.
              * Settings under this group define memory limits for different node classifications.
+             * Validation of limit occurs before the setting is retrieved.
              */
             put(
                 KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX,
-                Setting.groupSetting(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX, NodeScope, Dynamic)
+                Setting.groupSetting(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX, settings -> {
+                    settings.keySet()
+                        .forEach(
+                            (limit) -> parseknnMemoryCircuitBreakerValue(
+                                settings.get(limit),
+                                KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
+                            )
+                        );
+                }, NodeScope, Dynamic)
             );
 
             /**
@@ -409,7 +418,7 @@ public class KNNSettings {
                 new Setting<>(
                     KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT,
                     KNNSettings.KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT,
-                    (s) -> parseknnMemoryCircuitBreakerValue(s, null, KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT),
+                    (s) -> parseknnMemoryCircuitBreakerValue(s, KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT),
                     NodeScope,
                     Dynamic
                 )
@@ -764,6 +773,10 @@ public class KNNSettings {
         this.client = client;
         this.clusterService = clusterService;
         setSettingsUpdateConsumers();
+    }
+
+    public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, String settingName) {
+        return parseknnMemoryCircuitBreakerValue(sValue, null, settingName);
     }
 
     public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, ByteSizeValue defaultValue, String settingName) {
