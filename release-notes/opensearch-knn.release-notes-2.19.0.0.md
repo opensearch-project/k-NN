@@ -19,7 +19,7 @@ Compatible with OpenSearch 2.19.0
 - Use one formula to calculate cosine similarity [#2357](https://github.com/opensearch-project/k-NN/pull/2357)
 - Make the build work for M series MacOS without manual code changes and local JAVA_HOME config [#2397](https://github.com/opensearch-project/k-NN/pull/2397)
 - Remove DocsWithFieldSet reference from NativeEngineFieldVectorsWriter [#2408](https://github.com/opensearch-project/k-NN/pull/2408)
-- Remove skip building graph check for quantization use case [#2430](https://github.com/opensearch-project/k-NN/2430)
+- Remove skip building graph check for quantization use case [#2430](https://github.com/opensearch-project/k-NN/pull/2430)
 - Removing redundant type conversions for script scoring for hamming space with binary vectors [#2351](https://github.com/opensearch-project/k-NN/pull/2351)
 - Update default to 0 to always build graph as default behavior [#2452](https://github.com/opensearch-project/k-NN/pull/2452)
 - Enabled concurrent graph creation for Lucene engine with index thread qty settings[#2480](https://github.com/opensearch-project/k-NN/pull/2480)
