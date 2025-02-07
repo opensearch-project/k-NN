@@ -399,6 +399,7 @@ integTest {
     systemProperty("https", is_https)
     systemProperty("user", user)
     systemProperty("password", password)
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
 
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
@@ -466,6 +467,7 @@ task integTestRemote(type: RestIntegTestTask) {
     systemProperty 'cluster.number_of_nodes', "${_numNodes}"
 
     systemProperty 'tests.security.manager', 'false'
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
 
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {

@@ -21,7 +21,7 @@ import java.io.IOException;
 /**
  * Provides different strategies to extract the vectors from different {@link KNNVectorValuesIterator}
  */
-interface VectorValueExtractorStrategy {
+public interface VectorValueExtractorStrategy {
 
     /**
      * Extract a float vector from KNNVectorValuesIterator.
