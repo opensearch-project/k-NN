@@ -131,9 +131,14 @@ cd $work_dir
 ./gradlew :buildJniLib -Davx512.enabled=false -Davx512_spr.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1}
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
+  echo "Building k-NN library nmslib with gcc 10 on non-windows x64"
+  rm -rf jni/CMakeCache.txt jni/CMakeFiles
+  env CC=gcc10-gcc CXX=gcc10-g++ FC=gcc10-gfortran ./gradlew :buildNmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false --info
+
   echo "Building k-NN library after enabling AVX2"
   # Skip applying patches as patches were applied already from previous :buildJniLib task
   # If we apply patches again, it fails with conflict
+  rm -rf jni/CMakeCache.txt jni/CMakeFiles
   ./gradlew :buildJniLib -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 
   echo "Building k-NN library after enabling AVX512"
@@ -141,6 +146,9 @@ if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
 
   echo "Building k-NN library after enabling AVX512_SPR"
   ./gradlew :buildJniLib -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+
+else
+  ./gradlew :buildNmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false --info
 fi
 
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
@@ -149,7 +157,7 @@ fi
 # Add lib to zip
 zipPath=$(find "$(pwd)/build/distributions" -path \*.zip)
 distributions="$(dirname "${zipPath}")"
-mkdir $distributions/lib
+mkdir -p $distributions/lib
 libPrefix="libopensearchknn"
 if [ "$PLATFORM" = "windows" ]; then
     libPrefix="opensearchknn"

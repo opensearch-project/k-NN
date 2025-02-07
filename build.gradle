@@ -343,24 +343,24 @@ task cmakeJniLib(type:Exec) {
         args.add("-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
         args.add("-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
     }
+    //if (System.getenv("LIBNAME") == "nmslib_linux_x64") {
+    //    environment('CC', 'gcc10-gcc')
+    //    environment('CXX', 'gcc10-g++')
+    //    environment('FC', 'gcc10-gfortran')
+    //}
 
     commandLine args
 }
 
 task buildNmslib(type:Exec) {
+    dependsOn cmakeJniLib
     workingDir 'jni'
-    environment('CC', 'gcc')
-    environment('CXX', 'g++')
-    environment('FC', 'gfortran')
-    commandLine 'make', 'opensearchknn_nmslib', '-j', "${nproc_count}"
+    commandLine 'make', '-B', 'opensearchknn_nmslib', '-j', "${nproc_count}"
 }
 
 task buildJniLib(type:Exec) {
     dependsOn cmakeJniLib
     workingDir 'jni'
-    environment('CC', 'gcc10-gcc')
-    environment('CXX', 'gcc10-gcc')
-    environment('FC', 'gcc10-gcc')
     commandLine 'make', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
 }
 
