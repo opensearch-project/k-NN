@@ -347,13 +347,20 @@ task cmakeJniLib(type:Exec) {
     commandLine args
 }
 
+task buildNmslib(type:Exec) {
+    dependsOn cmakeJniLib
+    workingDir 'jni'
+    commandLine 'make', 'opensearchknn_nmslib', '-j', "${nproc_count}"
+}
+
 task buildJniLib(type:Exec) {
     dependsOn cmakeJniLib
     workingDir 'jni'
-    commandLine 'make', 'opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
+    commandLine 'make', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
 }
 
 test {
+    dependsOn buildNmslib
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/release"
@@ -368,6 +375,7 @@ test {
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 integTest {
     if (integTestDependOnJniLib) {
+        dependsOn buildNmslib
         dependsOn buildJniLib
     }
     systemProperty 'tests.security.manager', 'false'
@@ -468,6 +476,7 @@ task integTestRemote(type: RestIntegTestTask) {
 
 run {
     useCluster project.testClusters.integTest
+    dependsOn buildNmslib
     dependsOn buildJniLib
     doFirst {
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
