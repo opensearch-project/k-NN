@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Upgrade min JDK compatibility to JDK 21 [#2422](https://github.com/opensearch-project/k-NN/pull/2422)
 ### Documentation
 ### Maintenance
+* Update package name to fix compilation issue [#2513](https://github.com/opensearch-project/k-NN/pull/2513)
 ### Refactoring
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.18...2.x)
