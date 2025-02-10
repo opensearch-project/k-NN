@@ -135,6 +135,7 @@ testClusters {
 // All nodes are upgraded to latest version and run the tests
     task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         dependsOn "testAgainstOldCluster"
+        dependsOn rootProject.tasks.buildNmslib
         dependsOn rootProject.tasks.buildJniLib
         dependsOn rootProject.tasks.assemble
         useCluster testClusters."${baseName}"
