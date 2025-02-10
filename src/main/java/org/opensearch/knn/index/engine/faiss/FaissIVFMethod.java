@@ -15,12 +15,16 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -149,5 +153,24 @@ public class FaissIVFMethod extends AbstractFaissMethod {
             DEFAULT_ENCODER_CONTEXT,
             SUPPORTED_ENCODERS.values().stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
         );
+    }
+
+    @Override
+    protected Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> doGetTrainingConfigValidationSetup() {
+        return (trainingConfigValidationInput) -> {
+
+            KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
+            TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+
+            if (isEncoderSpecified(knnMethodContext) == false) {
+                return builder.build();
+            }
+            Encoder encoder = SUPPORTED_ENCODERS.get(getEncoderName(knnMethodContext));
+            if (encoder == null) {
+                return builder.build();
+            }
+
+            return encoder.validateEncoderConfig(trainingConfigValidationInput);
+        };
     }
 }

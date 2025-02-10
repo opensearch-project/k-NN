@@ -20,6 +20,6 @@ import lombok.Setter;
 @Builder
 @AllArgsConstructor
 public class TrainingConfigValidationOutput {
-    private boolean valid;
-    private long minTrainingVectorCount;
+    private Boolean valid;
+    private Long minTrainingVectorCount;
 }

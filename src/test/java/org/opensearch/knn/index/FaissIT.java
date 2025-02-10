@@ -796,7 +796,7 @@ public class FaissIT extends KNNRestTestCase {
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
 
-        int dimension = 2;
+        int dimension = 128;
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -830,7 +830,23 @@ public class FaissIT extends KNNRestTestCase {
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
-        Float[] vector = { -10.76f, 65504.2f };
+
+        Float[] vector = new Float[dimension];
+        Float[] vector1 = new Float[dimension];
+        Float[] vector2 = new Float[dimension];
+        int halfDimension = dimension / 2;
+
+        for (int i = 0; i < dimension; i++) {
+            if (i < halfDimension) {
+                vector[i] = -10.76f;
+                vector1[i] = -65506.84f;
+                vector2[i] = -65526.4567f;
+            } else {
+                vector[i] = 65504.2f;
+                vector1[i] = 12.56f;
+                vector2[i] = 65526.4567f;
+            }
+        }
 
         ResponseException ex = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "1", fieldName, vector));
         assertTrue(
@@ -847,8 +863,6 @@ public class FaissIT extends KNNRestTestCase {
                 )
         );
 
-        Float[] vector1 = { -65506.84f, 12.56f };
-
         ResponseException ex1 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "2", fieldName, vector1));
         assertTrue(
             ex1.getMessage()
@@ -863,8 +877,6 @@ public class FaissIT extends KNNRestTestCase {
                     )
                 )
         );
-
-        Float[] vector2 = { -65526.4567f, 65526.4567f };
 
         ResponseException ex2 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "3", fieldName, vector2));
         assertTrue(
@@ -893,7 +905,7 @@ public class FaissIT extends KNNRestTestCase {
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
 
-        int dimension = 2;
+        int dimension = 128;
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -928,16 +940,35 @@ public class FaissIT extends KNNRestTestCase {
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
-        Float[] vector1 = { -65523.76f, 65504.2f };
-        Float[] vector2 = { -270.85f, 65514.2f };
-        Float[] vector3 = { -150.9f, 65504.0f };
-        Float[] vector4 = { -20.89f, 100000000.0f };
+
+        Float[] vector1 = new Float[dimension];
+        Float[] vector2 = new Float[dimension];
+        Float[] vector3 = new Float[dimension];
+        Float[] vector4 = new Float[dimension];
+        float[] queryVector = new float[dimension];
+        int halfDimension = dimension / 2;
+
+        for (int i = 0; i < dimension; i++) {
+            if (i < halfDimension) {
+                vector1[i] = -65523.76f;
+                vector2[i] = -270.85f;
+                vector3[i] = -150.9f;
+                vector4[i] = -20.89f;
+                queryVector[i] = -10.5f;
+            } else {
+                vector1[i] = 65504.2f;
+                vector2[i] = 65514.2f;
+                vector3[i] = 65504.0f;
+                vector4[i] = 100000000.0f;
+                queryVector[i] = 25.48f;
+            }
+        }
+
         addKnnDoc(indexName, "1", fieldName, vector1);
         addKnnDoc(indexName, "2", fieldName, vector2);
         addKnnDoc(indexName, "3", fieldName, vector3);
         addKnnDoc(indexName, "4", fieldName, vector4);
 
-        float[] queryVector = { -10.5f, 25.48f };
         int k = 4;
         Response searchResponse = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, queryVector, k), k);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
