@@ -329,11 +329,52 @@ task windowsPatches(type:Exec) {
     commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
 }
 
-task cmakeJniLib(type:Exec) {
-    workingDir 'jni'
+def findExecutable(String executableName, List<String> additionalPaths = []) {
+    // Print the task's environment before setting it
+    // Print PATH specifically
+    logger.lifecycle("\nSystem PATH:")
+    logger.lifecycle(System.getenv("PATH"))
+
+    def commonBasePaths = [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin"
+    ]
+
+    // Start with just the executable name (will use system PATH)
+    def execPath = executableName
+
+    if (Os.isFamily(Os.FAMILY_MAC)) {
+        def searchPaths = []
+        // Add common paths
+        commonBasePaths.each { basePath ->
+            searchPaths.add("${basePath}/${executableName}")
+        }
+        // Add any additional specific paths
+        searchPaths.addAll(additionalPaths)
+
+        for (path in searchPaths) {
+            if (new File(path).exists()) {
+                logger.lifecycle("Found ${executableName} at: ${path}")
+                execPath = path
+                break
+            }
+        }
+    }
+
+    return execPath
+}
+
+tasks.register('cmakeJniLib', Exec) {
+    def cmakePath = findExecutable("cmake")
+    logger.lifecycle("Using cmake at: ${cmakePath}")
+    // Inherit the current environment
+    environment System.getenv()
+
     def args = []
-    args.add("cmake")
-    args.add(".")
+    args.add(cmakePath)
+    args.add("-S jni")
+    args.add("-B jni/build")
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DAVX2_ENABLED=${avx2_enabled}")
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
@@ -343,7 +384,7 @@ task cmakeJniLib(type:Exec) {
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_MAC)) {
-        environment('JAVA_HOME',javaHome)
+        environment('JAVA_HOME', javaHome)
     }
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
@@ -353,13 +394,30 @@ task cmakeJniLib(type:Exec) {
         args.add("-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
     }
 
+    // Print the task's environment after setting it
+    logger.lifecycle("\nTask Environment PATH:")
+    logger.lifecycle(environment.get('PATH'))
+
+    // Print the command that will be executed
+    logger.lifecycle("CMake command: ${args.join(' ')}")
+    def outputStream = new ByteArrayOutputStream()
     commandLine args
+    standardOutput = outputStream
 }
 
 task buildJniLib(type:Exec) {
     dependsOn cmakeJniLib
-    workingDir 'jni'
-    commandLine 'make', 'opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
+    def makePath = findExecutable("make")
+    logger.lifecycle("Using make at: ${makePath}")
+    println "Make path: ${makePath}"
+    // Ensure makePath is treated as a String. If parsing to an int is required,
+    // handle it explicitly, though a path typically should not be parsed as an int.
+    if (makePath.isEmpty()) {
+        throw new GradleException("Make not found in PATH. Please install Make.")
+    }
+    def outputStream = new ByteArrayOutputStream()
+    commandLine makePath, '-Cjni/build','opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
+    standardOutput = outputStream
 }
 
 test {
