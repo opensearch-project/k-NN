@@ -405,6 +405,18 @@ tasks.register('cmakeJniLib', Exec) {
     standardOutput = outputStream
 }
 
+// Makes sure that `./gradlew clean` removes all JNI build artifacts
+tasks.clean.doFirst {
+    // Delete JNI build directory
+    delete "${projectDir}/jni/build"
+    // Delete JNI release directory
+    delete "${projectDir}/jni/release"
+    // Delete any other JNI-related directories that might contain build artifacts
+    delete "${projectDir}/jni/packages"
+    delete "${projectDir}/jni/bin"
+    delete "${projectDir}/jni/lib"
+}
+
 task buildNmslib(type:Exec) {
     dependsOn cmakeJniLib
     def makePath = findExecutable("make")
