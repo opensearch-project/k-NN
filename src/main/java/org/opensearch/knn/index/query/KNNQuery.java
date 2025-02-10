@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.FieldExistsQuery;
@@ -19,6 +20,7 @@ import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
@@ -32,6 +34,7 @@ import java.util.Objects;
  * Custom KNN query. Query is used for KNNEngine's that create their own custom segment files. These files need to be
  * loaded and queried in a custom manner throughout the query path.
  */
+@Log4j2
 @Getter
 @Builder
 @AllArgsConstructor
@@ -45,13 +48,16 @@ public class KNNQuery extends Query {
     private final String indexName;
     private final VectorDataType vectorDataType;
     private final RescoreContext rescoreContext;
-
     @Setter
     private Query filterQuery;
     @Getter
     private BitSetProducer parentsFilter;
     private Float radius;
     private Context context;
+
+    // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
+    // TODO: ThreadContext does not work with logger, remove this from here once its figured out
+    private int shardId;
 
     public KNNQuery(
         final String field,
@@ -168,7 +174,22 @@ public class KNNQuery extends Query {
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
+        StopWatch stopWatch = null;
+        if (log.isDebugEnabled()) {
+            stopWatch = new StopWatch().start();
+        }
+
         final Weight filterWeight = getFilterWeight(searcher);
+        if (log.isDebugEnabled() && stopWatch != null) {
+            stopWatch.stop();
+            log.debug(
+                "Creating filter weight, Shard: [{}], field: [{}] took in nanos: [{}]",
+                shardId,
+                field,
+                stopWatch.totalTime().nanos()
+            );
+        }
+
         if (filterWeight != null) {
             return new KNNWeight(this, boost, filterWeight);
         }
