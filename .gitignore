@@ -18,14 +18,10 @@ jni/CMakeCache.txt
 jni/CMakeFiles
 jni/Makefile
 jni/cmake_install.cmake
-jni/release
-jni/packages
 jni/CTestTestfile.cmake
 jni/KNNPlugin_JNI.cbp
 jni/Testing/
-jni/_deps/
 jni/bin/
-jni/lib/
 jni/jni_test*
 jni/googletest*
 jni/cmake/*.cmake-e

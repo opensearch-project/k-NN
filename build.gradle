@@ -449,12 +449,12 @@ test {
     dependsOn buildNmslib
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
-    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
     //this change enables mockito-inline that supports mocking of static classes/calls
     systemProperty "jdk.attach.allowAttachSelf", true
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
 }
 
@@ -466,7 +466,7 @@ integTest {
     }
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
-    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
 
@@ -518,7 +518,7 @@ testClusters.integTest {
     plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
 
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
@@ -533,7 +533,7 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    systemProperty("java.library.path", "$rootDir/jni/release")
+    systemProperty("java.library.path", "$rootDir/jni/build/release")
     systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
