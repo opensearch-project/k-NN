@@ -373,8 +373,8 @@ tasks.register('cmakeJniLib', Exec) {
 
     def args = []
     args.add(cmakePath)
-    args.add("-S jni")
-    args.add("-B jni/build")
+    args.add("-S jni") // CMakelists.txt directory
+    args.add("-B jni/build") // Build directory
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DAVX2_ENABLED=${avx2_enabled}")
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
@@ -405,44 +405,52 @@ tasks.register('cmakeJniLib', Exec) {
     standardOutput = outputStream
 }
 
+// Makes sure that `./gradlew clean` removes all JNI build artifacts
+tasks.clean.doFirst {
+    // Delete JNI build directory
+    delete "${projectDir}/jni/build"
+}
+
 task buildNmslib(type:Exec) {
     dependsOn cmakeJniLib
-    def makePath = findExecutable("make")
-    logger.lifecycle("Using make at: ${makePath}")
-    // Ensure makePath is treated as a String. If parsing to an int is required,
-    // handle it explicitly, though a path typically should not be parsed as an int.
-    if (makePath.isEmpty()) {
-        throw new GradleException("Make not found in PATH. Please install Make.")
+    def cmakePath = findExecutable("cmake")
+    logger.lifecycle("Using cmake at: ${cmakePath}")
+
+    if (cmakePath.isEmpty()) {
+        throw new GradleException("CMake not found in PATH. Please install CMake.")
     }
-    def outputStream = new ByteArrayOutputStream()
-    commandLine makePath, '-Cjni/build', 'opensearchknn_nmslib', '-j', "${nproc_count}"
-    standardOutput = outputStream
+
+    commandLine cmakePath,
+            '--build', 'jni/build',
+            '--target', 'opensearchknn_nmslib',
+            '--parallel', "${nproc_count}"
 }
 
 task buildJniLib(type:Exec) {
     dependsOn cmakeJniLib
-    def makePath = findExecutable("make")
-    logger.lifecycle("Using make at: ${makePath}")
-    // Ensure makePath is treated as a String. If parsing to an int is required,
-    // handle it explicitly, though a path typically should not be parsed as an int.
-    if (makePath.isEmpty()) {
-        throw new GradleException("Make not found in PATH. Please install Make.")
+    def cmakePath = findExecutable("cmake")
+    logger.lifecycle("Using cmake at: ${cmakePath}")
+
+    if (cmakePath.isEmpty()) {
+        throw new GradleException("CMake not found in PATH. Please install CMake.")
     }
-    def outputStream = new ByteArrayOutputStream()
-    commandLine makePath, '-Cjni/build', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
-    standardOutput = outputStream
+
+    commandLine cmakePath,
+            '--build', 'jni/build',
+            '--target', 'opensearchknn_faiss', 'opensearchknn_common',
+            '--parallel', "${nproc_count}"
 }
 
 test {
     dependsOn buildNmslib
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
-    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
     //this change enables mockito-inline that supports mocking of static classes/calls
     systemProperty "jdk.attach.allowAttachSelf", true
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
 }
 
@@ -454,7 +462,7 @@ integTest {
     }
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
-    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
 
@@ -509,7 +517,7 @@ testClusters.integTest {
     plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
 
 
@@ -525,7 +533,7 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    systemProperty("java.library.path", "$rootDir/jni/release")
+    systemProperty("java.library.path", "$rootDir/jni/build/release")
     systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
