@@ -373,8 +373,8 @@ tasks.register('cmakeJniLib', Exec) {
 
     def args = []
     args.add(cmakePath)
-    args.add("-S jni")
-    args.add("-B jni/build")
+    args.add("-S jni") // CMakelists.txt directory
+    args.add("-B jni/build") // Build directory
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DAVX2_ENABLED=${avx2_enabled}")
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
@@ -409,39 +409,39 @@ tasks.register('cmakeJniLib', Exec) {
 tasks.clean.doFirst {
     // Delete JNI build directory
     delete "${projectDir}/jni/build"
-    // Delete JNI release directory
-    delete "${projectDir}/jni/release"
-    // Delete any other JNI-related directories that might contain build artifacts
-    delete "${projectDir}/jni/packages"
-    delete "${projectDir}/jni/bin"
-    delete "${projectDir}/jni/lib"
 }
 
 task buildNmslib(type:Exec) {
     dependsOn cmakeJniLib
-    def makePath = findExecutable("make")
-    logger.lifecycle("Using make at: ${makePath}")
-    // Ensure makePath is treated as a String. If parsing to an int is required,
-    // handle it explicitly, though a path typically should not be parsed as an int.
-    if (makePath.isEmpty()) {
-        throw new GradleException("Make not found in PATH. Please install Make.")
+    def cmakePath = findExecutable("cmake")
+    logger.lifecycle("Using cmake at: ${cmakePath}")
+
+    if (cmakePath.isEmpty()) {
+        throw new GradleException("CMake not found in PATH. Please install CMake.")
     }
+
     def outputStream = new ByteArrayOutputStream()
-    commandLine makePath, '-Cjni/build', 'opensearchknn_nmslib', '-j', "${nproc_count}"
+    commandLine cmakePath,
+            '--build', 'jni/build',
+            '--target', 'opensearchknn_nmslib',
+            '--parallel', "${nproc_count}"
     standardOutput = outputStream
 }
 
 task buildJniLib(type:Exec) {
     dependsOn cmakeJniLib
-    def makePath = findExecutable("make")
-    logger.lifecycle("Using make at: ${makePath}")
-    // Ensure makePath is treated as a String. If parsing to an int is required,
-    // handle it explicitly, though a path typically should not be parsed as an int.
-    if (makePath.isEmpty()) {
-        throw new GradleException("Make not found in PATH. Please install Make.")
+    def cmakePath = findExecutable("cmake")
+    logger.lifecycle("Using cmake at: ${cmakePath}")
+
+    if (cmakePath.isEmpty()) {
+        throw new GradleException("CMake not found in PATH. Please install CMake.")
     }
+
     def outputStream = new ByteArrayOutputStream()
-    commandLine makePath, '-Cjni/build', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
+    commandLine cmakePath,
+            '--build', 'jni/build',
+            '--target', 'opensearchknn_faiss', 'opensearchknn_common',
+            '--parallel', "${nproc_count}"
     standardOutput = outputStream
 }
 
