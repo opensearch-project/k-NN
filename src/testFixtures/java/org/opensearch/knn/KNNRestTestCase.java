@@ -13,6 +13,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
+import org.opensearch.Version;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -56,16 +57,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.PriorityQueue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -121,6 +113,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected static final int DELAY_MILLI_SEC = 1000;
     protected static final int NUM_OF_ATTEMPTS = 30;
     private static final String SYSTEM_INDEX_PREFIX = ".opendistro";
+    public static final int MIN_CODE_UNITS = 4;
+    public static final int MAX_CODE_UNITS = 10;
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -1827,5 +1821,36 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         builder.endObject().endObject().endObject().endObject();
         return builder;
+    }
+
+    // approximate threshold parameter is only supported on or after V_2_18_0
+    protected boolean isApproximateThresholdSupported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get();
+        if (versionString.endsWith("-SNAPSHOT")) {
+            versionString = versionString.substring(0, versionString.length() - 9);
+        }
+        final Version version = Version.fromString(versionString);
+        return false;
+    }
+
+    /**
+     * Generates a random lowercase string with length between MIN_CODE_UNITS and MAX_CODE_UNITS.
+     * This method is used for test fixtures to generate random string values that can be used
+     * as identifiers, names, or other string-based test data.
+     * Example usage:
+     * <pre>
+     * String randomId = randomLowerCaseString();
+     * String indexName = randomLowerCaseString();
+     * String fieldName = randomLowerCaseString();
+     * </pre>
+     *
+     * @return A random lowercase string of variable length between MIN_CODE_UNITS and MAX_CODE_UNITS
+     * @see #randomAlphaOfLengthBetween(int, int)
+     */
+    protected static String randomLowerCaseString() {
+        return randomAlphaOfLengthBetween(MIN_CODE_UNITS, MAX_CODE_UNITS).toLowerCase(Locale.ROOT);
     }
 }

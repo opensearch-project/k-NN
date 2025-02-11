@@ -109,4 +109,5 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
     protected PerDimensionProcessor getPerDimensionProcessor() {
         return PerDimensionProcessor.NOOP_PROCESSOR;
     }
+
 }
