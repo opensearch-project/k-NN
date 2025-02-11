@@ -21,12 +21,14 @@ import org.opensearch.threadpool.ThreadPool;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Runs the circuit breaker logic and updates the settings
  */
 public class KNNCircuitBreaker {
     private static Logger logger = LogManager.getLogger(KNNCircuitBreaker.class);
+    public static final String KNN_CIRCUIT_BREAKER_TIER = "knn_cb_tier";
     public static int CB_TIME_INTERVAL = 2 * 60; // seconds
 
     private static KNNCircuitBreaker INSTANCE;
@@ -112,8 +114,20 @@ public class KNNCircuitBreaker {
         clusterService.addLifecycleListener(new LifecycleListener() {
             @Override
             public void afterStart() {
-                // Node is fully initialized, rebuild the cache to fetch node-specific limits
-                nativeMemoryCacheManager.rebuildCache();
+                // Attempt to fetch a cb tier from node attributes and cache the result.
+                // Get this node's circuit breaker tier attribute
+                Optional<String> tierAttribute = Optional.ofNullable(
+                    clusterService.localNode().getAttributes().get(KNN_CIRCUIT_BREAKER_TIER)
+                );
+                if (tierAttribute.isPresent()) {
+                    // Only rebuild the cache if the attribute was present
+                    logger.info(
+                        "[KNN] Node specific circuit breaker " + tierAttribute.get() + " classification found. Rebuilding the cache."
+                    );
+                    KNNSettings.state().setNodeCbAttribute(tierAttribute);
+                    nativeMemoryCacheManager.rebuildCache();
+                }
+
             }
         });
     }

@@ -145,7 +145,7 @@ public class KNNWeightTests extends KNNTestCase {
             CIRCUIT_BREAKER_LIMIT_100KB,
             KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
         );
-        knnSettingsMockedStatic.when(KNNSettings::getClusterLevelCircuitBreakerLimit).thenReturn(v);
+        knnSettingsMockedStatic.when(KNNSettings::getClusterCbLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
         knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
         ByteSizeValue cacheSize = ByteSizeValue.parseBytesSizeValue("1024kb", QUANTIZATION_STATE_CACHE_SIZE_LIMIT); // Setting 1MB as an

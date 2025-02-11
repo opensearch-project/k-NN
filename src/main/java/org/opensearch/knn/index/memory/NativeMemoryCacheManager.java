@@ -94,7 +94,7 @@ public class NativeMemoryCacheManager implements Closeable {
             NativeMemoryCacheManagerDto.builder()
                 .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
                 // Initially use cluster-level limit; will be updated later during cache refresh if node-specific limit exists
-                .maxWeight(KNNSettings.getClusterLevelCircuitBreakerLimit().getKb())
+                .maxWeight(KNNSettings.getClusterCbLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
                     ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()

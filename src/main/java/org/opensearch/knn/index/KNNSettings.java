@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -117,7 +119,6 @@ public class KNNSettings {
     public static final Integer KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 25; // Model cache limit cannot exceed 25% of the JVM heap
     public static final String KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT = "50%";
     public static final String KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT = "1%";
-    public static final String KNN_CIRCUIT_BREAKER_TIER = "knn_cb_tier";
 
     public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE = 5; // By default, set aside 5% of the JVM for
@@ -439,6 +440,8 @@ public class KNNSettings {
 
     private ClusterService clusterService;
     private Client client;
+    @Setter
+    private Optional<String> nodeCbAttribute;
 
     private KNNSettings() {}
 
@@ -459,8 +462,7 @@ public class KNNSettings {
                 updatedSettings.getAsBoolean(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
             );
 
-            // If any cb related limits have changed at the cluster or node level, we need to check if the max weight of the cache needs to
-            // be updated as well.
+            // Recompute cache weight
             builder.maxWeight(getUpdatedCircuitBreakerLimit(updatedSettings).getKb());
 
             builder.isExpirationLimited(
@@ -591,14 +593,30 @@ public class KNNSettings {
     }
 
     /**
-    * Retrieves all available circuit breaker limit configurations.
-    * This group setting includes Node-specific circuit breaker limits
-    * It does not include the cluster-wide default limit, which is set separately.
-    *
-    * @return Settings object containing all node-level circuit breaker limit configurations
-    */
-    public static Settings getAllAvailableNodeCbLimits() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX);
+     * Retrieves the node-specific circuit breaker limit based on the existing settings.
+     *
+     * @return String representation of the node-specific circuit breaker limit,
+     *         or null if no node-specific limit is set or found
+     */
+    private String getNodeCbLimit() {
+        if (nodeCbAttribute.isPresent()) {
+            Settings configuredNodeCbLimits = KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX);
+            return configuredNodeCbLimits.get(nodeCbAttribute.get());
+        }
+        return null;
+    }
+
+    /**
+     * Gets node-specific circuit breaker limit from updated settings.
+     *
+     * @param updatedSettings Settings object containing pending updates
+     * @return String representation of new limit if exists for this node's tier, null otherwise
+     */
+    private String getNodeCbLimit(Settings updatedSettings) {
+        if (nodeCbAttribute.isPresent()) {
+            return updatedSettings.getByPrefix(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX).get(nodeCbAttribute.get());
+        }
+        return null;
     }
 
     /**
@@ -611,12 +629,12 @@ public class KNNSettings {
      *
      * @return ByteSizeValue representing the cluster-wide circuit breaker limit
      */
-    public static ByteSizeValue getClusterLevelCircuitBreakerLimit() {
+    public static ByteSizeValue getClusterCbLimit() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT);
     }
 
     /**
-     * Returns the circuit breaker limit for this node. The limit is determined by:
+     * Returns the circuit breaker limit for this node using existing configuration. The limit is determined by:
      * 1. Node-specific limit based on the node's circuit breaker tier attribute, if configured
      * 2. Cluster-level default limit if no node-specific configuration exists
      *
@@ -625,37 +643,8 @@ public class KNNSettings {
      */
     public ByteSizeValue getCircuitBreakerLimit() {
 
-        // Attempt to fetch node-level limits if present - otherwise fall back to the cluster-level value
-        return parseknnMemoryCircuitBreakerValue(
-            getKnnCircuitBreakerLimitForNode(getAllAvailableNodeCbLimits()),
-            getClusterLevelCircuitBreakerLimit(),
-            KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX
-        );
-    }
+        return parseknnMemoryCircuitBreakerValue(getNodeCbLimit(), getClusterCbLimit(), KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT);
 
-    /**
-     * Retrieves the circuit breaker limit configuration for this node's tier.
-     * The method:
-     * 1. Gets the node's knn_cb_tier attribute (if it exists)
-     * 2. Looks up the corresponding limit configuration
-     *
-     * For example, if a node has attribute knn_cb_tier: "high",
-     * this will return the limit configured for the "high" tier.
-     *
-     * @return String representing the circuit breaker limit for this node's tier,
-     *         null if either:
-     *         - Node has no knn_cb_tier attribute
-     *         - No configuration exists for the node's tier
-     */
-    private String getKnnCircuitBreakerLimitForNode(Settings settings) {
-        // Get this node's circuit breaker tier attribute
-        String tierAttribute = clusterService.localNode().getAttributes().get(KNN_CIRCUIT_BREAKER_TIER);
-
-        if (tierAttribute == null) {
-            return null;
-        }
-
-        return settings.get(tierAttribute);
     }
 
     /**
@@ -672,9 +661,9 @@ public class KNNSettings {
     private ByteSizeValue getUpdatedCircuitBreakerLimit(Settings updatedCbLimits) {
         // Parse any updates, using appropriate fallback if no node-specific limit update exists
         return parseknnMemoryCircuitBreakerValue(
-            getKnnCircuitBreakerLimitForNode(updatedCbLimits.getByPrefix(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX)),
+            getNodeCbLimit(updatedCbLimits),
             getFallbackCbLimitValue(updatedCbLimits),
-            KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX
+            KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
         );
     }
 
@@ -695,12 +684,10 @@ public class KNNSettings {
      * @return ByteSizeValue representing the appropriate fallback limit
      */
     private ByteSizeValue getFallbackCbLimitValue(Settings updatedCbLimits) {
-        // Check if node is currently using cluster-level limit
-        if (getKnnCircuitBreakerLimitForNode(getAllAvailableNodeCbLimits()) == null) {
-            // If there's an updated cluster-level limit, use it
-            if (updatedCbLimits.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)) {
-                return (ByteSizeValue) getSetting(KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT).get(updatedCbLimits);
-            }
+        // Update cluster level limit if used
+        if (getNodeCbLimit() == null && updatedCbLimits.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)) {
+            return (ByteSizeValue) getSetting(KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT).get(updatedCbLimits);
+
         }
 
         // Otherwise maintain current limit (either tier-specific or cluster-level)
@@ -772,6 +759,7 @@ public class KNNSettings {
     public void initialize(Client client, ClusterService clusterService) {
         this.client = client;
         this.clusterService = clusterService;
+        this.nodeCbAttribute = Optional.empty();
         setSettingsUpdateConsumers();
     }
 
