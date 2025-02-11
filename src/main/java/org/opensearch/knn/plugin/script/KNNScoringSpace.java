@@ -154,7 +154,7 @@ public interface KNNScoringSpace {
         protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery, Version indexCreatedVersion) {
             SpaceType.COSINESIMIL.validateVector(processedQuery);
             float qVectorSquaredMagnitude = getVectorMagnitudeSquared(processedQuery);
-            if (indexCreatedVersion.onOrAfter(Version.V_2_19_0)) {
+            if (indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
                 // To be consistent, we will be using same formula used by lucene as mentioned below
                 // https://github.com/apache/lucene/blob/0494c824e0ac8049b757582f60d085932a890800/lucene/core/src/java/org/apache/lucene/index/VectorSimilarityFunction.java#L73
                 // for indices that are created on or after 2.19.0
