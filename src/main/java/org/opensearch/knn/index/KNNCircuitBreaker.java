@@ -14,7 +14,7 @@ import org.opensearch.knn.plugin.transport.KNNStatsRequest;
 import org.opensearch.knn.plugin.transport.KNNStatsResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.client.Client;
+import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;

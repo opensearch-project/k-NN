@@ -8,7 +8,7 @@ package org.opensearch.knn.plugin.rest;
 import com.google.common.collect.ImmutableList;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.client.node.NodeClient;
+import org.opensearch.transport.client.node.NodeClient;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.common.Strings;
