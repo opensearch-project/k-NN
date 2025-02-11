@@ -420,12 +420,10 @@ task buildNmslib(type:Exec) {
         throw new GradleException("CMake not found in PATH. Please install CMake.")
     }
 
-    def outputStream = new ByteArrayOutputStream()
     commandLine cmakePath,
             '--build', 'jni/build',
             '--target', 'opensearchknn_nmslib',
             '--parallel', "${nproc_count}"
-    standardOutput = outputStream
 }
 
 task buildJniLib(type:Exec) {
@@ -437,12 +435,10 @@ task buildJniLib(type:Exec) {
         throw new GradleException("CMake not found in PATH. Please install CMake.")
     }
 
-    def outputStream = new ByteArrayOutputStream()
     commandLine cmakePath,
             '--build', 'jni/build',
             '--target', 'opensearchknn_faiss', 'opensearchknn_common',
             '--parallel', "${nproc_count}"
-    standardOutput = outputStream
 }
 
 test {
