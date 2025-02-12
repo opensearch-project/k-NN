@@ -18,7 +18,10 @@ public class QuantizationStateSerializerTests extends KNNTestCase {
     public void testSerializeAndDeserializeOneBitScalarQuantizationState() throws IOException {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         float[] mean = new float[] { 0.1f, 0.2f, 0.3f };
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(params, mean);
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(mean)
+            .build();
 
         // Serialize
         byte[] serialized = state.toByteArray();

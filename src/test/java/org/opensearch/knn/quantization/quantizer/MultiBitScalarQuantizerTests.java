@@ -223,5 +223,10 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
         public float[] getVectorAtThePosition(int position) {
             return vectors[position];
         }
+
+        @Override
+        public void resetVectorValues() {
+            // No-op
+        }
     }
 }

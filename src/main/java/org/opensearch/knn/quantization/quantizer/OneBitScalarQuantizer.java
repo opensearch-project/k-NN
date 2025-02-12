@@ -60,8 +60,11 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) throws IOException {
         int[] sampledDocIds = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
-        float[] meanThresholds = QuantizerHelper.calculateMeanThresholds(trainingRequest, sampledDocIds);
-        return new OneBitScalarQuantizationState(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT), meanThresholds);
+        return QuantizerHelper.calculateQuantizationState(
+            trainingRequest,
+            sampledDocIds,
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT)
+        );
     }
 
     /**
@@ -73,7 +76,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @param output the QuantizationOutput object to store the quantized representation of the vector.
      */
     @Override
-    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
+    public void quantize(float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
         if (vector == null) {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }
@@ -83,6 +86,10 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         float[] thresholds = binaryState.getMeanThresholds();
         if (thresholds == null || thresholds.length != vectorLength) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
+        }
+        float[][] rotationMatrix = binaryState.getRotationMatrix();
+        if (rotationMatrix != null) {
+            vector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
         }
         output.prepareQuantizedVector(vectorLength);
         BitPacker.quantizeAndPackBits(vector, thresholds, output.getQuantizedVector());

@@ -30,4 +30,6 @@ public abstract class TrainingRequest<T> {
      * @return the vector corresponding to the specified document ID.
      */
     public abstract T getVectorAtThePosition(int position) throws IOException;
+
+    public abstract void resetVectorValues();
 }
