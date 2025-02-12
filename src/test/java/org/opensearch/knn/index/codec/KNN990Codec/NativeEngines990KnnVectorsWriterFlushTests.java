@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -47,6 +48,7 @@ import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -257,7 +259,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i), vectorsPerField.get(i).size()))
+                    // Fix mock to use the supplier
+                    when(quantizationService.train(eq(quantizationParams), any(Supplier.class), eq((long) vectorsPerField.get(i).size())))
                         .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -299,7 +302,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
                 () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
-                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled) * 2)
+                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled) * 1)
             );
         }
     }
@@ -690,7 +693,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i), vectorsPerField.get(i).size()))
+                    when(quantizationService.train(eq(quantizationParams), any(Supplier.class), eq((long) vectorsPerField.get(i).size())))
                         .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -729,7 +732,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
                 () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
-                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
+                times(0)
             );
         }
     }
@@ -793,7 +796,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i), vectorsPerField.get(i).size()))
+                    when(quantizationService.train(eq(quantizationParams), any(Supplier.class), eq((long) vectorsPerField.get(i).size())))
                         .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -832,7 +835,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
                 () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
-                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
+                times(0)
             );
         }
     }

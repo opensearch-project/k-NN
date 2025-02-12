@@ -33,6 +33,7 @@ import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.test.OpenSearchTestCase;
+import java.util.function.Supplier;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -325,7 +327,10 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
             try {
-                when(quantizationService.train(quantizationParams, knnVectorValues, mergedVectors.size())).thenReturn(quantizationState);
+                // Fix mock to use the supplier
+                when(quantizationService.train(eq(quantizationParams), any(Supplier.class), eq((long) mergedVectors.size()))).thenReturn(
+                    quantizationState
+                );
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -349,13 +354,12 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 assertTrue(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() > 0L);
                 knnVectorValuesFactoryMockedStatic.verify(
                     () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues),
-                    times(3)
+                    times(2)
                 );
             } else {
                 assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
                 verifyNoInteractions(nativeIndexWriter);
             }
-
         }
     }
 
