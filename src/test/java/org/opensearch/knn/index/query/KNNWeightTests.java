@@ -1607,7 +1607,10 @@ public class KNNWeightTests extends KNNWeightTestCase {
             quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
 
             float[] meanThresholds = new float[] { 1.2f, 2.3f, 3.4f, 4.5f };
-            QuantizationState quantizationState = new OneBitScalarQuantizationState(quantizationParams, meanThresholds);
+            QuantizationState quantizationState = OneBitScalarQuantizationState.builder()
+                .quantizationParams(quantizationParams)
+                .meanThresholds(meanThresholds)
+                .build();
 
             try (
                 MockedConstruction<QuantizationConfigKNNCollector> quantizationCollectorMockedConstruction = Mockito.mockConstruction(

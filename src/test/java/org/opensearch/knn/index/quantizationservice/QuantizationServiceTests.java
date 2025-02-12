@@ -20,10 +20,11 @@ import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuan
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class QuantizationServiceTests extends KNNTestCase {
     private QuantizationService<float[], byte[]> quantizationService;
-    private KNNVectorValues<float[]> knnVectorValues;
+    private Supplier<KNNVectorValues<float[]>> knnVectorValues;
 
     @Before
     public void setUp() throws Exception {
@@ -38,7 +39,8 @@ public class QuantizationServiceTests extends KNNTestCase {
         );
 
         // Use the predefined vectors to create KNNVectorValues
-        knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+        // Use the predefined vectors to create KNNVectorValues
+        knnVectorValues = () -> KNNVectorValuesFactory.getVectorValues(
             VectorDataType.FLOAT,
             new TestVectorValues.PreDefinedFloatVectorValues(floatVectors)
         );
@@ -46,7 +48,11 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testTrain_oneBitQuantizer_success() throws IOException {
         ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        QuantizationState quantizationState = quantizationService.train(oneBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            oneBitParams,
+            knnVectorValues,
+            knnVectorValues.get().totalLiveDocs()
+        );
 
         assertTrue(quantizationState instanceof OneBitScalarQuantizationState);
         OneBitScalarQuantizationState oneBitState = (OneBitScalarQuantizationState) quantizationState;
@@ -62,7 +68,11 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testTrain_twoBitQuantizer_success() throws IOException {
         ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        QuantizationState quantizationState = quantizationService.train(twoBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            twoBitParams,
+            knnVectorValues,
+            knnVectorValues.get().totalLiveDocs()
+        );
 
         assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
         MultiBitScalarQuantizationState multiBitState = (MultiBitScalarQuantizationState) quantizationState;
@@ -85,7 +95,11 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testTrain_fourBitQuantizer_success() throws IOException {
         ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
-        QuantizationState quantizationState = quantizationService.train(fourBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            fourBitParams,
+            knnVectorValues,
+            knnVectorValues.get().totalLiveDocs()
+        );
 
         assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
         MultiBitScalarQuantizationState multiBitState = (MultiBitScalarQuantizationState) quantizationState;
@@ -110,7 +124,11 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testQuantize_oneBitQuantizer_success() throws IOException {
         ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        QuantizationState quantizationState = quantizationService.train(oneBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            oneBitParams,
+            knnVectorValues,
+            knnVectorValues.get().totalLiveDocs()
+        );
 
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(oneBitParams);
 
@@ -125,7 +143,11 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testQuantize_twoBitQuantizer_success() throws IOException {
         ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        QuantizationState quantizationState = quantizationService.train(twoBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            twoBitParams,
+            knnVectorValues,
+            knnVectorValues.get().totalLiveDocs()
+        );
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(twoBitParams);
         byte[] quantizedVector = quantizationService.quantize(quantizationState, new float[] { 4.0f, 5.0f, 6.0f }, quantizationOutput);
 
@@ -138,7 +160,11 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testQuantize_fourBitQuantizer_success() throws IOException {
         ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
-        QuantizationState quantizationState = quantizationService.train(fourBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            fourBitParams,
+            knnVectorValues,
+            knnVectorValues.get().totalLiveDocs()
+        );
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(fourBitParams);
 
         byte[] quantizedVector = quantizationService.quantize(quantizationState, new float[] { 7.0f, 8.0f, 9.0f }, quantizationOutput);
@@ -152,7 +178,11 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testQuantize_whenInvalidInput_thenThrows() throws IOException {
         ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        QuantizationState quantizationState = quantizationService.train(oneBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            oneBitParams,
+            knnVectorValues,
+            knnVectorValues.get().totalLiveDocs()
+        );
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(oneBitParams);
         assertThrows(IllegalArgumentException.class, () -> quantizationService.quantize(quantizationState, null, quantizationOutput));
     }
