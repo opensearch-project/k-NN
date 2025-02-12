@@ -15,6 +15,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
@@ -29,7 +30,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING;
 import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING;
-import static org.opensearch.knn.quantization.enums.ScalarQuantizationType.ONE_BIT;
 
 public class QuantizationStateCacheTests extends KNNTestCase {
 
@@ -112,10 +112,10 @@ public class QuantizationStateCacheTests extends KNNTestCase {
     public void testSingleThreadedAddAndRetrieve() {
         // Prepare state
         String fieldName = "singleThreadField";
-        QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
 
         // Configure settings with 10%
         String cacheSize = "10%";
@@ -150,14 +150,15 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Set up thread executors
         final int threadCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        final CountDownLatch latch = new CountDownLatch(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "multiThreadField";
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
 
-        // Prepare quantization state
-        final String fieldName = "multiThreadField";
-        final QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
+        String cacheSize = "10%";
+        TimeValue expiry = TimeValue.timeValueMinutes(30);
 
         // Configure settings
         final String cacheSize = "10%";
@@ -213,10 +214,10 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         // Prepare quantization state
         String fieldName = "multiThreadEvictField";
-        QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
         String cacheSize = "10%";
         TimeValue expiry = TimeValue.timeValueMinutes(30);
 
@@ -267,15 +268,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         int threadCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
-
-        // Prepare quantization state
-        final String fieldName = "concurrentAddEvictField";
-        QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
-
-        // Configure settings
+        String fieldName = "concurrentAddEvictField";
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
         String cacheSize = "10%";
         TimeValue expiry = TimeValue.timeValueMinutes(30);
         Settings settings = Settings.builder()
@@ -333,15 +330,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         final int threadCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
-
-        // Prepare quantization state
-        final String fieldName = "multiThreadField";
-        QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
-
-        // Configure settings
+        String fieldName = "multiThreadField";
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
         String cacheSize = "10%";
         TimeValue expiry = TimeValue.timeValueMinutes(30);
         Settings settings = Settings.builder()
@@ -393,12 +386,10 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         // Prepare quantization state
         String fieldName = "rebuildField";
-        QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
-
-        // Configure settings
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
         String cacheSize = "10%";
         TimeValue expiry = TimeValue.timeValueMinutes(30);
         Settings settings = Settings.builder()
@@ -449,10 +440,10 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         // Prepare quantization state
         String fieldName = "rebuildField";
-        QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
 
         // Configure settings
         Settings settings = Settings.builder().build();
@@ -510,10 +501,10 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         // Prepare quantization state
         String fieldName = "rebuildField";
-        QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ONE_BIT),
-            new float[] { 1.2f, 2.3f, 3.4f }
-        );
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
+            .build();
 
         // Configure settings
         Settings settings = Settings.builder().build();
@@ -569,8 +560,15 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         for (int i = 0; i < arrayLength; i++) {
             meanThresholds1[i] = i;
         }
-
-        // Configure settings
+        QuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(arr)
+            .build();
+        QuantizationState state2 = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(arr2)
+            .build();
+        long cacheSize = 1;
         Settings settings = Settings.builder().build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
