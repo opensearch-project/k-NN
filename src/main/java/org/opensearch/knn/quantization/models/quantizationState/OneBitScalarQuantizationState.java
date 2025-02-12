@@ -5,7 +5,11 @@
 
 package org.opensearch.knn.quantization.models.quantizationState;
 
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
