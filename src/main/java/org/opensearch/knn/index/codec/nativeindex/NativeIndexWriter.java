@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.KNNMergeHelper;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.common.Nullable;
@@ -46,6 +47,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
+import static org.opensearch.knn.jni.JNIService.setMergeInterruptCallback;
+import static org.opensearch.knn.jni.JNIService.unsetMergeInterruptCallback;
 
 /**
  * Writes KNN Index for a field in a segment. This is intended to be used for native engines
@@ -119,9 +122,18 @@ public class NativeIndexWriter {
         }
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
-        startMergeStats(totalLiveDocs, bytesPerVector);
-        buildAndWriteIndex(knnVectorValues, totalLiveDocs);
-        endMergeStats(totalLiveDocs, bytesPerVector);
+        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
+        setMergeInterruptCallback(knnEngine);
+        try {
+            startMergeStats(totalLiveDocs, bytesPerVector);
+            buildAndWriteIndex(knnVectorValues, totalLiveDocs);
+            endMergeStats(totalLiveDocs, bytesPerVector);
+        } catch (Exception ex) {
+            //TODO handle
+            log.debug("Merge may abort {}",KNNMergeHelper.isMergeAborted());
+        } finally {
+            unsetMergeInterruptCallback(knnEngine);
+        }
     }
 
     private void buildAndWriteIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {

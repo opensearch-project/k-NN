@@ -65,6 +65,11 @@ void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     this->cachedClasses["org/opensearch/knn/index/query/KNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
     this->cachedMethods["org/opensearch/knn/index/query/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
     env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("org/apache/lucene/index/KNNMergeHelper");
+    this->cachedClasses["org/apache/lucene/index/KNNMergeHelper"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["org/apache/lucene/index/KNNMergeHelper:isMergeAborted"] = env->GetStaticMethodID(tempLocalClassRef, "isMergeAborted", "()Z");
+    env->DeleteLocalRef(tempLocalClassRef);
 }
 
 void knn_jni::JNIUtil::Uninitialize(JNIEnv* env) {

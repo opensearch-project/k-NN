@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.index.ConcurrentMergeScheduler;
+import org.apache.lucene.index.KNNMergeHelper;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
