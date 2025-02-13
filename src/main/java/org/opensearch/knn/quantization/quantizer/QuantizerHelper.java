@@ -57,6 +57,7 @@ class QuantizerHelper {
         }
 
         // Calculate below and above threshold means
+        trainingRequest.resetVectorValues();
         Pair<float[], float[]> belowAboveMeans = calculateBelowAboveThresholdMeans(trainingRequest, meanThresholds, sampledIndices);
         float[] belowThresholdMeans = belowAboveMeans.getA();
         float[] aboveThresholdMeans = belowAboveMeans.getB();
