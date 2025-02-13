@@ -20,6 +20,10 @@ import java.io.IOException;
  */
 @UtilityClass
 class QuantizerHelper {
+
+    // This value can change based on Experiments.
+    private static final double ROTATION_MATRIX_THRESHOLD = 0.6;
+
     /**
      * Calculates the quantization state using the provided training data and sampled indices.
      * <p>
@@ -48,7 +52,7 @@ class QuantizerHelper {
         double averageL2L1Ratio = meanAndL2L1.getB();
         // Apply random rotation if L2/L1 ratio is greater than 0.6
         float[][] rotationMatrix = null;
-        if (averageL2L1Ratio > 0.6) {
+        if (averageL2L1Ratio > ROTATION_MATRIX_THRESHOLD) {
             int dimensions = meanThresholds.length;
             rotationMatrix = RandomGaussianRotation.generateRotationMatrix(dimensions);
 

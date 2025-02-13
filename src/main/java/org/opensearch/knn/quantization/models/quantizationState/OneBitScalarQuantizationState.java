@@ -73,7 +73,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
      */
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeVInt(Version.CURRENT.id); // Write the versionF
+        out.writeVInt(Version.CURRENT.id); // Write the version
         quantizationParams.writeTo(out);
         out.writeFloatArray(meanThresholds);
         out.writeOptionalArray(belowThresholdMeans != null ? new FloatArrayWrapper[] { new FloatArrayWrapper(belowThresholdMeans) } : null);
