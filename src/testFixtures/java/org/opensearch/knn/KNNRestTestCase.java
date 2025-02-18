@@ -791,7 +791,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Update a KNN Doc with a new vector for the given fieldName
      */
-    protected void updateKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
+    protected <T> void updateKnnDoc(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
         String parent = ParentChildHelper.getParentField(fieldName);
@@ -811,7 +811,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Update a KNN Doc using the POST /\<index_name\>/_update/\<doc_id\>. Only the vector field will be updated.
      */
-    protected void updateKnnDocWithUpdateAPI(String index, String docId, String fieldName, Object[] vector) throws IOException {
+    protected <T> void updateKnnDocWithUpdateAPI(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_update/" + docId + "?refresh=true");
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("doc");
         String parent = ParentChildHelper.getParentField(fieldName);
@@ -826,7 +826,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
-    protected void updateKnnDocByQuery(String index, String docId, String fieldName, Object[] vector) throws IOException {
+    protected <T> void updateKnnDocByQuery(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_update_by_query?refresh=true");
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -1381,23 +1381,33 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     public void bulkIngestRandomVectors(String indexName, String fieldName, int numVectors, int dimension) throws IOException {
-        // TODO: Do better on this one
-        float[][] vectors = TestUtils.randomlyGenerateStandardVectors(numVectors, dimension, 1);
-        for (int i = 0; i < numVectors; i++) {
-            float[] vector = vectors[i];
-            addKnnDoc(indexName, String.valueOf(i + 1), fieldName, Floats.asList(vector).toArray());
-        }
+        bulkIngestRandomVectorsWithSkips(indexName, fieldName, numVectors, dimension, 32, 0.0f);
     }
 
-    public void bulkIngestRandomVectorsWithSkips(String indexName, String fieldName, int numVectors, int dimension, float skipProb)
-        throws IOException {
-        float[][] vectors = TestUtils.randomlyGenerateStandardVectors(numVectors, dimension, 1);
+    public void bulkIngestRandomVectorsWithSkips(
+        String indexName,
+        String fieldName,
+        int numVectors,
+        int dimension,
+        int bitsPerDimension,
+        float skipProb
+    ) throws IOException {
+        float[][] floatVectors = null;
+        int[][] intVectors = null;
+        if (bitsPerDimension == 32) {
+            floatVectors = TestUtils.randomlyGenerateStandardVectors(numVectors, dimension, 1);
+        } else if (bitsPerDimension == 8) {
+            intVectors = TestUtils.randomlyGenerateStandardVectors(numVectors, dimension, 1, 1);
+        } else {
+            intVectors = TestUtils.randomlyGenerateStandardVectors(numVectors, dimension, 8, 1);
+        }
+
         Random random = new Random();
         random.setSeed(2);
         for (int i = 0; i < numVectors; i++) {
-            float[] vector = vectors[i];
+            Object vector = floatVectors == null ? intVectors[i] : floatVectors[i];
             if (random.nextFloat() > skipProb) {
-                addKnnDoc(indexName, String.valueOf(i + 1), fieldName, Floats.asList(vector).toArray());
+                addKnnDoc(indexName, String.valueOf(i + 1), fieldName, vector);
             } else {
                 addDocWithNumericField(indexName, String.valueOf(i + 1), "numeric-field", 1);
             }
@@ -1632,6 +1642,17 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
             addKnnDocWithNestedField(indexName, String.valueOf(i + 1), nestedFieldPath, Floats.asList(vector).toArray());
         }
+    }
+
+    public int[] randomByteVector(int dimension, int dimPerByte) {
+        int numDims = dimension / dimPerByte;
+        byte[] byteVector = new byte[numDims];
+        random().nextBytes(byteVector);
+        int[] vector = new int[numDims];
+        for (int j = 0; j < numDims; j++) {
+            vector[j] = byteVector[j];
+        }
+        return vector;
     }
 
     // Method that adds multiple documents into the index using Bulk API
