@@ -41,6 +41,17 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         assertArrayEquals(byteAsIntArray, (int[]) vector);
     }
 
+    public void testStoredFields_whenVectorIsBinaryType_thenSucceed() {
+        StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForByteVector(TEST_FIELD_NAME, TEST_BYTE_VECTOR);
+        assertEquals(TEST_FIELD_NAME, storedField.name());
+        assertEquals(TEST_BYTE_VECTOR, storedField.binaryValue().bytes);
+        Object vector = KNNVectorFieldMapperUtil.deserializeStoredVector(storedField.binaryValue(), VectorDataType.BINARY);
+        assertTrue(vector instanceof int[]);
+        int[] byteAsIntArray = new int[TEST_BYTE_VECTOR.length];
+        Arrays.setAll(byteAsIntArray, i -> TEST_BYTE_VECTOR[i]);
+        assertArrayEquals(byteAsIntArray, (int[]) vector);
+    }
+
     public void testStoredFields_whenVectorIsFloatType_thenSucceed() {
         StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForFloatVector(TEST_FIELD_NAME, TEST_FLOAT_VECTOR);
         assertEquals(TEST_FIELD_NAME, storedField.name());
