@@ -16,7 +16,7 @@ import java.util.Map;
 /**
  * {@link PerFieldDerivedVectorInjector} for root fields (i.e. non nested fields).
  */
-class RootPerFieldDerivedVectorInjector implements PerFieldDerivedVectorInjector {
+class RootPerFieldDerivedVectorInjector extends AbstractPerFieldDerivedVectorInjector {
 
     private final FieldInfo fieldInfo;
     private final CheckedSupplier<KNNVectorValues<?>, IOException> vectorValuesSupplier;
@@ -40,7 +40,7 @@ class RootPerFieldDerivedVectorInjector implements PerFieldDerivedVectorInjector
     public void inject(int docId, Map<String, Object> sourceAsMap) throws IOException {
         KNNVectorValues<?> vectorValues = vectorValuesSupplier.get();
         if (vectorValues.docId() == docId || vectorValues.advance(docId) == docId) {
-            sourceAsMap.put(fieldInfo.name, vectorValues.conditionalCloneVector());
+            sourceAsMap.put(fieldInfo.name, formatVector(fieldInfo, vectorValues));
         }
     }
 }
