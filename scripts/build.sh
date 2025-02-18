@@ -174,7 +174,7 @@ else
    ompPath=$(ldconfig -p | grep libgomp | cut -d ' ' -f 4)
    cp -v $ompPath $distributions/lib
 fi
-cp -v ./jni/release/${libPrefix}* $distributions/lib
+cp -v ./jni/build/release/${libPrefix}* $distributions/lib
 ls -l $distributions/lib
 
 # Add lib directory to the k-NN plugin zip
