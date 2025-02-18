@@ -128,6 +128,24 @@ public class TestUtils {
         return standardVectors;
     }
 
+    // Generating vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
+    public static int[][] randomlyGenerateStandardVectors(int numVectors, int dimensions, int dimPerByte, int seed) {
+        int numDims = dimensions / dimPerByte;
+        int[][] standardVectors = new int[numVectors][numDims];
+        Random rand = new Random(seed);
+
+        for (int i = 0; i < numVectors; i++) {
+            byte[] byteVector = new byte[numDims];
+            rand.nextBytes(byteVector);
+            int[] vector = new int[numDims];
+            for (int j = 0; j < numDims; j++) {
+                vector[j] = byteVector[j];
+            }
+            standardVectors[i] = vector;
+        }
+        return standardVectors;
+    }
+
     public static float[][] generateRandomVectors(int numVectors, int dimensions) {
         float[][] randomVectors = new float[numVectors][dimensions];
 
