@@ -10,7 +10,7 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.action.support.clustermanager.TransportClusterManagerNodeAction;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateTaskConfig;

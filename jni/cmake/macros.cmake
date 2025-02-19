@@ -9,8 +9,8 @@ macro(opensearch_set_common_properties TARGET)
 
     if (NOT "${WIN32}" STREQUAL "")
         # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library in the specified directory at runtime.
-        set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
+        set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/release)
     else()
-        set_target_properties(${TARGET} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
+        set_target_properties(${TARGET} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/release)
     endif()
 endmacro()

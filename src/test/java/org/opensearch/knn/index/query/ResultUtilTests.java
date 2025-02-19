@@ -72,7 +72,7 @@ public class ResultUtilTests extends KNNTestCase {
     }
 
     private void assertResultMapToTopDocs(Map<Integer, Float> perLeafResults, TopDocs topDocs, int k, int offset) {
-        assertEquals(k, topDocs.totalHits.value);
+        assertEquals(k, topDocs.totalHits.value());
         float previousScore = Float.MAX_VALUE;
         for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
             assertTrue(perLeafResults.containsKey(scoreDoc.doc - offset));

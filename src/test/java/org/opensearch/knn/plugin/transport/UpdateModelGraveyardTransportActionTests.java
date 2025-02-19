@@ -9,7 +9,7 @@ import org.opensearch.Version;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;

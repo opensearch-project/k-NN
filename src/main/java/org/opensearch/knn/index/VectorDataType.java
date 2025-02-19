@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
@@ -100,7 +100,7 @@ public enum VectorDataType {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
-            return KnnVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
+            return KnnFloatVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
         }
 
         @Override

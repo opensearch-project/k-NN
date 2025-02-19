@@ -26,7 +26,7 @@ testClusters {
         environment "LD_LIBRARY_PATH", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
             // While running on Windows OS, setting the PATH environment variable to include the paths to dlls of JNI libraries and windows dependencies
-            environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+            environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
             systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
         } else {
             systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib:${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
@@ -135,12 +135,13 @@ testClusters {
 // All nodes are upgraded to latest version and run the tests
     task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         dependsOn "testAgainstOldCluster"
+        dependsOn rootProject.tasks.buildNmslib
         dependsOn rootProject.tasks.buildJniLib
         dependsOn rootProject.tasks.assemble
         useCluster testClusters."${baseName}"
         doFirst {
-            testClusters."${baseName}".environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
-            testClusters."${baseName}".systemProperty("java.library.path", "$rootDir/jni/release")
+            testClusters."${baseName}".environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+            testClusters."${baseName}".systemProperty("java.library.path", "$rootDir/jni/build/release")
             testClusters."${baseName}".upgradeAllNodesAndPluginsToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
         }
         systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'

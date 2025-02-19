@@ -17,7 +17,7 @@ import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
+import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
@@ -127,7 +127,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         searchSourceBuilder.terminateAfter(DEFAULT_TERMINATE_AFTER);
 
         client.search(countRequest, ActionListener.wrap(searchResponse -> {
-            long trainingVectors = searchResponse.getHits().getTotalHits().value;
+            long trainingVectors = searchResponse.getHits().getTotalHits().value();
 
             // If there are more docs in the index than what the user wants to use for training, take the min
             if (trainingModelRequest.getMaximumVectorCount() < trainingVectors) {

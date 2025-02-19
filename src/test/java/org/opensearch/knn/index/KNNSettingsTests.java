@@ -205,6 +205,17 @@ public class KNNSettingsTests extends KNNTestCase {
         assertEquals(expectedKNNFaissAVX2Disabled, actualKNNFaissAVX2Disabled);
     }
 
+    @SneakyThrows
+    public void testGetIndexThreadQty_WithDifferentValues_thenSuccess() {
+        Node mockNode = createMockNode(Map.of(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY, 3));
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        KNNSettings.state().setClusterService(clusterService);
+        int threadQty = KNNSettings.getIndexThreadQty();
+        mockNode.close();
+        assertEquals(3, threadQty);
+    }
+
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {
         Path configDir = createTempDir();
         File configFile = configDir.resolve("opensearch.yml").toFile();

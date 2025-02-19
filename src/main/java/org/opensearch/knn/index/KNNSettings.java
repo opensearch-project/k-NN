@@ -11,7 +11,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
-import org.opensearch.client.Client;
+import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
@@ -44,6 +44,7 @@ import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.common.settings.Setting.Property.Final;
+import static org.opensearch.common.settings.Setting.Property.UnmodifiableOnRestore;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
@@ -92,6 +93,7 @@ public class KNNSettings {
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
     public static final String KNN_FAISS_AVX512_SPR_DISABLED = "knn.faiss.avx512_spr.disabled";
     public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
+    public static final String KNN_DERIVED_SOURCE_ENABLED = "index.knn.derived_source.enabled";
 
     /**
      * Default setting values
@@ -101,7 +103,7 @@ public class KNNSettings {
     public static final boolean KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
-    public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 15_000;
+    public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 0;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX = Integer.MAX_VALUE - 2;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE_FOR_BINARY = "hamming";
@@ -266,6 +268,14 @@ public class KNNSettings {
         },
         Setting.Property.NodeScope,
         Setting.Property.Dynamic
+    );
+
+    public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = Setting.boolSetting(
+        KNN_DERIVED_SOURCE_ENABLED,
+        false,
+        IndexScope,
+        Final,
+        UnmodifiableOnRestore
     );
 
     /**
@@ -511,6 +521,9 @@ public class KNNSettings {
         if (KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED.equals(key)) {
             return KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING;
         }
+        if (KNN_DERIVED_SOURCE_ENABLED.equals(key)) {
+            return KNN_DERIVED_SOURCE_ENABLED_SETTING;
+        }
 
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
@@ -536,7 +549,8 @@ public class KNNSettings {
             KNN_FAISS_AVX512_SPR_DISABLED_SETTING,
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
-            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING
+            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
+            KNN_DERIVED_SOURCE_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -572,6 +586,14 @@ public class KNNSettings {
             );
             return KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE;
         }
+    }
+
+    /**
+     * check this index enabled/disabled derived source
+     * @param settings Settings
+     */
+    public static boolean isKNNDerivedSourceEnabled(Settings settings) {
+        return KNN_DERIVED_SOURCE_ENABLED_SETTING.get(settings);
     }
 
     public static boolean isFaissAVX512Disabled() {
@@ -707,6 +729,14 @@ public class KNNSettings {
             // TODO: replace cache-rebuild with index reload into the cache
             NativeMemoryCacheManager.getInstance().rebuildCache();
         });
+    }
+
+    /**
+     * Get the index thread quantity setting value from cluster setting.
+     * @return int
+     */
+    public static int getIndexThreadQty() {
+        return KNNSettings.state().getSettingValue(KNN_ALGO_PARAM_INDEX_THREAD_QTY);
     }
 
     private static String percentageAsString(Integer percentage) {

@@ -630,8 +630,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
         }
     }
 
-    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNotMet_thenSkipBuildingGraph()
-        throws IOException {
+    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNotMet_thenStillBuildGraph() throws IOException {
         // Given
         List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
         final Map<Integer, Integer> sizeMap = new HashMap<>();
@@ -714,7 +713,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             } else {
                 assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
             }
-            verifyNoInteractions(nativeIndexWriter);
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
                     if (vectorsPerField.get(i).isEmpty()) {
@@ -729,12 +727,12 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
                 () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
-                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
+                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled) * 2)
             );
         }
     }
 
-    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNegative_thenSkipBuildingGraph()
+    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNegative_thenStillBuildGraph()
         throws IOException {
         // Given
         List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
@@ -817,7 +815,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             } else {
                 assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
             }
-            verifyNoInteractions(nativeIndexWriter);
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
                     if (vectorsPerField.get(i).isEmpty()) {
@@ -832,7 +829,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
                 () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
-                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
+                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled) * 2)
             );
         }
     }

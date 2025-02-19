@@ -47,9 +47,9 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
     public void testGetCompoundReader() throws IOException {
         CompoundDirectory dir = mock(CompoundDirectory.class);
         CompoundFormat delegate = mock(CompoundFormat.class);
-        when(delegate.getCompoundReader(null, null, null)).thenReturn(dir);
+        when(delegate.getCompoundReader(null, null)).thenReturn(dir);
         KNN80CompoundFormat knn80CompoundFormat = new KNN80CompoundFormat(delegate);
-        CompoundDirectory knnDir = knn80CompoundFormat.getCompoundReader(null, null, null);
+        CompoundDirectory knnDir = knn80CompoundFormat.getCompoundReader(null, null);
         assertTrue(knnDir instanceof KNN80CompoundDirectory);
         assertEquals(dir, ((KNN80CompoundDirectory) knnDir).getDelegate());
     }

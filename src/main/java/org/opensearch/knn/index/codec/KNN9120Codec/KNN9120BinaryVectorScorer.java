@@ -8,7 +8,8 @@ package org.opensearch.knn.index.codec.KNN9120Codec;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.hnsw.RandomAccessVectorValues;
+import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
@@ -22,10 +23,10 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
     @Override
     public RandomVectorScorerSupplier getRandomVectorScorerSupplier(
         VectorSimilarityFunction vectorSimilarityFunction,
-        RandomAccessVectorValues randomAccessVectorValues
+        KnnVectorValues randomAccessVectorValues
     ) throws IOException {
-        if (randomAccessVectorValues instanceof RandomAccessVectorValues.Bytes) {
-            return new BinaryRandomVectorScorerSupplier((RandomAccessVectorValues.Bytes) randomAccessVectorValues);
+        if (randomAccessVectorValues instanceof ByteVectorValues) {
+            return new BinaryRandomVectorScorerSupplier((ByteVectorValues) randomAccessVectorValues);
         }
         throw new IllegalArgumentException("vectorValues must be an instance of RandomAccessVectorValues.Bytes");
     }
@@ -33,7 +34,7 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
     @Override
     public RandomVectorScorer getRandomVectorScorer(
         VectorSimilarityFunction vectorSimilarityFunction,
-        RandomAccessVectorValues randomAccessVectorValues,
+        KnnVectorValues randomAccessVectorValues,
         float[] queryVector
     ) throws IOException {
         throw new IllegalArgumentException("binary vectors do not support float[] targets");
@@ -42,20 +43,20 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
     @Override
     public RandomVectorScorer getRandomVectorScorer(
         VectorSimilarityFunction vectorSimilarityFunction,
-        RandomAccessVectorValues randomAccessVectorValues,
+        KnnVectorValues randomAccessVectorValues,
         byte[] queryVector
     ) throws IOException {
-        if (randomAccessVectorValues instanceof RandomAccessVectorValues.Bytes) {
-            return new BinaryRandomVectorScorer((RandomAccessVectorValues.Bytes) randomAccessVectorValues, queryVector);
+        if (randomAccessVectorValues instanceof ByteVectorValues) {
+            return new BinaryRandomVectorScorer((ByteVectorValues) randomAccessVectorValues, queryVector);
         }
         throw new IllegalArgumentException("vectorValues must be an instance of RandomAccessVectorValues.Bytes");
     }
 
     static class BinaryRandomVectorScorer implements RandomVectorScorer {
-        private final RandomAccessVectorValues.Bytes vectorValues;
+        private final ByteVectorValues vectorValues;
         private final byte[] queryVector;
 
-        BinaryRandomVectorScorer(RandomAccessVectorValues.Bytes vectorValues, byte[] query) {
+        BinaryRandomVectorScorer(ByteVectorValues vectorValues, byte[] query) {
             this.queryVector = query;
             this.vectorValues = vectorValues;
         }
@@ -82,11 +83,11 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
     }
 
     static class BinaryRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
-        protected final RandomAccessVectorValues.Bytes vectorValues;
-        protected final RandomAccessVectorValues.Bytes vectorValues1;
-        protected final RandomAccessVectorValues.Bytes vectorValues2;
+        protected final ByteVectorValues vectorValues;
+        protected final ByteVectorValues vectorValues1;
+        protected final ByteVectorValues vectorValues2;
 
-        public BinaryRandomVectorScorerSupplier(RandomAccessVectorValues.Bytes vectorValues) throws IOException {
+        public BinaryRandomVectorScorerSupplier(ByteVectorValues vectorValues) throws IOException {
             this.vectorValues = vectorValues;
             this.vectorValues1 = vectorValues.copy();
             this.vectorValues2 = vectorValues.copy();

@@ -35,7 +35,7 @@ jobs:
       matrix:
         java: [ 21 ]
         os: [ubuntu-latest]
-        bwc_version : [ "2.0.1", "2.1.0", "2.2.1", "2.3.0", "2.4.1", "2.5.0", "2.6.0", "2.7.0", "2.8.0", "2.9.0", "2.10.0", "2.11.0", "2.12.0", "2.13.0", "2.14.0", "2.15.0", "2.16.0", "2.17.0", "2.18.0", "2.19.0-SNAPSHOT"]
+        bwc_version : [ "2.0.1", "2.1.0", "2.2.1", "2.3.0", "2.4.1", "2.5.0", "2.6.0", "2.7.0", "2.8.0", "2.9.0", "2.10.0", "2.11.0", "2.12.0", "2.13.0", "2.14.0", "2.15.0", "2.16.0", "2.17.0", "2.18.0","2.19.0-SNAPSHOT", "2.20.0-SNAPSHOT"]
         opensearch_version : [ "3.0.0-SNAPSHOT" ]
         exclude:
           - os: windows-latest
@@ -130,7 +130,7 @@ jobs:
       matrix:
         java: [ 21 ]
         os: [ubuntu-latest]
-        bwc_version: [ "2.19.0-SNAPSHOT" ]
+        bwc_version: [ "2.20.0-SNAPSHOT" ]
         opensearch_version: [ "3.0.0-SNAPSHOT" ]
 
     name: k-NN Rolling-Upgrade BWC Tests
@@ -194,13 +194,19 @@ jobs:
           echo "Running rolling-upgrade backwards compatibility tests ..."
           if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw          
           then
+          if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
+          then
+            echo "the system is an Intel(R) Sapphire Rapids or a newer-generation processor"
+            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_RESTART_UPGRADE -Dnproc.count=`nproc` -Davx512_spr.enabled=true
+          else  
             echo "avx512 available on system"
-            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Dnproc.count=`nproc`
+            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Dnproc.count=`nproc` -Davx512_spr.enabled=false
+          fi
           elif lscpu  | grep -i avx2
           then
             echo "avx2 available on system"
-            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Dnproc.count=`nproc` -Davx512.enabled=false
+            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Dnproc.count=`nproc` -Davx512_spr.enabled=false -Davx512.enabled=false
           else
             echo "avx512 and avx2 not available on system"
-            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Davx2.enabled=false -Davx512.enabled=false -Dsimd.enabled=false -Dnproc.count=`nproc`
+            ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE -Davx2.enabled=false -Davx512_spr.enabled=false -Davx512.enabled=false -Dsimd.enabled=false -Dnproc.count=`nproc`
           fi  

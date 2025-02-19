@@ -29,7 +29,7 @@ import org.opensearch.action.delete.DeleteRequestBuilder;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;

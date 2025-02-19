@@ -39,6 +39,10 @@ jobs:
     strategy:
       matrix:
         java: [21]
+    env:
+       CC: gcc10-gcc
+       CXX: gcc10-g++
+       FC: gcc10-gfortran
 
     name: Run Integration Tests on Linux
     runs-on: ubuntu-latest

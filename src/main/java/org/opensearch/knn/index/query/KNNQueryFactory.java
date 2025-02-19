@@ -52,9 +52,11 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final KNNEngine knnEngine = createQueryRequest.getKnnEngine();
         final boolean expandNested = createQueryRequest.getExpandNested().orElse(false);
         BitSetProducer parentFilter = null;
+        int shardId = -1;
         if (createQueryRequest.getContext().isPresent()) {
             QueryShardContext context = createQueryRequest.getContext().get();
             parentFilter = context.getParentFilter();
+            shardId = context.getShardId();
         }
 
         if (parentFilter == null && expandNested) {
@@ -93,6 +95,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
                         .rescoreContext(rescoreContext)
+                        .shardId(shardId)
                         .build();
                     break;
                 default:
@@ -106,6 +109,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
                         .rescoreContext(rescoreContext)
+                        .shardId(shardId)
                         .build();
             }
 
@@ -117,7 +121,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             requestEfSearch = (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
         }
         int luceneK = requestEfSearch == null ? k : Math.max(k, requestEfSearch);
-        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
+        log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, k);
         switch (vectorDataType) {
             case BYTE:
             case BINARY:

@@ -28,7 +28,7 @@ public class KNNScorer extends Scorer {
     private final float boost;
 
     public KNNScorer(Weight weight, DocIdSetIterator docIdsIter, Map<Integer, Float> scores, float boost) {
-        super(weight);
+        super();
         this.docIdsIter = docIdsIter;
         this.scores = scores;
         this.boost = boost;
@@ -60,40 +60,44 @@ public class KNNScorer extends Scorer {
     /**
      * Returns the Empty Scorer implementation. We use this scorer to short circuit the actual search when it is not
      * required.
-     * @param knnWeight {@link KNNWeight}
      * @return {@link KNNScorer}
      */
-    public static Scorer emptyScorer(KNNWeight knnWeight) {
-        return new Scorer(knnWeight) {
-            private final DocIdSetIterator docIdsIter = DocIdSetIterator.empty();
-
-            @Override
-            public DocIdSetIterator iterator() {
-                return docIdsIter;
-            }
-
-            @Override
-            public float getMaxScore(int upTo) throws IOException {
-                return 0;
-            }
-
-            @Override
-            public float score() throws IOException {
-                assert docID() != DocIdSetIterator.NO_MORE_DOCS;
-                return 0;
-            }
-
-            @Override
-            public int docID() {
-                return docIdsIter.docID();
-            }
-
-            @Override
-            public boolean equals(Object obj) {
-                if (!(obj instanceof Scorer)) return false;
-                return getWeight().equals(((Scorer) obj).getWeight());
-            }
-        };
-
+    public static Scorer emptyScorer() {
+        return EMPTY_SCORER_INSTANCE;
     }
+
+    private static final Scorer EMPTY_SCORER_INSTANCE = new Scorer() {
+        private final DocIdSetIterator docIdsIter = DocIdSetIterator.empty();
+
+        @Override
+        public DocIdSetIterator iterator() {
+            return docIdsIter;
+        }
+
+        @Override
+        public float getMaxScore(int upTo) throws IOException {
+            return 0;
+        }
+
+        @Override
+        public float score() throws IOException {
+            assert docID() != DocIdSetIterator.NO_MORE_DOCS;
+            return 0;
+        }
+
+        @Override
+        public int docID() {
+            return docIdsIter.docID();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return this == obj; // Singleton ensures only one instance exists
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(this); // Consistent hash for singleton
+        }
+    };
 }

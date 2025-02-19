@@ -856,7 +856,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 dense,
                 vectorDataType
             );
-            final float[] dummyVector = new float[1];
+            float[] dummyVector = new float[1];
             dataset.forEach((k, v) -> {
                 final float[] vector = (v != null) ? v.getVector() : dummyVector;
                 ExceptionsHelper.catchAsRuntimeException(() -> addKnnDoc(INDEX_NAME, k, (v != null) ? FIELD_NAME : "dummy", vector));
@@ -885,5 +885,9 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         } finally {
             deleteKNNIndex(INDEX_NAME);
         }
+    }
+
+    private float[] dummyFloatArrayBasedOnDimension(int dimesion) {
+        return new float[dimesion];
     }
 }

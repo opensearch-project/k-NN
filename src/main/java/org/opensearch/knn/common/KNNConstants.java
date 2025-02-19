@@ -161,4 +161,8 @@ public class KNNConstants {
 
     public static final String MODE_PARAMETER = "mode";
     public static final String COMPRESSION_LEVEL_PARAMETER = "compression_level";
+
+    public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY = "knn-derived-source-enabled";
+    public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE = "true";
+    public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_FALSE_VALUE = "false";
 }

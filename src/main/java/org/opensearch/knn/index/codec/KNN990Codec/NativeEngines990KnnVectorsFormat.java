@@ -20,6 +20,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 
@@ -69,6 +70,15 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     @Override
     public KnnVectorsReader fieldsReader(final SegmentReadState state) throws IOException {
         return new NativeEngines990KnnVectorsReader(state, flatVectorsFormat.fieldsReader(state));
+    }
+
+    /**
+     * @param s
+     * @return
+     */
+    @Override
+    public int getMaxDimensions(String s) {
+        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
     }
 
     @Override

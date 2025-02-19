@@ -7,8 +7,9 @@ package org.opensearch.knn.index.query.lucenelib;
 
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.FloatPoint;
+import org.apache.lucene.index.*;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
@@ -17,6 +18,8 @@ import org.apache.lucene.search.TaskExecutor;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.apache.lucene.store.ByteBuffersDirectory;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.Bits;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
@@ -49,17 +52,38 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
 
     @SneakyThrows
     public void testCreateWeight_whenCalled_thenSucceed() {
-        LeafReaderContext leafReaderContext1 = mock(LeafReaderContext.class);
-        LeafReaderContext leafReaderContext2 = mock(LeafReaderContext.class);
-        List<LeafReaderContext> leafReaderContexts = Arrays.asList(leafReaderContext1, leafReaderContext2);
+        Directory directory = new ByteBuffersDirectory();
+        IndexWriterConfig config = new IndexWriterConfig();
+        try (IndexWriter writer = new IndexWriter(directory, config)) {
+            // Add documents to simulate multiple segments
+            Document doc1 = new Document();
+            doc1.add(new FloatPoint("vector", 1.0f, 2.0f, 3.0f));
+            writer.addDocument(doc1);
+            Document doc2 = new Document();
+            doc2.add(new FloatPoint("vector", 4.0f, 5.0f, 6.0f));
+            writer.addDocument(doc2);
+            // Force the creation of a second segment
+            writer.flush();
+            Document doc3 = new Document();
+            doc3.add(new FloatPoint("vector", 7.0f, 8.0f, 9.0f));
+            writer.addDocument(doc3);
+            Document doc4 = new Document();
+            doc4.add(new FloatPoint("vector", 10.0f, 11.0f, 12.0f));
+            writer.addDocument(doc4);
+            writer.commit();
+        }
 
-        IndexReader indexReader = mock(IndexReader.class);
-        when(indexReader.leaves()).thenReturn(leafReaderContexts);
+        IndexReader reader = DirectoryReader.open(directory);
+
+        List<LeafReaderContext> leaves = reader.leaves();
+        assertEquals(2, leaves.size()); // Ensure we have two segments
+        LeafReaderContext leaf1 = leaves.get(0);
+        LeafReaderContext leaf2 = leaves.get(1);
 
         Weight filterWeight = mock(Weight.class);
 
         IndexSearcher indexSearcher = mock(IndexSearcher.class);
-        when(indexSearcher.getIndexReader()).thenReturn(indexReader);
+        when(indexSearcher.getIndexReader()).thenReturn(reader);
         when(indexSearcher.getTaskExecutor()).thenReturn(taskExecutor);
         when(indexSearcher.createWeight(any(), eq(ScoreMode.COMPLETE_NO_SCORES), eq(1.0F))).thenReturn(filterWeight);
 
@@ -97,10 +121,10 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
         when(finalQuery.createWeight(indexSearcher, scoreMode, boost)).thenReturn(expectedWeight);
 
         QueryUtils queryUtils = mock(QueryUtils.class);
-        when(queryUtils.doSearch(indexSearcher, leafReaderContexts, queryWeight)).thenReturn(perLeafResults);
+        when(queryUtils.doSearch(indexSearcher, reader.leaves(), queryWeight)).thenReturn(perLeafResults);
         when(queryUtils.createBits(any(), any())).thenReturn(queryFilterBits);
         when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(allSiblings);
-        when(queryUtils.createDocAndScoreQuery(eq(indexReader), any())).thenReturn(finalQuery);
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
 
         // Run
         ExpandNestedDocsQuery query = new ExpandNestedDocsQuery(internalQuery, queryUtils);
@@ -108,12 +132,12 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
 
         // Verify
         assertEquals(expectedWeight, finalWeigh);
-        verify(queryUtils).createBits(leafReaderContext1, filterWeight);
-        verify(queryUtils).createBits(leafReaderContext2, filterWeight);
-        verify(queryUtils).getAllSiblings(leafReaderContext1, perLeafResults.get(0).keySet(), parentFilter, queryFilterBits);
-        verify(queryUtils).getAllSiblings(leafReaderContext2, perLeafResults.get(1).keySet(), parentFilter, queryFilterBits);
+        verify(queryUtils).createBits(leaf1, filterWeight);
+        verify(queryUtils).createBits(leaf2, filterWeight);
+        verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, queryFilterBits);
+        verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, queryFilterBits);
         ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
-        verify(queryUtils).createDocAndScoreQuery(eq(indexReader), topDocsCaptor.capture());
+        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture());
         TopDocs capturedTopDocs = topDocsCaptor.getValue();
         assertEquals(topK.totalHits, capturedTopDocs.totalHits);
         for (int i = 0; i < topK.scoreDocs.length; i++) {

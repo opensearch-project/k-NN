@@ -32,4 +32,7 @@ jobs:
           export SONATYPE_PASSWORD=$(aws secretsmanager get-secret-value --secret-id maven-snapshots-password --query SecretString --output text)
           echo "::add-mask::$SONATYPE_USERNAME"
           echo "::add-mask::$SONATYPE_PASSWORD"
+          # For zip
           ./gradlew publishPluginZipPublicationToSnapshotsRepository
+          # For jar
+          ./gradlew publishNebulaPublicationToSnapshotsRepository

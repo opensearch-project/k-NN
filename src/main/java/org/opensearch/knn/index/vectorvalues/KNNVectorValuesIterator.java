@@ -5,19 +5,19 @@
 
 package org.opensearch.knn.index.vectorvalues;
 
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.Setter;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.index.BinaryDocValues;
-import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.index.KnnVectorValues;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 /**
  * An abstract class that provides an iterator to iterate over KNNVectors, as KNNVectors are stored as different
@@ -71,16 +71,26 @@ public interface KNNVectorValuesIterator {
      * {@link DocIdSetIterator} interface. Example: {@link BinaryDocValues}, {@link FloatVectorValues} etc.
      */
     class DocIdsIteratorValues implements KNNVectorValuesIterator {
-        protected DocIdSetIterator docIdSetIterator;
-        private static final List<Function<DocIdSetIterator, Boolean>> VALID_ITERATOR_INSTANCE = List.of(
-            (itr) -> itr instanceof BinaryDocValues,
-            (itr) -> itr instanceof FloatVectorValues,
-            (itr) -> itr instanceof ByteVectorValues
-        );
+        private final DocIdSetIterator docIdSetIterator;
+        private KnnVectorValues knnVectorValues = null; // Added reference to KnnVectorValues
+        @Getter
+        @Setter
+        private int lastOrd = -1;
+        @Getter
+        @Setter
+        private Object lastAccessedVector = null;
 
-        DocIdsIteratorValues(@NonNull final DocIdSetIterator docIdSetIterator) {
-            validateIteratorType(docIdSetIterator);
+        DocIdsIteratorValues(@NonNull final KnnVectorValues knnVectorValues) {
+            this.docIdSetIterator = knnVectorValues.iterator();
+            this.knnVectorValues = knnVectorValues;
+        }
+
+        DocIdsIteratorValues(final DocIdSetIterator docIdSetIterator) {
             this.docIdSetIterator = docIdSetIterator;
+        }
+
+        public KnnVectorValues getKnnVectorValues() {
+            return knnVectorValues;
         }
 
         @Override
@@ -107,7 +117,7 @@ public interface KNNVectorValuesIterator {
         public long liveDocs() {
             if (docIdSetIterator instanceof BinaryDocValues) {
                 return KNNCodecUtil.getTotalLiveDocsCount((BinaryDocValues) docIdSetIterator);
-            } else if (docIdSetIterator instanceof FloatVectorValues || docIdSetIterator instanceof ByteVectorValues) {
+            } else if (docIdSetIterator instanceof KnnVectorValues.DocIndexIterator) {
                 return docIdSetIterator.cost();
             }
             throw new IllegalArgumentException(
@@ -118,18 +128,6 @@ public interface KNNVectorValuesIterator {
         @Override
         public VectorValueExtractorStrategy getVectorExtractorStrategy() {
             return new VectorValueExtractorStrategy.DISIVectorExtractor();
-        }
-
-        private void validateIteratorType(final DocIdSetIterator docIdSetIterator) {
-            VALID_ITERATOR_INSTANCE.stream()
-                .map(v -> v.apply(docIdSetIterator))
-                .filter(Boolean::booleanValue)
-                .findFirst()
-                .orElseThrow(
-                    () -> new IllegalArgumentException(
-                        "DocIdSetIterator present is not of valid type. Valid types are: BinaryDocValues, FloatVectorValues and ByteVectorValues"
-                    )
-                );
         }
     }
 

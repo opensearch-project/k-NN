@@ -86,10 +86,10 @@ public class KNNVectorFieldMapperUtil {
      * @return either int[] or float[] of corresponding vector
      */
     public static Object deserializeStoredVector(BytesRef storedVector, VectorDataType vectorDataType) {
-        if (VectorDataType.BYTE == vectorDataType) {
+        if (VectorDataType.BYTE == vectorDataType || VectorDataType.BINARY == vectorDataType) {
             byte[] bytes = storedVector.bytes;
-            int[] byteAsIntArray = new int[bytes.length];
-            Arrays.setAll(byteAsIntArray, i -> bytes[i]);
+            int[] byteAsIntArray = new int[storedVector.length];
+            Arrays.setAll(byteAsIntArray, i -> bytes[i + storedVector.offset]);
             return byteAsIntArray;
         }
 
@@ -144,6 +144,16 @@ public class KNNVectorFieldMapperUtil {
      */
     static boolean useLuceneKNNVectorsFormat(final Version indexCreatedVersion) {
         return indexCreatedVersion.onOrAfter(Version.V_2_17_0);
+    }
+
+    /**
+     * Determines if full field name validation should be applied based on the index creation version.
+     *
+     * @param indexCreatedVersion The version when the index was created
+     * @return true if the index version is 2.17.0 or later, false otherwise
+     */
+    static boolean useFullFieldNameValidation(final Version indexCreatedVersion) {
+        return indexCreatedVersion != null && indexCreatedVersion.onOrAfter(Version.V_2_17_0);
     }
 
     public static SpaceType getSpaceType(final Settings indexSettings) {

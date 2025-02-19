@@ -199,14 +199,6 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         }
     }
 
-    /**
-     * Return the memory usage of this object in bytes. Negative values are illegal.
-     */
-    @Override
-    public long ramBytesUsed() {
-        return flatVectorsReader.ramBytesUsed();
-    }
-
     private void loadCacheKeyMap() {
         quantizationStateCacheKeyPerField = new HashMap<>();
         for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
