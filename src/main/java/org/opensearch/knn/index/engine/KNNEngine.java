@@ -214,4 +214,9 @@ public enum KNNEngine implements KNNLibrary {
     ) {
         return knnLibrary.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
+
+    @Override
+    public boolean supportsRemoteIndexBuild() {
+        return knnLibrary.supportsRemoteIndexBuild();
+    }
 }

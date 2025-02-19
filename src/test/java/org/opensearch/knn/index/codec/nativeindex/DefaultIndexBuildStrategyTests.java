@@ -74,7 +74,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
-                .vectorValues(knnVectorValues)
+                .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 
@@ -169,7 +169,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("index", "param"))
                 .quantizationState(quantizationState)
-                .vectorValues(knnVectorValues)
+                .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 
@@ -254,7 +254,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .parameters(Map.of("model_id", "id", "model_blob", modelBlob))
-                .vectorValues(knnVectorValues)
+                .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
 

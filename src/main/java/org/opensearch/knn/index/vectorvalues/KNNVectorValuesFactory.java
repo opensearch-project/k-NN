@@ -5,12 +5,18 @@
 
 package org.opensearch.knn.index.vectorvalues;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.codecs.KnnVectorsWriter;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -18,11 +24,14 @@ import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * A factory class that provides various methods to create the {@link KNNVectorValues}.
  */
 public final class KNNVectorValuesFactory {
+
+    private static final Logger log = LogManager.getLogger(KNNVectorValuesFactory.class);
 
     /**
      * Returns a {@link KNNVectorValues} for the given {@link DocIdSetIterator} and {@link VectorDataType}
@@ -33,6 +42,21 @@ public final class KNNVectorValuesFactory {
      */
     public static <T> KNNVectorValues<T> getVectorValues(final VectorDataType vectorDataType, final DocIdSetIterator docIdSetIterator) {
         return getVectorValues(vectorDataType, new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator));
+    }
+
+    /**
+     * Returns a {@link Supplier} for {@link #getVectorValues(VectorDataType, DocIdSetIterator)}
+     * Note: This class is public static so that it can be mocked for testing.
+     *
+     * @param vectorDataType {@link VectorDataType}
+     * @param docIdSetIterator {@link DocIdSetIterator}
+     * @return {@link KNNVectorValues}
+     */
+    public static <T> Supplier<KNNVectorValues<?>> getVectorValuesSupplier(
+        final VectorDataType vectorDataType,
+        final DocIdSetIterator docIdSetIterator
+    ) {
+        return () -> getVectorValues(vectorDataType, new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator));
     }
 
     /**
@@ -48,6 +72,22 @@ public final class KNNVectorValuesFactory {
         final Map<Integer, T> vectors
     ) {
         return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<T>(docIdWithFieldSet, vectors));
+    }
+
+    /**
+     * Returns a {@link Supplier} for {@link #getVectorValuesSupplier(VectorDataType, DocsWithFieldSet, Map)}.
+     * Note: This class is public static so that it can be mocked for testing.
+     *
+     * @param vectorDataType {@link VectorDataType}
+     * @param docIdWithFieldSet {@link DocsWithFieldSet}
+     * @return {@link KNNVectorValues}
+     */
+    public static <T> Supplier<KNNVectorValues<?>> getVectorValuesSupplier(
+        final VectorDataType vectorDataType,
+        final DocsWithFieldSet docIdWithFieldSet,
+        final Map<Integer, T> vectors
+    ) {
+        return () -> getVectorValues(vectorDataType, docIdWithFieldSet, vectors);
     }
 
     /**
@@ -119,5 +159,54 @@ public final class KNNVectorValuesFactory {
                 return (KNNVectorValues<T>) new KNNBinaryVectorValues(knnVectorValuesIterator);
         }
         throw new IllegalArgumentException("Invalid Vector data type provided, hence cannot return VectorValues");
+    }
+
+    /**
+     * Retrieves the {@link KNNVectorValues} for a specific field during a merge operation, based on the vector data type.
+     *
+     * @param vectorDataType The {@link VectorDataType} representing the type of vectors stored.
+     * @param fieldInfo      The {@link FieldInfo} object containing metadata about the field.
+     * @param mergeState     The {@link org.apache.lucene.index.MergeState} representing the state of the merge operation.
+     * @param <T>            The type of vectors being processed.
+     * @return The {@link KNNVectorValues} associated with the field during the merge.
+     * @throws IOException If an I/O error occurs during the retrieval.
+     */
+    private static <T> KNNVectorValues<T> getKNNVectorValuesForMerge(
+        final VectorDataType vectorDataType,
+        final FieldInfo fieldInfo,
+        final MergeState mergeState
+    ) {
+        try {
+            switch (fieldInfo.getVectorEncoding()) {
+                case FLOAT32:
+                    FloatVectorValues mergedFloats = KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState);
+                    return getVectorValues(vectorDataType, mergedFloats);
+                case BYTE:
+                    ByteVectorValues mergedBytes = KnnVectorsWriter.MergedVectorValues.mergeByteVectorValues(fieldInfo, mergeState);
+                    return getVectorValues(vectorDataType, mergedBytes);
+                default:
+                    throw new IllegalStateException("Unsupported vector encoding [" + fieldInfo.getVectorEncoding() + "]");
+            }
+        } catch (final IOException e) {
+            log.error("Unable to merge vectors for field [{}]", fieldInfo.getName(), e);
+            throw new IllegalStateException("Unable to merge vectors for field [" + fieldInfo.getName() + "]", e);
+        }
+    }
+
+    /**
+     * Returns a {@link Supplier} for {@link #getKNNVectorValuesForMerge(VectorDataType, FieldInfo, MergeState)}.
+     * Note: This class is public static so that it can be mocked for testing.
+     *
+     * @param vectorDataType
+     * @param fieldInfo
+     * @param mergeState
+     * @return
+     */
+    public static Supplier<KNNVectorValues<?>> getKNNVectorValuesSupplierForMerge(
+        final VectorDataType vectorDataType,
+        final FieldInfo fieldInfo,
+        final MergeState mergeState
+    ) {
+        return () -> getKNNVectorValuesForMerge(vectorDataType, fieldInfo, mergeState);
     }
 }

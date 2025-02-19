@@ -5,38 +5,58 @@
 
 package org.opensearch.knn.plugin;
 
+import com.google.common.collect.ImmutableList;
+import org.opensearch.action.ActionRequest;
+import org.opensearch.client.Client;
 import org.opensearch.cluster.NamedDiff;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.Metadata;
+import org.opensearch.cluster.node.DiscoveryNodes;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.IndexScopedSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.env.Environment;
+import org.opensearch.env.NodeEnvironment;
+import org.opensearch.index.IndexModule;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
+import org.opensearch.index.mapper.Mapper;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
-import org.opensearch.knn.index.util.KNNClusterUtil;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-
-import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
-import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.codec.KNNCodecService;
-import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.indices.ModelGraveyard;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
+import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelGraveyard;
+import org.opensearch.knn.plugin.rest.RestClearCacheHandler;
 import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
 import org.opensearch.knn.plugin.rest.RestGetModelHandler;
 import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
 import org.opensearch.knn.plugin.rest.RestSearchModelHandler;
 import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
-import org.opensearch.knn.plugin.rest.RestClearCacheHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
+import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.plugin.stats.KNNStats;
+import org.opensearch.knn.plugin.transport.ClearCacheAction;
+import org.opensearch.knn.plugin.transport.ClearCacheTransportAction;
 import org.opensearch.knn.plugin.transport.DeleteModelAction;
 import org.opensearch.knn.plugin.transport.DeleteModelTransportAction;
 import org.opensearch.knn.plugin.transport.GetModelAction;
@@ -45,27 +65,6 @@ import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsTransportAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupTransportAction;
-import org.opensearch.knn.plugin.transport.ClearCacheAction;
-import org.opensearch.knn.plugin.transport.ClearCacheTransportAction;
-import com.google.common.collect.ImmutableList;
-
-import org.opensearch.action.ActionRequest;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.IndexScopedSettings;
-import org.opensearch.common.settings.Setting;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.settings.SettingsFilter;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.env.Environment;
-import org.opensearch.env.NodeEnvironment;
-import org.opensearch.index.IndexModule;
-import org.opensearch.index.IndexSettings;
-import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheTransportAction;
 import org.opensearch.knn.plugin.transport.SearchModelAction;
@@ -77,10 +76,10 @@ import org.opensearch.knn.plugin.transport.TrainingJobRouterTransportAction;
 import org.opensearch.knn.plugin.transport.TrainingModelAction;
 import org.opensearch.knn.plugin.transport.TrainingModelRequest;
 import org.opensearch.knn.plugin.transport.TrainingModelTransportAction;
-import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
-import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -105,8 +104,8 @@ import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -166,6 +165,7 @@ public class KNNPlugin extends Plugin
 
     private KNNStats knnStats;
     private ClusterService clusterService;
+    private Supplier<RepositoriesService> repositoriesServiceSupplier;
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
@@ -195,6 +195,7 @@ public class KNNPlugin extends Plugin
         Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
         this.clusterService = clusterService;
+        this.repositoriesServiceSupplier = repositoriesServiceSupplier;
 
         // Initialize Native Memory loading strategies
         VectorReader vectorReader = new VectorReader(client);
@@ -287,7 +288,9 @@ public class KNNPlugin extends Plugin
     @Override
     public Optional<CodecServiceFactory> getCustomCodecServiceFactory(IndexSettings indexSettings) {
         if (indexSettings.getValue(KNNSettings.IS_KNN_INDEX_SETTING)) {
-            return Optional.of(KNNCodecService::new);
+            return Optional.of(
+                (config) -> new KNNCodecService(config, new NativeIndexBuildStrategyFactory(repositoriesServiceSupplier, indexSettings))
+            );
         }
         return Optional.empty();
     }

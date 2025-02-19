@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.Codec;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.settings.Settings;
@@ -13,8 +14,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceConfig;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
-
-import org.apache.logging.log4j.Logger;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 
 import java.util.UUID;
 
@@ -46,7 +46,7 @@ public class KNNCodecServiceTests extends KNNTestCase {
         MapperService mapperService = mock(MapperService.class);
         Logger loggerMock = mock(Logger.class);
         CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, mapperService, loggerMock);
-        KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig);
+        KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig, mock(NativeIndexBuildStrategyFactory.class));
         Codec codec = knnCodecService.codec(KNNCodecVersion.current().getCodecName());
         assertNotNull(codec);
     }
@@ -61,7 +61,7 @@ public class KNNCodecServiceTests extends KNNTestCase {
     public void testGetCodecByNameWithNoMapperService() {
         Logger loggerMock = mock(Logger.class);
         CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, null, loggerMock);
-        KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig);
+        KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig, mock(NativeIndexBuildStrategyFactory.class));
         Codec codec = knnCodecService.codec(KNNCodecVersion.current().getCodecName());
         assertNotNull(codec);
     }

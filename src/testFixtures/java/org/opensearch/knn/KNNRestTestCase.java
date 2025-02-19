@@ -16,37 +16,38 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
-import org.opensearch.Version;
-import org.opensearch.core.common.bytes.BytesReference;
-import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.core.xcontent.DeprecationHandler;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.derivedsource.ParentChildHelper;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.mapper.Mode;
-import org.opensearch.knn.indices.ModelState;
-import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.junit.AfterClass;
 import org.junit.Before;
+import org.opensearch.Version;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.MediaType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.core.xcontent.MediaType;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.ExistsQueryBuilder;
+import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
-import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.derivedsource.ParentChildHelper;
+import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.plugin.KNNPlugin;
+import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.script.Script;
 import org.opensearch.search.SearchService;
 import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
@@ -76,43 +77,42 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.TestUtils.FIELD;
+import static org.opensearch.knn.TestUtils.INDEX_KNN;
+import static org.opensearch.knn.TestUtils.KNN_VECTOR;
+import static org.opensearch.knn.TestUtils.NUMBER_OF_REPLICAS;
+import static org.opensearch.knn.TestUtils.NUMBER_OF_SHARDS;
+import static org.opensearch.knn.TestUtils.PROPERTIES;
+import static org.opensearch.knn.TestUtils.QUERY_VALUE;
+import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
+import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
+import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
-
-import static org.opensearch.knn.TestUtils.NUMBER_OF_REPLICAS;
-import static org.opensearch.knn.TestUtils.NUMBER_OF_SHARDS;
-import static org.opensearch.knn.TestUtils.INDEX_KNN;
-import static org.opensearch.knn.TestUtils.PROPERTIES;
-import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
-import static org.opensearch.knn.TestUtils.KNN_VECTOR;
-import static org.opensearch.knn.TestUtils.FIELD;
-import static org.opensearch.knn.TestUtils.QUERY_VALUE;
-import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
-
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
 import static org.opensearch.knn.index.SpaceType.L2;
-import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
 /**
@@ -169,6 +169,24 @@ public class KNNRestTestCase extends ODFERestTestCase {
     @Before
     public void cleanUpCache() throws Exception {
         clearCache();
+    }
+
+    /**
+     * Set up cluster settings for remote index build feature. We do this for all tests to ensure the fallback mechanisms are working correctly.
+     */
+    @Before
+    public void setupRemoteIndexBuildSettings() throws Exception {
+        if (randomBoolean() && isRemoteIndexBuildSupported(getBWCVersion())) {
+            updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
+            updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
+        }
+    }
+
+    /**
+     * Gets the current BWC version. This method is used to control determine or not we should update settings in the base test class as new settings are not BWC.
+     */
+    protected Optional<String> getBWCVersion() {
+        return Optional.of(Version.CURRENT.toString());
     }
 
     /**
@@ -987,12 +1005,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected Settings buildKNNIndexSettings(int approximateThreshold) {
-        return Settings.builder()
+        Settings.Builder builder = Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
             .put(KNN_INDEX, true)
-            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold)
-            .build();
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold);
+
+        if (isRemoteIndexBuildSupported(getBWCVersion())) {
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, randomBoolean());
+        }
+        return builder.build();
     }
 
     @SneakyThrows
@@ -2323,6 +2345,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         final Version version = Version.fromString(versionString);
         return version.onOrAfter(Version.V_2_18_0);
+    }
+
+    /**
+     * Remote Index Build settings are only supported on or after V_3_0_0
+     */
+    protected boolean isRemoteIndexBuildSupported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get();
+        if (versionString.endsWith("-SNAPSHOT")) {
+            versionString = versionString.substring(0, versionString.length() - 9);
+        }
+        final Version version = Version.fromString(versionString);
+        return version.onOrAfter(Version.V_3_0_0);
     }
 
     /**

@@ -6,14 +6,21 @@
 package org.opensearch.knn.bwc;
 
 import org.junit.Before;
-import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import java.util.Locale;
 import java.util.Optional;
 
-import static org.opensearch.knn.TestUtils.*;
+import static org.opensearch.knn.TestUtils.BWCSUITE_CLUSTER;
+import static org.opensearch.knn.TestUtils.BWC_VERSION;
+import static org.opensearch.knn.TestUtils.CLIENT_TIMEOUT_VALUE;
+import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
+import static org.opensearch.knn.TestUtils.MIXED_CLUSTER;
+import static org.opensearch.knn.TestUtils.OLD_CLUSTER;
+import static org.opensearch.knn.TestUtils.ROLLING_UPGRADE_FIRST_ROUND;
+import static org.opensearch.knn.TestUtils.UPGRADED_CLUSTER;
 
 public abstract class AbstractRollingUpgradeTestCase extends KNNRestTestCase {
     protected String testIndex;
@@ -81,6 +88,7 @@ public abstract class AbstractRollingUpgradeTestCase extends KNNRestTestCase {
         return Boolean.parseBoolean(System.getProperty(ROLLING_UPGRADE_FIRST_ROUND, "false"));
     }
 
+    @Override
     protected final Optional<String> getBWCVersion() {
         return Optional.ofNullable(System.getProperty(BWC_VERSION, null));
     }
