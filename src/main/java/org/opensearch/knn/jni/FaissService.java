@@ -463,4 +463,8 @@ class FaissService {
         int indexMaxResultWindow,
         int[] parentIds
     );
+
+    public static native void setMergeInterruptCallback();
+
+    public static native void unsetMergeInterruptCallback();
 }
