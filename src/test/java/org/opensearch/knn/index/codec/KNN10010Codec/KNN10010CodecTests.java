@@ -20,12 +20,12 @@ public class KNN10010CodecTests extends KNNCodecTestCase {
 
     @SneakyThrows
     public void testMultiFieldsKnnIndex() {
-        testMultiFieldsKnnIndex(KNN10010Codec.builder().delegate(KNNCodecVersion.V_10_01_0.getDefaultCodecDelegate()).build());
+        testMultiFieldsKnnIndex(KNN10010Codec.builder().delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE).build());
     }
 
     @SneakyThrows
     public void testBuildFromModelTemplate() {
-        testBuildFromModelTemplate(KNN10010Codec.builder().delegate(KNNCodecVersion.V_10_01_0.getDefaultCodecDelegate()).build());
+        testBuildFromModelTemplate(KNN10010Codec.builder().delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE).build());
     }
 
     // Ensure that the codec is able to return the correct per field knn vectors format for codec
@@ -42,7 +42,7 @@ public class KNN10010CodecTests extends KNNCodecTestCase {
             mapperService) -> new KNN9120PerFieldKnnVectorsFormat(Optional.of(mapperService));
 
         Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN10010Codec.builder()
-            .delegate(KNNCodecVersion.V_10_01_0.getDefaultCodecDelegate())
+            .delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE)
             .knnVectorsFormat(knnVectorFormat)
             .build();
 

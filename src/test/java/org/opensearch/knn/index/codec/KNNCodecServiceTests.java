@@ -47,7 +47,7 @@ public class KNNCodecServiceTests extends KNNTestCase {
         Logger loggerMock = mock(Logger.class);
         CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, mapperService, loggerMock);
         KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig, mock(NativeIndexBuildStrategyFactory.class));
-        Codec codec = knnCodecService.codec(KNNCodecVersion.current().getCodecName());
+        Codec codec = knnCodecService.codec(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE.getName());
         assertNotNull(codec);
     }
 
@@ -62,7 +62,7 @@ public class KNNCodecServiceTests extends KNNTestCase {
         Logger loggerMock = mock(Logger.class);
         CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, null, loggerMock);
         KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig, mock(NativeIndexBuildStrategyFactory.class));
-        Codec codec = knnCodecService.codec(KNNCodecVersion.current().getCodecName());
+        Codec codec = knnCodecService.codec(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE.getName());
         assertNotNull(codec);
     }
 }

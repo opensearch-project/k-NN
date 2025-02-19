@@ -61,6 +61,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.UnitTestCodec;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
@@ -80,7 +81,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 
 @Log4j2
 public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
-    private static final Codec TESTING_CODEC = new UnitTestCodec();
+    private static final Codec TESTING_CODEC = new UnitTestCodec(() -> new NativeEngines990KnnVectorsFormat(0));
     private static final String FLAT_VECTOR_FILE_EXT = ".vec";
     private static final String FAISS_ENGINE_FILE_EXT = ".faiss";
     private static final String FLOAT_VECTOR_FIELD = "float_field";
