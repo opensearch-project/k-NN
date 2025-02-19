@@ -37,14 +37,15 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
 import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
@@ -68,7 +69,7 @@ public class NativeIndexWriter {
      * @return correct NativeIndexWriter to make index specified in fieldInfo
      */
     public static NativeIndexWriter getWriter(final FieldInfo fieldInfo, SegmentWriteState state) {
-        return createWriter(fieldInfo, state, null);
+        return createWriter(fieldInfo, state, null, new NativeIndexBuildStrategyFactory());
     }
 
     /**
@@ -88,29 +89,30 @@ public class NativeIndexWriter {
     public static NativeIndexWriter getWriter(
         final FieldInfo fieldInfo,
         final SegmentWriteState state,
-        final QuantizationState quantizationState
+        final QuantizationState quantizationState,
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        return createWriter(fieldInfo, state, quantizationState);
+        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory);
     }
 
     /**
      * flushes the index
      *
-     * @param knnVectorValues
+     * @param knnVectorValuesSupplier
      * @throws IOException
      */
-    public void flushIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {
-        initializeVectorValues(knnVectorValues);
-        buildAndWriteIndex(knnVectorValues, totalLiveDocs);
+    public void flushIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs) throws IOException {
+        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs);
         recordRefreshStats();
     }
 
     /**
      * Merges kNN index
-     * @param knnVectorValues
+     * @param knnVectorValuesSupplier
      * @throws IOException
      */
-    public void mergeIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {
+    public void mergeIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs) throws IOException {
+        KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
         initializeVectorValues(knnVectorValues);
         if (knnVectorValues.docId() == NO_MORE_DOCS) {
             // This is in place so we do not add metrics
@@ -120,11 +122,11 @@ public class NativeIndexWriter {
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
         startMergeStats(totalLiveDocs, bytesPerVector);
-        buildAndWriteIndex(knnVectorValues, totalLiveDocs);
+        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs);
         endMergeStats(totalLiveDocs, bytesPerVector);
     }
 
-    private void buildAndWriteIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {
+    private void buildAndWriteIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs) throws IOException {
         if (totalLiveDocs == 0) {
             log.debug("No live docs for field {}", fieldInfo.name);
             return;
@@ -143,7 +145,7 @@ public class NativeIndexWriter {
                 fieldInfo,
                 indexOutputWithBuffer,
                 knnEngine,
-                knnVectorValues,
+                knnVectorValuesSupplier,
                 totalLiveDocs
             );
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
@@ -158,7 +160,7 @@ public class NativeIndexWriter {
         FieldInfo fieldInfo,
         IndexOutputWithBuffer indexOutputWithBuffer,
         KNNEngine knnEngine,
-        KNNVectorValues<?> vectorValues,
+        Supplier<KNNVectorValues<?>> knnVectorValuesSupplier,
         int totalLiveDocs
     ) throws IOException {
         final Map<String, Object> parameters;
@@ -182,8 +184,9 @@ public class NativeIndexWriter {
             .knnEngine(knnEngine)
             .indexOutputWithBuffer(indexOutputWithBuffer)
             .quantizationState(quantizationState)
-            .vectorValues(vectorValues)
+            .knnVectorValuesSupplier(knnVectorValuesSupplier)
             .totalLiveDocs(totalLiveDocs)
+            .segmentWriteState(state)
             .build();
     }
 
@@ -304,19 +307,15 @@ public class NativeIndexWriter {
      * @param fieldInfo          The FieldInfo object containing metadata about the field for which the writer is needed.
      * @param state              The SegmentWriteState representing the current segment's writing context.
      * @param quantizationState  The QuantizationState that contains quantization state required for quantization, can be null.
+     * @param nativeIndexBuildStrategyFactory The factory which will return the correct {@link NativeIndexBuildStrategy} implementation
      * @return                   A NativeIndexWriter instance appropriate for the specified field, configured with or without quantization.
      */
     private static NativeIndexWriter createWriter(
         final FieldInfo fieldInfo,
         final SegmentWriteState state,
-        @Nullable final QuantizationState quantizationState
+        @Nullable final QuantizationState quantizationState,
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
-        boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
-        boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
-        NativeIndexBuildStrategy strategy = iterative
-            ? MemOptimizedNativeIndexBuildStrategy.getInstance()
-            : DefaultIndexBuildStrategy.getInstance();
-        return new NativeIndexWriter(state, fieldInfo, strategy, quantizationState);
+        return new NativeIndexWriter(state, fieldInfo, nativeIndexBuildStrategyFactory.getBuildStrategy(fieldInfo), quantizationState);
     }
 }
