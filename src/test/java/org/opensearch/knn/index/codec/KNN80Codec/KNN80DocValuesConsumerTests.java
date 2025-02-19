@@ -27,6 +27,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -36,7 +37,6 @@ import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -87,7 +87,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
     @BeforeClass
     public static void setStaticVariables() {
         directory = newFSDirectory(createTempDir());
-        codec = new KNN87Codec();
+        codec = KNNCodecVersion.CURRENT_DEFAULT;
     }
 
     @AfterClass

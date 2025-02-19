@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN990Codec;
+package org.opensearch.knn.index.codec.backward_codecs.KNN990Codec;
 
 import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;

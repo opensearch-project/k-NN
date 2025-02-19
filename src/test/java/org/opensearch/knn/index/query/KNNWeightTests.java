@@ -41,11 +41,11 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
+import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -271,7 +271,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -362,7 +362,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             false,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -405,7 +405,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -590,7 +590,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,  // Max document count for this segment
             false,  // Is this a compound file segment
             false,  // Is this a merged segment
-            KNNCodecVersion.current().getDefaultCodecDelegate(),  // Codec delegate for KNN
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),  // Diagnostics map
             new byte[StringHelper.ID_LENGTH],  // Segment ID
             Map.of(),  // Attributes
@@ -862,7 +862,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -993,7 +993,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             false,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -1438,7 +1438,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -1515,7 +1515,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -1580,7 +1580,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
