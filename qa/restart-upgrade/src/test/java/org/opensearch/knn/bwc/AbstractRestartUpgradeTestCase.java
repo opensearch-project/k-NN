@@ -13,7 +13,10 @@ import org.opensearch.test.rest.OpenSearchRestTestCase;
 import java.util.Locale;
 import java.util.Optional;
 
-import static org.opensearch.knn.TestUtils.*;
+import static org.opensearch.knn.TestUtils.BWC_VERSION;
+import static org.opensearch.knn.TestUtils.CLIENT_TIMEOUT_VALUE;
+import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
+import static org.opensearch.knn.TestUtils.RESTART_UPGRADE_OLD_CLUSTER;
 
 public abstract class AbstractRestartUpgradeTestCase extends KNNRestTestCase {
     protected String testIndex;
@@ -58,6 +61,7 @@ public abstract class AbstractRestartUpgradeTestCase extends KNNRestTestCase {
         return Boolean.parseBoolean(System.getProperty(RESTART_UPGRADE_OLD_CLUSTER));
     }
 
+    @Override
     protected final Optional<String> getBWCVersion() {
         return Optional.ofNullable(System.getProperty(BWC_VERSION, null));
     }

@@ -118,4 +118,9 @@ public class Faiss extends NativeLibrary {
     ) {
         return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
+
+    @Override
+    public boolean supportsRemoteIndexBuild() {
+        return true;
+    }
 }

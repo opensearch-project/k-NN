@@ -8,14 +8,15 @@ package org.opensearch.knn.index.codec;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
+import org.apache.lucene.backward_codecs.lucene912.Lucene912Codec;
 import org.apache.lucene.backward_codecs.lucene92.Lucene92Codec;
 import org.apache.lucene.backward_codecs.lucene94.Lucene94Codec;
-import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.backward_codecs.lucene95.Lucene95Codec;
 import org.apache.lucene.backward_codecs.lucene99.Lucene99Codec;
-import org.apache.lucene.backward_codecs.lucene912.Lucene912Codec;
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.lucene101.Lucene101Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.opensearch.common.TriFunction;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN10010Codec.KNN10010Codec;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
@@ -31,9 +32,9 @@ import org.opensearch.knn.index.codec.KNN950Codec.KNN950Codec;
 import org.opensearch.knn.index.codec.KNN950Codec.KNN950PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.KNN990Codec;
 import org.opensearch.knn.index.codec.KNN990Codec.KNN990PerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -53,7 +54,7 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> new KNN910Codec(userCodec),
+        (userCodec, mapperService, nativeIndexBuildStrategyFactory) -> new KNN910Codec(userCodec),
         KNN910Codec::new
     ),
 
@@ -65,7 +66,7 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> KNN920Codec.builder()
+        (userCodec, mapperService, nativeIndexBuildStrategyFactory) -> KNN920Codec.builder()
             .delegate(userCodec)
             .knnVectorsFormat(new KNN920PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
@@ -80,7 +81,7 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> KNN940Codec.builder()
+        (userCodec, mapperService, nativeIndexBuildStrategyFactory) -> KNN940Codec.builder()
             .delegate(userCodec)
             .knnVectorsFormat(new KNN940PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
@@ -95,7 +96,7 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> KNN950Codec.builder()
+        (userCodec, mapperService, nativeIndexBuildStrategyFactory) -> KNN950Codec.builder()
             .delegate(userCodec)
             .knnVectorsFormat(new KNN950PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
@@ -110,7 +111,7 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> KNN990Codec.builder()
+        (userCodec, mapperService, nativeIndexBuildStrategyFactory) -> KNN990Codec.builder()
             .delegate(userCodec)
             .knnVectorsFormat(new KNN990PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
@@ -125,7 +126,7 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> KNN9120Codec.builder()
+        (userCodec, mapperService, nativeIndexBuildStrategyFactory) -> KNN9120Codec.builder()
             .delegate(userCodec)
             .knnVectorsFormat(new KNN9120PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .mapperService(mapperService)
@@ -140,9 +141,9 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> KNN10010Codec.builder()
+        (userCodec, mapperService, nativeIndexBuildStrategyFactory) -> KNN10010Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN9120PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .knnVectorsFormat(new KNN9120PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService), nativeIndexBuildStrategyFactory))
             .mapperService(mapperService)
             .build(),
         KNN10010Codec::new
@@ -154,7 +155,7 @@ public enum KNNCodecVersion {
     private final Codec defaultCodecDelegate;
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
     private final Function<Codec, KNNFormatFacade> knnFormatFacadeSupplier;
-    private final BiFunction<Codec, MapperService, Codec> knnCodecSupplier;
+    private final TriFunction<Codec, MapperService, NativeIndexBuildStrategyFactory, Codec> knnCodecSupplier;
     private final Supplier<Codec> defaultKnnCodecSupplier;
 
     public static final KNNCodecVersion current() {
