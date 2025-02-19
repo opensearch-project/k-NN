@@ -574,7 +574,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         XContentBuilder xContentBuilderOverMaxDimension = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, 20000)
+            .field(DIMENSION_FIELD_NAME, 20481)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -593,7 +593,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 buildParserContext(indexName, settings)
             )
         );
-        assertTrue(ex.getMessage().contains("Dimension value cannot be greater than 16000 for vector with engine: lucene"));
+        assertTrue(ex.getMessage().contains("Dimension value cannot be greater than 20480 for vector with engine: lucene"));
 
         XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
             .startObject()

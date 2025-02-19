@@ -37,11 +37,11 @@ public enum KNNEngine implements KNNLibrary {
 
     private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
-        16_000,
+        20_480,
         KNNEngine.FAISS,
-        16_000,
+        20_480,
         KNNEngine.LUCENE,
-        16_000
+        20_480
     );
 
     /**
