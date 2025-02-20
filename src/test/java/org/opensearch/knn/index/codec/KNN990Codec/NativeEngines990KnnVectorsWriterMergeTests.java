@@ -24,6 +24,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
@@ -72,6 +74,8 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
     private FloatVectorValues floatVectorValues;
     @Mock
     private MergeState mergeState;
+    @Mock
+    private NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
     private NativeEngines990KnnVectorsWriter objectUnderTest;
 
@@ -85,7 +89,12 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.openMocks(this);
-        objectUnderTest = new NativeEngines990KnnVectorsWriter(segmentWriteState, flatVectorsWriter, BUILD_GRAPH_ALWAYS_THRESHOLD);
+        objectUnderTest = new NativeEngines990KnnVectorsWriter(
+            segmentWriteState,
+            flatVectorsWriter,
+            BUILD_GRAPH_ALWAYS_THRESHOLD,
+            nativeIndexBuildStrategyFactory
+        );
         mockedFlatFieldVectorsWriter = Mockito.mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
         Mockito.when(flatVectorsWriter.addField(Mockito.any())).thenReturn(mockedFlatFieldVectorsWriter);
@@ -108,6 +117,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             new ArrayList<>(mergedVectors.values())
         );
         final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+        final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> knnVectorValues;
 
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
@@ -135,12 +145,14 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             mergedVectorValuesMockedStatic.when(() -> KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState))
                 .thenReturn(floatVectorValues);
-            knnVectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues))
-                .thenReturn(knnVectorValues);
+            knnVectorValuesFactoryMockedStatic.when(
+                () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
+            ).thenReturn(knnVectorValuesSupplier);
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-            nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                .thenReturn(nativeIndexWriter);
+            nativeIndexWriterMockedStatic.when(
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+            ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
                 return null;
@@ -153,11 +165,11 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             verify(flatVectorsWriter).mergeOneField(fieldInfo, mergeState);
             assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
             if (!mergedVectors.isEmpty()) {
-                verify(nativeIndexWriter).mergeIndex(knnVectorValues, mergedVectors.size());
+                verify(nativeIndexWriter).mergeIndex(knnVectorValuesSupplier, mergedVectors.size());
                 assertTrue(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() > 0L);
                 knnVectorValuesFactoryMockedStatic.verify(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues),
-                    times(2)
+                    () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState),
+                    times(1)
                 );
             } else {
                 verifyNoInteractions(nativeIndexWriter);
@@ -171,10 +183,12 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             new ArrayList<>(mergedVectors.values())
         );
         final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+        final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> knnVectorValues;
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            BUILD_GRAPH_NEVER_THRESHOLD
+            BUILD_GRAPH_NEVER_THRESHOLD,
+            nativeIndexBuildStrategyFactory
         );
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
@@ -202,12 +216,14 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             mergedVectorValuesMockedStatic.when(() -> KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState))
                 .thenReturn(floatVectorValues);
-            knnVectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues))
-                .thenReturn(knnVectorValues);
+            knnVectorValuesFactoryMockedStatic.when(
+                () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
+            ).thenReturn(knnVectorValuesSupplier);
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-            nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                .thenReturn(nativeIndexWriter);
+            nativeIndexWriterMockedStatic.when(
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+            ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
                 return null;
@@ -229,10 +245,12 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             new ArrayList<>(mergedVectors.values())
         );
         final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+        final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> knnVectorValues;
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            mergedVectors.size()
+            mergedVectors.size(),
+            nativeIndexBuildStrategyFactory
         );
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
@@ -260,12 +278,14 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             mergedVectorValuesMockedStatic.when(() -> KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState))
                 .thenReturn(floatVectorValues);
-            knnVectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues))
-                .thenReturn(knnVectorValues);
+            knnVectorValuesFactoryMockedStatic.when(
+                () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
+            ).thenReturn(knnVectorValuesSupplier);
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-            nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                .thenReturn(nativeIndexWriter);
+            nativeIndexWriterMockedStatic.when(
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+            ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
                 return null;
@@ -278,7 +298,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             verify(flatVectorsWriter).mergeOneField(fieldInfo, mergeState);
             assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
             if (!mergedVectors.isEmpty()) {
-                verify(nativeIndexWriter).mergeIndex(knnVectorValues, mergedVectors.size());
+                verify(nativeIndexWriter).mergeIndex(knnVectorValuesSupplier, mergedVectors.size());
             } else {
                 verifyNoInteractions(nativeIndexWriter);
             }
@@ -292,6 +312,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             new ArrayList<>(mergedVectors.values())
         );
         final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+        final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> knnVectorValues;
 
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
@@ -320,8 +341,9 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             mergedVectorValuesMockedStatic.when(() -> KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState))
                 .thenReturn(floatVectorValues);
-            knnVectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues))
-                .thenReturn(knnVectorValues);
+            knnVectorValuesFactoryMockedStatic.when(
+                () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
+            ).thenReturn(knnVectorValuesSupplier);
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
             try {
@@ -330,8 +352,9 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 throw new RuntimeException(e);
             }
 
-            nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState))
-                .thenReturn(nativeIndexWriter);
+            nativeIndexWriterMockedStatic.when(
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+            ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
                 return null;
@@ -345,11 +368,11 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             if (!mergedVectors.isEmpty()) {
                 verify(knn990QuantWriterMockedConstruction.constructed().get(0)).writeHeader(segmentWriteState);
                 verify(knn990QuantWriterMockedConstruction.constructed().get(0)).writeState(0, quantizationState);
-                verify(nativeIndexWriter).mergeIndex(knnVectorValues, mergedVectors.size());
+                verify(nativeIndexWriter).mergeIndex(knnVectorValuesSupplier, mergedVectors.size());
                 assertTrue(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() > 0L);
                 knnVectorValuesFactoryMockedStatic.verify(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues),
-                    times(3)
+                    () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState),
+                    times(1)
                 );
             } else {
                 assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());

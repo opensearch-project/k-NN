@@ -24,7 +24,8 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
+import org.opensearch.knn.index.codec.KNN10010Codec.KNN10010Codec;
+import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -35,6 +36,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -67,7 +69,7 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
         when(mockDelegateCodec.docValuesFormat()).thenReturn(mockDocValuesFormat);
         when(mockDocValuesFormat.fieldsProducer(any())).thenReturn(mockDocValuesProducer);
         when(mockDocValuesFormat.getName()).thenReturn("mockDocValuesFormat");
-        Codec codec = new KNN87Codec(mockDelegateCodec);
+        Codec codec = new KNN10010Codec(mockDelegateCodec, new KNN9120PerFieldKnnVectorsFormat(Optional.empty()), null);
 
         String segmentName = "_test";
         int docsInSegment = 100;
@@ -136,7 +138,7 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
         when(mockDelegateCodec.docValuesFormat()).thenReturn(mockDocValuesFormat);
         when(mockDocValuesFormat.fieldsProducer(any())).thenReturn(mockDocValuesProducer);
         when(mockDocValuesFormat.getName()).thenReturn("mockDocValuesFormat");
-        Codec codec = new KNN87Codec(mockDelegateCodec);
+        Codec codec = new KNN10010Codec(mockDelegateCodec, new KNN9120PerFieldKnnVectorsFormat(Optional.empty()), null);
 
         String segmentName = "_test";
         int docsInSegment = 100;

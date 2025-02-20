@@ -139,4 +139,12 @@ public interface KNNLibrary extends MethodResolver {
     default List<String> mmapFileExtensions() {
         return Collections.emptyList();
     }
+
+    /**
+     * Returns whether or not the engine implementation supports remote index build
+     * @return true if remote index build is supported, false otherwise
+     */
+    default boolean supportsRemoteIndexBuild() {
+        return false;
+    }
 }

@@ -23,8 +23,8 @@ import java.util.Map;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNVectorUtil.intListToArray;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory.getVectorTransfer;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
 /**
  * Transfers all vectors to off heap and then builds an index
@@ -50,7 +50,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @throws IOException     If an I/O error occurs during the process of building and writing the index.
      */
     public void buildAndWriteIndex(final BuildIndexParams indexInfo) throws IOException {
-        final KNNVectorValues<?> knnVectorValues = indexInfo.getVectorValues();
+        final KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
         // Needed to make sure we don't get 0 dimensions while initializing index
         initializeVectorValues(knnVectorValues);
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);

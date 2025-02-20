@@ -3,31 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN990Codec;
+package org.opensearch.knn.index.codec.backward_codecs.KNN950Codec;
 
-import lombok.Builder;
+import org.apache.lucene.backward_codecs.lucene95.Lucene95Codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
-import org.opensearch.knn.index.codec.KNNCodecVersion;
-import org.opensearch.knn.index.codec.KNNFormatFacade;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 
-/**
- * KNN Codec that wraps the Lucene Codec which is part of Lucene 9.9
- */
-public class KNN990Codec extends FilterCodec {
-    private static final KNNCodecVersion VERSION = KNNCodecVersion.V_9_9_0;
-    private final KNNFormatFacade knnFormatFacade;
+import java.util.Optional;
+
+public class KNN950Codec extends FilterCodec {
+    private static final String NAME = "KNN950Codec";
+    private static final Codec DEFAULT_DELEGATE = new Lucene95Codec();
+    private static final PerFieldKnnVectorsFormat DEFAULT_KNN_VECTOR_FORMAT = new KNN950PerFieldKnnVectorsFormat(Optional.empty());
+
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
 
     /**
-     * No arg constructor that uses Lucene99 as the delegate
+     * No arg constructor that uses Lucene95 as the delegate
      */
-    public KNN990Codec() {
-        this(VERSION.getDefaultCodecDelegate(), VERSION.getPerFieldKnnVectorsFormat());
+    public KNN950Codec() {
+        this(DEFAULT_DELEGATE, DEFAULT_KNN_VECTOR_FORMAT);
     }
 
     /**
@@ -37,21 +38,19 @@ public class KNN990Codec extends FilterCodec {
      * @param delegate codec that will perform all operations this codec does not override
      * @param knnVectorsFormat per field format for KnnVector
      */
-    @Builder
-    protected KNN990Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat) {
-        super(VERSION.getCodecName(), delegate);
-        knnFormatFacade = VERSION.getKnnFormatFacadeSupplier().apply(delegate);
+    private KNN950Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat) {
+        super(NAME, delegate);
         perFieldKnnVectorsFormat = knnVectorsFormat;
     }
 
     @Override
     public DocValuesFormat docValuesFormat() {
-        return knnFormatFacade.docValuesFormat();
+        return new KNN80DocValuesFormat(delegate.docValuesFormat());
     }
 
     @Override
     public CompoundFormat compoundFormat() {
-        return knnFormatFacade.compoundFormat();
+        return new KNN80CompoundFormat(delegate.compoundFormat());
     }
 
     @Override

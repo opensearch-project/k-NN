@@ -12,6 +12,7 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Optional;
@@ -25,6 +26,13 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
     private static final Tuple<Integer, ExecutorService> DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE = Tuple.tuple(1, null);
 
     public KNN9120PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
+        this(mapperService, new NativeIndexBuildStrategyFactory());
+    }
+
+    public KNN9120PerFieldKnnVectorsFormat(
+        final Optional<MapperService> mapperService,
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
+    ) {
         super(
             mapperService,
             Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
@@ -67,7 +75,8 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                     // Executor service
                     mergeThreadCountAndExecutorService.v2()
                 );
-            }
+            },
+            nativeIndexBuildStrategyFactory
         );
     }
 

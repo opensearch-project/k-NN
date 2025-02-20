@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN920Codec;
+package org.opensearch.knn.index.codec.backward_codecs.KNN920Codec;
 
 import org.apache.lucene.backward_codecs.lucene92.Lucene92HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
