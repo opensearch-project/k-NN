@@ -74,24 +74,31 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
     /**
      * Creates a KNNVectorScriptDocValues object based on the provided parameters.
      *
-     * @param values          The DocIdSetIterator representing the vector values.
+     * @param knnVectorValues          The DocIdSetIterator representing the vector values.
      * @param fieldName       The name of the field.
      * @param vectorDataType  The data type of the vector.
      * @return A KNNVectorScriptDocValues object based on the type of the values.
      * @throws IllegalArgumentException If the type of values is unsupported.
      */
-    public static KNNVectorScriptDocValues create(Object values, String fieldName, VectorDataType vectorDataType) {
-        Objects.requireNonNull(values, "values must not be null");
-
-        if (values instanceof FloatVectorValues) {
-            return new KNNFloatVectorScriptDocValues((FloatVectorValues) values, fieldName, vectorDataType);
-        } else if (values instanceof ByteVectorValues) {
-            return new KNNByteVectorScriptDocValues((ByteVectorValues) values, fieldName, vectorDataType);
-        } else if (values instanceof BinaryDocValues) {
-            return new KNNNativeVectorScriptDocValues((BinaryDocValues) values, fieldName, vectorDataType);
+    public static KNNVectorScriptDocValues create(KnnVectorValues knnVectorValues, String fieldName, VectorDataType vectorDataType) {
+        Objects.requireNonNull(knnVectorValues, "values must not be null");
+        if (knnVectorValues instanceof FloatVectorValues) {
+            return new KNNFloatVectorScriptDocValues((FloatVectorValues) knnVectorValues, fieldName, vectorDataType);
+        } else if (knnVectorValues instanceof ByteVectorValues) {
+            return new KNNByteVectorScriptDocValues((ByteVectorValues) knnVectorValues, fieldName, vectorDataType);
         } else {
-            throw new IllegalArgumentException("Unsupported values type: " + values.getClass());
+            throw new IllegalArgumentException("Unsupported values type: " + knnVectorValues.getClass());
         }
+    }
+
+    public static KNNVectorScriptDocValues create(DocIdSetIterator docIdSetIterator, String fieldName, VectorDataType vectorDataType) {
+        Objects.requireNonNull(docIdSetIterator, "values must not be null");
+        if (docIdSetIterator instanceof BinaryDocValues) {
+            return new KNNNativeVectorScriptDocValues((BinaryDocValues) docIdSetIterator, fieldName, vectorDataType);
+        } else {
+            throw new IllegalArgumentException("Unsupported values type: " + docIdSetIterator.getClass());
+        }
+
     }
 
     private static final class KNNByteVectorScriptDocValues extends KNNVectorScriptDocValues {
