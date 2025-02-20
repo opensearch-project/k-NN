@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN9120Codec;
+package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.AllArgsConstructor;
 import org.apache.lucene.codecs.Codec;
@@ -20,7 +20,6 @@ import org.opensearch.common.Nullable;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.io.IOException;

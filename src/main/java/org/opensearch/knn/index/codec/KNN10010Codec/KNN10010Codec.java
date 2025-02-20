@@ -17,7 +17,7 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
-import org.opensearch.knn.index.codec.KNN9120Codec.DerivedSourceStoredFieldsFormat;
+import org.opensearch.knn.index.codec.derivedsource.DerivedSourceStoredFieldsFormat;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
 
@@ -26,12 +26,11 @@ import java.util.Optional;
 /**
  * KNN Codec that wraps the Lucene Codec which is part of Lucene 10.0.1
  */
-
 public class KNN10010Codec extends FilterCodec {
 
     private static final String NAME = "KNN10010Codec";
     public static final Codec DEFAULT_DELEGATE = new Lucene101Codec();
-    private static final PerFieldKnnVectorsFormat DEFAULT_KNN_VECTOR_FORMAT = new KNN9120PerFieldKnnVectorsFormat(Optional.empty());
+    public static final PerFieldKnnVectorsFormat DEFAULT_KNN_VECTOR_FORMAT = new KNN9120PerFieldKnnVectorsFormat(Optional.empty());
 
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
     private final StoredFieldsFormat storedFieldsFormat;
