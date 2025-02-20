@@ -21,6 +21,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -40,7 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
@@ -72,6 +73,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
     private QuantizationService quantizationService;
     @Mock
     private NativeIndexWriter nativeIndexWriter;
+    @Mock
+    private NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
     private FlatFieldVectorsWriter mockedFlatFieldVectorsWriter;
 
@@ -86,7 +89,12 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.openMocks(this);
-        objectUnderTest = new NativeEngines990KnnVectorsWriter(segmentWriteState, flatVectorsWriter, BUILD_GRAPH_ALWAYS_THRESHOLD);
+        objectUnderTest = new NativeEngines990KnnVectorsWriter(
+            segmentWriteState,
+            flatVectorsWriter,
+            BUILD_GRAPH_ALWAYS_THRESHOLD,
+            nativeIndexBuildStrategyFactory
+        );
         mockedFlatFieldVectorsWriter = Mockito.mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
         Mockito.when(flatVectorsWriter.addField(Mockito.any())).thenReturn(mockedFlatFieldVectorsWriter);
@@ -122,16 +130,12 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
     @SneakyThrows
     public void testFlush() {
         // Given
-        final List<KNNVectorValues<float[]>> expectedVectorValues = vectorsPerField.stream().map(vectors -> {
+        final List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSuppliers = vectorsPerField.stream().map(vectors -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectors.values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
-            return knnVectorValues;
-        }).collect(Collectors.toList());
+            return KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues);
+        }).toList();
 
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
@@ -163,12 +167,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
 
             doAnswer(answer -> {
@@ -189,9 +194,9 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
                     if (vectorsPerField.get(i).isEmpty()) {
-                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     } else {
-                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -199,7 +204,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             });
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
                 times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }
@@ -208,17 +213,12 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
     @SneakyThrows
     public void testFlush_WithQuantization() {
         // Given
-        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSuppliers = new ArrayList<>();
         IntStream.range(0, vectorsPerField.size()).forEach(i -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectorsPerField.get(i).values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
-            expectedVectorValues.add(knnVectorValues);
-
+            expectedVectorValuesSuppliers.add(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues));
         });
 
         try (
@@ -252,19 +252,25 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i), vectorsPerField.get(i).size()))
-                        .thenReturn(quantizationState);
+                    when(
+                        quantizationService.train(
+                            quantizationParams,
+                            expectedVectorValuesSuppliers.get(i).get(),
+                            vectorsPerField.get(i).size()
+                        )
+                    ).thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
@@ -287,10 +293,10 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 try {
                     if (vectorsPerField.get(i).isEmpty()) {
                         verify(knn990QuantWriterMockedConstruction.constructed().get(0), never()).writeState(i, quantizationState);
-                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     } else {
                         verify(knn990QuantWriterMockedConstruction.constructed().get(0)).writeState(i, quantizationState);
-                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -298,31 +304,28 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             });
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
-                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled) * 2)
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }
     }
 
     public void testFlush_whenThresholdIsNegative_thenNativeIndexWriterIsNeverCalled() throws IOException {
         // Given
-        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSupplier = new ArrayList<>();
         IntStream.range(0, vectorsPerField.size()).forEach(i -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectorsPerField.get(i).values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
-            expectedVectorValues.add(knnVectorValues);
+            expectedVectorValuesSupplier.add(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues));
 
         });
 
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            BUILD_GRAPH_NEVER_THRESHOLD
+            BUILD_GRAPH_NEVER_THRESHOLD,
+            nativeIndexBuildStrategyFactory
         );
 
         try (
@@ -354,12 +357,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSupplier.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
 
             doAnswer(answer -> {
@@ -381,25 +385,22 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
     public void testFlush_whenThresholdIsGreaterThanVectorSize_thenNativeIndexWriterIsNeverCalled() throws IOException {
         // Given
-        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSuppliers = new ArrayList<>();
         final Map<Integer, Integer> sizeMap = new HashMap<>();
         IntStream.range(0, vectorsPerField.size()).forEach(i -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectorsPerField.get(i).values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
             sizeMap.put(i, randomVectorValues.size());
-            expectedVectorValues.add(knnVectorValues);
+            expectedVectorValuesSuppliers.add(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues));
 
         });
         final int maxThreshold = sizeMap.values().stream().filter(count -> count != 0).max(Integer::compareTo).orElse(0);
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            maxThreshold + 1
+            maxThreshold + 1,
+            nativeIndexBuildStrategyFactory
         );
 
         try (
@@ -431,12 +432,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
 
             doAnswer(answer -> {
@@ -458,26 +460,22 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
     public void testFlush_whenThresholdIsEqualToMinNumberOfVectors_thenNativeIndexWriterIsCalled() throws IOException {
         // Given
-        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSuppliers = new ArrayList<>();
         final Map<Integer, Integer> sizeMap = new HashMap<>();
         IntStream.range(0, vectorsPerField.size()).forEach(i -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectorsPerField.get(i).values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
             sizeMap.put(i, randomVectorValues.size());
-            expectedVectorValues.add(knnVectorValues);
-
+            expectedVectorValuesSuppliers.add(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues));
         });
 
         final int minThreshold = sizeMap.values().stream().filter(count -> count != 0).min(Integer::compareTo).orElse(0);
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            minThreshold
+            minThreshold,
+            nativeIndexBuildStrategyFactory
         );
 
         try (
@@ -509,12 +507,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
 
             doAnswer(answer -> {
@@ -534,9 +533,9 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
                     if (vectorsPerField.get(i).size() > 0) {
-                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     } else {
-                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -547,23 +546,20 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
     public void testFlush_whenThresholdIsEqualToFixedValue_thenRelevantNativeIndexWriterIsCalled() throws IOException {
         // Given
-        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSuppliers = new ArrayList<>();
         IntStream.range(0, vectorsPerField.size()).forEach(i -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectorsPerField.get(i).values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
-            expectedVectorValues.add(knnVectorValues);
+            expectedVectorValuesSuppliers.add(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues));
 
         });
         final int threshold = 4;
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            threshold
+            threshold,
+            nativeIndexBuildStrategyFactory
         );
 
         try (
@@ -595,12 +591,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
 
             doAnswer(answer -> {
@@ -619,9 +616,9 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
                     if (vectorsPerField.get(i).size() >= threshold) {
-                        verify(nativeIndexWriter).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     } else {
-                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValues.get(i), vectorsPerField.get(i).size());
+                        verify(nativeIndexWriter, never()).flushIndex(expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size());
                     }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -630,28 +627,24 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
         }
     }
 
-    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNotMet_thenSkipBuildingGraph()
-        throws IOException {
+    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNotMet_thenStillBuildGraph() throws IOException {
         // Given
-        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSuppliers = new ArrayList<>();
         final Map<Integer, Integer> sizeMap = new HashMap<>();
         IntStream.range(0, vectorsPerField.size()).forEach(i -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectorsPerField.get(i).values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
             sizeMap.put(i, randomVectorValues.size());
-            expectedVectorValues.add(knnVectorValues);
+            expectedVectorValuesSuppliers.add(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues));
 
         });
         final int maxThreshold = sizeMap.values().stream().filter(count -> count != 0).max(Integer::compareTo).orElse(0);
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            maxThreshold + 1 // to avoid building graph using max doc threshold, the same can be achieved by -1 too
+            maxThreshold + 1, // to avoid building graph using max doc threshold, the same can be achieved by -1 too,
+            nativeIndexBuildStrategyFactory
         );
 
         try (
@@ -685,19 +678,25 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i), vectorsPerField.get(i).size()))
-                        .thenReturn(quantizationState);
+                    when(
+                        quantizationService.train(
+                            quantizationParams,
+                            expectedVectorValuesSuppliers.get(i).get(),
+                            vectorsPerField.get(i).size()
+                        )
+                    ).thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
@@ -714,7 +713,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             } else {
                 assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
             }
-            verifyNoInteractions(nativeIndexWriter);
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
                     if (vectorsPerField.get(i).isEmpty()) {
@@ -728,33 +726,30 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             });
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
                 times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }
     }
 
-    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNegative_thenSkipBuildingGraph()
+    public void testFlush_whenQuantizationIsProvided_whenBuildGraphDatStructureThresholdIsNegative_thenStillBuildGraph()
         throws IOException {
         // Given
-        List<KNNVectorValues<float[]>> expectedVectorValues = new ArrayList<>();
+        List<Supplier<KNNVectorValues<?>>> expectedVectorValuesSuppliers = new ArrayList<>();
         final Map<Integer, Integer> sizeMap = new HashMap<>();
         IntStream.range(0, vectorsPerField.size()).forEach(i -> {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 new ArrayList<>(vectorsPerField.get(i).values())
             );
-            final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
             sizeMap.put(i, randomVectorValues.size());
-            expectedVectorValues.add(knnVectorValues);
+            expectedVectorValuesSuppliers.add(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues));
 
         });
         final NativeEngines990KnnVectorsWriter nativeEngineWriter = new NativeEngines990KnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            BUILD_GRAPH_NEVER_THRESHOLD
+            BUILD_GRAPH_NEVER_THRESHOLD,
+            nativeIndexBuildStrategyFactory
         );
 
         try (
@@ -788,19 +783,25 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 DocsWithFieldSet docsWithFieldSet = field.getFlatFieldVectorsWriter().getDocsWithFieldSet();
                 knnVectorValuesFactoryMockedStatic.when(
-                    () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
-                ).thenReturn(expectedVectorValues.get(i));
+                    () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
+                ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(quantizationService.train(quantizationParams, expectedVectorValues.get(i), vectorsPerField.get(i).size()))
-                        .thenReturn(quantizationState);
+                    when(
+                        quantizationService.train(
+                            quantizationParams,
+                            expectedVectorValuesSuppliers.get(i).get(),
+                            vectorsPerField.get(i).size()
+                        )
+                    ).thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
-                nativeIndexWriterMockedStatic.when(() -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState))
-                    .thenReturn(nativeIndexWriter);
+                nativeIndexWriterMockedStatic.when(
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+                ).thenReturn(nativeIndexWriter);
             });
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
@@ -817,7 +818,6 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             } else {
                 assertEquals(0, knn990QuantWriterMockedConstruction.constructed().size());
             }
-            verifyNoInteractions(nativeIndexWriter);
             IntStream.range(0, vectorsPerField.size()).forEach(i -> {
                 try {
                     if (vectorsPerField.get(i).isEmpty()) {
@@ -831,7 +831,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             });
             final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValues(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
                 times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }

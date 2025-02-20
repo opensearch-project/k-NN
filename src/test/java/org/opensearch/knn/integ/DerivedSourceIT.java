@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.integ;
 
-import com.google.common.primitives.Floats;
 import lombok.Builder;
 import lombok.Data;
 import lombok.SneakyThrows;
@@ -26,10 +25,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
  * Integration tests for derived source feature for vector fields. Currently, with derived source, there are
@@ -92,59 +93,64 @@ public class DerivedSourceIT extends KNNRestTestCase {
      */
     @SneakyThrows
     public void testFlatBaseCase() {
+        String mapping = createVectorNonNestedMappings(TEST_DIMENSION, null);
         List<IndexConfigContext> indexConfigContexts = List.of(
             IndexConfigContext.builder()
                 .indexName(("original-enable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
                 .vectorFieldNames(List.of(FIELD_NAME))
                 .dimension(TEST_DIMENSION)
                 .settings(DERIVED_ENABLED_SETTINGS)
-                .mapping(createVectorNonNestedMappings(TEST_DIMENSION))
+                .mapping(mapping)
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {
-                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 0.1f);
+                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 32, 0.1f);
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
                 .vectorFieldNames(List.of(FIELD_NAME))
                 .dimension(TEST_DIMENSION)
                 .settings(DERIVED_DISABLED_SETTINGS)
-                .mapping(createVectorNonNestedMappings(TEST_DIMENSION))
+                .mapping(mapping)
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {
-                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 0.1f);
+                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 32, 0.1f);
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
                 .vectorFieldNames(List.of(FIELD_NAME))
                 .dimension(TEST_DIMENSION)
                 .settings(DERIVED_ENABLED_SETTINGS)
-                .mapping(createVectorNonNestedMappings(TEST_DIMENSION))
+                .mapping(mapping)
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
                 .vectorFieldNames(List.of(FIELD_NAME))
                 .dimension(TEST_DIMENSION)
                 .settings(DERIVED_DISABLED_SETTINGS)
-                .mapping(createVectorNonNestedMappings(TEST_DIMENSION))
+                .mapping(mapping)
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
                 .vectorFieldNames(List.of(FIELD_NAME))
                 .dimension(TEST_DIMENSION)
                 .settings(DERIVED_ENABLED_SETTINGS)
-                .mapping(createVectorNonNestedMappings(TEST_DIMENSION))
+                .mapping(mapping)
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
@@ -154,10 +160,247 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .vectorFieldNames(List.of(FIELD_NAME))
                 .dimension(TEST_DIMENSION)
                 .settings(DERIVED_DISABLED_SETTINGS)
-                .mapping(createVectorNonNestedMappings(TEST_DIMENSION))
+                .mapping(mapping)
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
+                .build()
+
+        );
+        testDerivedSourceE2E(indexConfigContexts);
+    }
+
+    /**
+     * Testing flat, single field base case with index configuration. The test will automatically skip adding fields for
+     *  random documents to ensure it works robustly. To ensure correctness, we repeat same operations against an
+     *  index without derived source enabled (baseline).
+     * Test mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128,
+     *                 "data_type": "byte"
+     *             }
+     *         }
+     *     }
+     * }
+     * Baseline mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": false
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128,
+     *                 "data_type": "byte"
+     *             }
+     *         }
+     *     }
+     * }
+     */
+    @SneakyThrows
+    public void testFlatByteBaseCase() {
+        String mapping = createVectorNonNestedMappings(TEST_DIMENSION, "byte");
+        List<IndexConfigContext> indexConfigContexts = List.of(
+            IndexConfigContext.builder()
+                .indexName(("original-enable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 8, 0.1f);
+                    refreshAllIndices();
+                })
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 1))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 8, 0.1f);
+                    refreshAllIndices();
+                })
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 1))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 1))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 1))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 1))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 1))
+                .build()
+
+        );
+        testDerivedSourceE2E(indexConfigContexts);
+    }
+
+    /**
+     * Testing flat, single field base case with index configuration. The test will automatically skip adding fields for
+     *  random documents to ensure it works robustly. To ensure correctness, we repeat same operations against an
+     *  index without derived source enabled (baseline).
+     * Test mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128,
+     *                 "data_type": "binary"
+     *             }
+     *         }
+     *     }
+     * }
+     * Baseline mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": false
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 128,
+     *                 "data_type": "binary"
+     *             }
+     *         }
+     *     }
+     * }
+     */
+    @SneakyThrows
+    public void testFlatBinaryBaseCase() {
+        String mapping = createVectorNonNestedMappings(TEST_DIMENSION, "binary");
+        List<IndexConfigContext> indexConfigContexts = List.of(
+            IndexConfigContext.builder()
+                .indexName(("original-enable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 1, 0.1f);
+                    refreshAllIndices();
+                })
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 8))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsWithSkips(context.indexName, FIELD_NAME, context.docCount, context.dimension, 1, 0.1f);
+                    refreshAllIndices();
+                })
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 8))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 8))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 8))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 8))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(List.of(FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(mapping)
+                .isNested(false)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomByteVector(c.dimension, 8))
                 .build()
 
         );
@@ -252,6 +495,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -273,6 +517,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -283,6 +528,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -293,6 +539,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -303,6 +550,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -313,6 +561,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(false)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build()
 
         );
@@ -369,7 +618,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
      * }
      */
     public void testNestedSingleDocBasic() {
-        String nestedMapping = createVectorNestedMappings(TEST_DIMENSION);
+        String nestedMapping = createVectorNestedMappings(TEST_DIMENSION, null);
         List<IndexConfigContext> indexConfigContexts = List.of(
             IndexConfigContext.builder()
                 .indexName(("original-enable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -390,6 +639,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -410,6 +660,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -420,6 +671,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -430,6 +682,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -440,6 +693,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -450,6 +704,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build()
 
         );
@@ -507,7 +762,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
      */
     @SneakyThrows
     public void testNestedMultiDocBasic() {
-        String nestedMapping = createVectorNestedMappings(TEST_DIMENSION);
+        String nestedMapping = createVectorNestedMappings(TEST_DIMENSION, null);
         List<IndexConfigContext> indexConfigContexts = List.of(
             IndexConfigContext.builder()
                 .indexName(("original-enable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -529,6 +784,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -550,6 +806,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -560,6 +817,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -570,6 +828,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -580,6 +839,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -590,6 +850,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build()
 
         );
@@ -725,6 +986,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -751,6 +1013,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     );
                     refreshAllIndices();
                 })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -767,6 +1030,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -783,6 +1047,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -799,6 +1064,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build(),
             IndexConfigContext.builder()
                 .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
@@ -815,6 +1081,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .isNested(true)
                 .docCount(DOCS)
                 .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
                 .build()
 
         );
@@ -909,25 +1176,15 @@ public class DerivedSourceIT extends KNNRestTestCase {
         IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
         String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
-        float[] updateVector = randomFloatVector(derivedSourceDisabledContext.dimension);
+        Object updateVector = derivedSourceDisabledContext.updateVectorSupplier.apply(derivedSourceDisabledContext);
 
         // Update via POST /<index>/_doc/<docid>
         for (String fieldName : derivedSourceEnabledContext.vectorFieldNames) {
-            updateKnnDoc(
-                originalIndexNameDerivedSourceEnabled,
-                String.valueOf(docWithVectorUpdate),
-                fieldName,
-                Floats.asList(updateVector).toArray()
-            );
+            updateKnnDoc(originalIndexNameDerivedSourceEnabled, String.valueOf(docWithVectorUpdate), fieldName, updateVector);
         }
 
         for (String fieldName : derivedSourceDisabledContext.vectorFieldNames) {
-            updateKnnDoc(
-                originalIndexNameDerivedSourceDisabled,
-                String.valueOf(docWithVectorUpdate),
-                fieldName,
-                Floats.asList(updateVector).toArray()
-            );
+            updateKnnDoc(originalIndexNameDerivedSourceDisabled, String.valueOf(docWithVectorUpdate), fieldName, updateVector);
         }
         refreshAllIndices();
         assertDocsMatch(
@@ -952,7 +1209,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 originalIndexNameDerivedSourceEnabled,
                 String.valueOf(docWithVectorUpdateFromAPI),
                 fieldName,
-                Floats.asList(updateVector).toArray()
+                updateVector
             );
         }
         for (String fieldName : derivedSourceDisabledContext.vectorFieldNames) {
@@ -960,7 +1217,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 originalIndexNameDerivedSourceDisabled,
                 String.valueOf(docWithVectorUpdateFromAPI),
                 fieldName,
-                Floats.asList(updateVector).toArray()
+                updateVector
             );
         }
         refreshAllIndices();
@@ -972,20 +1229,10 @@ public class DerivedSourceIT extends KNNRestTestCase {
 
         // Update by query
         for (String fieldName : derivedSourceEnabledContext.vectorFieldNames) {
-            updateKnnDocByQuery(
-                originalIndexNameDerivedSourceEnabled,
-                String.valueOf(docWithUpdateByQuery),
-                fieldName,
-                Floats.asList(updateVector).toArray()
-            );
+            updateKnnDocByQuery(originalIndexNameDerivedSourceEnabled, String.valueOf(docWithUpdateByQuery), fieldName, updateVector);
         }
         for (String fieldName : derivedSourceDisabledContext.vectorFieldNames) {
-            updateKnnDocByQuery(
-                originalIndexNameDerivedSourceDisabled,
-                String.valueOf(docWithUpdateByQuery),
-                fieldName,
-                Floats.asList(updateVector).toArray()
-            );
+            updateKnnDocByQuery(originalIndexNameDerivedSourceDisabled, String.valueOf(docWithUpdateByQuery), fieldName, updateVector);
         }
         refreshAllIndices();
         assertDocsMatch(
@@ -1185,6 +1432,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
         boolean isNested;
         int docCount;
         CheckedConsumer<IndexConfigContext, IOException> indexIngestor;
+        Function<IndexConfigContext, Object> updateVectorSupplier;
     }
 
     @SneakyThrows
@@ -1216,22 +1464,23 @@ public class DerivedSourceIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    private String createVectorNonNestedMappings(final int dimension) {
+    private String createVectorNonNestedMappings(final int dimension, String dataType) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(DIMENSION, dimension);
+        if (dataType != null) {
+            builder.field(VECTOR_DATA_TYPE_FIELD, dataType);
+        }
+        builder.endObject().endObject().endObject();
 
         return builder.toString();
     }
 
     @SneakyThrows
-    private String createVectorNestedMappings(final int dimension) {
+    private String createVectorNestedMappings(final int dimension, String dataType) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
@@ -1240,13 +1489,11 @@ public class DerivedSourceIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD)
             .startObject(FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-
+            .field(DIMENSION, dimension);
+        if (dataType != null) {
+            builder.field(VECTOR_DATA_TYPE_FIELD, dataType);
+        }
+        builder.endObject().endObject().endObject().endObject().endObject();
         return builder.toString();
     }
 }

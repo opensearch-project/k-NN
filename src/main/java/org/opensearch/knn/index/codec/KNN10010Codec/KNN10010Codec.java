@@ -12,12 +12,16 @@ import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.StoredFieldsFormat;
+import org.apache.lucene.codecs.lucene101.Lucene101Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 import org.opensearch.knn.index.codec.KNN9120Codec.DerivedSourceStoredFieldsFormat;
-import org.opensearch.knn.index.codec.KNNCodecVersion;
-import org.opensearch.knn.index.codec.KNNFormatFacade;
+import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
+
+import java.util.Optional;
 
 /**
  * KNN Codec that wraps the Lucene Codec which is part of Lucene 10.0.1
@@ -25,18 +29,20 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier
 
 public class KNN10010Codec extends FilterCodec {
 
-    private static final KNNCodecVersion VERSION = KNNCodecVersion.V_10_01_0;
-    private final KNNFormatFacade knnFormatFacade;
+    private static final String NAME = "KNN10010Codec";
+    public static final Codec DEFAULT_DELEGATE = new Lucene101Codec();
+    private static final PerFieldKnnVectorsFormat DEFAULT_KNN_VECTOR_FORMAT = new KNN9120PerFieldKnnVectorsFormat(Optional.empty());
+
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
     private final StoredFieldsFormat storedFieldsFormat;
 
     private final MapperService mapperService;
 
     /**
-     * No arg constructor that uses Lucene99 as the delegate
+     * No arg constructor that uses Lucene101Codec as the delegate
      */
     public KNN10010Codec() {
-        this(VERSION.getDefaultCodecDelegate(), VERSION.getPerFieldKnnVectorsFormat(), null);
+        this(DEFAULT_DELEGATE, DEFAULT_KNN_VECTOR_FORMAT, null);
     }
 
     /**
@@ -47,9 +53,8 @@ public class KNN10010Codec extends FilterCodec {
      * @param knnVectorsFormat per field format for KnnVector
      */
     @Builder
-    protected KNN10010Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat, MapperService mapperService) {
-        super(VERSION.getCodecName(), delegate);
-        knnFormatFacade = VERSION.getKnnFormatFacadeSupplier().apply(delegate);
+    public KNN10010Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat, MapperService mapperService) {
+        super(NAME, delegate);
         perFieldKnnVectorsFormat = knnVectorsFormat;
         this.mapperService = mapperService;
         this.storedFieldsFormat = getStoredFieldsFormat();
@@ -57,12 +62,12 @@ public class KNN10010Codec extends FilterCodec {
 
     @Override
     public DocValuesFormat docValuesFormat() {
-        return knnFormatFacade.docValuesFormat();
+        return new KNN80DocValuesFormat(delegate.docValuesFormat());
     }
 
     @Override
     public CompoundFormat compoundFormat() {
-        return knnFormatFacade.compoundFormat();
+        return new KNN80CompoundFormat(delegate.compoundFormat());
     }
 
     @Override

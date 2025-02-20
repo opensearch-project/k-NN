@@ -43,9 +43,9 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
+import static org.opensearch.common.settings.Setting.Property.Final;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
-import static org.opensearch.common.settings.Setting.Property.Final;
 import static org.opensearch.common.settings.Setting.Property.UnmodifiableOnRestore;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
@@ -97,6 +97,8 @@ public class KNNSettings {
     public static final String KNN_FAISS_AVX512_SPR_DISABLED = "knn.faiss.avx512_spr.disabled";
     public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
     public static final String KNN_DERIVED_SOURCE_ENABLED = "index.knn.derived_source.enabled";
+    public static final String KNN_INDEX_REMOTE_VECTOR_BUILD = "index.knn.remote_index_build.enabled";
+    public static final String KNN_REMOTE_VECTOR_REPO = "knn.remote_index_build.vector_repo";
 
     /**
      * Default setting values
@@ -106,7 +108,7 @@ public class KNNSettings {
     public static final boolean KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
-    public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 15_000;
+    public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 0;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX = Integer.MAX_VALUE - 2;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE_FOR_BINARY = "hamming";
@@ -375,6 +377,21 @@ public class KNNSettings {
     );
 
     /**
+     * Index level setting to control whether remote index build is enabled or not.
+     */
+    public static final Setting<Boolean> KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
+        KNN_INDEX_REMOTE_VECTOR_BUILD,
+        false,
+        Dynamic,
+        IndexScope
+    );
+
+    /**
+     * Cluster level setting which indicates the repository that the remote index build should write to.
+     */
+    public static final Setting<String> KNN_REMOTE_VECTOR_REPO_SETTING = Setting.simpleString(KNN_REMOTE_VECTOR_REPO, Dynamic, NodeScope);
+
+    /**
      * Dynamic settings
      */
     public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
@@ -553,6 +570,14 @@ public class KNNSettings {
             return KNN_DERIVED_SOURCE_ENABLED_SETTING;
         }
 
+        if (KNN_INDEX_REMOTE_VECTOR_BUILD.equals(key)) {
+            return KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
+        }
+
+        if (KNN_REMOTE_VECTOR_REPO.equals(key)) {
+            return KNN_REMOTE_VECTOR_REPO_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -578,7 +603,9 @@ public class KNNSettings {
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
             KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
-            KNN_DERIVED_SOURCE_ENABLED_SETTING
+            KNN_DERIVED_SOURCE_ENABLED_SETTING,
+            KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
+            KNN_REMOTE_VECTOR_REPO_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());

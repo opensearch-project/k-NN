@@ -15,9 +15,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
-import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
@@ -26,6 +24,7 @@ import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -39,7 +38,8 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
-import static org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory.getVectorValues;
+import static org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge;
+import static org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory.getVectorValuesSupplier;
 
 /**
  * A KNNVectorsWriter class for writing the vector data strcutures and flat vectors for Native Engines.
@@ -54,15 +54,18 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
     private final Integer approximateThreshold;
+    private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
     public NativeEngines990KnnVectorsWriter(
         SegmentWriteState segmentWriteState,
         FlatVectorsWriter flatVectorsWriter,
-        Integer approximateThreshold
+        Integer approximateThreshold,
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.approximateThreshold = approximateThreshold;
+        this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
     /**
@@ -98,15 +101,14 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 log.debug("[Flush] No live docs for field {}", fieldInfo.getName());
                 continue;
             }
-            final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> getVectorValues(
+            final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = getVectorValuesSupplier(
                 vectorDataType,
                 field.getFlatFieldVectorsWriter().getDocsWithFieldSet(),
                 field.getVectors()
             );
             final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
-            // Check only after quantization state writer finish writing its state, since it is required
-            // even if there are no graph files in segment, which will be later used by exact search
-            if (shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+            // should skip graph building only for non quantization use case and if threshold is met
+            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
                 log.info(
                     "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
                     fieldInfo.name,
@@ -115,11 +117,15 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 );
                 continue;
             }
-            final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
-            final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
+            final NativeIndexWriter writer = NativeIndexWriter.getWriter(
+                fieldInfo,
+                segmentWriteState,
+                quantizationState,
+                nativeIndexBuildStrategyFactory
+            );
 
             StopWatch stopWatch = new StopWatch().start();
-            writer.flushIndex(knnVectorValues, totalLiveDocs);
+            writer.flushIndex(knnVectorValuesSupplier, totalLiveDocs);
             long time_in_millis = stopWatch.stop().totalTime().millis();
             KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
             log.debug("Flush took {} ms for vector field [{}]", time_in_millis, fieldInfo.getName());
@@ -132,7 +138,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
 
         final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
-        final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> getKNNVectorValuesForMerge(
+        final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = getKNNVectorValuesSupplierForMerge(
             vectorDataType,
             fieldInfo,
             mergeState
@@ -144,9 +150,8 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         }
 
         final QuantizationState quantizationState = train(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
-        // Check only after quantization state writer finish writing its state, since it is required
-        // even if there are no graph files in segment, which will be later used by exact search
-        if (shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+        // should skip graph building only for non quantization use case and if threshold is met
+        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
             log.info(
                 "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
                 fieldInfo.name,
@@ -155,12 +160,16 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             );
             return;
         }
-        final NativeIndexWriter writer = NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState);
-        final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
+        final NativeIndexWriter writer = NativeIndexWriter.getWriter(
+            fieldInfo,
+            segmentWriteState,
+            quantizationState,
+            nativeIndexBuildStrategyFactory
+        );
 
         StopWatch stopWatch = new StopWatch().start();
 
-        writer.mergeIndex(knnVectorValues, totalLiveDocs);
+        writer.mergeIndex(knnVectorValuesSupplier, totalLiveDocs);
 
         long time_in_millis = stopWatch.stop().totalTime().millis();
         KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
@@ -211,38 +220,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         return SHALLOW_SIZE + flatVectorsWriter.ramBytesUsed() + fields.stream()
             .mapToLong(NativeEngineFieldVectorsWriter::ramBytesUsed)
             .sum();
-    }
-
-    /**
-     * Retrieves the {@link KNNVectorValues} for a specific field during a merge operation, based on the vector data type.
-     *
-     * @param vectorDataType The {@link VectorDataType} representing the type of vectors stored.
-     * @param fieldInfo      The {@link FieldInfo} object containing metadata about the field.
-     * @param mergeState     The {@link MergeState} representing the state of the merge operation.
-     * @param <T>            The type of vectors being processed.
-     * @return The {@link KNNVectorValues} associated with the field during the merge.
-     * @throws IOException If an I/O error occurs during the retrieval.
-     */
-    private <T> KNNVectorValues<T> getKNNVectorValuesForMerge(
-        final VectorDataType vectorDataType,
-        final FieldInfo fieldInfo,
-        final MergeState mergeState
-    ) {
-        try {
-            switch (fieldInfo.getVectorEncoding()) {
-                case FLOAT32:
-                    FloatVectorValues mergedFloats = MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState);
-                    return getVectorValues(vectorDataType, mergedFloats);
-                case BYTE:
-                    ByteVectorValues mergedBytes = MergedVectorValues.mergeByteVectorValues(fieldInfo, mergeState);
-                    return getVectorValues(vectorDataType, mergedBytes);
-                default:
-                    throw new IllegalStateException("Unsupported vector encoding [" + fieldInfo.getVectorEncoding() + "]");
-            }
-        } catch (final IOException e) {
-            log.error("Unable to merge vectors for field [{}]", fieldInfo.getName(), e);
-            throw new IllegalStateException("Unable to merge vectors for field [" + fieldInfo.getName() + "]", e);
-        }
     }
 
     private QuantizationState train(
