@@ -21,9 +21,21 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.ReadAdvice;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.luceneonfaiss.FaissHNSWVectorReader;
+import org.opensearch.knn.index.codec.luceneonfaiss.LuceneOnFaissUtils;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -32,6 +44,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,12 +61,71 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private Map<String, String> quantizationStateCacheKeyPerField;
     private SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
+    private Map<String, FaissHNSWVectorReader> faissHNSWVectorReaderMap;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
+        this.faissHNSWVectorReaderMap = new HashMap<>(2 * state.fieldInfos.size(), 0.6f);
         loadCacheKeyMap();
+        loadFaissIndexForLuceneSearcher(segmentReadState);
+    }
+
+    private void loadFaissIndexForLuceneSearcher(SegmentReadState state) {
+        for (FieldInfo fieldInfo : state.fieldInfos) {
+            // Ex: {"index_description":"HNSW16,Flat","spaceType":"l2","name":"hnsw","data_type":"float",
+            // "parameters":{"use_lucene_searcher":true,"ef_search":100,"ef_construction":100,"encoder":{"name":"flat","parameters":{}}}}
+            final String parametersString = fieldInfo.getAttribute(KNNConstants.PARAMETERS);
+            if (parametersString != null) {
+                try {
+                    try (
+                        XContentParser parser = XContentHelper.createParser(NamedXContentRegistry.EMPTY,
+                                                                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                                                                            new BytesArray(parametersString),
+                                                                            MediaTypeRegistry.getDefaultMediaType()
+                        )
+                    ) {
+                        // Extract boolean flag
+                        final Map<String, Object> parameters = parser.map();
+                        final Object innerParameters = parameters.get(KNNConstants.PARAMETERS);
+                        if (!LuceneOnFaissUtils.isUseLuceneOnFaiss(innerParameters)) {
+                            continue;
+                        }
+
+                        // Acquire index file name
+                        final String faissIndexFile = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, state.segmentInfo);
+                        if (faissIndexFile == null) {
+                            continue;
+                        }
+
+                        // Load faiss index with IndexInput
+                        final IndexInput indexInput = state.directory.openInput(faissIndexFile,
+                                                                                new IOContext(IOContext.Context.DEFAULT,
+                                                                                              null,
+                                                                                              null,
+                                                                                              ReadAdvice.RANDOM
+                                                                                )
+                        );
+
+                        try {
+                            final FaissHNSWVectorReader vectorReader = new FaissHNSWVectorReader(indexInput);
+                            faissHNSWVectorReaderMap.put(fieldInfo.getName(), vectorReader);
+                        } catch (Exception e) {
+                            // If something went bad, we close the stream and rethrow
+                            try {
+                                indexInput.close();
+                            } catch (Exception ioException) {
+                                // Ignore
+                            }
+                            throw e;
+                        }
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
     }
 
     /**
@@ -124,18 +196,27 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             String cacheKey = quantizationStateCacheKeyPerField.get(field);
             FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
             QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
-                .getQuantizationState(
-                    new QuantizationStateReadConfig(
-                        segmentReadState,
-                        QuantizationService.getInstance().getQuantizationParams(fieldInfo),
-                        field,
-                        cacheKey
-                    )
-                );
+                .getQuantizationState(new QuantizationStateReadConfig(segmentReadState,
+                                                                      QuantizationService.getInstance().getQuantizationParams(fieldInfo),
+                                                                      field,
+                                                                      cacheKey
+                ));
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
-        throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+
+        // Try with Lucene searcher
+        final FaissHNSWVectorReader vectorReader = faissHNSWVectorReaderMap.get(field);
+        if (vectorReader != null) {
+            try {
+                vectorReader.search(target, knnCollector, acceptDocs);
+            } catch (Exception e) {
+                // KDY
+                e.printStackTrace();
+            }
+        } else {
+            throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
+        }
     }
 
     /**
@@ -187,8 +268,10 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         final NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         cacheKeys.forEach(nativeMemoryCacheManager::invalidate);
 
-        // Close a reader.
-        IOUtils.close(flatVectorsReader);
+        // Close all reader.
+        List<Closeable> readers = new ArrayList<>(faissHNSWVectorReaderMap.values());
+        readers.add(flatVectorsReader);
+        IOUtils.close(readers);
 
         // Clean up quantized state cache.
         if (quantizationStateCacheKeyPerField != null) {
