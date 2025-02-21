@@ -49,8 +49,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
-        final KNNEngine knnEngine = createQueryRequest.getKnnEngine();
         final boolean expandNested = createQueryRequest.getExpandNested().orElse(false);
+        final boolean forceUseLuceneSearcher = createQueryRequest.isForceUseLuceneSearcher();
         BitSetProducer parentFilter = null;
         int shardId = -1;
         if (createQueryRequest.getContext().isPresent()) {
@@ -70,7 +70,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             );
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (!forceUseLuceneSearcher && KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
 
             log.debug(
@@ -121,7 +121,6 @@ public class KNNQueryFactory extends BaseQueryFactory {
             requestEfSearch = (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
         }
         int luceneK = requestEfSearch == null ? k : Math.max(k, requestEfSearch);
-        log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, k);
         switch (vectorDataType) {
             case BYTE:
             case BINARY:

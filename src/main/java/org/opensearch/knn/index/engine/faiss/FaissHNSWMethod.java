@@ -24,12 +24,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_USE_LUCENE_HNSW_SEARCHER;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.USE_LUCENE_HNSW_SEARCHER;
 
 /**
  * Faiss HNSW method implementation
@@ -105,6 +107,14 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                 )
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
+            .addParameter(
+                USE_LUCENE_HNSW_SEARCHER,
+                new Parameter.BooleanParameter(
+                    USE_LUCENE_HNSW_SEARCHER,
+                    DEFAULT_USE_LUCENE_HNSW_SEARCHER,
+                    (v, context) -> true
+                )
+            )
             .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
                 MethodAsMapBuilder methodAsMapBuilder = MethodAsMapBuilder.builder(
                     FAISS_HNSW_DESCRIPTION,

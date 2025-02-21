@@ -120,6 +120,8 @@ public class KNNConstants {
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
     public static final String FAISS_SIGNED_BYTE_SQ = "SQ8_direct_signed";
     public static final String FAISS_SQ_CLIP = "clip";
+    public static final String USE_LUCENE_HNSW_SEARCHER = "use_lucene_searcher";
+    public static final boolean DEFAULT_USE_LUCENE_HNSW_SEARCHER = false;
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

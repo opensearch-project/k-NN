@@ -51,6 +51,7 @@ public abstract class BaseQueryFactory {
         private QueryShardContext context;
         private RescoreContext rescoreContext;
         private Boolean expandNested;
+        private boolean forceUseLuceneSearcher;
 
         public Optional<QueryBuilder> getFilter() {
             return Optional.ofNullable(filter);
