@@ -121,11 +121,13 @@ public class KNNCircuitBreaker {
                 );
                 if (tierAttribute.isPresent()) {
                     // Only rebuild the cache if the attribute was present
-                    logger.info(
-                        "[KNN] Node specific circuit breaker " + tierAttribute.get() + " classification found. Rebuilding the cache."
-                    );
+                    logger.info("[KNN] Node specific circuit breaker {} classification found.", tierAttribute.get());
                     KNNSettings.state().setNodeCbAttribute(tierAttribute);
-                    nativeMemoryCacheManager.rebuildCache();
+
+                    // Only rebuild the cache if the weight has actually changed
+                    if (KNNSettings.state().getCircuitBreakerLimit().getKb() != nativeMemoryCacheManager.getMaxCacheSizeInKilobytes()) {
+                        nativeMemoryCacheManager.rebuildCache();
+                    }
                 }
 
             }
