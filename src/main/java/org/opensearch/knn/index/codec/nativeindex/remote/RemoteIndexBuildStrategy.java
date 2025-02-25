@@ -7,19 +7,28 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.lucene.index.SegmentWriteState;
+import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.index.IndexSettings;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.remote.RemoteBuildRequest;
+import org.opensearch.knn.index.remote.RemoteIndexClient;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
@@ -126,16 +135,20 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             log.debug("Repository write took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            submitVectorBuild();
+            RemoteBuildRequest buildRequest = constructBuildRequest(indexInfo, blobName);
+            String jobId = RemoteIndexClient.getInstance().submitVectorBuild(buildRequest);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
+            String indexPath = awaitVectorBuild(jobId);
             String downloadPath = awaitVectorBuild();
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
+            readFromRepository(indexPath);
+            vectorRepositoryAccessor.readFromRepository();
             vectorRepositoryAccessor.readFromRepository(downloadPath, indexInfo.getIndexOutputWithBuffer());
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Repository read took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
