@@ -182,5 +182,4 @@ public abstract class AbstractMethodResolver implements MethodResolver {
             throw validationException;
         }
     }
-
 }
