@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index;
 
-import org.opensearch.common.lifecycle.LifecycleListener;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
@@ -21,7 +20,6 @@ import org.opensearch.threadpool.ThreadPool;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Runs the circuit breaker logic and updates the settings
@@ -109,28 +107,5 @@ public class KNNCircuitBreaker {
             }
         };
         this.threadPool.scheduleWithFixedDelay(runnable, TimeValue.timeValueSeconds(CB_TIME_INTERVAL), ThreadPool.Names.GENERIC);
-
-        // Update when node is fully joined
-        clusterService.addLifecycleListener(new LifecycleListener() {
-            @Override
-            public void afterStart() {
-                // Attempt to fetch a cb tier from node attributes and cache the result.
-                // Get this node's circuit breaker tier attribute
-                Optional<String> tierAttribute = Optional.ofNullable(
-                    clusterService.localNode().getAttributes().get(KNN_CIRCUIT_BREAKER_TIER)
-                );
-                if (tierAttribute.isPresent()) {
-                    // Only rebuild the cache if the attribute was present
-                    logger.info("[KNN] Node specific circuit breaker {} classification found.", tierAttribute.get());
-                    KNNSettings.state().setNodeCbAttribute(tierAttribute);
-
-                    // Only rebuild the cache if the weight has actually changed
-                    if (KNNSettings.state().getCircuitBreakerLimit().getKb() != nativeMemoryCacheManager.getMaxCacheSizeInKilobytes()) {
-                        nativeMemoryCacheManager.rebuildCache();
-                    }
-                }
-
-            }
-        });
     }
 }
