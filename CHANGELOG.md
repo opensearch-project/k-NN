@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features
+* Add support for Lucene int4 SQ [2253](https://github.com/opensearch-project/k-NN/pull/2253)
 ### Enhancements
 ### Bug Fixes
 * Fix derived source for binary and byte vectors [#2533](https://github.com/opensearch-project/k-NN/pull/2533/)
