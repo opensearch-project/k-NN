@@ -83,7 +83,15 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
-import org.opensearch.plugins.*;
+import org.opensearch.plugins.ClusterPlugin;
+import org.opensearch.plugins.ActionPlugin;
+import org.opensearch.plugins.EnginePlugin;
+import org.opensearch.plugins.ExtensiblePlugin;
+import org.opensearch.plugins.MapperPlugin;
+import org.opensearch.plugins.Plugin;
+import org.opensearch.plugins.ScriptPlugin;
+import org.opensearch.plugins.SearchPlugin;
+import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
