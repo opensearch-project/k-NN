@@ -174,7 +174,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
 
         if (validationOutput.getValid() != null && !validationOutput.getValid()) {
             ValidationException validationException = new ValidationException();
-            validationException.addValidationError("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions");
+            validationException.addValidationError(validationOutput.getErrorMessage());
             throw validationException;
         }
     }

@@ -110,6 +110,7 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
                     .getParameters()
                     .get(ENCODER_PARAMETER_PQ_M) != 0) {
                 builder.valid(false);
+                builder.errorMessage("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions");
                 return builder.build();
             } else {
                 builder.valid(true);
@@ -132,6 +133,7 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
 
             if (trainingVectors < minTrainingVectorCount) {
                 builder.valid(false).minTrainingVectorCount(minTrainingVectorCount);
+                builder.errorMessage(String.format("Number of training points should be greater than %d", minTrainingVectorCount));
                 return builder.build();
             } else {
                 builder.valid(true);

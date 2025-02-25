@@ -22,4 +22,5 @@ import lombok.Setter;
 public class TrainingConfigValidationOutput {
     private Boolean valid;
     private Long minTrainingVectorCount;
+    private String errorMessage;
 }
