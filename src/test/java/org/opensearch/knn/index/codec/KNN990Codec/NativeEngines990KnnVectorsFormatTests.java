@@ -67,6 +67,8 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -269,6 +271,8 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
             () -> leafReader.searchNearestVectors(BYTE_VECTOR_FIELD, byteVector, 10, new Bits.MatchAllBits(1), 10)
         );
         // do it at the end so that all search is completed
+        QuantizationStateCache.setThreadPool(null);
+        QuantizationStateCacheManager.getInstance().close();
         indexReader.close();
     }
 
@@ -307,6 +311,8 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertArrayEquals(floatVectorForBinaryQuantization, floatVectorValues.vectorValue(docIndexIterator.index()), 0.0f);
         assertEquals(1, floatVectorValues.size());
         assertEquals(8, floatVectorValues.dimension());
+        QuantizationStateCache.setThreadPool(null);
+        QuantizationStateCacheManager.getInstance().close();
         indexReader.close();
     }
 
