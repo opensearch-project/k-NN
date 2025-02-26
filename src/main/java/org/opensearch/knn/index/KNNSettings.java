@@ -141,8 +141,8 @@ public class KNNSettings {
     public static final ByteSizeValue KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE = new ByteSizeValue(50, ByteSizeUnit.MB);
 
     // TODO: Tune these default values based on benchmarking
-    public static final Integer KNN_DEFAULT_REMOTE_BUILD_SERVICE_TIMEOUT_MINUTES = 60;
-    public static final Integer KNN_DEFAULT_REMOTE_BUILD_SERVICE_POLL_INTERVAL_SECONDS = 30;
+    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = 60;
+    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 30;
 
     /**
      * Settings Definition
@@ -432,9 +432,9 @@ public class KNNSettings {
     /**
      * Time the remote build service client will wait before falling back to CPU index build.
      */
-    public static final Setting<TimeValue> KNN_REMOTE_BUILD_SERVICE_TIMEOUT_SETTING = Setting.timeSetting(
-        KNN_REMOTE_BUILD_SERVICE_TIMEOUT,
-        TimeValue.timeValueMinutes(KNN_DEFAULT_REMOTE_BUILD_SERVICE_TIMEOUT_MINUTES),
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_TIMEOUT,
+        TimeValue.timeValueMinutes(KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES),
         NodeScope,
         Dynamic
     );
@@ -442,9 +442,9 @@ public class KNNSettings {
     /**
      * Setting to control how often the remote build service client polls the build service for the status of the job.
      */
-    public static final Setting<TimeValue> KNN_REMOTE_BUILD_SERVICE_POLL_INTERVAL_SETTING = Setting.timeSetting(
-        KNN_REMOTE_BUILD_SERVICE_POLL_INTERVAL,
-        TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_SERVICE_POLL_INTERVAL_SECONDS),
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL,
+        TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
         NodeScope,
         Dynamic
     );
@@ -452,12 +452,12 @@ public class KNNSettings {
     /**
      * Keystore settings for build service HTTP authorization
      */
-    public static final Setting<SecureString> KNN_REMOTE_BUILD_SERVICE_USERNAME_SETTING = SecureSetting.secureString(
-        KNN_REMOTE_BUILD_SERVICE_USERNAME,
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_USERNAME,
         null
     );
-    public static final Setting<SecureString> KNN_REMOTE_BUILD_SERVICE_PASSWORD_SETTING = SecureSetting.secureString(
-        KNN_REMOTE_BUILD_SERVICE_PASSWORD,
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_PASSWORD,
         null
     );
 
@@ -656,20 +656,20 @@ public class KNNSettings {
             return KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_SERVICE_TIMEOUT.equals(key)) {
-            return KNN_REMOTE_BUILD_SERVICE_TIMEOUT_SETTING;
+        if (KNN_REMOTE_BUILD_CLIENT_TIMEOUT.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_SERVICE_POLL_INTERVAL.equals(key)) {
-            return KNN_REMOTE_BUILD_SERVICE_POLL_INTERVAL_SETTING;
+        if (KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_SERVICE_USERNAME.equals(key)) {
-            return KNN_REMOTE_BUILD_SERVICE_USERNAME_SETTING;
+        if (KNN_REMOTE_BUILD_CLIENT_USERNAME.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_SERVICE_PASSWORD.equals(key)) {
-            return KNN_REMOTE_BUILD_SERVICE_PASSWORD_SETTING;
+        if (KNN_REMOTE_BUILD_CLIENT_PASSWORD.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
         }
 
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
@@ -703,10 +703,10 @@ public class KNNSettings {
             KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING,
             KNN_REMOTE_VECTOR_REPO_SETTING,
             KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
-            KNN_REMOTE_BUILD_SERVICE_TIMEOUT_SETTING,
-            KNN_REMOTE_BUILD_SERVICE_POLL_INTERVAL_SETTING,
-            KNN_REMOTE_BUILD_SERVICE_USERNAME_SETTING,
-            KNN_REMOTE_BUILD_SERVICE_PASSWORD_SETTING
+            KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
