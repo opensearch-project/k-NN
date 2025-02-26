@@ -109,6 +109,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
@@ -990,8 +991,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .put(KNN_INDEX, true)
             .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold);
 
-        if (isRemoteIndexBuildSupported(getBWCVersion())) {
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, randomBoolean());
+        // Randomly enable remote index build feature to test fallbacks
+        if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0mb");
         }
         return builder.build();
     }
