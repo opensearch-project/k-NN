@@ -58,7 +58,7 @@ public class NativeIndexWriter {
 
     private final SegmentWriteState state;
     private final FieldInfo fieldInfo;
-    private final NativeIndexBuildStrategy indexBuilder;
+    private final NativeIndexBuildStrategyFactory indexBuilderFactory;
     @Nullable
     private final QuantizationState quantizationState;
 
@@ -147,6 +147,11 @@ public class NativeIndexWriter {
                 knnEngine,
                 knnVectorValuesSupplier,
                 totalLiveDocs
+            );
+            NativeIndexBuildStrategy indexBuilder = indexBuilderFactory.getBuildStrategy(
+                fieldInfo,
+                totalLiveDocs,
+                knnVectorValuesSupplier.get()
             );
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
             CodecUtil.writeFooter(output);
@@ -316,6 +321,6 @@ public class NativeIndexWriter {
         @Nullable final QuantizationState quantizationState,
         NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        return new NativeIndexWriter(state, fieldInfo, nativeIndexBuildStrategyFactory.getBuildStrategy(fieldInfo), quantizationState);
+        return new NativeIndexWriter(state, fieldInfo, nativeIndexBuildStrategyFactory, quantizationState);
     }
 }

@@ -12,7 +12,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
-import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
@@ -29,6 +28,7 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
+import org.opensearch.transport.client.Client;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -99,6 +99,7 @@ public class KNNSettings {
     public static final String KNN_DERIVED_SOURCE_ENABLED = "index.knn.derived_source.enabled";
     public static final String KNN_INDEX_REMOTE_VECTOR_BUILD = "index.knn.remote_index_build.enabled";
     public static final String KNN_REMOTE_VECTOR_REPO = "knn.remote_index_build.vector_repo";
+    public static final String KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD = "index.knn.remote_index_build.size_threshold";
 
     /**
      * Default setting values
@@ -129,6 +130,8 @@ public class KNNSettings {
                                                                                              // 10% of the JVM heap
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = 60;
     public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = false;
+    // TODO: Tune this default value based on benchmarking
+    public static final ByteSizeValue KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE = new ByteSizeValue(50, ByteSizeUnit.MB);
 
     /**
      * Settings Definition
@@ -398,6 +401,15 @@ public class KNNSettings {
     public static final Setting<String> KNN_REMOTE_VECTOR_REPO_SETTING = Setting.simpleString(KNN_REMOTE_VECTOR_REPO, Dynamic, NodeScope);
 
     /**
+     * Index level setting which indicates the size threshold above which remote vector builds will be enabled.
+     */
+    public static final Setting<ByteSizeValue> KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING = Setting.byteSizeSetting(
+        KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD,
+        KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE,
+        Dynamic,
+        IndexScope
+    );
+    /**
      * Dynamic settings
      */
     public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
@@ -584,6 +596,10 @@ public class KNNSettings {
             return KNN_REMOTE_VECTOR_REPO_SETTING;
         }
 
+        if (KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD.equals(key)) {
+            return KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -611,7 +627,8 @@ public class KNNSettings {
             KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
             KNN_DERIVED_SOURCE_ENABLED_SETTING,
             KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
-            KNN_REMOTE_VECTOR_REPO_SETTING
+            KNN_REMOTE_VECTOR_REPO_SETTING,
+            KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
