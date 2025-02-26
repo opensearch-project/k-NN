@@ -1569,7 +1569,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     ) throws IOException {
         bulkIngestRandomVectorsWithSkipsAndNestedMultiDoc(
             indexName,
-            nestedFieldName,
+            List.of(nestedFieldName),
             nestedNumericPath,
             numVectors,
             dimension,
@@ -1580,7 +1580,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     public void bulkIngestRandomVectorsWithSkipsAndNestedMultiDoc(
         String indexName,
-        String nestedFieldName,
+        List<String> nestedFieldNames,
         String nestedNumericPath,
         int numDocs,
         int dimension,
@@ -1591,20 +1591,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
         random.setSeed(2);
         float[][] vectors = TestUtils.randomlyGenerateStandardVectors(numDocs * maxDoc, dimension, 1);
         for (int i = 0; i < numDocs; i++) {
-            int nestedDocs = random.nextInt(maxDoc) + 1;
-            XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startArray(ParentChildHelper.getParentField(nestedFieldName));
-            for (int j = 0; j < nestedDocs; j++) {
-                builder.startObject();
-                if (random.nextFloat() > skipProb) {
-                    builder.field(ParentChildHelper.getChildField(nestedFieldName), vectors[i + j]);
-                } else {
-                    builder.field(ParentChildHelper.getChildField(nestedNumericPath), 1);
+            XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+            for (String nestedFieldName : nestedFieldNames) {
+                builder.startArray(ParentChildHelper.getParentField(nestedFieldName));
+                int nestedDocs = random.nextInt(maxDoc) + 1;
+                for (int j = 0; j < nestedDocs; j++) {
+                    builder.startObject();
+                    if (random.nextFloat() > skipProb) {
+                        builder.field(ParentChildHelper.getChildField(nestedFieldName), vectors[i + j]);
+                    } else {
+                        builder.field(nestedNumericPath, 1);
+                    }
+                    builder.endObject();
                 }
-                builder.endObject();
+                builder.endArray();
             }
-            builder.endArray();
             builder.endObject();
             addKnnDoc(indexName, String.valueOf(i + 1), builder.toString());
         }

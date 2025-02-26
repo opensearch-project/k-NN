@@ -20,6 +20,7 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.io.IOException;
@@ -69,7 +70,8 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
         if (mapperService != null && KNNSettings.isKNNDerivedSourceEnabled(mapperService.getIndexSettings().getSettings())) {
             List<String> vectorFieldTypes = new ArrayList<>();
             for (MappedFieldType fieldType : mapperService.fieldTypes()) {
-                if (fieldType instanceof KNNVectorFieldType) {
+                if (fieldType instanceof KNNVectorFieldType
+                    && KNNVectorFieldMapperUtil.isDeriveSourceForFieldEnabled(true, fieldType.name())) {
                     vectorFieldTypes.add(fieldType.name());
                 }
             }

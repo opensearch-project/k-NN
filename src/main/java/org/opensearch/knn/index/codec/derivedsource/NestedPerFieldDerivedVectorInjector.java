@@ -5,17 +5,10 @@
 
 package org.opensearch.knn.index.codec.derivedsource;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SegmentReadState;
-import org.apache.lucene.index.Terms;
-import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.util.BytesRef;
-import org.opensearch.index.mapper.FieldNamesFieldMapper;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
@@ -24,40 +17,92 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
+/**
+ * Injector class for nested fields and object fields. The class assumes that there will only be one level of nesting
+ * and that any vector path will have only one parent (i.e. parent.vector is supported but grandparent.parent.vector is
+ * not)
+ */
 @Log4j2
-@AllArgsConstructor
 public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerivedVectorInjector {
 
     private final FieldInfo childFieldInfo;
     private final DerivedSourceReaders derivedSourceReaders;
+    private final DerivedSourceLuceneHelper derivedSourceLuceneHelper;
     private final SegmentReadState segmentReadState;
 
-    @Override
-    public void inject(int parentDocId, Map<String, Object> sourceAsMap) throws IOException {
-        // If the parent has the field, then it is just an object field.
-        int lowestDocIdForFieldWithParentAsOffset = getLowestDocIdForField(childFieldInfo.name, parentDocId);
-        if (lowestDocIdForFieldWithParentAsOffset == parentDocId) {
-            injectObject(parentDocId, sourceAsMap);
-            return;
-        }
+    /**
+     *
+     * @param childFieldInfo FieldInfo of the child field
+     * @param derivedSourceReaders Readers for access segment info
+     * @param segmentReadState Segment read stats
+     */
+    public NestedPerFieldDerivedVectorInjector(
+        FieldInfo childFieldInfo,
+        DerivedSourceReaders derivedSourceReaders,
+        SegmentReadState segmentReadState
+    ) {
+        this.childFieldInfo = childFieldInfo;
+        this.derivedSourceReaders = derivedSourceReaders;
+        this.segmentReadState = segmentReadState;
+        this.derivedSourceLuceneHelper = new DerivedSourceLuceneHelper(derivedSourceReaders, segmentReadState);
+    }
 
-        // Setup the iterator. Return if no parent
-        String childFieldName = ParentChildHelper.getChildField(childFieldInfo.name);
-        String parentFieldName = ParentChildHelper.getParentField(childFieldInfo.name);
-        if (parentFieldName == null) {
-            return;
-        }
-        NestedPerFieldParentToDocIdIterator nestedPerFieldParentToDocIdIterator = new NestedPerFieldParentToDocIdIterator(
+    @Override
+    public void inject(int docId, Map<String, Object> sourceAsMap) throws IOException {
+        KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(
             childFieldInfo,
-            segmentReadState,
-            derivedSourceReaders,
-            parentDocId
+            derivedSourceReaders.getDocValuesProducer(),
+            derivedSourceReaders.getKnnVectorsReader()
         );
 
-        if (nestedPerFieldParentToDocIdIterator.numChildren() == 0) {
+        // If the doc has the field, then it is just an object field.
+        if (derivedSourceLuceneHelper.fieldExists(childFieldInfo.name, docId)) {
+            injectObject(docId, sourceAsMap, vectorValues);
+            return;
+        }
+
+        // If the doc doesnt have the field, either the field is a nested field or it is an object field that is
+        // just not present for the doc. Regardless, we will treat as nested and do nothing if it is just missing the
+        // field.
+        injectNested(docId, sourceAsMap, vectorValues);
+    }
+
+    private void injectObject(int docId, Map<String, Object> sourceAsMap, KNNVectorValues<?> vectorValues) throws IOException {
+        // Check if a vector is actually present for this value
+        if (vectorValues.docId() != docId && vectorValues.advance(docId) != docId) {
+            return;
+        }
+
+        // Translate the flat path to a nested map of maps
+        String[] fields = ParentChildHelper.splitPath(childFieldInfo.name);
+        Map<String, Object> currentMap = sourceAsMap;
+        for (int i = 0; i < fields.length - 1; i++) {
+            String field = fields[i];
+            currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, k -> new HashMap<>());
+        }
+        currentMap.put(
+            fields[fields.length - 1],
+            formatVector(childFieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector)
+        );
+    }
+
+    private void injectNested(int parentDocId, Map<String, Object> sourceAsMap, KNNVectorValues<?> vectorValues) throws IOException {
+        // The first child represents the first child document of the parent. This does not mean that this child is
+        // a document belonging to the current field that is being injected. Instead, it just means that the
+        // parent doc has nested fields
+        int firstChild = derivedSourceLuceneHelper.getFirstChild(parentDocId);
+        if (firstChild == NO_MORE_DOCS) {
+            return;
+        }
+
+        // We need to check if the parent field is a nested field.
+        String childFieldName = ParentChildHelper.getChildField(childFieldInfo.name);
+        String parentFieldName = ParentChildHelper.getParentField(childFieldInfo.name);
+        if (derivedSourceLuceneHelper.isNestedParent(firstChild, parentDocId, parentFieldName) == false) {
             return;
         }
 
@@ -70,207 +115,167 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
             reconstructedSource = (List<Map<String, Object>>) originalParentValue;
         }
 
-        // Contains the docIds of existing objects in the map in order. This is used to help figure out the best play
-        // to put back the vectors
-        List<Integer> positions = mapObjectsToPositionInNestedList(
-            reconstructedSource,
-            nestedPerFieldParentToDocIdIterator.firstChild(),
-            parentDocId
-        );
+        // In order to inject vectors into source for nested documents, we need to be able to map the existing
+        // maps to document positions. This lets us know what place to put the vector back into. For example:
+        // Assume we have the following document from the user and we are deriving the value for nested.vector
+        // {
+        // "nested": [
+        // {
+        // "text": "text1"
+        // },
+        // {
+        // "vector": [vec1]
+        // },
+        // {
+        // "vector": [vec2],
+        // "text": "text2"
+        // }
+        // ]
+        // }
+        //
+        // This would get filtered and serialized as:
+        // {
+        // "nested": [
+        // {
+        // "text": "text1"
+        // },
+        // {
+        // "text": "text2"
+        // }
+        // ]
+        // }
+        //
+        // We need to ensure that when we want to inject vec1 back, we create a new map and put it in between
+        // the existing fields.
+        //
+        // To do this, we need to know what docs the existing 2 maps map to.
+        List<Integer> docIdsInNestedList = mapObjectsInNestedListToDocIds(reconstructedSource, firstChild, parentDocId);
 
-        // Finally, inject children for the document into the source. This code is non-trivial because filtering out
-        // the vectors during write could mean that children docs disappear from the source. So, to properly put
-        // everything back, we need to figure out where the existing fields in the original map to
-        KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(
-            childFieldInfo,
-            derivedSourceReaders.getDocValuesProducer(),
-            derivedSourceReaders.getKnnVectorsReader()
+        // Finally, inject children for the document into the source.
+        NestedPerFieldParentToChildDocIdIterator nestedPerFieldParentToChildDocIdIterator = new NestedPerFieldParentToChildDocIdIterator(
+            parentDocId,
+            firstChild,
+            vectorValues
         );
         int offsetPositionsIndex = 0;
-        while (nestedPerFieldParentToDocIdIterator.nextChild() != NO_MORE_DOCS) {
-            // If the child does not have a vector, vectValues advance will advance past child to the next matching
-            // docId. So, we need to ensure that doing this does not pass the parent docId.
-            if (nestedPerFieldParentToDocIdIterator.childId() > vectorValues.docId()) {
-                vectorValues.advance(nestedPerFieldParentToDocIdIterator.childId());
-            }
-            if (vectorValues.docId() != nestedPerFieldParentToDocIdIterator.childId()) {
-                continue;
-            }
-
-            int docId = nestedPerFieldParentToDocIdIterator.childId();
+        while (nestedPerFieldParentToChildDocIdIterator.nextDoc() != NO_MORE_DOCS) {
+            int docId = nestedPerFieldParentToChildDocIdIterator.docId();
             boolean isInsert = true;
-            int position = positions.size(); // by default we insert it at the end
-            for (int i = offsetPositionsIndex; i < positions.size(); i++) {
-                if (docId < positions.get(i)) {
+
+            // Find the position in the nested source list of maps to put it back
+            int position = docIdsInNestedList.size();
+            for (int i = offsetPositionsIndex; i < docIdsInNestedList.size(); i++) {
+                if (docId < docIdsInNestedList.get(i)) {
                     position = i;
                     break;
                 }
-                if (docId == positions.get(i)) {
+                if (docId == docIdsInNestedList.get(i)) {
                     isInsert = false;
                     position = i;
                     break;
                 }
             }
 
+            // If we need to insert a new map, we do so here
             if (isInsert) {
                 reconstructedSource.add(position, new HashMap<>());
-                positions.add(position, docId);
+                docIdsInNestedList.add(position, docId);
             }
-            reconstructedSource.get(position).put(childFieldName, formatVector(childFieldInfo, vectorValues));
+            reconstructedSource.get(position)
+                .put(
+                    childFieldName,
+                    formatVector(
+                        childFieldInfo,
+                        nestedPerFieldParentToChildDocIdIterator::getVector,
+                        nestedPerFieldParentToChildDocIdIterator::getVectorClone
+                    )
+                );
             offsetPositionsIndex = position + 1;
         }
         sourceAsMap.put(parentFieldName, reconstructedSource);
     }
 
-    private void injectObject(int docId, Map<String, Object> sourceAsMap) throws IOException {
-        KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(
-            childFieldInfo,
-            derivedSourceReaders.getDocValuesProducer(),
-            derivedSourceReaders.getKnnVectorsReader()
-        );
-        if (vectorValues.docId() != docId && vectorValues.advance(docId) != docId) {
-            return;
-        }
-        String[] fields = ParentChildHelper.splitPath(childFieldInfo.name);
-        Map<String, Object> currentMap = sourceAsMap;
-        for (int i = 0; i < fields.length - 1; i++) {
-            String field = fields[i];
-            currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, k -> new HashMap<>());
-        }
-        currentMap.put(fields[fields.length - 1], formatVector(childFieldInfo, vectorValues));
-    }
-
     /**
-     * Given a list of maps, map each map to a position in the nested list. This is used to help figure out where to put
-     * the vectors back in the source.
+     * Given a list of maps, map each map to a doc id. This is used to help figure out where to put
+     * the vectors back in the source. The assumption is that earlier objects in the list will have lower doc ids than
+     * later objects in the map
      *
      * @param originals list of maps
-     * @param firstChild first child docId
+     * @param offset Position to move iterators to identify the positions in the map
      * @param parent    parent docId
      * @return list of positions in the nested list
      * @throws IOException if there is an issue reading from the formats
      */
-    private List<Integer> mapObjectsToPositionInNestedList(List<Map<String, Object>> originals, int firstChild, int parent)
-        throws IOException {
+    private List<Integer> mapObjectsInNestedListToDocIds(List<Map<String, Object>> originals, int offset, int parent) throws IOException {
+        // Starting at the offset, we iterate over all of maps in the list of maps and figure out what doc id they map
+        // to.
         List<Integer> positions = new ArrayList<>();
-        int offset = firstChild;
+        int currentOffset = offset;
         for (Map<String, Object> docWithFields : originals) {
-            int fieldMapping = mapToDocId(docWithFields, offset, parent);
-            assert fieldMapping != -1;
+            int fieldMapping = mapToDocId(docWithFields, currentOffset, parent);
+            assert fieldMapping != NO_MORE_DOCS;
             positions.add(fieldMapping);
-            offset = fieldMapping + 1;
+            currentOffset = fieldMapping + 1;
         }
         return positions;
     }
 
     /**
-     * Given a doc as a map and the offset it has to be, find the ordinal of the first field that is greater than the
-     * offset.
+     * Given a doc as a map and the offset it has to be after, return the doc id that it must be
      *
-     * @param doc    doc to find the ordinal for
+     * @param doc    doc to find the docId for
      * @param offset offset to start searching from
-     * @return id of the first field that is greater than the offset
+     * @return doc id the map must map to
      * @throws IOException if there is an issue reading from the formats
      */
     private int mapToDocId(Map<String, Object> doc, int offset, int parent) throws IOException {
-        // For all the fields, we look for the first doc that matches any of the fields.
-        int position = NO_MORE_DOCS;
-        for (String key : doc.keySet()) {
-            position = getLowestDocIdForField(ParentChildHelper.constructSiblingField(childFieldInfo.name, key), offset);
-            if (position < parent) {
-                break;
-            }
-        }
+        // First, we identify a field that the doc in question must have
+        FieldInfo fieldInfoOfDoc = getAnyMatchingFieldInfoForDoc(doc);
+        assert fieldInfoOfDoc != null;
 
+        // Get the first document on/after the offset that has this field.
+        int firstMatchingDocWithField = derivedSourceLuceneHelper.getFirstDocWhereFieldExists(fieldInfoOfDoc.name, offset);
         // Advancing past the parent means something went wrong
+        assert firstMatchingDocWithField < parent;
+
+        // The field in question may be a nested field. In this case, we need to find the next parent on the same level
+        // as the child to figure out where to put back the vector.
+        List<Integer> matches = derivedSourceLuceneHelper.termMatchesInRange(
+            firstMatchingDocWithField,
+            parent - 1,
+            "_nested_path",
+            ParentChildHelper.getParentField(childFieldInfo.name)
+        );
+        assert matches != null;
+        assert matches.isEmpty() == false;
+        int position = matches.getFirst();
         assert position < parent;
         return position;
     }
 
     /**
-     * Get the lowest docId for a field that is greater than the offset.
+     * For a given map, return a {@link FieldInfo} that the doc must have.
      *
-     * @param fieldToMatch field to find the lowest docId for
-     * @param offset       offset to start searching from
-     * @return lowest docId for the field that is greater than the offset. Returns {@link DocIdSetIterator#NO_MORE_DOCS} if doc cannot be found
-     * @throws IOException if there is an issue reading from the formats
+     * @param doc source of the document
+     * @return {@link FieldInfo} of any field the document must have; null if none are found
      */
-    private int getLowestDocIdForField(String fieldToMatch, int offset) throws IOException {
-        // This method implementation is inspired by the FieldExistsQuery in Lucene and the FieldNamesMapper in
-        // Opensearch. We first mimic the logic in the FieldExistsQuery in order to identify the docId of the nested
-        // doc. If that fails, we rely on
-        // References:
-        // 1. https://github.com/apache/lucene/blob/main/lucene/core/src/java/org/apache/lucene/search/FieldExistsQuery.java#L170-L218.
-        // 2.
-        // https://github.com/opensearch-project/OpenSearch/blob/main/server/src/main/java/org/opensearch/index/mapper/FieldMapper.java#L316-L324
-        FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(fieldToMatch);
-
-        if (fieldInfo == null) {
-            return NO_MORE_DOCS;
-        }
-
-        DocIdSetIterator iterator = null;
-        if (fieldInfo.hasNorms() && derivedSourceReaders.getNormsProducer() != null) { // the field indexes norms
-            iterator = derivedSourceReaders.getNormsProducer().getNorms(fieldInfo);
-        } else if (fieldInfo.getVectorDimension() != 0 && derivedSourceReaders.getKnnVectorsReader() != null) { // the field indexes vectors
-            switch (fieldInfo.getVectorEncoding()) {
-                case FLOAT32:
-                    iterator = derivedSourceReaders.getKnnVectorsReader().getFloatVectorValues(fieldInfo.name).iterator();
-                    break;
-                case BYTE:
-                    iterator = derivedSourceReaders.getKnnVectorsReader().getByteVectorValues(fieldInfo.name).iterator();
-                    break;
+    private FieldInfo getAnyMatchingFieldInfoForDoc(Map<String, Object> doc) {
+        for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+            String extractedFieldName = ParentChildHelper.getChildField(fieldInfo.name);
+            String parentFieldName = ParentChildHelper.getParentField(fieldInfo.name);
+            if (extractedFieldName == null || !Objects.equals(parentFieldName, ParentChildHelper.getParentField(childFieldInfo.name))) {
+                continue;
             }
-        } else if (fieldInfo.getDocValuesType() != DocValuesType.NONE && derivedSourceReaders.getDocValuesProducer() != null) { // the field
-                                                                                                                                // indexes
-                                                                                                                                // doc
-                                                                                                                                // values
-            switch (fieldInfo.getDocValuesType()) {
-                case NUMERIC:
-                    iterator = derivedSourceReaders.getDocValuesProducer().getNumeric(fieldInfo);
-                    break;
-                case BINARY:
-                    iterator = derivedSourceReaders.getDocValuesProducer().getBinary(fieldInfo);
-                    break;
-                case SORTED:
-                    iterator = derivedSourceReaders.getDocValuesProducer().getSorted(fieldInfo);
-                    break;
-                case SORTED_NUMERIC:
-                    iterator = derivedSourceReaders.getDocValuesProducer().getSortedNumeric(fieldInfo);
-                    break;
-                case SORTED_SET:
-                    iterator = derivedSourceReaders.getDocValuesProducer().getSortedSet(fieldInfo);
-                    break;
-                case NONE:
-                default:
-                    throw new AssertionError();
+
+            Object object = XContentMapValues.extractValue(extractedFieldName, doc, NullValue.INSTANCE);
+            if (object != null) {
+                return fieldInfo;
             }
         }
-        if (iterator != null) {
-            return iterator.advance(offset);
-        }
+        return null;
+    }
 
-        // Check the field names field type for matches
-        if (derivedSourceReaders.getFieldsProducer() == null) {
-            return NO_MORE_DOCS;
-        }
-        Terms terms = derivedSourceReaders.getFieldsProducer().terms(FieldNamesFieldMapper.NAME);
-        if (terms == null) {
-            return NO_MORE_DOCS;
-        }
-        TermsEnum fieldNameFieldsTerms = terms.iterator();
-        BytesRef fieldToMatchRef = new BytesRef(fieldInfo.name);
-        PostingsEnum postingsEnum = null;
-        while (fieldNameFieldsTerms.next() != null) {
-            BytesRef currentTerm = fieldNameFieldsTerms.term();
-            if (currentTerm.bytesEquals(fieldToMatchRef)) {
-                postingsEnum = fieldNameFieldsTerms.postings(null);
-                break;
-            }
-        }
-        if (postingsEnum == null) {
-            return NO_MORE_DOCS;
-        }
-        return postingsEnum.advance(offset);
+    private static class NullValue {
+        private static final NullValue INSTANCE = new NullValue();
     }
 }
