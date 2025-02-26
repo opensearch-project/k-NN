@@ -22,8 +22,8 @@ import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 
 import java.io.IOException;
@@ -32,6 +32,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
 
@@ -178,24 +185,39 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
         String blobName
     ) throws IOException {
         String repositoryType = repositoryMetadata.type();
-        String containerName = null;
+        String containerName;
         switch (repositoryType) {
             case "s3" -> containerName = repositoryMetadata.settings().get("bucket");
             default -> throw new IllegalArgumentException(
                 "Repository type " + repositoryType + " is not supported by the remote build service"
             );
         }
-        String spaceType = indexInfo.getParameters().get(KNNConstants.SPACE_TYPE).toString();
+        VectorDataType vectorDataType = indexInfo.getVectorDataType();
+        String exactDataType;
+        switch (vectorDataType) {
+            case FLOAT -> exactDataType = resolveFloatDataType();
+            default -> exactDataType = vectorDataType.getValue();
+        }
 
-        String dataType = indexInfo.getVectorDataType().getValue(); // TODO need to fetch encoder param to get fp16 vs fp32
-        int dimension = 0; // TODO
-        Map<String, Object> algorithmParams = new HashMap<>(); // TODO fetch the below from index mapping
-        algorithmParams.put("ef_construction", 100);
-        algorithmParams.put("m", 16);
+        Map<String, Object> algorithmParams = new HashMap<>(); // TODO add other methods and their params
+        if (indexInfo.getParameters().get("name").equals(METHOD_HNSW)) {
+            algorithmParams.put(
+                METHOD_PARAMETER_EF_CONSTRUCTION,
+                indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_EF_CONSTRUCTION, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION)
+            );
+            algorithmParams.put(
+                METHOD_PARAMETER_M,
+                indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_M, INDEX_KNN_DEFAULT_ALGO_PARAM_M)
+            );
+        }
 
         Map<String, Object> indexParameters = new HashMap<>();
-        indexParameters.put("algorithm", "hnsw");
+        indexParameters.put("algorithm", indexInfo.getParameters().get("name"));
         indexParameters.put("algorithm_parameters", algorithmParams);
+        indexParameters.put(
+            METHOD_PARAMETER_SPACE_TYPE,
+            indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE)
+        );
 
         return RemoteBuildRequest.builder()
             .repositoryType(repositoryType)
@@ -203,12 +225,16 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
             .vectorPath(blobName + VECTOR_BLOB_FILE_EXTENSION)
             .docIdPath(blobName + DOC_ID_FILE_EXTENSION)
             .tenantId(indexSettings.getSettings().get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
-            .dimension(dimension)
+            .dimension(0) // TODO
             .docCount(indexInfo.getTotalLiveDocs())
-            .dataType(dataType)
+            .dataType(exactDataType)
             .engine(indexInfo.getKnnEngine().getName())
             .indexParameters(indexParameters)
             .build();
+    }
+
+    private String resolveFloatDataType() {
+        return "fp32"; // TODO fetch and use encoder to determine fp16 vs fp32
     }
 
     /**
