@@ -35,21 +35,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
-import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
-import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL;
-import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.*;
 
 public class LuceneEngineIT extends KNNRestTestCase {
 
@@ -164,7 +150,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, nmslibSpaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
@@ -397,45 +383,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
             FIELD_NAME
         );
         assertEquals(1, resultsQuery2.size());
-    }
-
-    public void testQuery_filterWithNonLuceneEngine() throws Exception {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(PROPERTIES_FIELD_NAME)
-            .startObject(FIELD_NAME)
-            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, NMSLIB_NAME)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-
-        String mapping = builder.toString();
-        createKnnIndex(INDEX_NAME, mapping);
-
-        addKnnDocWithAttributes(
-            DOC_ID,
-            new float[] { 6.0f, 7.9f, 3.1f },
-            ImmutableMap.of(COLOR_FIELD_NAME, "red", TASTE_FIELD_NAME, "sweet")
-        );
-        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
-        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
-
-        final float[] searchVector = { 6.0f, 6.0f, 5.6f };
-        int k = 5;
-        expectThrows(
-            ResponseException.class,
-            () -> searchKNNIndex(
-                INDEX_NAME,
-                new KNNQueryBuilder(FIELD_NAME, searchVector, k, QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")),
-                k
-            )
-        );
     }
 
     public void testIndexReopening() throws Exception {

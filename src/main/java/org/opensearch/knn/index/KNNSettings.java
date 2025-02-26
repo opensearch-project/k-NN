@@ -68,10 +68,7 @@ public class KNNSettings {
     /**
      * Settings name
      */
-    public static final String KNN_SPACE_TYPE = "index.knn.space_type";
     public static final String INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD = "index.knn.advanced.approximate_threshold";
-    public static final String KNN_ALGO_PARAM_M = "index.knn.algo_param.m";
-    public static final String KNN_ALGO_PARAM_EF_CONSTRUCTION = "index.knn.algo_param.ef_construction";
     public static final String KNN_ALGO_PARAM_EF_SEARCH = "index.knn.algo_param.ef_search";
     public static final String KNN_ALGO_PARAM_INDEX_THREAD_QTY = "knn.algo_param.index_thread_qty";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_ENABLED = "knn.memory.circuit_breaker.enabled";
@@ -80,7 +77,6 @@ public class KNNSettings {
     public static final String KNN_CIRCUIT_BREAKER_TRIGGERED = "knn.circuit_breaker.triggered";
     public static final String KNN_CACHE_ITEM_EXPIRY_ENABLED = "knn.cache.item.expiry.enabled";
     public static final String KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES = "knn.cache.item.expiry.minutes";
-    public static final String KNN_PLUGIN_ENABLED = "knn.plugin.enabled";
     public static final String KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE = "knn.circuit_breaker.unset.percentage";
     public static final String KNN_INDEX = "index.knn";
     public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model.index.number_of_shards";
@@ -159,14 +155,6 @@ public class KNNSettings {
         Setting.Property.NodeScope
     );
 
-    public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(
-        KNN_SPACE_TYPE,
-        INDEX_KNN_DEFAULT_SPACE_TYPE,
-        new SpaceTypeValidator(),
-        IndexScope,
-        Setting.Property.Deprecated
-    );
-
     /**
      * build_vector_data_structure_threshold - This parameter determines when to build vector data structure for knn fields during indexing
      * and merging. Setting -1 (min) will skip building graph, whereas on any other values, the graph will be built if
@@ -183,20 +171,6 @@ public class KNNSettings {
     );
 
     /**
-     * M - the number of bi-directional links created for every new element during construction.
-     * Reasonable range for M is 2-100. Higher M work better on datasets with high intrinsic
-     * dimensionality and/or high recall, while low M work better for datasets with low intrinsic dimensionality and/or low recalls.
-     * The parameter also determines the algorithm's memory consumption, which is roughly M * 8-10 bytes per stored element.
-     */
-    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_M_SETTING = Setting.intSetting(
-        KNN_ALGO_PARAM_M,
-        INDEX_KNN_DEFAULT_ALGO_PARAM_M,
-        2,
-        IndexScope,
-        Setting.Property.Deprecated
-    );
-
-    /**
      *  ef or efSearch - the size of the dynamic list for the nearest neighbors (used during the search).
      *  Higher ef leads to more accurate but slower search. ef cannot be set lower than the number of queried nearest neighbors k.
      *  The value ef can be anything between k and the size of the dataset.
@@ -207,18 +181,6 @@ public class KNNSettings {
         2,
         IndexScope,
         Dynamic
-    );
-
-    /**
-     * ef_constrution - the parameter has the same meaning as ef, but controls the index_time/index_accuracy.
-     * Bigger ef_construction leads to longer construction(more indexing time), but better index quality.
-     */
-    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING = Setting.intSetting(
-        KNN_ALGO_PARAM_EF_CONSTRUCTION,
-        INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-        2,
-        IndexScope,
-        Setting.Property.Deprecated
     );
 
     public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_SHARDS_SETTING = Setting.intSetting(
@@ -394,11 +356,6 @@ public class KNNSettings {
     public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
         {
             /**
-             * KNN plugin enable/disable setting
-             */
-            put(KNN_PLUGIN_ENABLED, Setting.boolSetting(KNN_PLUGIN_ENABLED, true, NodeScope, Dynamic));
-
-            /**
              * Weight circuit breaker settings
              */
             put(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, Setting.boolSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, true, NodeScope, Dynamic));
@@ -555,10 +512,7 @@ public class KNNSettings {
 
     public List<Setting<?>> getSettings() {
         List<Setting<?>> settings = Arrays.asList(
-            INDEX_KNN_SPACE_TYPE,
             INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING,
-            INDEX_KNN_ALGO_PARAM_M_SETTING,
-            INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
             KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
             KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
@@ -581,10 +535,6 @@ public class KNNSettings {
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
-    }
-
-    public static boolean isKNNPluginEnabled() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_PLUGIN_ENABLED);
     }
 
     public static boolean isCircuitBreakerTriggered() {

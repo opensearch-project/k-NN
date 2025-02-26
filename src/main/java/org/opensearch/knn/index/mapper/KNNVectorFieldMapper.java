@@ -60,7 +60,6 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createSto
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.useFullFieldNameValidation;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfCircuitBreakerIsNotTriggered;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfKNNPluginEnabled;
 import static org.opensearch.knn.index.mapper.ModelFieldMapper.UNSET_MODEL_DIMENSION_IDENTIFIER;
 
 /**
@@ -425,6 +424,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // Resolve method component. For the legacy case where space type can be configured at index level,
                 // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
                 resolveKNNMethodComponents(builder, parserContext, resolvedSpaceType);
+                // Validate if the KNN engine is allowed for index creation
+                validateBlockedKNNEngine(builder.knnMethodContext.get(), parserContext.indexVersionCreated());
                 validateFromKNNMethod(builder);
             }
 
@@ -453,6 +454,29 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (isModeOrCompressionConfigured && builder.vectorDataType.getValue() != VectorDataType.FLOAT) {
                 throw new MapperParsingException(
                     String.format(Locale.ROOT, "Compression and mode cannot be used for non-float32 data type for field %s", builder.name)
+                );
+            }
+        }
+
+        /**
+         * Validates whether the provided KNN engine is allowed for index creation.
+         * If the engine is NMSLIB and the OpenSearch version is 3.0.0 or later,
+         * it throws an IllegalArgumentException to prevent new index creation.
+         *
+         * @param knnMethodContext The KNN method configuration that contains the engine type.
+         * @param indexVersionCreated The OpenSearch version when the index is being created.
+         * @throws IllegalArgumentException if the engine is NMSLIB and version is 3.0.0 or later.
+         */
+        private void validateBlockedKNNEngine(KNNMethodContext knnMethodContext, Version indexVersionCreated) {
+            if (knnMethodContext == null) return;
+            KNNEngine engine = knnMethodContext.getKnnEngine();
+            if (engine.isRestricted(indexVersionCreated)) {
+                throw new IllegalArgumentException(
+                    engine.getName()
+                        + " engine is deprecated in OpenSearch "
+                        + " and cannot be used for new index creation in OpenSearch from  "
+                        + engine.getRestrictedVersion()
+                        + "."
                 );
             }
         }
@@ -686,7 +710,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * Validation checks before parsing of doc begins
      */
     protected void validatePreparse() {
-        validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
     }
 

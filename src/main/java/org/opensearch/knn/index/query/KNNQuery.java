@@ -21,7 +21,6 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.StopWatch;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
@@ -171,9 +170,6 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
-        if (!KNNSettings.isKNNPluginEnabled()) {
-            throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
-        }
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {
             stopWatch = new StopWatch().start();
