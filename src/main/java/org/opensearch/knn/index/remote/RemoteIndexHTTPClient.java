@@ -32,11 +32,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFAULT;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
@@ -199,25 +207,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
             default -> exactDataType = vectorDataType.getValue();
         }
 
-        Map<String, Object> algorithmParams = new HashMap<>(); // TODO add other methods and their params
-        if (indexInfo.getParameters().get("name").equals(METHOD_HNSW)) {
-            algorithmParams.put(
-                METHOD_PARAMETER_EF_CONSTRUCTION,
-                indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_EF_CONSTRUCTION, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION)
-            );
-            algorithmParams.put(
-                METHOD_PARAMETER_M,
-                indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_M, INDEX_KNN_DEFAULT_ALGO_PARAM_M)
-            );
-        }
-
-        Map<String, Object> indexParameters = new HashMap<>();
-        indexParameters.put("algorithm", indexInfo.getParameters().get("name"));
-        indexParameters.put("algorithm_parameters", algorithmParams);
-        indexParameters.put(
-            METHOD_PARAMETER_SPACE_TYPE,
-            indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE)
-        );
+        Map<String, Object> indexParameters = constructIndexParams(indexInfo);
 
         return RemoteBuildRequest.builder()
             .repositoryType(repositoryType)
@@ -231,6 +221,54 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
             .engine(indexInfo.getKnnEngine().getName())
             .indexParameters(indexParameters)
             .build();
+    }
+
+    /**
+     * Helper method to construct the index parameter object. Depending on the engine and algorithm, different parameters are needed.
+     * @param indexInfo Index parameters
+     * @return Map of necessary index parameters
+     */
+    private Map<String, Object> constructIndexParams(BuildIndexParams indexInfo) {
+        Map<String, Object> indexParameters = new HashMap<>();
+        indexParameters.put("algorithm", indexInfo.getParameters().get("name"));
+        indexParameters.put(
+            METHOD_PARAMETER_SPACE_TYPE,
+            indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE)
+        );
+
+        String methodName = (String) indexInfo.getParameters().get("name");
+        Map<String, Object> algorithmParams = new HashMap<>(); // TODO add other method/engine combos and their params
+        switch (methodName) {
+            case METHOD_HNSW -> {
+                algorithmParams.put(
+                    METHOD_PARAMETER_EF_CONSTRUCTION,
+                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_EF_CONSTRUCTION, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION)
+                );
+                algorithmParams.put(
+                    METHOD_PARAMETER_M,
+                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_M, INDEX_KNN_DEFAULT_ALGO_PARAM_M)
+                );
+                if (indexInfo.getKnnEngine().getName().equals(FAISS_NAME)) {
+                    algorithmParams.put(
+                        METHOD_PARAMETER_EF_SEARCH,
+                        indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_EF_SEARCH, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH)
+                    );
+                }
+            }
+            case METHOD_IVF -> {
+                algorithmParams.put(
+                    METHOD_PARAMETER_NLIST,
+                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_NLIST, METHOD_PARAMETER_NLIST_DEFAULT)
+                );
+                algorithmParams.put(
+                    METHOD_PARAMETER_NPROBES,
+                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NPROBES_DEFAULT)
+                );
+            }
+        }
+        indexParameters.put("algorithm_parameters", algorithmParams);
+
+        return indexParameters;
     }
 
     private String resolveFloatDataType() {

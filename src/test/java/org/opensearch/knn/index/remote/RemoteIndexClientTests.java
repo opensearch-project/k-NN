@@ -46,12 +46,11 @@ public class RemoteIndexClientTests extends KNNTestCase {
 
     public static final String S3 = "s3";
     public static final String TEST_BUCKET = "test-bucket";
-    public static final String FAISS = "faiss";
-    public static final String FLOAT = "float";
     public static final String BLOB_KNNVEC = "blob.knnvec";
     public static final String BLOB_KNNDID = "blob.knndid";
     public static final String TEST_CLUSTER = "test-cluster";
     public static final String L2 = "l2";
+    public static final String FP32 = "fp32";
     @Mock
     protected ClusterService clusterService;
 
@@ -137,9 +136,9 @@ public class RemoteIndexClientTests extends KNNTestCase {
         RepositoriesService repositoriesService = mock(RepositoriesService.class);
         BlobStoreRepository blobStoreRepository = mock(BlobStoreRepository.class);
         RepositoryMetadata metadata = mock(RepositoryMetadata.class);
-        Settings repoSettings = Settings.builder().put("bucket", "test-bucket").build();
+        Settings repoSettings = Settings.builder().put("bucket", TEST_BUCKET).build();
 
-        when(metadata.type()).thenReturn("s3");
+        when(metadata.type()).thenReturn(S3);
         when(metadata.settings()).thenReturn(repoSettings);
         when(blobStoreRepository.getMetadata()).thenReturn(metadata);
         when(repositoriesService.repository("test-repo")).thenReturn(blobStoreRepository);
@@ -166,7 +165,7 @@ public class RemoteIndexClientTests extends KNNTestCase {
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of(KNNConstants.SPACE_TYPE, L2))
+                .parameters(Map.of(KNNConstants.SPACE_TYPE, L2, KNNConstants.NAME, KNNConstants.METHOD_HNSW))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs(vectorValues.size())
                 .build();
@@ -176,8 +175,8 @@ public class RemoteIndexClientTests extends KNNTestCase {
 
             assertEquals(S3, request.getRepositoryType());
             assertEquals(TEST_BUCKET, request.getContainerName());
-            assertEquals(FAISS, request.getEngine());
-            assertEquals(FLOAT, request.getDataType()); // TODO this will be in {fp16, fp32, byte, binary}
+            assertEquals(KNNConstants.FAISS_NAME, request.getEngine());
+            assertEquals(FP32, request.getDataType()); // TODO this will be in {fp16, fp32, byte, binary}
             assertEquals(BLOB_KNNVEC, request.getVectorPath());
             assertEquals(BLOB_KNNDID, request.getDocIdPath());
             assertEquals(TEST_CLUSTER, request.getTenantId());
