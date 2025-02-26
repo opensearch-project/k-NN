@@ -135,15 +135,15 @@ public class KNNWeightTests extends KNNTestCase {
         final KNNSettings knnSettings = mock(KNNSettings.class);
         knnSettingsMockedStatic = mockStatic(KNNSettings.class);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
-        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
+        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
 
         final ByteSizeValue v = ByteSizeValue.parseBytesSizeValue(
             CIRCUIT_BREAKER_LIMIT_100KB,
-            KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT
+            KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
         );
-        knnSettingsMockedStatic.when(KNNSettings::getCircuitBreakerLimit).thenReturn(v);
+        knnSettingsMockedStatic.when(KNNSettings::getClusterCbLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
         knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
 

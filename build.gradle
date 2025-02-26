@@ -426,6 +426,9 @@ integTest {
 testClusters.integTest {
     testDistribution = "ARCHIVE"
 
+    //Used for circuit breaker integration tests
+    setting 'node.attr.knn_cb_tier', 'integ'
+
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(testClusters.integTest)
@@ -436,6 +439,7 @@ testClusters.integTest {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
+
 
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes

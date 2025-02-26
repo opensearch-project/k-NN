@@ -338,7 +338,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
     public void testGetMaxCacheSizeInKB() {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getMaxCacheSizeInKilobytes());
+        assertEquals(KNNSettings.getClusterCbLimit().getKb(), nativeMemoryCacheManager.getMaxCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
     }
 
