@@ -14,13 +14,10 @@ import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.utils.Base64;
-import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
-import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -28,7 +25,6 @@ import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -104,7 +100,6 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
         HttpPost buildRequest = new HttpPost(endpoint + BUILD_ENDPOINT);
         buildRequest.setHeader("Content-Type", "application/json");
         buildRequest.setEntity(new StringEntity(request.toJson()));
-        maybeAddAuthHeader(buildRequest);
 
         String response = httpClient.execute(buildRequest, body -> {
             if (body.getCode() != 200) {
@@ -163,19 +158,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
      * @param request to be authenticated
      */
     private void maybeAddAuthHeader(HttpUriRequestBase request) {
-        // TODO test secure setting retrieval/usage
-        SecureString username = KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME);
-        SecureString password = KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD);
-
-        if (password != null && !password.isEmpty()) {
-            if (username == null || username.isEmpty()) {
-                throw new IllegalArgumentException("Username must be set if password is set");
-            }
-            final String auth = username + ":" + password.clone();
-            final byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.ISO_8859_1));
-            final String authHeader = "Basic " + new String(encodedAuth);
-            request.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
-        }
+        throw new NotImplementedException();
     }
 
     /**
