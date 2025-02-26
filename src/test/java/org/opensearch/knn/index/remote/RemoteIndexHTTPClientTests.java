@@ -7,7 +7,12 @@ package org.opensearch.knn.index.remote;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.junit.Before;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -19,7 +24,6 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -30,19 +34,23 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
+import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 
-public class RemoteIndexClientTests extends KNNTestCase {
+public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
     public static final String S3 = "s3";
     public static final String TEST_BUCKET = "test-bucket";
@@ -51,6 +59,10 @@ public class RemoteIndexClientTests extends KNNTestCase {
     public static final String TEST_CLUSTER = "test-cluster";
     public static final String L2 = "l2";
     public static final String FP32 = "fp32";
+    public static final String MOCK_JOB_ID_RESPONSE = "{\"job_id\": \"job-1739930402\"}";
+    public static final String MOCK_JOB_ID = "job-1739930402";
+    public static final String MOCK_BLOB_NAME = "blob";
+    public static final String MOCK_ENDPOINT = "https://mock-build-service.com";
     @Mock
     protected ClusterService clusterService;
 
@@ -132,22 +144,15 @@ public class RemoteIndexClientTests extends KNNTestCase {
         assertNull(RemoteIndexHTTPClient.getValueFromResponse(failedIndexBuild, "index_path"));
     }
 
-    public void testBuildRequest() throws IOException {
-        RepositoriesService repositoriesService = mock(RepositoriesService.class);
-        BlobStoreRepository blobStoreRepository = mock(BlobStoreRepository.class);
+    public void testBuildRequest() {
         RepositoryMetadata metadata = mock(RepositoryMetadata.class);
         Settings repoSettings = Settings.builder().put("bucket", TEST_BUCKET).build();
-
         when(metadata.type()).thenReturn(S3);
         when(metadata.settings()).thenReturn(repoSettings);
-        when(blobStoreRepository.getMetadata()).thenReturn(metadata);
-        when(repositoriesService.repository("test-repo")).thenReturn(blobStoreRepository);
 
         KNNSettings knnSettingsMock = mock(KNNSettings.class);
-        when(knnSettingsMock.getSettingValue(KNN_REMOTE_VECTOR_REPO_SETTING.getKey())).thenReturn("test-repo");
-
         IndexSettings mockIndexSettings = mock(IndexSettings.class);
-        Settings indexSettingsSettings = Settings.builder().put(ClusterName.CLUSTER_NAME_SETTING.getKey(), "test-cluster").build();
+        Settings indexSettingsSettings = Settings.builder().put(ClusterName.CLUSTER_NAME_SETTING.getKey(), TEST_CLUSTER).build();
         when(mockIndexSettings.getSettings()).thenReturn(indexSettingsSettings);
 
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
@@ -182,5 +187,60 @@ public class RemoteIndexClientTests extends KNNTestCase {
             assertEquals(TEST_CLUSTER, request.getTenantId());
             assertEquals(vectorValues.size(), request.getDocCount());
         }
+    }
+
+    public void testSubmitVectorBuild() throws IllegalAccessException, NoSuchFieldException, IOException, URISyntaxException {
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+        RemoteIndexHTTPClient client = RemoteIndexHTTPClient.getInstance();
+        Field httpClientField = RemoteIndexHTTPClient.class.getDeclaredField("httpClient");
+        httpClientField.setAccessible(true);
+        httpClientField.set(client, mockHttpClient);
+
+        when(mockHttpClient.execute(any(HttpPost.class), any(HttpClientResponseHandler.class))).thenAnswer(
+            response -> MOCK_JOB_ID_RESPONSE
+        );
+
+        RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        BlobStoreRepository blobStoreRepository = mock(BlobStoreRepository.class);
+        RepositoryMetadata metadata = mock(RepositoryMetadata.class);
+        Settings repoSettings = Settings.builder().put("bucket", TEST_BUCKET).build();
+
+        when(metadata.type()).thenReturn(S3);
+        when(metadata.settings()).thenReturn(repoSettings);
+        when(blobStoreRepository.getMetadata()).thenReturn(metadata);
+        when(repositoriesService.repository("test-repo")).thenReturn(blobStoreRepository);
+
+        IndexSettings mockIndexSettings = mock(IndexSettings.class);
+        Settings indexSettingsSettings = Settings.builder().put(ClusterName.CLUSTER_NAME_SETTING.getKey(), TEST_CLUSTER).build();
+        when(mockIndexSettings.getSettings()).thenReturn(indexSettingsSettings);
+
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .vectorDataType(VectorDataType.FLOAT)
+            .parameters(Map.of(KNNConstants.SPACE_TYPE, L2, KNNConstants.NAME, KNNConstants.METHOD_HNSW))
+            .knnVectorValuesSupplier(() -> knnVectorValues)
+            .totalLiveDocs(vectorValues.size())
+            .build();
+
+        ClusterSettings clusterSettings = mock(ClusterSettings.class);
+        when(clusterSettings.get(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING)).thenReturn(MOCK_ENDPOINT);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        KNNSettings.state().setClusterService(clusterService);
+
+        String jobId = client.submitVectorBuild(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME);
+        // Isolated job_id from expectedResponse
+        assertEquals(MOCK_JOB_ID, jobId);
+
+        ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
+        Mockito.verify(mockHttpClient).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
+        HttpPost capturedRequest = requestCaptor.getValue();
+        assertEquals(MOCK_ENDPOINT + RemoteIndexHTTPClient.BUILD_ENDPOINT, capturedRequest.getUri().toString());
+        assert (!capturedRequest.containsHeader(HttpHeaders.AUTHORIZATION));
     }
 }
