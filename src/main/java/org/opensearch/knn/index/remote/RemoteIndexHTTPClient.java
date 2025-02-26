@@ -22,6 +22,9 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.net.URI;
@@ -44,8 +47,6 @@ import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
-import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
-import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
 
 /**
  * Class to handle all interactions with the remote vector build service.
@@ -174,7 +175,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
         BuildIndexParams indexInfo,
         RepositoryMetadata repositoryMetadata,
         String blobName
-    ) {
+    ) throws IOException {
         String repositoryType = repositoryMetadata.type();
         String containerName;
         switch (repositoryType) {
@@ -189,16 +190,18 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
             case FLOAT -> exactDataType = resolveFloatDataType();
             default -> exactDataType = vectorDataType.getValue();
         }
-
         Map<String, Object> indexParameters = constructIndexParams(indexInfo);
+        KNNVectorValues<?> vectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+        KNNCodecUtil.initializeVectorValues(vectorValues);
+        assert (vectorValues.dimension() > 0);
 
         return RemoteBuildRequest.builder()
             .repositoryType(repositoryType)
             .containerName(containerName)
-            .vectorPath(blobName + VECTOR_BLOB_FILE_EXTENSION)
-            .docIdPath(blobName + DOC_ID_FILE_EXTENSION)
+            .vectorPath(blobName + RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION)
+            .docIdPath(blobName + RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION)
             .tenantId(indexSettings.getSettings().get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
-            .dimension(0) // TODO
+            .dimension(vectorValues.dimension())
             .docCount(indexInfo.getTotalLiveDocs())
             .dataType(exactDataType)
             .engine(indexInfo.getKnnEngine().getName())

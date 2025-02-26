@@ -7,17 +7,14 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.remote.RemoteIndexHTTPClient;
-import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -42,8 +39,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     private final NativeIndexBuildStrategy fallbackStrategy;
     private final IndexSettings indexSettings;
 
-    static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
-    static final String DOC_ID_FILE_EXTENSION = ".knndid";
+    public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
+    public static final String DOC_ID_FILE_EXTENSION = ".knndid";
     static final String VECTORS_PATH = "_vectors";
 
     /**
@@ -136,15 +133,12 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            String indexPath = awaitVectorBuild(jobId);
-            String downloadPath = awaitVectorBuild();
+            awaitVectorBuild();
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            readFromRepository(indexPath);
             vectorRepositoryAccessor.readFromRepository();
-            vectorRepositoryAccessor.readFromRepository(downloadPath, indexInfo.getIndexOutputWithBuffer());
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Repository read took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
         } catch (Exception e) {
@@ -173,18 +167,9 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     }
 
     /**
-     * Submit vector build request to remote vector build service
-     *
-     */
-    private void submitVectorBuild() {
-        throw new NotImplementedException();
-    }
-
-    /**
      * Wait on remote vector build to complete
-     * @return String     The path from which we should perform download, delimited by "/"
      */
-    private String awaitVectorBuild() throws NotImplementedException {
+    private void awaitVectorBuild() {
         throw new NotImplementedException();
     }
 }
