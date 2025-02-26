@@ -88,14 +88,21 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
-        if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
+        if (segmentLevelQuantizationInfo != null) {
+            if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+                double distance = 0.0f;
+                for (int i = 0; i < vector.length; i++) {
+                    // TODO: This only makes sense for l2
+                    distance += Math.pow(vector[i] - queryVector[i], 2);
+                }
+                return (float) distance;
+            }
             byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
             return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
-        } else {
-            // Calculates a similarity score between the two vectors with a specified function. Higher similarity
-            // scores correspond to closer vectors.
-            return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
         }
+        // Calculates a similarity score between the two vectors with a specified function. Higher similarity
+        // scores correspond to closer vectors.
+        return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
     }
 
     protected int getNextDocId() throws IOException {

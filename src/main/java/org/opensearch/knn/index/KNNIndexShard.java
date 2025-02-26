@@ -32,6 +32,8 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -46,6 +48,7 @@ import java.util.stream.StreamSupport;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
@@ -70,6 +73,15 @@ public class KNNIndexShard {
     public KNNIndexShard(IndexShard indexShard) {
         this.indexShard = indexShard;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+    }
+
+    /**
+     * Return the underlying IndexShard
+     *
+     * @return IndexShard
+     */
+    public IndexShard getIndexShard() {
+        return indexShard;
     }
 
     /**
@@ -168,7 +180,9 @@ public class KNNIndexShard {
                             engineFileContext.getSpaceType(),
                             KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
                             getIndexName(),
-                            engineFileContext.getVectorDataType()
+                            engineFileContext.getVectorDataType(),
+                                engineFileContext.getSegmentLevelQuantizationInfo()
+
                         ),
                         getIndexName(),
                         engineFileContext.getModelId()
@@ -253,9 +267,15 @@ public class KNNIndexShard {
                 final String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                 final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                 final String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
+                final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+                        reader,
+                        fieldInfo,
+                        fieldInfo.name
+                );
                 engineFiles.addAll(
                     getEngineFileContexts(
                         reader.getSegmentInfo(),
+                        segmentLevelQuantizationInfo,
                         fieldInfo.name,
                         fileExtension,
                         spaceType,
@@ -279,6 +299,7 @@ public class KNNIndexShard {
     @VisibleForTesting
     List<EngineFileContext> getEngineFileContexts(
         final SegmentCommitInfo segmentCommitInfo,
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
         final String fieldName,
         final String fileExtension,
         final SpaceType spaceType,
@@ -293,16 +314,7 @@ public class KNNIndexShard {
             .stream()
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
-            .map(
-                vectorFileName -> new EngineFileContext(
-                    fieldName,
-                    spaceType,
-                    modelId,
-                    vectorFileName,
-                    vectorDataType,
-                    segmentCommitInfo.info
-                )
-            )
+            .map(vectorFileName -> new EngineFileContext(fieldName, spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info, segmentLevelQuantizationInfo))
             .collect(Collectors.toList());
     }
 
@@ -316,5 +328,6 @@ public class KNNIndexShard {
         private final String vectorFileName;
         private final VectorDataType vectorDataType;
         private final SegmentInfo segmentInfo;
+        private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
     }
 }

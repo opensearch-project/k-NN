@@ -9,6 +9,8 @@ import lombok.experimental.UtilityClass;
 import org.apache.lucene.index.LeafReader;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -21,6 +23,12 @@ import java.util.Locale;
  */
 @UtilityClass
 public class SegmentLevelQuantizationUtil {
+
+    public static boolean isAdcEnabled(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
+        return segmentLevelQuantizationInfo != null
+            && ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT)
+                .equals(segmentLevelQuantizationInfo.getQuantizationParams().getTypeIdentifier());
+    }
 
     /**
      * A simple function to convert a vector to a quantized vector for a segment.
@@ -40,6 +48,14 @@ public class SegmentLevelQuantizationUtil {
             vector,
             quantizationService.createQuantizationOutput(segmentLevelQuantizationInfo.getQuantizationParams())
         );
+    }
+
+    public static void transformVector(final float[] vector, final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
+        if (segmentLevelQuantizationInfo == null) {
+            return;
+        }
+        final QuantizationService quantizationService = QuantizationService.getInstance();
+        quantizationService.transform(segmentLevelQuantizationInfo.getQuantizationState(), vector);
     }
 
     /**

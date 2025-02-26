@@ -97,6 +97,17 @@ public final class QuantizationService<T, R> {
     }
 
     /**
+     * Applies transformation to the given vector using the specified {@link QuantizationState}.
+     *
+     * @param quantizationState The {@link QuantizationState} containing the state of the trained quantizer.
+     * @param vector The vector to be transformed.
+     */
+    public void transform(final QuantizationState quantizationState, final T vector) {
+        Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationState.getQuantizationParams());
+        quantizer.transform(vector, quantizationState);
+    }
+
+    /**
      * Retrieves quantization parameters from the FieldInfo.
      */
     public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {

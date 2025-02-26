@@ -197,9 +197,13 @@ public class JNIService {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 return FaissService.loadBinaryIndexWithStream(readStream);
-            } else {
-                return FaissService.loadIndexWithStream(readStream);
             }
+
+            if (IndexUtil.isADCEnabled(knnEngine, parameters)) {
+                return FaissService.loadIndexWithStreamADC(readStream);
+            }
+
+            return FaissService.loadIndexWithStream(readStream);
         } else if (KNNEngine.NMSLIB == knnEngine) {
             return NmslibService.loadIndexWithStream(readStream, parameters);
         }
