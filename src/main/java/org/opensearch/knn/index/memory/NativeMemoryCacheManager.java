@@ -81,11 +81,20 @@ public class NativeMemoryCacheManager implements Closeable {
         return INSTANCE;
     }
 
+    /**
+     * Initialize NativeMemoryCacheManager with configurations.
+     * Note: maxWeight is initially set to the cluster-level circuit breaker limit
+     * because node attributes are not yet available during startup. Once the
+     * ClusterService is fully bootstrapped, the circuit breaker will update this
+     * value to use any node-specific limits based on the node's circuit_breaker_tier
+     * attribute if configured.
+     */
     private void initialize() {
         initialize(
             NativeMemoryCacheManagerDto.builder()
                 .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                // Initially use cluster-level limit; will be updated later during cache refresh if node-specific limit exists
+                .maxWeight(KNNSettings.getClusterCbLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
                     ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
@@ -127,7 +136,7 @@ public class NativeMemoryCacheManager implements Closeable {
         rebuildCache(
             NativeMemoryCacheManagerDto.builder()
                 .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .maxWeight(KNNSettings.state().getCircuitBreakerLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
                     ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
@@ -460,7 +469,7 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private Float getSizeAsPercentage(long size) {
-        long cbLimit = KNNSettings.getCircuitBreakerLimit().getKb();
+        long cbLimit = KNNSettings.state().getCircuitBreakerLimit().getKb();
         if (cbLimit == 0) {
             return 0.0F;
         }

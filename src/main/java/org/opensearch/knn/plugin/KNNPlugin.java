@@ -10,6 +10,7 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.Metadata;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -82,6 +83,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
+import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
@@ -116,6 +118,7 @@ import static java.util.Collections.singletonList;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TIER;
 
 /**
  * Entry point for the KNN plugin where we define mapper for knn_vector type
@@ -153,6 +156,7 @@ public class KNNPlugin extends Plugin
         SearchPlugin,
         ActionPlugin,
         EnginePlugin,
+        ClusterPlugin,
         ScriptPlugin,
         ExtensiblePlugin,
         SystemIndexPlugin {
@@ -362,4 +366,22 @@ public class KNNPlugin extends Plugin
     public Optional<ConcurrentSearchRequestDecider.Factory> getConcurrentSearchRequestDeciderFactory() {
         return Optional.of(new KNNConcurrentSearchRequestDecider.Factory());
     }
+
+    @Override
+    public void onNodeStarted(DiscoveryNode localNode) {
+        // Attempt to fetch a cb tier from node attributes and cache the result.
+        // Get this node's circuit breaker tier attribute
+        Optional<String> tierAttribute = Optional.ofNullable(localNode.getAttributes().get(KNN_CIRCUIT_BREAKER_TIER));
+        if (tierAttribute.isPresent()) {
+            KNNSettings.state().setNodeCbAttribute(tierAttribute);
+
+            // Only rebuild the cache if the weight has actually changed
+            if (KNNSettings.state().getCircuitBreakerLimit().getKb() != NativeMemoryCacheManager.getInstance()
+                .getMaxCacheSizeInKilobytes()) {
+                NativeMemoryCacheManager.getInstance().rebuildCache();
+            }
+        }
+
+    }
+
 }

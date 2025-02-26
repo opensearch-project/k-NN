@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.0](https://github.com/opensearch-project/k-NN/compare/2.x...HEAD)
 ### Features
 ### Enhancements
+* Introduce node level circuit breakers for k-NN [#2509](https://github.com/opensearch-project/k-NN/pull/2509)
 ### Bug Fixes
 ### Infrastructure
 * Removed JDK 11 and 17 version from CI runs [#1921](https://github.com/opensearch-project/k-NN/pull/1921)
