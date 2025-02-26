@@ -102,11 +102,11 @@ public class KNNSettings {
     public static final String KNN_INDEX_REMOTE_VECTOR_BUILD = "index.knn.remote_index_build.enabled";
     public static final String KNN_REMOTE_VECTOR_REPO = "knn.remote_index_build.vector_repo";
     public static final String KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD = "index.knn.remote_index_build.size_threshold";
-    public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_build_service.endpoint";
-    public static final String KNN_REMOTE_BUILD_SERVICE_POLL_INTERVAL = "knn.remote_build_service.poll_interval";
-    public static final String KNN_REMOTE_BUILD_SERVICE_TIMEOUT = "knn.remote_build_service.timeout";
-    public static final String KNN_REMOTE_BUILD_SERVICE_USERNAME = "knn.remote_build_service.username";
-    public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_build_service.password";
+    public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_index_build.client.endpoint";
+    public static final String KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL = "knn.remote_index_build.client.poll_interval";
+    public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT = "knn.remote_index_build.client.timeout";
+    public static final String KNN_REMOTE_BUILD_CLIENT_USERNAME = "knn.remote_index_build.client.username";
+    public static final String KNN_REMOTE_BUILD_CLIENT_PASSWORD = "knn.remote_index_build.client.password";
 
     /**
      * Default setting values
@@ -701,7 +701,6 @@ public class KNNSettings {
             KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
             KNN_REMOTE_VECTOR_REPO_SETTING,
             KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING,
-            KNN_REMOTE_VECTOR_REPO_SETTING,
             KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
             KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,

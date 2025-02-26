@@ -186,6 +186,9 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             assertEquals(BLOB_KNNDID, request.getDocIdPath());
             assertEquals(TEST_CLUSTER, request.getTenantId());
             assertEquals(vectorValues.size(), request.getDocCount());
+            assertEquals(2, request.getDimension());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
