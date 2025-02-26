@@ -603,7 +603,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .toString();
         createKnnIndex(INDEX_NAME, trainIndexMapping);
 
-        int trainingDataCount = 100;
+        int trainingDataCount = 1100;
         bulkIngestRandomByteVectors(INDEX_NAME, FIELD_NAME, trainingDataCount, dimension);
 
         XContentBuilder trainModelXContentBuilder = XContentFactory.jsonBuilder()
