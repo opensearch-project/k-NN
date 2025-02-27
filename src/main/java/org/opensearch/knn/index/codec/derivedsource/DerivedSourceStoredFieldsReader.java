@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN9120Codec;
+package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.FieldInfo;
@@ -11,9 +11,6 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.index.fieldvisitor.FieldsVisitor;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceStoredFieldVisitor;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceVectorInjector;
 
 import java.io.IOException;
 import java.util.List;
