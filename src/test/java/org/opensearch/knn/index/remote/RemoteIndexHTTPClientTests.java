@@ -48,7 +48,10 @@ import java.util.Set;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
@@ -169,10 +172,21 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 randomVectorValues
             );
 
+            Map<String, Object> algorithmParams = Map.of("ef_construction", 94, "m", 2);
+
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of(KNNConstants.SPACE_TYPE, SpaceType.HAMMING.getValue(), KNNConstants.NAME, KNNConstants.METHOD_HNSW))
+                .parameters(
+                    Map.of(
+                        KNNConstants.SPACE_TYPE,
+                        SpaceType.HAMMING.getValue(),
+                        KNNConstants.NAME,
+                        KNNConstants.METHOD_HNSW,
+                        PARAMETERS,
+                        algorithmParams
+                    )
+                )
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs(vectorValues.size())
                 .build();
@@ -190,6 +204,10 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             assertEquals(vectorValues.size(), request.getDocCount());
             assertEquals(2, request.getDimension());
             assertEquals(request.getIndexParameters().get(METHOD_PARAMETER_SPACE_TYPE), SpaceType.HAMMING.getValue());
+            Object algorithmParameters = request.getIndexParameters().get("algorithm_parameters");
+            Map<String, Object> algoMap = (Map<String, Object>) algorithmParameters;
+            assertEquals(2, algoMap.get(METHOD_PARAMETER_M));
+            assertEquals(94, algoMap.get(METHOD_PARAMETER_EF_CONSTRUCTION));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
