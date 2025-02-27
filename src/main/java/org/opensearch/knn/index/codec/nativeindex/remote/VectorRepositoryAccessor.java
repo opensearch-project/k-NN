@@ -5,8 +5,8 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
-import org.apache.commons.lang.NotImplementedException;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
@@ -15,7 +15,7 @@ import java.util.function.Supplier;
 /**
  * Interface which dictates how we use we interact with a {@link org.opensearch.repositories.blobstore.BlobStoreRepository} from {@link RemoteIndexBuildStrategy}
  */
-public interface VectorRepositoryAccessor {
+interface VectorRepositoryAccessor {
     /**
      * This method is responsible for writing both the vector blobs and doc ids provided by {@param knnVectorValuesSupplier} to the configured repository
      *
@@ -35,8 +35,9 @@ public interface VectorRepositoryAccessor {
 
     /**
      * Read constructed vector file from remote repository and write to IndexOutput
+     * @param path                      File path as String
+     * @param indexOutputWithBuffer     {@link IndexOutputWithBuffer} which will be used to write to the underlying {@link org.apache.lucene.store.IndexOutput}
+     * @throws IOException
      */
-    default void readFromRepository() {
-        throw new NotImplementedException();
-    }
+    void readFromRepository(String path, IndexOutputWithBuffer indexOutputWithBuffer) throws IOException;
 }

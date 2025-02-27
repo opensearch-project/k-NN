@@ -131,12 +131,12 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            awaitVectorBuild();
+            String downloadPath = awaitVectorBuild();
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            vectorRepositoryAccessor.readFromRepository();
+            vectorRepositoryAccessor.readFromRepository(downloadPath, indexInfo.getIndexOutputWithBuffer());
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Repository read took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
         } catch (Exception e) {
@@ -174,8 +174,9 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     /**
      * Wait on remote vector build to complete
+     * @return String     The path from which we should perform download, delimited by "/"
      */
-    private void awaitVectorBuild() {
+    private String awaitVectorBuild() throws NotImplementedException {
         throw new NotImplementedException();
     }
 }
