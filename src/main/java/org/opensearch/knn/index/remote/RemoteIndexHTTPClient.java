@@ -11,13 +11,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.utils.Base64;
+import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -28,10 +31,15 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -42,10 +50,15 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFA
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 
 /**
@@ -59,12 +72,11 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
     protected static final int MAX_RETRIES = 1; // 2 total attempts
     protected static final long BASE_DELAY_MS = 1000;
     protected static final String BUILD_ENDPOINT = "/_build";
+    protected static final String FP32 = "fp32";
+    protected static final String FP16 = "fp16";
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    RemoteIndexHTTPClient() {
-        this.httpClient = createHttpClient();
-    }
+    private String authHeader = null;
 
     /**
      * Return the Singleton instance of the node's RemoteIndexClient
@@ -72,7 +84,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
      */
     public static synchronized RemoteIndexHTTPClient getInstance() {
         if (INSTANCE == null) {
-            INSTANCE = new RemoteIndexHTTPClient();
+            INSTANCE = new RemoteIndexHTTPClient(createHttpClient());
         }
         return INSTANCE;
     }
@@ -81,8 +93,12 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
      * Initialize the httpClient to be used
      * @return The HTTP Client
      */
-    private CloseableHttpClient createHttpClient() {
+    private static CloseableHttpClient createHttpClient() {
         return HttpClients.custom().setRetryStrategy(new RemoteIndexClientRetryStrategy()).build();
+    }
+
+    RemoteIndexHTTPClient(CloseableHttpClient httpClient) {
+        this.httpClient = httpClient;
     }
 
     /**
@@ -101,19 +117,28 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
         HttpPost buildRequest = new HttpPost(endpoint + BUILD_ENDPOINT);
         buildRequest.setHeader("Content-Type", "application/json");
         buildRequest.setEntity(new StringEntity(request.toJson()));
-
-        String response = httpClient.execute(buildRequest, body -> {
-            if (body.getCode() != 200) {
-                throw new IOException("Failed to submit build request, got status code: " + body.getCode());
-            }
-            return EntityUtils.toString(body.getEntity());
-        });
-
-        if (response == null) {
-            throw new IOException("Received 200 status code but response is null.");
+        if (authHeader != null) {
+            buildRequest.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
         }
 
-        return getValueFromResponse(response, "job_id");
+        try {
+            String response = AccessController.doPrivileged(
+                (PrivilegedExceptionAction<String>) () -> httpClient.execute(buildRequest, body -> {
+                    if (body.getCode() != 200) {
+                        throw new IOException("Failed to submit build request, got status code: " + body.getCode());
+                    }
+                    return EntityUtils.toString(body.getEntity());
+                })
+            );
+
+            if (response == null) {
+                throw new IOException("Received 200 status code but response is null.");
+            }
+
+            return getValueFromResponse(response, "job_id");
+        } catch (PrivilegedActionException e) {
+            throw new IOException("Failed to execute HTTP request", e.getException());
+        }
     }
 
     /**
@@ -123,15 +148,6 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
     */
     @Override
     public String awaitVectorBuild(String jobId) {
-        throw new NotImplementedException();
-    }
-
-    /**
-     * Helper method to directly get the status response for a given job ID
-     * @param jobId to check
-     * @return The entire response for the status request
-     */
-    private String getBuildStatus(String jobId) throws IOException {
         throw new NotImplementedException();
     }
 
@@ -151,15 +167,6 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
             return jsonResponse.get(key).asText();
         }
         throw new IllegalArgumentException("Key " + key + " not found in response");
-    }
-
-    /**
-     * Authenticate the HTTP request by manually setting the auth header iff the credentials are configured.
-     * This is favored over setting a global auth scheme to allow for dynamic credential updates.
-     * @param request to be authenticated
-     */
-    private void maybeAddAuthHeader(HttpUriRequestBase request) {
-        throw new NotImplementedException();
     }
 
     /**
@@ -187,13 +194,17 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
         VectorDataType vectorDataType = indexInfo.getVectorDataType();
         String exactDataType;
         switch (vectorDataType) {
-            case FLOAT -> exactDataType = resolveFloatDataType();
+            case FLOAT -> exactDataType = resolveFloatDataType(indexInfo);
             default -> exactDataType = vectorDataType.getValue();
         }
-        Map<String, Object> indexParameters = constructIndexParams(indexInfo);
         KNNVectorValues<?> vectorValues = indexInfo.getKnnVectorValuesSupplier().get();
         KNNCodecUtil.initializeVectorValues(vectorValues);
         assert (vectorValues.dimension() > 0);
+
+        Map<String, Object> indexParameters = null;
+        if (indexInfo.getParameters() != null) {
+            indexParameters = constructIndexParams(indexInfo);
+        }
 
         return RemoteBuildRequest.builder()
             .repositoryType(repositoryType)
@@ -216,49 +227,60 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
      */
     private Map<String, Object> constructIndexParams(BuildIndexParams indexInfo) {
         Map<String, Object> indexParameters = new HashMap<>();
-        indexParameters.put("algorithm", indexInfo.getParameters().get("name"));
-        indexParameters.put(
-            METHOD_PARAMETER_SPACE_TYPE,
-            indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE)
-        );
+        String methodName = (String) indexInfo.getParameters().get(NAME);
+        indexParameters.put("algorithm", methodName);
+        indexParameters.put(METHOD_PARAMETER_SPACE_TYPE, indexInfo.getParameters().getOrDefault(SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE));
 
-        String methodName = (String) indexInfo.getParameters().get("name");
-        Map<String, Object> algorithmParams = new HashMap<>(); // TODO add other method/engine combos and their params
-        switch (methodName) {
-            case METHOD_HNSW -> {
-                algorithmParams.put(
-                    METHOD_PARAMETER_EF_CONSTRUCTION,
-                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_EF_CONSTRUCTION, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION)
-                );
-                algorithmParams.put(
-                    METHOD_PARAMETER_M,
-                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_M, INDEX_KNN_DEFAULT_ALGO_PARAM_M)
-                );
-                if (indexInfo.getKnnEngine().getName().equals(FAISS_NAME)) {
-                    algorithmParams.put(
-                        METHOD_PARAMETER_EF_SEARCH,
-                        indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_EF_SEARCH, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH)
-                    );
+        if (indexInfo.getParameters().containsKey(PARAMETERS)) {
+            Object innerParams = indexInfo.getParameters().get(PARAMETERS);
+            if (innerParams instanceof Map) {
+                Map<String, Object> algorithmParams = new HashMap<>();
+                Map<String, Object> innerMap = (Map<String, Object>) innerParams;
+                switch (methodName) {
+                    case METHOD_HNSW -> {
+                        algorithmParams.put(
+                            METHOD_PARAMETER_EF_CONSTRUCTION,
+                            innerMap.getOrDefault(METHOD_PARAMETER_EF_CONSTRUCTION, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION)
+                        );
+                        algorithmParams.put(METHOD_PARAMETER_M, innerMap.getOrDefault(METHOD_PARAMETER_M, INDEX_KNN_DEFAULT_ALGO_PARAM_M));
+                        if (indexInfo.getKnnEngine().getName().equals(FAISS_NAME)) {
+                            algorithmParams.put(
+                                METHOD_PARAMETER_EF_SEARCH,
+                                innerMap.getOrDefault(METHOD_PARAMETER_EF_SEARCH, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH)
+                            );
+                        }
+                    }
+                    case METHOD_IVF -> {
+                        algorithmParams.put(
+                            METHOD_PARAMETER_NLIST,
+                            innerMap.getOrDefault(METHOD_PARAMETER_NLIST, METHOD_PARAMETER_NLIST_DEFAULT)
+                        );
+                        algorithmParams.put(
+                            METHOD_PARAMETER_NPROBES,
+                            innerMap.getOrDefault(METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NPROBES_DEFAULT)
+                        );
+                    }
                 }
-            }
-            case METHOD_IVF -> {
-                algorithmParams.put(
-                    METHOD_PARAMETER_NLIST,
-                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_NLIST, METHOD_PARAMETER_NLIST_DEFAULT)
-                );
-                algorithmParams.put(
-                    METHOD_PARAMETER_NPROBES,
-                    indexInfo.getParameters().getOrDefault(METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NPROBES_DEFAULT)
-                );
+                indexParameters.put("algorithm_parameters", algorithmParams);
             }
         }
-        indexParameters.put("algorithm_parameters", algorithmParams);
-
         return indexParameters;
     }
 
-    private String resolveFloatDataType() {
-        return "fp32"; // TODO fetch and use encoder to determine fp16 vs fp32
+    /**
+     * Use the index description in the index mappings to determine whether the float type is specifically fp16 or 32.
+     * @param indexInfo Index parameters
+     * @return fp16 or fp32 concrete type
+     */
+    private String resolveFloatDataType(BuildIndexParams indexInfo) {
+        String dataType = FP32;
+        if (indexInfo.getParameters().containsKey(INDEX_DESCRIPTION_PARAMETER)) {
+            String indexDescription = indexInfo.getParameters().get(INDEX_DESCRIPTION_PARAMETER).toString();
+            if (indexDescription.endsWith(FP16)) {
+                dataType = FP16;
+            }
+        }
+        return dataType;
     }
 
     /**
@@ -267,6 +289,26 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
     public void close() throws IOException {
         if (httpClient != null) {
             httpClient.close();
+        }
+    }
+
+    /**
+     * Rebuild the httpClient with the new credentials
+     * @param settings Settings to use to get the new credentials
+     */
+    public void reloadSecureSettings(Settings settings) {
+        SecureString username = KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING.get(settings);
+        SecureString password = KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.get(settings);
+
+        if (password != null && !password.isEmpty()) {
+            if (username == null || username.isEmpty()) {
+                throw new IllegalArgumentException("Username must be set if password is set");
+            }
+            final String auth = username + ":" + password.clone();
+            final byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.ISO_8859_1));
+            this.authHeader = "Basic " + new String(encodedAuth);
+        } else {
+            this.authHeader = null;
         }
     }
 }

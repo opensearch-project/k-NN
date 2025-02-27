@@ -15,10 +15,12 @@ import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRespons
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
+import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
@@ -103,6 +105,8 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_index_build.client.endpoint";
     public static final String KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL = "knn.remote_index_build.client.poll_interval";
     public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT = "knn.remote_index_build.client.timeout";
+    public static final String KNN_REMOTE_BUILD_CLIENT_USERNAME = "knn.remote_index_build.client.username";
+    public static final String KNN_REMOTE_BUILD_CLIENT_PASSWORD = "knn.remote_index_build.client.password";
 
     /**
      * Default setting values
@@ -417,7 +421,7 @@ public class KNNSettings {
         IndexScope
     );
     /**
-     * Remote build service endpoint to be used for remote index build. //TODO we can add String validators on these endpoint settings
+     * Remote build service endpoint to be used for remote index build.
      */
     public static final Setting<String> KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING = Setting.simpleString(
         KNN_REMOTE_BUILD_SERVICE_ENDPOINT,
@@ -443,6 +447,18 @@ public class KNNSettings {
         TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
         NodeScope,
         Dynamic
+    );
+
+    /**
+     * Keystore settings for build service HTTP authorization
+     */
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_USERNAME,
+        null
+    );
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_PASSWORD,
+        null
     );
 
     /**
@@ -648,6 +664,14 @@ public class KNNSettings {
             return KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING;
         }
 
+        if (KNN_REMOTE_BUILD_CLIENT_USERNAME.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_PASSWORD.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -679,7 +703,9 @@ public class KNNSettings {
             KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING,
             KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
-            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING
+            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
