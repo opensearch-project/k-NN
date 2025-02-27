@@ -24,6 +24,7 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 
 public class FaissMethodResolverTests extends KNNTestCase {
 
@@ -269,5 +270,33 @@ public class FaissMethodResolverTests extends KNNTestCase {
             )
 
         );
+
+        Map<String, Object> parameters = Map.of(
+            ENCODER_PARAMETER_PQ_M,
+            3,
+            METHOD_ENCODER_PARAMETER,
+            new MethodComponentContext("pq", Map.of())
+        );
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
+        final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext);
+
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(10)
+            .versionCreated(Version.CURRENT)
+            .compressionLevel(CompressionLevel.x8)
+            .mode(Mode.ON_DISK)
+            .build();
+
+        ValidationException validationException = expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(knnMethodContext, knnMethodConfigContext, false, SpaceType.INNER_PRODUCT)
+
+        );
+
+        assertTrue(
+            validationException.getMessage().contains("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions")
+        );
+
     }
 }

@@ -154,11 +154,9 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
             TrainingConfigValidationOutput validation = validateTrainingConfig.apply(
                 inputBuilder.trainingVectorsCount(trainingVectors).knnMethodContext(knnMethodContext).build()
             );
-            if (!validation.isValid()) {
+            if (validation.getValid() != null && !validation.getValid()) {
                 ValidationException exception = new ValidationException();
-                exception.addValidationError(
-                    String.format("Number of training points should be greater than %d", validation.getMinTrainingVectorCount())
-                );
+                exception.addValidationError(validation.getErrorMessage());
                 listener.onFailure(exception);
                 return;
             }

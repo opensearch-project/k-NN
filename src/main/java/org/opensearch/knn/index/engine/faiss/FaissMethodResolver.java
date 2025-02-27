@@ -15,6 +15,8 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -72,6 +74,9 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             knnMethodConfigContext,
             encoderMap
         );
+
+        // Validate encoder parameters
+        validateEncoderConfig(resolvedKNNMethodContext, knnMethodConfigContext, encoderMap);
 
         // Validate that resolved compression doesnt have any conflicts
         validateCompressionConflicts(knnMethodConfigContext.getCompressionLevel(), resolvedCompressionLevel);
@@ -144,6 +149,32 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         );
         validationException = validateCompressionNotx1WhenOnDisk(knnMethodConfigContext, validationException);
         if (validationException != null) {
+            throw validationException;
+        }
+    }
+
+    protected void validateEncoderConfig(
+        KNNMethodContext resolvedKnnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        Map<String, Encoder> encoderMap
+    ) {
+        if (isEncoderSpecified(resolvedKnnMethodContext) == false) {
+            return;
+        }
+        Encoder encoder = encoderMap.get(getEncoderName(resolvedKnnMethodContext));
+        if (encoder == null) {
+            return;
+        }
+
+        TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
+
+        TrainingConfigValidationOutput validationOutput = encoder.validateEncoderConfig(
+            inputBuilder.knnMethodContext(resolvedKnnMethodContext).knnMethodConfigContext(knnMethodConfigContext).build()
+        );
+
+        if (validationOutput.getValid() != null && !validationOutput.getValid()) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(validationOutput.getErrorMessage());
             throw validationException;
         }
     }
