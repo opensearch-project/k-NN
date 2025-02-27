@@ -15,6 +15,7 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.block.ClusterBlocks;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -91,6 +92,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
         NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().close();
         NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance().close();
+        KNNCircuitBreaker.getInstance().setTripped(false);
         super.tearDown();
     }
 

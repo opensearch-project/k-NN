@@ -7,10 +7,9 @@ package org.opensearch.knn.plugin.action;
 
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.junit.rules.DisableOnDebug;
+import org.opensearch.Version;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -57,7 +56,6 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
  */
 public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
-    private static final Logger logger = LogManager.getLogger(RestKNNStatsHandlerIT.class);
     private static final String TRAINING_INDEX = "training-index";
     private static final String TRAINING_FIELD = "training-field";
     private static final String TEST_MODEL_ID = "model-id";
@@ -78,7 +76,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     @Before
     public void setup() {
-        knnStats = new KNNStats();
+        knnStats = new KNNStats(null, () -> Version.CURRENT);
     }
 
     /**

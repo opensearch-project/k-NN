@@ -5,22 +5,22 @@
 
 package org.opensearch.knn.plugin.stats.suppliers;
 
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNCircuitBreaker;
 
 import java.util.function.Supplier;
 
 /**
  * Supplier for circuit breaker stats
  */
-public class KNNCircuitBreakerSupplier implements Supplier<Boolean> {
+public class KNNNodeLevelCircuitBreakerSupplier implements Supplier<Boolean> {
 
     /**
      * Constructor
      */
-    public KNNCircuitBreakerSupplier() {}
+    public KNNNodeLevelCircuitBreakerSupplier() {}
 
     @Override
     public Boolean get() {
-        return KNNSettings.isCircuitBreakerTriggered();
+        return KNNCircuitBreaker.getInstance().isTripped();
     }
 }

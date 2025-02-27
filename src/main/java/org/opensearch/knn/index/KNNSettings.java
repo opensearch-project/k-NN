@@ -10,15 +10,12 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
-import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
-import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
@@ -28,7 +25,6 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
-import org.opensearch.transport.client.Client;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -317,7 +313,8 @@ public class KNNSettings {
         KNN_CIRCUIT_BREAKER_TRIGGERED,
         false,
         NodeScope,
-        Dynamic
+        Dynamic,
+        Setting.Property.Deprecated
     );
 
     public static final Setting<Double> KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING = Setting.doubleSetting(
@@ -473,8 +470,8 @@ public class KNNSettings {
     private final static Map<String, Setting<?>> FEATURE_FLAGS = getFeatureFlags().stream()
         .collect(toUnmodifiableMap(Setting::getKey, Function.identity()));
 
+    @Setter
     private ClusterService clusterService;
-    private Client client;
     @Setter
     private Optional<String> nodeCbAttribute;
 
@@ -636,10 +633,6 @@ public class KNNSettings {
 
     public static boolean isKNNPluginEnabled() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_PLUGIN_ENABLED);
-    }
-
-    public static boolean isCircuitBreakerTriggered() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED);
     }
 
     /**
@@ -806,8 +799,7 @@ public class KNNSettings {
             .getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
     }
 
-    public void initialize(Client client, ClusterService clusterService) {
-        this.client = client;
+    public void initialize(ClusterService clusterService) {
         this.clusterService = clusterService;
         this.nodeCbAttribute = Optional.empty();
         setSettingsUpdateConsumers();
@@ -841,35 +833,6 @@ public class KNNSettings {
         }
     }
 
-    /**
-     * Updates knn.circuit_breaker.triggered setting to true/false
-     * @param flag true/false
-     */
-    public synchronized void updateCircuitBreakerSettings(boolean flag) {
-        ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder().put(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED, flag).build();
-        clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
-        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
-            @Override
-            public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
-                logger.debug(
-                    "Cluster setting {}, acknowledged: {} ",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    clusterUpdateSettingsResponse.isAcknowledged()
-                );
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                logger.info(
-                    "Exception while updating circuit breaker setting {} to {}",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    e.getMessage()
-                );
-            }
-        });
-    }
-
     public static ByteSizeValue getVectorStreamingMemoryLimit() {
         return KNNSettings.state().getSettingValue(KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB);
     }
@@ -886,10 +849,6 @@ public class KNNSettings {
                 KNNSettings.KNN_ALGO_PARAM_EF_SEARCH,
                 IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion())
             );
-    }
-
-    public void setClusterService(ClusterService clusterService) {
-        this.clusterService = clusterService;
     }
 
     static class SpaceTypeValidator implements Setting.Validator<String> {

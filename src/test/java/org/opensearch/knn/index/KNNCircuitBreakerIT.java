@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.CB_TIME_INTERVAL;
 
 /**
  * Integration tests to test Circuit Breaker functionality
@@ -144,13 +144,6 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         return Double.parseDouble(nodeStatsResponse.getFirst().get(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName()).toString());
     }
 
-    public boolean isCbTripped() throws Exception {
-        Response response = getKnnStats(Collections.emptyList(), Collections.singletonList("circuit_breaker_triggered"));
-        String responseBody = EntityUtils.toString(response.getEntity());
-        Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
-        return Boolean.parseBoolean(clusterStats.get("circuit_breaker_triggered").toString());
-    }
-
     public void testCbTripped() throws Exception {
         setupIndices();
         testClusterLevelCircuitBreaker();
@@ -158,12 +151,6 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
     }
 
     public void verifyCbUntrips() throws Exception {
-
-        if (!isCbTripped()) {
-            updateClusterSettings("knn.circuit_breaker.triggered", "true");
-
-        }
-
         int backOffInterval = 5; // seconds
         for (int i = 0; i < CB_TIME_INTERVAL; i += backOffInterval) {
             if (!isCbTripped()) {
