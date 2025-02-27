@@ -144,13 +144,6 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         return Double.parseDouble(nodeStatsResponse.getFirst().get(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName()).toString());
     }
 
-    public boolean isCbTripped() throws Exception {
-        Response response = getKnnStats(Collections.emptyList(), Collections.singletonList("circuit_breaker_triggered"));
-        String responseBody = EntityUtils.toString(response.getEntity());
-        Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
-        return Boolean.parseBoolean(clusterStats.get("circuit_breaker_triggered").toString());
-    }
-
     public void testCbTripped() throws Exception {
         setupIndices();
         testClusterLevelCircuitBreaker();

@@ -54,7 +54,7 @@ public class NativeMemoryCacheManager implements Closeable {
     private static NativeMemoryCacheManager INSTANCE;
     @Setter
     private static ThreadPool threadPool;
-    public static int CB_TIME_INTERVAL = 2 * 60; // seconds
+    public static int CB_TIME_INTERVAL = 20; // seconds
 
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
