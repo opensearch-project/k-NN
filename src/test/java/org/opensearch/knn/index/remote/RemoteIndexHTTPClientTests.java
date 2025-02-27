@@ -26,6 +26,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -37,7 +38,6 @@ import org.opensearch.repositories.blobstore.BlobStoreRepository;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,14 +48,16 @@ import java.util.Set;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
+import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
+import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
 
 public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
     public static final String S3 = "s3";
     public static final String TEST_BUCKET = "test-bucket";
-    public static final String BLOB_KNNVEC = "blob.knnvec";
-    public static final String BLOB_KNNDID = "blob.knndid";
+    public static final String BLOB = "blob";
     public static final String TEST_CLUSTER = "test-cluster";
     public static final String L2 = "l2";
     public static final String FP32 = "fp32";
@@ -86,7 +88,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         client.close();
     }
 
-    public void testConstructBuildRequest() throws IOException {
+    public void testConstructBuildRequestJson() throws IOException {
         Map<String, Object> algorithmParams = new HashMap<>();
         algorithmParams.put("ef_construction", 100);
         algorithmParams.put("m", 16);
@@ -170,7 +172,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of(KNNConstants.SPACE_TYPE, L2, KNNConstants.NAME, KNNConstants.METHOD_HNSW))
+                .parameters(Map.of(KNNConstants.SPACE_TYPE, SpaceType.HAMMING.getValue(), KNNConstants.NAME, KNNConstants.METHOD_HNSW))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs(vectorValues.size())
                 .build();
@@ -181,23 +183,21 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             assertEquals(S3, request.getRepositoryType());
             assertEquals(TEST_BUCKET, request.getContainerName());
             assertEquals(KNNConstants.FAISS_NAME, request.getEngine());
-            assertEquals(FP32, request.getDataType()); // TODO this will be in {fp16, fp32, byte, binary}
-            assertEquals(BLOB_KNNVEC, request.getVectorPath());
-            assertEquals(BLOB_KNNDID, request.getDocIdPath());
+            assertEquals(FP32, request.getDataType());
+            assertEquals(BLOB + VECTOR_BLOB_FILE_EXTENSION, request.getVectorPath());
+            assertEquals(BLOB + DOC_ID_FILE_EXTENSION, request.getDocIdPath());
             assertEquals(TEST_CLUSTER, request.getTenantId());
             assertEquals(vectorValues.size(), request.getDocCount());
             assertEquals(2, request.getDimension());
+            assertEquals(request.getIndexParameters().get(METHOD_PARAMETER_SPACE_TYPE), SpaceType.HAMMING.getValue());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public void testSubmitVectorBuild() throws IllegalAccessException, NoSuchFieldException, IOException, URISyntaxException {
+    public void testSubmitVectorBuild() throws IOException, URISyntaxException {
         CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
-        RemoteIndexHTTPClient client = RemoteIndexHTTPClient.getInstance();
-        Field httpClientField = RemoteIndexHTTPClient.class.getDeclaredField("httpClient");
-        httpClientField.setAccessible(true);
-        httpClientField.set(client, mockHttpClient);
+        RemoteIndexHTTPClient client = new RemoteIndexHTTPClient(mockHttpClient);
 
         when(mockHttpClient.execute(any(HttpPost.class), any(HttpClientResponseHandler.class))).thenAnswer(
             response -> MOCK_JOB_ID_RESPONSE

@@ -12,9 +12,9 @@ import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import java.io.IOException;
 
 /**
- * Interface for a Remote Index Client. This will support future implementations for protocols such as gRPC.
+ * Interface which dictates how we interact with a remote index build service.
  */
-public interface RemoteIndexClient {
+interface RemoteIndexClient {
     /**
      * Submit an index build request to the build service endpoint.
      * @param indexSettings IndexSettings for the index being built
