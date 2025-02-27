@@ -5,34 +5,22 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Getter;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.plugin.stats.StatNames;
-import org.opensearch.knn.plugin.transport.KNNStatsAction;
-import org.opensearch.knn.plugin.transport.KNNStatsNodeResponse;
-import org.opensearch.knn.plugin.transport.KNNStatsRequest;
-import org.opensearch.knn.plugin.transport.KNNStatsResponse;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.transport.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Runs the circuit breaker logic and updates the settings
  */
+@Getter
 public class KNNCircuitBreaker {
-    private static Logger logger = LogManager.getLogger(KNNCircuitBreaker.class);
     public static final String KNN_CIRCUIT_BREAKER_TIER = "knn_cb_tier";
     public static int CB_TIME_INTERVAL = 2 * 60; // seconds
 
     private static KNNCircuitBreaker INSTANCE;
-    private ThreadPool threadPool;
-    private ClusterService clusterService;
-    private Client client;
+
+    private boolean isTripped = false;
 
     private KNNCircuitBreaker() {}
 
@@ -44,68 +32,34 @@ public class KNNCircuitBreaker {
     }
 
     /**
-     * SetInstance of Circuit Breaker
+     * Initialize the circuit breaker
      *
-     * @param instance KNNCircuitBreaker instance
+     * @param threadPool ThreadPool instance
      */
-    public static synchronized void setInstance(KNNCircuitBreaker instance) {
-        INSTANCE = instance;
-    }
-
-    public void initialize(ThreadPool threadPool, ClusterService clusterService, Client client) {
-        this.threadPool = threadPool;
-        this.clusterService = clusterService;
-        this.client = client;
+    public void initialize(ThreadPool threadPool) {
         NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         Runnable runnable = () -> {
-            if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
+            if (isTripped) {
                 long currentSizeKiloBytes = nativeMemoryCacheManager.getCacheSizeInKilobytes();
                 long circuitBreakerLimitSizeKiloBytes = KNNSettings.state().getCircuitBreakerLimit().getKb();
                 long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage() / 100)
                     * circuitBreakerLimitSizeKiloBytes);
-                /**
-                 * Unset capacityReached flag if currentSizeBytes is less than circuitBreakerUnsetSizeBytes
-                 */
+
+                // Unset capacityReached flag if currentSizeBytes is less than circuitBreakerUnsetSizeBytes
                 if (currentSizeKiloBytes <= circuitBreakerUnsetSizeKiloBytes) {
-                    nativeMemoryCacheManager.setCacheCapacityReached(false);
-                }
-            }
-
-            // Leader node untriggers CB if all nodes have not reached their max capacity
-            if (KNNSettings.isCircuitBreakerTriggered() && clusterService.state().nodes().isLocalNodeElectedClusterManager()) {
-                KNNStatsRequest knnStatsRequest = new KNNStatsRequest();
-                knnStatsRequest.addStat(StatNames.CACHE_CAPACITY_REACHED.getName());
-                knnStatsRequest.timeout(new TimeValue(1000 * 10)); // 10 second timeout
-
-                try {
-                    KNNStatsResponse knnStatsResponse = client.execute(KNNStatsAction.INSTANCE, knnStatsRequest).get();
-                    List<KNNStatsNodeResponse> nodeResponses = knnStatsResponse.getNodes();
-
-                    List<String> nodesAtMaxCapacity = new ArrayList<>();
-                    for (KNNStatsNodeResponse nodeResponse : nodeResponses) {
-                        if ((Boolean) nodeResponse.getStatsMap().get(StatNames.CACHE_CAPACITY_REACHED.getName())) {
-                            nodesAtMaxCapacity.add(nodeResponse.getNode().getId());
-                        }
-                    }
-
-                    if (!nodesAtMaxCapacity.isEmpty()) {
-                        logger.info(
-                            "[KNN] knn.circuit_breaker.triggered stays set. Nodes at max cache capacity: "
-                                + String.join(",", nodesAtMaxCapacity)
-                                + "."
-                        );
-                    } else {
-                        logger.info(
-                            "[KNN] Cache capacity below 75% of the circuit breaker limit for all nodes."
-                                + " Unsetting knn.circuit_breaker.triggered flag."
-                        );
-                        KNNSettings.state().updateCircuitBreakerSettings(false);
-                    }
-                } catch (Exception e) {
-                    logger.error("[KNN] Exception getting stats: " + e);
+                    setTripped(false);
                 }
             }
         };
-        this.threadPool.scheduleWithFixedDelay(runnable, TimeValue.timeValueSeconds(CB_TIME_INTERVAL), ThreadPool.Names.GENERIC);
+        threadPool.scheduleWithFixedDelay(runnable, TimeValue.timeValueSeconds(CB_TIME_INTERVAL), ThreadPool.Names.GENERIC);
+    }
+
+    /**
+     * Set the circuit breaker flag
+     *
+     * @param isTripped true if circuit breaker is tripped, false otherwise
+     */
+    public synchronized void setTripped(boolean isTripped) {
+        this.isTripped = isTripped;
     }
 }

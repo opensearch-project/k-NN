@@ -387,18 +387,6 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         nativeMemoryCacheManager.close();
     }
 
-    public void testCacheCapacity() {
-        NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        assertFalse(nativeMemoryCacheManager.isCacheCapacityReached());
-
-        nativeMemoryCacheManager.setCacheCapacityReached(true);
-        assertTrue(nativeMemoryCacheManager.isCacheCapacityReached());
-
-        nativeMemoryCacheManager.setCacheCapacityReached(false);
-        assertFalse(nativeMemoryCacheManager.isCacheCapacityReached());
-        nativeMemoryCacheManager.close();
-    }
-
     public void testGetIndicesCacheStats() throws IOException, ExecutionException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
         Map<String, Map<String, Object>> indicesStats = nativeMemoryCacheManager.getIndicesCacheStats();

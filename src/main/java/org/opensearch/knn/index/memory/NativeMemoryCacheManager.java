@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
+import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.threadpool.ThreadPool;
@@ -414,24 +415,6 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
-     * Returns whether or not the capacity of the cache has been reached
-     *
-     * @return Boolean of whether cache limit has been reached
-     */
-    public Boolean isCacheCapacityReached() {
-        return cacheCapacityReached.get();
-    }
-
-    /**
-     * Sets cache capacity reached
-     *
-     * @param value Boolean value to set cache Capacity Reached to
-     */
-    public void setCacheCapacityReached(Boolean value) {
-        cacheCapacityReached.set(value);
-    }
-
-    /**
      * Get the stats of all of the OpenSearch indices currently loaded into the cache
      *
      * @return Map containing all of the OpenSearch indices in the cache and their stats
@@ -461,8 +444,7 @@ public class NativeMemoryCacheManager implements Closeable {
         nativeMemoryAllocation.close();
 
         if (RemovalCause.SIZE == removalNotification.getCause()) {
-            KNNSettings.state().updateCircuitBreakerSettings(true);
-            setCacheCapacityReached(true);
+            KNNCircuitBreaker.getInstance().setTripped(true);
         }
 
         logger.debug("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(), removalNotification.getCause());

@@ -31,7 +31,7 @@ public class KNNStatsTransportAction extends TransportNodesAction<
     KNNStatsNodeRequest,
     KNNStatsNodeResponse> {
 
-    private KNNStats knnStats;
+    private final KNNStats knnStats;
 
     /**
      * Constructor

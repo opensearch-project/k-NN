@@ -60,6 +60,8 @@ import org.opensearch.knn.plugin.transport.DeleteModelAction;
 import org.opensearch.knn.plugin.transport.DeleteModelTransportAction;
 import org.opensearch.knn.plugin.transport.GetModelAction;
 import org.opensearch.knn.plugin.transport.GetModelTransportAction;
+import org.opensearch.knn.plugin.transport.KNNCircuitBreakerTrippedAction;
+import org.opensearch.knn.plugin.transport.KNNCircuitBreakerTrippedTransportAction;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsTransportAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
@@ -202,7 +204,7 @@ public class KNNPlugin extends Plugin
         VectorReader vectorReader = new VectorReader(client);
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 
-        KNNSettings.state().initialize(client, clusterService);
+        KNNSettings.state().initialize(clusterService);
         KNNClusterUtil.instance().initialize(clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
@@ -210,14 +212,14 @@ public class KNNPlugin extends Plugin
         TrainingJobClusterStateListener.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         QuantizationStateCache.setThreadPool(threadPool);
         NativeMemoryCacheManager.setThreadPool(threadPool);
-        KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
+        KNNCircuitBreaker.getInstance().initialize(threadPool);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
-        knnStats = new KNNStats();
+        knnStats = new KNNStats(client);
         return ImmutableList.of(knnStats);
     }
 
@@ -277,7 +279,8 @@ public class KNNPlugin extends Plugin
             new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
             new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class),
             new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class),
-            new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class)
+            new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class),
+            new ActionHandler<>(KNNCircuitBreakerTrippedAction.INSTANCE, KNNCircuitBreakerTrippedTransportAction.class)
         );
     }
 

@@ -21,7 +21,7 @@ public class StatsIT extends AbstractRollingUpgradeTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        this.knnStats = new KNNStats();
+        this.knnStats = new KNNStats(null);
     }
 
     // Validate if all the KNN Stats metrics from old version are present in new version
