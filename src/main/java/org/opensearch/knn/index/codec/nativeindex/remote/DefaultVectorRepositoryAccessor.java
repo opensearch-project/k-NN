@@ -19,12 +19,16 @@ import org.opensearch.common.io.InputStreamContainer;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -209,5 +213,31 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
             );
             return new InputStreamContainer(vectorValuesInputStream, size, position);
         });
+    }
+
+    @Override
+    public void readFromRepository(String path, IndexOutputWithBuffer indexOutputWithBuffer) throws IOException {
+        if (path == null || path.isEmpty()) {
+            throw new IllegalArgumentException("download path is null or empty");
+        }
+        Path downloadPath = Paths.get(path);
+        String fileName = downloadPath.getFileName().toString();
+        if (!fileName.endsWith(KNNEngine.FAISS.getExtension())) {
+            log.error("download path [{}] does not end with extension [{}}", downloadPath, KNNEngine.FAISS.getExtension());
+            throw new IllegalArgumentException("download path has incorrect file extension");
+        }
+
+        BlobPath blobContainerPath = new BlobPath();
+        if (downloadPath.getParent() != null) {
+            for (Path p : downloadPath.getParent()) {
+                blobContainerPath = blobContainerPath.add(p.getFileName().toString());
+            }
+        }
+
+        BlobContainer blobContainer = repository.blobStore().blobContainer(blobContainerPath);
+        // TODO: We are using the sequential download API as multi-part parallel download is difficult for us to implement today and
+        // requires some changes in core. For more details, see: https://github.com/opensearch-project/k-NN/issues/2464
+        InputStream graphStream = blobContainer.readBlob(fileName);
+        indexOutputWithBuffer.writeFromStreamWithBuffer(graphStream);
     }
 }
