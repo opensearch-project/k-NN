@@ -13,7 +13,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
-import org.opensearch.knn.plugin.stats.suppliers.KNNClusterLevelCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNNodeLevelCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNInnerCacheStatsSupplier;
@@ -149,7 +148,7 @@ public class KNNStats {
             .put(StatNames.GRAPH_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_REQUESTS)))
             .put(StatNames.GRAPH_INDEX_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_ERRORS)))
             .put(StatNames.GRAPH_INDEX_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_REQUESTS)))
-            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new KNNStat<>(true, new KNNClusterLevelCircuitBreakerSupplier(client)));
+            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new CircuitBreakerStat(client));
     }
 
     private void addEngineStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {

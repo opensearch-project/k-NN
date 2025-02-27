@@ -5,24 +5,33 @@
 
 package org.opensearch.knn.plugin.stats;
 
+import lombok.Getter;
+import org.opensearch.core.action.ActionListener;
+
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * Class represents a stat the plugin keeps track of
  */
 public class KNNStat<T> {
-    private Boolean clusterLevel;
-    private Supplier<T> supplier;
+    @Getter
+    private Boolean isClusterLevel;
+    private final Function<KNNStatFetchContext, T> statFetcher;
 
     /**
      * Constructor
      *
-     * @param clusterLevel the scope of the stat
+     * @param isClusterLevel the scope of the stat
      * @param supplier supplier that returns the stat's value
      */
-    public KNNStat(Boolean clusterLevel, Supplier<T> supplier) {
-        this.clusterLevel = clusterLevel;
-        this.supplier = supplier;
+    public KNNStat(Boolean isClusterLevel, Supplier<T> supplier) {
+        this(isClusterLevel, context -> supplier.get());
+    }
+
+    public KNNStat(Boolean isClusterLevel, Function<KNNStatFetchContext, T> statFetcher) {
+        this.isClusterLevel = isClusterLevel;
+        this.statFetcher = statFetcher;
     }
 
     /**
@@ -31,7 +40,11 @@ public class KNNStat<T> {
      * @return boolean that is true if the stat is clusterLevel; false otherwise
      */
     public Boolean isClusterLevel() {
-        return clusterLevel;
+        return isClusterLevel;
+    }
+
+    public ActionListener<Void> setupContext(KNNStatFetchContext knnStatFetchContext, ActionListener<Void> actionListener) {
+        return actionListener;
     }
 
     /**
@@ -40,6 +53,16 @@ public class KNNStat<T> {
      * @return value of the stat
      */
     public T getValue() {
-        return supplier.get();
+        return getValue(null);
+    }
+
+    /**
+     * Get the value of the statistic
+     *
+     * @param statFetchContext context for fetching the stat
+     * @return value of the stat
+     */
+    public T getValue(KNNStatFetchContext statFetchContext) {
+        return statFetcher.apply(statFetchContext);
     }
 }
