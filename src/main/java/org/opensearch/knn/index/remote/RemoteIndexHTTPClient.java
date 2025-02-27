@@ -23,12 +23,12 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -66,14 +65,12 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDP
  * InterruptedExceptions will cause a fallback to local CPU build.
  */
 @Log4j2
-public class RemoteIndexHTTPClient implements RemoteIndexClient {
+public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     private static RemoteIndexHTTPClient INSTANCE;
     private volatile CloseableHttpClient httpClient;
     protected static final int MAX_RETRIES = 1; // 2 total attempts
     protected static final long BASE_DELAY_MS = 1000;
     protected static final String BUILD_ENDPOINT = "/_build";
-    protected static final String FP32 = "fp32";
-    protected static final String FP16 = "fp16";
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private String authHeader = null;
@@ -142,7 +139,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
     }
 
     /**
-    * Await the completion of the index build by polling periodically and handling the returned statuses.
+    * Await the completion of the index build by polling periodically and handling the returned statuses until timeout.
     * @param jobId identifier from the server to track the job
     * @return the path to the completed index
     */
@@ -191,12 +188,8 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
                 "Repository type " + repositoryType + " is not supported by the remote build service"
             );
         }
-        VectorDataType vectorDataType = indexInfo.getVectorDataType();
-        String exactDataType;
-        switch (vectorDataType) {
-            case FLOAT -> exactDataType = resolveFloatDataType(indexInfo);
-            default -> exactDataType = vectorDataType.getValue();
-        }
+        String vectorDataType = indexInfo.getVectorDataType().getValue();
+
         KNNVectorValues<?> vectorValues = indexInfo.getKnnVectorValuesSupplier().get();
         KNNCodecUtil.initializeVectorValues(vectorValues);
         assert (vectorValues.dimension() > 0);
@@ -214,7 +207,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
             .tenantId(indexSettings.getSettings().get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
             .dimension(vectorValues.dimension())
             .docCount(indexInfo.getTotalLiveDocs())
-            .dataType(exactDataType)
+            .dataType(vectorDataType)
             .engine(indexInfo.getKnnEngine().getName())
             .indexParameters(indexParameters)
             .build();
@@ -265,22 +258,6 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient {
             }
         }
         return indexParameters;
-    }
-
-    /**
-     * Use the index description in the index mappings to determine whether the float type is specifically fp16 or 32.
-     * @param indexInfo Index parameters
-     * @return fp16 or fp32 concrete type
-     */
-    private String resolveFloatDataType(BuildIndexParams indexInfo) {
-        String dataType = FP32;
-        if (indexInfo.getParameters().containsKey(INDEX_DESCRIPTION_PARAMETER)) {
-            String indexDescription = indexInfo.getParameters().get(INDEX_DESCRIPTION_PARAMETER).toString();
-            if (indexDescription.endsWith(FP16)) {
-                dataType = FP16;
-            }
-        }
-        return dataType;
     }
 
     /**

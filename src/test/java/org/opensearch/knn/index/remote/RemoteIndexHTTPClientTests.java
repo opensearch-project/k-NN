@@ -7,8 +7,8 @@ package org.opensearch.knn.index.remote;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.junit.Before;
@@ -27,7 +27,6 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -48,11 +47,15 @@ import java.util.Set;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
+import static org.opensearch.knn.index.SpaceType.L2;
+import static org.opensearch.knn.index.VectorDataType.FLOAT;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
 
@@ -62,8 +65,6 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     public static final String TEST_BUCKET = "test-bucket";
     public static final String BLOB = "blob";
     public static final String TEST_CLUSTER = "test-cluster";
-    public static final String L2 = "l2";
-    public static final String FP32 = "fp32";
     public static final String MOCK_JOB_ID_RESPONSE = "{\"job_id\": \"job-1739930402\"}";
     public static final String MOCK_JOB_ID = "job-1739930402";
     public static final String MOCK_BLOB_NAME = "blob";
@@ -93,36 +94,36 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
     public void testConstructBuildRequestJson() throws IOException {
         Map<String, Object> algorithmParams = new HashMap<>();
-        algorithmParams.put("ef_construction", 100);
-        algorithmParams.put("m", 16);
+        algorithmParams.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
+        algorithmParams.put(METHOD_PARAMETER_M, 16);
 
         Map<String, Object> indexParameters = new HashMap<>();
-        indexParameters.put("algorithm", "hnsw");
-        indexParameters.put("space_type", "l2");
+        indexParameters.put("algorithm", METHOD_HNSW);
+        indexParameters.put(METHOD_PARAMETER_SPACE_TYPE, L2.getValue());
         indexParameters.put("algorithm_parameters", algorithmParams);
 
         RemoteBuildRequest request = RemoteBuildRequest.builder()
-            .repositoryType("S3")
-            .containerName("MyVectorStore")
-            .vectorPath("MyVectorPath")
-            .docIdPath("MyDocIdPath")
-            .tenantId("MyTenant")
+            .repositoryType(S3)
+            .containerName(TEST_BUCKET)
+            .vectorPath(BLOB + VECTOR_BLOB_FILE_EXTENSION)
+            .docIdPath(BLOB + DOC_ID_FILE_EXTENSION)
+            .tenantId(TEST_CLUSTER)
             .dimension(256)
             .docCount(1_000_000)
-            .dataType("fp32")
-            .engine("faiss")
+            .dataType(FLOAT.getValue())
+            .engine(FAISS_NAME)
             .indexParameters(indexParameters)
             .build();
 
         String expectedJson = "{"
-            + "\"repository_type\":\"S3\","
-            + "\"container_name\":\"MyVectorStore\","
-            + "\"vector_path\":\"MyVectorPath\","
-            + "\"doc_id_path\":\"MyDocIdPath\","
-            + "\"tenant_id\":\"MyTenant\","
+            + "\"repository_type\":\"s3\","
+            + "\"container_name\":\"test-bucket\","
+            + "\"vector_path\":\"blob.knnvec\","
+            + "\"doc_id_path\":\"blob.knndid\","
+            + "\"tenant_id\":\"test-cluster\","
             + "\"dimension\":256,"
             + "\"doc_count\":1000000,"
-            + "\"data_type\":\"fp32\","
+            + "\"data_type\":\"float\","
             + "\"engine\":\"faiss\","
             + "\"index_parameters\":{"
             + "\"space_type\":\"l2\","
@@ -167,16 +168,13 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
                 vectorValues
             );
-            final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
-                VectorDataType.FLOAT,
-                randomVectorValues
-            );
+            final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(FLOAT, randomVectorValues);
 
-            Map<String, Object> algorithmParams = Map.of("ef_construction", 94, "m", 2);
+            Map<String, Object> algorithmParams = Map.of(METHOD_PARAMETER_EF_CONSTRUCTION, 94, METHOD_PARAMETER_M, 2);
 
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .knnEngine(KNNEngine.FAISS)
-                .vectorDataType(VectorDataType.FLOAT)
+                .vectorDataType(FLOAT)
                 .parameters(
                     Map.of(
                         KNNConstants.SPACE_TYPE,
@@ -197,7 +195,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             assertEquals(S3, request.getRepositoryType());
             assertEquals(TEST_BUCKET, request.getContainerName());
             assertEquals(KNNConstants.FAISS_NAME, request.getEngine());
-            assertEquals(FP32, request.getDataType());
+            assertEquals(FLOAT.getValue(), request.getDataType());
             assertEquals(BLOB + VECTOR_BLOB_FILE_EXTENSION, request.getVectorPath());
             assertEquals(BLOB + DOC_ID_FILE_EXTENSION, request.getDocIdPath());
             assertEquals(TEST_CLUSTER, request.getTenantId());
@@ -239,12 +237,12 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
             vectorValues
         );
-        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(FLOAT, randomVectorValues);
 
         BuildIndexParams buildIndexParams = BuildIndexParams.builder()
             .knnEngine(KNNEngine.FAISS)
-            .vectorDataType(VectorDataType.FLOAT)
-            .parameters(Map.of(KNNConstants.SPACE_TYPE, L2, KNNConstants.NAME, KNNConstants.METHOD_HNSW))
+            .vectorDataType(FLOAT)
+            .parameters(Map.of(KNNConstants.SPACE_TYPE, L2.getValue(), KNNConstants.NAME, KNNConstants.METHOD_HNSW))
             .knnVectorValuesSupplier(() -> knnVectorValues)
             .totalLiveDocs(vectorValues.size())
             .build();
