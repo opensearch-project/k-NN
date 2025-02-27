@@ -5,33 +5,38 @@
 
 package org.opensearch.knn.plugin.stats;
 
+import lombok.Getter;
+import org.opensearch.core.action.ActionListener;
+
 import java.util.function.Supplier;
 
 /**
  * Class represents a stat the plugin keeps track of
  */
 public class KNNStat<T> {
-    private Boolean clusterLevel;
-    private Supplier<T> supplier;
+    @Getter
+    private final boolean isClusterLevel;
+    private final Supplier<T> supplier;
 
     /**
      * Constructor
      *
-     * @param clusterLevel the scope of the stat
+     * @param isClusterLevel the scope of the stat
      * @param supplier supplier that returns the stat's value
      */
-    public KNNStat(Boolean clusterLevel, Supplier<T> supplier) {
-        this.clusterLevel = clusterLevel;
+    public KNNStat(Boolean isClusterLevel, Supplier<T> supplier) {
+        this.isClusterLevel = isClusterLevel;
         this.supplier = supplier;
     }
 
     /**
-     * Determines whether the stat is kept at the cluster level or the node level
+     * Allows stats to set context via asynchronous calls. This should only be used for cluster level stats.
      *
-     * @return boolean that is true if the stat is clusterLevel; false otherwise
+     * @param actionListener listener to call once the context is setup. If no async calls are made, then do nothing.
+     * @return listener that will execute setup on response.
      */
-    public Boolean isClusterLevel() {
-        return clusterLevel;
+    public ActionListener<Void> setupContext(ActionListener<Void> actionListener) {
+        return actionListener;
     }
 
     /**

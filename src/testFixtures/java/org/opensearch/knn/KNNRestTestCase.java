@@ -2388,4 +2388,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
         // create snapshot
         createSnapshot(repository, snapshot, true);
     }
+
+    protected boolean isCbTripped() throws Exception {
+        Response response = getKnnStats(Collections.emptyList(), Collections.singletonList("circuit_breaker_triggered"));
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
+        return Boolean.parseBoolean(clusterStats.get("circuit_breaker_triggered").toString());
+    }
+
+    protected void tripCB(String index, String snapshot) {
+        setupSnapshotRestore(index, snapshot, "repo-" + randomLowerCaseString());
+    }
 }

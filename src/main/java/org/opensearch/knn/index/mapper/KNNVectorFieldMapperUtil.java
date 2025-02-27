@@ -20,6 +20,7 @@ import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.Version;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
@@ -114,9 +115,9 @@ public class KNNVectorFieldMapperUtil {
      * Validate if the circuit breaker is triggered
      */
     static void validateIfCircuitBreakerIsNotTriggered() {
-        if (KNNSettings.isCircuitBreakerTriggered()) {
+        if (KNNCircuitBreaker.getInstance().isTripped()) {
             throw new KnnCircuitBreakerException(
-                "Parsing the created knn vector fields prior to indexing has failed as the circuit breaker triggered.  This indicates that the cluster is low on memory resources and cannot index more documents at the moment. Check _plugins/_knn/stats for the circuit breaker status."
+                "Parsing the created knn vector fields prior to indexing has failed as the circuit breaker triggered.  This indicates that the node is low on memory resources and cannot index more documents at the moment. Check _plugins/_knn/stats for the circuit breaker status."
             );
         }
     }

@@ -20,7 +20,6 @@ import lombok.SneakyThrows;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -99,11 +98,6 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
     @Override
     public void tearDown() throws Exception {
-        // Clear out persistent metadata
-        ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder().putNull(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED).build();
-        clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
-        client().admin().cluster().updateSettings(clusterUpdateSettingsRequest).get();
         NativeMemoryCacheManager.getInstance().close();
         super.tearDown();
     }
@@ -435,18 +429,6 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         cacheSize = nativeMemoryCacheManager.getCacheSizeInKilobytes();
         assertEquals(0, cacheSize);
 
-        nativeMemoryCacheManager.close();
-    }
-
-    public void testCacheCapacity() {
-        NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        assertFalse(nativeMemoryCacheManager.isCacheCapacityReached());
-
-        nativeMemoryCacheManager.setCacheCapacityReached(true);
-        assertTrue(nativeMemoryCacheManager.isCacheCapacityReached());
-
-        nativeMemoryCacheManager.setCacheCapacityReached(false);
-        assertFalse(nativeMemoryCacheManager.isCacheCapacityReached());
         nativeMemoryCacheManager.close();
     }
 

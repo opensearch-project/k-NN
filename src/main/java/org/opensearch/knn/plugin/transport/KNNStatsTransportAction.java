@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.plugin.stats.KNNStats;
 
 import org.opensearch.action.FailedNodeException;
@@ -13,6 +14,7 @@ import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -31,7 +33,7 @@ public class KNNStatsTransportAction extends TransportNodesAction<
     KNNStatsNodeRequest,
     KNNStatsNodeResponse> {
 
-    private KNNStats knnStats;
+    private final KNNStats knnStats;
 
     /**
      * Constructor
@@ -62,6 +64,19 @@ public class KNNStatsTransportAction extends TransportNodesAction<
             KNNStatsNodeResponse.class
         );
         this.knnStats = knnStats;
+    }
+
+    protected void doExecute(Task task, KNNStatsRequest request, ActionListener<KNNStatsResponse> listener) {
+        // Setup the context for the cluster stats. This gives opportunity to make async calls to the cluster to
+        // collect information
+        ActionListener<Void> contextListener = ActionListener.wrap(none -> super.doExecute(task, request, listener), listener::onFailure);
+        Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
+        for (String statName : knnStats.getClusterStats().keySet()) {
+            if (statsToBeRetrieved.contains(statName)) {
+                contextListener = knnStats.getClusterStats().get(statName).setupContext(contextListener);
+            }
+        }
+        contextListener.onResponse(null);
     }
 
     @Override

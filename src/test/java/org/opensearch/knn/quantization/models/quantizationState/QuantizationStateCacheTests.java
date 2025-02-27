@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import org.junit.After;
 import org.junit.Before;
-import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -352,9 +351,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
-        Client client = mock(Client.class);
-
-        KNNSettings.state().initialize(client, clusterService);
+        KNNSettings.state().initialize(clusterService);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
         cache.rebuildCache();
@@ -404,10 +401,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
-
-        Client client = mock(Client.class);
-
-        KNNSettings.state().initialize(client, clusterService);
+        KNNSettings.state().initialize(clusterService);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
         cache.addQuantizationState(fieldName, state);

@@ -7,19 +7,21 @@ package org.opensearch.knn.plugin.stats;
 
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.Version;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
-import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
+import org.opensearch.knn.plugin.stats.suppliers.KNNNodeLevelCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNInnerCacheStatsSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.LibraryInitializedSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.ModelIndexStatusSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.ModelIndexingDegradingSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplier;
+import org.opensearch.transport.client.Client;
 
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -31,12 +33,16 @@ import java.util.function.Supplier;
  */
 public class KNNStats {
 
+    private final Client client;
+    private final Supplier<Version> minVersionSupplier;
     private final Map<String, KNNStat<?>> knnStats;
 
     /**
      * Constructor
      */
-    public KNNStats() {
+    public KNNStats(Client client, Supplier<Version> minVersionSupplier) {
+        this.client = client;
+        this.minVersionSupplier = minVersionSupplier;
         this.knnStats = buildStatsMap();
     }
 
@@ -140,15 +146,12 @@ public class KNNStats {
                 StatNames.INDICES_IN_CACHE.getName(),
                 new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesCacheStats))
             )
-            .put(
-                StatNames.CACHE_CAPACITY_REACHED.getName(),
-                new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::isCacheCapacityReached))
-            )
+            .put(StatNames.CACHE_CAPACITY_REACHED.getName(), new KNNStat<>(false, new KNNNodeLevelCircuitBreakerSupplier()))
             .put(StatNames.GRAPH_QUERY_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_ERRORS)))
             .put(StatNames.GRAPH_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_REQUESTS)))
             .put(StatNames.GRAPH_INDEX_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_ERRORS)))
             .put(StatNames.GRAPH_INDEX_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_REQUESTS)))
-            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new KNNStat<>(true, new KNNCircuitBreakerSupplier()));
+            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new CircuitBreakerStat(client, minVersionSupplier));
     }
 
     private void addEngineStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
