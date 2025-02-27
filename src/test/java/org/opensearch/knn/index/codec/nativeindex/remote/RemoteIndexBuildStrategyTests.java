@@ -11,6 +11,7 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
 
@@ -41,6 +42,13 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         );
         objectUnderTest.buildAndWriteIndex(buildIndexParams);
         assertTrue(fallback.get());
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.WRITE_SUCCESS_COUNT.getValue());
+        assertEquals(1L, (long) KNNRemoteIndexBuildValue.WRITE_FAILURE_COUNT.getValue()); // Repository is first accessed during write
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.WRITE_TIME.getValue());
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.READ_SUCCESS_COUNT.getValue());
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.READ_FAILURE_COUNT.getValue());
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.READ_TIME.getValue());
+        assertTrue(KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_TIME.getValue() > 0L);
     }
 
     public void testShouldBuildIndexRemotely() {
