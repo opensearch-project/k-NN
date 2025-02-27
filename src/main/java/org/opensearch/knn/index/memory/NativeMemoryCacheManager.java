@@ -54,6 +54,7 @@ public class NativeMemoryCacheManager implements Closeable {
     private static NativeMemoryCacheManager INSTANCE;
     @Setter
     private static ThreadPool threadPool;
+    public static int CB_TIME_INTERVAL = 2 * 60; // seconds
 
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
@@ -125,6 +126,7 @@ public class NativeMemoryCacheManager implements Closeable {
 
         if (threadPool != null) {
             startMaintenance(cache);
+            circuitBreakerUpdater();
         } else {
             logger.warn("ThreadPool is null during NativeMemoryCacheManager initialization. Maintenance will not start.");
         }
@@ -481,5 +483,22 @@ public class NativeMemoryCacheManager implements Closeable {
         TimeValue interval = KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES);
 
         maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
+    }
+
+    private void circuitBreakerUpdater() {
+        Runnable runnable = () -> {
+            if (KNNCircuitBreaker.getInstance().isTripped()) {
+                long currentSizeKiloBytes = getCacheSizeInKilobytes();
+                long circuitBreakerLimitSizeKiloBytes = KNNSettings.state().getCircuitBreakerLimit().getKb();
+                long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage() / 100)
+                    * circuitBreakerLimitSizeKiloBytes);
+
+                // Unset capacityReached flag if currentSizeBytes is less than circuitBreakerUnsetSizeBytes
+                if (currentSizeKiloBytes <= circuitBreakerUnsetSizeKiloBytes) {
+                    KNNCircuitBreaker.getInstance().setTripped(false);
+                }
+            }
+        };
+        threadPool.scheduleWithFixedDelay(runnable, TimeValue.timeValueSeconds(CB_TIME_INTERVAL), ThreadPool.Names.GENERIC);
     }
 }

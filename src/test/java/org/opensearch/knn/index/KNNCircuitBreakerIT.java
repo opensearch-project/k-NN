@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.CB_TIME_INTERVAL;
 
 /**
  * Integration tests to test Circuit Breaker functionality
@@ -158,10 +158,16 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
     }
 
     public void verifyCbUntrips() throws Exception {
-
         if (!isCbTripped()) {
-            updateClusterSettings("knn.circuit_breaker.triggered", "true");
+            // Set cluster-level limit to 1kb (half of what indices require)
+            updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
 
+            // Load indices into cache
+            search(INDEX_1, INDEX_2);
+
+            // Verify circuit breaker tripped
+            Thread.sleep(5 * 1000);
+            assertTrue(isCbTripped());
         }
 
         int backOffInterval = 5; // seconds
