@@ -27,7 +27,6 @@ import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceFactory;
-import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNSettings;
@@ -279,11 +278,6 @@ public class KNNPlugin extends Plugin
             new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class),
             new ActionHandler<>(KNNCircuitBreakerTrippedAction.INSTANCE, KNNCircuitBreakerTrippedTransportAction.class)
         );
-    }
-
-    @Override
-    public Optional<EngineFactory> getEngineFactory(IndexSettings indexSettings) {
-        return Optional.empty();
     }
 
     @Override
