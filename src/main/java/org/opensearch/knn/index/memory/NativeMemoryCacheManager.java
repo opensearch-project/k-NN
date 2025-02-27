@@ -123,6 +123,8 @@ public class NativeMemoryCacheManager implements Closeable {
         cacheCapacityReached = new AtomicBoolean(false);
         accessRecencyQueue = new ConcurrentLinkedDeque<>();
         cache = cacheBuilder.build();
+        // Set to false when initialized. This will ensure that we dont have to wait for the maintenance job
+        KNNCircuitBreaker.getInstance().setTripped(false);
 
         if (threadPool != null) {
             startMaintenance(cache);

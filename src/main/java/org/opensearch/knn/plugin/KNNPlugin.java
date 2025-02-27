@@ -215,7 +215,7 @@ public class KNNPlugin extends Plugin
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
-        KNNStats knnStats = new KNNStats(client);
+        KNNStats knnStats = new KNNStats(client, () -> clusterService.getClusterManagerService().getMinNodeVersion());
         return ImmutableList.of(knnStats);
     }
 

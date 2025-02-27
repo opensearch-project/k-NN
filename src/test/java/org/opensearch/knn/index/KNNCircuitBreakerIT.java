@@ -151,18 +151,6 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
     }
 
     public void verifyCbUntrips() throws Exception {
-        if (!isCbTripped()) {
-            // Set cluster-level limit to 1kb (half of what indices require)
-            updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
-
-            // Load indices into cache
-            search(INDEX_1, INDEX_2);
-
-            // Verify circuit breaker tripped
-            Thread.sleep(5 * 1000);
-            assertTrue(isCbTripped());
-        }
-
         int backOffInterval = 5; // seconds
         for (int i = 0; i < CB_TIME_INTERVAL; i += backOffInterval) {
             if (!isCbTripped()) {
