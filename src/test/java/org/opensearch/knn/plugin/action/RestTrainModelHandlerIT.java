@@ -52,7 +52,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
         // Create a training index and randomly ingest data into it
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 4;
+        int trainingDataCount = 1;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         // Call the train API with this definition:
