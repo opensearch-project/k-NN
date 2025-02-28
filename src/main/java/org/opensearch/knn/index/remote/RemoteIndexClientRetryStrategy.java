@@ -16,6 +16,13 @@ import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 import java.util.List;
 
+import static org.apache.hc.core5.http.HttpStatus.SC_BAD_GATEWAY;
+import static org.apache.hc.core5.http.HttpStatus.SC_CONFLICT;
+import static org.apache.hc.core5.http.HttpStatus.SC_INTERNAL_SERVER_ERROR;
+import static org.apache.hc.core5.http.HttpStatus.SC_REQUEST_TIMEOUT;
+import static org.apache.hc.core5.http.HttpStatus.SC_SERVICE_UNAVAILABLE;
+import static org.apache.hc.core5.http.HttpStatus.SC_TOO_MANY_REQUESTS;
+
 /**
  * The public constructors for the Apache HTTP client default retry strategies allow customization of max retries
  * and retry interval, but not retryable status codes.
@@ -23,12 +30,24 @@ import java.util.List;
  * @see org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy
  */
 public class RemoteIndexClientRetryStrategy extends DefaultHttpRequestRetryStrategy {
-    private static final List<Integer> retryableCodes = List.of(408, 429, 500, 502, 503, 504, 509);
+    private static final int SC_BANDWIDTH_LIMIT_EXCEEDED = 509;
+    private static final int MAX_RETRIES = 1; // 2 total attempts
+    private static final long BASE_DELAY_MS = 1000;
+
+    private static final List<Integer> retryableCodes = List.of(
+        SC_REQUEST_TIMEOUT,
+        SC_TOO_MANY_REQUESTS,
+        SC_INTERNAL_SERVER_ERROR,
+        SC_BAD_GATEWAY,
+        SC_SERVICE_UNAVAILABLE,
+        SC_CONFLICT,
+        SC_BANDWIDTH_LIMIT_EXCEEDED
+    );
 
     public RemoteIndexClientRetryStrategy() {
         super(
-            RemoteIndexHTTPClient.MAX_RETRIES,
-            TimeValue.ofMilliseconds(RemoteIndexHTTPClient.BASE_DELAY_MS),
+            MAX_RETRIES,
+            TimeValue.ofMilliseconds(BASE_DELAY_MS),
             List.of(
                 InterruptedIOException.class,
                 UnknownHostException.class,

@@ -8,33 +8,41 @@ package org.opensearch.knn.index.remote;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.nativeindex.remote.RemoteStatusResponse;
 
 import java.io.IOException;
 
 /**
  * Interface which dictates how we interact with a remote index build service.
  */
-interface RemoteIndexClient {
+public interface RemoteIndexClient {
+
     /**
-     * Submit an index build request to the build service endpoint.
-     * @param indexSettings IndexSettings for the index being built
-     * @param indexInfo BuildIndexParams for the index being built
-     * @param repositoryMetadata RepositoryMetadata representing the registered repo
-     * @param blobName The name of the blob written to the repo, to be suffixed with ".knnvec" or ".knndid"
-     * @return job_id from the server response used to track the job
-     * @throws IOException if there is an issue with the request
+     * Submit a build to the Remote Vector Build Service.
+     * @return RemoteBuildResponse from the server
      */
-    String submitVectorBuild(
+    RemoteBuildResponse submitVectorBuild(RemoteBuildRequest remoteBuildRequest) throws IOException;
+
+    /**
+     * Await the completion of the index build and for the server to return the path to the completed index
+     * @param remoteBuildResponse  the /_build request response from the server
+     * @return remoteStatusResponse from the server
+     */
+    RemoteStatusResponse awaitVectorBuild(RemoteBuildResponse remoteBuildResponse);
+
+    /**
+     * Construct the RemoteBuildRequest from the given parameters
+     * @param indexSettings IndexSettings to use to get the repository metadata
+     * @param indexInfo BuildIndexParams to use to get the index info
+     * @param repositoryMetadata RepositoryMetadata to use to get the repository type
+     * @param blobName blob name to use to get the blob name
+     * @return RemoteBuildRequest to use to submit the build
+     * @throws IOException if there is an error constructing the request
+     */
+    RemoteBuildRequest constructBuildRequest(
         IndexSettings indexSettings,
         BuildIndexParams indexInfo,
         RepositoryMetadata repositoryMetadata,
         String blobName
     ) throws IOException;
-
-    /**
-     * Await the completion of the index build and for the server to return the path to the completed index
-     * @param jobId identifier from the server to track the job
-     * @return the path to the completed index
-     */
-    String awaitVectorBuild(String jobId);
 }
