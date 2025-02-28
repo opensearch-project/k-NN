@@ -4,8 +4,6 @@
  */
 package org.opensearch.knn.index.remote;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -25,6 +23,10 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.MockSecureSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
@@ -77,11 +79,8 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
     protected AutoCloseable openMocks;
 
-    private ObjectMapper mapper;
-
     @Before
     public void setup() {
-        this.mapper = new ObjectMapper();
         openMocks = MockitoAnnotations.openMocks(this);
         clusterService = mock(ClusterService.class);
         Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
@@ -95,7 +94,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         client.close();
     }
 
-    public void testGetValueFromResponse() throws JsonProcessingException {
+    public void testGetValueFromResponse() throws IOException {
         String jobID = "{\"job_id\": \"job-1739930402\"}";
         assertEquals("job-1739930402", RemoteIndexHTTPClient.getValueFromResponse(jobID, JOB_ID));
         String failedIndexBuild = "{"
@@ -163,7 +162,19 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 + "}"
                 + "}"
                 + "}";
-            assertEquals(mapper.readTree(expectedJson), mapper.readTree(httpRequest.toJson()));
+            XContentParser parser1 = JsonXContent.jsonXContent.createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                expectedJson
+            );
+
+            XContentParser parser2 = JsonXContent.jsonXContent.createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                httpRequest.toJson()
+            );
+
+            assertEquals(parser1.map(), parser2.map());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
