@@ -391,9 +391,9 @@ public class KNNPlugin extends Plugin
      * Update the secure settings by passing the updated settings down upon reload
      */
     @Override
-    public void reload(Settings settings) throws Exception {
+    public void reload(Settings settings) {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
-            RemoteIndexHTTPClient.getInstance().reloadSecureSettings(settings);
+            RemoteIndexHTTPClient.getInstance().reloadAuthHeader(settings);
         }
     }
 }

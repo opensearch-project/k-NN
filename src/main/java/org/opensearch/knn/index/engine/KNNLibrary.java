@@ -7,9 +7,11 @@ package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
@@ -146,5 +148,13 @@ public interface KNNLibrary extends MethodResolver {
      */
     default boolean supportsRemoteIndexBuild() {
         return false;
+    }
+
+    /**
+     * Get the remote build supported index parameter mapping to be sent to the remote build service.
+     * @param params to parse
+     */
+    default Map<String, Object> getRemoteIndexingParameters(BuildIndexParams params) {
+        throw new UnsupportedOperationException("This method must be implemented by the implementing class");
     }
 }
