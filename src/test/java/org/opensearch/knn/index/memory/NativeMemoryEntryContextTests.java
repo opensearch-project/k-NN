@@ -30,6 +30,8 @@ import java.util.Map;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doReturn;
 
 public class NativeMemoryEntryContextTests extends KNNTestCase {
 
@@ -41,6 +43,34 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
     }
 
     public void testIndexEntryContext_load() throws IOException {
+        NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
+            new NativeMemoryEntryContext.IndexEntryContext(
+                (Directory) null,
+                TestUtils.createFakeNativeMamoryCacheKey("test"),
+                indexLoadStrategy,
+                null,
+                "test"
+            )
+        );
+
+        NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+            null,
+            0,
+            10,
+            KNNEngine.DEFAULT,
+            "test-path",
+            "test-name"
+        );
+
+        when(indexLoadStrategy.load(indexEntryContext)).thenReturn(indexAllocation);
+
+        // since we are returning mock instance, set indexEntryContext.isIndexGraphFileOpened to true.
+        doReturn(true).when(indexEntryContext).isIndexGraphFileOpened();
+        assertEquals(indexAllocation, indexEntryContext.load());
+    }
+
+    public void testIndexEntryContext_load_with_unopened_graphFile() throws IOException {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             (Directory) null,
@@ -59,9 +89,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             "test-name"
         );
 
-        when(indexLoadStrategy.load(indexEntryContext)).thenReturn(indexAllocation);
-
-        assertEquals(indexAllocation, indexEntryContext.load());
+        assertThrows(IllegalStateException.class, indexEntryContext::load);
     }
 
     public void testIndexEntryContext_calculateSize() throws IOException {
@@ -290,6 +318,11 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         @Override
         public Integer calculateSizeInKB() {
             return size;
+        }
+
+        @Override
+        public void open() {
+            return;
         }
 
         @Override
