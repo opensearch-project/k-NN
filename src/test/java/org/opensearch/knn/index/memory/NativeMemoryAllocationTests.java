@@ -392,7 +392,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         for (int i = 0; i < numVectors; i++) {
             Arrays.fill(vectors[i], 1f);
         }
-        long memoryAddress = JNIService.transferVectors(0, vectors);
+        long memoryAddress = JNICommons.storeVectorData(0, vectors, vectors.length * dimension);
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(

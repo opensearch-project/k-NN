@@ -15,7 +15,6 @@ import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.jni.JNICommons;
-import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.quantization.factory.QuantizerFactory;
 import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
@@ -59,9 +58,10 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
             }
         } else {
             trainingDataAllocation.setMemoryAddress(
-                JNIService.transferVectors(
+                JNICommons.storeVectorData(
                     trainingDataAllocation.getMemoryAddress(),
-                    floats.stream().map(v -> ArrayUtils.toPrimitive((Float[]) v)).toArray(float[][]::new)
+                    floats.stream().map(v -> ArrayUtils.toPrimitive((Float[]) v)).toArray(float[][]::new),
+                    floats.size()
                 )
             );
         }

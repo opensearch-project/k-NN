@@ -21,6 +21,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -49,7 +50,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
         int dimension = 3;
 
         // "Train" a faiss flat index - this really just creates an empty index that does brute force k-NN
-        long vectorsPointer = JNIService.transferVectors(0, new float[0][0]);
+        long vectorsPointer = JNICommons.storeVectorData(0, new float[0][0], 0);
         byte[] modelBlob = JNIService.trainIndex(
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,

@@ -162,7 +162,7 @@ public class TrainingJobTests extends KNNTestCase {
         int tdataPoints = 100;
         float[][] trainingData = new float[tdataPoints][dimension];
         fillFloatArrayRandomly(trainingData);
-        long memoryAddress = JNIService.transferVectors(0, trainingData);
+        long memoryAddress = JNICommons.storeVectorData(0, trainingData, trainingData.length * dimension);
 
         // Setup model manager
         NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
@@ -569,7 +569,7 @@ public class TrainingJobTests extends KNNTestCase {
         int tdataPoints = 2;
         float[][] trainingData = new float[tdataPoints][dimension];
         fillFloatArrayRandomly(trainingData);
-        long memoryAddress = JNIService.transferVectors(0, trainingData);
+        long memoryAddress = JNICommons.storeVectorData(0, trainingData, trainingData.length * dimension);
 
         // Setup model manager
         NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);

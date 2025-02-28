@@ -1811,13 +1811,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Integer m,
         Integer ef_construction
     ) {
-        return Settings.builder()
-            .put(NUMBER_OF_SHARDS, 1)
-            .put(NUMBER_OF_REPLICAS, 0)
-            .put(INDEX_KNN, true)
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction);
+        return Settings.builder().put(NUMBER_OF_SHARDS, 1).put(NUMBER_OF_REPLICAS, 0).put(INDEX_KNN, true);
     }
 
     protected Settings createKNNIndexCustomLegacyFieldMappingIndexSettings(SpaceType spaceType, Integer m, Integer ef_construction) {

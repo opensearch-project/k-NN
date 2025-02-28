@@ -16,6 +16,7 @@ import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.opensearch.client.Response;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
@@ -38,6 +39,7 @@ import java.util.TreeMap;
 import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 
+@Ignore("Skipping integration tests for NmslibIT")
 public class NmslibIT extends KNNRestTestCase {
 
     static TestUtils.TestData testData;

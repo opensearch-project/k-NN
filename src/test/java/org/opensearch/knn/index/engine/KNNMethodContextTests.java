@@ -20,6 +20,7 @@ import org.opensearch.index.mapper.MapperParsingException;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
+import org.opensearch.core.common.io.stream.StreamInput;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
@@ -305,6 +306,61 @@ public class KNNMethodContextTests extends KNNTestCase {
         validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, SpaceType.L2, null);
         validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, SpaceType.L2, null);
         validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, SpaceType.L2, null);
+    }
+
+    public void testWriteTo_withNullParameters() throws IOException {
+        MethodComponentContext methodComponent = new MethodComponentContext("test-method", null);
+
+        BytesStreamOutput streamOutput = new BytesStreamOutput();
+        methodComponent.writeTo(streamOutput);
+
+        MethodComponentContext deserialized = new MethodComponentContext(streamOutput.bytes().streamInput());
+
+        // Ensure parameters are empty (not null) for safety
+        assertNotNull(deserialized.getParameters());
+        assertTrue(deserialized.getParameters().isEmpty());
+    }
+
+    public void testWriteToReadFrom_withValidParameters() throws IOException {
+        Map<String, Object> parameters = ImmutableMap.of("param1", 10, "param2", "value");
+        MethodComponentContext original = new MethodComponentContext("test-method", parameters);
+
+        BytesStreamOutput streamOutput = new BytesStreamOutput();
+        original.writeTo(streamOutput);
+
+        MethodComponentContext deserialized = new MethodComponentContext(streamOutput.bytes().streamInput());
+
+        assertEquals(original, deserialized);
+        assertEquals(2, deserialized.getParameters().size());
+        assertEquals(10, deserialized.getParameters().get("param1"));
+        assertEquals("value", deserialized.getParameters().get("param2"));
+    }
+
+    public void testBackwardCompatibility_readFromOldVersion() throws IOException {
+        // Simulating an older version that did not write parameters explicitly
+        BytesStreamOutput streamOutput = new BytesStreamOutput();
+        streamOutput.writeString("old-method");
+        StreamInput streamInput = streamOutput.bytes().streamInput();
+        streamInput.setVersion(Version.V_2_19_0);
+
+        MethodComponentContext deserialized = new MethodComponentContext(streamInput);
+
+        // Ensure parameters are still handled gracefully
+        assertNotNull(deserialized.getParameters());
+        assertTrue(deserialized.getParameters().isEmpty());
+    }
+
+    public void testReadFrom_beforeVersion3_0_0() throws IOException {
+        // Simulate a stream written from a version before 3.0.0 (parameters not explicitly stored)
+        BytesStreamOutput streamOutput = new BytesStreamOutput();
+        streamOutput.writeString("test-method");
+        StreamInput streamInput = streamOutput.bytes().streamInput();
+        streamInput.setVersion(Version.V_2_19_0);
+
+        MethodComponentContext deserialized = new MethodComponentContext(streamInput);
+        // Ensure parameters default to an empty map for older versions
+        assertNotNull(deserialized.getParameters());
+        assertTrue(deserialized.getParameters().isEmpty());
     }
 
     private void validateValidateVectorDataType(

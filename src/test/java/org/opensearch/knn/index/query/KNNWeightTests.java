@@ -147,7 +147,6 @@ public class KNNWeightTests extends KNNTestCase {
         );
         knnSettingsMockedStatic.when(KNNSettings::getClusterCbLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
-        knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
         ByteSizeValue cacheSize = ByteSizeValue.parseBytesSizeValue("1024kb", QUANTIZATION_STATE_CACHE_SIZE_LIMIT); // Setting 1MB as an
                                                                                                                     // example
         when(knnSettings.getSettingValue(eq(QUANTIZATION_STATE_CACHE_SIZE_LIMIT))).thenReturn(cacheSize);

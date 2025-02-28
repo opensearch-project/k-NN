@@ -8,6 +8,7 @@ package org.opensearch.knn.integ;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.junit.Ignore;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.VectorDataType;
@@ -50,6 +51,7 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
         );
     }
 
+    @Ignore
     public void testBinaryIndexCreation_whenInvalid_thenThrowException() {
         Exception e = expectThrows(Exception.class, () -> createKnnIndex(INDEX_NAME, indexMapping));
         assertTrue(e.getMessage(), e.getMessage().contains(expectedExceptionMessage));

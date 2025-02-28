@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.faiss.Faiss;
@@ -23,6 +24,22 @@ public class KNNEngineTests extends KNNTestCase {
         assertEquals(Nmslib.INSTANCE.getVersion(), KNNEngine.NMSLIB.getVersion());
         assertEquals(Faiss.INSTANCE.getVersion(), KNNEngine.FAISS.getVersion());
         assertEquals(Lucene.INSTANCE.getVersion(), KNNEngine.LUCENE.getVersion());
+
+        // Validate that deprecated engines have correct deprecation versions
+        assertTrue(KNNEngine.NMSLIB.getRestrictedVersion() != null);
+        assertFalse(KNNEngine.FAISS.isRestricted(Version.V_3_0_0)); // FAISS should not be deprecated
+    }
+
+    /**
+     * Test that deprecated engines are correctly flagged
+     */
+    public void testIsRestricted() {
+        Version deprecatedVersion = KNNEngine.NMSLIB.getRestrictedVersion();
+        assertNotNull(deprecatedVersion);
+        assertTrue(KNNEngine.NMSLIB.isRestricted(Version.V_3_0_0)); // Should return true for later versions
+
+        assertFalse(KNNEngine.FAISS.isRestricted(Version.V_2_19_0)); // FAISS should not be deprecated
+        assertFalse(KNNEngine.LUCENE.isRestricted(Version.V_2_19_0)); // LUCENE should not be deprecated
     }
 
     public void testGetDefaultEngine_thenReturnFAISS() {

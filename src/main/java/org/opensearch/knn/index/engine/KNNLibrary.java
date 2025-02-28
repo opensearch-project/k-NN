@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 
@@ -146,5 +147,15 @@ public interface KNNLibrary extends MethodResolver {
      */
     default boolean supportsRemoteIndexBuild() {
         return false;
+    }
+
+    /**
+     * Checks if the library is deprecated for a given OpenSearch version.
+     *
+     * @param indexVersionCreated the OpenSearch version where the index is created
+     * @return true if deprecated, false otherwise
+     */
+    default boolean isRestricted(Version indexVersionCreated) {
+        return false; // By default, libraries are not deprecated
     }
 }
