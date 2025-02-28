@@ -10,31 +10,26 @@ import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 
 import java.io.IOException;
-import java.net.URI;
 
 import static org.opensearch.knn.common.KNNConstants.CONTAINER_NAME;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.DOC_COUNT;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_PATH;
 import static org.opensearch.knn.common.KNNConstants.DOC_ID_PATH;
 import static org.opensearch.knn.common.KNNConstants.INDEX_PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.REPOSITORY_TYPE;
 import static org.opensearch.knn.common.KNNConstants.TENANT_ID;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_PATH;
 
 /**
- * RemoteBuildRequest implementation for HTTP clients that sets the endpoint and offers a JSON conversion.
+ * HTTP-specific implementation of RemoteBuildRequest.
  */
 @Getter
 public class HTTPRemoteBuildRequest extends RemoteBuildRequest {
-    private final URI endpoint;
-
     public HTTPRemoteBuildRequest(
         IndexSettings indexSettings,
         BuildIndexParams indexInfo,
@@ -42,7 +37,6 @@ public class HTTPRemoteBuildRequest extends RemoteBuildRequest {
         String blobName
     ) throws IOException {
         super(indexSettings, indexInfo, repositoryMetadata, blobName);
-        this.endpoint = URI.create(KNNSettings.state().getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey()));
     }
 
     public String toJson() throws IOException {
@@ -55,7 +49,7 @@ public class HTTPRemoteBuildRequest extends RemoteBuildRequest {
             builder.field(TENANT_ID, tenantId);
             builder.field(DIMENSION, dimension);
             builder.field(DOC_COUNT, docCount);
-            builder.field(VECTOR_DATA_TYPE_FIELD, dataType);
+            builder.field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
             builder.field(KNN_ENGINE, engine);
             builder.field(INDEX_PARAMETERS, indexParameters);
             builder.endObject();

@@ -8,7 +8,6 @@ package org.opensearch.knn.index.engine.faiss;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -128,20 +127,22 @@ public class Faiss extends NativeLibrary {
         return spaceType.scoreToDistanceTranslation(score);
     }
 
+    // TODO refactor to make the index parameter fetching more intelligent and less cumbersome
     /**
      * Get the parameters that need to be passed to the remote build service for training
-     * @param indexInfo to parse
+     *
+     * @param indexInfoParameters result of indexInfo.getParameters() to parse
      * @return Map of parameters to be used as "index_parameters"
      */
     @Override
-    public Map<String, Object> getRemoteIndexingParameters(BuildIndexParams indexInfo) {
+    public Map<String, Object> getRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
         Map<String, Object> indexParameters = new HashMap<>();
-        String methodName = (String) indexInfo.getParameters().get(NAME);
+        String methodName = (String) indexInfoParameters.get(NAME);
         indexParameters.put(ALGORITHM, methodName);
-        indexParameters.put(METHOD_PARAMETER_SPACE_TYPE, indexInfo.getParameters().getOrDefault(SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE));
+        indexParameters.put(METHOD_PARAMETER_SPACE_TYPE, indexInfoParameters.getOrDefault(SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE));
 
-        assert (indexInfo.getParameters().containsKey(PARAMETERS));
-        Object innerParams = indexInfo.getParameters().get(PARAMETERS);
+        assert (indexInfoParameters.containsKey(PARAMETERS));
+        Object innerParams = indexInfoParameters.get(PARAMETERS);
         assert (innerParams instanceof Map);
         {
             Map<String, Object> algorithmParams = new HashMap<>();
@@ -156,7 +157,7 @@ public class Faiss extends NativeLibrary {
                         METHOD_PARAMETER_EF_SEARCH,
                         innerMap.getOrDefault(METHOD_PARAMETER_EF_SEARCH, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH)
                     );
-                    Object indexDescription = indexInfo.getParameters().get(INDEX_DESCRIPTION_PARAMETER);
+                    Object indexDescription = indexInfoParameters.get(INDEX_DESCRIPTION_PARAMETER);
                     assert indexDescription instanceof String;
                     algorithmParams.put(METHOD_PARAMETER_M, getMFromIndexDescription((String) indexDescription));
                 }

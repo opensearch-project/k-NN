@@ -6,8 +6,8 @@
 package org.opensearch.knn.index.remote;
 
 /**
- * Generic remote build response interface
+ * Remote build response. Currently, this just contains the jobId from the server.
+ * In the future, this may be an interface if different clients expect different responses.
  */
-public interface RemoteBuildResponse {
-    String getJobId();
+public record RemoteBuildResponse(String jobId) {
 }

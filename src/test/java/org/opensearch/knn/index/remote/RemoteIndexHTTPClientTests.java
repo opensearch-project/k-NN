@@ -7,6 +7,7 @@ package org.opensearch.knn.index.remote;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.ProtocolException;
 import org.apache.hc.core5.http.io.HttpClientResponseHandler;
@@ -37,7 +38,6 @@ import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -48,7 +48,6 @@ import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.*;
@@ -61,7 +60,6 @@ import static org.opensearch.knn.index.VectorDataType.FLOAT;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
 import static org.opensearch.knn.index.engine.faiss.Faiss.getMFromIndexDescription;
-import static org.opensearch.knn.index.remote.RemoteIndexHTTPClient.BASIC_PREFIX;
 
 public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
@@ -88,8 +86,9 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
     }
 
-    public void testGetHttpClient_success() throws IOException {
-        RemoteIndexHTTPClient client = RemoteIndexHTTPClient.getInstance();
+    public void testGetAndCloseHttpclient_success() throws IOException {
+        setupTestClusterSettings();
+        RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
         assertNotNull(client);
         client.close();
     }
@@ -124,23 +123,24 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
             KNNSettings.state().setClusterService(clusterService);
 
-            BuildIndexParams buildIndexParams = createTestBuildIndexParams();
+            BuildIndexParams indexInfo = createTestBuildIndexParams();
 
-            RemoteBuildRequest request = RemoteIndexHTTPClient.getInstance()
-                .constructBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME);
+            HTTPRemoteBuildRequest request = RemoteBuildRequestBuilder.builder(HTTPRemoteBuildRequest.class)
+                .indexSettings(mockIndexSettings)
+                .indexInfo(indexInfo)
+                .repositoryMetadata(metadata)
+                .blobName(MOCK_BLOB_NAME)
+                .build();
 
             assertEquals(S3, request.getRepositoryType());
             assertEquals(TEST_BUCKET, request.getContainerName());
             assertEquals(FAISS_NAME, request.getEngine());
-            assertEquals(FLOAT.getValue(), request.getDataType());
+            assertEquals(FLOAT.getValue(), request.getVectorDataType());
             assertEquals(MOCK_BLOB_NAME + VECTOR_BLOB_FILE_EXTENSION, request.getVectorPath());
             assertEquals(MOCK_BLOB_NAME + DOC_ID_FILE_EXTENSION, request.getDocIdPath());
             assertEquals(TEST_CLUSTER, request.getTenantId());
             assertEquals(2, request.getDocCount());
             assertEquals(2, request.getDimension());
-
-            HTTPRemoteBuildRequest httpRequest = (HTTPRemoteBuildRequest) request;
-            assertEquals(URI.create(MOCK_ENDPOINT), httpRequest.getEndpoint());
 
             String expectedJson = "{"
                 + "\"repository_type\":\"s3\","
@@ -171,7 +171,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             XContentParser parser2 = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                httpRequest.toJson()
+                request.toJson()
             );
 
             assertEquals(parser1.map(), parser2.map());
@@ -181,35 +181,41 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testSubmitVectorBuild() throws IOException, URISyntaxException {
-        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
-        RemoteIndexHTTPClient client = new RemoteIndexHTTPClient(mockHttpClient);
-
-        when(mockHttpClient.execute(any(HttpPost.class), any(HttpClientResponseHandler.class))).thenAnswer(
-            response -> MOCK_JOB_ID_RESPONSE
-        );
-
         RepositoryMetadata metadata = createTestRepositoryMetadata();
         KNNSettings knnSettingsMock = mock(KNNSettings.class);
         IndexSettings mockIndexSettings = createTestIndexSettings();
         setupTestClusterSettings();
 
-        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
-            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
-            KNNSettings.state().setClusterService(clusterService);
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+        try (MockedStatic<RemoteIndexHTTPClient> clientStaticMock = Mockito.mockStatic(RemoteIndexHTTPClient.class)) {
+            clientStaticMock.when(RemoteIndexHTTPClient::getHttpClient).thenReturn(mockHttpClient);
 
-            BuildIndexParams buildIndexParams = createTestBuildIndexParams();
+            try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+                knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+                KNNSettings.state().setClusterService(clusterService);
 
-            RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(
-                new HTTPRemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME)
-            );
-            assertEquals(MOCK_JOB_ID, remoteBuildResponse.getJobId());
+                BuildIndexParams buildIndexParams = createTestBuildIndexParams();
 
-            ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
-            verify(mockHttpClient).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
-            HttpPost capturedRequest = requestCaptor.getValue();
-            assertEquals(MOCK_ENDPOINT + BUILD_ENDPOINT, capturedRequest.getUri().toString());
-            assert (!capturedRequest.containsHeader(HttpHeaders.AUTHORIZATION));
+                when(mockHttpClient.execute(any(HttpPost.class), any(HttpClientResponseHandler.class))).thenAnswer(
+                    response -> MOCK_JOB_ID_RESPONSE
+                );
+
+                RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
+                clientStaticMock.when(() -> RemoteIndexHTTPClient.getValueFromResponse(any(String.class), any(String.class)))
+                    .thenCallRealMethod();
+
+                RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(
+                    new HTTPRemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME)
+                );
+                assertEquals(MOCK_JOB_ID, remoteBuildResponse.jobId());
+
+                ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
+                verify(mockHttpClient).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
+                HttpPost capturedRequest = requestCaptor.getValue();
+                assertEquals(MOCK_ENDPOINT + BUILD_ENDPOINT, capturedRequest.getUri().toString());
+                assert (!capturedRequest.containsHeader(HttpHeaders.AUTHORIZATION));
+            }
         }
     }
 
@@ -220,55 +226,45 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         final Settings settings = Settings.builder().setSecureSettings(secureSettings).build();
 
         CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
-        RemoteIndexHTTPClient client = new RemoteIndexHTTPClient(mockHttpClient);
-        client.reloadAuthHeader(settings);
+        try (MockedStatic<RemoteIndexHTTPClient> clientStaticMock = Mockito.mockStatic(RemoteIndexHTTPClient.class)) {
+            clientStaticMock.when(RemoteIndexHTTPClient::getHttpClient).thenReturn(mockHttpClient);
 
-        when(mockHttpClient.execute(any(HttpPost.class), any(HttpClientResponseHandler.class))).thenAnswer(
-            response -> MOCK_JOB_ID_RESPONSE
-        );
+            try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+                KNNSettings knnSettingsMock = mock(KNNSettings.class);
+                knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+                KNNSettings.state().setClusterService(clusterService);
 
-        RepositoryMetadata metadata = createTestRepositoryMetadata();
-        KNNSettings knnSettingsMock = mock(KNNSettings.class);
-        IndexSettings mockIndexSettings = createTestIndexSettings();
-        setupTestClusterSettings();
+                when(mockHttpClient.execute(any(HttpPost.class), any(HttpClientResponseHandler.class))).thenAnswer(
+                    response -> MOCK_JOB_ID_RESPONSE
+                );
 
-        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
-            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
-            KNNSettings.state().setClusterService(clusterService);
+                RepositoryMetadata metadata = createTestRepositoryMetadata();
+                IndexSettings mockIndexSettings = createTestIndexSettings();
+                setupTestClusterSettings();
+                BuildIndexParams buildIndexParams = createTestBuildIndexParams();
 
-            BuildIndexParams buildIndexParams = createTestBuildIndexParams();
+                clientStaticMock.when(() -> RemoteIndexHTTPClient.reloadAuthHeader(any(Settings.class))).thenCallRealMethod();
+                clientStaticMock.when(() -> RemoteIndexHTTPClient.getValueFromResponse(any(String.class), any(String.class)))
+                    .thenCallRealMethod();
 
-            ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
-            client.submitVectorBuild(new HTTPRemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME));
+                RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
+                RemoteIndexHTTPClient.reloadAuthHeader(settings);
 
-            final MockSecureSettings emptySettings = new MockSecureSettings();
-            final Settings nullPasswordSettings = Settings.builder().setSecureSettings(emptySettings).build();
+                ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
+                client.submitVectorBuild(new HTTPRemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME));
 
-            client.reloadAuthHeader(nullPasswordSettings);
-            client.submitVectorBuild(new HTTPRemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME));
-
-            verify(mockHttpClient, times(2)).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
-            List<HttpPost> capturedRequests = requestCaptor.getAllValues();
-
-            HttpPost firstRequest = capturedRequests.getFirst();
-            assert (firstRequest.containsHeader(HttpHeaders.AUTHORIZATION));
-            assertTrue(firstRequest.getHeader(HttpHeaders.AUTHORIZATION).getValue().startsWith(BASIC_PREFIX));
-            String authHeader = firstRequest.getFirstHeader(HttpHeaders.AUTHORIZATION).getValue();
-            byte[] decodedBytes = Base64.decodeBase64(authHeader.substring(6).getBytes(StandardCharsets.ISO_8859_1));
-            String decodedCredentials = new String(decodedBytes, StandardCharsets.ISO_8859_1);
-            assertEquals("username:password", decodedCredentials);
-
-            HttpPost secondRequest = capturedRequests.get(1);
-            assertFalse(secondRequest.containsHeader(HttpHeaders.AUTHORIZATION));
-
-            final MockSecureSettings passwordOnlySettings = new MockSecureSettings();
-            passwordOnlySettings.setString(KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.getKey(), PASSWORD);
-            final Settings exceptionSettings = Settings.builder().setSecureSettings(passwordOnlySettings).build();
-
-            assertThrows(IllegalArgumentException.class, () -> client.reloadAuthHeader(exceptionSettings));
-        } catch (ProtocolException e) {
-            throw new RuntimeException(e);
+                verify(mockHttpClient).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
+                HttpPost capturedRequest = requestCaptor.getValue();
+                Header authHeader = capturedRequest.getHeader(HttpHeaders.AUTHORIZATION);
+                assertNotNull("Auth header should be set", authHeader);
+                assertEquals(
+                    "Basic " + Base64.encodeBase64String((USERNAME + ":" + PASSWORD).getBytes(StandardCharsets.ISO_8859_1)),
+                    authHeader.getValue()
+                );
+            } catch (ProtocolException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

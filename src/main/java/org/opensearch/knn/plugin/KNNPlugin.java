@@ -393,7 +393,7 @@ public class KNNPlugin extends Plugin
     @Override
     public void reload(Settings settings) {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
-            RemoteIndexHTTPClient.getInstance().reloadAuthHeader(settings);
+            RemoteIndexHTTPClient.reloadAuthHeader(settings);
         }
     }
 }

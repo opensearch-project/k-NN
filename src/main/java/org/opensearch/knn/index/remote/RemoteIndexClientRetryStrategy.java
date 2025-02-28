@@ -27,6 +27,7 @@ import static org.apache.hc.core5.http.HttpStatus.SC_TOO_MANY_REQUESTS;
  * The public constructors for the Apache HTTP client default retry strategies allow customization of max retries
  * and retry interval, but not retryable status codes.
  * In order to add the other retryable status codes from our Remote Build API Contract, we must extend this class.
+ * TODO Future work: tune this retry strategy (MAX_RETRIES, BASE_DELAY_MS, exponential backoff/jitter) based on benchmarking
  * @see org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy
  */
 public class RemoteIndexClientRetryStrategy extends DefaultHttpRequestRetryStrategy {
