@@ -5,9 +5,6 @@
 
 package org.opensearch.knn.index.remote;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -21,7 +18,11 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.settings.SecureString;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
+import java.util.Map;
 
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
 import static org.opensearch.knn.common.KNNConstants.JOB_ID;
@@ -48,7 +50,6 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     private static RemoteIndexHTTPClient INSTANCE;
     private volatile CloseableHttpClient httpClient;
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
     private String authHeader = null;
 
     /**
@@ -148,16 +149,24 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     * @param key The key to lookup
     * @return The value for the key, or null if not found
     */
-    static String getValueFromResponse(String responseBody, String key) throws JsonProcessingException {
-        // TODO See if I can use OpenSearch XContent tools here to avoid Jackson dependency
-        ObjectNode jsonResponse = (ObjectNode) objectMapper.readTree(responseBody);
-        if (jsonResponse.has(key)) {
-            if (jsonResponse.get(key).isNull()) {
-                return null;
+    static String getValueFromResponse(String responseBody, String key) throws IOException {
+        try (
+            XContentParser parser = JsonXContent.jsonXContent.createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                responseBody
+            )
+        ) {
+            Map<String, Object> responseMap = parser.map();
+            if (responseMap.containsKey(key)) {
+                Object value = responseMap.get(key);
+                if (value == null) {
+                    return null;
+                }
+                return value.toString();
             }
-            return jsonResponse.get(key).asText();
+            throw new IllegalArgumentException("Key " + key + " not found in response");
         }
-        throw new IllegalArgumentException("Key " + key + " not found in response");
     }
 
     /**
