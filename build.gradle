@@ -363,12 +363,22 @@ tasks.clean.doFirst {
     delete "${projectDir}/jni/build"
 }
 
-task buildJniLib(type:Exec) {
+tasks.register('buildJniLib', Exec) {
     dependsOn cmakeJniLib
-    commandLine 'cmake',
-            '--build', 'jni/build',
-            '--target', 'opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib',
-            '--parallel', "${nproc_count}"
+    def args = []
+    args.add("cmake")
+    args.add("--build")
+    args.add("jni/build")
+    args.add("--target")
+    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib']
+    if (project.hasProperty('knn_libs')) {
+        knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
+    }
+    args.addAll(knn_libs)
+    args.add("--parallel")
+    args.add("${nproc_count}")
+    logger.lifecycle("Build command: ${args.join(' ')}")
+    commandLine args
 }
 
 test {
