@@ -93,8 +93,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
                     Mode.ON_DISK,
                     // Currently, on disk mode only supports dimension of multiple of 8
                     dimension * 8
-                ),
-                $("Nmslib with float format and in memory mode", KNNEngine.NMSLIB, VectorDataType.FLOAT, Mode.NOT_CONFIGURED, dimension)
+                )
             )
         );
     }

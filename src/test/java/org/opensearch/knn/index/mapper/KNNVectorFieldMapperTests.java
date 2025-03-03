@@ -198,6 +198,75 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
     }
 
+    public void testKNNVectorFieldMapper_withBlockedKNNEngine() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // Creating a mapping with NMSLIB before version 3.0.0 (should work)
+        XContentBuilder validXContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 128)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.NMSLIB.getName()) // Using deprecated engine
+            .endObject()
+            .endObject();
+
+        // Should pass for versions before 3.0.0
+        KNNVectorFieldMapper.Builder builderBeforeV3 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(validXContentBuilder),
+            buildLegacyParserContext(indexName, settings, Version.V_2_9_0) // Version < 3.0.0
+        );
+        assertNotNull(builderBeforeV3);
+
+        // Creating a mapping with NMSLIB on or after version 3.0.0 (should fail)
+        XContentBuilder invalidXContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 128)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.NMSLIB.getName()) // Using deprecated engine
+            .endObject()
+            .endObject();
+
+        // Expect an exception when trying to use NMSLIB with OpenSearch 3.0.0+
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(invalidXContentBuilder),
+                buildParserContext(indexName, settings) // Version >= 3.0.0
+            )
+        );
+
+        assertNotNull(exception.getMessage());
+
+        // Creating a mapping with FAISS or LUCENE (should work)
+        XContentBuilder validFaissBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 128)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName()) // Valid engine
+            .endObject()
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builderWithFaiss = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(validFaissBuilder),
+            buildParserContext(indexName, settings) // Version >= 3.0.0
+        );
+        assertNotNull(builderWithFaiss);
+    }
+
     public void testTypeParser_withDifferentSpaceTypeCombinations_thenSuccess() throws IOException {
         // Check that knnMethodContext takes precedent over both model and legacy
         ModelDao modelDao = mock(ModelDao.class);
@@ -1598,10 +1667,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             }
             testTypeParserWithBinaryDataType(KNNEngine.FAISS, spaceType, METHOD_HNSW, 8, "is not supported with");
         }
-    }
-
-    public void testTypeParser_whenBinaryNmslib_thenException() throws IOException {
-        testTypeParserWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.HAMMING, METHOD_HNSW, 8, "is not supported for vector data type");
     }
 
     private void testTypeParserWithBinaryDataType(

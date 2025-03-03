@@ -48,7 +48,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 
@@ -398,8 +397,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * @throws IOException throws IOException
      */
     public void testFieldByEngineStats() throws Exception {
-        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(0), createKnnIndexMapping(FIELD_NAME, 2, METHOD_HNSW, NMSLIB_NAME));
-        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_2, 3, METHOD_HNSW, LUCENE_NAME));
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(0), createKnnIndexMapping(FIELD_NAME_2, 2, METHOD_HNSW, LUCENE_NAME));
         putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_3, 3, METHOD_HNSW, FAISS_NAME));
 
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
@@ -409,11 +407,9 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Map<String, Object> nodeStats0 = parseNodeStatsResponse(responseBody).get(0);
         boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_LOADED.getName());
         boolean luceneField = (Boolean) nodeStats0.get(StatNames.LUCENE_LOADED.getName());
-        boolean nmslibField = (Boolean) nodeStats0.get(StatNames.NMSLIB_LOADED.getName());
 
-        assertTrue(faissField);
         assertTrue(luceneField);
-        assertTrue(nmslibField);
+        assertTrue(faissField);
     }
 
     public void testFieldsByEngineModelTraining() throws Exception {

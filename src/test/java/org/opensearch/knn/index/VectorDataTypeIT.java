@@ -254,15 +254,6 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         );
     }
 
-    // Create an index with byte vector data_type using nmslib engine which should throw an exception
-    public void testByteVectorDataTypeWithNmslibEngine() {
-        ResponseException ex = expectThrows(
-            ResponseException.class,
-            () -> createKnnIndexMappingWithNmslibEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue())
-        );
-        assertTrue(ex.getMessage().contains("is not supported for vector data type"));
-    }
-
     public void testDocValuesWithByteVectorDataTypeLuceneEngine() throws Exception {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
         ingestL2ByteTestData();
