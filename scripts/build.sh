@@ -130,7 +130,7 @@ fi
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
 ./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dbuild.lib.commit_patches=false
-./gradlew :buildJniLib -Davx512.enabled=false -Davx512_spr.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1}
+./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512.enabled=false -Davx512_spr.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1}
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   echo "Building k-NN library nmslib with gcc 10 on non-windows x64"
@@ -141,13 +141,13 @@ if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   # Skip applying patches as patches were applied already from previous :buildJniLib task
   # If we apply patches again, it fails with conflict
   rm -rf jni/CMakeCache.txt jni/CMakeFiles
-  ./gradlew :buildJniLib -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 
   echo "Building k-NN library after enabling AVX512"
-  ./gradlew :buildJniLib -Davx512.enabled=true -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512.enabled=true -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 
   echo "Building k-NN library after enabling AVX512_SPR"
-  ./gradlew :buildJniLib -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 
 else
   ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
