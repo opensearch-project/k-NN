@@ -13,9 +13,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.remote.HTTPRemoteBuildRequest;
 import org.opensearch.knn.index.remote.RemoteBuildRequest;
-import org.opensearch.knn.index.remote.RemoteBuildRequestBuilder;
 import org.opensearch.knn.index.remote.RemoteBuildResponse;
 import org.opensearch.knn.index.remote.RemoteIndexClient;
 import org.opensearch.knn.index.remote.RemoteIndexClientFactory;
@@ -42,10 +40,6 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final NativeIndexBuildStrategy fallbackStrategy;
     private final IndexSettings indexSettings;
-
-    public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
-    public static final String DOC_ID_FILE_EXTENSION = ".knndid";
-    static final String VECTORS_PATH = "_vectors";
 
     /**
      * Public constructor, intended to be called by {@link org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory} based in
@@ -130,14 +124,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Repository write took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
-            // TODO future implementations will set the following two params depending on some setting to denote the protocol
-            RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient(RemoteIndexClientFactory.TYPE_HTTP);
-            RemoteBuildRequest request = RemoteBuildRequestBuilder.builder(HTTPRemoteBuildRequest.class)
-                .indexSettings(indexSettings)
-                .indexInfo(indexInfo)
-                .repositoryMetadata(getRepository().getMetadata())
-                .blobName(blobName)
-                .build();
+            RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient();
+            RemoteBuildRequest request = new RemoteBuildRequest(indexSettings, indexInfo, getRepository().getMetadata(), blobName);
             stopWatch = new StopWatch().start();
             RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(request);
             time_in_millis = stopWatch.stop().totalTime().millis();

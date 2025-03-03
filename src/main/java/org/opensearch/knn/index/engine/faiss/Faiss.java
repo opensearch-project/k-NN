@@ -19,8 +19,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import static org.opensearch.knn.common.KNNConstants.ALGORITHM;
-import static org.opensearch.knn.common.KNNConstants.ALGORITHM_PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -35,6 +33,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.ALGORITHM;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.ALGORITHM_PARAMETERS;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;

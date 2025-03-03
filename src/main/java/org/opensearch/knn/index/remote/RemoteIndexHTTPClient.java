@@ -17,12 +17,13 @@ import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.settings.SecureString;
-import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.ToXContentObject;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteStatusResponse;
 
@@ -32,13 +33,12 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
-import java.util.Map;
 
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
-import static org.opensearch.knn.common.KNNConstants.JOB_ID;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
 
 /**
  * Class to handle all interactions with the remote vector build service.
@@ -46,7 +46,8 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDP
  */
 @Log4j2
 public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
-    public static final String BASIC_PREFIX = "Basic ";
+    private static final String BASIC_PREFIX = "Basic ";
+
     private static volatile String authHeader = null;
 
     private final String endpoint;
@@ -81,10 +82,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     */
     @Override
     public RemoteBuildResponse submitVectorBuild(RemoteBuildRequest remoteBuildRequest) throws IOException {
-        assert (remoteBuildRequest instanceof HTTPRemoteBuildRequest);
-        HTTPRemoteBuildRequest request = (HTTPRemoteBuildRequest) remoteBuildRequest;
-        HttpPost buildRequest = getHttpPost(request);
-
+        HttpPost buildRequest = getHttpPost(toJson(remoteBuildRequest));
         try {
             String response = AccessController.doPrivileged(
                 (PrivilegedExceptionAction<String>) () -> getHttpClient().execute(buildRequest, body -> {
@@ -94,15 +92,12 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
                     return EntityUtils.toString(body.getEntity());
                 })
             );
-
-            if (response == null || response.isEmpty()) {
-                throw new IOException("Received success status code but response is null or empty.");
-            }
-            String jobId = getValueFromResponse(response, JOB_ID);
-            if (jobId == null || jobId.isEmpty()) {
-                throw new IOException("Received success status code but " + JOB_ID + " is null or empty.");
-            }
-            return new RemoteBuildResponse(jobId);
+            XContentParser parser = JsonXContent.jsonXContent.createParser(
+                NamedXContentRegistry.EMPTY,
+                LoggingDeprecationHandler.INSTANCE,
+                response
+            );
+            return RemoteBuildResponse.fromXContent(parser);
         } catch (Exception e) {
             throw new IOException("Failed to execute HTTP request", e);
         }
@@ -110,14 +105,14 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
 
     /**
      * Helper method to form the HttpPost request from the HTTPRemoteBuildRequest
-     * @param request HTTPRemoteBuildRequest to be submitted
+     * @param jsonRequest JSON converted request body to be submitted
      * @return HttpPost request to be submitted
      * @throws IOException if the request cannot be formed
      */
-    private HttpPost getHttpPost(HTTPRemoteBuildRequest request) throws IOException {
-        HttpPost buildRequest = new HttpPost(URI.create(endpoint) + KNNConstants.BUILD_ENDPOINT);
+    private HttpPost getHttpPost(String jsonRequest) {
+        HttpPost buildRequest = new HttpPost(URI.create(endpoint) + BUILD_ENDPOINT);
         buildRequest.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
-        buildRequest.setEntity(new StringEntity(request.toJson()));
+        buildRequest.setEntity(new StringEntity(jsonRequest, ContentType.APPLICATION_JSON));
         if (authHeader != null) {
             buildRequest.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
         }
@@ -135,28 +130,15 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     }
 
     /**
-    * Given a JSON response string, get a value for a specific key. Converts json {@literal <null>} to Java null.
-    * @param responseBody The response to read
-    * @param key The key to lookup
-    * @return The value for the key
-    */
-    static String getValueFromResponse(String responseBody, String key) throws IOException {
-        try (
-            XContentParser parser = JsonXContent.jsonXContent.createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                responseBody
-            )
-        ) {
-            Map<String, Object> responseMap = parser.map();
-            if (responseMap.containsKey(key)) {
-                Object value = responseMap.get(key);
-                if (value == null) {
-                    return null;
-                }
-                return value.toString();
-            }
-            throw new IllegalArgumentException("Key " + key + " not found in response");
+     * Convert the RemoteBuildRequest object to a JSON object for this specific HTTP implementation.
+     * @param object RemoteBuildRequest with parameters
+     * @return JSON String representation of the request body
+     * @throws IOException if the request cannot be converted to JSON
+     */
+    private String toJson(ToXContentObject object) throws IOException {
+        try (XContentBuilder builder = JsonXContent.contentBuilder()) {
+            object.toXContent(builder, ToXContentObject.EMPTY_PARAMS);
+            return builder.toString();
         }
     }
 

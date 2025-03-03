@@ -33,10 +33,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
-import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTORS_PATH;
-import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTORS_PATH;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
 
 @Log4j2
 @AllArgsConstructor

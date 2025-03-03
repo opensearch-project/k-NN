@@ -27,6 +27,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.ToXContentObject;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
@@ -50,20 +52,29 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.VectorDataType.FLOAT;
-import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.DOC_ID_FILE_EXTENSION;
-import static org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.VECTOR_BLOB_FILE_EXTENSION;
 import static org.opensearch.knn.index.engine.faiss.Faiss.getMFromIndexDescription;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUCKET;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.S3;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
 
 public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
-
-    public static final String S3 = "s3";
     public static final String TEST_BUCKET = "test-bucket";
     public static final String TEST_CLUSTER = "test-cluster";
     public static final String MOCK_JOB_ID_RESPONSE = "{\"job_id\": \"job-1739930402\"}";
@@ -72,6 +83,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     public static final String MOCK_ENDPOINT = "https://mock-build-service.com";
     public static final String USERNAME = "username";
     public static final String PASSWORD = "password";
+
     @Mock
     protected ClusterService clusterService;
 
@@ -93,25 +105,15 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         client.close();
     }
 
-    public void testGetValueFromResponse() throws IOException {
-        String jobID = "{\"job_id\": \"job-1739930402\"}";
-        assertEquals("job-1739930402", RemoteIndexHTTPClient.getValueFromResponse(jobID, JOB_ID));
-        String failedIndexBuild = "{"
-            + "\"task_status\":\"FAILED_INDEX_BUILD\","
-            + "\"error_message\":\"Index build process interrupted.\","
-            + "\"index_path\": null"
-            + "}";
-        String error = RemoteIndexHTTPClient.getValueFromResponse(failedIndexBuild, ERROR_MESSAGE);
-        assertEquals("Index build process interrupted.", error);
-        assertNull(RemoteIndexHTTPClient.getValueFromResponse(failedIndexBuild, INDEX_PATH));
-    }
-
     public void testGetMFromIndexDescription() {
         assertEquals(16, getMFromIndexDescription("HNSW16,Flat"));
         assertEquals(8, getMFromIndexDescription("HNSW8,SQ"));
         assertThrows(IllegalArgumentException.class, () -> getMFromIndexDescription("Invalid description"));
     }
 
+    /**
+     * Test the construction of the build request by comparing it to an explicitly created JSON object.
+     */
     public void testBuildRequest() {
         RepositoryMetadata metadata = createTestRepositoryMetadata();
         KNNSettings knnSettingsMock = mock(KNNSettings.class);
@@ -125,12 +127,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
             BuildIndexParams indexInfo = createTestBuildIndexParams();
 
-            HTTPRemoteBuildRequest request = RemoteBuildRequestBuilder.builder(HTTPRemoteBuildRequest.class)
-                .indexSettings(mockIndexSettings)
-                .indexInfo(indexInfo)
-                .repositoryMetadata(metadata)
-                .blobName(MOCK_BLOB_NAME)
-                .build();
+            RemoteBuildRequest request = new RemoteBuildRequest(mockIndexSettings, indexInfo, metadata, MOCK_BLOB_NAME);
 
             assertEquals(S3, request.getRepositoryType());
             assertEquals(TEST_BUCKET, request.getContainerName());
@@ -162,21 +159,58 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 + "}"
                 + "}"
                 + "}";
-            XContentParser parser1 = JsonXContent.jsonXContent.createParser(
+            XContentParser expectedParser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                 expectedJson
             );
+            Map<String, Object> expectedMap = expectedParser.map();
 
-            XContentParser parser2 = JsonXContent.jsonXContent.createParser(
+            String jsonRequest;
+            try (XContentBuilder builder = JsonXContent.contentBuilder()) {
+                request.toXContent(builder, ToXContentObject.EMPTY_PARAMS);
+                jsonRequest = builder.toString();
+            }
+
+            XContentParser generatedParser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                request.toJson()
+                jsonRequest
             );
+            Map<String, Object> generatedMap = generatedParser.map();
 
-            assertEquals(parser1.map(), parser2.map());
+            assertEquals(expectedMap, generatedMap);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public void testRemoteBuildResponseParsing() throws IOException {
+        String jsonResponse = "{\"job_id\":\"test-job-123\"}";
+
+        try (
+            XContentParser parser = JsonXContent.jsonXContent.createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                jsonResponse
+            )
+        ) {
+            RemoteBuildResponse response = RemoteBuildResponse.fromXContent(parser);
+            assertNotNull(response);
+            assertEquals("test-job-123", response.getJobId());
+        }
+    }
+
+    public void testRemoteBuildResponseParsingError() throws IOException {
+        String jsonResponse = "{\"error\":\"test-error\"}";
+        try (
+            XContentParser parser = JsonXContent.jsonXContent.createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                jsonResponse
+            )
+        ) {
+            assertThrows(IOException.class, () -> RemoteBuildResponse.fromXContent(parser));
         }
     }
 
@@ -202,19 +236,17 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 );
 
                 RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
-                clientStaticMock.when(() -> RemoteIndexHTTPClient.getValueFromResponse(any(String.class), any(String.class)))
-                    .thenCallRealMethod();
 
                 RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(
-                    new HTTPRemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME)
+                    new RemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME)
                 );
-                assertEquals(MOCK_JOB_ID, remoteBuildResponse.jobId());
+                assertEquals(MOCK_JOB_ID, remoteBuildResponse.getJobId());
 
                 ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
                 verify(mockHttpClient).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
                 HttpPost capturedRequest = requestCaptor.getValue();
                 assertEquals(MOCK_ENDPOINT + BUILD_ENDPOINT, capturedRequest.getUri().toString());
-                assert (!capturedRequest.containsHeader(HttpHeaders.AUTHORIZATION));
+                assertFalse(capturedRequest.containsHeader(HttpHeaders.AUTHORIZATION));
             }
         }
     }
@@ -245,14 +277,12 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 BuildIndexParams buildIndexParams = createTestBuildIndexParams();
 
                 clientStaticMock.when(() -> RemoteIndexHTTPClient.reloadAuthHeader(any(Settings.class))).thenCallRealMethod();
-                clientStaticMock.when(() -> RemoteIndexHTTPClient.getValueFromResponse(any(String.class), any(String.class)))
-                    .thenCallRealMethod();
 
                 RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
                 RemoteIndexHTTPClient.reloadAuthHeader(settings);
 
                 ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
-                client.submitVectorBuild(new HTTPRemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME));
+                client.submitVectorBuild(new RemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME));
 
                 verify(mockHttpClient).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
                 HttpPost capturedRequest = requestCaptor.getValue();
@@ -266,6 +296,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 throw new RuntimeException(e);
             }
         }
+        clearAuthHeader();
     }
 
     // Utility methods to populate settings for build requests
@@ -322,5 +353,11 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         when(clusterSettings.get(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING)).thenReturn(MOCK_ENDPOINT);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
+    }
+
+    private void clearAuthHeader() {
+        final MockSecureSettings secureSettings = new MockSecureSettings();
+        final Settings settings = Settings.builder().setSecureSettings(secureSettings).build();
+        RemoteIndexHTTPClient.reloadAuthHeader(settings);
     }
 }

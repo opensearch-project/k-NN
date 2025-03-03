@@ -7,12 +7,8 @@ package org.opensearch.knn.index.remote;
 
 public class RemoteIndexClientFactory {
 
-    public static final String TYPE_HTTP = "HTTP";
-
-    public static RemoteIndexClient getRemoteIndexClient(String type) {
-        if (TYPE_HTTP.equalsIgnoreCase(type)) {
-            return new RemoteIndexHTTPClient();
-        }
-        throw new IllegalArgumentException("Unsupported RemoteIndexClient type: " + type);
+    // Default to HTTP client
+    public static RemoteIndexClient getRemoteIndexClient() {
+        return new RemoteIndexHTTPClient();
     }
 }
