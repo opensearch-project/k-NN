@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Abstract class for KNN methods. This class provides the common functionality for all KNN methods.
@@ -108,6 +109,13 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         return PerDimensionProcessor.NOOP_PROCESSOR;
     }
 
+    protected Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> doGetTrainingConfigValidationSetup() {
+        return (trainingConfigValidationInput) -> {
+            TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+            return builder.build();
+        };
+    }
+
     protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
         return VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
     }
@@ -131,6 +139,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
             .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType()))
+            .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())
             .build();
     }
 

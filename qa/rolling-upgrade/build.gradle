@@ -52,7 +52,6 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
 // This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
 task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
     useCluster testClusters."${baseName}"
-    dependsOn rootProject.tasks.buildNmslib
     dependsOn rootProject.tasks.buildJniLib
     dependsOn rootProject.tasks.assemble
     dependsOn "testAgainstOldCluster"

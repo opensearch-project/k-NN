@@ -23,12 +23,18 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.search.internal.SearchContext.DEFAULT_TERMINATE_AFTER;
@@ -132,6 +138,27 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
             // If there are more docs in the index than what the user wants to use for training, take the min
             if (trainingModelRequest.getMaximumVectorCount() < trainingVectors) {
                 trainingVectors = trainingModelRequest.getMaximumVectorCount();
+            }
+
+            KNNMethodContext knnMethodContext = trainingModelRequest.getKnnMethodContext();
+            KNNMethodConfigContext knnMethodConfigContext = trainingModelRequest.getKnnMethodConfigContext();
+
+            KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+
+            Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> validateTrainingConfig = knnLibraryIndexingContext
+                .getTrainingConfigValidationSetup();
+
+            TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
+
+            TrainingConfigValidationOutput validation = validateTrainingConfig.apply(
+                inputBuilder.trainingVectorsCount(trainingVectors).knnMethodContext(knnMethodContext).build()
+            );
+            if (validation.getValid() != null && !validation.getValid()) {
+                ValidationException exception = new ValidationException();
+                exception.addValidationError(validation.getErrorMessage());
+                listener.onFailure(exception);
+                return;
             }
 
             listener.onResponse(
