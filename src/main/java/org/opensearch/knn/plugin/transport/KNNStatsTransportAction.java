@@ -38,7 +38,6 @@ public class KNNStatsTransportAction extends TransportNodesAction<
 
     private final KNNStats knnStats;
     private final Client client;
-    private KNNNodeStatAggregation knnNodeStatAggregation;
 
     /**
      * Constructor
@@ -71,7 +70,6 @@ public class KNNStatsTransportAction extends TransportNodesAction<
         );
         this.knnStats = knnStats;
         this.client = client;
-        this.knnNodeStatAggregation = null;
     }
 
     @Override
@@ -98,7 +96,7 @@ public class KNNStatsTransportAction extends TransportNodesAction<
             // Add the stats makes sure that we dont recurse infinitely.
             dependentStats.forEach(knnStatsRequest::addStat);
             client.execute(KNNStatsAction.INSTANCE, knnStatsRequest, ActionListener.wrap(knnStatsResponse -> {
-                knnNodeStatAggregation = new KNNNodeStatAggregation(knnStatsResponse.getNodes());
+                request.setAggregation(new KNNNodeStatAggregation(knnStatsResponse.getNodes()));
                 contextListener.onResponse(null);
             }, contextListener::onFailure));
         } else {
@@ -118,7 +116,7 @@ public class KNNStatsTransportAction extends TransportNodesAction<
 
         for (String statName : knnStats.getClusterStats().keySet()) {
             if (statsToBeRetrieved.contains(statName)) {
-                clusterStats.put(statName, knnStats.getStats().get(statName).getValue(knnNodeStatAggregation));
+                clusterStats.put(statName, knnStats.getStats().get(statName).getValue(request.getAggregation()));
             }
         }
 

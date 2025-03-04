@@ -5,9 +5,12 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.opensearch.action.support.nodes.BaseNodesRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.knn.plugin.stats.KNNNodeStatAggregation;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.IOException;
@@ -26,6 +29,12 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
     public static final String ALL_STATS_KEY = "_all";
     private final Set<String> validStats;
     private final Set<String> statsToBeRetrieved;
+    /**
+     * Node stat aggregation associated with the request. Not serialized between nodes. Can be null.
+     */
+    @Getter
+    @Setter
+    private KNNNodeStatAggregation aggregation;
 
     /**
      * Empty constructor needed for KNNStatsTransportAction
@@ -34,6 +43,7 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
         super((String[]) null);
         validStats = StatNames.getNames();
         statsToBeRetrieved = new HashSet<>();
+        aggregation = null;
     }
 
     /**
@@ -46,6 +56,7 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
         super(in);
         validStats = in.readSet(StreamInput::readString);
         statsToBeRetrieved = in.readSet(StreamInput::readString);
+        aggregation = null;
     }
 
     /**
@@ -57,6 +68,7 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
         super(nodeIds);
         validStats = StatNames.getNames();
         statsToBeRetrieved = new HashSet<>();
+        aggregation = null;
     }
 
     /**
