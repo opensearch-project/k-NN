@@ -99,8 +99,8 @@ public class KNNSettings {
     public static final String KNN_REMOTE_VECTOR_REPO = "knn.remote_index_build.vector_repo";
     public static final String KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD = "index.knn.remote_index_build.size_threshold";
     public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_index_build.client.endpoint";
-    public static final String KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL = "knn.remote_index_build.client.poll_interval";
-    public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT = "knn.remote_index_build.client.timeout";
+    public static final String KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = "knn.remote_index_build.client.poll_interval.seconds";
+    public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = "knn.remote_index_build.client.timeout.hours";
     public static final String KNN_REMOTE_BUILD_CLIENT_USERNAME = "knn.remote_index_build.client.username";
     public static final String KNN_REMOTE_BUILD_CLIENT_PASSWORD = "knn.remote_index_build.client.password";
 
@@ -394,9 +394,9 @@ public class KNNSettings {
     /**
      * Time the remote build service client will wait before falling back to CPU index build.
      */
-    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING = Setting.timeSetting(
-        KNN_REMOTE_BUILD_CLIENT_TIMEOUT,
-        TimeValue.timeValueMinutes(KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES),
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES,
+        TimeValue.timeValueHours(KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES),
         NodeScope,
         Dynamic
     );
@@ -404,8 +404,8 @@ public class KNNSettings {
     /**
      * Setting to control how often the remote build service client polls the build service for the status of the job.
      */
-    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING = Setting.timeSetting(
-        KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL,
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS,
         TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
         NodeScope,
         Dynamic
@@ -613,12 +613,12 @@ public class KNNSettings {
             return KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_CLIENT_TIMEOUT.equals(key)) {
-            return KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING;
+        if (KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL.equals(key)) {
-            return KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING;
+        if (KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS_SETTING;
         }
 
         if (KNN_REMOTE_BUILD_CLIENT_USERNAME.equals(key)) {
@@ -656,8 +656,8 @@ public class KNNSettings {
             KNN_REMOTE_VECTOR_REPO_SETTING,
             KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING,
             KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
-            KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
-            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS_SETTING,
             KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING,
             KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING
         );

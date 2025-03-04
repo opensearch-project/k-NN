@@ -5,6 +5,7 @@
 package org.opensearch.knn.index.remote;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.core5.http.Header;
@@ -24,6 +25,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.MockSecureSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
@@ -57,6 +59,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
@@ -65,6 +69,7 @@ import static org.opensearch.knn.index.VectorDataType.FLOAT;
 import static org.opensearch.knn.index.engine.faiss.FaissHNSWMethod.createRemoteIndexingParameters;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUCKET;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.S3;
 
 @SuppressWarnings("resource")
@@ -77,6 +82,13 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     public static final String MOCK_ENDPOINT = "https://mock-build-service.com";
     public static final String USERNAME = "username";
     public static final String PASSWORD = "password";
+    private static final String MOCK_INDEX_PATH = "/path/to/completed/index";
+    private static final String MOCK_COMPLETED_RESPONSE =
+        "{\"task_status\": \"COMPLETED_INDEX_BUILD\", \"index_path\": \"/path/to/completed/index\", \"error_message\": null}";
+    private static final String MOCK_FAILED_RESPONSE =
+        "{\"task_status\": \"FAILED_INDEX_BUILD\", \"index_path\": null, \"error_message\": \"Failed to build index due to insufficient resources\"}";
+    private static final String MOCK_RUNNING_RESPONSE =
+        "{\"task_status\": \"RUNNING_INDEX_BUILD\", \"index_path\": null, \"error_message\": null}";
 
     @Mock
     protected static ClusterService clusterService;
@@ -148,6 +160,103 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 assertEquals(MOCK_ENDPOINT + BUILD_ENDPOINT, capturedRequest.getUri().toString());
                 assertFalse(capturedRequest.containsHeader(HttpHeaders.AUTHORIZATION));
             }
+        }
+    }
+
+    public void testAwaitVectorBuildTimeout() {
+        KNNSettings knnSettingsMock = mock(KNNSettings.class);
+        setupTestClusterSettings();
+
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+        try (MockedStatic<RemoteIndexHTTPClient> clientStaticMock = Mockito.mockStatic(RemoteIndexHTTPClient.class)) {
+            clientStaticMock.when(RemoteIndexHTTPClient::getHttpClient).thenReturn(mockHttpClient);
+
+            try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+                knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING.getKey())).thenReturn(
+                    TimeValue.timeValueMillis(100)
+                );
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS_SETTING.getKey())).thenReturn(
+                    TimeValue.timeValueMillis(10)
+                );
+                KNNSettings.state().setClusterService(clusterService);
+
+                RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
+
+                when(mockHttpClient.execute(any(HttpGet.class), any(HttpClientResponseHandler.class))).thenAnswer(
+                    response -> MOCK_RUNNING_RESPONSE
+                );
+
+                assertThrows(InterruptedException.class, () -> client.awaitVectorBuild(new RemoteBuildResponse(MOCK_JOB_ID)));
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void testAwaitVectorBuildCompleted() {
+        KNNSettings knnSettingsMock = mock(KNNSettings.class);
+
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+        try (MockedStatic<RemoteIndexHTTPClient> clientStaticMock = Mockito.mockStatic(RemoteIndexHTTPClient.class)) {
+            clientStaticMock.when(RemoteIndexHTTPClient::getHttpClient).thenReturn(mockHttpClient);
+
+            try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+                knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING.getKey())).thenReturn(
+                    TimeValue.timeValueSeconds(5)
+                );
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS_SETTING.getKey())).thenReturn(
+                    TimeValue.timeValueMillis(10)
+                );
+                KNNSettings.state().setClusterService(clusterService);
+
+                RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
+
+                when(mockHttpClient.execute(any(HttpGet.class), any(HttpClientResponseHandler.class))).thenAnswer(
+                    response -> MOCK_COMPLETED_RESPONSE
+                );
+
+                RemoteBuildStatusResponse response = client.awaitVectorBuild(new RemoteBuildResponse(MOCK_JOB_ID));
+                assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
+                assertEquals(MOCK_INDEX_PATH, response.getIndexPath());
+                assertNull(response.getErrorMessage());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void testAwaitVectorBuildFailed() {
+        KNNSettings knnSettingsMock = mock(KNNSettings.class);
+
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+        try (MockedStatic<RemoteIndexHTTPClient> clientStaticMock = Mockito.mockStatic(RemoteIndexHTTPClient.class)) {
+            clientStaticMock.when(RemoteIndexHTTPClient::getHttpClient).thenReturn(mockHttpClient);
+
+            try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+                knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING.getKey())).thenReturn(
+                    TimeValue.timeValueSeconds(5)
+                );
+                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS_SETTING.getKey())).thenReturn(
+                    TimeValue.timeValueMillis(10)
+                );
+                KNNSettings.state().setClusterService(clusterService);
+
+                RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
+
+                when(mockHttpClient.execute(any(HttpGet.class), any(HttpClientResponseHandler.class))).thenAnswer(
+                    response -> MOCK_FAILED_RESPONSE
+                );
+
+                assertThrows(InterruptedException.class, () -> client.awaitVectorBuild(new RemoteBuildResponse(MOCK_JOB_ID)));
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

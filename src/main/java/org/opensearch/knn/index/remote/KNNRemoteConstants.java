@@ -24,4 +24,9 @@ public class KNNRemoteConstants {
     // HTTP implementation
     public static final String BUILD_ENDPOINT = "/_build";
     public static final String STATUS_ENDPOINT = "/_status";
+
+    // Status response keys
+    public static final String RUNNING_INDEX_BUILD = "RUNNING_INDEX_BUILD";
+    public static final String COMPLETED_INDEX_BUILD = "COMPLETED_INDEX_BUILD";
+    public static final String FAILED_INDEX_BUILD = "FAILED_INDEX_BUILD";
 }

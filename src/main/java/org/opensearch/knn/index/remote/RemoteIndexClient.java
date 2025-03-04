@@ -20,8 +20,11 @@ public interface RemoteIndexClient {
 
     /**
      * Await the completion of the index build and for the server to return the path to the completed index
-     * @param remoteBuildResponse  the /_build request response from the server
+     *
+     * @param remoteBuildResponse the /_build request response from the server
      * @return remoteStatusResponse from the server
+     * @throws InterruptedException if the thread is interrupted while waiting for the build to complete
+     * @throws IOException if there is an error communicating with the server
      */
-    RemoteStatusResponse awaitVectorBuild(RemoteBuildResponse remoteBuildResponse);
+    RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildResponse remoteBuildResponse) throws InterruptedException, IOException;
 }

@@ -15,9 +15,9 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.remote.RemoteBuildRequest;
 import org.opensearch.knn.index.remote.RemoteBuildResponse;
+import org.opensearch.knn.index.remote.RemoteBuildStatusResponse;
 import org.opensearch.knn.index.remote.RemoteIndexClient;
 import org.opensearch.knn.index.remote.RemoteIndexClientFactory;
-import org.opensearch.knn.index.remote.RemoteStatusResponse;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -133,12 +133,12 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            RemoteStatusResponse remoteStatusResponse = client.awaitVectorBuild(remoteBuildResponse);
+            RemoteBuildStatusResponse remoteBuildStatusResponse = client.awaitVectorBuild(remoteBuildResponse);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            vectorRepositoryAccessor.readFromRepository(remoteStatusResponse.getIndexPath(), indexInfo.getIndexOutputWithBuffer());
+            vectorRepositoryAccessor.readFromRepository(remoteBuildStatusResponse.getIndexPath(), indexInfo.getIndexOutputWithBuffer());
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Repository read took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
         } catch (Exception e) {
