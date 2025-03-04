@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.knn.plugin.stats.KNNNodeStatAggregation;
 import org.opensearch.knn.plugin.stats.KNNStats;
 
 import org.opensearch.action.FailedNodeException;
@@ -13,11 +15,14 @@ import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.client.Client;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +36,8 @@ public class KNNStatsTransportAction extends TransportNodesAction<
     KNNStatsNodeRequest,
     KNNStatsNodeResponse> {
 
-    private KNNStats knnStats;
+    private final KNNStats knnStats;
+    private final Client client;
 
     /**
      * Constructor
@@ -48,7 +54,8 @@ public class KNNStatsTransportAction extends TransportNodesAction<
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        KNNStats knnStats
+        KNNStats knnStats,
+        Client client
     ) {
         super(
             KNNStatsAction.NAME,
@@ -62,6 +69,39 @@ public class KNNStatsTransportAction extends TransportNodesAction<
             KNNStatsNodeResponse.class
         );
         this.knnStats = knnStats;
+        this.client = client;
+    }
+
+    @Override
+    protected void doExecute(Task task, KNNStatsRequest request, ActionListener<KNNStatsResponse> listener) {
+        // Some cluster stats may need node stats from all nodes. So, we may have to send out a request before
+        // in order to create this aggregation. For example, the cluster level circuit breaker needs to get the
+        // cache capacities from each node. If any are reached, it sets it to true. This is inefficient, but, stats
+        // api does not need to be called frequently, so I dont see it causing any issues.
+        ActionListener<Void> contextListener = ActionListener.wrap(none -> super.doExecute(task, request, listener), listener::onFailure);
+        Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
+        Set<String> dependentStats = new HashSet<>();
+        for (String statName : knnStats.getClusterStats().keySet()) {
+            if (statsToBeRetrieved.contains(statName)) {
+                dependentStats.addAll(knnStats.getClusterStats().get(statName).dependentNodeStats());
+            }
+        }
+
+        if (dependentStats.stream().anyMatch(stat -> knnStats.getClusterStats().containsKey(stat))) {
+            throw new IllegalStateException("Cluster stats cannot depend on other cluster stats.");
+        }
+
+        if (dependentStats.isEmpty() == false) {
+            KNNStatsRequest knnStatsRequest = new KNNStatsRequest();
+            // Add the stats makes sure that we dont recurse infinitely.
+            dependentStats.forEach(knnStatsRequest::addStat);
+            client.execute(KNNStatsAction.INSTANCE, knnStatsRequest, ActionListener.wrap(knnStatsResponse -> {
+                request.setAggregation(new KNNNodeStatAggregation(knnStatsResponse.getNodes()));
+                contextListener.onResponse(null);
+            }, contextListener::onFailure));
+        } else {
+            contextListener.onResponse(null);
+        }
     }
 
     @Override
@@ -76,7 +116,7 @@ public class KNNStatsTransportAction extends TransportNodesAction<
 
         for (String statName : knnStats.getClusterStats().keySet()) {
             if (statsToBeRetrieved.contains(statName)) {
-                clusterStats.put(statName, knnStats.getStats().get(statName).getValue());
+                clusterStats.put(statName, knnStats.getStats().get(statName).getValue(request.getAggregation()));
             }
         }
 

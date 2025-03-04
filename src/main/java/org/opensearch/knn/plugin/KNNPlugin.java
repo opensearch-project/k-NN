@@ -27,11 +27,9 @@ import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceFactory;
-import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
-import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
@@ -168,7 +166,6 @@ public class KNNPlugin extends Plugin
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
 
-    private KNNStats knnStats;
     private ClusterService clusterService;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
 
@@ -206,7 +203,7 @@ public class KNNPlugin extends Plugin
         VectorReader vectorReader = new VectorReader(client);
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 
-        KNNSettings.state().initialize(client, clusterService);
+        KNNSettings.state().initialize(clusterService);
         KNNClusterUtil.instance().initialize(clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
@@ -214,14 +211,13 @@ public class KNNPlugin extends Plugin
         TrainingJobClusterStateListener.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         QuantizationStateCache.setThreadPool(threadPool);
         NativeMemoryCacheManager.setThreadPool(threadPool);
-        KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
-        knnStats = new KNNStats();
+        KNNStats knnStats = new KNNStats();
         return ImmutableList.of(knnStats);
     }
 
@@ -283,11 +279,6 @@ public class KNNPlugin extends Plugin
             new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class),
             new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class)
         );
-    }
-
-    @Override
-    public Optional<EngineFactory> getEngineFactory(IndexSettings indexSettings) {
-        return Optional.empty();
     }
 
     @Override

@@ -5,33 +5,39 @@
 
 package org.opensearch.knn.plugin.stats;
 
+import lombok.Getter;
+
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
  * Class represents a stat the plugin keeps track of
  */
 public class KNNStat<T> {
-    private Boolean clusterLevel;
-    private Supplier<T> supplier;
+    @Getter
+    private final boolean isClusterLevel;
+    private final Supplier<T> supplier;
 
     /**
      * Constructor
      *
-     * @param clusterLevel the scope of the stat
+     * @param isClusterLevel the scope of the stat
      * @param supplier supplier that returns the stat's value
      */
-    public KNNStat(Boolean clusterLevel, Supplier<T> supplier) {
-        this.clusterLevel = clusterLevel;
+    public KNNStat(Boolean isClusterLevel, Supplier<T> supplier) {
+        this.isClusterLevel = isClusterLevel;
         this.supplier = supplier;
     }
 
     /**
-     * Determines whether the stat is kept at the cluster level or the node level
+     * Allows a cluster stat to depend on node stats. This should only be set for cluster stats and should only return
+     * node stats.
      *
-     * @return boolean that is true if the stat is clusterLevel; false otherwise
+     * @return list of dependent node stat names. Null if none
      */
-    public Boolean isClusterLevel() {
-        return clusterLevel;
+    public List<String> dependentNodeStats() {
+        return Collections.emptyList();
     }
 
     /**
@@ -40,6 +46,16 @@ public class KNNStat<T> {
      * @return value of the stat
      */
     public T getValue() {
+        return supplier.get();
+    }
+
+    /**
+     * Get the value of the statistic potentially using the {@link KNNNodeStatAggregation}
+     *
+     * @param aggregation that can be used for cluster stats
+     * @return value of the stat
+     */
+    public T getValue(KNNNodeStatAggregation aggregation) {
         return supplier.get();
     }
 }

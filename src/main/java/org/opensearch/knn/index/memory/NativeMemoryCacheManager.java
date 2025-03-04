@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
+import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.threadpool.ThreadPool;
@@ -41,7 +42,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -55,19 +55,19 @@ public class NativeMemoryCacheManager implements Closeable {
     private static NativeMemoryCacheManager INSTANCE;
     @Setter
     private static ThreadPool threadPool;
+    public static int CB_TIME_INTERVAL = 20; // seconds
 
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
     private final ConcurrentHashMap<String, ReentrantLock> indexLocks = new ConcurrentHashMap<>();
     private final ExecutorService executor;
-    private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
     @Getter
     private Cancellable maintenanceTask;
+    private Cancellable circuitBreakerUnsetterTask;
 
     NativeMemoryCacheManager() {
         this.executor = Executors.newSingleThreadExecutor();
-        this.cacheCapacityReached = new AtomicBoolean(false);
         this.maxWeight = Long.MAX_VALUE;
         initialize();
     }
@@ -121,12 +121,14 @@ public class NativeMemoryCacheManager implements Closeable {
             cacheBuilder.expireAfterAccess(nativeMemoryCacheDTO.getExpiryTimeInMin(), TimeUnit.MINUTES);
         }
 
-        cacheCapacityReached = new AtomicBoolean(false);
         accessRecencyQueue = new ConcurrentLinkedDeque<>();
         cache = cacheBuilder.build();
+        // Set to false when initialized. This will ensure that we dont have to wait for the maintenance job
+        KNNCircuitBreaker.getInstance().setTripped(false);
 
         if (threadPool != null) {
             startMaintenance(cache);
+            startCircuitBreakerUnsetter();
         } else {
             logger.warn("ThreadPool is null during NativeMemoryCacheManager initialization. Maintenance will not start.");
         }
@@ -170,6 +172,9 @@ public class NativeMemoryCacheManager implements Closeable {
         executor.shutdown();
         if (maintenanceTask != null) {
             maintenanceTask.cancel();
+        }
+        if (circuitBreakerUnsetterTask != null) {
+            circuitBreakerUnsetterTask.cancel();
         }
     }
 
@@ -476,24 +481,6 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
-     * Returns whether or not the capacity of the cache has been reached
-     *
-     * @return Boolean of whether cache limit has been reached
-     */
-    public Boolean isCacheCapacityReached() {
-        return cacheCapacityReached.get();
-    }
-
-    /**
-     * Sets cache capacity reached
-     *
-     * @param value Boolean value to set cache Capacity Reached to
-     */
-    public void setCacheCapacityReached(Boolean value) {
-        cacheCapacityReached.set(value);
-    }
-
-    /**
      * Get the stats of all of the OpenSearch indices currently loaded into the cache
      *
      * @return Map containing all of the OpenSearch indices in the cache and their stats
@@ -523,8 +510,7 @@ public class NativeMemoryCacheManager implements Closeable {
         nativeMemoryAllocation.close();
 
         if (RemovalCause.SIZE == removalNotification.getCause()) {
-            KNNSettings.state().updateCircuitBreakerSettings(true);
-            setCacheCapacityReached(true);
+            KNNCircuitBreaker.getInstance().setTripped(true);
         }
 
         logger.debug("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(), removalNotification.getCause());
@@ -561,5 +547,35 @@ public class NativeMemoryCacheManager implements Closeable {
         TimeValue interval = KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES);
 
         maintenanceTask = threadPool.scheduleWithFixedDelay(cleanUp, interval, ThreadPool.Names.MANAGEMENT);
+    }
+
+    /**
+     * Start a thread that will periodically check if the circuit breaker is tripped and unset it if the cache
+     * capacity goes below a certain threshold. Because the cache capacity is a limit, it will never exceed it. So,
+     * if there is a capacity miss, the circuit breaker is tripped. It is then unset when the overall size of the
+     * cache goes below the unset threshold.
+     */
+    private void startCircuitBreakerUnsetter() {
+        if (circuitBreakerUnsetterTask != null) {
+            circuitBreakerUnsetterTask.cancel();
+        }
+        Runnable runnable = () -> {
+            if (KNNCircuitBreaker.getInstance().isTripped()) {
+                long currentSizeKiloBytes = getCacheSizeInKilobytes();
+                long circuitBreakerLimitSizeKiloBytes = KNNSettings.state().getCircuitBreakerLimit().getKb();
+                long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage() / 100)
+                    * circuitBreakerLimitSizeKiloBytes);
+
+                // Unset capacityReached flag if currentSizeBytes is less than circuitBreakerUnsetSizeBytes
+                if (currentSizeKiloBytes <= circuitBreakerUnsetSizeKiloBytes) {
+                    KNNCircuitBreaker.getInstance().setTripped(false);
+                }
+            }
+        };
+        circuitBreakerUnsetterTask = threadPool.scheduleWithFixedDelay(
+            runnable,
+            TimeValue.timeValueSeconds(CB_TIME_INTERVAL),
+            ThreadPool.Names.GENERIC
+        );
     }
 }

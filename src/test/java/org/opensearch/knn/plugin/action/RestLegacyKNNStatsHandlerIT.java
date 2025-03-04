@@ -19,8 +19,6 @@ import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.junit.rules.DisableOnDebug;
 import org.opensearch.client.Request;
@@ -44,7 +42,6 @@ import java.util.Map;
  */
 public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
 
-    private static final Logger logger = LogManager.getLogger(RestLegacyKNNStatsHandlerIT.class);
     private boolean isDebuggingTest = new DisableOnDebug(null).isDebugging();
     private boolean isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false").equals("true");
 
