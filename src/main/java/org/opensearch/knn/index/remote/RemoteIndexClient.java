@@ -27,4 +27,13 @@ public interface RemoteIndexClient {
      * @throws IOException if there is an error communicating with the server
      */
     RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildResponse remoteBuildResponse) throws InterruptedException, IOException;
+
+    /**
+     * Get the status of the index build
+     *
+     * @param remoteBuildResponse the /_build request response from the server
+     * @return remoteStatusResponse from the server
+     * @throws IOException if there is an error communicating with the server
+     */
+    RemoteBuildStatusResponse getBuildStatus(RemoteBuildResponse remoteBuildResponse) throws IOException;
 }

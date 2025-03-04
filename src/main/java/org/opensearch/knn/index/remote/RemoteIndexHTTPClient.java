@@ -17,7 +17,6 @@ import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.settings.SecureString;
@@ -41,9 +40,6 @@ import static org.apache.hc.core5.http.HttpStatus.SC_OK;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.STATUS_ENDPOINT;
 
 /**
@@ -128,48 +124,23 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     }
 
     /**
-     * Await the completion of the index build by polling periodically and handling the returned statuses until timeout.
-     *
+     * Await the completion of the index build using a {@link RemoteIndexPoller}.
      * @param remoteBuildResponse containing job_id from the server response used to track the job
      * @return RemoteBuildStatusResponse containing the path to the completed index
      */
-    @SuppressWarnings("BusyWait")
     @Override
     public RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildResponse remoteBuildResponse) throws InterruptedException, IOException {
-        long startTime = System.currentTimeMillis();
-        long timeout = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES)).getMillis();
-        long pollInterval = ((TimeValue) (KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS)))
-            .getMillis();
-
-        // Initial delay to allow build service to process the job and store the ID before getting its status.
-        // TODO tune default based on benchmarking
-        Thread.sleep(pollInterval * 3);
-
-        while (System.currentTimeMillis() - startTime < timeout) {
-            RemoteBuildStatusResponse remoteBuildStatusResponse = getBuildStatus(remoteBuildResponse.getJobId());
-            String taskStatus = remoteBuildStatusResponse.getTaskStatus();
-            switch (taskStatus) {
-                case COMPLETED_INDEX_BUILD:
-                    return remoteBuildStatusResponse;
-                case FAILED_INDEX_BUILD:
-                    String errorMessage = remoteBuildStatusResponse.getErrorMessage();
-                    if (errorMessage != null) {
-                        throw new InterruptedException("Index build failed: " + errorMessage);
-                    }
-                    throw new InterruptedException("Index build failed without an error message.");
-                case RUNNING_INDEX_BUILD:
-                    Thread.sleep(pollInterval);
-            }
-        }
-        throw new InterruptedException("Build timed out, falling back to CPU build.");
+        RemoteIndexPoller remoteIndexPoller = new RemoteIndexPoller(this);
+        return remoteIndexPoller.pollRemoteEndpoint(remoteBuildResponse);
     }
 
     /**
-     * Helper method to directly get the status response for a given job ID
-     * @param jobId to check
+     * Helper method to directly get the status response for a given build
+     * @param remoteBuildResponse containing job ID to check
      * @return The entire response for the status request
      */
-    private RemoteBuildStatusResponse getBuildStatus(String jobId) throws IOException {
+    public RemoteBuildStatusResponse getBuildStatus(RemoteBuildResponse remoteBuildResponse) throws IOException {
+        String jobId = remoteBuildResponse.getJobId();
         HttpGet request = new HttpGet(endpoint + STATUS_ENDPOINT + "/" + jobId);
         if (authHeader != null) {
             request.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
