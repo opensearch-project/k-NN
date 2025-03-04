@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.plugin.action;
 
-import org.opensearch.Version;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -50,7 +49,7 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
 
     @Before
     public void setup() {
-        knnStats = new KNNStats(null, () -> Version.CURRENT);
+        knnStats = new KNNStats();
     }
 
     /**

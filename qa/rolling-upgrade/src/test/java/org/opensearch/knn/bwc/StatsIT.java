@@ -7,7 +7,6 @@ package org.opensearch.knn.bwc;
 
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
-import org.opensearch.Version;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.knn.plugin.stats.KNNStats;
@@ -22,7 +21,7 @@ public class StatsIT extends AbstractRollingUpgradeTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        this.knnStats = new KNNStats(null, () -> Version.CURRENT);
+        this.knnStats = new KNNStats();
     }
 
     // Validate if all the KNN Stats metrics from old version are present in new version

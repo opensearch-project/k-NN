@@ -60,8 +60,6 @@ import org.opensearch.knn.plugin.transport.DeleteModelAction;
 import org.opensearch.knn.plugin.transport.DeleteModelTransportAction;
 import org.opensearch.knn.plugin.transport.GetModelAction;
 import org.opensearch.knn.plugin.transport.GetModelTransportAction;
-import org.opensearch.knn.plugin.transport.KNNCircuitBreakerTrippedAction;
-import org.opensearch.knn.plugin.transport.KNNCircuitBreakerTrippedTransportAction;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsTransportAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
@@ -219,7 +217,7 @@ public class KNNPlugin extends Plugin
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
-        KNNStats knnStats = new KNNStats(client, () -> clusterService.getClusterManagerService().getMinNodeVersion());
+        KNNStats knnStats = new KNNStats();
         return ImmutableList.of(knnStats);
     }
 
@@ -279,8 +277,7 @@ public class KNNPlugin extends Plugin
             new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
             new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class),
             new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class),
-            new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class),
-            new ActionHandler<>(KNNCircuitBreakerTrippedAction.INSTANCE, KNNCircuitBreakerTrippedTransportAction.class)
+            new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class)
         );
     }
 

@@ -6,8 +6,9 @@
 package org.opensearch.knn.plugin.stats;
 
 import lombok.Getter;
-import org.opensearch.core.action.ActionListener;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -30,13 +31,13 @@ public class KNNStat<T> {
     }
 
     /**
-     * Allows stats to set context via asynchronous calls. This should only be used for cluster level stats.
+     * Allows a cluster stat to depend on node stats. This should only be set for cluster stats and should only return
+     * node stats.
      *
-     * @param actionListener listener to call once the context is setup. If no async calls are made, then do nothing.
-     * @return listener that will execute setup on response.
+     * @return list of dependent node stat names. Null if none
      */
-    public ActionListener<Void> setupContext(ActionListener<Void> actionListener) {
-        return actionListener;
+    public List<String> dependentNodeStats() {
+        return Collections.emptyList();
     }
 
     /**
@@ -45,6 +46,16 @@ public class KNNStat<T> {
      * @return value of the stat
      */
     public T getValue() {
+        return supplier.get();
+    }
+
+    /**
+     * Get the value of the statistic potentially using the {@link KNNNodeStatAggregation}
+     *
+     * @param aggregation that can be used for cluster stats
+     * @return value of the stat
+     */
+    public T getValue(KNNNodeStatAggregation aggregation) {
         return supplier.get();
     }
 }

@@ -7,7 +7,6 @@ package org.opensearch.knn.plugin.stats;
 
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.Version;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -21,7 +20,6 @@ import org.opensearch.knn.plugin.stats.suppliers.LibraryInitializedSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.ModelIndexStatusSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.ModelIndexingDegradingSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplier;
-import org.opensearch.transport.client.Client;
 
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -33,16 +31,12 @@ import java.util.function.Supplier;
  */
 public class KNNStats {
 
-    private final Client client;
-    private final Supplier<Version> minVersionSupplier;
     private final Map<String, KNNStat<?>> knnStats;
 
     /**
      * Constructor
      */
-    public KNNStats(Client client, Supplier<Version> minVersionSupplier) {
-        this.client = client;
-        this.minVersionSupplier = minVersionSupplier;
+    public KNNStats() {
         this.knnStats = buildStatsMap();
     }
 
@@ -151,7 +145,7 @@ public class KNNStats {
             .put(StatNames.GRAPH_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_REQUESTS)))
             .put(StatNames.GRAPH_INDEX_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_ERRORS)))
             .put(StatNames.GRAPH_INDEX_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_REQUESTS)))
-            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new CircuitBreakerStat(client, minVersionSupplier));
+            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new CircuitBreakerStat());
     }
 
     private void addEngineStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
