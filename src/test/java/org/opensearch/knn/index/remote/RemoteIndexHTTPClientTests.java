@@ -24,12 +24,6 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.MockSecureSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.core.xcontent.DeprecationHandler;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.core.xcontent.ToXContentObject;
-import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
@@ -54,7 +48,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -69,13 +62,12 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDP
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.VectorDataType.FLOAT;
-import static org.opensearch.knn.index.engine.faiss.FaissHNSWMethod.getRemoteIndexingParameters;
+import static org.opensearch.knn.index.engine.faiss.FaissHNSWMethod.createRemoteIndexingParameters;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUCKET;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.S3;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
 
+@SuppressWarnings("resource")
 public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     public static final String TEST_BUCKET = "test-bucket";
     public static final String TEST_CLUSTER = "test-cluster";
@@ -87,7 +79,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     public static final String PASSWORD = "password";
 
     @Mock
-    protected ClusterService clusterService;
+    protected static ClusterService clusterService;
 
     protected AutoCloseable openMocks;
 
@@ -107,9 +99,9 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         client.close();
     }
 
-    public void testGetRemoteIndexingParameters_Success() {
+    public void testCreateRemoteIndexingParameters_Success() {
         BuildIndexParams params = createTestBuildIndexParams();
-        RemoteIndexParameters result = getRemoteIndexingParameters(params.getParameters());
+        RemoteIndexParameters result = createRemoteIndexingParameters(params.getParameters());
 
         assertNotNull(result);
         assertTrue(result instanceof RemoteFaissHNSWIndexParameters);
@@ -120,109 +112,6 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         assertEquals(94, hnswParams.efConstruction);
         assertEquals(89, hnswParams.efSearch);
         assertEquals(14, hnswParams.m);
-    }
-
-    /**
-     * Test the construction of the build request by comparing it to an explicitly created JSON object.
-     */
-    public void testBuildRequest() {
-        RepositoryMetadata metadata = createTestRepositoryMetadata();
-        KNNSettings knnSettingsMock = mock(KNNSettings.class);
-        IndexSettings mockIndexSettings = createTestIndexSettings();
-        setupTestClusterSettings();
-
-        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
-            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
-            when(KNNSettings.getRemoteBuildServiceEndpoint()).thenReturn(MOCK_ENDPOINT);
-            KNNSettings.state().setClusterService(clusterService);
-
-            BuildIndexParams indexInfo = createTestBuildIndexParams();
-
-            RemoteBuildRequest request = new RemoteBuildRequest(mockIndexSettings, indexInfo, metadata, MOCK_BLOB_NAME);
-
-            assertEquals(S3, request.getRepositoryType());
-            assertEquals(TEST_BUCKET, request.getContainerName());
-            assertEquals(FAISS_NAME, request.getEngine());
-            assertEquals(FLOAT.getValue(), request.getVectorDataType());
-            assertEquals(MOCK_BLOB_NAME + VECTOR_BLOB_FILE_EXTENSION, request.getVectorPath());
-            assertEquals(MOCK_BLOB_NAME + DOC_ID_FILE_EXTENSION, request.getDocIdPath());
-            assertEquals(TEST_CLUSTER, request.getTenantId());
-            assertEquals(2, request.getDocCount());
-            assertEquals(2, request.getDimension());
-
-            String expectedJson = "{"
-                + "\"repository_type\":\"s3\","
-                + "\"container_name\":\"test-bucket\","
-                + "\"vector_path\":\"blob.knnvec\","
-                + "\"doc_id_path\":\"blob.knndid\","
-                + "\"tenant_id\":\"test-cluster\","
-                + "\"dimension\":2,"
-                + "\"doc_count\":2,"
-                + "\"data_type\":\"float\","
-                + "\"engine\":\"faiss\","
-                + "\"index_parameters\":{"
-                + "\"space_type\":\"l2\","
-                + "\"algorithm\":\"hnsw\","
-                + "\"algorithm_parameters\":{"
-                + "\"ef_construction\":94,"
-                + "\"ef_search\":89,"
-                + "\"m\":14"
-                + "}"
-                + "}"
-                + "}";
-            XContentParser expectedParser = JsonXContent.jsonXContent.createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                expectedJson
-            );
-            Map<String, Object> expectedMap = expectedParser.map();
-
-            String jsonRequest;
-            try (XContentBuilder builder = JsonXContent.contentBuilder()) {
-                request.toXContent(builder, ToXContentObject.EMPTY_PARAMS);
-                jsonRequest = builder.toString();
-            }
-
-            XContentParser generatedParser = JsonXContent.jsonXContent.createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                jsonRequest
-            );
-            Map<String, Object> generatedMap = generatedParser.map();
-
-            assertEquals(expectedMap, generatedMap);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void testRemoteBuildResponseParsing() throws IOException {
-        String jsonResponse = "{\"job_id\":\"test-job-123\"}";
-
-        try (
-            XContentParser parser = JsonXContent.jsonXContent.createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                jsonResponse
-            )
-        ) {
-            RemoteBuildResponse response = RemoteBuildResponse.fromXContent(parser);
-            assertNotNull(response);
-            assertEquals("test-job-123", response.getJobId());
-        }
-    }
-
-    public void testRemoteBuildResponseParsingError() throws IOException {
-        String jsonResponse = "{\"error\":\"test-error\"}";
-        try (
-            XContentParser parser = JsonXContent.jsonXContent.createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                jsonResponse
-            )
-        ) {
-            assertThrows(IOException.class, () -> RemoteBuildResponse.fromXContent(parser));
-        }
     }
 
     public void testSubmitVectorBuild() throws IOException, URISyntaxException {
@@ -315,7 +204,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
     // Utility methods to populate settings for build requests
 
-    private BuildIndexParams createTestBuildIndexParams() {
+    static BuildIndexParams createTestBuildIndexParams() {
         List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
         final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
             vectorValues
@@ -347,7 +236,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             .build();
     }
 
-    private RepositoryMetadata createTestRepositoryMetadata() {
+    static RepositoryMetadata createTestRepositoryMetadata() {
         RepositoryMetadata metadata = mock(RepositoryMetadata.class);
         Settings repoSettings = Settings.builder().put(BUCKET, TEST_BUCKET).build();
         when(metadata.type()).thenReturn(S3);
@@ -355,14 +244,14 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         return metadata;
     }
 
-    private IndexSettings createTestIndexSettings() {
+    static IndexSettings createTestIndexSettings() {
         IndexSettings mockIndexSettings = mock(IndexSettings.class);
         Settings indexSettingsSettings = Settings.builder().put(ClusterName.CLUSTER_NAME_SETTING.getKey(), TEST_CLUSTER).build();
         when(mockIndexSettings.getSettings()).thenReturn(indexSettingsSettings);
         return mockIndexSettings;
     }
 
-    private void setupTestClusterSettings() {
+    static void setupTestClusterSettings() {
         Settings settings = Settings.builder().put(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey(), MOCK_ENDPOINT).build();
         Set<Setting<?>> settingsSet = new HashSet<>();
         settingsSet.add(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING);
@@ -372,7 +261,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         KNNSettings.state().setClusterService(clusterService);
     }
 
-    private void clearAuthHeader() {
+    void clearAuthHeader() {
         final MockSecureSettings secureSettings = new MockSecureSettings();
         final Settings settings = Settings.builder().setSecureSettings(secureSettings).build();
         RemoteIndexHTTPClient.reloadAuthHeader(settings);

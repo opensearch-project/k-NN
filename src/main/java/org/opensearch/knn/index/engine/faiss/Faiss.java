@@ -129,7 +129,7 @@ public class Faiss extends NativeLibrary {
     @Override
     public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
         if (METHOD_HNSW.equals(indexInfoParameters.get(NAME))) {
-            return FaissHNSWMethod.getRemoteIndexingParameters(indexInfoParameters);
+            return FaissHNSWMethod.createRemoteIndexingParameters(indexInfoParameters);
         }
         throw new IllegalArgumentException("Unsupported method for remote indexing");
     }

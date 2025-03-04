@@ -159,7 +159,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
      * @param indexInfoParameters result of indexInfo.getParameters() to parse
      * @return Map of parameters to be used as "index_parameters"
      */
-    public static RemoteIndexParameters getRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
+    public static RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
         RemoteFaissHNSWIndexParameters.RemoteFaissHNSWIndexParametersBuilder<?, ?> builder = RemoteFaissHNSWIndexParameters.builder();
         assert (indexInfoParameters.get(SPACE_TYPE) instanceof String);
         String spaceType = (String) indexInfoParameters.get(SPACE_TYPE);

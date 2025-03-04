@@ -57,7 +57,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
         private static final CloseableHttpClient httpClient = createHttpClient();
 
         private static CloseableHttpClient createHttpClient() {
-            return HttpClients.custom().setRetryStrategy(new RemoteIndexClientRetryStrategy()).build();
+            return HttpClients.custom().setRetryStrategy(new RemoteIndexHTTPClientRetryStrategy()).build();
         }
     }
 
@@ -112,7 +112,6 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
      * Helper method to form the HttpPost request from the HTTPRemoteBuildRequest
      * @param jsonRequest JSON converted request body to be submitted
      * @return HttpPost request to be submitted
-     * @throws IOException if the request cannot be formed
      */
     private HttpPost getHttpPost(String jsonRequest) {
         HttpPost buildRequest = new HttpPost(URI.create(endpoint) + BUILD_ENDPOINT);

@@ -30,7 +30,7 @@ import static org.apache.hc.core5.http.HttpStatus.SC_TOO_MANY_REQUESTS;
  * TODO Future work: tune this retry strategy (MAX_RETRIES, BASE_DELAY_MS, exponential backoff/jitter) based on benchmarking
  * @see org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy
  */
-public class RemoteIndexClientRetryStrategy extends DefaultHttpRequestRetryStrategy {
+public class RemoteIndexHTTPClientRetryStrategy extends DefaultHttpRequestRetryStrategy {
     private static final int SC_BANDWIDTH_LIMIT_EXCEEDED = 509;
     private static final int MAX_RETRIES = 1; // 2 total attempts
     private static final long BASE_DELAY_MS = 1000;
@@ -45,7 +45,7 @@ public class RemoteIndexClientRetryStrategy extends DefaultHttpRequestRetryStrat
         SC_BANDWIDTH_LIMIT_EXCEEDED
     );
 
-    public RemoteIndexClientRetryStrategy() {
+    public RemoteIndexHTTPClientRetryStrategy() {
         super(
             MAX_RETRIES,
             TimeValue.ofMilliseconds(BASE_DELAY_MS),
