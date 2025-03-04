@@ -153,7 +153,6 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         };
     }
 
-    // TODO refactor to make the index parameter fetching more intelligent and less cumbersome
     /**
      * Get the parameters that need to be passed to the remote build service for training
      *
@@ -180,13 +179,12 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         return builder.build();
     }
 
-    public static int getMFromIndexDescription(String indexDescription) {
+    private static int getMFromIndexDescription(String indexDescription) {
         int commaIndex = indexDescription.indexOf(",");
         if (commaIndex == -1) {
             throw new IllegalArgumentException("Invalid index description: " + indexDescription);
         }
         String hnswPart = indexDescription.substring(0, commaIndex);
-        int m = Integer.parseInt(hnswPart.substring(4));
-        return m;
+        return Integer.parseInt(hnswPart.substring(4));
     }
 }

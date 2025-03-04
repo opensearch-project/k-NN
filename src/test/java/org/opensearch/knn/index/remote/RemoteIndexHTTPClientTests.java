@@ -69,7 +69,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDP
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.VectorDataType.FLOAT;
-import static org.opensearch.knn.index.engine.faiss.FaissHNSWMethod.getMFromIndexDescription;
+import static org.opensearch.knn.index.engine.faiss.FaissHNSWMethod.getRemoteIndexingParameters;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUCKET;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
@@ -107,10 +107,19 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         client.close();
     }
 
-    public void testGetMFromIndexDescription() {
-        assertEquals(16, getMFromIndexDescription("HNSW16,Flat"));
-        assertEquals(8, getMFromIndexDescription("HNSW8,SQ"));
-        assertThrows(IllegalArgumentException.class, () -> getMFromIndexDescription("Invalid description"));
+    public void testGetRemoteIndexingParameters_Success() {
+        BuildIndexParams params = createTestBuildIndexParams();
+        RemoteIndexParameters result = getRemoteIndexingParameters(params.getParameters());
+
+        assertNotNull(result);
+        assertTrue(result instanceof RemoteFaissHNSWIndexParameters);
+
+        RemoteFaissHNSWIndexParameters hnswParams = (RemoteFaissHNSWIndexParameters) result;
+        assertEquals(METHOD_HNSW, hnswParams.algorithm);
+        assertEquals("l2", hnswParams.spaceType);
+        assertEquals(94, hnswParams.efConstruction);
+        assertEquals(89, hnswParams.efSearch);
+        assertEquals(14, hnswParams.m);
     }
 
     /**
