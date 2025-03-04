@@ -13,21 +13,72 @@ import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
 
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.*;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.ERROR_MESSAGE;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.MOCK_FILE_NAME;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
+
 public class RemoteBuildStatusResponseTests extends KNNTestCase {
+    public static final String UNKNOWN_FIELD = "unknown_field";
+    public static final String UNKNOWN_VALUE = "value";
+    public static final String NULL = "null";
     public static final String UNKNOWN_RESPONSE = "{"
-        + "\"task_status\":\"RUNNING_INDEX_BUILD\","
-        + "\"error_message\":null,"
-        + "\"unknown_field\":\"value\""
+        + "\""
+        + TASK_STATUS
+        + "\":\""
+        + RUNNING_INDEX_BUILD
+        + "\","
+        + "\""
+        + ERROR_MESSAGE
+        + "\":"
+        + NULL
+        + ","
+        + "\""
+        + UNKNOWN_FIELD
+        + "\":\""
+        + UNKNOWN_VALUE
+        + "\""
         + "}";
     public static final String COMPLETED_RESPONSE = "{"
-        + "\"task_status\":\"COMPLETED_INDEX_BUILD\","
-        + "\"index_path\":\"/path/to/index\","
-        + "\"error_message\":null"
+        + "\""
+        + TASK_STATUS
+        + "\":\""
+        + COMPLETED_INDEX_BUILD
+        + "\","
+        + "\""
+        + FILE_NAME
+        + "\":\""
+        + MOCK_FILE_NAME
+        + "\","
+        + "\""
+        + ERROR_MESSAGE
+        + "\":"
+        + NULL
         + "}";
-    public static final String MISSING_TASK_STATUS_RESPONSE = "{" + "\"index_path\":\"/path/to/index\"," + "\"error_message\":null" + "}";
-    public static final String MISSING_INDEX_PATH_RESPONSE = "{"
-        + "\"task_status\":\"COMPLETED_INDEX_BUILD\","
-        + "\"error_message\":null"
+    public static final String MISSING_TASK_STATUS_RESPONSE = "{"
+        + "\""
+        + FILE_NAME
+        + "\":\""
+        + MOCK_FILE_NAME
+        + "\","
+        + "\""
+        + ERROR_MESSAGE
+        + "\":"
+        + NULL
+        + "}";
+    public static final String MISSING_FILE_NAME_RESPONSE = "{"
+        + "\""
+        + TASK_STATUS
+        + "\":\""
+        + COMPLETED_INDEX_BUILD
+        + "\","
+        + "\""
+        + ERROR_MESSAGE
+        + "\":"
+        + NULL
         + "}";
 
     public void testSuccessfulBuildStatusResponse() throws IOException {
@@ -40,8 +91,8 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
         ) {
             RemoteBuildStatusResponse response = RemoteBuildStatusResponse.fromXContent(parser);
             assertNotNull(response);
-            assertEquals("COMPLETED_INDEX_BUILD", response.getTaskStatus());
-            assertEquals("/path/to/index", response.getIndexPath());
+            assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
+            assertEquals(MOCK_FILE_NAME, response.getFileName());
             assertNull(response.getErrorMessage());
         }
     }
@@ -55,7 +106,7 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
             )
         ) {
             IOException exception = assertThrows(IOException.class, () -> RemoteBuildStatusResponse.fromXContent(parser));
-            assertEquals("Invalid response format, missing task_status", exception.getMessage());
+            assertEquals("Invalid response format, missing " + TASK_STATUS, exception.getMessage());
         }
     }
 
@@ -64,11 +115,11 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
             XContentParser parser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                MISSING_INDEX_PATH_RESPONSE
+                MISSING_FILE_NAME_RESPONSE
             )
         ) {
             IOException exception = assertThrows(IOException.class, () -> RemoteBuildStatusResponse.fromXContent(parser));
-            assertEquals("Invalid response format, missing index_path for completed status", exception.getMessage());
+            assertEquals("Invalid response format, missing " + FILE_NAME + " for completed status", exception.getMessage());
         }
     }
 
@@ -81,7 +132,7 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
             )
         ) {
             IOException exception = assertThrows(IOException.class, () -> RemoteBuildStatusResponse.fromXContent(parser));
-            assertEquals("Invalid response format, unknown field: unknown_field", exception.getMessage());
+            assertEquals("Invalid response format, unknown field: " + UNKNOWN_FIELD, exception.getMessage());
         }
     }
 }

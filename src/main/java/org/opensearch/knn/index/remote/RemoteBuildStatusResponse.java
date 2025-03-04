@@ -21,15 +21,12 @@ import static org.opensearch.knn.index.remote.KNNRemoteConstants.*;
 @Value
 @Builder
 public class RemoteBuildStatusResponse {
-    private static final String TASK_STATUS = "task_status";
     private static final ParseField TASK_STATUS_FIELD = new ParseField(TASK_STATUS);
-    private static final String INDEX_PATH = "index_path";
-    private static final ParseField INDEX_PATH_FIELD = new ParseField(INDEX_PATH);
-    private static final String ERROR_MESSAGE = "error_message";
+    private static final ParseField FILE_NAME_FIELD = new ParseField(FILE_NAME);
     private static final ParseField ERROR_MESSAGE_FIELD = new ParseField(ERROR_MESSAGE);
 
     String taskStatus;
-    String indexPath;
+    String fileName;
     String errorMessage;
 
     static RemoteBuildStatusResponse fromXContent(XContentParser parser) throws IOException {
@@ -45,8 +42,8 @@ public class RemoteBuildStatusResponse {
             } else if (token.isValue()) {
                 if (TASK_STATUS_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                     builder.taskStatus(parser.text());
-                } else if (INDEX_PATH_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                    builder.indexPath(parser.text());
+                } else if (FILE_NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                    builder.fileName(parser.text());
                 } else if (ERROR_MESSAGE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                     builder.errorMessage(parser.text());
                 } else {
@@ -57,8 +54,8 @@ public class RemoteBuildStatusResponse {
         if (StringUtils.isBlank(builder.taskStatus)) {
             throw new IOException("Invalid response format, missing " + TASK_STATUS);
         }
-        if (COMPLETED_INDEX_BUILD.equals(builder.taskStatus) && StringUtils.isBlank(builder.indexPath)) {
-            throw new IOException("Invalid response format, missing " + INDEX_PATH + " for completed status");
+        if (COMPLETED_INDEX_BUILD.equals(builder.taskStatus) && StringUtils.isBlank(builder.fileName)) {
+            throw new IOException("Invalid response format, missing " + FILE_NAME + " for completed status");
         }
         return builder.build();
     }

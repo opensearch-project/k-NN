@@ -27,17 +27,11 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES_SETTING;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.MOCK_FILE_NAME;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_JOB_ID;
 
 public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
-    private static final String MOCK_INDEX_PATH = "/path/to/completed/index";
-    private static final String MOCK_COMPLETED_RESPONSE =
-        "{\"task_status\": \"COMPLETED_INDEX_BUILD\", \"index_path\": \"/path/to/completed/index\", \"error_message\": null}";
-    private static final String MOCK_FAILED_RESPONSE =
-        "{\"task_status\": \"FAILED_INDEX_BUILD\", \"index_path\": null, \"error_message\": \"Failed to build index due to insufficient resources\"}";
-    private static final String MOCK_RUNNING_RESPONSE =
-        "{\"task_status\": \"RUNNING_INDEX_BUILD\", \"index_path\": null, \"error_message\": null}";
     @Mock
     protected static ClusterService clusterService;
 
@@ -96,14 +90,14 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
                 TimeValue.timeValueMillis(10)
             );
 
-            RemoteBuildStatusResponse completedResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, MOCK_INDEX_PATH, null);
+            RemoteBuildStatusResponse completedResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, MOCK_FILE_NAME, null);
             when(mockClient.getBuildStatus(new RemoteBuildResponse(MOCK_JOB_ID))).thenReturn(completedResponse);
 
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 
             RemoteBuildStatusResponse response = poller.pollRemoteEndpoint(mockResponse);
             assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
-            assertEquals(MOCK_INDEX_PATH, response.getIndexPath());
+            assertEquals(MOCK_FILE_NAME, response.getFileName());
             assertNull(response.getErrorMessage());
         } catch (Exception e) {
             throw new RuntimeException(e);

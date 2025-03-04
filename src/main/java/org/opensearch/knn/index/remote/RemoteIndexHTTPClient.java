@@ -39,6 +39,7 @@ import java.security.PrivilegedExceptionAction;
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.BASIC_PREFIX;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.STATUS_ENDPOINT;
 
@@ -48,7 +49,6 @@ import static org.opensearch.knn.index.remote.KNNRemoteConstants.STATUS_ENDPOINT
  */
 @Log4j2
 public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
-    private static final String BASIC_PREFIX = "Basic ";
     private static volatile String authHeader = null;
 
     private final String endpoint;
