@@ -14,6 +14,7 @@ import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -246,8 +247,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public boolean supportsRemoteIndexBuild() {
-        return knnLibrary.supportsRemoteIndexBuild();
+    public boolean supportsRemoteIndexBuild(Map<String, String> attributes) throws IOException {
+        return knnLibrary.supportsRemoteIndexBuild(attributes);
     }
 
     @Override

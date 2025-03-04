@@ -14,10 +14,10 @@ import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
 
-public class RemoteIndexPoller {
+class RemoteIndexPoller {
     private final RemoteIndexClient client;
 
-    public RemoteIndexPoller(RemoteIndexClient client) {
+    RemoteIndexPoller(RemoteIndexClient client) {
         this.client = client;
     }
 
@@ -30,10 +30,10 @@ public class RemoteIndexPoller {
      * @throws IOException if an I/O error occurs
      */
     @SuppressWarnings("BusyWait")
-    public RemoteBuildStatusResponse pollRemoteEndpoint(RemoteBuildResponse remoteBuildResponse) throws InterruptedException, IOException {
+    RemoteBuildStatusResponse pollRemoteEndpoint(RemoteBuildResponse remoteBuildResponse) throws InterruptedException, IOException {
         long startTime = System.currentTimeMillis();
-        long timeout = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES)).getMillis();
-        long pollInterval = ((TimeValue) (KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS)))
+        long timeout = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT)).getMillis();
+        long pollInterval = ((TimeValue) (KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL)))
             .getMillis();
 
         // Initial delay to allow build service to process the job and store the ID before getting its status.

@@ -13,7 +13,10 @@ import org.opensearch.core.xcontent.XContentParser;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.*;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.ERROR_MESSAGE;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
 
 /**
  * Response from the remote index build service. This class is used to parse the response from the remote index build service.

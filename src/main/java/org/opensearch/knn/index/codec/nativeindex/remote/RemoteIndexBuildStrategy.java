@@ -9,7 +9,6 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.annotation.ExperimentalApi;
-import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
@@ -116,7 +115,9 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         try {
             BlobStoreRepository repository = getRepository();
             BlobPath blobPath = repository.basePath().add(indexSettings.getUUID() + VECTORS_PATH);
-            VectorRepositoryAccessor vectorRepositoryAccessor = new DefaultVectorRepositoryAccessor(getBlobContainer(repository, blobPath));
+            VectorRepositoryAccessor vectorRepositoryAccessor = new DefaultVectorRepositoryAccessor(
+                repository.blobStore().blobContainer(blobPath)
+            );
             stopWatch = new StopWatch().start();
             // We create a new time based UUID per file in order to avoid conflicts across shards. It is also very difficult to get the
             // shard id in this context.
@@ -135,7 +136,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexSettings,
                 indexInfo,
                 repository.getMetadata(),
-                blobPath.buildAsString() + blobName
+                blobPath.buildAsString()
             );
             stopWatch = new StopWatch().start();
             RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(request);
@@ -174,12 +175,4 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         return (BlobStoreRepository) repository;
     }
 
-    /**
-     * @param blobStoreRepository {@link BlobStoreRepository} containing the blob container
-     * @return {@link BlobContainer} referencing the location for vector upload and graph download
-     * @throws RepositoryMissingException if repository is not registered or if {@link KNNSettings#KNN_REMOTE_VECTOR_REPO_SETTING} is not set
-     */
-    private BlobContainer getBlobContainer(BlobStoreRepository blobStoreRepository, BlobPath path) throws RepositoryMissingException {
-        return blobStoreRepository.blobStore().blobContainer(path);
-    }
 }

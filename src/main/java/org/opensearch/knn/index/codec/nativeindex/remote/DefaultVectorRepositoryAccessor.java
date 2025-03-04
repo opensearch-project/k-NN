@@ -58,6 +58,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
         VectorDataType vectorDataType,
         Supplier<KNNVectorValues<?>> knnVectorValuesSupplier
     ) throws IOException, InterruptedException {
+        assert blobContainer != null;
         KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
         initializeVectorValues(knnVectorValues);
         long vectorBlobLength = (long) knnVectorValues.bytesPerVector() * totalLiveDocs;

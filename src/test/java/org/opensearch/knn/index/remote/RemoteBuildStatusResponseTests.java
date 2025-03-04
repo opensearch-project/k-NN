@@ -13,11 +13,9 @@ import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.*;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.ERROR_MESSAGE;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.MOCK_FILE_NAME;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
 
@@ -25,6 +23,7 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
     public static final String UNKNOWN_FIELD = "unknown_field";
     public static final String UNKNOWN_VALUE = "value";
     public static final String NULL = "null";
+    public static final String MOCK_FILE_NAME = "graph.faiss";
     public static final String UNKNOWN_RESPONSE = "{"
         + "\""
         + TASK_STATUS

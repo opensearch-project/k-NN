@@ -6,6 +6,10 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -22,6 +26,7 @@ import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.remote.RemoteFaissHNSWIndexParameters;
 import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -37,6 +42,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
@@ -186,5 +192,59 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         }
         String hnswPart = indexDescription.substring(0, commaIndex);
         return Integer.parseInt(hnswPart.substring(4));
+    }
+
+    /**
+     * Return whether this engine/method supports remote build.
+     * @param attributes
+     * @return true if remote build is supported, false otherwise
+     * @throws IOException
+     */
+    static boolean supportsRemoteIndexBuild(Map<String, String> attributes) throws IOException {
+        String parametersJson = attributes.get("parameters");
+        String encoderName = getEncoderName(parametersJson);
+        return "flat".equals(encoderName);
+    }
+
+    /**
+     * Gets encoder name from a {@FieldInfo parameters} map
+     *
+     * @param parametersJson
+     * @return encoder name
+     * @throws IOException
+     */
+    private static String getEncoderName(String parametersJson) throws IOException {
+        XContentParser parser = XContentType.JSON.xContent()
+            .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersJson.getBytes());
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
+                String fieldName = parser.currentName();
+                parser.nextToken();
+
+                if (PARAMETERS.equals(fieldName) && parser.currentToken() == XContentParser.Token.START_OBJECT) {
+                    while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                        if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
+                            String paramName = parser.currentName();
+                            parser.nextToken();
+
+                            if (METHOD_ENCODER_PARAMETER.equals(paramName) && parser.currentToken() == XContentParser.Token.START_OBJECT) {
+                                while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                                    if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
+                                        String encoderField = parser.currentName();
+                                        parser.nextToken();
+
+                                        if (NAME.equals(encoderField)) {
+                                            return parser.text();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 }

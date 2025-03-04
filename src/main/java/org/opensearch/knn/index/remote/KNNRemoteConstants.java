@@ -39,5 +39,4 @@ public class KNNRemoteConstants {
     public static final String FAILED_INDEX_BUILD = "FAILED_INDEX_BUILD";
     public static final String FILE_NAME = "file_name";
     public static final String ERROR_MESSAGE = "error_message";
-    public static final String MOCK_FILE_NAME = "graph.faiss";
 }

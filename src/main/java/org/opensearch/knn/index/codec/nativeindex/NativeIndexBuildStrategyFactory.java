@@ -64,7 +64,7 @@ public final class NativeIndexBuildStrategyFactory {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()
             && repositoriesServiceSupplier != null
             && indexSettings != null
-            && knnEngine.supportsRemoteIndexBuild()
+            && knnEngine.supportsRemoteIndexBuild(fieldInfo.attributes())
             && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength)) {
             return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings);
         } else {
