@@ -25,7 +25,9 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.nativeindex.remote.RemoteStatusResponse;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
+import org.opensearch.knn.plugin.KNNPlugin;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,7 +39,6 @@ import java.security.PrivilegedExceptionAction;
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
 
 /**
@@ -68,8 +69,12 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
         return HttpClientHolder.httpClient;
     }
 
+    /**
+     * Creates the client, setting the endpoint per-instance so the same endpoint is used per-build operation
+     * (per call to {@link RemoteIndexBuildStrategy#buildAndWriteIndex(BuildIndexParams)})
+     */
     public RemoteIndexHTTPClient() {
-        String endpoint = KNNSettings.state().getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey());
+        String endpoint = KNNSettings.getRemoteBuildServiceEndpoint();
         if (endpoint == null || endpoint.isEmpty()) {
             throw new IllegalArgumentException("No endpoint set for RemoteIndexClient");
         }
@@ -143,7 +148,8 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     }
 
     /**
-     * Set the global auth header to use the refreshed secure settings
+     * Set the global auth header to use the refreshed secure settings.
+     * Called by {@link KNNPlugin#reload(Settings)} when the nodes reload API is called.
      * @param settings Settings to use to get the credentials
      */
     public static void reloadAuthHeader(Settings settings) {

@@ -42,7 +42,7 @@ public class RemoteBuildResponse {
             }
         }
         if (StringUtils.isBlank(builder.jobId)) {
-            throw new IOException("Invalid response format, missing + " + JOB_ID_FIELD);
+            throw new IOException("Invalid response format, missing " + JOB_ID_FIELD);
         }
         return builder.build();
     }

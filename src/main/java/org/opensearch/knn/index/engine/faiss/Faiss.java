@@ -14,30 +14,14 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFAULT;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DEFAULT;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.ALGORITHM;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.ALGORITHM_PARAMETERS;
-import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
-import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
-import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
 
 /**
  * Implements NativeLibrary for the faiss native library
@@ -127,67 +111,6 @@ public class Faiss extends NativeLibrary {
         return spaceType.scoreToDistanceTranslation(score);
     }
 
-    // TODO refactor to make the index parameter fetching more intelligent and less cumbersome
-    /**
-     * Get the parameters that need to be passed to the remote build service for training
-     *
-     * @param indexInfoParameters result of indexInfo.getParameters() to parse
-     * @return Map of parameters to be used as "index_parameters"
-     */
-    @Override
-    public Map<String, Object> getRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
-        Map<String, Object> indexParameters = new HashMap<>();
-        String methodName = (String) indexInfoParameters.get(NAME);
-        indexParameters.put(ALGORITHM, methodName);
-        indexParameters.put(METHOD_PARAMETER_SPACE_TYPE, indexInfoParameters.getOrDefault(SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE));
-
-        assert (indexInfoParameters.containsKey(PARAMETERS));
-        Object innerParams = indexInfoParameters.get(PARAMETERS);
-        assert (innerParams instanceof Map);
-        {
-            Map<String, Object> algorithmParams = new HashMap<>();
-            Map<String, Object> innerMap = (Map<String, Object>) innerParams;
-            switch (methodName) {
-                case METHOD_HNSW -> {
-                    algorithmParams.put(
-                        METHOD_PARAMETER_EF_CONSTRUCTION,
-                        innerMap.getOrDefault(METHOD_PARAMETER_EF_CONSTRUCTION, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION)
-                    );
-                    algorithmParams.put(
-                        METHOD_PARAMETER_EF_SEARCH,
-                        innerMap.getOrDefault(METHOD_PARAMETER_EF_SEARCH, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH)
-                    );
-                    Object indexDescription = indexInfoParameters.get(INDEX_DESCRIPTION_PARAMETER);
-                    assert indexDescription instanceof String;
-                    algorithmParams.put(METHOD_PARAMETER_M, getMFromIndexDescription((String) indexDescription));
-                }
-                case METHOD_IVF -> {
-                    algorithmParams.put(
-                        METHOD_PARAMETER_NLIST,
-                        innerMap.getOrDefault(METHOD_PARAMETER_NLIST, METHOD_PARAMETER_NLIST_DEFAULT)
-                    );
-                    algorithmParams.put(
-                        METHOD_PARAMETER_NPROBES,
-                        innerMap.getOrDefault(METHOD_PARAMETER_NPROBES, METHOD_PARAMETER_NPROBES_DEFAULT)
-                    );
-                }
-            }
-            indexParameters.put(ALGORITHM_PARAMETERS, algorithmParams);
-        }
-        return indexParameters;
-    }
-
-    public static int getMFromIndexDescription(String indexDescription) {
-        int commaIndex = indexDescription.indexOf(",");
-        if (commaIndex == -1) {
-            throw new IllegalArgumentException("Invalid index description: " + indexDescription);
-        }
-        String hnswPart = indexDescription.substring(0, commaIndex);
-        int m = Integer.parseInt(hnswPart.substring(4));
-        assert (m > 1 && m < 100);
-        return m;
-    }
-
     @Override
     public ResolvedMethodContext resolveMethod(
         KNNMethodContext knnMethodContext,
@@ -201,5 +124,13 @@ public class Faiss extends NativeLibrary {
     @Override
     public boolean supportsRemoteIndexBuild() {
         return true;
+    }
+
+    @Override
+    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
+        if (METHOD_HNSW.equals(indexInfoParameters.get(NAME))) {
+            return FaissHNSWMethod.getRemoteIndexingParameters(indexInfoParameters);
+        }
+        throw new IllegalArgumentException("Unsupported method for remote indexing");
     }
 }

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.nativeindex.remote;
+package org.opensearch.knn.index.remote;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

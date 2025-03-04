@@ -16,7 +16,6 @@ import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
-import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -49,7 +48,7 @@ public class RemoteBuildRequest implements ToXContentObject {
     protected int docCount;
     protected String vectorDataType;
     protected String engine;
-    protected Map<String, Object> indexParameters;
+    protected RemoteIndexParameters indexParameters;
 
     /**
      * Constructor for RemoteBuildRequest.
@@ -80,8 +79,6 @@ public class RemoteBuildRequest implements ToXContentObject {
         KNNCodecUtil.initializeVectorValues(vectorValues);
         assert (vectorValues.dimension() > 0);
 
-        Map<String, Object> indexParameters = indexInfo.getKnnEngine().getRemoteIndexingParameters(indexInfo.getParameters());
-
         this.repositoryType = repositoryType;
         this.containerName = containerName;
         this.vectorPath = blobName + VECTOR_BLOB_FILE_EXTENSION;
@@ -91,7 +88,7 @@ public class RemoteBuildRequest implements ToXContentObject {
         this.docCount = indexInfo.getTotalLiveDocs();
         this.vectorDataType = vectorDataType;
         this.engine = indexInfo.getKnnEngine().getName();
-        this.indexParameters = indexParameters;
+        this.indexParameters = indexInfo.getKnnEngine().createRemoteIndexingParameters(indexInfo.getParameters());
     }
 
     @Override

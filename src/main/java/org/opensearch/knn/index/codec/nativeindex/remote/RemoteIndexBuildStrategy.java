@@ -17,6 +17,7 @@ import org.opensearch.knn.index.remote.RemoteBuildRequest;
 import org.opensearch.knn.index.remote.RemoteBuildResponse;
 import org.opensearch.knn.index.remote.RemoteIndexClient;
 import org.opensearch.knn.index.remote.RemoteIndexClientFactory;
+import org.opensearch.knn.index.remote.RemoteStatusResponse;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;

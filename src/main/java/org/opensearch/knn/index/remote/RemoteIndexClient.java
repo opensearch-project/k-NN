@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.index.remote;
 
-import org.opensearch.knn.index.codec.nativeindex.remote.RemoteStatusResponse;
-
 import java.io.IOException;
 
 /**

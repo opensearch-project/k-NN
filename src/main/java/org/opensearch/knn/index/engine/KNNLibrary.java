@@ -7,6 +7,7 @@ package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
 import java.util.Collections;
 import java.util.List;
@@ -149,11 +150,7 @@ public interface KNNLibrary extends MethodResolver {
         return false;
     }
 
-    /**
-     * Get the remote build supported index parameter mapping to be sent to the remote build service.
-     * @param indexInfoParameters the index parameters from BuildIndexParams
-     */
-    default Map<String, Object> getRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
-        throw new UnsupportedOperationException("This method must be implemented by the implementing class");
+    default RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
+        throw new UnsupportedOperationException("Remote build service does not support this engine");
     }
 }

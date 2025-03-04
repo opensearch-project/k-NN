@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -64,10 +65,11 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.VectorDataType.FLOAT;
-import static org.opensearch.knn.index.engine.faiss.Faiss.getMFromIndexDescription;
+import static org.opensearch.knn.index.engine.faiss.FaissHNSWMethod.getMFromIndexDescription;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUCKET;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
@@ -122,7 +124,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+            when(KNNSettings.getRemoteBuildServiceEndpoint()).thenReturn(MOCK_ENDPOINT);
             KNNSettings.state().setClusterService(clusterService);
 
             BuildIndexParams indexInfo = createTestBuildIndexParams();
@@ -226,7 +228,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
             try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
                 knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
-                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+                when(KNNSettings.getRemoteBuildServiceEndpoint()).thenReturn(MOCK_ENDPOINT);
                 KNNSettings.state().setClusterService(clusterService);
 
                 BuildIndexParams buildIndexParams = createTestBuildIndexParams();
@@ -255,7 +257,10 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         final MockSecureSettings secureSettings = new MockSecureSettings();
         secureSettings.setString(KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING.getKey(), USERNAME);
         secureSettings.setString(KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.getKey(), PASSWORD);
-        final Settings settings = Settings.builder().setSecureSettings(secureSettings).build();
+        final Settings settings = Settings.builder()
+            .setSecureSettings(secureSettings)
+            .put(KNN_REMOTE_BUILD_SERVICE_ENDPOINT, MOCK_ENDPOINT)
+            .build();
 
         CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
         try (MockedStatic<RemoteIndexHTTPClient> clientStaticMock = Mockito.mockStatic(RemoteIndexHTTPClient.class)) {
@@ -264,7 +269,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
                 KNNSettings knnSettingsMock = mock(KNNSettings.class);
                 knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
-                when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey())).thenReturn(MOCK_ENDPOINT);
+                when(KNNSettings.getRemoteBuildServiceEndpoint()).thenReturn(MOCK_ENDPOINT);
                 KNNSettings.state().setClusterService(clusterService);
 
                 when(mockHttpClient.execute(any(HttpPost.class), any(HttpClientResponseHandler.class))).thenAnswer(
@@ -349,9 +354,12 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     }
 
     private void setupTestClusterSettings() {
-        ClusterSettings clusterSettings = mock(ClusterSettings.class);
-        when(clusterSettings.get(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING)).thenReturn(MOCK_ENDPOINT);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        Settings settings = Settings.builder().put(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING.getKey(), MOCK_ENDPOINT).build();
+        Set<Setting<?>> settingsSet = new HashSet<>();
+        settingsSet.add(KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING);
+        ClusterSettings clusterSettings = new ClusterSettings(settings, settingsSet);
+        doReturn(clusterSettings).when(clusterService).getClusterSettings();
+        doReturn(settings).when(clusterService).getSettings();
         KNNSettings.state().setClusterService(clusterService);
     }
 

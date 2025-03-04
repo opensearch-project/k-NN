@@ -825,6 +825,14 @@ public class KNNSettings {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
     }
 
+    /**
+     * Gets the remote build service endpoint.
+     * @return String representation of the remote build service endpoint URL
+     */
+    public static String getRemoteBuildServiceEndpoint() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT);
+    }
+
     public static boolean isFaissAVX2Disabled() {
         try {
             return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
