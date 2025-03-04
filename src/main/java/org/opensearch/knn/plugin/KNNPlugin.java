@@ -156,8 +156,6 @@ public class KNNPlugin extends Plugin
         ScriptPlugin,
         ExtensiblePlugin,
         SystemIndexPlugin {
-
-    public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
 
     private KNNStats knnStats;

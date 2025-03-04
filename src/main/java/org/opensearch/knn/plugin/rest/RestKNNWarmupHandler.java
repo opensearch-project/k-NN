@@ -58,19 +58,7 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public List<ReplacedRoute> replacedRoutes() {
-        return ImmutableList.of(
-            new ReplacedRoute(
-                RestRequest.Method.GET,
-                KNNPlugin.KNN_BASE_URI + URL_PATH,
-                RestRequest.Method.GET,
-                KNNPlugin.LEGACY_KNN_BASE_URI + URL_PATH
-            )
-        );
+        return ImmutableList.of(new Route(RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + URL_PATH));
     }
 
     @Override
