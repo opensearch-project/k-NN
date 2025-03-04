@@ -15,10 +15,12 @@ import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRespons
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
+import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
@@ -100,6 +102,11 @@ public class KNNSettings {
     public static final String KNN_INDEX_REMOTE_VECTOR_BUILD = "index.knn.remote_index_build.enabled";
     public static final String KNN_REMOTE_VECTOR_REPO = "knn.remote_index_build.vector_repo";
     public static final String KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD = "index.knn.remote_index_build.size_threshold";
+    public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_index_build.client.endpoint";
+    public static final String KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL = "knn.remote_index_build.client.poll_interval";
+    public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT = "knn.remote_index_build.client.timeout";
+    public static final String KNN_REMOTE_BUILD_CLIENT_USERNAME = "knn.remote_index_build.client.username";
+    public static final String KNN_REMOTE_BUILD_CLIENT_PASSWORD = "knn.remote_index_build.client.password";
 
     /**
      * Default setting values
@@ -132,6 +139,10 @@ public class KNNSettings {
     public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = false;
     // TODO: Tune this default value based on benchmarking
     public static final ByteSizeValue KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE = new ByteSizeValue(50, ByteSizeUnit.MB);
+
+    // TODO: Tune these default values based on benchmarking
+    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = 60;
+    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 30;
 
     /**
      * Settings Definition
@@ -410,6 +421,47 @@ public class KNNSettings {
         IndexScope
     );
     /**
+     * Remote build service endpoint to be used for remote index build.
+     */
+    public static final Setting<String> KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING = Setting.simpleString(
+        KNN_REMOTE_BUILD_SERVICE_ENDPOINT,
+        NodeScope,
+        Dynamic
+    );
+
+    /**
+     * Time the remote build service client will wait before falling back to CPU index build.
+     */
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_TIMEOUT,
+        TimeValue.timeValueMinutes(KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES),
+        NodeScope,
+        Dynamic
+    );
+
+    /**
+     * Setting to control how often the remote build service client polls the build service for the status of the job.
+     */
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL,
+        TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
+        NodeScope,
+        Dynamic
+    );
+
+    /**
+     * Keystore settings for build service HTTP authorization
+     */
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_USERNAME,
+        null
+    );
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_PASSWORD,
+        null
+    );
+
+    /**
      * Dynamic settings
      */
     public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
@@ -600,6 +652,26 @@ public class KNNSettings {
             return KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
         }
 
+        if (KNN_REMOTE_BUILD_SERVICE_ENDPOINT.equals(key)) {
+            return KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_TIMEOUT.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_USERNAME.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_PASSWORD.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -628,7 +700,12 @@ public class KNNSettings {
             KNN_DERIVED_SOURCE_ENABLED_SETTING,
             KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
             KNN_REMOTE_VECTOR_REPO_SETTING,
-            KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING
+            KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING,
+            KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -746,6 +823,14 @@ public class KNNSettings {
 
     public static double getCircuitBreakerUnsetPercentage() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
+    }
+
+    /**
+     * Gets the remote build service endpoint.
+     * @return String representation of the remote build service endpoint URL
+     */
+    public static String getRemoteBuildServiceEndpoint() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT);
     }
 
     public static boolean isFaissAVX2Disabled() {

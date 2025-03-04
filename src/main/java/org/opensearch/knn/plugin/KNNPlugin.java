@@ -30,6 +30,7 @@ import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.indices.SystemIndexDescriptor;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
@@ -40,6 +41,7 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
+import org.opensearch.knn.index.remote.RemoteIndexHTTPClient;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
@@ -89,6 +91,7 @@ import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
 import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
+import org.opensearch.plugins.ReloadablePlugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.plugins.SystemIndexPlugin;
@@ -159,7 +162,8 @@ public class KNNPlugin extends Plugin
         ClusterPlugin,
         ScriptPlugin,
         ExtensiblePlugin,
-        SystemIndexPlugin {
+        SystemIndexPlugin,
+        ReloadablePlugin {
 
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
@@ -381,7 +385,15 @@ public class KNNPlugin extends Plugin
                 NativeMemoryCacheManager.getInstance().rebuildCache();
             }
         }
-
     }
 
+    /**
+     * Update the secure settings by passing the updated settings down upon reload
+     */
+    @Override
+    public void reload(Settings settings) {
+        if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
+            RemoteIndexHTTPClient.reloadAuthHeader(settings);
+        }
+    }
 }
