@@ -453,7 +453,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         String modelId = "test-model-id";
 
         float[][] trainingData = TestVectorValues.getRandomVectors(200, dimension);
-        long trainingPtr = JNIService.transferVectors(0, trainingData);
+        long trainingPtr = JNICommons.storeVectorData(0, trainingData, trainingData.length * dimension);
 
         Map<String, Object> parameters = ImmutableMap.of(
             INDEX_DESCRIPTION_PARAMETER,
