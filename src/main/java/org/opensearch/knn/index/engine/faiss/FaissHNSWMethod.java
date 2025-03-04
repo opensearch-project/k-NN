@@ -13,9 +13,14 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
+import org.opensearch.knn.index.remote.RemoteFaissHNSWIndexParameters;
+import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,11 +30,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
  * Faiss HNSW method implementation
@@ -123,5 +131,59 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             DEFAULT_ENCODER_CONTEXT,
             SUPPORTED_ENCODERS.values().stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
         );
+    }
+
+    @Override
+    protected Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> doGetTrainingConfigValidationSetup() {
+        return (trainingConfigValidationInput) -> {
+
+            KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
+            TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+
+            if (isEncoderSpecified(knnMethodContext) == false) {
+                return builder.build();
+            }
+            Encoder encoder = SUPPORTED_ENCODERS.get(getEncoderName(knnMethodContext));
+            if (encoder == null) {
+                return builder.build();
+            }
+
+            return encoder.validateEncoderConfig(trainingConfigValidationInput);
+        };
+    }
+
+    /**
+     * Get the parameters that need to be passed to the remote build service for training
+     *
+     * @param indexInfoParameters result of indexInfo.getParameters() to parse
+     * @return Map of parameters to be used as "index_parameters"
+     */
+    public static RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
+        RemoteFaissHNSWIndexParameters.RemoteFaissHNSWIndexParametersBuilder<?, ?> builder = RemoteFaissHNSWIndexParameters.builder();
+        assert (indexInfoParameters.get(SPACE_TYPE) instanceof String);
+        String spaceType = (String) indexInfoParameters.get(SPACE_TYPE);
+        builder.algorithm(METHOD_HNSW).spaceType(spaceType);
+
+        Object innerParams = indexInfoParameters.get(PARAMETERS);
+        assert (innerParams instanceof Map);
+        Map<String, Object> innerMap = (Map<String, Object>) innerParams;
+        assert (innerMap.get(METHOD_PARAMETER_EF_CONSTRUCTION) instanceof Integer);
+        builder.efConstruction((Integer) innerMap.get(METHOD_PARAMETER_EF_CONSTRUCTION));
+        assert (innerMap.get(METHOD_PARAMETER_EF_SEARCH) instanceof Integer);
+        builder.efSearch((Integer) innerMap.get(METHOD_PARAMETER_EF_SEARCH));
+        Object indexDescription = indexInfoParameters.get(INDEX_DESCRIPTION_PARAMETER);
+        assert indexDescription instanceof String;
+        builder.m(getMFromIndexDescription((String) indexDescription));
+
+        return builder.build();
+    }
+
+    private static int getMFromIndexDescription(String indexDescription) {
+        int commaIndex = indexDescription.indexOf(",");
+        if (commaIndex == -1) {
+            throw new IllegalArgumentException("Invalid index description: " + indexDescription);
+        }
+        String hnswPart = indexDescription.substring(0, commaIndex);
+        return Integer.parseInt(hnswPart.substring(4));
     }
 }

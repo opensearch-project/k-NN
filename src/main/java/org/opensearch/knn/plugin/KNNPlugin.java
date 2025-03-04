@@ -30,6 +30,7 @@ import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.indices.SystemIndexDescriptor;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
@@ -41,6 +42,7 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
+import org.opensearch.knn.index.remote.RemoteIndexHTTPClient;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
@@ -89,6 +91,7 @@ import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
 import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
+import org.opensearch.plugins.ReloadablePlugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.plugins.SystemIndexPlugin;
@@ -158,7 +161,8 @@ public class KNNPlugin extends Plugin
         EnginePlugin,
         ScriptPlugin,
         ExtensiblePlugin,
-        SystemIndexPlugin {
+        SystemIndexPlugin,
+        ReloadablePlugin {
 
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
@@ -385,5 +389,31 @@ public class KNNPlugin extends Plugin
     @Override
     public Optional<ConcurrentSearchRequestDecider.Factory> getConcurrentSearchRequestDeciderFactory() {
         return Optional.of(new KNNConcurrentSearchRequestDecider.Factory());
+    }
+
+    @Override
+    public void onNodeStarted(DiscoveryNode localNode) {
+        // Attempt to fetch a cb tier from node attributes and cache the result.
+        // Get this node's circuit breaker tier attribute
+        Optional<String> tierAttribute = Optional.ofNullable(localNode.getAttributes().get(KNN_CIRCUIT_BREAKER_TIER));
+        if (tierAttribute.isPresent()) {
+            KNNSettings.state().setNodeCbAttribute(tierAttribute);
+
+            // Only rebuild the cache if the weight has actually changed
+            if (KNNSettings.state().getCircuitBreakerLimit().getKb() != NativeMemoryCacheManager.getInstance()
+                .getMaxCacheSizeInKilobytes()) {
+                NativeMemoryCacheManager.getInstance().rebuildCache();
+            }
+        }
+    }
+
+    /**
+     * Update the secure settings by passing the updated settings down upon reload
+     */
+    @Override
+    public void reload(Settings settings) {
+        if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
+            RemoteIndexHTTPClient.reloadAuthHeader(settings);
+        }
     }
 }
