@@ -32,7 +32,7 @@ public enum KNNEngine implements KNNLibrary {
     LUCENE(LUCENE_NAME, Lucene.INSTANCE);
 
     public static final KNNEngine DEFAULT = FAISS;
-    private final Version restrictedVersion; // Nullable field
+    private final Version restrictedFromVersion; // Nullable field
 
     private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
     private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
@@ -56,7 +56,7 @@ public enum KNNEngine implements KNNLibrary {
     KNNEngine(String name, KNNLibrary knnLibrary) {
         this.name = name;
         this.knnLibrary = knnLibrary;
-        this.restrictedVersion = null;
+        this.restrictedFromVersion = null;
     }
 
     /**
@@ -65,7 +65,7 @@ public enum KNNEngine implements KNNLibrary {
     KNNEngine(String name, KNNLibrary knnLibrary, Version restrictedVersion) {
         this.name = name;
         this.knnLibrary = knnLibrary;
-        this.restrictedVersion = restrictedVersion;
+        this.restrictedFromVersion = restrictedVersion;
     }
 
     private final String name;
@@ -101,7 +101,7 @@ public enum KNNEngine implements KNNLibrary {
      */
     @Override
     public boolean isRestricted(Version indexVersionCreated) {
-        return restrictedVersion != null && indexVersionCreated.onOrAfter(restrictedVersion);
+        return restrictedFromVersion != null && indexVersionCreated.onOrAfter(restrictedFromVersion);
     }
 
     /**
@@ -158,8 +158,8 @@ public enum KNNEngine implements KNNLibrary {
      *
      * @return Deprecated Version
      */
-    public Version getRestrictedVersion() {
-        return restrictedVersion;
+    public Version getRestrictedFromVersion() {
+        return restrictedFromVersion;
     }
 
     @Override

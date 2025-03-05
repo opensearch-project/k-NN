@@ -475,7 +475,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     engine.getName()
                         + " engine is deprecated in OpenSearch "
                         + " and cannot be used for new index creation in OpenSearch from  "
-                        + engine.getRestrictedVersion()
+                        + engine.getRestrictedFromVersion()
                         + "."
                 );
             }

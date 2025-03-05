@@ -439,8 +439,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             flush(testIndex, true);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
-
-            Exception ex = expectThrows(
+            expectThrows(
                 ResponseException.class,
                 () -> createKnnIndex(
                     testIndex + "_new",
