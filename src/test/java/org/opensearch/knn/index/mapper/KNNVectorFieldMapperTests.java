@@ -1984,6 +1984,38 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
     }
 
+    public void testKnnMethodContextParameter_defaultValue() {
+        // Use the same builder pattern as in your existing tests
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(
+            "test-field",
+            mock(ModelDao.class),
+            CURRENT,
+            null,
+            null,
+            false
+        );
+        // Test that the default value is null
+        assertNull(builder.knnMethodContext.get());
+    }
+
+    public void testBuild_whenNullMethodContext_thenThrowException() {
+        // Prepare context
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        String validFieldName = "validFieldName";
+
+        // When we try to build with null method context
+        Exception e = assertThrows(IllegalArgumentException.class, () -> {
+            new KNNVectorFieldMapper.Builder(validFieldName, null, CURRENT, null, null, false).build(builderContext);
+        });
+
+        // Then verify the exception message matches what we expect from the knnMethodContext parameter
+        assertEquals(
+            "Mapping update for knn_vector fields is not supported. " + "Cannot update mapping without the original method configuration.",
+            e.getMessage()
+        );
+    }
+
     private void validateBuilderAfterParsing(
         KNNVectorFieldMapper.Builder builder,
         KNNEngine expectedEngine,
