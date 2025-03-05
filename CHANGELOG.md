@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Refactoring
 * Small Refactor Post Lucene 10.0.1 upgrade [#2541](https://github.com/opensearch-project/k-NN/pull/2541)
 * Refactor codec to leverage backwards_codecs [#2546](https://github.com/opensearch-project/k-NN/pull/2546)
+* Blocking Index Creation using NMSLIB [#2573] (https://github.com/opensearch-project/k-NN/pull/2573)
 * Improve Streaming Compatibility Issue for MethodComponetContext and Remove OpenDistro URL [#2575] (https://github.com/opensearch-project/k-NN/pull/2575)
 * 3.0.0 Breaking Changes For KNN [#2564] (https://github.com/opensearch-project/k-NN/pull/2564)
 

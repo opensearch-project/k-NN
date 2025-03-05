@@ -418,4 +418,37 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
         deleteKNNIndex(testIndex);
     }
+
+    /**
+     * Test to verify that NMSLIB index creation is blocked in OpenSearch 3.0.0 and later,
+     * while ensuring backward compatibility (BWC) for existing indexes created in OpenSearch 2.19.
+     *
+     * @throws Exception if any unexpected error occurs during the test execution.
+     */
+    public void testBlockNMSLIBIndexCreationPost3_0_0() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                getKNNDefaultIndexSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, KNNEngine.NMSLIB.getName())
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            // Flush to ensure the index persists after upgrade
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+            expectThrows(
+                ResponseException.class,
+                () -> createKnnIndex(
+                    testIndex + "_new",
+                    getKNNDefaultIndexSettings(),
+                    createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, KNNEngine.NMSLIB.getName())
+                )
+            );
+            deleteKNNIndex(testIndex);
+        }
+    }
+
 }
