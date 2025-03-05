@@ -33,13 +33,10 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import java.util.Arrays;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_CONSTRUCTION;
-import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 
 /**
  * Utility class for KNNVectorFieldMapper
@@ -122,15 +119,6 @@ public class KNNVectorFieldMapperUtil {
     }
 
     /**
-     * Validate if plugin is enabled
-     */
-    static void validateIfKNNPluginEnabled() {
-        if (!KNNSettings.isKNNPluginEnabled()) {
-            throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled setting to true");
-        }
-    }
-
-    /**
      * Prerequisite: Index should a knn index which is validated via index settings index.knn setting. This function
      * assumes that caller has already validated that index is a KNN index.
      * We will use LuceneKNNVectorsFormat when these below condition satisfy:
@@ -156,51 +144,12 @@ public class KNNVectorFieldMapperUtil {
         return indexCreatedVersion != null && indexCreatedVersion.onOrAfter(Version.V_2_17_0);
     }
 
-    public static SpaceType getSpaceType(final Settings indexSettings) {
-        String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
-        if (spaceType == null) {
-            spaceType = KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
-            log.info(
-                String.format(
-                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
-                    METHOD_PARAMETER_SPACE_TYPE,
-                    spaceType
-                )
-            );
-        }
-        return SpaceType.getSpace(spaceType);
+    private static int getM() {
+        return KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
     }
 
-    private static int getM(Settings indexSettings) {
-        String m = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING.getKey());
-        if (m == null) {
-            log.info(
-                String.format(
-                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
-                    HNSW_ALGO_M,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M
-                )
-            );
-            return KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
-        }
-        return Integer.parseInt(m);
-    }
-
-    private static int getEfConstruction(Settings indexSettings, Version indexVersion) {
-        final String efConstruction = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
-        if (efConstruction == null) {
-            final int defaultEFConstructionValue = IndexHyperParametersUtil.getHNSWEFConstructionValue(indexVersion);
-            log.info(
-                String.format(
-                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. "
-                        + "Picking up default value for the index =%s",
-                    HNSW_ALGO_EF_CONSTRUCTION,
-                    defaultEFConstructionValue
-                )
-            );
-            return defaultEFConstructionValue;
-        }
-        return Integer.parseInt(efConstruction);
+    private static int getEfConstruction(Version indexVersion) {
+        return IndexHyperParametersUtil.getHNSWEFConstructionValue(indexVersion);
     }
 
     static KNNMethodContext createKNNMethodContextFromLegacy(
@@ -215,9 +164,9 @@ public class KNNVectorFieldMapperUtil {
                 METHOD_HNSW,
                 Map.of(
                     METHOD_PARAMETER_M,
-                    KNNVectorFieldMapperUtil.getM(indexSettings),
+                    KNNVectorFieldMapperUtil.getM(),
                     METHOD_PARAMETER_EF_CONSTRUCTION,
-                    KNNVectorFieldMapperUtil.getEfConstruction(indexSettings, indexCreatedVersion)
+                    KNNVectorFieldMapperUtil.getEfConstruction(indexCreatedVersion)
                 )
             )
         );
