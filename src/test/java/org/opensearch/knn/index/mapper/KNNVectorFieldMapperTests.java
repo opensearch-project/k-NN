@@ -2004,12 +2004,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         String validFieldName = "validFieldName";
 
-        // When we try to build with null method context
+        // IllegalArgumentException thrown when building with null method context
         Exception e = assertThrows(IllegalArgumentException.class, () -> {
             new KNNVectorFieldMapper.Builder(validFieldName, null, CURRENT, null, null, false).build(builderContext);
         });
 
-        // Then verify the exception message matches what we expect from the knnMethodContext parameter
+        // Verify the exception message matches the knnMethodContext parameter
         assertEquals(
             "Mapping update for knn_vector fields is not supported. " + "Cannot update mapping without the original method configuration.",
             e.getMessage()

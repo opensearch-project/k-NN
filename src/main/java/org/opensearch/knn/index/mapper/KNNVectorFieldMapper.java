@@ -164,8 +164,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }), m -> {
             if (m == null) {
                 throw new IllegalArgumentException(
-                    "Mapping update for knn_vector fields is not supported. "
-                        + "Cannot update mapping without the original method configuration."
+                        "Cannot add or remove method key for existing KNN field [%s]. "
+                                + "KNN vector fields require consistent method configuration during updates."
                 );
             }
             return m.getMethodComponentContext().getName();
