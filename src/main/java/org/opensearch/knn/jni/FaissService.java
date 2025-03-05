@@ -408,19 +408,6 @@ class FaissService {
     public static native byte[] trainByteIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer);
 
     /**
-     * <p>
-     * The function is deprecated. Use {@link JNICommons#storeVectorData(long, float[][], long)}
-     * </p>
-     * Transfer vectors from Java to native
-     *
-     * @param vectorsPointer pointer to vectors in native memory. Should be 0 to create vector as well
-     * @param trainingData data to be transferred
-     * @return pointer to native memory location of training data
-     */
-    @Deprecated(since = "2.14.0", forRemoval = true)
-    public static native long transferVectors(long vectorsPointer, float[][] trainingData);
-
-    /**
      * Range search index with filter
      *
      * @param indexPointer pointer to index in memory

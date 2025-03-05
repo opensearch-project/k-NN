@@ -1609,12 +1609,20 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testTransferVectors() {
-        long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
+        long trainPointer1 = JNICommons.storeVectorData(
+            0,
+            testData.indexData.vectors,
+            testData.indexData.vectors.length * testData.indexData.vectors[0].length
+        );
         assertNotEquals(0, trainPointer1);
 
         long trainPointer2;
         for (int i = 0; i < 10; i++) {
-            trainPointer2 = JNIService.transferVectors(trainPointer1, testData.indexData.vectors);
+            trainPointer2 = JNICommons.storeVectorData(
+                trainPointer1,
+                testData.indexData.vectors,
+                testData.indexData.vectors.length * testData.indexData.vectors[0].length
+            );
             assertEquals(trainPointer1, trainPointer2);
         }
 
@@ -1720,12 +1728,20 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     private long transferVectors(int numDuplicates) {
-        long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
+        long trainPointer1 = JNICommons.storeVectorData(
+            0,
+            testData.indexData.vectors,
+            testData.indexData.vectors.length * testData.indexData.vectors[0].length
+        );
         assertNotEquals(0, trainPointer1);
 
         long trainPointer2;
         for (int i = 0; i < numDuplicates; i++) {
-            trainPointer2 = JNIService.transferVectors(trainPointer1, testData.indexData.vectors);
+            trainPointer2 = JNICommons.storeVectorData(
+                trainPointer1,
+                testData.indexData.vectors,
+                testData.indexData.vectors.length * testData.indexData.vectors[0].length
+            );
             assertEquals(trainPointer1, trainPointer2);
         }
 
@@ -1734,12 +1750,20 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void createIndexFromTemplate() throws IOException {
 
-        long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
+        long trainPointer1 = JNICommons.storeVectorData(
+            0,
+            testData.indexData.vectors,
+            testData.indexData.vectors.length * testData.indexData.vectors[0].length
+        );
         assertNotEquals(0, trainPointer1);
 
         long trainPointer2;
         for (int i = 0; i < 10; i++) {
-            trainPointer2 = JNIService.transferVectors(trainPointer1, testData.indexData.vectors);
+            trainPointer2 = JNICommons.storeVectorData(
+                trainPointer1,
+                testData.indexData.vectors,
+                testData.indexData.vectors.length * testData.indexData.vectors[0].length
+            );
             assertEquals(trainPointer1, trainPointer2);
         }
 
@@ -1818,7 +1842,11 @@ public class JNIServiceTests extends KNNTestCase {
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue())
         );
 
-        long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
+        long trainPointer = JNICommons.storeVectorData(
+            0,
+            testData.indexData.vectors,
+            testData.indexData.vectors.length * testData.indexData.vectors[0].length
+        );
         assertNotEquals(0, trainPointer);
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(Version.CURRENT)
@@ -1972,7 +2000,11 @@ public class JNIServiceTests extends KNNTestCase {
 
     private String createFaissIVFPQIndex(Directory directory, int ivfNlist, int pqM, int pqCodeSize, SpaceType spaceType)
         throws IOException {
-        long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
+        long trainPointer = JNICommons.storeVectorData(
+            0,
+            testData.indexData.vectors,
+            testData.indexData.vectors.length * testData.indexData.vectors[0].length
+        );
         assertNotEquals(0, trainPointer);
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(Version.CURRENT)
