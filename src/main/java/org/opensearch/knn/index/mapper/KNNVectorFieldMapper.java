@@ -164,8 +164,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }), m -> {
             if (m == null) {
                 throw new IllegalArgumentException(
-                        "Cannot add or remove method key for existing KNN field [%s]. "
-                                + "KNN vector fields require consistent method configuration during updates."
+//                        "Cannot add or remove method key for existing KNN field: [%s]. "
+//                                + "KNN vector fields require consistent method configuration during updates."
+                        String.format("Cannot add or remove method key for existing KNN field [%s]. "
+                                + "KNN vector fields require consistent method configuration during updates.", this.name())
                 );
             }
             return m.getMethodComponentContext().getName();
