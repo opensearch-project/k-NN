@@ -16,14 +16,11 @@ import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 /**
  * Resthandler for stats api endpoint. The user has the ability to get all stats from
@@ -38,31 +35,9 @@ public class RestKNNStatsHandler extends BaseRestHandler {
         return NAME;
     }
 
-    private List<String> getStatsPath() {
-        List<String> statsPath = new ArrayList<>();
-        statsPath.add("/{nodeId}/stats/");
-        statsPath.add("/{nodeId}/stats/{stat}");
-        statsPath.add("/stats/");
-        statsPath.add("/stats/{stat}");
-        return statsPath;
-    }
-
-    private Map<String, String> getUrlPathByLegacyUrlPathMap() {
-        return getStatsPath().stream()
-            .collect(Collectors.toMap(path -> KNNPlugin.LEGACY_KNN_BASE_URI + path, path -> KNNPlugin.KNN_BASE_URI + path));
-    }
-
     @Override
     public List<Route> routes() {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public List<ReplacedRoute> replacedRoutes() {
-        return getUrlPathByLegacyUrlPathMap().entrySet()
-            .stream()
-            .map(e -> new ReplacedRoute(RestRequest.Method.GET, e.getValue(), RestRequest.Method.GET, e.getKey()))
-            .collect(Collectors.toList());
+        return getStatsRoutes();
     }
 
     @Override
@@ -117,5 +92,16 @@ public class RestKNNStatsHandler extends BaseRestHandler {
 
         }
         return knnStatsRequest;
+    }
+
+    private static final List<Route> STATS_ROUTES = ImmutableList.of(
+        new Route(RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + "/{nodeId}/stats/"),
+        new Route(RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + "/{nodeId}/stats/{stat}"),
+        new Route(RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + "/stats/"),
+        new Route(RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + "/stats/{stat}")
+    );
+
+    private List<Route> getStatsRoutes() {
+        return STATS_ROUTES;
     }
 }
