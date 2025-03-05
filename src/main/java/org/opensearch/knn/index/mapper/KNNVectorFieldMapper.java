@@ -161,7 +161,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             b.startObject(n);
             v.toXContent(b, ToXContent.EMPTY_PARAMS);
             b.endObject();
-        }), m -> m.getMethodComponentContext().getName());
+        }),
+                m -> {
+            if (m == null) {
+                throw new IllegalArgumentException("Mapping update for knn_vector fields is not supported. " +
+                        "Cannot update mapping without the original method configuration.");
+            }
+            return m.getMethodComponentContext().getName();
+        });
 
         protected final Parameter<String> mode = Parameter.restrictedStringParam(
             KNNConstants.MODE_PARAMETER,
