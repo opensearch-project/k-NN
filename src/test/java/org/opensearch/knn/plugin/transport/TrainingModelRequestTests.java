@@ -621,7 +621,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         ActionRequestValidationException exception = trainingModelRequest.validate();
         assertNotNull(exception);
         List<String> validationErrors = exception.validationErrors();
-        logger.error("Validation errorsa " + validationErrors);
+        logger.error("Validation errors " + validationErrors);
         assertEquals(1, validationErrors.size());
         assertTrue(validationErrors.get(0).contains("Description exceeds limit"));
     }

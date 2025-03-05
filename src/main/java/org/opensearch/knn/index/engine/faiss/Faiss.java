@@ -14,12 +14,14 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
 import java.util.Map;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.NAME;
 
 /**
  * Implements NativeLibrary for the faiss native library
@@ -122,5 +124,13 @@ public class Faiss extends NativeLibrary {
     @Override
     public boolean supportsRemoteIndexBuild() {
         return true;
+    }
+
+    @Override
+    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
+        if (METHOD_HNSW.equals(indexInfoParameters.get(NAME))) {
+            return FaissHNSWMethod.createRemoteIndexingParameters(indexInfoParameters);
+        }
+        throw new IllegalArgumentException("Unsupported method for remote indexing");
     }
 }

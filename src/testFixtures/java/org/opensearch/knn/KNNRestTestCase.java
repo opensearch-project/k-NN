@@ -109,6 +109,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
@@ -990,8 +991,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .put(KNN_INDEX, true)
             .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold);
 
-        if (isRemoteIndexBuildSupported(getBWCVersion())) {
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, randomBoolean());
+        // Randomly enable remote index build feature to test fallbacks
+        if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0mb");
         }
         return builder.build();
     }
@@ -1808,13 +1811,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Integer m,
         Integer ef_construction
     ) {
-        return Settings.builder()
-            .put(NUMBER_OF_SHARDS, 1)
-            .put(NUMBER_OF_REPLICAS, 0)
-            .put(INDEX_KNN, true)
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction);
+        return Settings.builder().put(NUMBER_OF_SHARDS, 1).put(NUMBER_OF_REPLICAS, 0).put(INDEX_KNN, true);
     }
 
     protected Settings createKNNIndexCustomLegacyFieldMappingIndexSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
@@ -2282,11 +2279,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
-    protected void addKnnDocWithAttributes(
+    protected <T> void addKnnDocWithAttributes(
         String indexName,
         String docId,
         String vectorFieldName,
-        float[] vector,
+        T vector,
         Map<String, String> fieldValues
     ) throws IOException {
         Request request = new Request("POST", "/" + indexName + "/_doc/" + docId + "?refresh=true");
@@ -2369,5 +2366,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected static String randomLowerCaseString() {
         return randomAlphaOfLengthBetween(MIN_CODE_UNITS, MAX_CODE_UNITS).toLowerCase(Locale.ROOT);
+    }
+
+    @SneakyThrows
+    protected void setupSnapshotRestore(String index, String snapshot, String repository) {
+        final String pathRepo = System.getProperty("tests.path.repo");
+
+        // create index
+        createIndex(index, getDefaultIndexSettings());
+
+        // create repo
+        Settings repoSettings = Settings.builder().put("compress", randomBoolean()).put("location", pathRepo).build();
+        registerRepository(repository, "fs", true, repoSettings);
+
+        // create snapshot
+        createSnapshot(repository, snapshot, true);
     }
 }

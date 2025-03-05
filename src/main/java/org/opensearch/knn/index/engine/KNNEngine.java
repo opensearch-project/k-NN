@@ -12,6 +12,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
+import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -247,5 +248,10 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public boolean supportsRemoteIndexBuild() {
         return knnLibrary.supportsRemoteIndexBuild();
+    }
+
+    @Override
+    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
+        return knnLibrary.createRemoteIndexingParameters(indexInfoParameters);
     }
 }

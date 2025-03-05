@@ -35,12 +35,14 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Manages native memory allocations made by JNI.
@@ -56,6 +58,7 @@ public class NativeMemoryCacheManager implements Closeable {
 
     private Cache<String, NativeMemoryAllocation> cache;
     private Deque<String> accessRecencyQueue;
+    private final ConcurrentHashMap<String, ReentrantLock> indexLocks = new ConcurrentHashMap<>();
     private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
@@ -81,11 +84,20 @@ public class NativeMemoryCacheManager implements Closeable {
         return INSTANCE;
     }
 
+    /**
+     * Initialize NativeMemoryCacheManager with configurations.
+     * Note: maxWeight is initially set to the cluster-level circuit breaker limit
+     * because node attributes are not yet available during startup. Once the
+     * ClusterService is fully bootstrapped, the circuit breaker will update this
+     * value to use any node-specific limits based on the node's circuit_breaker_tier
+     * attribute if configured.
+     */
     private void initialize() {
         initialize(
             NativeMemoryCacheManagerDto.builder()
                 .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                // Initially use cluster-level limit; will be updated later during cache refresh if node-specific limit exists
+                .maxWeight(KNNSettings.getClusterCbLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
                     ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
@@ -127,7 +139,7 @@ public class NativeMemoryCacheManager implements Closeable {
         rebuildCache(
             NativeMemoryCacheManagerDto.builder()
                 .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .maxWeight(KNNSettings.state().getCircuitBreakerLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
                     ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
@@ -298,6 +310,55 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
+     * Opens a vector index with proper locking mechanism to ensure thread safety.
+     * The method uses a ReentrantLock to synchronize access to the index file and
+     * cleans up the lock when no other threads are waiting.
+     *
+     * @param key the unique identifier for the index
+     * @param nativeMemoryEntryContext the context containing vector index information
+     */
+    private void open(String key, NativeMemoryEntryContext nativeMemoryEntryContext) {
+        ReentrantLock indexFileLock = indexLocks.computeIfAbsent(key, k -> new ReentrantLock());
+        try {
+            indexFileLock.lock();
+            nativeMemoryEntryContext.open();
+        } finally {
+            indexFileLock.unlock();
+            if (!indexFileLock.hasQueuedThreads()) {
+                indexLocks.remove(key, indexFileLock);
+            }
+        }
+    }
+
+    /**
+     * Retrieves an entry from the cache and updates its access recency if found.
+     * This method combines cache access with recency queue management to maintain
+     * the least recently used (LRU) order of cached entries.
+     *
+     * @param key the unique identifier for the cached entry
+     * @return the cached NativeMemoryAllocation if present, null otherwise
+     */
+    private NativeMemoryAllocation getFromCacheAndUpdateRecency(String key) {
+        NativeMemoryAllocation result = cache.getIfPresent(key);
+        if (result != null) {
+            updateAccessRecency(key);
+        }
+        return result;
+    }
+
+    /**
+     * Updates the access recency of a cached entry by moving it to the end of the queue.
+     * This method maintains the least recently used (LRU) order by removing the entry
+     * from its current position and adding it to the end of the queue.
+     *
+     * @param key the unique identifier for the cached entry whose recency needs to be updated
+     */
+    private void updateAccessRecency(String key) {
+        accessRecencyQueue.remove(key);
+        accessRecencyQueue.addLast(key);
+    }
+
+    /**
      * Retrieves NativeMemoryAllocation associated with the nativeMemoryEntryContext.
      *
      * @param nativeMemoryEntryContext Context from which to get NativeMemoryAllocation
@@ -329,7 +390,6 @@ public class NativeMemoryCacheManager implements Closeable {
             // In case of a cache miss, least recently accessed entries are evicted in a blocking manner
             // before the new entry can be added to the cache.
             String key = nativeMemoryEntryContext.getKey();
-            NativeMemoryAllocation result = cache.getIfPresent(key);
 
             // Cache Hit
             // In case of a cache hit, moving the item to the end of the recency queue adds
@@ -337,15 +397,21 @@ public class NativeMemoryCacheManager implements Closeable {
             // as lightweight as possible. Multiple approaches and their outcomes were documented
             // before moving forward with the current solution.
             // The details are outlined here: https://github.com/opensearch-project/k-NN/pull/2015#issuecomment-2327064680
+            NativeMemoryAllocation result = getFromCacheAndUpdateRecency(key);
             if (result != null) {
-                accessRecencyQueue.remove(key);
-                accessRecencyQueue.addLast(key);
                 return result;
             }
 
             // Cache Miss
             // Evict before put
+            // open the graph file before proceeding to load the graph into memory
+            open(key, nativeMemoryEntryContext);
             synchronized (this) {
+                // recheck if another thread already loaded this entry into the cache
+                result = getFromCacheAndUpdateRecency(key);
+                if (result != null) {
+                    return result;
+                }
                 if (getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() >= maxWeight) {
                     Iterator<String> lruIterator = accessRecencyQueue.iterator();
                     while (lruIterator.hasNext()
@@ -367,7 +433,12 @@ public class NativeMemoryCacheManager implements Closeable {
                 return result;
             }
         } else {
-            return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
+            // open graphFile before load
+            try (nativeMemoryEntryContext) {
+                String key = nativeMemoryEntryContext.getKey();
+                open(key, nativeMemoryEntryContext);
+                return cache.get(key, nativeMemoryEntryContext::load);
+            }
         }
     }
 
@@ -460,7 +531,7 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private Float getSizeAsPercentage(long size) {
-        long cbLimit = KNNSettings.getCircuitBreakerLimit().getKb();
+        long cbLimit = KNNSettings.state().getCircuitBreakerLimit().getKb();
         if (cbLimit == 0) {
             return 0.0F;
         }

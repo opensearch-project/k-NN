@@ -60,7 +60,6 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createSto
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.useFullFieldNameValidation;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfCircuitBreakerIsNotTriggered;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfKNNPluginEnabled;
 import static org.opensearch.knn.index.mapper.ModelFieldMapper.UNSET_MODEL_DIMENSION_IDENTIFIER;
 
 /**
@@ -711,7 +710,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * Validation checks before parsing of doc begins
      */
     protected void validatePreparse() {
-        validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
     }
 

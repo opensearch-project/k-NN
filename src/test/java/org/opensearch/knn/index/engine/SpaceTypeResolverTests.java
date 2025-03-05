@@ -15,7 +15,6 @@ import org.opensearch.knn.index.VectorDataType;
 
 import static org.opensearch.Version.CURRENT;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
-import static org.opensearch.knn.index.KNNSettings.KNN_SPACE_TYPE;
 
 public class SpaceTypeResolverTests extends KNNTestCase {
 
@@ -38,11 +37,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
 
     public void testResolveSpaceType_whenNoConfigProvided_thenFallbackToVectorDataType() {
         final Settings emptySettings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
-        final Settings settings = Settings.builder()
-            .put(settings(CURRENT).build())
-            .put(KNN_SPACE_TYPE, SpaceType.L2.getValue())
-            .put(KNN_INDEX, true)
-            .build();
+        final Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
         final KNNMethodContext methodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.COSINESIMIL, MethodComponentContext.EMPTY);
         final KNNMethodContext emptyMethodContext = new KNNMethodContext(
@@ -135,22 +130,16 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             "",
             settings,
             VectorDataType.BYTE,
-            SpaceType.getSpace(settings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey()))
+            SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
         );
         assertResolveSpaceType(
             emptyMethodContext,
             "",
             settings,
             VectorDataType.FLOAT,
-            SpaceType.getSpace(settings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey()))
+            SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
         );
-        assertResolveSpaceType(
-            emptyMethodContext,
-            "",
-            settings,
-            VectorDataType.BINARY,
-            SpaceType.getSpace(settings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey()))
-        );
+        assertResolveSpaceType(emptyMethodContext, "", settings, VectorDataType.BINARY, SpaceType.getSpace(SpaceType.HAMMING.name()));
         assertResolveSpaceType(emptyMethodContext, "", emptySettings, VectorDataType.BYTE, SpaceType.DEFAULT);
         assertResolveSpaceType(emptyMethodContext, "", emptySettings, VectorDataType.FLOAT, SpaceType.DEFAULT);
         assertResolveSpaceType(emptyMethodContext, "", emptySettings, VectorDataType.BINARY, SpaceType.DEFAULT_BINARY);
@@ -183,22 +172,16 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             "",
             settings,
             VectorDataType.BYTE,
-            SpaceType.getSpace(settings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey()))
+            SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
         );
         assertResolveSpaceType(
             nullMethodContext,
             "",
             settings,
             VectorDataType.FLOAT,
-            SpaceType.getSpace(settings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey()))
+            SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
         );
-        assertResolveSpaceType(
-            nullMethodContext,
-            "",
-            settings,
-            VectorDataType.BINARY,
-            SpaceType.getSpace(settings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey()))
-        );
+        assertResolveSpaceType(nullMethodContext, "", settings, VectorDataType.BINARY, SpaceType.getSpace(SpaceType.HAMMING.name()));
         assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.BYTE, SpaceType.DEFAULT);
         assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.FLOAT, SpaceType.DEFAULT);
         assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.BINARY, SpaceType.DEFAULT_BINARY);
