@@ -151,7 +151,6 @@ public interface KNNLibrary extends MethodResolver {
         return false;
     }
 
-
     /**
      * Checks if the library is deprecated for a given OpenSearch version.
      *
