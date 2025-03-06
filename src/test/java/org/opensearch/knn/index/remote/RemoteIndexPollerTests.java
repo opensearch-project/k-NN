@@ -24,8 +24,6 @@ import java.util.Set;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
@@ -63,12 +61,8 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueMillis(100)
-            );
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueMillis(10)
-            );
+            when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMillis(10));
+            when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
 
             RemoteBuildStatusResponse runningResponse = new RemoteBuildStatusResponse(RUNNING_INDEX_BUILD, null, null);
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(runningResponse);
@@ -85,12 +79,8 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueSeconds(5)
-            );
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueMillis(10)
-            );
+            when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMillis(100));
+            when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
 
             RemoteBuildStatusResponse completedResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, MOCK_FILE_NAME, null);
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(completedResponse);
@@ -110,12 +100,8 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueSeconds(5)
-            );
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueMillis(10)
-            );
+            when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMillis(100));
+            when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
 
             String errorMessage = "Failed to build index due to insufficient resources";
 
@@ -143,12 +129,9 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueSeconds(5)
-            );
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueMillis(10)
-            );
+            when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMillis(100));
+            when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
+
             RemoteBuildStatusResponse invalidResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, null, null);
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 
@@ -167,12 +150,9 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueSeconds(5)
-            );
-            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING.getKey())).thenReturn(
-                TimeValue.timeValueMillis(10)
-            );
+            when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMillis(100));
+            when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
+
             RemoteBuildStatusResponse invalidResponse = new RemoteBuildStatusResponse(null, null, null);
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 

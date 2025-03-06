@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.index.FieldInfo;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -138,6 +139,16 @@ public class Faiss extends NativeLibrary {
         return false;
     }
 
+    /**
+     * Get method name from a {@link FieldInfo} formatted attributes map
+     * Example:
+     * {
+     *     "index_description": "HNSW12,Flat",
+     *     "spaceType": "l2",
+     *     "name": "hnsw",
+     *     ...
+     * }
+     */
     private String getMethodName(String parametersJson) throws IOException {
         XContentParser parser = XContentType.JSON.xContent()
             .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersJson.getBytes());
@@ -145,8 +156,9 @@ public class Faiss extends NativeLibrary {
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
                 String fieldName = parser.currentName();
-                parser.nextToken();
                 if (NAME.equals(fieldName)) {
+                    // Matched field name (key), next line will move to the value
+                    parser.nextToken();
                     return parser.text();
                 }
             }

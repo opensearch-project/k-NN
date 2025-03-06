@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import org.apache.lucene.index.FieldInfo;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -197,7 +198,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
 
     /**
      * Return whether this engine/method supports remote build.
-     * @param attributes
+     * @param attributes Map of {@link FieldInfo} formatted attributes
      * @return true if remote build is supported, false otherwise
      * @throws IOException
      */
@@ -208,11 +209,30 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     }
 
     /**
-     * Gets encoder name from a {@FieldInfo parameters} map
+     * Gets encoder name from a {@FieldInfo parameters} map.
+     * Needs to use a JSON parser since FieldInfo.attributes() is a Map of String, String.
      *
-     * @param parametersJson
-     * @return encoder name
-     * @throws IOException
+     * Example:
+     * {
+     *     "index_description": "HNSW12,Flat",
+     *     "spaceType": "l2",
+     *     "name": "hnsw",
+     *     "data_type": "float",
+     *     --------------------
+     *     "parameters": {
+     *         "ef_search": 24,
+     *         "ef_construction": 28,
+     *         "encoder": {
+     *             "name": "flat",
+     *             "parameters": {}
+     *         }
+     *     }
+     *     --------------------
+     * }
+     *
+     * @param parametersJson json string of parameters (inner parameter map above)
+     * @return encoder name or null if not found
+     * @throws IOException if the json string is not valid
      */
     private static String getEncoderName(String parametersJson) throws IOException {
         XContentParser parser = XContentType.JSON.xContent()
@@ -221,22 +241,27 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
                 String fieldName = parser.currentName();
-                parser.nextToken();
 
-                if (PARAMETERS.equals(fieldName) && parser.currentToken() == XContentParser.Token.START_OBJECT) {
-                    while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                        if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
-                            String paramName = parser.currentName();
-                            parser.nextToken();
+                if (PARAMETERS.equals(fieldName)) {
+                    parser.nextToken();
+                    if (parser.currentToken() == XContentParser.Token.START_OBJECT) {
+                        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                            if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
+                                String paramName = parser.currentName();
 
-                            if (METHOD_ENCODER_PARAMETER.equals(paramName) && parser.currentToken() == XContentParser.Token.START_OBJECT) {
-                                while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                                    if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
-                                        String encoderField = parser.currentName();
-                                        parser.nextToken();
+                                if (METHOD_ENCODER_PARAMETER.equals(paramName)) {
+                                    parser.nextToken();
+                                    if (parser.currentToken() == XContentParser.Token.START_OBJECT) {
+                                        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                                            if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
+                                                String encoderField = parser.currentName();
 
-                                        if (NAME.equals(encoderField)) {
-                                            return parser.text();
+                                                if (NAME.equals(encoderField)) {
+                                                    // .nextToken to move from the key `name` to the value.
+                                                    parser.nextToken();
+                                                    return parser.text();
+                                                }
+                                            }
                                         }
                                     }
                                 }

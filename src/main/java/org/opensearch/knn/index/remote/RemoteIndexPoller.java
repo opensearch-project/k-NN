@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.remote;
 
 import org.apache.commons.lang.StringUtils;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
@@ -42,18 +41,17 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
     @SuppressWarnings("BusyWait")
     public RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildStatusRequest remoteBuildStatusRequest) throws InterruptedException,
         IOException {
-        long startTime = System.currentTimeMillis();
-        long timeout = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT)).getMillis();
-        long pollInterval = ((TimeValue) (KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL)))
-            .getMillis();
+        long startTime = System.nanoTime();
+        long timeout = KNNSettings.getRemoteBuildClientTimeout().getNanos();
+        // Thread.sleep expects millis
+        long pollInterval = KNNSettings.getRemoteBuildClientPollInterval().getMillis();
 
         // Initial delay to allow build service to process the job and store the ID before getting its status.
         // TODO tune default based on benchmarking
         Thread.sleep(pollInterval * INITIAL_DELAY_FACTOR);
 
-        while (System.currentTimeMillis() - startTime < timeout) {
+        while (System.nanoTime() - startTime < timeout) {
             RemoteBuildStatusResponse remoteBuildStatusResponse = client.getBuildStatus(remoteBuildStatusRequest);
-            Duration d = Duration.ofMillis(System.currentTimeMillis() - startTime);
             String taskStatus = remoteBuildStatusResponse.getTaskStatus();
             if (StringUtils.isBlank(taskStatus)) {
                 throw new IOException(String.format("Invalid response format, missing %s", TASK_STATUS));
@@ -67,6 +65,7 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
                 }
                 case FAILED_INDEX_BUILD -> {
                     String errorMessage = remoteBuildStatusResponse.getErrorMessage();
+                    Duration d = Duration.ofNanos(System.nanoTime() - startTime);
                     throw new InterruptedException(
                         String.format("Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
                     );
@@ -75,8 +74,8 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
                 default -> throw new IOException(String.format("Server returned invalid task status %s", taskStatus));
             }
         }
-        Duration waitedDuration = Duration.ofMillis(System.currentTimeMillis() - startTime);
-        Duration timeoutDuration = Duration.ofMillis(timeout);
+        Duration waitedDuration = Duration.ofNanos(System.nanoTime() - startTime);
+        Duration timeoutDuration = Duration.ofNanos(timeout);
         throw new InterruptedException(
             String.format(
                 "Remote index build timed out after %d minutes, timeout is set to %d minutes. Falling back to CPU build",

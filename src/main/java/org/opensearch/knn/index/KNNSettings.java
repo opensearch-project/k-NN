@@ -783,6 +783,14 @@ public class KNNSettings {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT);
     }
 
+    public static TimeValue getRemoteBuildClientTimeout() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT);
+    }
+
+    public static TimeValue getRemoteBuildClientPollInterval() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL);
+    }
+
     public static boolean isFaissAVX2Disabled() {
         try {
             return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
