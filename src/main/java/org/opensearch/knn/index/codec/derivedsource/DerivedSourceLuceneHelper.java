@@ -89,6 +89,24 @@ public class DerivedSourceLuceneHelper {
     }
 
     /**
+     * Given a document id, get the next matching doc for the given parent.
+     *
+     * @param offset Place to start searching (inclusive)
+     * @param endDocId Last eligible doc (inclusive)
+     * @param parentFieldName Field to check
+     * @return Doc Id of first matching doc on or after offset that contains the parent field name. {@link DocIdSetIterator#NO_MORE_DOCS} if not found
+     * @throws IOException if unable to read segment
+     */
+    public int getNextDocIdWithParent(int offset, int endDocId, String parentFieldName) throws IOException {
+        List<Integer> matches = termMatchesInRange(offset, endDocId, "_nested_path", parentFieldName);
+        if (matches.isEmpty()) {
+            return NO_MORE_DOCS;
+        }
+
+        return matches.getFirst();
+    }
+
+    /**
      * Check if the field exists for the given document.
      *
      * @param fieldToMatch field to check

@@ -14,12 +14,12 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.SourceFieldMapper;
+import org.opensearch.knn.index.codec.derivedsource.DerivedSourceMapHelper;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -83,8 +83,10 @@ public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
                 true,
                 MediaTypeRegistry.JSON
             );
-            Map<String, Object> filteredSource = XContentMapValues.filter(null, vectorFieldTypes.toArray(new String[0]))
-                .apply(mapTuple.v2());
+            Map<String, Object> filteredSource = DerivedSourceMapHelper.filterFields(
+                vectorFieldTypes.toArray(new String[0]),
+                mapTuple.v2()
+            );
             BytesStreamOutput bStream = new BytesStreamOutput();
             MediaType actualContentType = mapTuple.v1();
             XContentBuilder builder = MediaTypeRegistry.contentBuilder(actualContentType, bStream).map(filteredSource);

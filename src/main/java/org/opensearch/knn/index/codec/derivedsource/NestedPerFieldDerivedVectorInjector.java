@@ -8,7 +8,6 @@ package org.opensearch.knn.index.codec.derivedsource;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
-import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
@@ -76,17 +75,10 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
         if (vectorValues.docId() != docId && vectorValues.advance(docId) != docId) {
             return;
         }
-
-        // Translate the flat path to a nested map of maps
-        String[] fields = ParentChildHelper.splitPath(childFieldInfo.name);
-        Map<String, Object> currentMap = sourceAsMap;
-        for (int i = 0; i < fields.length - 1; i++) {
-            String field = fields[i];
-            currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, k -> new HashMap<>());
-        }
-        currentMap.put(
-            fields[fields.length - 1],
-            formatVector(childFieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector)
+        DerivedSourceMapHelper.injectVector(
+            sourceAsMap,
+            formatVector(childFieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector),
+            childFieldInfo.name
         );
     }
 
@@ -115,6 +107,7 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
             reconstructedSource = (List<Map<String, Object>>) originalParentValue;
         }
 
+        // TODO: Update this to call out that empty objects are removed from arrays.
         // In order to inject vectors into source for nested documents, we need to be able to map the existing
         // maps to document positions. This lets us know what place to put the vector back into. For example:
         // Assume we have the following document from the user and we are deriving the value for nested.vector
@@ -181,15 +174,15 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
                 reconstructedSource.add(position, new HashMap<>());
                 docIdsInNestedList.add(position, docId);
             }
-            reconstructedSource.get(position)
-                .put(
-                    childFieldName,
-                    formatVector(
-                        childFieldInfo,
-                        nestedPerFieldParentToChildDocIdIterator::getVector,
-                        nestedPerFieldParentToChildDocIdIterator::getVectorClone
-                    )
-                );
+            DerivedSourceMapHelper.injectVector(
+                reconstructedSource.get(position),
+                formatVector(
+                    childFieldInfo,
+                    nestedPerFieldParentToChildDocIdIterator::getVector,
+                    nestedPerFieldParentToChildDocIdIterator::getVectorClone
+                ),
+                childFieldName
+            );
             offsetPositionsIndex = position + 1;
         }
         sourceAsMap.put(parentFieldName, reconstructedSource);
@@ -212,8 +205,7 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
         List<Integer> positions = new ArrayList<>();
         int currentOffset = offset;
         for (Map<String, Object> docWithFields : originals) {
-            int fieldMapping = mapToDocId(docWithFields, currentOffset, parent);
-            assert fieldMapping != NO_MORE_DOCS;
+            int fieldMapping = getDocIdOfMap(docWithFields, currentOffset, parent);
             positions.add(fieldMapping);
             currentOffset = fieldMapping + 1;
         }
@@ -225,10 +217,11 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
      *
      * @param doc    doc to find the docId for
      * @param offset offset to start searching from
+     * @param parent parent docId
      * @return doc id the map must map to
      * @throws IOException if there is an issue reading from the formats
      */
-    private int mapToDocId(Map<String, Object> doc, int offset, int parent) throws IOException {
+    private int getDocIdOfMap(Map<String, Object> doc, int offset, int parent) throws IOException {
         // First, we identify a field that the doc in question must have
         FieldInfo fieldInfoOfDoc = getAnyMatchingFieldInfoForDoc(doc);
         assert fieldInfoOfDoc != null;
@@ -240,15 +233,12 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
 
         // The field in question may be a nested field. In this case, we need to find the next parent on the same level
         // as the child to figure out where to put back the vector.
-        List<Integer> matches = derivedSourceLuceneHelper.termMatchesInRange(
+        int position = derivedSourceLuceneHelper.getNextDocIdWithParent(
             firstMatchingDocWithField,
             parent - 1,
-            "_nested_path",
             ParentChildHelper.getParentField(childFieldInfo.name)
         );
-        assert matches != null;
-        assert matches.isEmpty() == false;
-        int position = matches.getFirst();
+        // We should not advance past the parent
         assert position < parent;
         return position;
     }
@@ -267,15 +257,10 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
                 continue;
             }
 
-            Object object = XContentMapValues.extractValue(extractedFieldName, doc, NullValue.INSTANCE);
-            if (object != null) {
+            if (DerivedSourceMapHelper.fieldExists(doc, extractedFieldName)) {
                 return fieldInfo;
             }
         }
         return null;
-    }
-
-    private static class NullValue {
-        private static final NullValue INSTANCE = new NullValue();
     }
 }
