@@ -18,7 +18,7 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.store.Directory;
 import org.opensearch.index.fielddata.ScriptDocValues;
 import org.junit.Before;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
 import java.io.IOException;
 
@@ -43,7 +43,7 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
         IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
         IndexWriter writer = new IndexWriter(directory, conf);
         Document knnDocument = new Document();
-        byte[] vectorBinary = KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(new float[] { 1.0f, 2.0f });
+        byte[] vectorBinary = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(new float[] { 1.0f, 2.0f });
         knnDocument.add(new BinaryDocValuesField(MOCK_INDEX_FIELD_NAME, new BytesRef(vectorBinary)));
         knnDocument.add(new NumericDocValuesField(MOCK_NUMERIC_INDEX_FIELD_NAME, 1000));
         writer.addDocument(knnDocument);

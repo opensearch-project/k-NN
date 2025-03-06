@@ -17,7 +17,7 @@ import org.junit.Assert;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
 import java.util.Arrays;
 
@@ -56,7 +56,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForFloatVector(TEST_FIELD_NAME, TEST_FLOAT_VECTOR);
         assertEquals(TEST_FIELD_NAME, storedField.name());
         BytesRef bytes = new BytesRef(storedField.binaryValue().bytes);
-        assertArrayEquals(TEST_FLOAT_VECTOR, KNNVectorSerializerFactory.getDefaultSerializer().byteToFloatArray(bytes), 0.001f);
+        assertArrayEquals(TEST_FLOAT_VECTOR, KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.byteToFloatArray(bytes), 0.001f);
 
         Object vector = KNNVectorFieldMapperUtil.deserializeStoredVector(storedField.binaryValue(), VectorDataType.FLOAT);
         assertTrue(vector instanceof float[]);

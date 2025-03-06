@@ -17,6 +17,8 @@ import java.util.stream.IntStream;
 public class KNNVectorAsCollectionOfFloatsSerializer implements KNNVectorSerializer {
     private static final int BYTES_IN_FLOAT = 4;
 
+    public static final KNNVectorAsCollectionOfFloatsSerializer INSTANCE = new KNNVectorAsCollectionOfFloatsSerializer();
+
     @Override
     public byte[] floatToByteArray(float[] input) {
         final ByteBuffer bb = ByteBuffer.allocate(input.length * BYTES_IN_FLOAT).order(ByteOrder.BIG_ENDIAN);

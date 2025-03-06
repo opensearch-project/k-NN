@@ -8,8 +8,8 @@ import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.*;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -144,7 +144,7 @@ public class TestVectorValues {
             this.count = count;
             this.dimension = dimension;
             this.current = -1;
-            this.knnVectorSerializer = KNNVectorSerializerFactory.getDefaultSerializer();
+            this.knnVectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
         }
 
         @Override

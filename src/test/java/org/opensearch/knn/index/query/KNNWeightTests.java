@@ -43,10 +43,10 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -1083,7 +1083,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
         when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
         when(binaryDocValues.advance(filterDocId)).thenReturn(filterDocId);
-        BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
+        BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -1153,7 +1153,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
         when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
         when(binaryDocValues.advance(0)).thenReturn(0);
-        BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
+        BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -1298,7 +1298,7 @@ public class KNNWeightTests extends KNNTestCase {
         // Query vector is {1.8f, 2.4f}, therefore, second vector {1.9f, 2.5f} should be returned in a result
         final List<float[]> vectors = Arrays.asList(new float[] { 0.1f, 0.3f }, new float[] { 1.9f, 2.5f });
         final List<BytesRef> byteRefs = vectors.stream()
-            .map(vector -> new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector)))
+            .map(vector -> new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector)))
             .collect(Collectors.toList());
         final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
         when(binaryDocValues.binaryValue()).thenReturn(byteRefs.get(0), byteRefs.get(1));

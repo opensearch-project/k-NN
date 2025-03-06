@@ -42,7 +42,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -107,7 +107,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     private static final byte[] TEST_BYTE_VECTOR = createInitializedByteArray(TEST_DIMENSION, TEST_BYTE_VECTOR_VALUE);
 
     private static final BytesRef TEST_VECTOR_BYTES_REF = new BytesRef(
-        KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(TEST_VECTOR)
+        KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(TEST_VECTOR)
     );
     private static final BytesRef TEST_BYTE_VECTOR_BYTES_REF = new BytesRef(TEST_BYTE_VECTOR);
     private static final String DIMENSION_FIELD_NAME = "dimension";

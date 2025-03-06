@@ -19,7 +19,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.After;
 import org.junit.Test;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
 import java.io.IOException;
 
@@ -167,7 +167,7 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         Field field;
 
         if (BinaryDocValues.class.equals(valuesClass)) {
-            byte[] vectorBinary = KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(SAMPLE_VECTOR_DATA);
+            byte[] vectorBinary = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(SAMPLE_VECTOR_DATA);
             field = new BinaryDocValuesField(MOCK_INDEX_FIELD_NAME, new BytesRef(vectorBinary));
         } else if (ByteVectorValues.class.equals(valuesClass)) {
             field = new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, SAMPLE_BYTE_VECTOR_DATA);
