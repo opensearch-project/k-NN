@@ -65,7 +65,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
      * Get the Singleton shared HTTP client
      * @return The static HTTP Client
      */
-    protected static CloseableHttpClient getHttpClient() {
+    static CloseableHttpClient getHttpClient() {
         return HttpClientHolder.httpClient;
     }
 
@@ -124,23 +124,12 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     }
 
     /**
-     * Await the completion of the index build using a {@link RemoteIndexPoller}.
-     * @param remoteBuildResponse containing job_id from the server response used to track the job
-     * @return RemoteBuildStatusResponse containing the path to the completed index
-     */
-    @Override
-    public RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildResponse remoteBuildResponse) throws InterruptedException, IOException {
-        RemoteIndexPoller remoteIndexPoller = new RemoteIndexPoller(this);
-        return remoteIndexPoller.pollRemoteEndpoint(remoteBuildResponse);
-    }
-
-    /**
      * Helper method to directly get the status response for a given build
-     * @param remoteBuildResponse containing job ID to check
+     * @param remoteBuildStatusRequest containing job ID to check
      * @return The entire response for the status request
      */
-    public RemoteBuildStatusResponse getBuildStatus(RemoteBuildResponse remoteBuildResponse) throws IOException {
-        String jobId = remoteBuildResponse.getJobId();
+    public RemoteBuildStatusResponse getBuildStatus(RemoteBuildStatusRequest remoteBuildStatusRequest) throws IOException {
+        String jobId = remoteBuildStatusRequest.getJobId();
         HttpGet request = new HttpGet(endpoint + STATUS_ENDPOINT + "/" + jobId);
         if (authHeader != null) {
             request.setHeader(HttpHeaders.AUTHORIZATION, authHeader);

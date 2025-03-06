@@ -18,6 +18,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -27,19 +28,22 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
 import static org.opensearch.knn.index.remote.RemoteBuildStatusResponseTests.MOCK_FILE_NAME;
 import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_JOB_ID;
 
 public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
     @Mock
-    protected static ClusterService clusterService;
+    private static ClusterService clusterService;
 
     @Mock
     private RemoteIndexClient mockClient;
 
-    protected AutoCloseable openMocks;
-    private RemoteBuildResponse mockResponse;
+    AutoCloseable openMocks;
+    RemoteBuildStatusRequest mockStatusRequest;
+    KNNSettings knnSettingsMock;
 
     @Before
     public void setup() {
@@ -48,14 +52,14 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
         Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         KNNSettings.state().setClusterService(clusterService);
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
+        this.knnSettingsMock = mock(KNNSettings.class);
 
         mockClient = mock(RemoteIndexClient.class);
-        mockResponse = new RemoteBuildResponse(MOCK_JOB_ID);
+        RemoteBuildResponse mockResponse = new RemoteBuildResponse(MOCK_JOB_ID);
+        this.mockStatusRequest = new RemoteBuildStatusRequest(mockResponse);
     }
 
     public void testAwaitVectorBuildTimeout() {
-        KNNSettings knnSettingsMock = mock(KNNSettings.class);
-
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
@@ -67,19 +71,17 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             );
 
             RemoteBuildStatusResponse runningResponse = new RemoteBuildStatusResponse(RUNNING_INDEX_BUILD, null, null);
-            when(mockClient.getBuildStatus(new RemoteBuildResponse(MOCK_JOB_ID))).thenReturn(runningResponse);
+            when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(runningResponse);
 
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 
-            assertThrows(InterruptedException.class, () -> poller.pollRemoteEndpoint(mockResponse));
+            assertThrows(InterruptedException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     public void testAwaitVectorBuildCompleted() {
-        KNNSettings knnSettingsMock = mock(KNNSettings.class);
-
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
@@ -91,11 +93,11 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             );
 
             RemoteBuildStatusResponse completedResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, MOCK_FILE_NAME, null);
-            when(mockClient.getBuildStatus(new RemoteBuildResponse(MOCK_JOB_ID))).thenReturn(completedResponse);
+            when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(completedResponse);
 
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 
-            RemoteBuildStatusResponse response = poller.pollRemoteEndpoint(mockResponse);
+            RemoteBuildStatusResponse response = poller.awaitVectorBuild(mockStatusRequest);
             assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
             assertEquals(MOCK_FILE_NAME, response.getFileName());
             assertNull(response.getErrorMessage());
@@ -105,8 +107,6 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testAwaitVectorBuildFailed() {
-        KNNSettings knnSettingsMock = mock(KNNSettings.class);
-
         try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
             knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
 
@@ -118,13 +118,67 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             );
 
             String errorMessage = "Failed to build index due to insufficient resources";
+
             RemoteBuildStatusResponse failedResponse = new RemoteBuildStatusResponse(FAILED_INDEX_BUILD, null, errorMessage);
-            when(mockClient.getBuildStatus(new RemoteBuildResponse(MOCK_JOB_ID))).thenReturn(failedResponse);
+            when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(failedResponse);
 
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 
-            InterruptedException exception = assertThrows(InterruptedException.class, () -> poller.pollRemoteEndpoint(mockResponse));
+            InterruptedException exception = assertThrows(InterruptedException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
             assertTrue(exception.getMessage().contains(errorMessage));
+
+            RemoteBuildStatusResponse failedResponseNoError = new RemoteBuildStatusResponse(FAILED_INDEX_BUILD, null, null);
+            when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(failedResponseNoError);
+            InterruptedException exceptionWithoutError = assertThrows(
+                InterruptedException.class,
+                () -> poller.awaitVectorBuild(mockStatusRequest)
+            );
+            assertFalse(exceptionWithoutError.getMessage().contains(errorMessage));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void testMissingIndexPathForCompletedStatus() {
+        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+
+            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING.getKey())).thenReturn(
+                TimeValue.timeValueSeconds(5)
+            );
+            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING.getKey())).thenReturn(
+                TimeValue.timeValueMillis(10)
+            );
+            RemoteBuildStatusResponse invalidResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, null, null);
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
+
+            when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(invalidResponse);
+            IOException exception = assertThrows(IOException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
+            assertEquals(
+                "Invalid response format, missing " + FILE_NAME + " for " + COMPLETED_INDEX_BUILD + " status",
+                exception.getMessage()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void testMissingTaskStatus() {
+        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+
+            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING.getKey())).thenReturn(
+                TimeValue.timeValueSeconds(5)
+            );
+            when(knnSettingsMock.getSettingValue(KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING.getKey())).thenReturn(
+                TimeValue.timeValueMillis(10)
+            );
+            RemoteBuildStatusResponse invalidResponse = new RemoteBuildStatusResponse(null, null, null);
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
+
+            when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(invalidResponse);
+            IOException exception = assertThrows(IOException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
+            assertEquals("Invalid response format, missing " + TASK_STATUS, exception.getMessage());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

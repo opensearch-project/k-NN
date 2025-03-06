@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -203,7 +204,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     static boolean supportsRemoteIndexBuild(Map<String, String> attributes) throws IOException {
         String parametersJson = attributes.get("parameters");
         String encoderName = getEncoderName(parametersJson);
-        return "flat".equals(encoderName);
+        return ENCODER_FLAT.equals(encoderName);
     }
 
     /**

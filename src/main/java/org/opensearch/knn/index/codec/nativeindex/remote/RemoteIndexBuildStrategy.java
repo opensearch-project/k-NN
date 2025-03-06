@@ -16,9 +16,12 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.remote.RemoteBuildRequest;
 import org.opensearch.knn.index.remote.RemoteBuildResponse;
+import org.opensearch.knn.index.remote.RemoteBuildStatusRequest;
 import org.opensearch.knn.index.remote.RemoteBuildStatusResponse;
 import org.opensearch.knn.index.remote.RemoteIndexClient;
 import org.opensearch.knn.index.remote.RemoteIndexClientFactory;
+import org.opensearch.knn.index.remote.RemoteIndexWaiter;
+import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -132,19 +135,21 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             log.debug("Repository write took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient();
-            RemoteBuildRequest request = new RemoteBuildRequest(
+            RemoteBuildRequest buildRequest = new RemoteBuildRequest(
                 indexSettings,
                 indexInfo,
                 repository.getMetadata(),
                 blobPath.buildAsString()
             );
             stopWatch = new StopWatch().start();
-            RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(request);
+            RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(buildRequest);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
+            RemoteBuildStatusRequest remoteBuildStatusRequest = new RemoteBuildStatusRequest(remoteBuildResponse);
+            RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client);
             stopWatch = new StopWatch().start();
-            RemoteBuildStatusResponse remoteBuildStatusResponse = client.awaitVectorBuild(remoteBuildResponse);
+            RemoteBuildStatusResponse remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 

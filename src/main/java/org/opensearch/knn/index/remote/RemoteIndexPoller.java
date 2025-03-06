@@ -5,16 +5,26 @@
 
 package org.opensearch.knn.index.remote;
 
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
+import java.time.Duration;
 
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
 
-class RemoteIndexPoller {
+/**
+ * Implementation of a {@link RemoteIndexWaiter} that awaits the vector build by polling.
+ */
+class RemoteIndexPoller implements RemoteIndexWaiter {
+    // The poller waits KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL * INITIAL_DELAY_FACTOR before sending the first status request
+    private static final int INITIAL_DELAY_FACTOR = 3;
+
     private final RemoteIndexClient client;
 
     RemoteIndexPoller(RemoteIndexClient client) {
@@ -24,13 +34,14 @@ class RemoteIndexPoller {
     /**
      * Polls the remote endpoint for the status of the build job until timeout.
      *
-     * @param remoteBuildResponse The response from the initial build request
+     * @param remoteBuildStatusRequest The response from the initial build request
      * @return RemoteBuildStatusResponse containing the path of the completed build job
      * @throws InterruptedException if the thread is interrupted while polling
      * @throws IOException if an I/O error occurs
      */
     @SuppressWarnings("BusyWait")
-    RemoteBuildStatusResponse pollRemoteEndpoint(RemoteBuildResponse remoteBuildResponse) throws InterruptedException, IOException {
+    public RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildStatusRequest remoteBuildStatusRequest) throws InterruptedException,
+        IOException {
         long startTime = System.currentTimeMillis();
         long timeout = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT)).getMillis();
         long pollInterval = ((TimeValue) (KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL)))
@@ -38,24 +49,40 @@ class RemoteIndexPoller {
 
         // Initial delay to allow build service to process the job and store the ID before getting its status.
         // TODO tune default based on benchmarking
-        Thread.sleep(pollInterval * 3);
+        Thread.sleep(pollInterval * INITIAL_DELAY_FACTOR);
 
         while (System.currentTimeMillis() - startTime < timeout) {
-            RemoteBuildStatusResponse remoteBuildStatusResponse = client.getBuildStatus(remoteBuildResponse);
+            RemoteBuildStatusResponse remoteBuildStatusResponse = client.getBuildStatus(remoteBuildStatusRequest);
+            Duration d = Duration.ofMillis(System.currentTimeMillis() - startTime);
             String taskStatus = remoteBuildStatusResponse.getTaskStatus();
+            if (StringUtils.isBlank(taskStatus)) {
+                throw new IOException(String.format("Invalid response format, missing %s", TASK_STATUS));
+            }
             switch (taskStatus) {
-                case COMPLETED_INDEX_BUILD:
-                    return remoteBuildStatusResponse;
-                case FAILED_INDEX_BUILD:
-                    String errorMessage = remoteBuildStatusResponse.getErrorMessage();
-                    if (errorMessage != null) {
-                        throw new InterruptedException("Index build failed: " + errorMessage);
+                case COMPLETED_INDEX_BUILD -> {
+                    if (StringUtils.isBlank(remoteBuildStatusResponse.getFileName())) {
+                        throw new IOException(String.format("Invalid response format, missing %s for %s status", FILE_NAME, taskStatus));
                     }
-                    throw new InterruptedException("Index build failed without an error message.");
-                case RUNNING_INDEX_BUILD:
-                    Thread.sleep(pollInterval);
+                    return remoteBuildStatusResponse;
+                }
+                case FAILED_INDEX_BUILD -> {
+                    String errorMessage = remoteBuildStatusResponse.getErrorMessage();
+                    throw new InterruptedException(
+                        String.format("Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
+                    );
+                }
+                case RUNNING_INDEX_BUILD -> Thread.sleep(pollInterval);
+                default -> throw new IOException(String.format("Server returned invalid task status %s", taskStatus));
             }
         }
-        throw new InterruptedException("Build timed out, falling back to CPU build.");
+        Duration waitedDuration = Duration.ofMillis(System.currentTimeMillis() - startTime);
+        Duration timeoutDuration = Duration.ofMillis(timeout);
+        throw new InterruptedException(
+            String.format(
+                "Remote index build timed out after %d minutes, timeout is set to %d minutes. Falling back to CPU build",
+                waitedDuration.toMinutesPart(),
+                timeoutDuration.toMinutesPart()
+            )
+        );
     }
 }

@@ -57,28 +57,6 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
         + "\":"
         + NULL
         + "}";
-    public static final String MISSING_TASK_STATUS_RESPONSE = "{"
-        + "\""
-        + FILE_NAME
-        + "\":\""
-        + MOCK_FILE_NAME
-        + "\","
-        + "\""
-        + ERROR_MESSAGE
-        + "\":"
-        + NULL
-        + "}";
-    public static final String MISSING_FILE_NAME_RESPONSE = "{"
-        + "\""
-        + TASK_STATUS
-        + "\":\""
-        + COMPLETED_INDEX_BUILD
-        + "\","
-        + "\""
-        + ERROR_MESSAGE
-        + "\":"
-        + NULL
-        + "}";
 
     public void testSuccessfulBuildStatusResponse() throws IOException {
         try (
@@ -93,32 +71,6 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
             assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
             assertEquals(MOCK_FILE_NAME, response.getFileName());
             assertNull(response.getErrorMessage());
-        }
-    }
-
-    public void testMissingTaskStatus() throws IOException {
-        try (
-            XContentParser parser = JsonXContent.jsonXContent.createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                MISSING_TASK_STATUS_RESPONSE
-            )
-        ) {
-            IOException exception = assertThrows(IOException.class, () -> RemoteBuildStatusResponse.fromXContent(parser));
-            assertEquals("Invalid response format, missing " + TASK_STATUS, exception.getMessage());
-        }
-    }
-
-    public void testMissingIndexPathForCompletedStatus() throws IOException {
-        try (
-            XContentParser parser = JsonXContent.jsonXContent.createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                MISSING_FILE_NAME_RESPONSE
-            )
-        ) {
-            IOException exception = assertThrows(IOException.class, () -> RemoteBuildStatusResponse.fromXContent(parser));
-            assertEquals("Invalid response format, missing " + FILE_NAME + " for completed status", exception.getMessage());
         }
     }
 

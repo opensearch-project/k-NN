@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.action.LatchedActionListener;
 import org.opensearch.common.CheckedTriFunction;
 import org.opensearch.common.StreamContext;
@@ -222,7 +223,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
 
     @Override
     public void readFromRepository(String fileName, IndexOutputWithBuffer indexOutputWithBuffer) throws IOException {
-        if (fileName == null || fileName.isEmpty()) {
+        if (StringUtils.isBlank(fileName)) {
             throw new IllegalArgumentException("download path is null or empty");
         }
         if (!fileName.endsWith(KNNEngine.FAISS.getExtension())) {

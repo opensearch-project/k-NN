@@ -7,13 +7,11 @@ package org.opensearch.knn.index.remote;
 
 import lombok.Builder;
 import lombok.Value;
-import org.apache.commons.lang.StringUtils;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.xcontent.XContentParser;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.ERROR_MESSAGE;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
@@ -53,12 +51,6 @@ public class RemoteBuildStatusResponse {
                     throw new IOException("Invalid response format, unknown field: " + currentFieldName);
                 }
             }
-        }
-        if (StringUtils.isBlank(builder.taskStatus)) {
-            throw new IOException("Invalid response format, missing " + TASK_STATUS);
-        }
-        if (COMPLETED_INDEX_BUILD.equals(builder.taskStatus) && StringUtils.isBlank(builder.fileName)) {
-            throw new IOException("Invalid response format, missing " + FILE_NAME + " for completed status");
         }
         return builder.build();
     }
