@@ -288,6 +288,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
     }
 
+    /**
+     * Add a filter to Neural Query Builder
+     * @param filterToBeAdded filter to be added
+     * @return return itself with underlying filter combined with passed in filter
+     */
+    public QueryBuilder filter(QueryBuilder filterToBeAdded) {
+        if (validateFilterParams(filter) == false) {
+            return this;
+        }
+        if (filter == null) {
+            filter = filterToBeAdded;
+            return this;
+        }
+        filter = filter.filter(filterToBeAdded);
+        return this;
+    }
+
     public static KNNQueryBuilder.Builder builder() {
         return new KNNQueryBuilder.Builder();
     }
