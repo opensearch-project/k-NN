@@ -146,7 +146,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
-            RemoteBuildStatusRequest remoteBuildStatusRequest = new RemoteBuildStatusRequest(remoteBuildResponse);
+            RemoteBuildStatusRequest remoteBuildStatusRequest = RemoteBuildStatusRequest.build(remoteBuildResponse);
             RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client);
             stopWatch = new StopWatch().start();
             RemoteBuildStatusResponse remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);

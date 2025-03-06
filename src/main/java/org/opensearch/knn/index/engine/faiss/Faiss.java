@@ -128,7 +128,11 @@ public class Faiss extends NativeLibrary {
         return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
 
-    public boolean supportsRemoteIndexBuild(Map<String, String> attributes) throws IOException {
+    /**
+     * Use the method name to route the check to the specific method class
+     */
+    @Override
+    public boolean supportsRemoteIndexBuild(Map<String, String> attributes) {
         String parametersJson = attributes.get(PARAMETERS);
         if (parametersJson != null) {
             String methodName = getMethodName(parametersJson);
@@ -140,32 +144,40 @@ public class Faiss extends NativeLibrary {
     }
 
     /**
-     * Get method name from a {@link FieldInfo} formatted attributes map
+     * Get method name from a {@link FieldInfo} formatted attributes map.
+     * <p>
      * Example:
-     * {
+     * <pre>{@code {
      *     "index_description": "HNSW12,Flat",
      *     "spaceType": "l2",
      *     "name": "hnsw",
      *     ...
-     * }
+     * }}</pre>
      */
-    private String getMethodName(String parametersJson) throws IOException {
-        XContentParser parser = XContentType.JSON.xContent()
-            .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersJson.getBytes());
+    private String getMethodName(String parametersJson) {
+        try {
+            XContentParser parser = XContentType.JSON.xContent()
+                .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersJson.getBytes());
 
-        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-            if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
-                String fieldName = parser.currentName();
-                if (NAME.equals(fieldName)) {
-                    // Matched field name (key), next line will move to the value
-                    parser.nextToken();
-                    return parser.text();
+            while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
+                    String fieldName = parser.currentName();
+                    if (NAME.equals(fieldName)) {
+                        // Matched field name (key), next line will move to the value
+                        parser.nextToken();
+                        return parser.text();
+                    }
                 }
             }
+            return null;
+        } catch (IOException e) {
+            return null;
         }
-        return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
         if (METHOD_HNSW.equals(indexInfoParameters.get(NAME))) {

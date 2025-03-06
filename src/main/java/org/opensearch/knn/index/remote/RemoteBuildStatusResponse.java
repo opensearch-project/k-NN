@@ -30,6 +30,16 @@ public class RemoteBuildStatusResponse {
     String fileName;
     String errorMessage;
 
+    /**
+     * Parse the response from the remote index build service status API.
+     * <p>
+     * Example response to be parsed:
+     * <pre>{@code {
+     *     "task_status" : "String", // one of RUNNING_INDEX_BUILD, FAILED_INDEX_BUILD, COMPLETED_INDEX_BUILD
+     *     "file_name" : "String"
+     *     "error_message": "String"
+     * } }</pre>
+     */
     static RemoteBuildStatusResponse fromXContent(XContentParser parser) throws IOException {
         final RemoteBuildStatusResponseBuilder builder = new RemoteBuildStatusResponseBuilder();
         XContentParser.Token token = parser.nextToken();

@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.remote;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -41,6 +42,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSW
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BASIC_PREFIX;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.JOB_ID_FIELD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.STATUS_ENDPOINT;
 
 /**
@@ -102,7 +104,11 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
                 LoggingDeprecationHandler.INSTANCE,
                 response
             );
-            return RemoteBuildResponse.fromXContent(parser);
+            RemoteBuildResponse buildResponse = RemoteBuildResponse.fromXContent(parser);
+            if (StringUtils.isBlank(buildResponse.getJobId())) {
+                throw new IOException("Invalid response format, empty " + JOB_ID_FIELD);
+            }
+            return buildResponse;
         } catch (Exception e) {
             throw new IOException("Failed to execute HTTP request", e);
         }

@@ -32,6 +32,9 @@ public class KNNRemoteConstants {
     public static final String BUILD_ENDPOINT = "/_build";
     public static final String STATUS_ENDPOINT = "/_status";
 
+    // Build response keys
+    public static final String JOB_ID_FIELD = "job_id";
+
     // Status response keys
     public static final String TASK_STATUS = "task_status";
     public static final String RUNNING_INDEX_BUILD = "RUNNING_INDEX_BUILD";

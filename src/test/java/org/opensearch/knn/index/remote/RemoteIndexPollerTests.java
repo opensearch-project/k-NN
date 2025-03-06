@@ -54,7 +54,7 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
 
         mockClient = mock(RemoteIndexClient.class);
         RemoteBuildResponse mockResponse = new RemoteBuildResponse(MOCK_JOB_ID);
-        this.mockStatusRequest = new RemoteBuildStatusRequest(mockResponse);
+        this.mockStatusRequest = RemoteBuildStatusRequest.build(mockResponse);
     }
 
     public void testAwaitVectorBuildTimeout() {
