@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
@@ -25,6 +26,7 @@ class DocIdInputStream extends InputStream {
     // Doc ids are 4 byte integers, byte read() only returns a single byte, so we will need to track the byte position within a doc id.
     // For simplicity, and to maintain the byte ordering, we use a buffer with size of 1 int.
     private ByteBuffer currentBuffer;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     /**
      * Use to represent the doc ids of a {@link KNNVectorValues} as an {@link InputStream}. Expected to be used only with {@link org.opensearch.common.blobstore.BlobContainer#writeBlob}.
@@ -41,6 +43,7 @@ class DocIdInputStream extends InputStream {
 
     @Override
     public int read() throws IOException {
+        checkClosed();
         if (currentBuffer == null) {
             return -1;
         }
@@ -59,6 +62,7 @@ class DocIdInputStream extends InputStream {
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
+        checkClosed();
         if (currentBuffer == null) {
             return -1;
         }
@@ -75,6 +79,23 @@ class DocIdInputStream extends InputStream {
         int bytesToRead = Math.min(available, len);
         currentBuffer.get(b, off, bytesToRead);
         return bytesToRead;
+    }
+
+    /**
+     * Marks this stream as closed
+     * @throws IOException
+     */
+    @Override
+    public void close() throws IOException {
+        super.close();
+        currentBuffer = null;
+        closed.set(true);
+    }
+
+    private void checkClosed() throws IOException {
+        if (closed.get()) {
+            throw new IOException("Stream closed");
+        }
     }
 
     /**

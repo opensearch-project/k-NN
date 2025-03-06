@@ -35,9 +35,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
 public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests {
 
@@ -109,7 +109,7 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
     /**
      * Test that when an exception is thrown during asyncBlobUpload, the exception is rethrown.
      */
-    public void testAsyncUploadThrowsException() throws InterruptedException, IOException {
+    public void testAsyncUploadThrowsException() throws IOException {
         RepositoriesService repositoriesService = mock(RepositoriesService.class);
         BlobStoreRepository mockRepository = mock(BlobStoreRepository.class);
         BlobPath testBasePath = new BlobPath().add("testBasePath");
