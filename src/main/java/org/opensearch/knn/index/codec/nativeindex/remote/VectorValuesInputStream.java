@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.opensearch.knn.index.VectorDataType.BINARY;
 import static org.opensearch.knn.index.VectorDataType.BYTE;
@@ -36,6 +37,7 @@ class VectorValuesInputStream extends InputStream {
     private final int bytesPerVector;
     private long bytesRemaining;
     private final VectorDataType vectorDataType;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     /**
      * Used to represent a part of a {@link KNNVectorValues} as an {@link InputStream}. Expected to be used with
@@ -84,6 +86,7 @@ class VectorValuesInputStream extends InputStream {
 
     @Override
     public int read() throws IOException {
+        checkClosed();
         if (bytesRemaining <= 0 || currentBuffer == null) {
             return -1;
         }
@@ -103,6 +106,7 @@ class VectorValuesInputStream extends InputStream {
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
+        checkClosed();
         if (bytesRemaining <= 0 || currentBuffer == null) {
             return -1;
         }
@@ -132,7 +136,25 @@ class VectorValuesInputStream extends InputStream {
      */
     @Override
     public long skip(long n) throws IOException {
+        checkClosed();
         throw new UnsupportedOperationException("VectorValuesInputStream does not support skip");
+    }
+
+    /**
+     * Marks this stream as closed
+     * @throws IOException
+     */
+    @Override
+    public void close() throws IOException {
+        super.close();
+        currentBuffer = null;
+        closed.set(true);
+    }
+
+    private void checkClosed() throws IOException {
+        if (closed.get()) {
+            throw new IOException("Stream closed");
+        }
     }
 
     /**

@@ -127,7 +127,7 @@ abstract class RemoteIndexBuildTests extends KNNTestCase {
 
         @Override
         public boolean remoteIntegrityCheckSupported() {
-            return false;
+            return true;
         }
 
         @Override
