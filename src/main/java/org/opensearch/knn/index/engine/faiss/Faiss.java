@@ -8,12 +8,14 @@ package org.opensearch.knn.index.engine.faiss;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcherFactory;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -122,5 +124,10 @@ public class Faiss extends NativeLibrary {
     @Override
     public boolean supportsRemoteIndexBuild() {
         return true;
+    }
+
+    @Override
+    public VectorSearcherFactory getVectorSearcherFactory() {
+        return new FaissMemoryOptimizedSearcherFactory();
     }
 }
