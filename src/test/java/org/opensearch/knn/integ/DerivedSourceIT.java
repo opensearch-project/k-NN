@@ -20,6 +20,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.derivedsource.ParentChildHelper;
 
 import java.io.IOException;
 import java.util.List;
@@ -632,7 +633,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     bulkIngestRandomVectorsWithSkipsAndNested(
                         context.indexName,
                         context.vectorFieldNames.get(0),
-                        NESTED_NAME + "." + "text",
+                        "text",
                         context.docCount,
                         context.dimension,
                         0.1f
@@ -653,7 +654,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
                     bulkIngestRandomVectorsWithSkipsAndNested(
                         context.indexName,
                         context.vectorFieldNames.get(0),
-                        NESTED_NAME + "." + "text",
+                        "text",
                         context.docCount,
                         context.dimension,
                         0.1f
@@ -775,8 +776,8 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .indexIngestor(context -> {
                     bulkIngestRandomVectorsWithSkipsAndNestedMultiDoc(
                         context.indexName,
-                        context.vectorFieldNames.get(0),
-                        NESTED_NAME + "." + "text",
+                        context.vectorFieldNames,
+                        "text",
                         context.docCount,
                         context.dimension,
                         0.1f,
@@ -797,8 +798,8 @@ public class DerivedSourceIT extends KNNRestTestCase {
                 .indexIngestor(context -> {
                     bulkIngestRandomVectorsWithSkipsAndNestedMultiDoc(
                         context.indexName,
-                        context.vectorFieldNames.get(0),
-                        NESTED_NAME + "." + "text",
+                        context.vectorFieldNames,
+                        "text",
                         context.docCount,
                         context.dimension,
                         0.1f,
@@ -844,6 +845,182 @@ public class DerivedSourceIT extends KNNRestTestCase {
             IndexConfigContext.builder()
                 .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
                 .vectorFieldNames(List.of(NESTED_NAME + "." + FIELD_NAME))
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(nestedMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
+                .build()
+
+        );
+        testDerivedSourceE2E(indexConfigContexts);
+    }
+
+    /**
+     * Testing single nested doc per parent doc.
+     * Test mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_nested_1" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             },
+     *             "test_nested_2" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             }
+     *         }
+     *     }
+     * }
+     * Baseline mapping:
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": false
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_nested_1" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             },
+     *             "test_nested_2" : {
+     *               "type": "nested",
+     *               "properties": {
+     *                 "test_vector": {
+     *                     "type": "knn_vector",
+     *                     "dimension": 128
+     *                 },
+     *                 "text": {
+     *                     "type": "text",
+     *                 },
+     *               }
+     *             }
+     *         }
+     *     }
+     * }
+     */
+    public void testNestedMultiDocMultiField() {
+        List<String> nestedFields = List.of(
+            NESTED_NAME + "1" + "." + FIELD_NAME,
+            NESTED_NAME + "2" + "." + FIELD_NAME,
+            NESTED_NAME + "3" + "." + FIELD_NAME,
+            NESTED_NAME + "4" + "." + FIELD_NAME,
+            NESTED_NAME + "5" + "." + FIELD_NAME
+        );
+        String nestedMapping = createVectorNestedMappings(TEST_DIMENSION, null, nestedFields);
+        List<IndexConfigContext> indexConfigContexts = List.of(
+            IndexConfigContext.builder()
+                .indexName(("original-enable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(nestedFields)
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(nestedMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsWithSkipsAndNestedMultiDoc(
+                        context.indexName,
+                        context.vectorFieldNames,
+                        "text",
+                        context.docCount,
+                        context.dimension,
+                        0.1f,
+                        5
+                    );
+                    refreshAllIndices();
+                })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("original-disable-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(nestedFields)
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(nestedMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {
+                    bulkIngestRandomVectorsWithSkipsAndNestedMultiDoc(
+                        context.indexName,
+                        context.vectorFieldNames,
+                        "text",
+                        context.docCount,
+                        context.dimension,
+                        0.1f,
+                        5
+                    );
+                    refreshAllIndices();
+                })
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(nestedFields)
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(nestedMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("e2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(nestedFields)
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_DISABLED_SETTINGS)
+                .mapping(nestedMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2e-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(nestedFields)
+                .dimension(TEST_DIMENSION)
+                .settings(DERIVED_ENABLED_SETTINGS)
+                .mapping(nestedMapping)
+                .isNested(true)
+                .docCount(DOCS)
+                .indexIngestor(context -> {}) // noop for reindex
+                .updateVectorSupplier((c) -> randomFloatVector(c.dimension))
+                .build(),
+            IndexConfigContext.builder()
+                .indexName(("d2d-" + getTestName() + randomAlphaOfLength(6)).toLowerCase(Locale.ROOT))
+                .vectorFieldNames(nestedFields)
                 .dimension(TEST_DIMENSION)
                 .settings(DERIVED_DISABLED_SETTINGS)
                 .mapping(nestedMapping)
@@ -1494,6 +1671,25 @@ public class DerivedSourceIT extends KNNRestTestCase {
             builder.field(VECTOR_DATA_TYPE_FIELD, dataType);
         }
         builder.endObject().endObject().endObject().endObject().endObject();
+        return builder.toString();
+    }
+
+    @SneakyThrows
+    private String createVectorNestedMappings(final int dimension, String dataType, List<String> nestedFieldNames) {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject(PROPERTIES_FIELD);
+        for (String nestedFieldName : nestedFieldNames) {
+            builder.startObject(ParentChildHelper.getParentField(nestedFieldName))
+                .field(TYPE, "nested")
+                .startObject(PROPERTIES_FIELD)
+                .startObject(ParentChildHelper.getChildField(nestedFieldName))
+                .field(TYPE, TYPE_KNN_VECTOR)
+                .field(DIMENSION, dimension);
+            if (dataType != null) {
+                builder.field(VECTOR_DATA_TYPE_FIELD, dataType);
+            }
+            builder.endObject().endObject().endObject();
+        }
+        builder.endObject().endObject();
         return builder.toString();
     }
 }

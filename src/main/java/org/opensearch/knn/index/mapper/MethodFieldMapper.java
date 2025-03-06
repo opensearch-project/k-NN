@@ -99,6 +99,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             }
         );
         return new MethodFieldMapper(
+            fullname,
             simpleName,
             mappedFieldType,
             multiFields,
@@ -113,6 +114,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
     }
 
     private MethodFieldMapper(
+        String fullName,
         String simpleName,
         KNNVectorFieldType mappedFieldType,
         MultiFields multiFields,
@@ -157,7 +159,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
-        if (isDerivedSourceEnabled) {
+        if (KNNVectorFieldMapperUtil.isDeriveSourceForFieldEnabled(isDerivedSourceEnabled, fullName)) {
             this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
         }
         try {

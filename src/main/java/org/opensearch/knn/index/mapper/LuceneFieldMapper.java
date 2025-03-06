@@ -86,6 +86,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         );
 
         return new LuceneFieldMapper(
+            fullname,
             mappedFieldType,
             createLuceneFieldMapperInput,
             knnMethodConfigContext,
@@ -95,6 +96,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     private LuceneFieldMapper(
+        String fullName,
         final KNNVectorFieldType mappedFieldType,
         final CreateLuceneFieldMapperInput input,
         KNNMethodConfigContext knnMethodConfigContext,
@@ -128,7 +130,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             this.vectorFieldType = null;
         }
 
-        if (isDerivedSourceEnabled) {
+        if (KNNVectorFieldMapperUtil.isDeriveSourceForFieldEnabled(isDerivedSourceEnabled, fullName)) {
             this.fieldType = new FieldType(this.fieldType);
             this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
             this.fieldType.freeze();

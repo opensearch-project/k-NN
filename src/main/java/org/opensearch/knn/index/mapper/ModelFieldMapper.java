@@ -128,6 +128,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             }
         });
         return new ModelFieldMapper(
+            fullname,
             simpleName,
             mappedFieldType,
             multiFields,
@@ -143,6 +144,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     }
 
     private ModelFieldMapper(
+        String fullName,
         String simpleName,
         KNNVectorFieldType mappedFieldType,
         MultiFields multiFields,
@@ -180,7 +182,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.putAttribute(MODEL_ID, modelId);
-        if (isDerivedSourceEnabled) {
+        if (KNNVectorFieldMapperUtil.isDeriveSourceForFieldEnabled(isDerivedSourceEnabled, fullName)) {
             this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
         }
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(this.indexCreatedVersion);

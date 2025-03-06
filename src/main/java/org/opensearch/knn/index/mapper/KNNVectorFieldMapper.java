@@ -249,6 +249,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
             final Map<String, String> metaValue = meta.getValue();
 
+            String fullName = buildFullName(context);
             if (modelId.get() != null) {
                 return ModelFieldMapper.createFieldMapper(
                     buildFullName(context),
@@ -273,7 +274,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // MethodFieldMapper to maintain backwards compatibility
             if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
                 return FlatVectorFieldMapper.createFieldMapper(
-                    buildFullName(context),
+                    fullName,
                     name,
                     metaValue,
                     KNNMethodConfigContext.builder()

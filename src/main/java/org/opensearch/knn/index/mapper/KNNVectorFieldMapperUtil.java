@@ -24,6 +24,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.derivedsource.ParentChildHelper;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -150,6 +151,18 @@ public class KNNVectorFieldMapperUtil {
 
     private static int getEfConstruction(Version indexVersion) {
         return IndexHyperParametersUtil.getHNSWEFConstructionValue(indexVersion);
+    }
+
+    /**
+     * Determine whether the field should use derived source. We only support derived source for a single
+     * level of nesting/object.
+     *
+     * @param enabledForIndex Whether derived source is enabled for index
+     * @param fieldName field to check
+     * @return true if it should be enabled; false otherwise.
+     */
+    public static boolean isDeriveSourceForFieldEnabled(boolean enabledForIndex, String fieldName) {
+        return enabledForIndex && ParentChildHelper.splitPath(fieldName).length <= 2;
     }
 
     static KNNMethodContext createKNNMethodContextFromLegacy(

@@ -45,6 +45,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             knnMethodConfigContext::getDimension
         );
         return new FlatVectorFieldMapper(
+            fullname,
             simpleName,
             mappedFieldType,
             multiFields,
@@ -59,6 +60,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
     }
 
     private FlatVectorFieldMapper(
+        String fullName,
         String simpleName,
         KNNVectorFieldType mappedFieldType,
         MultiFields multiFields,
@@ -87,7 +89,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         this.perDimensionValidator = selectPerDimensionValidator(vectorDataType);
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.setDocValuesType(DocValuesType.BINARY);
-        if (isDerivedSourceEnabled) {
+        if (KNNVectorFieldMapperUtil.isDeriveSourceForFieldEnabled(isDerivedSourceEnabled, fullName)) {
             this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
         }
         this.fieldType.freeze();
