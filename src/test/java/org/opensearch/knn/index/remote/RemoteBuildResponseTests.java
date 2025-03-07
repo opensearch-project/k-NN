@@ -13,6 +13,8 @@ import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
 
+import static org.opensearch.knn.index.remote.RemoteBuildStatusResponseTests.UNKNOWN_FIELD;
+import static org.opensearch.knn.index.remote.RemoteBuildStatusResponseTests.UNKNOWN_VALUE;
 import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_JOB_ID;
 import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_JOB_ID_RESPONSE;
 
@@ -32,7 +34,7 @@ public class RemoteBuildResponseTests extends KNNTestCase {
     }
 
     public void testRemoteBuildResponseParsingError() throws IOException {
-        String jsonResponse = "{\"error\":\"test-error\"}";
+        String jsonResponse = "{\"" + UNKNOWN_FIELD + "\":\"" + UNKNOWN_VALUE + "\"}";
         try (
             XContentParser parser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,

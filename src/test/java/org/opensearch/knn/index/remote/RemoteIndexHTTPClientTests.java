@@ -63,6 +63,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDP
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.VectorDataType.FLOAT;
 import static org.opensearch.knn.index.engine.faiss.FaissHNSWMethod.createRemoteIndexingParameters;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.BASIC_PREFIX;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUCKET;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.S3;
@@ -77,6 +78,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     public static final String MOCK_ENDPOINT = "https://mock-build-service.com";
     public static final String USERNAME = "username";
     public static final String PASSWORD = "password";
+    public static final String MOCK_INDEX_DESCRIPTION = "HNSW14,Flat";
 
     @Mock
     protected static ClusterService clusterService;
@@ -108,7 +110,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
         RemoteFaissHNSWIndexParameters hnswParams = (RemoteFaissHNSWIndexParameters) result;
         assertEquals(METHOD_HNSW, hnswParams.algorithm);
-        assertEquals("l2", hnswParams.spaceType);
+        assertEquals(L2.getValue(), hnswParams.spaceType);
         assertEquals(94, hnswParams.efConstruction);
         assertEquals(89, hnswParams.efSearch);
         assertEquals(14, hnswParams.m);
@@ -192,7 +194,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 Header authHeader = capturedRequest.getHeader(HttpHeaders.AUTHORIZATION);
                 assertNotNull("Auth header should be set", authHeader);
                 assertEquals(
-                    "Basic " + Base64.encodeBase64String((USERNAME + ":" + PASSWORD).getBytes(StandardCharsets.ISO_8859_1)),
+                    BASIC_PREFIX + Base64.encodeBase64String((USERNAME + ":" + PASSWORD).getBytes(StandardCharsets.ISO_8859_1)),
                     authHeader.getValue()
                 );
             } catch (ProtocolException e) {
@@ -223,7 +225,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put(NAME, METHOD_HNSW);
         parameters.put(VECTOR_DATA_TYPE_FIELD, FLOAT.getValue());
-        parameters.put(INDEX_DESCRIPTION_PARAMETER, "HNSW14,Flat");
+        parameters.put(INDEX_DESCRIPTION_PARAMETER, MOCK_INDEX_DESCRIPTION);
         parameters.put(SPACE_TYPE, L2.getValue());
         parameters.put(PARAMETERS, algorithmParams);
 
