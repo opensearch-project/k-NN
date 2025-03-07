@@ -22,6 +22,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.QueryRewriteContext;
@@ -1076,5 +1077,29 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then
         assertEquals(expected, actual);
+    }
+
+    @SneakyThrows
+    public void testFilter() {
+        // Test for Null Case
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K);
+        QueryBuilder updatedKnnQueryBuilder = knnQueryBuilder.filter(null);
+        assertEquals(knnQueryBuilder, updatedKnnQueryBuilder);
+
+        // Test for valid case
+        knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).filter(TERM_QUERY).k(K).build();
+        updatedKnnQueryBuilder = knnQueryBuilder.filter(TERM_QUERY);
+        BoolQueryBuilder expectedUpdatedQueryFilter = new BoolQueryBuilder();
+        expectedUpdatedQueryFilter.must(TERM_QUERY);
+        expectedUpdatedQueryFilter.filter(TERM_QUERY);
+        assertEquals(knnQueryBuilder, updatedKnnQueryBuilder);
+        assertEquals(expectedUpdatedQueryFilter, knnQueryBuilder.getFilter());
+
+        // Test for queryBuilder without filter initialized where filter function would
+        // simply assign filter to its filter field.
+        knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(K).build();
+        updatedKnnQueryBuilder = knnQueryBuilder.filter(TERM_QUERY);
+        assertEquals(knnQueryBuilder, updatedKnnQueryBuilder);
+        assertEquals(TERM_QUERY, knnQueryBuilder.getFilter());
     }
 }
