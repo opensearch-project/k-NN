@@ -1208,6 +1208,43 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "text1"));
     }
 
+    public void testKNNVectorMappingUpdate_whenMethodRemoved_thenThrowsException() throws Exception {
+        String indexName = "test-knn-index";
+        String fieldName = "my_vector2";
+
+        XContentBuilder initialMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", "4")
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), initialMapping.toString());
+
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 4)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        ResponseException exception = expectThrows(ResponseException.class, () -> putMappingRequest(indexName, updatedMapping.toString()));
+
+        assertThat(
+            EntityUtils.toString(exception.getResponse().getEntity()),
+            containsString("Cannot update parameter [method] from [hnsw] to [null]")
+        );
+    }
+
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)
         throws IOException, ParseException {
         final Response searchResponseField = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, vector, k), k);

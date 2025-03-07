@@ -1984,36 +1984,52 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
     }
 
-    public void testKnnMethodContextParameter_defaultValue() {
-        // Use the same builder pattern as in your existing tests
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(
-            "test-field",
-            mock(ModelDao.class),
-            CURRENT,
-            null,
-            null,
-            false
-        );
-        // Test that the default value is null
-        assertNull(builder.knnMethodContext.get());
-    }
+    public void testKNNVectorFieldMapper_UpdateMethodParameter_ThrowsException() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
 
-    public void testBuild_whenNullMethodContext_thenThrowException() {
-        // Prepare context
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
-        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
-        String validFieldName = "validFieldName";
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
-        // IllegalArgumentException thrown when building with null method context
-        Exception e = assertThrows(IllegalArgumentException.class, () -> {
-            new KNNVectorFieldMapper.Builder(validFieldName, null, CURRENT, null, null, false).build(builderContext);
-        });
+        // Define initial mapping with method parameter
+        XContentBuilder initialMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 4)
+            .startObject(KNN_METHOD)
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject();
 
-        // Verify the exception message matches the knnMethodContext parameter
-        assertEquals(
-            "Mapping update for knn_vector fields is not supported. " + "Cannot update mapping without the original method configuration.",
-            e.getMessage()
+        KNNVectorFieldMapper.Builder initialBuilder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(initialMapping),
+            buildParserContext(indexName, settings)
         );
+
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper initialMapper = initialBuilder.build(builderContext);
+
+        // Define updated mapping without the method parameter
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 4)
+            .endObject();
+
+        KNNVectorFieldMapper.Builder updatedBuilder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(updatedMapping),
+            buildParserContext(indexName, settings)
+        );
+
+        KNNVectorFieldMapper updatedMapper = updatedBuilder.build(builderContext);
+
+        // Expect an IllegalArgumentException when merging the updated mapping
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> initialMapper.merge(updatedMapper));
+        assertTrue(exception.getMessage().contains("Cannot update parameter [method] from [hnsw] to [null]"));
     }
 
     private void validateBuilderAfterParsing(
