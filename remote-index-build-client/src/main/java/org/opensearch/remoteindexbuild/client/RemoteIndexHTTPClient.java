@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.client;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -16,7 +17,6 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.settings.SecureString;
@@ -24,10 +24,9 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
-import org.opensearch.knn.plugin.KNNPlugin;
+import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildResponse;
+import org.opensearch.remoteindexbuild.model.RemoteStatusResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,9 +36,6 @@ import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
 
 /**
  * Class to handle all interactions with the remote vector build service.
@@ -71,11 +67,9 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
 
     /**
      * Creates the client, setting the endpoint per-instance so the same endpoint is used per-build operation
-     * (per call to {@link RemoteIndexBuildStrategy#buildAndWriteIndex(BuildIndexParams)})
      */
-    public RemoteIndexHTTPClient() {
-        String endpoint = KNNSettings.getRemoteBuildServiceEndpoint();
-        if (endpoint == null || endpoint.isEmpty()) {
+    public RemoteIndexHTTPClient(final String endpoint) {
+        if (StringUtils.isEmpty(endpoint)) {
             throw new IllegalArgumentException("No endpoint set for RemoteIndexClient");
         }
         this.endpoint = endpoint;
@@ -147,14 +141,11 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     }
 
     /**
-     * Set the global auth header to use the refreshed secure settings.
-     * Called by {@link KNNPlugin#reload(Settings)} when the nodes reload API is called.
-     * @param settings Settings to use to get the credentials
-     */
-    public static void reloadAuthHeader(Settings settings) {
-        SecureString username = KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING.get(settings);
-        SecureString password = KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.get(settings);
-
+    * Set the global auth header to use the refreshed secure settings.
+    * @param username username to use for authentication
+    * @param password password to use for authentication
+    */
+    public static void reloadAuthHeader(final SecureString username, final SecureString password) {
         if (password != null && !password.isEmpty()) {
             if (username == null || username.isEmpty()) {
                 throw new IllegalArgumentException("Username must be set if password is set");

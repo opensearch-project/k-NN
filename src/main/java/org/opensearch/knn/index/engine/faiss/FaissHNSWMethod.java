@@ -19,8 +19,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
-import org.opensearch.knn.index.remote.RemoteFaissHNSWIndexParameters;
-import org.opensearch.knn.index.remote.RemoteIndexParameters;
+import org.opensearch.remoteindexbuild.model.RemoteFaissHNSWIndexParameters;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Arrays;
 import java.util.Collections;
