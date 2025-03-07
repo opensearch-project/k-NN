@@ -24,8 +24,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY;
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -53,8 +51,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
 
         KNNMethodContext knnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
@@ -99,7 +96,6 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             }
         );
         return new MethodFieldMapper(
-            fullname,
             simpleName,
             mappedFieldType,
             multiFields,
@@ -108,13 +104,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext,
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         );
     }
 
     private MethodFieldMapper(
-        String fullName,
         String simpleName,
         KNNVectorFieldType mappedFieldType,
         MultiFields multiFields,
@@ -123,8 +117,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         KNNMethodConfigContext knnMethodConfigContext,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
 
         super(
@@ -136,8 +129,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext.getVersionCreated(),
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         );
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
@@ -159,9 +151,6 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
-        if (KNNVectorFieldMapperUtil.isDeriveSourceForFieldEnabled(isDerivedSourceEnabled, fullName)) {
-            this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
-        }
         try {
             this.fieldType.putAttribute(
                 PARAMETERS,

@@ -27,8 +27,6 @@ import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY;
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
@@ -50,8 +48,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         Map<String, String> metaValue,
         KNNMethodConfigContext knnMethodConfigContext,
         CreateLuceneFieldMapperInput createLuceneFieldMapperInput,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -85,23 +82,14 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             }
         );
 
-        return new LuceneFieldMapper(
-            fullname,
-            mappedFieldType,
-            createLuceneFieldMapperInput,
-            knnMethodConfigContext,
-            originalMappingParameters,
-            isDerivedSourceEnabled
-        );
+        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnMethodConfigContext, originalMappingParameters);
     }
 
     private LuceneFieldMapper(
-        String fullName,
         final KNNVectorFieldType mappedFieldType,
         final CreateLuceneFieldMapperInput input,
         KNNMethodConfigContext knnMethodConfigContext,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
         super(
             input.getName(),
@@ -112,8 +100,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.isStored(),
             input.isHasDocValues(),
             knnMethodConfigContext.getVersionCreated(),
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         );
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         KNNMethodContext resolvedKnnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
@@ -129,13 +116,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         } else {
             this.vectorFieldType = null;
         }
-
-        if (KNNVectorFieldMapperUtil.isDeriveSourceForFieldEnabled(isDerivedSourceEnabled, fullName)) {
-            this.fieldType = new FieldType(this.fieldType);
-            this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
-            this.fieldType.freeze();
-        }
-
         KNNLibraryIndexingContext knnLibraryIndexingContext = resolvedKnnMethodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(resolvedKnnMethodContext, knnMethodConfigContext);
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();

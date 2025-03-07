@@ -27,9 +27,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY;
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE;
-
 @AllArgsConstructor
 public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
 
@@ -43,18 +40,22 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
         List<FieldInfo> derivedVectorFields = null;
-        for (FieldInfo fieldInfo : fieldInfos) {
-            if (DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE.equals(fieldInfo.attributes().get(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY))) {
-                // Lazily initialize the list of fields
-                if (derivedVectorFields == null) {
-                    derivedVectorFields = new ArrayList<>();
-                }
+        if (segmentInfo.getAttribute("derived_vector_fields") == null) {
+            return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
+        }
+        String[] vectorFieldTypes = segmentInfo.getAttribute("derived_vector_fields").split(",");
+        if (vectorFieldTypes.length == 0) {
+            return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
+        }
+        for (String vectorFieldType : vectorFieldTypes) {
+            if (derivedVectorFields == null) {
+                derivedVectorFields = new ArrayList<>();
+            }
+            FieldInfo fieldInfo = fieldInfos.fieldInfo(vectorFieldType);
+            if (fieldInfo != null) {
                 derivedVectorFields.add(fieldInfo);
             }
-        }
-        // If no fields have it enabled, we can just short-circuit and return the delegate's fieldReader
-        if (derivedVectorFields == null || derivedVectorFields.isEmpty()) {
-            return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
+
         }
         return new DerivedSourceStoredFieldsReader(
             delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
@@ -76,6 +77,7 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
                 }
             }
             if (vectorFieldTypes.isEmpty() == false) {
+                segmentInfo.putAttribute("derived_vector_fields", String.join(",", vectorFieldTypes));
                 return new DerivedSourceStoredFieldsWriter(delegateWriter, vectorFieldTypes);
             }
         }

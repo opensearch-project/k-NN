@@ -58,6 +58,7 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
             derivedSourceReaders.getKnnVectorsReader()
         );
 
+        // TODO Can remove
         // If the doc has the field, then it is just an object field.
         if (derivedSourceLuceneHelper.fieldExists(childFieldInfo.name, docId)) {
             injectObject(docId, sourceAsMap, vectorValues);
