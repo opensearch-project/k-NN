@@ -21,7 +21,7 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.store.Directory;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -354,7 +354,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
             IndexWriter writer = new IndexWriter(directory, conf);
             conf.setMergePolicy(NoMergePolicy.INSTANCE); // prevent merges for this test
             Document knnDocument = new Document();
-            BytesRef vector = new BytesRef(KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(content));
+            BytesRef vector = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(content));
             knnDocument.add(new BinaryDocValuesField(fieldName, vector));
             writer.addDocument(knnDocument);
             writer.commit();

@@ -21,7 +21,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.jni.JNICommons;
@@ -337,7 +336,7 @@ public class TestUtils {
                     vectorsArray[i][j] = vectorsList.get(i)[j];
                 }
             }
-            return new Pair(idsArray, vectorsArray[0].length, SerializationMode.COLLECTION_OF_FLOATS, vectorsArray);
+            return new Pair(idsArray, vectorsArray[0].length, vectorsArray);
         }
 
         private float[][] readQueries(String path) throws IOException {
@@ -439,7 +438,6 @@ public class TestUtils {
             @Getter
             @Setter
             private int dimension;
-            public SerializationMode serializationMode;
             public float[][] vectors;
         }
     }
