@@ -14,7 +14,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
-import org.opensearch.knn.index.remote.RemoteIndexParameters;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Map;
 import java.util.function.Function;
