@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
@@ -22,12 +23,16 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.memoryoptsearch.VectorSearcher;
+import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -37,23 +42,89 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 /**
  * Vectors reader class for reading the flat vectors for native engines. The class provides methods for iterating
  * over the vectors and retrieving their values.
  */
+@Slf4j
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
+    private static final int RESERVE_TWICE_SPACE = 2;
+    private static final float SUFFICIENT_LOAD_FACTOR = 0.6f;
 
     private final FlatVectorsReader flatVectorsReader;
     private Map<String, String> quantizationStateCacheKeyPerField;
     private SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
+    private Map<String, VectorSearcher> vectorSearchers;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
+        this.vectorSearchers = new HashMap<>(RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(), SUFFICIENT_LOAD_FACTOR);
         loadCacheKeyMap();
+
+        //
+        // TMP(KDY) : Dynamic update will be covered in part-7. Please refer to
+        // https://github.com/opensearch-project/k-NN/issues/2401#issuecomment-2699777824
+        //
+        final boolean isMemoryOptimizedSearchEnabled = false;
+        if (isMemoryOptimizedSearchEnabled) {
+            loadMemoryOptimizedSearcher();
+        }
+    }
+
+    private IOSupplier<VectorSearcher> getIndexFileNameIfMemoryOptimizedSearchSupported(final FieldInfo fieldInfo) {
+        // Skip non-knn fields.
+        final Map<String, String> attributes = fieldInfo.attributes();
+        if (attributes == null || attributes.containsKey(KNN_FIELD) == false) {
+            return null;
+        }
+
+        // Get engine
+        final String engineName = attributes.getOrDefault(KNN_ENGINE, KNNEngine.DEFAULT.getName());
+        final KNNEngine knnEngine = KNNEngine.getEngine(engineName);
+
+        // Get memory optimized searcher from engine
+        final VectorSearcherFactory searcherFactory = knnEngine.getVectorSearcherFactory();
+        if (searcherFactory == null) {
+            // It's not supported
+            return null;
+        }
+
+        // Start creating searcher
+        final String fileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
+        if (fileName != null) {
+            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName);
+        }
+
+        // Not supported
+        return null;
+    }
+
+    private void loadMemoryOptimizedSearcher() {
+        try {
+            for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+                final IOSupplier<VectorSearcher> searcherSupplier = getIndexFileNameIfMemoryOptimizedSearchSupported(fieldInfo);
+                if (searcherSupplier != null) {
+                    final VectorSearcher searcher = Objects.requireNonNull(searcherSupplier.get());
+                    vectorSearchers.put(fieldInfo.getName(), searcher);
+                }
+            }
+        } catch (Exception e) {
+            // Close opened searchers first, then suppress
+            try {
+                IOUtils.closeWhileHandlingException(vectorSearchers.values());
+            } catch (Exception closeException) {
+                log.error(closeException.getMessage(), closeException);
+            }
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -135,6 +206,14 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
+
+        // Try with memory optimized searcher
+        final VectorSearcher memoryOptimizedSearcher = vectorSearchers.get(field);
+        if (memoryOptimizedSearcher != null) {
+            memoryOptimizedSearcher.search(target, knnCollector, acceptDocs);
+            return;
+        }
+
         throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
     }
 
@@ -197,6 +276,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                 quantizationStateCacheManager.evict(cacheKey);
             }
         }
+
+        // TODO(KDY)
+        // Close all memory optimized searchers.
     }
 
     private void loadCacheKeyMap() {
