@@ -16,6 +16,8 @@ import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.mapper.FieldNamesFieldMapper;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -73,50 +75,38 @@ public class DerivedSourceLuceneHelper {
      *
      * @param offset First doc to check (inclusive)
      * @param parentDocId document to be checked if its a parent
-     * @param parentFieldName path to parent field
      * @return true if the docId is a parent, false otherwise
      */
-    public boolean isNestedParent(int offset, int parentDocId, String parentFieldName) throws IOException {
-        if (parentFieldName == null) {
-            return false;
-        }
-
+    public boolean isNestedParent(int offset, int parentDocId, FieldInfo childFieldInfo) throws IOException {
         if (parentDocId <= 0) {
             return false;
         }
-
-        return termMatchesInRange(offset, parentDocId - 1, "_nested_path", parentFieldName).isEmpty() == false;
+        KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(
+            childFieldInfo,
+            derivedSourceReaders.getDocValuesProducer(),
+            derivedSourceReaders.getKnnVectorsReader()
+        );
+        if (vectorValues == null) {
+            return false;
+        }
+        return vectorValues.advance(offset) < parentDocId;
     }
 
     /**
-     * Given a document id, get the next matching doc for the given parent.
+     * Given a document id, get its parent docId.
      *
-     * @param offset Place to start searching (inclusive)
-     * @param endDocId Last eligible doc (inclusive)
+     * @param docId DocId to map to parent
+     * @param limit Last eligible doc (inclusive)
      * @param parentFieldName Field to check
      * @return Doc Id of first matching doc on or after offset that contains the parent field name. {@link DocIdSetIterator#NO_MORE_DOCS} if not found
      * @throws IOException if unable to read segment
      */
-    public int getNextDocIdWithParent(int offset, int endDocId, String parentFieldName) throws IOException {
-        List<Integer> matches = termMatchesInRange(offset, endDocId, "_nested_path", parentFieldName);
+    public int getParentDocId(int docId, int limit, String parentFieldName) throws IOException {
+        List<Integer> matches = termMatchesInRange(docId, limit, "_nested_path", parentFieldName);
         if (matches.isEmpty()) {
             return NO_MORE_DOCS;
         }
-
         return matches.getFirst();
-    }
-
-    /**
-     * Check if the field exists for the given document.
-     *
-     * @param fieldToMatch field to check
-     * @param docId document to check
-     * @return true if the field exists for the given document, false otherwise
-     * @throws IOException if there is an issue reading from the segment
-     */
-    public boolean fieldExists(String fieldToMatch, int docId) throws IOException {
-        int firstDocId = getFirstDocWhereFieldExists(fieldToMatch, docId);
-        return firstDocId == docId;
     }
 
     /**

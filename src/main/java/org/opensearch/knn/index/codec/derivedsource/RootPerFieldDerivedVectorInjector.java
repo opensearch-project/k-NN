@@ -40,7 +40,11 @@ class RootPerFieldDerivedVectorInjector extends AbstractPerFieldDerivedVectorInj
     public void inject(int docId, Map<String, Object> sourceAsMap) throws IOException {
         KNNVectorValues<?> vectorValues = vectorValuesSupplier.get();
         if (vectorValues.docId() == docId || vectorValues.advance(docId) == docId) {
-            sourceAsMap.put(fieldInfo.name, formatVector(fieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector));
+            DerivedSourceMapHelper.injectObject(
+                sourceAsMap,
+                formatVector(fieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector),
+                fieldInfo.name
+            );
         }
     }
 }

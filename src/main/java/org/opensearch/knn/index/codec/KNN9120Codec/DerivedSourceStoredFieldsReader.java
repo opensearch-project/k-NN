@@ -17,10 +17,12 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceVectorInjector;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     private final StoredFieldsReader delegate;
     private final List<FieldInfo> derivedVectorFields;
+    private final Map<String, List<String>> nestedLineageMap;
     private final DerivedSourceReadersSupplier derivedSourceReadersSupplier;
     private final SegmentReadState segmentReadState;
     private final boolean shouldInject;
@@ -31,6 +33,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
      *
      * @param delegate delegate StoredFieldsReader
      * @param derivedVectorFields List of fields that are derived source fields
+     * @param nestedLineageMap Map containing nested lineage for each field
      * @param derivedSourceReadersSupplier Supplier for the derived source readers
      * @param segmentReadState SegmentReadState for the segment
      * @throws IOException in case of I/O error
@@ -38,21 +41,24 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     public DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
+        Map<String, List<String>> nestedLineageMap,
         DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState
     ) throws IOException {
-        this(delegate, derivedVectorFields, derivedSourceReadersSupplier, segmentReadState, true);
+        this(delegate, derivedVectorFields, nestedLineageMap, derivedSourceReadersSupplier, segmentReadState, true);
     }
 
     private DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
+        Map<String, List<String>> nestedLineageMap,
         DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState,
         boolean shouldInject
     ) throws IOException {
         this.delegate = delegate;
         this.derivedVectorFields = derivedVectorFields;
+        this.nestedLineageMap = nestedLineageMap;
         this.derivedSourceReadersSupplier = derivedSourceReadersSupplier;
         this.segmentReadState = segmentReadState;
         this.shouldInject = shouldInject;
@@ -60,7 +66,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     }
 
     private DerivedSourceVectorInjector createDerivedSourceVectorInjector() throws IOException {
-        return new DerivedSourceVectorInjector(derivedSourceReadersSupplier, segmentReadState, derivedVectorFields);
+        return new DerivedSourceVectorInjector(derivedSourceReadersSupplier, segmentReadState, derivedVectorFields, nestedLineageMap);
     }
 
     @Override
@@ -86,6 +92,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
             return new DerivedSourceStoredFieldsReader(
                 delegate.clone(),
                 derivedVectorFields,
+                nestedLineageMap,
                 derivedSourceReadersSupplier,
                 segmentReadState,
                 shouldInject
@@ -117,6 +124,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
             return new DerivedSourceStoredFieldsReader(
                 delegate.getMergeInstance(),
                 derivedVectorFields,
+                nestedLineageMap,
                 derivedSourceReadersSupplier,
                 segmentReadState,
                 false

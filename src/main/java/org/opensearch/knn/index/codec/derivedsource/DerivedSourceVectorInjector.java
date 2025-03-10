@@ -45,18 +45,25 @@ public class DerivedSourceVectorInjector implements Closeable {
      * @param derivedSourceReadersSupplier Supplier for the derived source readers.
      * @param segmentReadState Segment read state
      * @param fieldsToInjectVector List of fields to inject vectors into
+     * @param nestedLineageMap Mapping of field to nested lineage of field.
      */
     public DerivedSourceVectorInjector(
         DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState,
-        List<FieldInfo> fieldsToInjectVector
+        List<FieldInfo> fieldsToInjectVector,
+        Map<String, List<String>> nestedLineageMap
     ) throws IOException {
         this.derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         this.perFieldDerivedVectorInjectors = new ArrayList<>();
         this.fieldNames = new HashSet<>();
         for (FieldInfo fieldInfo : fieldsToInjectVector) {
             this.perFieldDerivedVectorInjectors.add(
-                PerFieldDerivedVectorInjectorFactory.create(fieldInfo, derivedSourceReaders, segmentReadState)
+                PerFieldDerivedVectorInjectorFactory.create(
+                    fieldInfo,
+                    nestedLineageMap.get(fieldInfo.name),
+                    derivedSourceReaders,
+                    segmentReadState
+                )
             );
             this.fieldNames.add(fieldInfo.name);
         }

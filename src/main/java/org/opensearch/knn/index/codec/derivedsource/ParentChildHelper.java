@@ -47,6 +47,24 @@ public class ParentChildHelper {
     }
 
     /**
+     * Get the child field given a prefix
+     *
+     * @param field field to extract child from
+     * @param prefix prefix to remove up until
+     * @return Child field
+     */
+    public static String getChildField(String field, String prefix) {
+        if (field == null) {
+            return null;
+        }
+        if (prefix == null) {
+            return getChildField(field);
+        }
+
+        return field.substring(prefix.length() + 1);
+    }
+
+    /**
      * Construct a sibling field path. For instance, if the field is "parent.to.child" and the sibling is "sibling", this
      * would return "parent.to.sibling".
      *

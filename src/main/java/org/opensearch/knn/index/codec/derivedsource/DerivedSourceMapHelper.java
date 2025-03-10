@@ -40,17 +40,17 @@ public class DerivedSourceMapHelper {
     }
 
     /**
-     * Injects vector into source, handling object field path if necessary
+     * Injects object into source, handling object field path if necessary
      *
      * @param sourceAsMap source to be injected into
-     * @param vector vector to inject
+     * @param object object to inject
      * @param fieldName field name injecting at
      */
-    public static void injectVector(Map<String, Object> sourceAsMap, Object vector, String fieldName) {
+    public static void injectObject(Map<String, Object> sourceAsMap, Object object, String fieldName) {
         // If a field contains ".", we need to ensure that we properly nest it.
         String[] fields = ParentChildHelper.splitPath(fieldName);
         if (fields.length < 2) {
-            sourceAsMap.put(fieldName, vector);
+            sourceAsMap.put(fieldName, object);
         }
 
         Map<String, Object> currentMap = sourceAsMap;
@@ -58,8 +58,7 @@ public class DerivedSourceMapHelper {
             String field = fields[i];
             currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, k -> new HashMap<>());
         }
-        currentMap.put(fields[fields.length - 1], vector);
-
+        currentMap.put(fields[fields.length - 1], object);
     }
 
     private static class NullValue {

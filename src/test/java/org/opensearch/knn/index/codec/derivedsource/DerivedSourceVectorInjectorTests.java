@@ -24,8 +24,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 
 public class DerivedSourceVectorInjectorTests extends KNNTestCase {
 
@@ -48,7 +50,7 @@ public class DerivedSourceVectorInjectorTests extends KNNTestCase {
         });
 
         try (MockedStatic<PerFieldDerivedVectorInjectorFactory> factory = Mockito.mockStatic(PerFieldDerivedVectorInjectorFactory.class)) {
-            factory.when(() -> PerFieldDerivedVectorInjectorFactory.create(any(), any(), any())).thenAnswer(invocation -> {
+            factory.when(() -> PerFieldDerivedVectorInjectorFactory.create(any(), anyList(), any(), any())).thenAnswer(invocation -> {
                 FieldInfo fieldInfo = invocation.getArgument(0);
                 return (PerFieldDerivedVectorInjector) (docId, sourceAsMap) -> {
                     float[] vector = fieldToVector.get(fieldInfo.name);
@@ -61,7 +63,8 @@ public class DerivedSourceVectorInjectorTests extends KNNTestCase {
             DerivedSourceVectorInjector derivedSourceVectorInjector = new DerivedSourceVectorInjector(
                 new DerivedSourceReadersSupplier(s -> null, s -> null, s -> null, s -> null),
                 null,
-                fields
+                fields,
+                fields.stream().collect(Collectors.toMap(f -> f.name, f -> Collections.emptyList()))
             );
 
             int docId = 2;
@@ -121,7 +124,8 @@ public class DerivedSourceVectorInjectorTests extends KNNTestCase {
             DerivedSourceVectorInjector vectorInjector = new DerivedSourceVectorInjector(
                 new DerivedSourceReadersSupplier(s -> null, s -> null, s -> null, s -> null),
                 null,
-                fields
+                fields,
+                fields.stream().collect(Collectors.toMap(f -> f.name, f -> Collections.emptyList()))
             )
         ) {
             assertTrue(vectorInjector.shouldInject(null, null));
