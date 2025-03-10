@@ -7,11 +7,12 @@ package org.opensearch.knn.index.remote;
 
 import lombok.Builder;
 import lombok.Value;
-import org.apache.commons.lang.StringUtils;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.xcontent.XContentParser;
 
 import java.io.IOException;
+
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.JOB_ID_FIELD;
 
 /**
  * Response from the remote index build service. This class is used to parse the response from the remote index build service.
@@ -19,10 +20,17 @@ import java.io.IOException;
 @Value
 @Builder
 public class RemoteBuildResponse {
-    private static final String JOB_ID_FIELD = "job_id";
     private static final ParseField JOB_ID = new ParseField(JOB_ID_FIELD);
     String jobId;
 
+    /**
+     * Parse the response from the remote index build service build API.
+     * <p>
+     * Example response:
+     *<pre>{@code {
+     *  "job_id" : "String"
+     * } }</pre>
+     */
     public static RemoteBuildResponse fromXContent(XContentParser parser) throws IOException {
         final RemoteBuildResponseBuilder builder = new RemoteBuildResponseBuilder();
         XContentParser.Token token = parser.nextToken();
@@ -40,9 +48,6 @@ public class RemoteBuildResponse {
                     throw new IOException("Invalid response format, unknown field: " + currentFieldName);
                 }
             }
-        }
-        if (StringUtils.isBlank(builder.jobId)) {
-            throw new IOException("Invalid response format, missing " + JOB_ID_FIELD);
         }
         return builder.build();
     }

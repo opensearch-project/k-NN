@@ -15,13 +15,15 @@ public interface RemoteIndexClient {
     /**
      * Submit a build to the Remote Vector Build Service.
      * @return RemoteBuildResponse from the server
+     * @throws IOException if there is an error communicating with the server
      */
     RemoteBuildResponse submitVectorBuild(RemoteBuildRequest remoteBuildRequest) throws IOException;
 
     /**
-     * Await the completion of the index build and for the server to return the path to the completed index
-     * @param remoteBuildResponse  the /_build request response from the server
+     * Get the status of an index build
+     * @param remoteBuildStatusRequest the status request object containing the job ID to check
      * @return remoteStatusResponse from the server
+     * @throws IOException if there is an error communicating with the server
      */
-    RemoteStatusResponse awaitVectorBuild(RemoteBuildResponse remoteBuildResponse);
+    RemoteBuildStatusResponse getBuildStatus(RemoteBuildStatusRequest remoteBuildStatusRequest) throws IOException;
 }

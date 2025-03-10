@@ -11,6 +11,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
@@ -21,7 +22,6 @@ import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.NAME;
 
 /**
  * Implements NativeLibrary for the faiss native library
@@ -121,15 +121,23 @@ public class Faiss extends NativeLibrary {
         return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
 
+    /**
+     * Use the method name to route the check to the specific method class
+     */
     @Override
-    public boolean supportsRemoteIndexBuild() {
-        return true;
+    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext) {
+        if (METHOD_HNSW.equals(methodComponentContext.getName())) {
+            if (methodComponentContext.getParameters() != null) {
+                return FaissHNSWMethod.supportsRemoteIndexBuild(methodComponentContext.getParameters());
+            }
+        }
+        return false;
     }
 
     @Override
-    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
-        if (METHOD_HNSW.equals(indexInfoParameters.get(NAME))) {
-            return FaissHNSWMethod.createRemoteIndexingParameters(indexInfoParameters);
+    public RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+        if (METHOD_HNSW.equals(knnMethodContext.getMethodComponentContext().getName())) {
+            return FaissHNSWMethod.createRemoteIndexingParameters(knnMethodContext);
         }
         throw new IllegalArgumentException("Unsupported method for remote indexing");
     }

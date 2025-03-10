@@ -246,12 +246,12 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public boolean supportsRemoteIndexBuild() {
-        return knnLibrary.supportsRemoteIndexBuild();
+    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext) {
+        return knnLibrary.supportsRemoteIndexBuild(methodComponentContext);
     }
 
     @Override
-    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
-        return knnLibrary.createRemoteIndexingParameters(indexInfoParameters);
+    public RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+        return knnLibrary.createRemoteIndexingParameters(knnMethodContext);
     }
 }
