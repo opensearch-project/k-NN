@@ -157,9 +157,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             (n, c, o) -> KNNMethodContext.parse(o),
             m -> toType(m).originalMappingParameters.getKnnMethodContext()
         ).setSerializer(
-            // Main serializer - handles null values properly
+            // Main serializer - handles null values with nullField
             (b, f, v) -> {
-                if (v != null) {
+                if (v == null) {
+                    b.nullField(f);
+                } else {
                     b.startObject(f);
                     v.toXContent(b, ToXContent.EMPTY_PARAMS);
                     b.endObject();
