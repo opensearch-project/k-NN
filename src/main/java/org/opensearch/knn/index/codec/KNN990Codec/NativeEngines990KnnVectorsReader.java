@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
-import lombok.extern.slf4j.Slf4j;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
@@ -51,7 +51,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
  * Vectors reader class for reading the flat vectors for native engines. The class provides methods for iterating
  * over the vectors and retrieving their values.
  */
-@Slf4j
+@Log4j2
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private static final int RESERVE_TWICE_SPACE = 2;
     private static final float SUFFICIENT_LOAD_FACTOR = 0.6f;
