@@ -37,7 +37,8 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         RemoteIndexBuildStrategy objectUnderTest = new RemoteIndexBuildStrategy(
             () -> repositoriesService,
             new TestIndexBuildStrategy(fallback),
-            mock(IndexSettings.class)
+            mock(IndexSettings.class),
+            null
         );
         objectUnderTest.buildAndWriteIndex(buildIndexParams);
         assertTrue(fallback.get());

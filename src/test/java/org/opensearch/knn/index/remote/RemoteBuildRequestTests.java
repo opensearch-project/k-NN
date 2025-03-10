@@ -59,6 +59,7 @@ import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTOR_PATH;
 import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_BLOB_NAME;
 import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.TEST_BUCKET;
 import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.TEST_CLUSTER;
+import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.createMockMethodContext;
 
 public class RemoteBuildRequestTests extends OpenSearchSingleNodeTestCase {
     @Mock
@@ -89,7 +90,13 @@ public class RemoteBuildRequestTests extends OpenSearchSingleNodeTestCase {
 
             BuildIndexParams indexInfo = RemoteIndexHTTPClientTests.createTestBuildIndexParams();
 
-            RemoteBuildRequest request = new RemoteBuildRequest(mockIndexSettings, indexInfo, metadata, MOCK_BLOB_NAME);
+            RemoteBuildRequest request = new RemoteBuildRequest(
+                mockIndexSettings,
+                indexInfo,
+                metadata,
+                MOCK_BLOB_NAME,
+                createMockMethodContext()
+            );
 
             assertEquals(S3, request.getRepositoryType());
             assertEquals(TEST_BUCKET, request.getContainerName());

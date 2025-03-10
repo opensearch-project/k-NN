@@ -6,29 +6,22 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.lucene.index.FieldInfo;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.DeprecationHandler;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 /**
  * Implements NativeLibrary for the faiss native library
@@ -132,56 +125,19 @@ public class Faiss extends NativeLibrary {
      * Use the method name to route the check to the specific method class
      */
     @Override
-    public boolean supportsRemoteIndexBuild(Map<String, String> attributes) {
-        String parametersJson = attributes.get(PARAMETERS);
-        if (parametersJson != null) {
-            String methodName = getMethodName(parametersJson);
-            if (METHOD_HNSW.equals(methodName)) {
-                return FaissHNSWMethod.supportsRemoteIndexBuild(attributes);
+    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext) {
+        if (METHOD_HNSW.equals(methodComponentContext.getName())) {
+            if (methodComponentContext.getParameters() != null) {
+                return FaissHNSWMethod.supportsRemoteIndexBuild(methodComponentContext.getParameters());
             }
         }
         return false;
     }
 
-    /**
-     * Get method name from a {@link FieldInfo} formatted attributes map.
-     * <p>
-     * Example:
-     * <pre>{@code {
-     *     "index_description": "HNSW12,Flat",
-     *     "spaceType": "l2",
-     *     "name": "hnsw",
-     *     ...
-     * }}</pre>
-     */
-    private String getMethodName(String parametersJson) {
-        try {
-            XContentParser parser = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersJson.getBytes());
-
-            while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
-                    String fieldName = parser.currentName();
-                    if (NAME.equals(fieldName)) {
-                        // Matched field name (key), next line will move to the value
-                        parser.nextToken();
-                        return parser.text();
-                    }
-                }
-            }
-            return null;
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
-        if (METHOD_HNSW.equals(indexInfoParameters.get(NAME))) {
-            return FaissHNSWMethod.createRemoteIndexingParameters(indexInfoParameters);
+    public RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+        if (METHOD_HNSW.equals(knnMethodContext.getMethodComponentContext().getName())) {
+            return FaissHNSWMethod.createRemoteIndexingParameters(knnMethodContext);
         }
         throw new IllegalArgumentException("Unsupported method for remote indexing");
     }

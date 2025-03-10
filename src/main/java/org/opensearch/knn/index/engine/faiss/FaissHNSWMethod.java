@@ -6,10 +6,6 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.DeprecationHandler;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -26,7 +22,6 @@ import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.remote.RemoteFaissHNSWIndexParameters;
 import org.opensearch.knn.index.remote.RemoteIndexParameters;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -37,15 +32,11 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
  * Faiss HNSW method implementation
@@ -161,115 +152,42 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     }
 
     /**
-     * Get the parameters that need to be passed to the remote build service for training
-     *
-     * @param indexInfoParameters result of indexInfo.getParameters() to parse
+     * Get the parameters that need to be passed to the remote build service for training from a KNNMethodContext
+     * @param knnMethodContext to parse
      * @return Map of parameters to be used as "index_parameters"
      */
-    public static RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> indexInfoParameters) {
+    public static RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
         RemoteFaissHNSWIndexParameters.RemoteFaissHNSWIndexParametersBuilder<?, ?> builder = RemoteFaissHNSWIndexParameters.builder();
-        assert (indexInfoParameters.get(SPACE_TYPE) instanceof String);
-        String spaceType = (String) indexInfoParameters.get(SPACE_TYPE);
-        builder.algorithm(METHOD_HNSW).spaceType(spaceType);
+        builder.algorithm(METHOD_HNSW);
+        builder.spaceType(knnMethodContext.getSpaceType().getValue());
 
-        Object innerParams = indexInfoParameters.get(PARAMETERS);
-        assert (innerParams instanceof Map);
-        Map<String, Object> innerMap = (Map<String, Object>) innerParams;
-        assert (innerMap.get(METHOD_PARAMETER_EF_CONSTRUCTION) instanceof Integer);
-        builder.efConstruction((Integer) innerMap.get(METHOD_PARAMETER_EF_CONSTRUCTION));
-        assert (innerMap.get(METHOD_PARAMETER_EF_SEARCH) instanceof Integer);
-        builder.efSearch((Integer) innerMap.get(METHOD_PARAMETER_EF_SEARCH));
-        Object indexDescription = indexInfoParameters.get(INDEX_DESCRIPTION_PARAMETER);
-        assert indexDescription instanceof String;
-        builder.m(getMFromIndexDescription((String) indexDescription));
-
+        MethodComponentContext methodComponentContext = knnMethodContext.getMethodComponentContext();
+        Map<String, Object> methodParams = methodComponentContext.getParameters();
+        builder.efConstruction(getIntegerFromMap(methodParams, METHOD_PARAMETER_EF_CONSTRUCTION));
+        builder.efSearch(getIntegerFromMap(methodParams, METHOD_PARAMETER_EF_SEARCH));
+        builder.m(getIntegerFromMap(methodParams, METHOD_PARAMETER_M));
         return builder.build();
-    }
-
-    private static int getMFromIndexDescription(String indexDescription) {
-        int commaIndex = indexDescription.indexOf(",");
-        if (commaIndex == -1) {
-            throw new IllegalArgumentException("Invalid index description: " + indexDescription);
-        }
-        String hnswPart = indexDescription.substring(0, commaIndex);
-        return Integer.parseInt(hnswPart.substring(4));
     }
 
     /**
      * Return whether this engine/method supports remote build, currently by checking the encoder to ensure FP32.
      */
-    static boolean supportsRemoteIndexBuild(Map<String, String> attributes) {
-        String parametersJson = attributes.get("parameters");
-        String encoderName = getEncoderName(parametersJson);
+    static boolean supportsRemoteIndexBuild(Map<String, Object> methodParameters) {
+        String encoderName = ((MethodComponentContext) methodParameters.get("encoder")).getName();
         return ENCODER_FLAT.equals(encoderName);
     }
 
     /**
-     * Gets encoder name from a {@FieldInfo parameters} map.
-     * Needs to use a JSON parser since FieldInfo.attributes() is a Map of String, String.
-     * <p>
-     * Example:
-     * <pre> {@code {
-     *     "index_description": "HNSW12,Flat",
-     *     "spaceType": "l2",
-     *     "name": "hnsw",
-     *     "data_type": "float",
-     *     --------------------
-     *     "parameters": {
-     *         "ef_search": 24,
-     *         "ef_construction": 28,
-     *         "encoder": {
-     *             "name": "flat",
-     *             "parameters": {}
-     *         }
-     *     }
-     *     --------------------
-     * }} </pre>
-     *
-     * @param parametersJson json string of parameters (inner parameter map above)
-     * @return encoder name or null if not found/ parsing error
+     * Safely retrieve an Integer from {@code map} using {@code key}
      */
-    private static String getEncoderName(String parametersJson) {
-        try {
-            XContentParser parser = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersJson.getBytes());
-
-            while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
-                    String fieldName = parser.currentName();
-
-                    if (PARAMETERS.equals(fieldName)) {
-                        parser.nextToken();
-                        if (parser.currentToken() == XContentParser.Token.START_OBJECT) {
-                            while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                                if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
-                                    String paramName = parser.currentName();
-
-                                    if (METHOD_ENCODER_PARAMETER.equals(paramName)) {
-                                        parser.nextToken();
-                                        if (parser.currentToken() == XContentParser.Token.START_OBJECT) {
-                                            while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                                                if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
-                                                    String encoderField = parser.currentName();
-
-                                                    if (NAME.equals(encoderField)) {
-                                                        // .nextToken to move from the key `name` to the value.
-                                                        parser.nextToken();
-                                                        return parser.text();
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (IOException e) {
-            return null;
+    private static Integer getIntegerFromMap(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof Integer) {
+            return (Integer) value;
         }
-        return null;
+        if (value instanceof String) {
+            return Integer.parseInt((String) value);
+        }
+        throw new IllegalArgumentException("Could not parse value for key: " + key);
     }
 }

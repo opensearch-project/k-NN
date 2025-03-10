@@ -5,43 +5,29 @@
 
 package org.opensearch.knn.index.engine;
 
-import org.apache.lucene.index.FieldInfo;
-import org.mockito.Mockito;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 
-import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.COMPOUND_EXTENSION;
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_EXTENSION;
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.SpaceType.L2;
-import static org.opensearch.knn.index.VectorDataType.FLOAT;
-import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_INDEX_DESCRIPTION;
+import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.createMockMethodContext;
 
 public class KNNEngineTests extends KNNTestCase {
 
@@ -121,117 +107,40 @@ public class KNNEngineTests extends KNNTestCase {
     /**
      * The remote build service currently only supports HNSWFlat.
      */
-    public void testSupportsRemoteIndexBuild() throws IOException {
+    public void testSupportsRemoteIndexBuild() {
         KNNEngine Faiss = KNNEngine.FAISS;
         KNNEngine Lucene = KNNEngine.LUCENE;
-        KNNEngine Nmslib = KNNEngine.NMSLIB;
 
-        FieldInfo faissHNSWFlat = createMockFieldInfo(createHnswFlatParameters());
-        FieldInfo faissHNSWSQ = createMockFieldInfo(createHnswSQParameters());
+        KNNMethodContext faissHNSWFlat = createMockMethodContext();
+        KNNMethodContext faissIVFFlat = createFaissIVFMethodContext();
+        KNNMethodContext luceneHNSWFlat = createLuceneHNSWMethodContext();
 
-        assertTrue(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.attributes()));
-        assertFalse(Faiss.supportsRemoteIndexBuild(faissHNSWSQ.attributes()));
-        assertFalse(Lucene.supportsRemoteIndexBuild(faissHNSWFlat.attributes()));
-        assertFalse(Nmslib.supportsRemoteIndexBuild(faissHNSWFlat.attributes()));
+        assertTrue(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext()));
+        assertFalse(Faiss.supportsRemoteIndexBuild(faissIVFFlat.getMethodComponentContext()));
+        assertFalse(Lucene.supportsRemoteIndexBuild(luceneHNSWFlat.getMethodComponentContext()));
     }
 
-    private FieldInfo createMockFieldInfo(Map<String, String> attributes) {
-        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
-        when(fieldInfo.attributes()).thenReturn(attributes);
-        return fieldInfo;
-    }
-
-    private Map<String, String> createHnswFlatParameters() {
-        Map<String, String> attributes = new HashMap<>();
-        attributes.put(KNN_FIELD, "true");
-        attributes.put(PER_FIELD_KNN_VECTORS_FORMAT_SUFFIX, "0");
-        attributes.put(SPACE_TYPE, L2.getValue());
-        attributes.put(KNN_ENGINE, FAISS_NAME);
-        attributes.put(VECTOR_DATA_TYPE_FIELD, FLOAT.getValue());
-        attributes.put(PER_FIELD_KNN_VECTORS_FORMAT_FORMAT, "NativeEngines990KnnVectorsFormat");
-        attributes.put(DIMENSION, "2");
-        attributes.put(
-            PARAMETERS,
-            "{\""
-                + INDEX_DESCRIPTION_PARAMETER
-                + "\":\""
-                + MOCK_INDEX_DESCRIPTION
-                + "\",\""
-                + METHOD_PARAMETER_SPACE_TYPE
-                + "\":\""
-                + L2.getValue()
-                + "\",\""
-                + NAME
-                + "\":\""
-                + METHOD_HNSW
-                + "\",\""
-                + VECTOR_DATA_TYPE_FIELD
-                + "\":\""
-                + FLOAT.getValue()
-                + "\","
-                + "\""
-                + PARAMETERS
-                + "\":{\""
-                + METHOD_PARAMETER_EF_SEARCH
-                + "\":24,\""
-                + METHOD_PARAMETER_EF_CONSTRUCTION
-                + "\":28,\""
-                + METHOD_ENCODER_PARAMETER
-                + "\":{\""
-                + NAME
-                + "\":\""
-                + ENCODER_FLAT
-                + "\",\""
-                + PARAMETERS
-                + "\":{}}}}"
+    public static KNNMethodContext createFaissIVFMethodContext() {
+        MethodComponentContext encoder = new MethodComponentContext(ENCODER_SQ, Map.of());
+        Map<String, Object> encoderMap = Map.of(METHOD_ENCODER_PARAMETER, encoder);
+        Map<String, Object> parameters = Map.of(
+            METHOD_PARAMETER_EF_SEARCH,
+            24,
+            METHOD_PARAMETER_EF_CONSTRUCTION,
+            28,
+            METHOD_PARAMETER_M,
+            12,
+            METHOD_ENCODER_PARAMETER,
+            encoderMap
         );
-        return attributes;
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_IVF, parameters);
+        return new KNNMethodContext(KNNEngine.FAISS, L2, methodComponentContext);
     }
 
-    private Map<String, String> createHnswSQParameters() {
-        Map<String, String> attributes = new HashMap<>();
-        attributes.put(KNN_FIELD, "true");
-        attributes.put(PER_FIELD_KNN_VECTORS_FORMAT_SUFFIX, "0");
-        attributes.put(SPACE_TYPE, L2.getValue());
-        attributes.put(KNN_ENGINE, FAISS_NAME);
-        attributes.put(VECTOR_DATA_TYPE_FIELD, FLOAT.getValue());
-        attributes.put(PER_FIELD_KNN_VECTORS_FORMAT_FORMAT, "NativeEngines990KnnVectorsFormat");
-        attributes.put(DIMENSION, "2");
-        attributes.put(
-            PARAMETERS,
-            "{\""
-                + INDEX_DESCRIPTION_PARAMETER
-                + "\":\""
-                + MOCK_INDEX_DESCRIPTION
-                + "\",\""
-                + METHOD_PARAMETER_SPACE_TYPE
-                + "\":\""
-                + L2.getValue()
-                + "\",\""
-                + NAME
-                + "\":\""
-                + METHOD_HNSW
-                + "\",\""
-                + VECTOR_DATA_TYPE_FIELD
-                + "\":\""
-                + FLOAT.getValue()
-                + "\","
-                + "\""
-                + PARAMETERS
-                + "\":{\""
-                + METHOD_PARAMETER_EF_SEARCH
-                + "\":24,\""
-                + METHOD_PARAMETER_EF_CONSTRUCTION
-                + "\":28,\""
-                + METHOD_ENCODER_PARAMETER
-                + "\":{\""
-                + NAME
-                + "\":\""
-                + ENCODER_SQ
-                + "\",\""
-                + PARAMETERS
-                + "\":{}}}}"
-        );
-        return attributes;
+    public static KNNMethodContext createLuceneHNSWMethodContext() {
+        Map<String, Object> parameters = Map.of(METHOD_PARAMETER_EF_CONSTRUCTION, 28, METHOD_PARAMETER_M, 12);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
+        return new KNNMethodContext(KNNEngine.LUCENE, L2, methodComponentContext);
     }
+
 }

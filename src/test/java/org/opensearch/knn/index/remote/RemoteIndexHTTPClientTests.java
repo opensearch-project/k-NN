@@ -28,6 +28,8 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
@@ -49,9 +51,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -102,8 +106,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testCreateRemoteIndexingParameters_Success() {
-        BuildIndexParams params = createTestBuildIndexParams();
-        RemoteIndexParameters result = createRemoteIndexingParameters(params.getParameters());
+        RemoteIndexParameters result = createRemoteIndexingParameters(createMockMethodContext());
 
         assertNotNull(result);
         assertTrue(result instanceof RemoteFaissHNSWIndexParameters);
@@ -140,7 +143,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 RemoteIndexHTTPClient client = new RemoteIndexHTTPClient();
 
                 RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(
-                    new RemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME)
+                    new RemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME, createMockMethodContext())
                 );
                 assertEquals(MOCK_JOB_ID, remoteBuildResponse.getJobId());
 
@@ -187,7 +190,9 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
                 RemoteIndexHTTPClient.reloadAuthHeader(settings);
 
                 ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
-                client.submitVectorBuild(new RemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME));
+                client.submitVectorBuild(
+                    new RemoteBuildRequest(mockIndexSettings, buildIndexParams, metadata, MOCK_BLOB_NAME, createMockMethodContext())
+                );
 
                 verify(mockHttpClient).execute(requestCaptor.capture(), any(HttpClientResponseHandler.class));
                 HttpPost capturedRequest = requestCaptor.getValue();
@@ -218,8 +223,8 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         encoderParams.put(PARAMETERS, Map.of());
 
         Map<String, Object> algorithmParams = new HashMap<>();
-        algorithmParams.put(METHOD_PARAMETER_EF_SEARCH, 89);
-        algorithmParams.put(METHOD_PARAMETER_EF_CONSTRUCTION, 94);
+        algorithmParams.put(METHOD_PARAMETER_EF_SEARCH, 20);
+        algorithmParams.put(METHOD_PARAMETER_EF_CONSTRUCTION, 45);
         algorithmParams.put(ENCODER_FLAT, encoderParams);
 
         Map<String, Object> parameters = new HashMap<>();
@@ -267,5 +272,21 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         final MockSecureSettings secureSettings = new MockSecureSettings();
         final Settings settings = Settings.builder().setSecureSettings(secureSettings).build();
         RemoteIndexHTTPClient.reloadAuthHeader(settings);
+    }
+
+    public static KNNMethodContext createMockMethodContext() {
+        MethodComponentContext encoder = new MethodComponentContext(ENCODER_FLAT, Map.of());
+        Map<String, Object> parameters = Map.of(
+            METHOD_PARAMETER_EF_SEARCH,
+            89,
+            METHOD_PARAMETER_EF_CONSTRUCTION,
+            94,
+            METHOD_PARAMETER_M,
+            14,
+            METHOD_ENCODER_PARAMETER,
+            encoder
+        );
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
+        return new KNNMethodContext(KNNEngine.FAISS, L2, methodComponentContext);
     }
 }

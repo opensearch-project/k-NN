@@ -10,6 +10,7 @@ import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Random;
 
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
 import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
@@ -24,7 +25,11 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
     // The poller waits KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL * INITIAL_DELAY_FACTOR before sending the first status request
     private static final int INITIAL_DELAY_FACTOR = 3;
 
+    private static final double JITTER_LOWER = 0.8;
+    private static final double JITTER_UPPER = 1.2;
+
     private final RemoteIndexClient client;
+    private final Random random = new Random();
 
     RemoteIndexPoller(RemoteIndexClient client) {
         this.client = client;
@@ -38,7 +43,6 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
      * @throws InterruptedException if the thread is interrupted while polling
      * @throws IOException if an I/O error occurs
      */
-    @SuppressWarnings("BusyWait")
     public RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildStatusRequest remoteBuildStatusRequest) throws InterruptedException,
         IOException {
         long startTime = System.nanoTime();
@@ -48,7 +52,7 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
 
         // Initial delay to allow build service to process the job and store the ID before getting its status.
         // TODO tune default based on benchmarking
-        Thread.sleep(pollInterval * INITIAL_DELAY_FACTOR);
+        sleepWithJitter(pollInterval * INITIAL_DELAY_FACTOR);
 
         while (System.nanoTime() - startTime < timeout) {
             RemoteBuildStatusResponse remoteBuildStatusResponse = client.getBuildStatus(remoteBuildStatusRequest);
@@ -70,7 +74,7 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
                         String.format("Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
                     );
                 }
-                case RUNNING_INDEX_BUILD -> Thread.sleep(pollInterval);
+                case RUNNING_INDEX_BUILD -> sleepWithJitter(pollInterval);
                 default -> throw new IOException(String.format("Server returned invalid task status %s", taskStatus));
             }
         }
@@ -83,5 +87,10 @@ class RemoteIndexPoller implements RemoteIndexWaiter {
                 timeoutDuration.toMinutesPart()
             )
         );
+    }
+
+    private void sleepWithJitter(long baseInterval) throws InterruptedException {
+        long intervalWithJitter = (long) (baseInterval * (JITTER_LOWER + (random.nextDouble() * (JITTER_UPPER - JITTER_LOWER))));
+        Thread.sleep(intervalWithJitter);
     }
 }

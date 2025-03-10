@@ -5,11 +5,13 @@
 
 package org.opensearch.knn.index.codec.nativeindex;
 
+import lombok.Setter;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
@@ -27,6 +29,8 @@ public final class NativeIndexBuildStrategyFactory {
 
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final IndexSettings indexSettings;
+    @Setter
+    private KNNMethodContext knnMethodContext;
 
     public NativeIndexBuildStrategyFactory() {
         this(null, null);
@@ -64,9 +68,9 @@ public final class NativeIndexBuildStrategyFactory {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()
             && repositoriesServiceSupplier != null
             && indexSettings != null
-            && knnEngine.supportsRemoteIndexBuild(fieldInfo.attributes())
+            && knnEngine.supportsRemoteIndexBuild(knnMethodContext.getMethodComponentContext())
             && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength)) {
-            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings);
+            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, knnMethodContext);
         } else {
             return strategy;
         }

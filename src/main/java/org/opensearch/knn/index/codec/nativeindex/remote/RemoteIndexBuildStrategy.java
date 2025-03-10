@@ -14,6 +14,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.remote.RemoteBuildRequest;
 import org.opensearch.knn.index.remote.RemoteBuildResponse;
 import org.opensearch.knn.index.remote.RemoteBuildStatusRequest;
@@ -46,6 +47,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final NativeIndexBuildStrategy fallbackStrategy;
     private final IndexSettings indexSettings;
+    private final KNNMethodContext knnMethodContext;
 
     /**
      * Public constructor, intended to be called by {@link org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory} based in
@@ -57,11 +59,13 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     public RemoteIndexBuildStrategy(
         Supplier<RepositoriesService> repositoriesServiceSupplier,
         NativeIndexBuildStrategy fallbackStrategy,
-        IndexSettings indexSettings
+        IndexSettings indexSettings,
+        KNNMethodContext knnMethodContext
     ) {
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
         this.fallbackStrategy = fallbackStrategy;
         this.indexSettings = indexSettings;
+        this.knnMethodContext = knnMethodContext;
     }
 
     /**
@@ -139,7 +143,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexSettings,
                 indexInfo,
                 repository.getMetadata(),
-                blobPath.buildAsString()
+                blobPath.buildAsString(),
+                knnMethodContext
             );
             stopWatch = new StopWatch().start();
             RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(buildRequest);

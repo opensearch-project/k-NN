@@ -13,6 +13,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
@@ -62,7 +63,8 @@ public class RemoteBuildRequest implements ToXContentObject {
         IndexSettings indexSettings,
         BuildIndexParams indexInfo,
         RepositoryMetadata repositoryMetadata,
-        String fullPath
+        String fullPath,
+        KNNMethodContext knnMethodContext
     ) throws IOException {
         String repositoryType = repositoryMetadata.type();
         String containerName;
@@ -80,6 +82,10 @@ public class RemoteBuildRequest implements ToXContentObject {
 
         this.repositoryType = repositoryType;
         this.containerName = containerName;
+        // remove the / automatically appended by BlobPath.buildAsString()
+        if (fullPath.endsWith("/")) {
+            fullPath = fullPath.substring(0, fullPath.length() - 1);
+        }
         this.vectorPath = fullPath + VECTOR_BLOB_FILE_EXTENSION;
         this.docIdPath = fullPath + DOC_ID_FILE_EXTENSION;
         this.tenantId = indexSettings.getSettings().get(ClusterName.CLUSTER_NAME_SETTING.getKey());
@@ -87,7 +93,7 @@ public class RemoteBuildRequest implements ToXContentObject {
         this.docCount = indexInfo.getTotalLiveDocs();
         this.vectorDataType = vectorDataType;
         this.engine = indexInfo.getKnnEngine().getName();
-        this.indexParameters = indexInfo.getKnnEngine().createRemoteIndexingParameters(indexInfo.getParameters());
+        this.indexParameters = knnMethodContext.getKnnEngine().createRemoteIndexingParameters(knnMethodContext);
     }
 
     @Override
