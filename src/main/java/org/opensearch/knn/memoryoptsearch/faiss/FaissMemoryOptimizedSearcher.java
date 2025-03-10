@@ -17,20 +17,26 @@ import java.io.IOException;
  */
 public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final IndexInput indexInput;
+    private FaissIndex faissIndex;
 
-    public FaissMemoryOptimizedSearcher(IndexInput indexInput) {
+    public FaissMemoryOptimizedSearcher(IndexInput indexInput) throws IOException {
         this.indexInput = indexInput;
+        try {
+            this.faissIndex = FaissIndex.load(indexInput);
+        } catch (UnsupportedFaissIndexException e) {
+            // TODO(KDY) : Remove this in part-7 (Complete Faiss Loading Part at Codec Level)
+        }
     }
 
     @Override
     public void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
-        // TODO(KDY) : This will be covered in subsequent parts.
+        // TODO(KDY) : This will be covered in part-7 (Complete Faiss Loading Part at Codec Level)
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override
     public void search(byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
-        // TODO(KDY) : This will be covered in subsequent parts.
+        // TODO(KDY) : This will be covered in part-7 (Complete Faiss Loading Part at Codec Level)
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
