@@ -16,6 +16,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
@@ -39,6 +40,10 @@ public final class NativeIndexBuildStrategyFactory {
     public NativeIndexBuildStrategyFactory(Supplier<RepositoriesService> repositoriesServiceSupplier, IndexSettings indexSettings) {
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
         this.indexSettings = indexSettings;
+    }
+
+    private Optional<KNNMethodContext> getKnnMethodContext() {
+        return Optional.ofNullable(knnMethodContext);
     }
 
     /**
@@ -68,9 +73,10 @@ public final class NativeIndexBuildStrategyFactory {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()
             && repositoriesServiceSupplier != null
             && indexSettings != null
-            && knnEngine.supportsRemoteIndexBuild(knnMethodContext.getMethodComponentContext())
+            && getKnnMethodContext().isPresent()
+            && knnEngine.supportsRemoteIndexBuild(getKnnMethodContext().get().getMethodComponentContext())
             && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength)) {
-            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, knnMethodContext);
+            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, getKnnMethodContext().get());
         } else {
             return strategy;
         }

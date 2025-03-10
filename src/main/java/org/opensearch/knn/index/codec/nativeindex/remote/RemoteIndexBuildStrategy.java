@@ -55,6 +55,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @param repositoriesServiceSupplier       A supplier for {@link RepositoriesService} used to interact with a repository
      * @param fallbackStrategy                  Delegate {@link NativeIndexBuildStrategy} used to fall back to local build
      * @param indexSettings                    {@link IndexSettings} used to retrieve information about the index
+     * @param knnMethodContext                 {@link KNNMethodContext} used to retrieve method specific params for the remote build request
      */
     public RemoteIndexBuildStrategy(
         Supplier<RepositoriesService> repositoriesServiceSupplier,
@@ -143,7 +144,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexSettings,
                 indexInfo,
                 repository.getMetadata(),
-                blobPath.buildAsString(),
+                blobPath.buildAsString() + blobName,
                 knnMethodContext
             );
             stopWatch = new StopWatch().start();
@@ -151,8 +152,9 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
-            String jobId = remoteBuildResponse.getJobId();
-            RemoteBuildStatusRequest remoteBuildStatusRequest = RemoteBuildStatusRequest.builder().jobId(jobId).build();
+            RemoteBuildStatusRequest remoteBuildStatusRequest = RemoteBuildStatusRequest.builder()
+                .jobId(remoteBuildResponse.getJobId())
+                .build();
             RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client);
             stopWatch = new StopWatch().start();
             RemoteBuildStatusResponse remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);

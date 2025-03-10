@@ -83,6 +83,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
     public static final String USERNAME = "username";
     public static final String PASSWORD = "password";
     public static final String MOCK_INDEX_DESCRIPTION = "HNSW14,Flat";
+    public static final String MOCK_FIELD_NAME = "target_field";
 
     @Mock
     protected static ClusterService clusterService;
@@ -211,7 +212,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
 
     // Utility methods to populate settings for build requests
 
-    static BuildIndexParams createTestBuildIndexParams() {
+    public static BuildIndexParams createTestBuildIndexParams() {
         List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
         final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
             vectorValues
@@ -235,6 +236,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         parameters.put(PARAMETERS, algorithmParams);
 
         return BuildIndexParams.builder()
+            .fieldName(MOCK_FIELD_NAME)
             .knnEngine(KNNEngine.FAISS)
             .vectorDataType(FLOAT)
             .parameters(parameters)
@@ -243,7 +245,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
             .build();
     }
 
-    static RepositoryMetadata createTestRepositoryMetadata() {
+    public static RepositoryMetadata createTestRepositoryMetadata() {
         RepositoryMetadata metadata = mock(RepositoryMetadata.class);
         Settings repoSettings = Settings.builder().put(BUCKET, TEST_BUCKET).build();
         when(metadata.type()).thenReturn(S3);
@@ -251,7 +253,7 @@ public class RemoteIndexHTTPClientTests extends OpenSearchSingleNodeTestCase {
         return metadata;
     }
 
-    static IndexSettings createTestIndexSettings() {
+    public static IndexSettings createTestIndexSettings() {
         IndexSettings mockIndexSettings = mock(IndexSettings.class);
         Settings indexSettingsSettings = Settings.builder().put(ClusterName.CLUSTER_NAME_SETTING.getKey(), TEST_CLUSTER).build();
         when(mockIndexSettings.getSettings()).thenReturn(indexSettingsSettings);

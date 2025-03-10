@@ -56,7 +56,7 @@ public class RemoteBuildRequest implements ToXContentObject {
      * @param indexSettings IndexSettings object
      * @param indexInfo BuildIndexParams object
      * @param repositoryMetadata RepositoryMetadata object
-     * @param fullPath Blob path + file name representing location of the vectors/doc IDs
+     * @param fullPath Full blob path + file name representing location of the vectors/doc IDs (excludes repository-specific prefix)
      * @throws IOException if an I/O error occurs
      */
     public RemoteBuildRequest(
@@ -82,10 +82,6 @@ public class RemoteBuildRequest implements ToXContentObject {
 
         this.repositoryType = repositoryType;
         this.containerName = containerName;
-        // remove the / automatically appended by BlobPath.buildAsString()
-        if (fullPath.endsWith("/")) {
-            fullPath = fullPath.substring(0, fullPath.length() - 1);
-        }
         this.vectorPath = fullPath + VECTOR_BLOB_FILE_EXTENSION;
         this.docIdPath = fullPath + DOC_ID_FILE_EXTENSION;
         this.tenantId = indexSettings.getSettings().get(ClusterName.CLUSTER_NAME_SETTING.getKey());
