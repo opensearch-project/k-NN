@@ -16,7 +16,7 @@ import org.mockito.stubbing.Answer;
 import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWFlatIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 
@@ -173,7 +173,7 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         // Mock static `load` to return a dummy mock
         try (MockedStatic<FaissIndex> mockStaticFaissIndex = mockStatic(FaissIndex.class)) {
             // Nested index
-            final FaissHNSWFlatIndex nestedIndex = mock(FaissHNSWFlatIndex.class);
+            final FaissHNSWIndex nestedIndex = mock(FaissHNSWIndex.class);
             mockStaticFaissIndex.when(() -> FaissIndex.load(any())).thenReturn(nestedIndex);
 
             // Byte vectors
