@@ -1249,22 +1249,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         String indexName = "test-knn-index-partial";
         String fieldName = "my_vector2";
 
-        XContentBuilder initialMapping = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(fieldName)
-            .field("type", "knn_vector")
-            .field("dimension", 4)
-            .startObject("method")
-            .field("engine", "faiss")
-            .field("name", "hnsw")
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-
-        createKnnIndex(indexName, getKNNDefaultIndexSettings(), initialMapping.toString());
-
         XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -1279,8 +1263,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        putMappingRequest(indexName, updatedMapping.toString());
-
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), updatedMapping.toString());
         Map<String, Object> mappingResponse = getIndexMappingAsMap(indexName);
         assertEquals(8, ((Map<?, ?>) ((Map<?, ?>) mappingResponse.get("properties")).get(fieldName)).get("dimension"));
     }
