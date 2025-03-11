@@ -1245,6 +1245,84 @@ public class OpenSearchIT extends KNNRestTestCase {
         );
     }
 
+    public void testKNNVectorMappingUpdate_whenDimensionChanged_thenSucceeds() throws Exception {
+        String indexName = "test-knn-index-partial";
+        String fieldName = "my_vector2";
+
+        XContentBuilder initialMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 4)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), initialMapping.toString());
+
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 8)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        putMappingRequest(indexName, updatedMapping.toString());
+
+        Map<String, Object> mappingResponse = getIndexMappingAsMap(indexName);
+        assertEquals(8, ((Map<?, ?>) ((Map<?, ?>) mappingResponse.get("properties")).get(fieldName)).get("dimension"));
+    }
+
+    public void testKNNVectorMappingUpdate_whenMethodPartiallyRemoved_thenThrowsException() throws Exception {
+        String indexName = "test-knn-index-success";
+        String fieldName = "my_vector2";
+
+        XContentBuilder initialMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 4)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), initialMapping.toString());
+
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 8)
+            .startObject("method")
+            .field("engine", "faiss")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        ResponseException exception = expectThrows(ResponseException.class, () -> putMappingRequest(indexName, updatedMapping.toString()));
+
+        assertThat(EntityUtils.toString(exception.getResponse().getEntity()), containsString("name needs to be set"));
+
+    }
+
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)
         throws IOException, ParseException {
         final Response searchResponseField = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, vector, k), k);

@@ -2032,6 +2032,60 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(exception.getMessage().contains("Cannot update parameter [method] from [hnsw] to [null]"));
     }
 
+    public void testKNNVectorFieldMapper_UpdateDimensionParameter_Succeeds() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // Define updated mapping with the same method parameter
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 8)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, "faiss")
+            .endObject()
+            .endObject();
+
+        KNNVectorFieldMapper.Builder updatedBuilder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(updatedMapping),
+            buildParserContext(indexName, settings)
+        );
+
+        assertEquals(8, updatedBuilder.getOriginalParameters().getDimension());
+    }
+
+    public void testKNNVectorFieldMapper_PartialUpdateMethodParameter_ThrowsException() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 4)
+            .startObject(KNN_METHOD)
+            .field(NAME, "")
+            .field(KNN_ENGINE, "faiss")
+            .endObject()
+            .endObject();
+
+        MapperParsingException exception = expectThrows(
+            MapperParsingException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(updatedMapping), buildParserContext(indexName, settings))
+        );
+
+        assertTrue(exception.getMessage().contains("name needs to be set"));
+    }
+
     private void validateBuilderAfterParsing(
         KNNVectorFieldMapper.Builder builder,
         KNNEngine expectedEngine,
