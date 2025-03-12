@@ -78,12 +78,38 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
 
         // Initializes the parent field so that there is a list to put each of the children
         Object originalParentValue = XContentMapValues.extractValue(parentFieldPath, sourceAsMap);
-        List<Map<String, Object>> reconstructedSource;
+        // Inject children for the document into the source.
+        KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(
+            childFieldInfo,
+            derivedSourceReaders.getDocValuesProducer(),
+            derivedSourceReaders.getKnnVectorsReader()
+        );
+        NestedPerFieldParentToChildDocIdIterator nestedPerFieldParentToChildDocIdIterator = new NestedPerFieldParentToChildDocIdIterator(
+            parentDocId,
+            firstChild,
+            vectorValues
+        );
+
+        // If its a map, its a single nested object. We dont need to figure out where it needs to be added to.
         if (originalParentValue instanceof Map) {
-            reconstructedSource = new ArrayList<>(List.of((Map<String, Object>) originalParentValue));
-        } else {
-            reconstructedSource = (List<Map<String, Object>>) originalParentValue;
+            if (vectorValues.nextDoc() != NO_MORE_DOCS) {
+                DerivedSourceMapHelper.injectObject(
+                    (Map<String, Object>) originalParentValue,
+                    formatVector(
+                        childFieldInfo,
+                        nestedPerFieldParentToChildDocIdIterator::getVector,
+                        nestedPerFieldParentToChildDocIdIterator::getVectorClone
+                    ),
+                    childFieldPath
+                );
+            }
+            return;
         }
+
+        if (originalParentValue instanceof List == false) {
+            log.warn("Source of a nested feature is not a list or a map ");
+        }
+        List<Map<String, Object>> reconstructedSource = (List<Map<String, Object>>) originalParentValue;
 
         /*
          In order to inject vectors into source for nested documents, we need to be able to map the existing
@@ -123,18 +149,6 @@ public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerived
          the existing fields. To do this, we need to know what docs the existing 2 maps map to.
          */
         List<Integer> docIdsInNestedList = mapObjectsInNestedListToDocIds(reconstructedSource, firstChild, parentDocId);
-
-        // Inject children for the document into the source.
-        KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(
-            childFieldInfo,
-            derivedSourceReaders.getDocValuesProducer(),
-            derivedSourceReaders.getKnnVectorsReader()
-        );
-        NestedPerFieldParentToChildDocIdIterator nestedPerFieldParentToChildDocIdIterator = new NestedPerFieldParentToChildDocIdIterator(
-            parentDocId,
-            firstChild,
-            vectorValues
-        );
         int offsetPositionsIndex = 0;
         while (nestedPerFieldParentToChildDocIdIterator.nextDoc() != NO_MORE_DOCS) {
             int docId = nestedPerFieldParentToChildDocIdIterator.docId();
