@@ -24,15 +24,12 @@ import java.io.IOException;
  * However, these IDs only cover the sparse 30% of Lucene documents, so an ID mapping is needed to convert the internal physical vector ID
  * into the corresponding Lucene document ID.
  * If the mapping is an identity mapping, where each `i` is mapped to itself, we omit storing it to save memory.
- * <p>
- * FYI :
- * <a href="https://github.com/facebookresearch/faiss/blob/653be593864d11b74a715ffa44d9c4ddb6bd9893/faiss/IndexIDMap.h">IndexIDMap.h</a>
  */
 public class FaissIdMapIndex extends FaissIndex {
     public static final String IXMP = "IxMp";
 
     @Getter
-    private FaissHNSWFlatIndex nestedIndex;
+    private FaissHNSWIndex nestedIndex;
     private long[] vectorIdToDocIdMapping;
 
     public FaissIdMapIndex() {
@@ -41,7 +38,8 @@ public class FaissIdMapIndex extends FaissIndex {
 
     /**
      * Partially load id mapping and its nested index to which vector searching will be delegated.
-     *
+     * Faiss deserialization code :
+     * <a href="https://github.com/facebookresearch/faiss/blob/main/faiss/impl/index_read.cpp#L1088">IndexIDMap.h</a>
      * @param input An input stream for a FAISS HNSW graph file, allowing access to the neighbor list and vector locations.
      * @throws IOException
      */
@@ -50,11 +48,11 @@ public class FaissIdMapIndex extends FaissIndex {
         readCommonHeader(input);
         final FaissIndex nestedIndex = FaissIndex.load(input);
 
-        if (nestedIndex instanceof FaissHNSWFlatIndex) {
-            this.nestedIndex = (FaissHNSWFlatIndex) nestedIndex;
+        if (nestedIndex instanceof FaissHNSWIndex) {
+            this.nestedIndex = (FaissHNSWIndex) nestedIndex;
         } else {
             throw new IllegalStateException(
-                "Invalid nested index. Expected " + FaissHNSWFlatIndex.class.getSimpleName() + " , but got " + nestedIndex.getIndexType()
+                "Invalid nested index. Expected " + FaissHNSWIndex.class.getSimpleName() + " , but got " + nestedIndex.getIndexType()
             );
         }
 

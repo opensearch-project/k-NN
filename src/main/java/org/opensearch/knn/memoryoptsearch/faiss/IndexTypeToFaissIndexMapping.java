@@ -10,7 +10,7 @@ import lombok.experimental.UtilityClass;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * This table maintains a mapping between FAISS index types and their corresponding index implementations.
@@ -20,12 +20,14 @@ import java.util.function.Supplier;
  */
 @UtilityClass
 public class IndexTypeToFaissIndexMapping {
-    private static final Map<String, Supplier<FaissIndex>> INDEX_TYPE_TO_FAISS_INDEX;
+    private static final Map<String, Function<String, FaissIndex>> INDEX_TYPE_TO_FAISS_INDEX;
 
     static {
-        final Map<String, Supplier<FaissIndex>> mapping = new HashMap<>();
+        final Map<String, Function<String, FaissIndex>> mapping = new HashMap<>();
 
-        mapping.put(FaissIdMapIndex.IXMP, FaissIdMapIndex::new);
+        mapping.put(FaissIdMapIndex.IXMP, (indexType) -> new FaissIdMapIndex());
+        mapping.put(FaissHNSWIndex.IHNF, FaissHNSWIndex::new);
+        mapping.put(FaissHNSWIndex.IHNS, FaissHNSWIndex::new);
 
         INDEX_TYPE_TO_FAISS_INDEX = Collections.unmodifiableMap(mapping);
     }
@@ -37,9 +39,9 @@ public class IndexTypeToFaissIndexMapping {
      * @return Actual implementation that is corresponding to the given index type.
      */
     public FaissIndex getFaissIndex(final String indexType) {
-        final Supplier<FaissIndex> faissIndexSupplier = INDEX_TYPE_TO_FAISS_INDEX.get(indexType);
+        final Function<String, FaissIndex> faissIndexSupplier = INDEX_TYPE_TO_FAISS_INDEX.get(indexType);
         if (faissIndexSupplier != null) {
-            return faissIndexSupplier.get();
+            return faissIndexSupplier.apply(indexType);
         }
         throw new UnsupportedFaissIndexException("Index type [" + indexType + "] is not supported.");
     }
