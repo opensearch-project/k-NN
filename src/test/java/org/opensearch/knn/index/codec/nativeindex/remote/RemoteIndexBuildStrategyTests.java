@@ -77,6 +77,6 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(clusterSettings.get(KNN_REMOTE_VECTOR_REPO_SETTING)).thenReturn("test-vector-repo");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
-        assertTrue(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE - 1, BYTE_SIZE * 2)));
+        assertTrue(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2)));
     }
 }
