@@ -147,6 +147,24 @@ public class DerivedSourceMapHelperTests extends KNNTestCase {
         assertTrue(DerivedSourceMapHelper.fieldExists(map, "test"));
     }
 
+    @SneakyThrows
+    public void testInjectObject() {
+        // Base case
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("field1", "value").field("field3", "value").endObject();
+        Map<String, Object> source = xContentToMap(builder);
+        DerivedSourceMapHelper.injectObject(source, "test", "field2");
+        assertEquals(Map.of("field1", "value", "field2", "test", "field3", "value"), source);
+
+        // Nested cases
+        source = xContentToMap(builder);
+        DerivedSourceMapHelper.injectObject(source, "test", "field2.nested");
+        assertEquals(Map.of("field1", "value", "field2", Map.of("nested", "test"), "field3", "value"), source);
+
+        source = xContentToMap(builder);
+        DerivedSourceMapHelper.injectObject(source, "test", "field2.nested1.nested2");
+        assertEquals(Map.of("field1", "value", "field2", Map.of("nested1", Map.of("nested2", "test")), "field3", "value"), source);
+    }
+
     private Map<String, Object> xContentToMap(XContentBuilder xContentBuilder) {
         return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true, xContentBuilder.contentType()).v2();
     }

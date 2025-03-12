@@ -60,6 +60,9 @@ public class ParentChildHelper {
         if (prefix == null) {
             return getChildField(field);
         }
+        if (field.length() <= prefix.length()) {
+            return null;
+        }
 
         return field.substring(prefix.length() + 1);
     }

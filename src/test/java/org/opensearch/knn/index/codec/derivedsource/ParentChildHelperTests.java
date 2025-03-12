@@ -23,6 +23,15 @@ public class ParentChildHelperTests extends KNNTestCase {
         assertNull(ParentChildHelper.getChildField("child"));
     }
 
+    public void testGetChildFieldWithPrefix() {
+        assertEquals("child", ParentChildHelper.getChildField("parent.to.child", "parent.to"));
+        assertEquals("to.child", ParentChildHelper.getChildField("parent.to.child", "parent"));
+        assertEquals("child", ParentChildHelper.getChildField("parent.to.child", null));
+        assertNull(ParentChildHelper.getChildField("child", "child"));
+        assertNull(ParentChildHelper.getChildField("child", null));
+        assertNull(ParentChildHelper.getChildField(null, "parent"));
+    }
+
     public void testConstructSiblingField() {
         assertEquals("parent.to.sibling", ParentChildHelper.constructSiblingField("parent.to.child", "sibling"));
         assertEquals("sibling", ParentChildHelper.constructSiblingField("parent", "sibling"));

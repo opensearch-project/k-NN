@@ -21,8 +21,8 @@ import java.util.stream.Collectors;
  */
 public class DerivedSourceSegmentAttributeHelper {
 
-    private static final String DERIVED_SOURCE_FIELD = "derived_vector_fields";
-    private static final String NESTED_LINEAGE = "derived_vector_fields_nested_lineage";
+    public static final String DERIVED_SOURCE_FIELD = "derived_vector_fields";
+    public static final String NESTED_LINEAGE = "derived_vector_fields_nested_lineage";
 
     /**
      * From segmentInfo, parse the derived_vector_fields
@@ -77,7 +77,7 @@ public class DerivedSourceSegmentAttributeHelper {
      * @param segmentInfo {@link SegmentInfo}
      * @param vectorFieldTypes List of vector field names
      */
-    public static void addDervicedVectorFieldsSegmentInfoAttribue(SegmentInfo segmentInfo, List<String> vectorFieldTypes) {
+    public static void addDerivedVectorFieldsSegmentInfoAttribute(SegmentInfo segmentInfo, List<String> vectorFieldTypes) {
         segmentInfo.putAttribute(DERIVED_SOURCE_FIELD, String.join(",", vectorFieldTypes));
     }
 

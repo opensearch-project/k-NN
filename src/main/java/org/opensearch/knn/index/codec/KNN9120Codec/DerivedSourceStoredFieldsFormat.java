@@ -122,7 +122,7 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
             return delegateWriter;
         }
 
-        DerivedSourceSegmentAttributeHelper.addDervicedVectorFieldsSegmentInfoAttribue(segmentInfo, vectorFieldTypes);
+        DerivedSourceSegmentAttributeHelper.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, vectorFieldTypes);
         DerivedSourceSegmentAttributeHelper.addNestedLineageSegmentInfoAttribute(segmentInfo, nestedLineagesForAllFields);
         return new DerivedSourceStoredFieldsWriter(delegateWriter, vectorFieldTypes);
     }
