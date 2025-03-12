@@ -6,13 +6,19 @@
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import org.opensearch.common.SetOnce;
+import org.opensearch.common.blobstore.BlobContainer;
+import org.opensearch.common.blobstore.BlobPath;
+import org.opensearch.common.blobstore.BlobStore;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
+import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
 
@@ -22,6 +28,10 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.index.remote.RemoteBuildRequestTests.MOCK_BASE_PATH;
+import static org.opensearch.knn.index.remote.RemoteBuildRequestTests.MOCK_SEGMENT_STATE;
+import static org.opensearch.knn.index.remote.RemoteBuildRequestTests.MOCK_UUID;
+import static org.opensearch.knn.index.remote.RemoteBuildRequestTests.VECTORS_PATH;
 
 public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     private static final String TEST_INDEX = "test-index";
@@ -37,7 +47,8 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         RemoteIndexBuildStrategy objectUnderTest = new RemoteIndexBuildStrategy(
             () -> repositoriesService,
             new TestIndexBuildStrategy(fallback),
-            mock(IndexSettings.class)
+            mock(IndexSettings.class),
+            null
         );
         objectUnderTest.buildAndWriteIndex(buildIndexParams);
         assertTrue(fallback.get());
@@ -78,5 +89,31 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
         assertTrue(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2)));
+    }
+
+    public void testFilePathConstruction() {
+        BlobStoreRepository repository = mock(BlobStoreRepository.class);
+        BlobStore mockBlobStore = mock(BlobStore.class);
+        when(repository.blobStore()).thenReturn(mockBlobStore);
+
+        BlobPath baseBlobPath = new BlobPath().add(MOCK_BASE_PATH);
+        when(repository.basePath()).thenReturn(baseBlobPath);
+
+        IndexSettings indexSettings = RemoteIndexHTTPClientTests.createTestIndexSettings();
+        BlobPath blobPath = repository.basePath().add(indexSettings.getUUID() + VECTORS_PATH);
+
+        BlobContainer blobContainer = mock(BlobContainer.class);
+        when(mockBlobStore.blobContainer(blobPath)).thenReturn(blobContainer);
+        when(blobContainer.path()).thenReturn(blobPath);
+
+        BuildIndexParams indexInfo = RemoteIndexHTTPClientTests.createTestBuildIndexParams();
+        String blobName = MOCK_UUID + "_" + indexInfo.getFieldName() + "_" + MOCK_SEGMENT_STATE;
+
+        // example: VectorRepositoryAccessor vectorAccessor = new DefaultVectorRepositoryAccessor(blobContainer);
+        // vectorAccessor.writeToRepository(blobName...)
+        String accessorPath = blobContainer.path().buildAsString();
+
+        String requestPath = blobPath.buildAsString() + blobName;
+        assertEquals(accessorPath + blobName, requestPath);
     }
 }

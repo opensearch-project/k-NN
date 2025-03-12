@@ -9,15 +9,20 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.annotation.ExperimentalApi;
+import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.remote.RemoteBuildRequest;
 import org.opensearch.knn.index.remote.RemoteBuildResponse;
+import org.opensearch.knn.index.remote.RemoteBuildStatusRequest;
+import org.opensearch.knn.index.remote.RemoteBuildStatusResponse;
 import org.opensearch.knn.index.remote.RemoteIndexClient;
 import org.opensearch.knn.index.remote.RemoteIndexClientFactory;
-import org.opensearch.knn.index.remote.RemoteStatusResponse;
+import org.opensearch.knn.index.remote.RemoteIndexWaiter;
+import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -29,6 +34,7 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTORS_PATH;
 
 /**
  * This class orchestrates building vector indices. It handles uploading data to a repository, submitting a remote
@@ -41,6 +47,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final NativeIndexBuildStrategy fallbackStrategy;
     private final IndexSettings indexSettings;
+    private final KNNMethodContext knnMethodContext;
 
     /**
      * Public constructor, intended to be called by {@link org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory} based in
@@ -48,15 +55,18 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @param repositoriesServiceSupplier       A supplier for {@link RepositoriesService} used to interact with a repository
      * @param fallbackStrategy                  Delegate {@link NativeIndexBuildStrategy} used to fall back to local build
      * @param indexSettings                    {@link IndexSettings} used to retrieve information about the index
+     * @param knnMethodContext                 {@link KNNMethodContext} used to retrieve method specific params for the remote build request
      */
     public RemoteIndexBuildStrategy(
         Supplier<RepositoriesService> repositoriesServiceSupplier,
         NativeIndexBuildStrategy fallbackStrategy,
-        IndexSettings indexSettings
+        IndexSettings indexSettings,
+        KNNMethodContext knnMethodContext
     ) {
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
         this.fallbackStrategy = fallbackStrategy;
         this.indexSettings = indexSettings;
+        this.knnMethodContext = knnMethodContext;
     }
 
     /**
@@ -111,7 +121,11 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         StopWatch stopWatch;
         long time_in_millis;
         try {
-            VectorRepositoryAccessor vectorRepositoryAccessor = new DefaultVectorRepositoryAccessor(getRepository(), indexSettings);
+            BlobStoreRepository repository = getRepository();
+            BlobPath blobPath = repository.basePath().add(indexSettings.getUUID() + VECTORS_PATH);
+            VectorRepositoryAccessor vectorRepositoryAccessor = new DefaultVectorRepositoryAccessor(
+                repository.blobStore().blobContainer(blobPath)
+            );
             stopWatch = new StopWatch().start();
             // We create a new time based UUID per file in order to avoid conflicts across shards. It is also very difficult to get the
             // shard id in this context.
@@ -126,19 +140,29 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             log.debug("Repository write took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient();
-            RemoteBuildRequest request = new RemoteBuildRequest(indexSettings, indexInfo, getRepository().getMetadata(), blobName);
+            RemoteBuildRequest buildRequest = new RemoteBuildRequest(
+                indexSettings,
+                indexInfo,
+                repository.getMetadata(),
+                blobPath.buildAsString() + blobName,
+                knnMethodContext
+            );
             stopWatch = new StopWatch().start();
-            RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(request);
+            RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(buildRequest);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
+            RemoteBuildStatusRequest remoteBuildStatusRequest = RemoteBuildStatusRequest.builder()
+                .jobId(remoteBuildResponse.getJobId())
+                .build();
+            RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client);
             stopWatch = new StopWatch().start();
-            RemoteStatusResponse remoteStatusResponse = client.awaitVectorBuild(remoteBuildResponse);
+            RemoteBuildStatusResponse remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            vectorRepositoryAccessor.readFromRepository(remoteStatusResponse.getIndexPath(), indexInfo.getIndexOutputWithBuffer());
+            vectorRepositoryAccessor.readFromRepository(remoteBuildStatusResponse.getFileName(), indexInfo.getIndexOutputWithBuffer());
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Repository read took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
         } catch (Exception e) {
@@ -149,10 +173,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     }
 
     /**
-     * Gets the KNN repository container from the repository service.
-     *
-     * @return {@link RepositoriesService}
-     * @throws RepositoryMissingException if repository is not registered or if {@link KNN_REMOTE_VECTOR_REPO_SETTING} is not set
+     * @return {@link BlobStoreRepository} referencing the repository
+     * @throws RepositoryMissingException if repository is not registered or if {@link KNNSettings#KNN_REMOTE_VECTOR_REPO_SETTING} is not set
      */
     private BlobStoreRepository getRepository() throws RepositoryMissingException {
         RepositoriesService repositoriesService = repositoriesServiceSupplier.get();
@@ -165,4 +187,5 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         assert repository instanceof BlobStoreRepository : "Repository should be instance of BlobStoreRepository";
         return (BlobStoreRepository) repository;
     }
+
 }

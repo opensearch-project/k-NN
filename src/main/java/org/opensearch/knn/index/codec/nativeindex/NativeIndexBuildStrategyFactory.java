@@ -5,15 +5,18 @@
 
 package org.opensearch.knn.index.codec.nativeindex;
 
+import lombok.Setter;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
@@ -27,6 +30,8 @@ public final class NativeIndexBuildStrategyFactory {
 
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final IndexSettings indexSettings;
+    @Setter
+    private KNNMethodContext knnMethodContext;
 
     public NativeIndexBuildStrategyFactory() {
         this(null, null);
@@ -35,6 +40,10 @@ public final class NativeIndexBuildStrategyFactory {
     public NativeIndexBuildStrategyFactory(Supplier<RepositoriesService> repositoriesServiceSupplier, IndexSettings indexSettings) {
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
         this.indexSettings = indexSettings;
+    }
+
+    private Optional<KNNMethodContext> getKnnMethodContext() {
+        return Optional.ofNullable(knnMethodContext);
     }
 
     /**
@@ -64,9 +73,10 @@ public final class NativeIndexBuildStrategyFactory {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()
             && repositoriesServiceSupplier != null
             && indexSettings != null
-            && knnEngine.supportsRemoteIndexBuild()
+            && getKnnMethodContext().isPresent()
+            && knnEngine.supportsRemoteIndexBuild(getKnnMethodContext().get().getMethodComponentContext())
             && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength)) {
-            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings);
+            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, getKnnMethodContext().get());
         } else {
             return strategy;
         }

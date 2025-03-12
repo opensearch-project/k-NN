@@ -138,7 +138,7 @@ public class KNNSettings {
 
     // TODO: Tune these default values based on benchmarking
     public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = 60;
-    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 30;
+    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 5;
 
     /**
      * Settings Definition
@@ -781,6 +781,20 @@ public class KNNSettings {
      */
     public static String getRemoteBuildServiceEndpoint() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT);
+    }
+
+    /**
+     * Gets the amount of time the client will wait before abandoning a remote build.
+     */
+    public static TimeValue getRemoteBuildClientTimeout() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT);
+    }
+
+    /**
+     * Gets the interval at which a RemoteIndexPoller will poll for remote build status.
+     */
+    public static TimeValue getRemoteBuildClientPollInterval() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL);
     }
 
     public static boolean isFaissAVX2Disabled() {
