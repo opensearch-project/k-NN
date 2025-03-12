@@ -50,7 +50,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
 import org.opensearch.knn.indices.ModelDao;
-
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -157,11 +156,20 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             () -> null,
             (n, c, o) -> KNNMethodContext.parse(o),
             m -> toType(m).originalMappingParameters.getKnnMethodContext()
-        ).setSerializer(((b, n, v) -> {
-            b.startObject(n);
-            v.toXContent(b, ToXContent.EMPTY_PARAMS);
-            b.endObject();
-        }), m -> m.getMethodComponentContext().getName());
+        ).setSerializer(
+            // Main serializer - handles null values with nullField
+            (b, f, v) -> {
+                if (v == null) {
+                    b.nullField(f);
+                } else {
+                    b.startObject(f);
+                    v.toXContent(b, ToXContent.EMPTY_PARAMS);
+                    b.endObject();
+                }
+            },
+            // Conflict serializer - simple string representation for error messages
+            v -> v == null ? null : v.getMethodComponentContext().getName()
+        );
 
         protected final Parameter<String> mode = Parameter.restrictedStringParam(
             KNNConstants.MODE_PARAMETER,
