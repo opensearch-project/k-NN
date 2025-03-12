@@ -23,8 +23,10 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -449,6 +451,54 @@ public class FaissIT extends KNNRestTestCase {
         final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
 
         assertEquals(1, knnResults.size());
+    }
+
+    @SneakyThrows
+    public void testQueryWithFilterFunctionAppliedMultipleShards() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, "3")
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject(INTEGER_FIELD_NAME)
+            .field(TYPE_FIELD_NAME, FILED_TYPE_INTEGER)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        createIndex(INDEX_NAME, Settings.builder().put("number_of_shards", 10).put("number_of_replicas", 0).put("index.knn", true).build());
+        putMappingRequest(INDEX_NAME, mapping);
+
+        addKnnDocWithAttributes("doc1", new float[] { 7.0f, 7.0f, 3.0f }, ImmutableMap.of("dateReceived", "2024-10-01"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 7.0f, 3.0f };
+
+        // Add initial RangeQuery to a new KNNQueryBuilder
+        RangeQueryBuilder rangeQueryBuilder = QueryBuilders.rangeQuery("dateReceived").gte("2023-11-01");
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, searchVector, 1, null);
+        KNNQueryBuilder updatedKnnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.filter(rangeQueryBuilder);
+        Response response = searchKNNIndex(INDEX_NAME, updatedKnnQueryBuilder, 10);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(1, knnResults.size());
+
+        // Apply another MatchNoneQueryBuilder to new KNNQueryBuilder
+        updatedKnnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.filter(new MatchNoneQueryBuilder());
+        response = searchKNNIndex(INDEX_NAME, updatedKnnQueryBuilder, 10);
+        responseBody = EntityUtils.toString(response.getEntity());
+        knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(0, knnResults.size());
     }
 
     @SneakyThrows

@@ -22,6 +22,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.QueryRewriteContext;
@@ -1076,5 +1077,59 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then
         assertEquals(expected, actual);
+    }
+
+    @SneakyThrows
+    public void testFilter() {
+        // Test for Null Case
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K);
+        KNNQueryBuilder updatedKnnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.filter(null);
+        assertEquals(knnQueryBuilder, updatedKnnQueryBuilder);
+
+        // Test for valid case
+        /*
+                return KNNQueryBuilder.builder()
+            .fieldName(fieldName)
+            .vector(vector)
+            .k(k)
+            .maxDistance(maxDistance)
+            .minScore(minScore)
+            .methodParameters(methodParameters)
+            .filter(filterToBeAdded)
+            .ignoreUnmapped(ignoreUnmapped)
+            .rescoreContext(rescoreContext)
+            .expandNested(expandNested)
+            .build();
+         */
+        knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).filter(TERM_QUERY).k(K).build();
+        updatedKnnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.filter(TERM_QUERY);
+        BoolQueryBuilder expectedUpdatedQueryFilter = new BoolQueryBuilder();
+        expectedUpdatedQueryFilter.must(TERM_QUERY);
+        expectedUpdatedQueryFilter.filter(TERM_QUERY);
+        assertEquals(knnQueryBuilder.fieldName(), updatedKnnQueryBuilder.fieldName());
+        assertEquals(knnQueryBuilder.vector(), updatedKnnQueryBuilder.vector());
+        assertEquals(knnQueryBuilder.getK(), updatedKnnQueryBuilder.getK());
+        assertEquals(knnQueryBuilder.getMaxDistance(), updatedKnnQueryBuilder.getMaxDistance());
+        assertEquals(knnQueryBuilder.getMinScore(), updatedKnnQueryBuilder.getMinScore());
+        assertEquals(knnQueryBuilder.getMethodParameters(), updatedKnnQueryBuilder.getMethodParameters());
+        assertEquals(knnQueryBuilder.isIgnoreUnmapped(), updatedKnnQueryBuilder.isIgnoreUnmapped());
+        assertEquals(knnQueryBuilder.getRescoreContext(), updatedKnnQueryBuilder.getRescoreContext());
+        assertEquals(knnQueryBuilder.getExpandNested(), updatedKnnQueryBuilder.getExpandNested());
+        assertEquals(expectedUpdatedQueryFilter, updatedKnnQueryBuilder.getFilter());
+
+        // Test for queryBuilder without filter initialized where filter function would
+        // simply assign filter to its filter field.
+        knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(K).build();
+        updatedKnnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.filter(TERM_QUERY);
+        assertEquals(knnQueryBuilder.fieldName(), updatedKnnQueryBuilder.fieldName());
+        assertEquals(knnQueryBuilder.vector(), updatedKnnQueryBuilder.vector());
+        assertEquals(knnQueryBuilder.getK(), updatedKnnQueryBuilder.getK());
+        assertEquals(knnQueryBuilder.getMaxDistance(), updatedKnnQueryBuilder.getMaxDistance());
+        assertEquals(knnQueryBuilder.getMinScore(), updatedKnnQueryBuilder.getMinScore());
+        assertEquals(knnQueryBuilder.getMethodParameters(), updatedKnnQueryBuilder.getMethodParameters());
+        assertEquals(knnQueryBuilder.isIgnoreUnmapped(), updatedKnnQueryBuilder.isIgnoreUnmapped());
+        assertEquals(knnQueryBuilder.getRescoreContext(), updatedKnnQueryBuilder.getRescoreContext());
+        assertEquals(knnQueryBuilder.getExpandNested(), updatedKnnQueryBuilder.getExpandNested());
+        assertEquals(TERM_QUERY, updatedKnnQueryBuilder.getFilter());
     }
 }

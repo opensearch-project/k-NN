@@ -381,6 +381,46 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         KNNQueryBuilderParser.toXContent(builder, params, this);
     }
 
+    /**
+     * Add a filter to Neural Query Builder
+     * @param filterToBeAdded fiXlter to be added
+     * @return return itself with underlying filter combined with passed in filter
+     */
+    @Override
+    public QueryBuilder filter(QueryBuilder filterToBeAdded) {
+        if (validateFilterParams(filterToBeAdded) == false) {
+            return this;
+        }
+
+        if (this.filter == null) {
+            return KNNQueryBuilder.builder()
+                .fieldName(fieldName)
+                .vector(vector)
+                .k(k)
+                .maxDistance(maxDistance)
+                .minScore(minScore)
+                .methodParameters(methodParameters)
+                .filter(filterToBeAdded)
+                .ignoreUnmapped(ignoreUnmapped)
+                .rescoreContext(rescoreContext)
+                .expandNested(expandNested)
+                .build();
+        }
+
+        return KNNQueryBuilder.builder()
+            .fieldName(fieldName)
+            .vector(vector)
+            .k(k)
+            .maxDistance(maxDistance)
+            .minScore(minScore)
+            .methodParameters(methodParameters)
+            .filter(filter.filter(filterToBeAdded))
+            .ignoreUnmapped(ignoreUnmapped)
+            .rescoreContext(rescoreContext)
+            .expandNested(expandNested)
+            .build();
+    }
+
     @Override
     protected Query doToQuery(QueryShardContext context) {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
