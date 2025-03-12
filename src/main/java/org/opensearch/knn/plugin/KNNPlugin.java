@@ -21,6 +21,7 @@ import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
@@ -41,7 +42,6 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
-import org.opensearch.knn.index.remote.RemoteIndexHTTPClient;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
@@ -95,6 +95,7 @@ import org.opensearch.plugins.ReloadablePlugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.plugins.SystemIndexPlugin;
+import org.opensearch.remoteindexbuild.client.RemoteIndexHTTPClient;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
@@ -393,7 +394,9 @@ public class KNNPlugin extends Plugin
     @Override
     public void reload(Settings settings) {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
-            RemoteIndexHTTPClient.reloadAuthHeader(settings);
+            SecureString username = KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING.get(settings);
+            SecureString password = KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.get(settings);
+            RemoteIndexHTTPClient.reloadAuthHeader(username, password);
         }
     }
 }

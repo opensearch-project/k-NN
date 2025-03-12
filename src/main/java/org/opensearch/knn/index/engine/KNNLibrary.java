@@ -8,7 +8,7 @@ package org.opensearch.knn.index.engine;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.remote.RemoteIndexParameters;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Collections;
 import java.util.List;

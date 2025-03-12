@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.annotation.ExperimentalApi;
@@ -13,11 +15,13 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.remote.RemoteBuildRequest;
-import org.opensearch.knn.index.remote.RemoteBuildResponse;
-import org.opensearch.knn.index.remote.RemoteIndexClient;
-import org.opensearch.knn.index.remote.RemoteIndexClientFactory;
-import org.opensearch.knn.index.remote.RemoteStatusResponse;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClientFactory;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
+import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildResponse;
+import org.opensearch.remoteindexbuild.model.RemoteStatusResponse;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -26,6 +30,10 @@ import org.opensearch.repositories.blobstore.BlobStoreRepository;
 import java.io.IOException;
 import java.util.function.Supplier;
 
+import static org.opensearch.knn.common.KNNConstants.BUCKET;
+import static org.opensearch.knn.common.KNNConstants.DOC_ID_FILE_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.S3;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_BLOB_FILE_EXTENSION;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
@@ -125,15 +133,15 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Repository write took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
-            RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient();
-            RemoteBuildRequest request = new RemoteBuildRequest(indexSettings, indexInfo, getRepository().getMetadata(), blobName);
+            final RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient(KNNSettings.getRemoteBuildServiceEndpoint());
+            final RemoteBuildRequest request = buildRemoteBuildRequest(indexSettings, indexInfo, getRepository().getMetadata(), blobName);
             stopWatch = new StopWatch().start();
-            RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(request);
+            final RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(request);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
             stopWatch = new StopWatch().start();
-            RemoteStatusResponse remoteStatusResponse = client.awaitVectorBuild(remoteBuildResponse);
+            final RemoteStatusResponse remoteStatusResponse = client.awaitVectorBuild(remoteBuildResponse);
             time_in_millis = stopWatch.stop().totalTime().millis();
             log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
 
@@ -152,7 +160,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * Gets the KNN repository container from the repository service.
      *
      * @return {@link RepositoriesService}
-     * @throws RepositoryMissingException if repository is not registered or if {@link KNN_REMOTE_VECTOR_REPO_SETTING} is not set
+     * @throws RepositoryMissingException if repository is not registered or if {@link KNNSettings#KNN_REMOTE_VECTOR_REPO_SETTING} is not set
      */
     private BlobStoreRepository getRepository() throws RepositoryMissingException {
         RepositoriesService repositoriesService = repositoriesServiceSupplier.get();
@@ -164,5 +172,39 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         final Repository repository = repositoriesService.repository(vectorRepo);
         assert repository instanceof BlobStoreRepository : "Repository should be instance of BlobStoreRepository";
         return (BlobStoreRepository) repository;
+    }
+
+    private RemoteBuildRequest buildRemoteBuildRequest(
+        final IndexSettings indexSettings,
+        final BuildIndexParams indexInfo,
+        final RepositoryMetadata repositoryMetadata,
+        final String blobName
+    ) throws IOException {
+        String repositoryType = repositoryMetadata.type();
+        String containerName;
+        switch (repositoryType) {
+            case S3 -> containerName = repositoryMetadata.settings().get(BUCKET);
+            default -> throw new IllegalArgumentException(
+                "Repository type " + repositoryType + " is not supported by the remote build service"
+            );
+        }
+        String vectorDataType = indexInfo.getVectorDataType().getValue();
+
+        KNNVectorValues<?> vectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+        KNNCodecUtil.initializeVectorValues(vectorValues);
+        assert (vectorValues.dimension() > 0);
+
+        return RemoteBuildRequest.builder()
+            .repositoryType(repositoryType)
+            .containerName(containerName)
+            .vectorPath(blobName + VECTOR_BLOB_FILE_EXTENSION)
+            .docIdPath(blobName + DOC_ID_FILE_EXTENSION)
+            .tenantId(indexSettings.getSettings().get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
+            .dimension(vectorValues.dimension())
+            .docCount(indexInfo.getTotalLiveDocs())
+            .vectorDataType(vectorDataType)
+            .engine(indexInfo.getKnnEngine().getName())
+            .indexParameters(indexInfo.getKnnEngine().createRemoteIndexingParameters(indexInfo.getParameters()))
+            .build();
     }
 }

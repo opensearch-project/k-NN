@@ -12,7 +12,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
-import org.opensearch.knn.index.remote.RemoteIndexParameters;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.List;
 import java.util.Map;

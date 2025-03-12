@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.model;
 
 import lombok.experimental.SuperBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -12,7 +12,9 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.knn.KNNTestCase;
+import org.opensearch.remoteindexbuild.TestConstants;
+import org.opensearch.remoteindexbuild.constants.KNNRemoteConstants;
+import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
 import java.util.Map;
@@ -21,13 +23,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.opensearch.core.xcontent.DeprecationHandler.THROW_UNSUPPORTED_OPERATION;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.index.SpaceType.L2;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.ALGORITHM;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.ALGORITHM_PARAMETERS;
 
-public class RemoteIndexParametersTests extends KNNTestCase {
+public class RemoteIndexParametersTests extends OpenSearchTestCase {
     @SuperBuilder
     private static class TestRemoteIndexParameters extends RemoteIndexParameters {
 
@@ -40,7 +37,7 @@ public class RemoteIndexParametersTests extends KNNTestCase {
 
         @Override
         void addAlgorithmParameters(XContentBuilder builder) throws IOException {
-            builder.startObject(ALGORITHM_PARAMETERS);
+            builder.startObject(KNNRemoteConstants.ALGORITHM_PARAMETERS);
             builder.field(TEST_PARAM, TEST_VALUE);
             builder.endObject();
         }
@@ -48,7 +45,9 @@ public class RemoteIndexParametersTests extends KNNTestCase {
 
     @SuppressWarnings("unchecked")
     public void testToXContent() throws IOException {
-        TestRemoteIndexParameters params = spy(TestRemoteIndexParameters.builder().spaceType(L2.getValue()).algorithm(METHOD_HNSW).build());
+        TestRemoteIndexParameters params = spy(
+            TestRemoteIndexParameters.builder().spaceType(TestConstants.L2_SPACE_TYPE).algorithm(TestConstants.HNSW_ALGORITHM).build()
+        );
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
         params.toXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -62,10 +61,10 @@ public class RemoteIndexParametersTests extends KNNTestCase {
         ) {
             Map<String, Object> map = parser.map();
 
-            assertEquals(L2.getValue(), map.get(METHOD_PARAMETER_SPACE_TYPE));
-            assertEquals(METHOD_HNSW, map.get(ALGORITHM));
+            assertEquals(TestConstants.L2_SPACE_TYPE, map.get(KNNRemoteConstants.METHOD_PARAMETER_SPACE_TYPE));
+            assertEquals(TestConstants.HNSW_ALGORITHM, map.get(KNNRemoteConstants.ALGORITHM));
 
-            Map<String, Object> algorithmParams = (Map<String, Object>) map.get(ALGORITHM_PARAMETERS);
+            Map<String, Object> algorithmParams = (Map<String, Object>) map.get(KNNRemoteConstants.ALGORITHM_PARAMETERS);
             assertEquals(TestRemoteIndexParameters.TEST_VALUE, algorithmParams.get(TestRemoteIndexParameters.TEST_PARAM));
         }
         verify(params).addAlgorithmParameters(any(XContentBuilder.class));
