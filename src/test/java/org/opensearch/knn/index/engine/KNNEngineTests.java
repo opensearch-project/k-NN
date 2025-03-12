@@ -6,16 +6,34 @@
 package org.opensearch.knn.index.engine;
 
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.COMPOUND_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.index.SpaceType.L2;
+import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.createMockMethodContext;
+
 public class KNNEngineTests extends KNNTestCase {
+
+    public static final String KNN_FIELD = "knn_field";
+    public static final String PER_FIELD_KNN_VECTORS_FORMAT_SUFFIX = "PerFieldKnnVectorsFormat.suffix";
+    public static final String PER_FIELD_KNN_VECTORS_FORMAT_FORMAT = "PerFieldKnnVectorsFormat.format";
+
     /**
      * Check that version from engine and library match
      */
@@ -33,26 +51,26 @@ public class KNNEngineTests extends KNNTestCase {
      * Test name getter
      */
     public void testGetName() {
-        assertEquals(KNNConstants.NMSLIB_NAME, KNNEngine.NMSLIB.getName());
+        assertEquals(NMSLIB_NAME, KNNEngine.NMSLIB.getName());
     }
 
     /**
      * Test engine getter
      */
     public void testGetEngine() {
-        assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngine(KNNConstants.NMSLIB_NAME));
+        assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngine(NMSLIB_NAME));
         expectThrows(IllegalArgumentException.class, () -> KNNEngine.getEngine("invalid"));
     }
 
     public void testGetEngineFromPath() {
         String hnswPath1 = "test" + Nmslib.EXTENSION;
         assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath1));
-        String hnswPath2 = "test" + Nmslib.EXTENSION + KNNConstants.COMPOUND_EXTENSION;
+        String hnswPath2 = "test" + Nmslib.EXTENSION + COMPOUND_EXTENSION;
         assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath2));
 
-        String faissPath1 = "test" + KNNConstants.FAISS_EXTENSION;
+        String faissPath1 = "test" + FAISS_EXTENSION;
         assertEquals(KNNEngine.FAISS, KNNEngine.getEngineNameFromPath(faissPath1));
-        String faissPath2 = "test" + KNNConstants.FAISS_EXTENSION + KNNConstants.COMPOUND_EXTENSION;
+        String faissPath2 = "test" + FAISS_EXTENSION + COMPOUND_EXTENSION;
         assertEquals(KNNEngine.FAISS, KNNEngine.getEngineNameFromPath(faissPath2));
 
         String invalidPath = "test.invalid";
@@ -68,4 +86,44 @@ public class KNNEngineTests extends KNNTestCase {
         assertTrue(expectedSettings.containsAll(mmapExtensions));
         assertTrue(mmapExtensions.containsAll(expectedSettings));
     }
+
+    /**
+     * The remote build service currently only supports HNSWFlat.
+     */
+    public void testSupportsRemoteIndexBuild() {
+        KNNEngine Faiss = KNNEngine.FAISS;
+        KNNEngine Lucene = KNNEngine.LUCENE;
+
+        KNNMethodContext faissHNSWFlat = createMockMethodContext();
+        KNNMethodContext faissIVFFlat = createFaissIVFMethodContext();
+        KNNMethodContext luceneHNSWFlat = createLuceneHNSWMethodContext();
+
+        assertTrue(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext()));
+        assertFalse(Faiss.supportsRemoteIndexBuild(faissIVFFlat.getMethodComponentContext()));
+        assertFalse(Lucene.supportsRemoteIndexBuild(luceneHNSWFlat.getMethodComponentContext()));
+    }
+
+    public static KNNMethodContext createFaissIVFMethodContext() {
+        MethodComponentContext encoder = new MethodComponentContext(ENCODER_SQ, Map.of());
+        Map<String, Object> encoderMap = Map.of(METHOD_ENCODER_PARAMETER, encoder);
+        Map<String, Object> parameters = Map.of(
+            METHOD_PARAMETER_EF_SEARCH,
+            24,
+            METHOD_PARAMETER_EF_CONSTRUCTION,
+            28,
+            METHOD_PARAMETER_M,
+            12,
+            METHOD_ENCODER_PARAMETER,
+            encoderMap
+        );
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_IVF, parameters);
+        return new KNNMethodContext(KNNEngine.FAISS, L2, methodComponentContext);
+    }
+
+    public static KNNMethodContext createLuceneHNSWMethodContext() {
+        Map<String, Object> parameters = Map.of(METHOD_PARAMETER_EF_CONSTRUCTION, 28, METHOD_PARAMETER_M, 12);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
+        return new KNNMethodContext(KNNEngine.LUCENE, L2, methodComponentContext);
+    }
+
 }

@@ -15,7 +15,6 @@ import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStore;
 import org.opensearch.common.blobstore.fs.FsBlobStore;
-import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
@@ -27,7 +26,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Random;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -55,9 +53,8 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         when(mockRepository.blobStore()).thenReturn(mockBlobStore);
 
         BlobContainer testContainer = Mockito.spy(new TestBlobContainer(mock(FsBlobStore.class), testBasePath, mock(Path.class)));
-        when(mockBlobStore.blobContainer(any())).thenReturn(testContainer);
 
-        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(mockRepository, mock(IndexSettings.class));
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(testContainer);
 
         String BLOB_NAME = "test_blob";
         int NUM_DOCS = 100;
@@ -72,8 +69,6 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
             eq(true)
         );
         verify(testContainer).writeBlob(eq(BLOB_NAME + DOC_ID_FILE_EXTENSION), any(), eq((long) NUM_DOCS * Integer.BYTES), eq(true));
-        verify(mockBlobStore).blobContainer(any());
-        verify(mockRepository).basePath();
     }
 
     /**
@@ -92,9 +87,8 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         AsyncMultiStreamBlobContainer testContainer = Mockito.spy(
             new TestAsyncBlobContainer(mock(FsBlobStore.class), testBasePath, mock(Path.class), false)
         );
-        when(mockBlobStore.blobContainer(any())).thenReturn(testContainer);
 
-        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(mockRepository, mock(IndexSettings.class));
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(testContainer);
 
         String BLOB_NAME = "test_blob";
         int NUM_DOCS = 100;
@@ -102,8 +96,6 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
 
         verify(testContainer).asyncBlobUpload(any(), any());
         verify(testContainer).writeBlob(eq(BLOB_NAME + DOC_ID_FILE_EXTENSION), any(), eq((long) NUM_DOCS * Integer.BYTES), eq(true));
-        verify(mockBlobStore).blobContainer(any());
-        verify(mockRepository).basePath();
     }
 
     /**
@@ -122,9 +114,8 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         AsyncMultiStreamBlobContainer testContainer = Mockito.spy(
             new TestAsyncBlobContainer(mock(FsBlobStore.class), testBasePath, mock(Path.class), true)
         );
-        when(mockBlobStore.blobContainer(any())).thenReturn(testContainer);
 
-        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(mockRepository, mock(IndexSettings.class));
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(testContainer);
 
         String BLOB_NAME = "test_blob";
         int NUM_DOCS = 100;
@@ -136,8 +127,6 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         verify(testContainer).asyncBlobUpload(any(), any());
         // Doc ids should still get written because exception is handled after awaiting on asyncBlobUpload
         verify(testContainer).writeBlob(eq(BLOB_NAME + DOC_ID_FILE_EXTENSION), any(), eq((long) NUM_DOCS * Integer.BYTES), eq(true));
-        verify(mockBlobStore).blobContainer(any());
-        verify(mockRepository).basePath();
     }
 
     /**
@@ -173,21 +162,13 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         when(mockBlobStore.blobContainer(any())).thenReturn(mockBlobContainer);
         when(mockBlobContainer.readBlob(TEST_FILE_NAME)).thenReturn(randomStream);
 
-        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(mockRepository, mock(IndexSettings.class));
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(mockBlobContainer);
 
         // Verify file extension check
         assertThrows(IllegalArgumentException.class, () -> objectUnderTest.readFromRepository("test_file.txt", testIndexOutputWithBuffer));
 
-        // Now test with valid file extensions
-        String testPath = randomFrom(
-            List.of(
-                "testBasePath/testDirectory/" + TEST_FILE_NAME, // Test with subdirectory
-                "testBasePath/" + TEST_FILE_NAME, // Test with only base path
-                TEST_FILE_NAME // test with no base path
-            )
-        );
         // This should read from randomStream into testIndexOutput
-        objectUnderTest.readFromRepository(testPath, testIndexOutputWithBuffer);
+        objectUnderTest.readFromRepository(TEST_FILE_NAME, testIndexOutputWithBuffer);
         testIndexOutput.close();
 
         // Now try to read from the IndexOutput
