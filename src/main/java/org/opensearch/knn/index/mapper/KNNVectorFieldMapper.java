@@ -169,7 +169,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             },
             // Conflict serializer - simple string representation for error messages
             v -> v == null ? null : v.getMethodComponentContext().getName()
-        ).acceptsNull();
+        );
 
         protected final Parameter<String> mode = Parameter.restrictedStringParam(
             KNNConstants.MODE_PARAMETER,
