@@ -1245,7 +1245,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         );
     }
 
-    public void testKNNVectorMappingUpdate_whenDimensionChanged_thenSucceeds() throws Exception {
+    public void testCreateKNNIndexWithDifferentDimension() throws Exception {
         String indexName = "test-knn-index-partial";
         String fieldName = "my_vector2";
 
