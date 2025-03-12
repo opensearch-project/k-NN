@@ -305,7 +305,10 @@ dependencies {
     // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
     testFixturesImplementation('com.jayway.jsonpath:json-path:2.9.0') {
         exclude group: 'org.slf4j', module: 'slf4j-api'
+        exclude group: 'net.minidev', module: 'json-smart'
     }
+    // Explicitly include a safe version of json-smart for test fixtures
+    testFixturesImplementation group: 'net.minidev', name: 'json-smart', version: "${versions.json_smart}"
     testFixturesImplementation "org.opensearch:common-utils:${version}"
     implementation 'com.github.oshi:oshi-core:6.4.13'
     api "net.java.dev.jna:jna:5.13.0"
