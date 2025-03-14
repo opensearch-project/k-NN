@@ -18,7 +18,7 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceVectorInjector;
 import java.io.IOException;
 import java.util.List;
 
-public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
+public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     private final StoredFieldsReader delegate;
     private final List<FieldInfo> derivedVectorFields;
     private final DerivedSourceReadersSupplier derivedSourceReadersSupplier;
@@ -35,7 +35,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
      * @param segmentReadState SegmentReadState for the segment
      * @throws IOException in case of I/O error
      */
-    public DerivedSourceStoredFieldsReader(
+    public KNN9120DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
         DerivedSourceReadersSupplier derivedSourceReadersSupplier,
@@ -44,7 +44,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
         this(delegate, derivedVectorFields, derivedSourceReadersSupplier, segmentReadState, true);
     }
 
-    private DerivedSourceStoredFieldsReader(
+    private KNN9120DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
         DerivedSourceReadersSupplier derivedSourceReadersSupplier,
@@ -83,7 +83,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     @Override
     public StoredFieldsReader clone() {
         try {
-            return new DerivedSourceStoredFieldsReader(
+            return new KNN9120DerivedSourceStoredFieldsReader(
                 delegate.clone(),
                 derivedVectorFields,
                 derivedSourceReadersSupplier,
@@ -114,7 +114,7 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
      */
     private StoredFieldsReader cloneForMerge() {
         try {
-            return new DerivedSourceStoredFieldsReader(
+            return new KNN9120DerivedSourceStoredFieldsReader(
                 delegate.getMergeInstance(),
                 derivedVectorFields,
                 derivedSourceReadersSupplier,
@@ -134,8 +134,8 @@ public class DerivedSourceStoredFieldsReader extends StoredFieldsReader {
      * @return wrapped stored fields reader
      */
     public static StoredFieldsReader wrapForMerge(StoredFieldsReader storedFieldsReader) {
-        if (storedFieldsReader instanceof DerivedSourceStoredFieldsReader) {
-            return ((DerivedSourceStoredFieldsReader) storedFieldsReader).cloneForMerge();
+        if (storedFieldsReader instanceof KNN9120DerivedSourceStoredFieldsReader) {
+            return ((KNN9120DerivedSourceStoredFieldsReader) storedFieldsReader).cloneForMerge();
         }
         return storedFieldsReader;
     }
