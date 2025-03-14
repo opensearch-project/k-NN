@@ -18,6 +18,7 @@ Add filter function to KNNQueryBuilder with unit tests and integration tests [#2
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features
+* Add support for Lucene int4 SQ [2253](https://github.com/opensearch-project/k-NN/pull/2253)
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure
