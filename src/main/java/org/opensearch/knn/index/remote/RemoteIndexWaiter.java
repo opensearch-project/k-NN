@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.index.remote;
 
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
+
 import java.io.IOException;
 
 public interface RemoteIndexWaiter {

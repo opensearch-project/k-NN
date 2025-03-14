@@ -3,14 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.constants;
 
 // Public class to define the constants used by Remote Index Build in 2 or more classes.
 public class KNNRemoteConstants {
     // Repository filepath constants
     public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
     public static final String DOC_ID_FILE_EXTENSION = ".knndid";
-    public static final String VECTORS_PATH = "_vectors";
 
     // Repository-S3
     public static final String S3 = "s3";
@@ -19,6 +18,11 @@ public class KNNRemoteConstants {
     // Build request keys
     public static final String ALGORITHM = "algorithm";
     public static final String ALGORITHM_PARAMETERS = "algorithm_parameters";
+    public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type";
+    public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
+    public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
+    public static final String METHOD_PARAMETER_M = "m";
+    public static final String METHOD_PARAMETER_ENCODER = "encoder";
     public static final String INDEX_PARAMETERS = "index_parameters";
     public static final String DOC_COUNT = "doc_count";
     public static final String TENANT_ID = "tenant_id";
@@ -42,4 +46,8 @@ public class KNNRemoteConstants {
     public static final String FAILED_INDEX_BUILD = "FAILED_INDEX_BUILD";
     public static final String FILE_NAME = "file_name";
     public static final String ERROR_MESSAGE = "error_message";
+
+    public static final String DIMENSION = "dimension";
+    public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
+    public static final String KNN_ENGINE = "engine";
 }

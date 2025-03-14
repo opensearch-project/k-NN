@@ -165,4 +165,13 @@ public class KNNConstants {
     public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY = "knn-derived-source-enabled";
     public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE = "true";
     public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_FALSE_VALUE = "false";
+
+    // Repository filepath constants
+    public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
+    public static final String DOC_ID_FILE_EXTENSION = ".knndid";
+    public static final String VECTORS_PATH = "_vectors";
+
+    // Repository-S3
+    public static final String S3 = "s3";
+    public static final String BUCKET = "bucket";
 }

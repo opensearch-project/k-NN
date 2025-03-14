@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.model;
 
 import lombok.Builder;
 import lombok.Value;
@@ -12,9 +12,9 @@ import org.opensearch.core.xcontent.XContentParser;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.ERROR_MESSAGE;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.ERROR_MESSAGE;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.FILE_NAME;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.TASK_STATUS;
 
 /**
  * Response from the remote index build service. This class is used to parse the response from the remote index build service.
@@ -40,7 +40,7 @@ public class RemoteBuildStatusResponse {
      *     "error_message": "String"
      * } }</pre>
      */
-    static RemoteBuildStatusResponse fromXContent(XContentParser parser) throws IOException {
+    public static RemoteBuildStatusResponse fromXContent(XContentParser parser) throws IOException {
         final RemoteBuildStatusResponseBuilder builder = new RemoteBuildStatusResponseBuilder();
         XContentParser.Token token = parser.nextToken();
         if (token != XContentParser.Token.START_OBJECT) {
