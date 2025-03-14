@@ -16,6 +16,9 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import java.io.IOException;
@@ -24,15 +27,17 @@ import java.util.Set;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
-import static org.opensearch.knn.index.remote.RemoteBuildStatusResponseTests.MOCK_FILE_NAME;
-import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_JOB_ID;
+
+import static org.opensearch.knn.index.remote.RemoteIndexPoller.COMPLETED_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.RemoteIndexPoller.FAILED_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.RemoteIndexPoller.FILE_NAME;
+import static org.opensearch.knn.index.remote.RemoteIndexPoller.RUNNING_INDEX_BUILD;
+import static org.opensearch.knn.index.remote.RemoteIndexPoller.TASK_STATUS;
 
 public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
+    public static final String MOCK_JOB_ID = "job-1739930402";
+    public static final String MOCK_FILE_NAME = "graph.faiss";
+
     @Mock
     private static ClusterService clusterService;
 
@@ -63,7 +68,11 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMillis(10));
             when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
 
-            RemoteBuildStatusResponse runningResponse = new RemoteBuildStatusResponse(RUNNING_INDEX_BUILD, null, null);
+            RemoteBuildStatusResponse runningResponse = RemoteBuildStatusResponse.builder()
+                .taskStatus(RUNNING_INDEX_BUILD)
+                .fileName(null)
+                .errorMessage(null)
+                .build();
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(runningResponse);
 
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
@@ -81,7 +90,11 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMinutes(1));
             when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
 
-            RemoteBuildStatusResponse completedResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, MOCK_FILE_NAME, null);
+            RemoteBuildStatusResponse completedResponse = RemoteBuildStatusResponse.builder()
+                .taskStatus(COMPLETED_INDEX_BUILD)
+                .fileName(MOCK_FILE_NAME)
+                .errorMessage(null)
+                .build();
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(completedResponse);
 
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
@@ -104,7 +117,11 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
 
             String errorMessage = "Failed to build index due to insufficient resources";
 
-            RemoteBuildStatusResponse failedResponse = new RemoteBuildStatusResponse(FAILED_INDEX_BUILD, null, errorMessage);
+            RemoteBuildStatusResponse failedResponse = RemoteBuildStatusResponse.builder()
+                .taskStatus(FAILED_INDEX_BUILD)
+                .fileName(null)
+                .errorMessage(errorMessage)
+                .build();
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(failedResponse);
 
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
@@ -112,7 +129,12 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             InterruptedException exception = assertThrows(InterruptedException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
             assertTrue(exception.getMessage().contains(errorMessage));
 
-            RemoteBuildStatusResponse failedResponseNoError = new RemoteBuildStatusResponse(FAILED_INDEX_BUILD, null, null);
+            RemoteBuildStatusResponse failedResponseNoError = RemoteBuildStatusResponse.builder()
+                .taskStatus(FAILED_INDEX_BUILD)
+                .fileName(null)
+                .errorMessage(null)
+                .build();
+
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(failedResponseNoError);
             InterruptedException exceptionWithoutError = assertThrows(
                 InterruptedException.class,
@@ -131,7 +153,11 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMinutes(1));
             when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
 
-            RemoteBuildStatusResponse invalidResponse = new RemoteBuildStatusResponse(COMPLETED_INDEX_BUILD, null, null);
+            RemoteBuildStatusResponse invalidResponse = RemoteBuildStatusResponse.builder()
+                .taskStatus(COMPLETED_INDEX_BUILD)
+                .fileName(null)
+                .errorMessage(null)
+                .build();
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(invalidResponse);
@@ -152,7 +178,11 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
             when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMinutes(1));
             when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
 
-            RemoteBuildStatusResponse invalidResponse = new RemoteBuildStatusResponse(null, null, null);
+            RemoteBuildStatusResponse invalidResponse = RemoteBuildStatusResponse.builder()
+                .taskStatus(null)
+                .fileName(null)
+                .errorMessage(null)
+                .build();
             RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
 
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(invalidResponse);

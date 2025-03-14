@@ -3,18 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.model;
 
+import lombok.Getter;
 import lombok.experimental.SuperBuilder;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.ALGORITHM;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.ALGORITHM;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.METHOD_PARAMETER_SPACE_TYPE;
 
 @SuperBuilder
+@Getter
 public abstract class RemoteIndexParameters implements ToXContentObject {
     String spaceType;
     String algorithm;
