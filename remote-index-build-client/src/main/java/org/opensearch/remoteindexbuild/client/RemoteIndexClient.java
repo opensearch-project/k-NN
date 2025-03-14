@@ -3,7 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.client;
+
+import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildResponse;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
 
 import java.io.IOException;
 
@@ -11,7 +16,6 @@ import java.io.IOException;
  * Interface which dictates how we interact with a remote index build service.
  */
 public interface RemoteIndexClient {
-
     /**
      * Submit a build to the Remote Vector Build Service.
      * @return RemoteBuildResponse from the server

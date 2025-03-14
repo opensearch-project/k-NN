@@ -8,4 +8,5 @@ rootProject.name = 'opensearch-knn'
 include ":qa"
 include ":qa:rolling-upgrade"
 include ":qa:restart-upgrade"
+include ":remote-index-build-client"
 

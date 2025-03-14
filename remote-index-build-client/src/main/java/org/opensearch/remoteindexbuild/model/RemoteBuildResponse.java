@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.model;
 
 import lombok.Builder;
 import lombok.Value;
@@ -12,7 +12,7 @@ import org.opensearch.core.xcontent.XContentParser;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.JOB_ID_FIELD;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.JOB_ID_FIELD;
 
 /**
  * Response from the remote index build service. This class is used to parse the response from the remote index build service.

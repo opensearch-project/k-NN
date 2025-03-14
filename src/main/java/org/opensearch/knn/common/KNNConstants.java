@@ -161,4 +161,13 @@ public class KNNConstants {
 
     public static final String MODE_PARAMETER = "mode";
     public static final String COMPRESSION_LEVEL_PARAMETER = "compression_level";
+
+    // Repository filepath constants
+    public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
+    public static final String DOC_ID_FILE_EXTENSION = ".knndid";
+    public static final String VECTORS_PATH = "_vectors";
+
+    // Repository-S3
+    public static final String S3 = "s3";
+    public static final String BUCKET = "bucket";
 }

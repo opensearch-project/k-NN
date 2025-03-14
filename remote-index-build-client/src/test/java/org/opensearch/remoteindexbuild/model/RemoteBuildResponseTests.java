@@ -3,33 +3,33 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.model;
 
+import org.junit.Assert;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.knn.KNNTestCase;
+import org.opensearch.remoteindexbuild.TestConstants;
+import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.index.remote.RemoteBuildStatusResponseTests.UNKNOWN_FIELD;
-import static org.opensearch.knn.index.remote.RemoteBuildStatusResponseTests.UNKNOWN_VALUE;
-import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_JOB_ID;
-import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.MOCK_JOB_ID_RESPONSE;
+import static org.opensearch.remoteindexbuild.TestConstants.UNKNOWN_FIELD;
+import static org.opensearch.remoteindexbuild.TestConstants.UNKNOWN_VALUE;
 
-public class RemoteBuildResponseTests extends KNNTestCase {
+public class RemoteBuildResponseTests extends OpenSearchTestCase {
     public void testRemoteBuildResponseParsing() throws IOException {
         try (
             XContentParser parser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                MOCK_JOB_ID_RESPONSE
+                TestConstants.MOCK_JOB_ID_RESPONSE
             )
         ) {
             RemoteBuildResponse response = RemoteBuildResponse.fromXContent(parser);
-            assertNotNull(response);
-            assertEquals(MOCK_JOB_ID, response.getJobId());
+            Assert.assertNotNull(response);
+            Assert.assertEquals(TestConstants.MOCK_JOB_ID, response.getJobId());
         }
     }
 
@@ -42,7 +42,7 @@ public class RemoteBuildResponseTests extends KNNTestCase {
                 jsonResponse
             )
         ) {
-            assertThrows(IOException.class, () -> RemoteBuildResponse.fromXContent(parser));
+            Assert.assertThrows(IOException.class, () -> RemoteBuildResponse.fromXContent(parser));
         }
     }
 }

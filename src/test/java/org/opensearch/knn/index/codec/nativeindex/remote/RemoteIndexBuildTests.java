@@ -16,6 +16,8 @@ import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
 import org.junit.Before;
 import org.mockito.Mockito;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.blobstore.AsyncMultiStreamBlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
@@ -25,7 +27,9 @@ import org.opensearch.common.blobstore.fs.FsBlobStore;
 import org.opensearch.common.blobstore.stream.read.ReadContext;
 import org.opensearch.common.blobstore.stream.write.WriteContext;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -47,12 +51,16 @@ import java.util.function.Supplier;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BUCKET;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.S3;
 
 /**
  * Base test class for remote index build tests
  */
 abstract class RemoteIndexBuildTests extends KNNTestCase {
 
+    public static final String TEST_BUCKET = "test-bucket";
+    public static final String TEST_CLUSTER = "test-cluster";
     final List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
     final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(vectorValues);
     final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = KNNVectorValuesFactory.getVectorValuesSupplier(
@@ -155,5 +163,20 @@ abstract class RemoteIndexBuildTests extends KNNTestCase {
         when(clusterSettings.get(KNN_REMOTE_VECTOR_REPO_SETTING)).thenReturn("test-repo-name");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
+    }
+
+    public static IndexSettings createTestIndexSettings() {
+        IndexSettings mockIndexSettings = mock(IndexSettings.class);
+        Settings indexSettingsSettings = Settings.builder().put(ClusterName.CLUSTER_NAME_SETTING.getKey(), TEST_CLUSTER).build();
+        when(mockIndexSettings.getSettings()).thenReturn(indexSettingsSettings);
+        return mockIndexSettings;
+    }
+
+    public static RepositoryMetadata createTestRepositoryMetadata() {
+        RepositoryMetadata metadata = mock(RepositoryMetadata.class);
+        Settings repoSettings = Settings.builder().put(BUCKET, TEST_BUCKET).build();
+        when(metadata.type()).thenReturn(S3);
+        when(metadata.settings()).thenReturn(repoSettings);
+        return metadata;
     }
 }
