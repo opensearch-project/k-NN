@@ -92,7 +92,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     public static class Builder extends ParametrizedFieldMapper.Builder {
         protected Boolean ignoreMalformed;
-        protected final boolean isDerivedSourceEnabled;
 
         protected final Parameter<Boolean> stored = Parameter.storeParam(m -> toType(m).stored, false);
         protected final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
@@ -209,15 +208,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             ModelDao modelDao,
             Version indexCreatedVersion,
             KNNMethodConfigContext knnMethodConfigContext,
-            OriginalMappingParameters originalParameters,
-            boolean isDerivedSourceEnabled
+            OriginalMappingParameters originalParameters
         ) {
             super(name);
             this.modelDao = modelDao;
             this.indexCreatedVersion = indexCreatedVersion;
             this.knnMethodConfigContext = knnMethodConfigContext;
             this.originalParameters = originalParameters;
-            this.isDerivedSourceEnabled = isDerivedSourceEnabled;
         }
 
         @Override
@@ -271,8 +268,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     modelDao,
                     indexCreatedVersion,
                     originalParameters,
-                    knnMethodConfigContext,
-                    isDerivedSourceEnabled
+                    knnMethodConfigContext
                 );
             }
 
@@ -294,8 +290,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     ignoreMalformed,
                     stored.get(),
                     hasDocValues.get(),
-                    originalParameters,
-                    isDerivedSourceEnabled
+                    originalParameters
                 );
             }
 
@@ -316,8 +311,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     metaValue,
                     knnMethodConfigContext,
                     createLuceneFieldMapperInput,
-                    originalParameters,
-                    isDerivedSourceEnabled
+                    originalParameters
                 );
             }
 
@@ -331,8 +325,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 ignoreMalformed,
                 stored.getValue(),
                 hasDocValues.getValue(),
-                originalParameters,
-                isDerivedSourceEnabled
+                originalParameters
             );
         }
 
@@ -380,8 +373,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 modelDaoSupplier.get(),
                 parserContext.indexVersionCreated(),
                 null,
-                null,
-                KNNSettings.isKNNDerivedSourceEnabled(parserContext.getSettings())
+                null
             );
             builder.parse(name, parserContext, node);
             builder.setOriginalParameters(new OriginalMappingParameters(builder));
@@ -621,7 +613,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     // values of KNN engine Algorithms hyperparameters.
     protected Version indexCreatedVersion;
     protected Explicit<Boolean> ignoreMalformed;
-    protected final boolean isDerivedSourceEnabled;
     protected boolean stored;
     protected boolean hasDocValues;
     protected VectorDataType vectorDataType;
@@ -642,8 +633,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         boolean stored,
         boolean hasDocValues,
         Version indexCreatedVersion,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo);
         this.ignoreMalformed = ignoreMalformed;
@@ -653,7 +643,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         updateEngineStats();
         this.indexCreatedVersion = indexCreatedVersion;
         this.originalMappingParameters = originalMappingParameters;
-        this.isDerivedSourceEnabled = isDerivedSourceEnabled;
     }
 
     public KNNVectorFieldMapper clone() {
@@ -885,8 +874,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             modelDao,
             indexCreatedVersion,
             knnMethodConfigContext,
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         ).init(this);
     }
 

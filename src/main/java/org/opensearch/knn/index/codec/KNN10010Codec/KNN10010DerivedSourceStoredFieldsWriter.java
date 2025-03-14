@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN9120Codec;
+package org.opensearch.knn.index.codec.KNN10010Codec;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.codecs.StoredFieldsWriter;
@@ -20,6 +20,7 @@ import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.SourceFieldMapper;
+import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120DerivedSourceStoredFieldsReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,7 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @RequiredArgsConstructor
-public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
+public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
 
     private final StoredFieldsWriter delegate;
     private final List<String> vectorFieldTypes;
@@ -67,7 +68,7 @@ public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
     public int merge(MergeState mergeState) throws IOException {
         // We have to wrap these here to avoid storing the vectors during merge
         for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
-            mergeState.storedFieldsReaders[i] = DerivedSourceStoredFieldsReader.wrapForMerge(mergeState.storedFieldsReaders[i]);
+            mergeState.storedFieldsReaders[i] = KNN9120DerivedSourceStoredFieldsReader.wrapForMerge(mergeState.storedFieldsReaders[i]);
         }
         return delegate.merge(mergeState);
     }

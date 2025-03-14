@@ -28,8 +28,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY;
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 
@@ -62,8 +60,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         ModelDao modelDao,
         Version indexCreatedVersion,
         OriginalMappingParameters originalMappingParameters,
-        KNNMethodConfigContext knnMethodConfigContext,
-        boolean isDerivedSourceEnabled
+        KNNMethodConfigContext knnMethodConfigContext
     ) {
 
         final KNNMethodContext knnMethodContext = originalMappingParameters.getKnnMethodContext();
@@ -137,8 +134,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             hasDocValues,
             modelDao,
             indexCreatedVersion,
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         );
     }
 
@@ -152,8 +148,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         ModelDao modelDao,
         Version indexCreatedVersion,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
         super(
             simpleName,
@@ -164,8 +159,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             indexCreatedVersion,
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         );
         KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
         modelId = annConfig.getModelId().orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
@@ -180,9 +174,6 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.putAttribute(MODEL_ID, modelId);
-        if (isDerivedSourceEnabled) {
-            this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
-        }
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(this.indexCreatedVersion);
     }
 

@@ -14,9 +14,6 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY;
-import static org.opensearch.knn.common.KNNConstants.DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE;
-
 /**
  * Mapper used when you dont want to build an underlying KNN struct - you just want to
  * store vectors as doc values
@@ -35,8 +32,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -53,8 +49,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext.getVersionCreated(),
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         );
     }
 
@@ -67,8 +62,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         Version indexCreatedVersion,
-        OriginalMappingParameters originalMappingParameters,
-        boolean isDerivedSourceEnabled
+        OriginalMappingParameters originalMappingParameters
     ) {
         super(
             simpleName,
@@ -79,17 +73,13 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             indexCreatedVersion,
-            originalMappingParameters,
-            isDerivedSourceEnabled
+            originalMappingParameters
         );
         // setting it explicitly false here to ensure that when flatmapper is used Lucene based Vector field is not created.
         this.useLuceneBasedVectorField = false;
         this.perDimensionValidator = selectPerDimensionValidator(vectorDataType);
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.setDocValuesType(DocValuesType.BINARY);
-        if (isDerivedSourceEnabled) {
-            this.fieldType.putAttribute(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY, DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE);
-        }
         this.fieldType.freeze();
     }
 
