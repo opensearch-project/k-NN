@@ -32,3 +32,8 @@ Compatible with OpenSearch 3.0.0.alpha1
 - Blocking Index Creation using NMSLIB [#2573](https://github.com/opensearch-project/k-NN/pull/2573)
 - Improve Streaming Compatibility Issue for MethodComponetContext and Remove OpenDistro URL [#2575](https://github.com/opensearch-project/k-NN/pull/2575)
 - 3.0.0 Breaking Changes For KNN [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
+### Breaking Changes
+- Remove ef construction from Index Seeting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
+- Remove m from Index Setting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
+- Remove space type from index setting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
+- Remove Knn Plugin enabled setting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
