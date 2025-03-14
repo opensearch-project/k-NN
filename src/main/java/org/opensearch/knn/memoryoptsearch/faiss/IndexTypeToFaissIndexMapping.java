@@ -30,6 +30,7 @@ public class IndexTypeToFaissIndexMapping {
         mapping.put(FaissHNSWIndex.IHNS, FaissHNSWIndex::new);
         mapping.put(FaissIndexFloatFlat.IXF2, FaissIndexFloatFlat::new);
         mapping.put(FaissIndexFloatFlat.IXFI, FaissIndexFloatFlat::new);
+        mapping.put(FaissIndexScalarQuantizedFlat.IXSQ, (indexType) -> new FaissIndexScalarQuantizedFlat());
 
         INDEX_TYPE_TO_FAISS_INDEX = Collections.unmodifiableMap(mapping);
     }
