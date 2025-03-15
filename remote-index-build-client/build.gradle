@@ -21,10 +21,6 @@ repositories {
 
 description = "Remote Index Build Client for OpenSearch"
 
-test {
-    systemProperty "jdk.attach.allowAttachSelf", true
-}
-
 compileJava {
     options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
 }
@@ -39,9 +35,6 @@ dependencies {
     api "org.apache.httpcomponents.core5:httpcore5:${versions.httpcore5}"
     api "org.apache.httpcomponents.core5:httpcore5-h2:${versions.httpcore5}"
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
-    testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
 }
 
 check.dependsOn spotlessCheck

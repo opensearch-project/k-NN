@@ -49,33 +49,31 @@ import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.STATU
 @Log4j2
 public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     private static volatile String authHeader = null;
-
     private final String endpoint;
+    private final CloseableHttpClient httpClient;
 
     private static class HttpClientHolder {
-        private static final CloseableHttpClient httpClient = createHttpClient();
-
-        private static CloseableHttpClient createHttpClient() {
-            return HttpClients.custom().setRetryStrategy(new RemoteIndexHTTPClientRetryStrategy()).build();
-        }
+        private static final CloseableHttpClient httpClient = HttpClients.custom()
+            .setRetryStrategy(new RemoteIndexHTTPClientRetryStrategy())
+            .build();
     }
 
     /**
-     * Get the Singleton shared HTTP client
-     * @return The static HTTP Client
-     */
-    static CloseableHttpClient getHttpClient() {
-        return HttpClientHolder.httpClient;
-    }
-
-    /**
-     * Creates the client, setting the endpoint per-instance
+     * Create the client, setting the endpoint per-instance
      */
     public RemoteIndexHTTPClient(final String endpoint) {
+        this(endpoint, HttpClientHolder.httpClient);
+    }
+
+    /**
+     * Create the client with a provided underlying HttpClient
+     */
+    RemoteIndexHTTPClient(final String endpoint, CloseableHttpClient client) {
         if (StringUtils.isEmpty(endpoint)) {
             throw new IllegalArgumentException("No endpoint set for RemoteIndexClient");
         }
         this.endpoint = endpoint;
+        this.httpClient = client;
     }
 
     /**
@@ -87,7 +85,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
         HttpPost buildRequest = getHttpPost(toJson(remoteBuildRequest));
         try {
             String response = AccessController.doPrivileged(
-                (PrivilegedExceptionAction<String>) () -> getHttpClient().execute(buildRequest, body -> {
+                (PrivilegedExceptionAction<String>) () -> httpClient.execute(buildRequest, body -> {
                     if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
                         throw new IOException("Failed to submit build request, got status code: " + body.getCode());
                     }
@@ -136,14 +134,12 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
             request.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
         }
         try {
-            String response = AccessController.doPrivileged(
-                (PrivilegedExceptionAction<String>) () -> getHttpClient().execute(request, body -> {
-                    if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
-                        throw new IOException("Failed to submit status request, got status code: " + body.getCode());
-                    }
-                    return EntityUtils.toString(body.getEntity());
-                })
-            );
+            String response = AccessController.doPrivileged((PrivilegedExceptionAction<String>) () -> httpClient.execute(request, body -> {
+                if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
+                    throw new IOException("Failed to submit status request, got status code: " + body.getCode());
+                }
+                return EntityUtils.toString(body.getEntity());
+            }));
             XContentParser parser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 LoggingDeprecationHandler.INSTANCE,
@@ -190,8 +186,8 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
      * Close the httpClient
      */
     public void close() throws IOException {
-        if (getHttpClient() != null) {
-            getHttpClient().close();
+        if (httpClient != null) {
+            httpClient.close();
         }
     }
 }

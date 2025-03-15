@@ -205,7 +205,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @param fullPath Full blob path + file name representing location of the vectors/doc IDs (excludes repository-specific prefix)
      * @throws IOException if an I/O error occurs
      */
-    public static RemoteBuildRequest buildRemoteBuildRequest(
+    static RemoteBuildRequest buildRemoteBuildRequest(
         IndexSettings indexSettings,
         BuildIndexParams indexInfo,
         RepositoryMetadata repositoryMetadata,
