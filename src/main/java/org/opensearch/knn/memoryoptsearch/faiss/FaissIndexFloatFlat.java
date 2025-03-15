@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
@@ -80,19 +81,21 @@ public class FaissIndexFloatFlat extends FaissIndex {
 
     @Override
     public FloatVectorValues getFloatValues(final IndexInput indexInput) {
+        @RequiredArgsConstructor
         class FloatVectorValuesImpl extends FloatVectorValues {
+            final IndexInput indexInput;
             final float[] buffer = new float[dimension];
 
             @Override
-            public float[] vectorValue(int i) throws IOException {
-                indexInput.seek(floatVectors.getBaseOffset() + i * oneVectorByteSize);
+            public float[] vectorValue(int internalVectorId) throws IOException {
+                indexInput.seek(floatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
                 indexInput.readFloats(buffer, 0, buffer.length);
                 return buffer;
             }
 
             @Override
             public FloatVectorValues copy() {
-                return new FloatVectorValuesImpl();
+                return new FloatVectorValuesImpl(indexInput.clone());
             }
 
             @Override
@@ -106,7 +109,7 @@ public class FaissIndexFloatFlat extends FaissIndex {
             }
         }
 
-        return new FloatVectorValuesImpl();
+        return new FloatVectorValuesImpl(indexInput);
     }
 
     @Override
