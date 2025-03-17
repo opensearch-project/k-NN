@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.client;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
@@ -17,7 +17,6 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.settings.SecureString;
@@ -25,10 +24,10 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
-import org.opensearch.knn.plugin.KNNPlugin;
+import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildResponse;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -38,12 +37,10 @@ import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.BASIC_PREFIX;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.BUILD_ENDPOINT;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.JOB_ID_FIELD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.STATUS_ENDPOINT;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BASIC_PREFIX;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BUILD_ENDPOINT;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.JOB_ID_FIELD;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.STATUS_ENDPOINT;
 
 /**
  * Class to handle all interactions with the remote vector build service.
@@ -52,35 +49,31 @@ import static org.opensearch.knn.index.remote.KNNRemoteConstants.STATUS_ENDPOINT
 @Log4j2
 public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     private static volatile String authHeader = null;
-
     private final String endpoint;
+    private final CloseableHttpClient httpClient;
 
     private static class HttpClientHolder {
-        private static final CloseableHttpClient httpClient = createHttpClient();
-
-        private static CloseableHttpClient createHttpClient() {
-            return HttpClients.custom().setRetryStrategy(new RemoteIndexHTTPClientRetryStrategy()).build();
-        }
+        private static final CloseableHttpClient httpClient = HttpClients.custom()
+            .setRetryStrategy(new RemoteIndexHTTPClientRetryStrategy())
+            .build();
     }
 
     /**
-     * Get the Singleton shared HTTP client
-     * @return The static HTTP Client
+     * Create the client, setting the endpoint per-instance
      */
-    static CloseableHttpClient getHttpClient() {
-        return HttpClientHolder.httpClient;
+    public RemoteIndexHTTPClient(final String endpoint) {
+        this(endpoint, HttpClientHolder.httpClient);
     }
 
     /**
-     * Creates the client, setting the endpoint per-instance so the same endpoint is used per-build operation
-     * (per call to {@link RemoteIndexBuildStrategy#buildAndWriteIndex(BuildIndexParams)})
+     * Create the client with a provided underlying HttpClient
      */
-    public RemoteIndexHTTPClient() {
-        String endpoint = KNNSettings.getRemoteBuildServiceEndpoint();
-        if (endpoint == null || endpoint.isEmpty()) {
+    RemoteIndexHTTPClient(final String endpoint, CloseableHttpClient client) {
+        if (StringUtils.isEmpty(endpoint)) {
             throw new IllegalArgumentException("No endpoint set for RemoteIndexClient");
         }
         this.endpoint = endpoint;
+        this.httpClient = client;
     }
 
     /**
@@ -92,7 +85,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
         HttpPost buildRequest = getHttpPost(toJson(remoteBuildRequest));
         try {
             String response = AccessController.doPrivileged(
-                (PrivilegedExceptionAction<String>) () -> getHttpClient().execute(buildRequest, body -> {
+                (PrivilegedExceptionAction<String>) () -> httpClient.execute(buildRequest, body -> {
                     if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
                         throw new IOException("Failed to submit build request, got status code: " + body.getCode());
                     }
@@ -141,14 +134,12 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
             request.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
         }
         try {
-            String response = AccessController.doPrivileged(
-                (PrivilegedExceptionAction<String>) () -> getHttpClient().execute(request, body -> {
-                    if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
-                        throw new IOException("Failed to submit status request, got status code: " + body.getCode());
-                    }
-                    return EntityUtils.toString(body.getEntity());
-                })
-            );
+            String response = AccessController.doPrivileged((PrivilegedExceptionAction<String>) () -> httpClient.execute(request, body -> {
+                if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
+                    throw new IOException("Failed to submit status request, got status code: " + body.getCode());
+                }
+                return EntityUtils.toString(body.getEntity());
+            }));
             XContentParser parser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 LoggingDeprecationHandler.INSTANCE,
@@ -174,21 +165,18 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     }
 
     /**
-     * Set the global auth header to use the refreshed secure settings.
-     * Called by {@link KNNPlugin#reload(Settings)} when the nodes reload API is called.
-     * @param settings Settings to use to get the credentials
+     * Set the global auth header for all HTTP requests.
+     * @param username SecureString containing the username for basic authentication
+     * @param password SecureString containing the password for basic authentication
      */
-    public static void reloadAuthHeader(Settings settings) {
-        SecureString username = KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING.get(settings);
-        SecureString password = KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.get(settings);
-
-        if (password != null && !password.isEmpty()) {
-            if (username == null || username.isEmpty()) {
+    public static void reloadAuthHeader(SecureString username, SecureString password) {
+        if (password != null && password.length() > 0) {
+            if (username == null || username.length() == 0) {
                 throw new IllegalArgumentException("Username must be set if password is set");
             }
             final String auth = username + ":" + password.clone();
             final byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.ISO_8859_1));
-            authHeader = BASIC_PREFIX + new String(encodedAuth);
+            authHeader = BASIC_PREFIX + new String(encodedAuth, StandardCharsets.UTF_8);
         } else {
             authHeader = null;
         }
@@ -198,8 +186,8 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
      * Close the httpClient
      */
     public void close() throws IOException {
-        if (getHttpClient() != null) {
-            getHttpClient().close();
+        if (httpClient != null) {
+            httpClient.close();
         }
     }
 }

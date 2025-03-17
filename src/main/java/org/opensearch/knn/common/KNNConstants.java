@@ -91,7 +91,6 @@ public class KNNConstants {
     public static final int LUCENE_SQ_DEFAULT_BITS = 7;
 
     // nmslib specific constants
-    @Deprecated(since = "2.19.0", forRemoval = true)
     public static final String NMSLIB_NAME = "nmslib";
     public static final String COMMONS_NAME = "common";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
@@ -166,4 +165,13 @@ public class KNNConstants {
     public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY = "knn-derived-source-enabled";
     public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE = "true";
     public static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_FALSE_VALUE = "false";
+
+    // Repository filepath constants
+    public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
+    public static final String DOC_ID_FILE_EXTENSION = ".knndid";
+    public static final String VECTORS_PATH = "_vectors";
+
+    // Repository-S3
+    public static final String S3 = "s3";
+    public static final String BUCKET = "bucket";
 }

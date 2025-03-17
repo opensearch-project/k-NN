@@ -141,7 +141,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         );
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Map<String, Object>> nodeStatsResponse = parseNodeStatsResponse(responseBody);
-        return Double.parseDouble(nodeStatsResponse.getFirst().get(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName()).toString());
+        return Double.parseDouble(nodeStatsResponse.get(0).get(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName()).toString());
     }
 
     public boolean isCbTripped() throws Exception {

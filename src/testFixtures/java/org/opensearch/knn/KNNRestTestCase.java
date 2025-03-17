@@ -2350,6 +2350,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return version.onOrAfter(Version.V_2_18_0);
     }
 
+    //todo
     /**
      * Remote Index Build settings are only supported on or after V_3_0_0
      */
@@ -2362,7 +2363,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             versionString = versionString.substring(0, versionString.length() - 9);
         }
         final Version version = Version.fromString(versionString);
-        return version.onOrAfter(Version.V_3_0_0);
+        return version.onOrAfter(Version.CURRENT);
     }
 
     /**

@@ -6,9 +6,15 @@
 package org.opensearch.knn.index.engine;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
+import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
+import org.opensearch.remoteindexbuild.constants.KNNRemoteConstants;
+import org.opensearch.remoteindexbuild.model.RemoteFaissHNSWIndexParameters;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,14 +32,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.index.SpaceType.L2;
-import static org.opensearch.knn.index.remote.RemoteIndexHTTPClientTests.createMockMethodContext;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.METHOD_PARAMETER_ENCODER;
 
 public class KNNEngineTests extends KNNTestCase {
-
-    public static final String KNN_FIELD = "knn_field";
-    public static final String PER_FIELD_KNN_VECTORS_FORMAT_SUFFIX = "PerFieldKnnVectorsFormat.suffix";
-    public static final String PER_FIELD_KNN_VECTORS_FORMAT_FORMAT = "PerFieldKnnVectorsFormat.format";
-
     /**
      * Check that version from engine and library match
      */
@@ -103,6 +104,21 @@ public class KNNEngineTests extends KNNTestCase {
         assertFalse(Lucene.supportsRemoteIndexBuild(luceneHNSWFlat.getMethodComponentContext()));
     }
 
+    public void testCreateRemoteIndexingParameters_Success() {
+        RemoteIndexParameters result = FaissHNSWMethod.createRemoteIndexingParameters(createMockMethodContext());
+
+        assertNotNull(result);
+        assertTrue(result instanceof RemoteFaissHNSWIndexParameters);
+
+        RemoteFaissHNSWIndexParameters hnswParams = (RemoteFaissHNSWIndexParameters) result;
+
+        assertEquals(METHOD_HNSW, hnswParams.getAlgorithm());
+        assertEquals(L2.getValue(), hnswParams.getSpaceType());
+        assertEquals(94, hnswParams.getEfConstruction());
+        assertEquals(89, hnswParams.getEfSearch());
+        assertEquals(14, hnswParams.getM());
+    }
+
     public static KNNMethodContext createFaissIVFMethodContext() {
         MethodComponentContext encoder = new MethodComponentContext(ENCODER_SQ, Map.of());
         Map<String, Object> encoderMap = Map.of(METHOD_ENCODER_PARAMETER, encoder);
@@ -124,6 +140,22 @@ public class KNNEngineTests extends KNNTestCase {
         Map<String, Object> parameters = Map.of(METHOD_PARAMETER_EF_CONSTRUCTION, 28, METHOD_PARAMETER_M, 12);
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
         return new KNNMethodContext(KNNEngine.LUCENE, L2, methodComponentContext);
+    }
+
+    public static KNNMethodContext createMockMethodContext() {
+        MethodComponentContext encoder = new MethodComponentContext(KNNConstants.ENCODER_FLAT, Map.of());
+        Map<String, Object> parameters = Map.of(
+            KNNRemoteConstants.METHOD_PARAMETER_EF_SEARCH,
+            89,
+            KNNRemoteConstants.METHOD_PARAMETER_EF_CONSTRUCTION,
+            94,
+            KNNRemoteConstants.METHOD_PARAMETER_M,
+            14,
+            METHOD_PARAMETER_ENCODER,
+            encoder
+        );
+        MethodComponentContext methodComponentContext = new MethodComponentContext(KNNConstants.METHOD_HNSW, parameters);
+        return new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
     }
 
 }

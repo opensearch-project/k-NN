@@ -30,8 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.DOC_ID_FILE_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_BLOB_FILE_EXTENSION;
 
 @Log4j2
 @AllArgsConstructor
@@ -64,7 +64,8 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
         initializeVectorValues(knnVectorValues);
         long vectorBlobLength = (long) knnVectorValues.bytesPerVector() * totalLiveDocs;
 
-        if (blobContainer instanceof AsyncMultiStreamBlobContainer asyncBlobContainer) {
+        if (blobContainer instanceof AsyncMultiStreamBlobContainer) {
+            AsyncMultiStreamBlobContainer asyncBlobContainer = (AsyncMultiStreamBlobContainer) blobContainer;
             // First initiate vectors upload
             log.debug("Container {} Supports Parallel Blob Upload", blobContainer);
             // WriteContext is the main entry point into asyncBlobUpload. It stores all of our upload configurations, analogous to

@@ -7,6 +7,9 @@ package org.opensearch.knn.index.remote;
 
 import lombok.Setter;
 import org.apache.commons.lang.StringUtils;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -14,11 +17,6 @@ import java.util.Random;
 
 import static org.opensearch.knn.index.KNNSettings.getRemoteBuildClientPollInterval;
 import static org.opensearch.knn.index.KNNSettings.getRemoteBuildClientTimeout;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.FAILED_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
 
 /**
  * Implementation of a {@link RemoteIndexWaiter} that awaits the vector build by polling.
@@ -28,6 +26,11 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
     private static final int INITIAL_DELAY_FACTOR = 3;
     private static final double JITTER_LOWER = 0.8;
     private static final double JITTER_UPPER = 1.2;
+    public static final String TASK_STATUS = "task_status";
+    public static final String FILE_NAME = "file_name";
+    public static final String RUNNING_INDEX_BUILD = "RUNNING_INDEX_BUILD";
+    public static final String COMPLETED_INDEX_BUILD = "COMPLETED_INDEX_BUILD";
+    public static final String FAILED_INDEX_BUILD = "FAILED_INDEX_BUILD";
 
     private final RemoteIndexClient client;
     private final Random random;
@@ -66,21 +69,24 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
                 throw new IOException(String.format("Invalid response format, missing %s", TASK_STATUS));
             }
             switch (taskStatus) {
-                case COMPLETED_INDEX_BUILD -> {
+                case COMPLETED_INDEX_BUILD: {
                     if (StringUtils.isBlank(remoteBuildStatusResponse.getFileName())) {
                         throw new IOException(String.format("Invalid response format, missing %s for %s status", FILE_NAME, taskStatus));
                     }
                     return remoteBuildStatusResponse;
                 }
-                case FAILED_INDEX_BUILD -> {
+                case FAILED_INDEX_BUILD: {
                     String errorMessage = remoteBuildStatusResponse.getErrorMessage();
                     Duration d = Duration.ofNanos(System.nanoTime() - startTime);
                     throw new InterruptedException(
-                        String.format("Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
+                            String.format("Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
                     );
                 }
-                case RUNNING_INDEX_BUILD -> sleepWithJitter(pollInterval);
-                default -> throw new IOException(String.format("Server returned invalid task status %s", taskStatus));
+                case RUNNING_INDEX_BUILD:
+                    sleepWithJitter(pollInterval);
+                    break;
+                default:
+                    throw new IOException(String.format("Server returned invalid task status %s", taskStatus));
             }
         }
         Duration waitedDuration = Duration.ofNanos(System.nanoTime() - startTime);

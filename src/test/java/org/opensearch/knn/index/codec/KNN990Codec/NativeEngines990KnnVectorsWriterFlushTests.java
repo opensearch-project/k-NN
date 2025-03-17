@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
@@ -135,7 +136,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 new ArrayList<>(vectors.values())
             );
             return KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, randomVectorValues);
-        }).toList();
+        }).collect(Collectors.toList());
 
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
