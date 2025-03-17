@@ -2,6 +2,11 @@
 
 Compatible with OpenSearch 3.0.0.alpha1
 
+### Breaking Changes
+* Remove ef construction from Index Seeting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
+* Remove m from Index Setting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
+* Remove space type from index setting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
+* Remove Knn Plugin enabled setting [#2564](https://github.com/opensearch-project/k-NN/pull/2564)
 ### Features
 - Introduce Remote Native Index Build feature flag, settings, and initial skeleton [#2525](https://github.com/opensearch-project/k-NN/pull/2525)
 - Implement vector data upload and vector data size threshold setting [#2550](https://github.com/opensearch-project/k-NN/pull/2550)
