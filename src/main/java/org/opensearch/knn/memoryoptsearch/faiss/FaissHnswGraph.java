@@ -45,7 +45,7 @@ public class FaissHnswGraph extends HnswGraph {
     @Override
     public void seek(int level, int internalVectorId) {
         // Get a relative starting offset of neighbor list at `level`.
-        long o = faissHnsw.getOffsets()[internalVectorId];
+        long o = faissHnsw.getOffsetsReader().get(internalVectorId);
 
         // `begin` and `end` represent for a pair of staring offset and end offset.
         // But, what `end` represents is the maximum offset a neighbor list at a level can have.
