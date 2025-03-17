@@ -15,6 +15,7 @@ Add filter function to KNNQueryBuilder with unit tests and integration tests [#2
 ### Documentation
 ### Maintenance
 ### Refactoring
+* Switch derived source from field attributes to segment attribute [#2606](https://github.com/opensearch-project/k-NN/pull/2606)
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features

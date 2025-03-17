@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.derivedsource;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.SegmentInfo;
 
 import java.util.Arrays;
@@ -16,9 +17,10 @@ import java.util.stream.Collectors;
 /**
  * Helper class for adding information into the segment attributes
  */
-public class DerivedSourceSegmentAttributeHelper {
+public class DerivedSourceSegmentAttributeParser {
 
-    public static final String DERIVED_SOURCE_FIELD = "derived_vector_fields";
+    static final String DERIVED_SOURCE_FIELD = "derived_vector_fields";
+    static final String DELIMETER = ",";
 
     /**
      * From segmentInfo, parse the derived_vector_fields
@@ -31,10 +33,10 @@ public class DerivedSourceSegmentAttributeHelper {
             return Collections.emptyList();
         }
         String derivedVectorFields = segmentInfo.getAttribute(DERIVED_SOURCE_FIELD);
-        if (derivedVectorFields == null || derivedVectorFields.isEmpty()) {
+        if (StringUtils.isEmpty(derivedVectorFields)) {
             return Collections.emptyList();
         }
-        return Arrays.stream(derivedVectorFields.split(",")).collect(Collectors.toList());
+        return Arrays.stream(derivedVectorFields.split(DELIMETER, -1)).collect(Collectors.toList());
     }
 
     /**
@@ -44,6 +46,12 @@ public class DerivedSourceSegmentAttributeHelper {
      * @param vectorFieldTypes List of vector field names
      */
     public static void addDerivedVectorFieldsSegmentInfoAttribute(SegmentInfo segmentInfo, List<String> vectorFieldTypes) {
-        segmentInfo.putAttribute(DERIVED_SOURCE_FIELD, String.join(",", vectorFieldTypes));
+        if (segmentInfo == null) {
+            throw new IllegalArgumentException("SegmentInfo cannot be null");
+        }
+        if (vectorFieldTypes == null || vectorFieldTypes.isEmpty()) {
+            throw new IllegalArgumentException("VectorFieldTypes cannot be null or empty");
+        }
+        segmentInfo.putAttribute(DERIVED_SOURCE_FIELD, String.join(DELIMETER, vectorFieldTypes));
     }
 }

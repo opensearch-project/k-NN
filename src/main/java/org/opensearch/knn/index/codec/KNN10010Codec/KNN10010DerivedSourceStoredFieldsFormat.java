@@ -21,7 +21,7 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120DerivedSourceStoredFieldsReader;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeHelper;
+import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.io.IOException;
@@ -40,7 +40,7 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
-        List<FieldInfo> derivedVectorFields = DerivedSourceSegmentAttributeHelper.parseDerivedVectorFields(segmentInfo)
+        List<FieldInfo> derivedVectorFields = DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo)
             .stream()
             .filter(field -> fieldInfos.fieldInfo(field) != null)
             .map(fieldInfos::fieldInfo)
@@ -68,7 +68,7 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
                 }
             }
             if (vectorFieldTypes.isEmpty() == false) {
-                DerivedSourceSegmentAttributeHelper.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, vectorFieldTypes);
+                DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, vectorFieldTypes);
                 return new KNN10010DerivedSourceStoredFieldsWriter(delegateWriter, vectorFieldTypes);
             }
         }
