@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.remote;
 
+import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
+
 public class RemoteIndexWaiterFactory {
 
     /**

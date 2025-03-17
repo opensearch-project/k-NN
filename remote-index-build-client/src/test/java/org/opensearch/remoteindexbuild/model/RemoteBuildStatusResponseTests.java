@@ -3,25 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.remote;
+package org.opensearch.remoteindexbuild.model;
 
+import org.junit.Assert;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.knn.KNNTestCase;
+import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.ERROR_MESSAGE;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.FILE_NAME;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.RUNNING_INDEX_BUILD;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.TASK_STATUS;
+import static org.opensearch.remoteindexbuild.TestConstants.UNKNOWN_FIELD;
+import static org.opensearch.remoteindexbuild.TestConstants.UNKNOWN_VALUE;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.COMPLETED_INDEX_BUILD;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.ERROR_MESSAGE;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.FILE_NAME;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.RUNNING_INDEX_BUILD;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.TASK_STATUS;
 
-public class RemoteBuildStatusResponseTests extends KNNTestCase {
-    public static final String UNKNOWN_FIELD = "unknown_field";
-    public static final String UNKNOWN_VALUE = "value";
+public class RemoteBuildStatusResponseTests extends OpenSearchTestCase {
     public static final String NULL = "null";
     public static final String MOCK_FILE_NAME = "graph.faiss";
     public static final String UNKNOWN_RESPONSE = "{"
@@ -67,10 +68,10 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
             )
         ) {
             RemoteBuildStatusResponse response = RemoteBuildStatusResponse.fromXContent(parser);
-            assertNotNull(response);
-            assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
-            assertEquals(MOCK_FILE_NAME, response.getFileName());
-            assertNull(response.getErrorMessage());
+            Assert.assertNotNull(response);
+            Assert.assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
+            Assert.assertEquals(MOCK_FILE_NAME, response.getFileName());
+            Assert.assertNull(response.getErrorMessage());
         }
     }
 
@@ -82,8 +83,8 @@ public class RemoteBuildStatusResponseTests extends KNNTestCase {
                 UNKNOWN_RESPONSE
             )
         ) {
-            IOException exception = assertThrows(IOException.class, () -> RemoteBuildStatusResponse.fromXContent(parser));
-            assertEquals("Invalid response format, unknown field: " + UNKNOWN_FIELD, exception.getMessage());
+            IOException exception = Assert.assertThrows(IOException.class, () -> RemoteBuildStatusResponse.fromXContent(parser));
+            Assert.assertEquals("Invalid response format, unknown field: " + UNKNOWN_FIELD, exception.getMessage());
         }
     }
 }

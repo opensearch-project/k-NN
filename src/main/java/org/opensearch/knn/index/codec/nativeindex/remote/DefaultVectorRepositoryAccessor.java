@@ -30,8 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
-import static org.opensearch.knn.index.remote.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.DOC_ID_FILE_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_BLOB_FILE_EXTENSION;
 
 @Log4j2
 @AllArgsConstructor
