@@ -13,6 +13,7 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.KNN10010Codec.KNN10010DerivedSourceStoredFieldsWriter;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 
 import java.util.List;
@@ -28,7 +29,10 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("_source").build();
         List<String> fields = List.of("test");
 
-        DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new DerivedSourceStoredFieldsWriter(delegate, fields);
+        KNN10010DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new KNN10010DerivedSourceStoredFieldsWriter(
+            delegate,
+            fields
+        );
 
         Map<String, Object> source = Map.of("test", new float[] { 1.0f, 2.0f, 3.0f }, "text_field", "text_value");
         BytesStreamOutput bStream = new BytesStreamOutput();
