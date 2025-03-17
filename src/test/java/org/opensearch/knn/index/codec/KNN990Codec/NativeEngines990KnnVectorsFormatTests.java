@@ -48,7 +48,6 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.tests.store.BaseDirectoryWrapper;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
 import org.junit.After;
@@ -259,15 +258,6 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertEquals(2, floatVectorValuesForBinaryQuantization.size());
         assertEquals(8, floatVectorValuesForBinaryQuantization.dimension());
 
-        Assert.assertThrows(
-            UnsupportedOperationException.class,
-            () -> leafReader.searchNearestVectors(FLOAT_VECTOR_FIELD, floatVector, 10, new Bits.MatchAllBits(1), 10)
-        );
-
-        Assert.assertThrows(
-            UnsupportedOperationException.class,
-            () -> leafReader.searchNearestVectors(BYTE_VECTOR_FIELD, byteVector, 10, new Bits.MatchAllBits(1), 10)
-        );
         // do it at the end so that all search is completed
         indexReader.close();
     }

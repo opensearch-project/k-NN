@@ -9,6 +9,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.ReadAdvice;
+import org.apache.lucene.util.IOUtils;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
@@ -27,6 +28,16 @@ public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactor
             fileName,
             new IOContext(IOContext.Context.DEFAULT, null, null, ReadAdvice.RANDOM)
         );
-        return new FaissMemoryOptimizedSearcher(indexInput);
+
+        try {
+            // Try load it. Not all FAISS index types are currently supported at the moment.
+            return new FaissMemoryOptimizedSearcher(indexInput);
+        } catch (UnsupportedFaissIndexException e) {
+            // Clean up input stream.
+            try {
+                IOUtils.close(indexInput);
+            } catch (IOException ioException) {}
+            return null;
+        }
     }
 }

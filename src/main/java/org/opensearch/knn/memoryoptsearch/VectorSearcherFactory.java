@@ -19,7 +19,7 @@ public interface VectorSearcherFactory {
      *
      * @param directory Lucene's Directory.
      * @param fileName Logical file name to load.
-     * @return It must return a non-null {@link VectorSearcher}
+     * @return Null instance if it is not supported, otherwise return {@link VectorSearcher}
      * @throws IOException
      */
     VectorSearcher createVectorSearcher(Directory directory, String fileName) throws IOException;

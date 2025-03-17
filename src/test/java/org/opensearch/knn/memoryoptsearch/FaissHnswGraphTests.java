@@ -110,7 +110,7 @@ public class FaissHnswGraphTests extends KNNTestCase {
 
         // Create LuceneFaissHnswGraph
         indexInput = loadHnswBinary("data/memoryoptsearch/faiss_hnsw_100_vectors.bin");
-        final FaissHnswGraph graph = new FaissHnswGraph(faissHNSW, totalNumberOfVectors, indexInput);
+        final FaissHnswGraph graph = new FaissHnswGraph(faissHNSW, indexInput);
         return graph;
     }
 
