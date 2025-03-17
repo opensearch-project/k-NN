@@ -403,7 +403,6 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Collection<IndexSettingProvider> getAdditionalIndexSettingProviders() {
-//        return Collections.emptyList();
         return Collections.singletonList(new KNNIndexSettingProvider());
     }
 }
