@@ -1,0 +1,32 @@
+curl -XPUT $ENDPOINT/test-index -H 'Content-Type: application/json' -d'
+{
+  "settings": {
+    "index": {
+      "knn": true,
+      "knn.algo_param.ef_search": 100
+    }
+  },
+  "mappings": {
+    "properties": {
+      "my_vector": {
+        "type": "knn_vector",
+        "dimension": 3,
+        "data_type": "byte",
+        "space_type": "innerproduct",
+        "method": {
+          "name": "hnsw",
+          "engine": "lucene",
+          "parameters": {
+            "ef_construction": 100,
+            "m": 16
+          }
+        }
+      }
+    }
+  }
+}
+'
+(base) finnrobl@80a997329e07 k-NN % curl -X GET "localhost:9200/test-index/_settings?include_defaults=true" > set2.txt
+
+
+output-of-_settings-knn-index.txt{"test-index":{"settings":{"index":{"replication":{"type":"DOCUMENT"},"number_of_shards":"1","knn.algo_param":{"ef_search":"100"},"provided_name":"test-index","merge":{"policy":{"floor_segment":"16mb"}},"knn":"true","creation_date":"1742253090356","number_of_replicas":"1","uuid":"JqlJvhU9SfKx7FBMEzxlLg","version":{"created":"137217827"}}},"defaults":{"index":{"composite_index.star_tree":{"field":{"default":{"date_intervals":["minute","half-hour"],"metrics":["VALUE_COUNT","SUM"]},"max_dimensions":"10","max_base_metrics":"100","max_date_intervals":"3"},"max_fields":"1","default":{"max_leaf_docs":"10000"}},"flush_after_merge":"512mb","final_pipeline":"_none","max_inner_result_window":"100","unassigned":{"node_left":{"delayed_timeout":"1m"}},"max_terms_count":"65536","ingestion_source":{"type":"none","error_strategy":"DROP","pointer":{"init":{"reset":"LATEST","reset.value":""}}},"routing_partition_size":"1","unreferenced_file_cleanup":{"enabled":"true"},"force_memory_term_dictionary":"false","use_compound_file":"true","max_docvalue_fields_search":"100","merge":{"policy.max_merged_segment":"5368709120b","scheduler":{"max_thread_count":"4","auto_throttle":"true","max_merge_count":"9"},"policy.max_merge_at_once":"10","policy.expunge_deletes_allowed":"10.0","policy.reclaim_deletes_weight":"2.0","log_byte_size_policy":{"max_merge_segment":"5368709120b","max_merge_segment_forced_merge":"9223372036854775807b","merge_factor":"10","min_merge":"2097152b","no_cfs_ratio":"0.1","max_merged_docs":"2147483647"},"policy.segments_per_tier":"10.0","policy.deletes_pct_allowed":"20.0","policy":"default"},"context":{"created_version":"0","current_version":"0"},"max_refresh_listeners":"1000","max_regex_length":"1000","load_fixed_bitset_filters_eagerly":"true","number_of_routing_shards":"1","write":{"wait_for_active_shards":"1"},"append_only":{"enabled":"false"},"verified_before_close":"false","mapping":{"coerce":"false","nested_fields":{"limit":"50"},"depth":{"limit":"20"},"field_name_length":{"limit":"50000"},"total_fields":{"limit":"1000"},"nested_objects":{"limit":"10000"},"ignore_malformed":"false"},"soft_deletes":{"enabled":"true","retention":{"operations":"0"},"retention_lease":{"period":"12h"}},"max_script_fields":"32","query":{"max_nested_depth":"20","parse":{"allow_unmapped_fields":"true"},"default_field":["*"],"derived_field":{"enabled":"true"}},"format":"0","history":{"uuid":"_na_"},"sort":{"missing":[],"mode":[],"field":[],"order":[]},"priority":"1","composite_index":"false","codec":"default","optimize_doc_id_lookup":{"fuzzy_set":{"enabled":"false","false_positive_probability":"0.2047"}},"check_pending_flush":{"enabled":"true"},"max_rescore_window":"10000","max_adjacency_matrix_filters":"100","analyze":{"max_token_count":"10000"},"gc_deletes":"60s","searchable_snapshot":{"index":{"id":""},"shard_path_type":"FIXED","repository":"","snapshot_id":{"name":"","uuid":""}},"optimize_auto_generated_id":"true","max_ngram_diff":"1","hidden":"false","translog":{"generation_threshold_size":"64mb","flush_threshold_size":"512mb","sync_interval":"5s","retention":{"size":"-1","age":"-1"},"durability":"REQUEST"},"auto_expand_replicas":"false","mapper":{"dynamic":"true"},"recovery":{"type":""},"requests":{"cache":{"enable":"true"}},"data_path":"","merge_on_flush":{"enabled":"true","max_full_flush_merge_wait_time":"10s","policy":"default"},"highlight":{"max_analyzed_offset":"1000000"},"routing":{"rebalance":{"enable":"all"},"allocation":{"enable":"all","total_primary_shards_per_node":"-1","total_shards_per_node":"-1"}},"search":{"concurrent":{"max_slice_count":"0"},"concurrent_segment_search":{"mode":"none","enabled":"false"},"slowlog":{"level":"TRACE","threshold":{"fetch":{"warn":"-1","trace":"-1","debug":"-1","info":"-1"},"query":{"warn":"-1","trace":"-1","debug":"-1","info":"-1"}}},"default_pipeline":"_none","idle":{"after":"30s"},"throttled":"false"},"fielddata":{"cache":"node"},"codec.compression_level":"3","default_pipeline":"_none","max_slices_per_scroll":"1024","shard":{"check_on_startup":"false"},"max_slices_per_pit":"1024","percolator":{"map_unmapped_fields_as_text":"false"},"allocation":{"max_retries":"5","existing_shards_allocator":"gateway_allocator"},"refresh_interval":"1s","indexing":{"slowlog":{"reformat":"true","threshold":{"index":{"warn":"-1","trace":"-1","debug":"-1","info":"-1"}},"source":"1000","level":"TRACE"}},"remote_store":{"translog":{"buffer_interval":"650ms","repository":"","keep_extra_gen":"100"},"enabled":"false","segment":{"repository":""}},"compound_format":"0.1","blocks":{"metadata":"false","read":"false","read_only_allow_delete":"false","read_only":"false","write":"false"},"max_result_window":"10000","knn":{"derived_source":{"enabled":"false"},"remote_index_build":{"size_threshold":"52428800b","enabled":"false"},"disk":{"vector":{"shard_level_rescoring_disabled":"false"}},"advanced":{"approximate_threshold":"0","filtered_exact_search_threshold":"-1"}},"store":{"hybrid":{"nio":{"extensions":["segments_N","write.lock","si","cfe","fnm","fdx","fdt","pos","pay","nvm","dvm","tvx","tvd","liv","dii","vem"]}},"stats_refresh_interval":"10s","type":"","fs":{"fs_lock":"native"},"preload":[]},"queries":{"cache":{"enabled":"true"}},"warmer":{"enabled":"true"},"max_shingle_diff":"3","query_string":{"lenient":"false"}}}}}
