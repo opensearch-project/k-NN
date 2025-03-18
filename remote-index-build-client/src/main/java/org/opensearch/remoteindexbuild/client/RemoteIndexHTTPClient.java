@@ -35,12 +35,17 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
+import java.util.HashMap;
 
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BASIC_PREFIX;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BUILD_ENDPOINT;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.JOB_ID_FIELD;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.STATUS_ENDPOINT;
+import static org.opensearch.remoteindexbuild.stats.RemoteIndexClientValue.BUILD_REQUEST_FAILURE_COUNT;
+import static org.opensearch.remoteindexbuild.stats.RemoteIndexClientValue.BUILD_REQUEST_SUCCESS_COUNT;
+import static org.opensearch.remoteindexbuild.stats.RemoteIndexClientValue.STATUS_REQUEST_FAILURE_COUNT;
+import static org.opensearch.remoteindexbuild.stats.RemoteIndexClientValue.STATUS_REQUEST_SUCCESS_COUNT;
 
 /**
  * Class to handle all interactions with the remote vector build service.
@@ -101,9 +106,10 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
             if (StringUtils.isBlank(buildResponse.getJobId())) {
                 throw new IOException("Invalid response format, empty " + JOB_ID_FIELD);
             }
+            BUILD_REQUEST_SUCCESS_COUNT.increment();
             return buildResponse;
         } catch (Exception e) {
-            throw new IOException("Failed to execute HTTP request", e);
+            throw new IOException("Failed to execute HTTP request for submit vector build", e);
         }
     }
 
@@ -145,9 +151,10 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
                 LoggingDeprecationHandler.INSTANCE,
                 response
             );
+            STATUS_REQUEST_SUCCESS_COUNT.increment();
             return RemoteBuildStatusResponse.fromXContent(parser);
         } catch (Exception e) {
-            throw new IOException("Failed to execute HTTP request", e);
+            throw new IOException("Failed to execute HTTP request for build status", e);
         }
     }
 
@@ -180,6 +187,18 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
         } else {
             authHeader = null;
         }
+    }
+
+    /**
+     * Prepare map of client metrics
+     */
+    public static HashMap<String, Long> getStatsMap() {
+        HashMap<String, Long> clientStatsMap = new HashMap<>();
+        clientStatsMap.put(BUILD_REQUEST_SUCCESS_COUNT.getName(), BUILD_REQUEST_SUCCESS_COUNT.getValue());
+        clientStatsMap.put(BUILD_REQUEST_FAILURE_COUNT.getName(), BUILD_REQUEST_FAILURE_COUNT.getValue());
+        clientStatsMap.put(STATUS_REQUEST_SUCCESS_COUNT.getName(), STATUS_REQUEST_SUCCESS_COUNT.getValue());
+        clientStatsMap.put(STATUS_REQUEST_FAILURE_COUNT.getName(), STATUS_REQUEST_FAILURE_COUNT.getValue());
+        return clientStatsMap;
     }
 
     /**
