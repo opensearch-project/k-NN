@@ -30,15 +30,16 @@ public class DerivedSourceSegmentAttributeParserTests extends KNNTestCase {
 
         DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(
             mockSegmentInfo,
-            List.of("test", "test2.nested", "vector")
+            List.of("test", "test2.nested", "vector"),
+            false
         );
         assertEquals("test,test2.nested,vector", fakeAttributes.get(DERIVED_SOURCE_FIELD));
         fakeAttributes.remove(DERIVED_SOURCE_FIELD);
 
-        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(mockSegmentInfo, List.of("test"));
+        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(mockSegmentInfo, List.of("test"), false);
         assertEquals("test", fakeAttributes.get(DERIVED_SOURCE_FIELD));
 
-        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(mockSegmentInfo, List.of("", "", "", "", ""));
+        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(mockSegmentInfo, List.of("", "", "", "", ""), false);
         assertEquals(",,,,", fakeAttributes.get(DERIVED_SOURCE_FIELD));
     }
 
@@ -46,15 +47,15 @@ public class DerivedSourceSegmentAttributeParserTests extends KNNTestCase {
         Map<String, String> fakeAttributes = new HashMap<>();
         when(mockSegmentInfo.getAttribute(any())).thenAnswer(t -> fakeAttributes.get(t.getArgument(0)));
 
-        assertEquals(Collections.emptyList(), DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(null));
-        assertEquals(Collections.emptyList(), DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(mockSegmentInfo));
+        assertEquals(Collections.emptyList(), DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(null, false));
+        assertEquals(Collections.emptyList(), DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(mockSegmentInfo, false));
 
         fakeAttributes.put(DERIVED_SOURCE_FIELD, "test,test2.nested,vector");
         List<String> expectedFieldInfos = Arrays.asList("test", "test2.nested", "vector");
-        assertEquals(expectedFieldInfos, DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(mockSegmentInfo));
+        assertEquals(expectedFieldInfos, DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(mockSegmentInfo, false));
 
         fakeAttributes.put(DERIVED_SOURCE_FIELD, ",,,,");
         expectedFieldInfos = Arrays.asList("", "", "", "", "");
-        assertEquals(expectedFieldInfos, DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(mockSegmentInfo));
+        assertEquals(expectedFieldInfos, DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(mockSegmentInfo, false));
     }
 }

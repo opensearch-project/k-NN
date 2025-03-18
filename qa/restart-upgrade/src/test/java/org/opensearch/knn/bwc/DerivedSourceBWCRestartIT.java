@@ -52,7 +52,9 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
 
             // Delete
             testDelete(indexConfigContexts);
+            assertDocsMatch(indexConfigContexts);
         } else {
+            assertDocsMatch(indexConfigContexts);
             // Search
             testSearch(indexConfigContexts);
 
@@ -81,7 +83,9 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
         if (isRunningAgainstOldCluster()) {
             prepareOriginalIndices(indexConfigContexts);
         } else {
+            assertDocsMatch(indexConfigContexts);
             testMerging(indexConfigContexts);
+            assertDocsMatch(indexConfigContexts);
             // Update. Skipping update tests for nested docs for now. Will add in the future.
             if (indexConfigContexts.get(0).isNested() == false) {
                 testUpdate(indexConfigContexts);

@@ -20,19 +20,22 @@ import java.util.stream.Collectors;
 public class DerivedSourceSegmentAttributeParser {
 
     static final String DERIVED_SOURCE_FIELD = "derived_vector_fields";
+    static final String NESTED_DERIVED_SOURCE_FIELD = "nested_derived_vector_fields";
     static final String DELIMETER = ",";
 
     /**
      * From segmentInfo, parse the derived_vector_fields
      *
      * @param segmentInfo {@link SegmentInfo}
+     * @param isNested Whether the vector field is nested or not
      * @return List of fields that derived source is enabled for. Potentially null if no fields
      */
-    public static List<String> parseDerivedVectorFields(SegmentInfo segmentInfo) {
+    public static List<String> parseDerivedVectorFields(SegmentInfo segmentInfo, boolean isNested) {
         if (segmentInfo == null) {
             return Collections.emptyList();
         }
-        String derivedVectorFields = segmentInfo.getAttribute(DERIVED_SOURCE_FIELD);
+        String fieldName = isNested ? NESTED_DERIVED_SOURCE_FIELD : DERIVED_SOURCE_FIELD;
+        String derivedVectorFields = segmentInfo.getAttribute(fieldName);
         if (StringUtils.isEmpty(derivedVectorFields)) {
             return Collections.emptyList();
         }
@@ -44,14 +47,20 @@ public class DerivedSourceSegmentAttributeParser {
      *
      * @param segmentInfo {@link SegmentInfo}
      * @param vectorFieldTypes List of vector field names
+     * @param isNested Whether the vector field is nested or not
      */
-    public static void addDerivedVectorFieldsSegmentInfoAttribute(SegmentInfo segmentInfo, List<String> vectorFieldTypes) {
+    public static void addDerivedVectorFieldsSegmentInfoAttribute(
+        SegmentInfo segmentInfo,
+        List<String> vectorFieldTypes,
+        boolean isNested
+    ) {
         if (segmentInfo == null) {
             throw new IllegalArgumentException("SegmentInfo cannot be null");
         }
         if (vectorFieldTypes == null || vectorFieldTypes.isEmpty()) {
             throw new IllegalArgumentException("VectorFieldTypes cannot be null or empty");
         }
-        segmentInfo.putAttribute(DERIVED_SOURCE_FIELD, String.join(DELIMETER, vectorFieldTypes));
+        String fieldName = isNested ? NESTED_DERIVED_SOURCE_FIELD : DERIVED_SOURCE_FIELD;
+        segmentInfo.putAttribute(fieldName, String.join(DELIMETER, vectorFieldTypes));
     }
 }

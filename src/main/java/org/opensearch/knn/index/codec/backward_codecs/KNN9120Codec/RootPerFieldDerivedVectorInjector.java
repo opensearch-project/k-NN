@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.common.CheckedSupplier;
@@ -25,9 +25,9 @@ class RootPerFieldDerivedVectorInjector extends AbstractPerFieldDerivedVectorInj
      * Constructor for RootPerFieldDerivedVectorInjector.
      *
      * @param fieldInfo FieldInfo for the field to create the injector for
-     * @param derivedSourceReaders {@link DerivedSourceReaders} instance
+     * @param derivedSourceReaders {@link KNN9120DerivedSourceReaders} instance
      */
-    public RootPerFieldDerivedVectorInjector(FieldInfo fieldInfo, DerivedSourceReaders derivedSourceReaders) {
+    public RootPerFieldDerivedVectorInjector(FieldInfo fieldInfo, KNN9120DerivedSourceReaders derivedSourceReaders) {
         this.fieldInfo = fieldInfo;
         this.vectorValuesSupplier = () -> KNNVectorValuesFactory.getVectorValues(
             fieldInfo,
