@@ -6,10 +6,15 @@
 package org.opensearch.remoteindexbuild.client;
 
 import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
+import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.core5.http.ConnectionClosedException;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.util.TimeValue;
 
 import javax.net.ssl.SSLException;
+import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
@@ -22,6 +27,10 @@ import static org.apache.hc.core5.http.HttpStatus.SC_INTERNAL_SERVER_ERROR;
 import static org.apache.hc.core5.http.HttpStatus.SC_REQUEST_TIMEOUT;
 import static org.apache.hc.core5.http.HttpStatus.SC_SERVICE_UNAVAILABLE;
 import static org.apache.hc.core5.http.HttpStatus.SC_TOO_MANY_REQUESTS;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BUILD_ENDPOINT;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.STATUS_ENDPOINT;
+import static org.opensearch.remoteindexbuild.stats.RemoteIndexClientValue.BUILD_REQUEST_FAILURE_COUNT;
+import static org.opensearch.remoteindexbuild.stats.RemoteIndexClientValue.STATUS_REQUEST_FAILURE_COUNT;
 
 /**
  * The public constructors for the Apache HTTP client default retry strategies allow customization of max retries
@@ -59,5 +68,26 @@ public class RemoteIndexHTTPClientRetryStrategy extends DefaultHttpRequestRetryS
             ),
             retryableCodes
         );
+    }
+
+    @Override
+    public boolean retryRequest(HttpRequest request, IOException exception, int execCount, HttpContext context) {
+        if (request.getRequestUri().endsWith(BUILD_ENDPOINT)) {
+            BUILD_REQUEST_FAILURE_COUNT.increment();
+        } else if (request.getRequestUri().endsWith(STATUS_ENDPOINT)) {
+            STATUS_REQUEST_FAILURE_COUNT.increment();
+        }
+        return super.retryRequest(request, exception, execCount, context);
+    }
+
+    @Override
+    public boolean retryRequest(HttpResponse response, int execCount, HttpContext context) {
+        HttpRequest request = ((HttpClientContext) context).getRequest();
+        if (request.getRequestUri().endsWith(BUILD_ENDPOINT)) {
+            BUILD_REQUEST_FAILURE_COUNT.increment();
+        } else if (request.getRequestUri().endsWith(STATUS_ENDPOINT)) {
+            STATUS_REQUEST_FAILURE_COUNT.increment();
+        }
+        return super.retryRequest(response, execCount, context);
     }
 }

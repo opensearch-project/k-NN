@@ -17,6 +17,7 @@ import java.util.Random;
 
 import static org.opensearch.knn.index.KNNSettings.getRemoteBuildClientPollInterval;
 import static org.opensearch.knn.index.KNNSettings.getRemoteBuildClientTimeout;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.STATUS_REQUEST_SUCCESS_COUNT;
 
 /**
  * Implementation of a {@link RemoteIndexWaiter} that awaits the vector build by polling.
@@ -64,6 +65,7 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
 
         while (System.nanoTime() - startTime < timeout) {
             RemoteBuildStatusResponse remoteBuildStatusResponse = client.getBuildStatus(remoteBuildStatusRequest);
+            STATUS_REQUEST_SUCCESS_COUNT.increment();
             String taskStatus = remoteBuildStatusResponse.getTaskStatus();
             if (StringUtils.isBlank(taskStatus)) {
                 throw new IOException(String.format("Invalid response format, missing %s", TASK_STATUS));
