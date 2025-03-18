@@ -3,25 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN9120Codec;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.index.fieldvisitor.FieldsVisitor;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceStoredFieldVisitor;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceVectorInjector;
 
 import java.io.IOException;
 import java.util.List;
 
+import static org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN9120DerivedSourceStoredFieldsFormat.DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY;
+import static org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN9120DerivedSourceStoredFieldsFormat.DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE;
+
 public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     private final StoredFieldsReader delegate;
     private final List<FieldInfo> derivedVectorFields;
-    private final DerivedSourceReadersSupplier derivedSourceReadersSupplier;
+    private final KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier;
     private final SegmentReadState segmentReadState;
     private final boolean shouldInject;
 
@@ -38,7 +40,7 @@ public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     public KNN9120DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
-        DerivedSourceReadersSupplier derivedSourceReadersSupplier,
+        KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState
     ) throws IOException {
         this(delegate, derivedVectorFields, derivedSourceReadersSupplier, segmentReadState, true);
@@ -47,7 +49,7 @@ public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     private KNN9120DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
-        DerivedSourceReadersSupplier derivedSourceReadersSupplier,
+        KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState,
         boolean shouldInject
     ) throws IOException {
@@ -74,7 +76,7 @@ public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
             );
         }
         if (shouldInject && isVisitorNeedFields) {
-            delegate.document(docId, new DerivedSourceStoredFieldVisitor(storedFieldVisitor, docId, derivedSourceVectorInjector));
+            delegate.document(docId, new KNN9120DerivedSourceStoredFieldVisitor(storedFieldVisitor, docId, derivedSourceVectorInjector));
             return;
         }
         delegate.document(docId, storedFieldVisitor);
@@ -106,37 +108,28 @@ public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     }
 
     /**
-     * For merging, we need to tell the derived source stored fields reader to skip injecting the source. Otherwise,
-     * on merge we will end up just writing the source to disk. We cant override
-     * {@link StoredFieldsReader#getMergeInstance()} because it is used elsewhere than just merging.
+     * Checks if any of the segments being merged contains legacy segments. If so, we need to use the legacy codec
+     * for merging.
      *
-     * @return Merged instance that wont inject by default
+     * @param mergeState {@link MergeState}
+     * @return true if any of the segments being merged contains legacy segments, false otherwise
      */
-    private StoredFieldsReader cloneForMerge() {
-        try {
-            return new KNN9120DerivedSourceStoredFieldsReader(
-                delegate.getMergeInstance(),
-                derivedVectorFields,
-                derivedSourceReadersSupplier,
-                segmentReadState,
-                false
-            );
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    public static boolean doesMergeContainLegacySegments(MergeState mergeState) {
+        for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
+            if (mergeState.storedFieldsReaders[i] instanceof KNN9120DerivedSourceStoredFieldsReader
+                && doesSegmentContainLegacyFields(mergeState.fieldInfos[i])) {
+                return true;
+            }
         }
+        return false;
     }
 
-    /**
-     * For merging, we need to tell the derived source stored fields reader to skip injecting the source. Otherwise,
-     * on merge we will end up just writing the source to disk
-     *
-     * @param storedFieldsReader stored fields reader to wrap
-     * @return wrapped stored fields reader
-     */
-    public static StoredFieldsReader wrapForMerge(StoredFieldsReader storedFieldsReader) {
-        if (storedFieldsReader instanceof KNN9120DerivedSourceStoredFieldsReader) {
-            return ((KNN9120DerivedSourceStoredFieldsReader) storedFieldsReader).cloneForMerge();
+    private static boolean doesSegmentContainLegacyFields(FieldInfos fieldInfos) {
+        for (FieldInfo fieldInfo : fieldInfos) {
+            if (DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE.equals(fieldInfo.attributes().get(DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY))) {
+                return true;
+            }
         }
-        return storedFieldsReader;
+        return false;
     }
 }

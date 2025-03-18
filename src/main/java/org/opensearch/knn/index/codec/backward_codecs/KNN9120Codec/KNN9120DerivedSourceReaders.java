@@ -3,12 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.codecs.DocValuesProducer;
+import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.codecs.NormsProducer;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.Nullable;
 
@@ -21,14 +23,18 @@ import java.io.IOException;
  */
 @RequiredArgsConstructor
 @Getter
-public class DerivedSourceReaders implements Closeable {
+public class KNN9120DerivedSourceReaders implements Closeable {
     @Nullable
     private final KnnVectorsReader knnVectorsReader;
     @Nullable
     private final DocValuesProducer docValuesProducer;
+    @Nullable
+    private final FieldsProducer fieldsProducer;
+    @Nullable
+    private final NormsProducer normsProducer;
 
     @Override
     public void close() throws IOException {
-        IOUtils.close(knnVectorsReader, docValuesProducer);
+        IOUtils.close(knnVectorsReader, docValuesProducer, fieldsProducer, normsProducer);
     }
 }

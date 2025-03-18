@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
+import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReaders;
 
 /**
  * Factory for creating {@link PerFieldDerivedVectorInjector} instances.
@@ -22,7 +23,7 @@ class PerFieldDerivedVectorInjectorFactory {
      */
     public static PerFieldDerivedVectorInjector create(
         FieldInfo fieldInfo,
-        DerivedSourceReaders derivedSourceReaders,
+        KNN9120DerivedSourceReaders derivedSourceReaders,
         SegmentReadState segmentReadState
     ) {
         // Nested case
