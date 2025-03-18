@@ -49,6 +49,8 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         VectorDataType.BYTE
     );
 
+    private static final Set<VectorDataType> SUPPORTED_REMOTE_INDEX_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
         SpaceType.HAMMING,
@@ -170,11 +172,16 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     }
 
     /**
-     * Return whether this engine/method supports remote build, currently by checking the encoder to ensure FP32.
+     * @param methodParameters      Map of method parameters including encoder information
+     * @param vectorDataType        {@link VectorDataType}
+     * @return                      true if the method parameters + vector data type combination is supported for remote index build
      */
-    static boolean supportsRemoteIndexBuild(Map<String, Object> methodParameters) {
-        String encoderName = ((MethodComponentContext) methodParameters.get("encoder")).getName();
-        return ENCODER_FLAT.equals(encoderName);
+    static boolean supportsRemoteIndexBuild(Map<String, Object> methodParameters, VectorDataType vectorDataType) {
+        if (SUPPORTED_REMOTE_INDEX_DATA_TYPES.contains(vectorDataType)) {
+            String encoderName = ((MethodComponentContext) methodParameters.get(METHOD_ENCODER_PARAMETER)).getName();
+            return ENCODER_FLAT.equals(encoderName);
+        }
+        return false;
     }
 
     /**
