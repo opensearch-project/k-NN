@@ -8,6 +8,7 @@ package org.opensearch.knn.index.engine;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.engine.lucene.Lucene;
@@ -99,9 +100,11 @@ public class KNNEngineTests extends KNNTestCase {
         KNNMethodContext faissIVFFlat = createFaissIVFMethodContext();
         KNNMethodContext luceneHNSWFlat = createLuceneHNSWMethodContext();
 
-        assertTrue(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext()));
-        assertFalse(Faiss.supportsRemoteIndexBuild(faissIVFFlat.getMethodComponentContext()));
-        assertFalse(Lucene.supportsRemoteIndexBuild(luceneHNSWFlat.getMethodComponentContext()));
+        assertTrue(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext(), VectorDataType.FLOAT));
+        assertFalse(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext(), VectorDataType.BYTE));
+        assertFalse(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext(), VectorDataType.BINARY));
+        assertFalse(Faiss.supportsRemoteIndexBuild(faissIVFFlat.getMethodComponentContext(), VectorDataType.FLOAT));
+        assertFalse(Lucene.supportsRemoteIndexBuild(luceneHNSWFlat.getMethodComponentContext(), VectorDataType.FLOAT));
     }
 
     public void testCreateRemoteIndexingParameters_Success() {

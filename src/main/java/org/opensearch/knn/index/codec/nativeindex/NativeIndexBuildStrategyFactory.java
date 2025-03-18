@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
+import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
@@ -74,7 +75,7 @@ public final class NativeIndexBuildStrategyFactory {
             && repositoriesServiceSupplier != null
             && indexSettings != null
             && getKnnMethodContext().isPresent()
-            && knnEngine.supportsRemoteIndexBuild(getKnnMethodContext().get().getMethodComponentContext())
+            && knnEngine.supportsRemoteIndexBuild(getKnnMethodContext().get().getMethodComponentContext(), extractVectorDataType(fieldInfo))
             && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength)) {
             return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, getKnnMethodContext().get());
         } else {
