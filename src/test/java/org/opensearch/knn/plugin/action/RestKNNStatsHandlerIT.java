@@ -17,23 +17,29 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.stats.StatNames;
-import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
 import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
@@ -48,8 +54,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 /**
  * Integration tests to check the correctness of RestKNNStatsHandler
@@ -77,7 +83,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     @Before
     public void setup() {
-        knnStats = new KNNStats();
+        knnStats = spy(new KNNStats());
     }
 
     /**
@@ -91,6 +97,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
         assertEquals(knnStats.getClusterStats().keySet(), clusterStats.keySet());
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
+        doReturn(randomBoolean()).when(knnStats).isRemoteBuildEnabled();
         assertEquals(knnStats.getNodeStats().keySet(), nodeStats.get(0).keySet());
     }
 
