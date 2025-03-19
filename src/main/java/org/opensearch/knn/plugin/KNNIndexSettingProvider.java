@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.plugin;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
@@ -28,4 +26,3 @@ public class KNNIndexSettingProvider implements IndexSettingProvider {
         return settings.hasValue("index.knn") && settings.getAsBoolean("index.knn", true);
     }
 }
-
