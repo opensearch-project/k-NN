@@ -45,6 +45,8 @@ buildscript {
             opensearch_build += "-SNAPSHOT"
         }
         opensearch_no_snapshot = opensearch_build.replace("-SNAPSHOT","")
+        repo_s3_resource_folder = "build/resource/repository-s3"
+        repo_s3_download_url = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/3.0.0-alpha1/latest/linux/arm64/tar/builds/opensearch/core-plugins/repository-s3-3.0.0-alpha1.zip"
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
@@ -170,6 +172,28 @@ ext {
         )
         cluster.setSecure(true)
     }
+
+    configureS3Plugin = { OpenSearchCluster cluster ->
+        cluster.plugin(provider(new Callable<RegularFile>(){
+            @Override
+            RegularFile call() throws Exception {
+                return new RegularFile() {
+                    @Override
+                    File getAsFile() {
+                        if (new File("$project.rootDir/$repo_s3_resource_folder").exists()) {
+                            project.delete(files("$project.rootDir/$repo_s3_resource_folder"))
+                        }
+                        project.mkdir repo_s3_resource_folder
+                        ant.get(src: repo_s3_download_url,
+                                dest: repo_s3_resource_folder,
+                                httpusecaches: false)
+                        return fileTree(repo_s3_resource_folder).getSingleFile()
+                    }
+                }
+            }
+        }))
+    }
+
     propertyKeys = [
         breaker: [
             useRealMemory: 'tests.opensearch.indices.breaker.total.use_real_memory'
@@ -445,6 +469,62 @@ integTest {
     systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
+task integTestRemoteIndexBuild(type: RestIntegTestTask) {
+    if (integTestDependOnJniLib) {
+        dependsOn buildJniLib
+    }
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
+    systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
+    // allows integration test classes to access test resource from project root path
+    systemProperty('project.root', project.rootDir.absolutePath)
+
+    testLogging {
+        events "passed", "failed", "skipped"
+        exceptionFormat "full"
+    }
+
+    var is_https = System.getProperty("https")
+    var user = System.getProperty("user")
+    var password = System.getProperty("password")
+
+    if (System.getProperty("security.enabled") != null) {
+        // If security is enabled, set is_https/user/password defaults
+        is_https = is_https == null ? "true" : is_https
+        user = user == null ? "admin" : user
+        password = password == null ? "admin" : password
+    }
+
+    systemProperty("https", is_https)
+    systemProperty("user", user)
+    systemProperty("password", password)
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+    systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
+    systemProperty("test.bucket", System.getProperty("test.bucket"))
+    systemProperty("test.base_path", System.getProperty("test.base_path"))
+
+    doFirst {
+        // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+        // use longer timeouts for requests.
+        def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+        systemProperty 'cluster.debug', isDebuggingCluster
+        // Set number of nodes system property to be used in tests
+        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
+        }
+    }
+
+    // The -Ddebug.es option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
+    }
+    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+}
+
 testClusters.integTest {
     testDistribution = "ARCHIVE"
 
@@ -455,6 +535,52 @@ testClusters.integTest {
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(testClusters.integTest)
     }
+
+    plugin(project.tasks.bundlePlugin.archiveFile)
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
+
+
+    // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
+    if (_numNodes > 1) numberOfNodes = _numNodes
+    // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
+    // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
+    // since we also support multi node integration tests we increase debugPort per node
+    if (System.getProperty("cluster.debug") != null) {
+        def debugPort = 5005
+        nodes.forEach { node ->
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
+            debugPort += 1
+        }
+    }
+    systemProperty("java.library.path", "$rootDir/jni/build/release")
+    final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
+    testSnapshotFolder.mkdirs()
+    setting 'path.repo', "${buildDir}/testSnapshotFolder"
+    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+}
+
+testClusters.integTestRemoteIndexBuild {
+    testDistribution = "ARCHIVE"
+
+    //Used for circuit breaker integration tests
+    setting 'node.attr.knn_cb_tier', 'integ'
+
+    // Optionally install security
+    if (System.getProperty("security.enabled") != null) {
+        configureSecurityPlugin(testClusters.integTestRemoteIndexBuild)
+    }
+
+    // Optionally install S3
+    if (System.getProperty("s3.enabled") != null) {
+        configureS3Plugin(testClusters.integTestRemoteIndexBuild)
+    }
+
+    keystore 's3.client.default.access_key', "${System.getProperty("access_key")}"
+    keystore 's3.client.default.secret_key', "${System.getProperty("secret_key")}"
+    keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
 
     plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
