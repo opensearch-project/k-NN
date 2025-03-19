@@ -17,8 +17,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.opensearch.common.Nullable;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120DerivedSourceStoredFieldsReader;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,13 +26,13 @@ import java.util.List;
 public class KNN9120DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
 
     private final StoredFieldsFormat delegate;
-    private final DerivedSourceReadersSupplier derivedSourceReadersSupplier;
+    private final KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier;
     // IMPORTANT Do not rely on this for the reader, it will be null if SPI is used
     @Nullable
     private final MapperService mapperService;
 
-    private static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY = "knn-derived-source-enabled";
-    private static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE = "true";
+    static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_KEY = "knn-derived-source-enabled";
+    static final String DERIVED_VECTOR_FIELD_ATTRIBUTE_TRUE_VALUE = "true";
 
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)

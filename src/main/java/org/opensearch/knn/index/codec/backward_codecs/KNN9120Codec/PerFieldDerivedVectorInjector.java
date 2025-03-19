@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import java.io.IOException;
 import java.util.Map;

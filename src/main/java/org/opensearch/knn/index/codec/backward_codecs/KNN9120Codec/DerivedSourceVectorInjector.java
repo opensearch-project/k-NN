@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
@@ -35,7 +35,7 @@ import java.util.Set;
 @Log4j2
 public class DerivedSourceVectorInjector implements Closeable {
 
-    private final DerivedSourceReaders derivedSourceReaders;
+    private final KNN9120DerivedSourceReaders derivedSourceReaders;
     private final List<PerFieldDerivedVectorInjector> perFieldDerivedVectorInjectors;
     private final Set<String> fieldNames;
 
@@ -47,7 +47,7 @@ public class DerivedSourceVectorInjector implements Closeable {
      * @param fieldsToInjectVector List of fields to inject vectors into
      */
     public DerivedSourceVectorInjector(
-        DerivedSourceReadersSupplier derivedSourceReadersSupplier,
+        KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState,
         List<FieldInfo> fieldsToInjectVector
     ) throws IOException {

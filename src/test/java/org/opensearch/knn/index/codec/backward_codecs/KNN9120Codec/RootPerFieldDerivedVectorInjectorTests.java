@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.index.FieldInfo;
@@ -74,7 +74,7 @@ public class RootPerFieldDerivedVectorInjectorTests extends KNNTestCase {
                 });
             PerFieldDerivedVectorInjector perFieldDerivedVectorInjector = new RootPerFieldDerivedVectorInjector(
                 fieldInfo,
-                new DerivedSourceReaders(null, null, null, null)
+                new KNN9120DerivedSourceReaders(null, null, null, null)
             );
 
             Map<String, Object> source = new HashMap<>();
