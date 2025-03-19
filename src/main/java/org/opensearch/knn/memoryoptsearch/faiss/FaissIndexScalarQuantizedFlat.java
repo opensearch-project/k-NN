@@ -11,8 +11,13 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructor;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructorFactory;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizerType;
 
 import java.io.IOException;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * This index type represents for a flat vector storage that is quantized in multiple formats.
@@ -22,9 +27,14 @@ import java.io.IOException;
  */
 @Getter
 public class FaissIndexScalarQuantizedFlat extends FaissIndex {
+    private static EnumMap<FaissQuantizerType, VectorEncoding> VECTOR_DATA_TYPES = new EnumMap<>(
+        Map.of(FaissQuantizerType.QT_8BIT_DIRECT_SIGNED, VectorEncoding.BYTE, FaissQuantizerType.QT_FP16, VectorEncoding.FLOAT32)
+    );
+
     public static final String IXSQ = "IxSQ";
 
-    private QuantizerType quantizerType;
+    private FaissQuantizerType quantizerType;
+    private FaissQuantizedValueReconstructor reconstructor;
     private RangeStat rangeStat;
     private float rangeStatArgument;
     private int dimension;
@@ -32,6 +42,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     private int oneVectorElementBits;
     private FaissSection trainedValues;
     private FaissSection flatVectors;
+    private VectorEncoding vectorEncoding;
 
     public FaissIndexScalarQuantizedFlat() {
         super(IXSQ);
@@ -41,7 +52,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
      * Deserialize the section and load important quantization related information including common header.
      * Refer to <a href="https://github.com/facebookresearch/faiss/blob/main/faiss/impl/index_read.cpp#L789">here</a>.
      *
-     * @param input
+     * @param input Input stream for FAISS index file.
      * @throws IOException
      */
     @Override
@@ -49,11 +60,11 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
         readCommonHeader(input);
 
         // Load quantizer type
-        quantizerType = QuantizerType.values()[input.readInt()];
-        if (quantizerType != QuantizerType.QT_8BIT_DIRECT_SIGNED) {
-            // So far, we only support byte vector.
+        quantizerType = FaissQuantizerType.values()[input.readInt()];
+        if (VECTOR_DATA_TYPES.containsKey(quantizerType) == false) {
             throw new UnsupportedFaissIndexException("Unsupported quantizer type: " + quantizerType);
         }
+        vectorEncoding = VECTOR_DATA_TYPES.get(quantizerType);
 
         // Loading range statistics + arguments
         // Although it won't be used for searching, as it's for training, keep them for debugging purposes.
@@ -71,17 +82,49 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
         setDerivedSizes();
 
         flatVectors = new FaissSection(input, Byte.BYTES);
+
+        // This should be put at the last as it needs dimension info + etc.
+        reconstructor = FaissQuantizedValueReconstructorFactory.create(quantizerType, dimension, oneVectorElementBits);
     }
 
     @Override
     public VectorEncoding getVectorEncoding() {
-        return VectorEncoding.BYTE;
+        return vectorEncoding;
     }
 
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) {
-        // TODO(KDY) : Support FP16 in part-6.
-        throw new UnsupportedOperationException(getClass().getSimpleName() + " does not support FloatVectorValues.");
+        @RequiredArgsConstructor
+        final class FloatVectorValuesImpl extends FloatVectorValues {
+            final IndexInput indexInput;
+            final byte[] bytesBuffer = new byte[(int) oneVectorByteSize];
+            final float[] floatBuffer = new float[dimension];
+
+            @Override
+            public float[] vectorValue(int internalVectorId) throws IOException {
+                indexInput.seek(flatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
+                indexInput.readBytes(bytesBuffer, 0, bytesBuffer.length);
+                reconstructor.reconstruct(bytesBuffer, floatBuffer);
+                return floatBuffer;
+            }
+
+            @Override
+            public int dimension() {
+                return dimension;
+            }
+
+            @Override
+            public int size() {
+                return totalNumberOfVectors;
+            }
+
+            @Override
+            public FloatVectorValuesImpl copy() {
+                return new FloatVectorValuesImpl(indexInput.clone());
+            }
+        }
+
+        return new FloatVectorValuesImpl(indexInput);
     }
 
     @Override
@@ -95,6 +138,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
             public byte[] vectorValue(int internalVectorId) throws IOException {
                 indexInput.seek(flatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
                 indexInput.readBytes(buffer, 0, buffer.length);
+                reconstructor.reconstruct(buffer, buffer);
                 return buffer;
             }
 
@@ -153,19 +197,6 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
                 oneVectorElementBits = 16;
                 break;
         }
-    }
-
-    // Refer to https://github.com/facebookresearch/faiss/blob/main/faiss/impl/ScalarQuantizer.h#L27
-    public enum QuantizerType {
-        QT_8BIT,
-        QT_4BIT,
-        QT_8BIT_UNIFORM,
-        QT_4BIT_UNIFORM,
-        QT_FP16,
-        QT_8BIT_DIRECT,
-        QT_6BIT,
-        QT_BF16,
-        QT_8BIT_DIRECT_SIGNED
     }
 
     // Refer to https://github.com/facebookresearch/faiss/blob/main/faiss/impl/ScalarQuantizer.h#L47
