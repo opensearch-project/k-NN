@@ -27,6 +27,7 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -45,7 +46,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 /**
@@ -59,85 +59,27 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
     private Map<String, String> quantizationStateCacheKeyPerField;
-    private SegmentReadState segmentReadState;
+    private final SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
     private volatile Map<String, VectorSearcher> vectorSearchers;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
+        this(state, flatVectorsReader, false);
+    }
+
+    public NativeEngines990KnnVectorsReader(
+        final SegmentReadState state,
+        final FlatVectorsReader flatVectorsReader,
+        final boolean memoryOptimizedSearchEnabled
+    ) {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
-        this.vectorSearchers = null;
 
         loadCacheKeyMap();
 
-        // Memory optimized searcher will be ONLY used for searching, we don't need this during merging.
-        // TODO(KDY) : Enable this based on setting flag value. e.g. index.knn.memory_optimized_search = True
-        if (state.context.context() != IOContext.Context.MERGE) {
-            loadMemoryOptimizedSearcher();
-        }
-    }
-
-    private IOSupplier<VectorSearcher> getIndexFileNameIfMemoryOptimizedSearchSupported(final FieldInfo fieldInfo) {
-        // Skip non-knn fields.
-        final Map<String, String> attributes = fieldInfo.attributes();
-        if (attributes == null || attributes.containsKey(KNN_FIELD) == false) {
-            return null;
-        }
-
-        // Get engine
-        final String engineName = attributes.getOrDefault(KNN_ENGINE, KNNEngine.DEFAULT.getName());
-        final KNNEngine knnEngine = KNNEngine.getEngine(engineName);
-
-        // Get memory optimized searcher from engine
-        final VectorSearcherFactory searcherFactory = knnEngine.getVectorSearcherFactory();
-        if (searcherFactory == null) {
-            // It's not supported
-            return null;
-        }
-
-        // Start creating searcher
-        final String fileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
-        if (fileName != null) {
-            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName);
-        }
-
-        // Not supported
-        return null;
-    }
-
-    private synchronized void loadMemoryOptimizedSearcher() {
-        if (vectorSearchers != null) {
-            return;
-        }
-
-        final Map<String, VectorSearcher> vectorSearcherPerField = new HashMap<>(
-            RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(),
-            SUFFICIENT_LOAD_FACTOR
-        );
-
-        try {
-            for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
-                final IOSupplier<VectorSearcher> searcherSupplier = getIndexFileNameIfMemoryOptimizedSearchSupported(fieldInfo);
-                if (searcherSupplier != null) {
-                    final VectorSearcher searcher = searcherSupplier.get();
-                    if (searcher != null) {
-                        // It's supported. There can be a case where a certain index type underlying is not yet supported while KNNEngine
-                        // itself supports memory optimized searching.
-                        vectorSearcherPerField.put(fieldInfo.getName(), searcher);
-                    }
-                }
-            }
-
-            vectorSearchers = vectorSearcherPerField;
-        } catch (Exception e) {
-            // Close opened searchers first, then suppress
-            try {
-                IOUtils.closeWhileHandlingException(vectorSearcherPerField.values());
-            } catch (Exception closeException) {
-                log.error(closeException.getMessage(), closeException);
-            }
-            throw new RuntimeException(e);
+        if (memoryOptimizedSearchEnabled && state.context.context() != IOContext.Context.MERGE) {
+            loadMemoryOptimizedSearcherIfRequired();
         }
     }
 
@@ -308,12 +250,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         Bits acceptDocs,
         boolean isFloatVector
     ) throws IOException {
-        if (vectorSearchers == null) {
-            // Null `vectorSearchers` indicates that this reader was instantiated during merge.
-            // In this case, we load the searcher on demand for searching.
-            // This will not likely happen, by the time searching, this old segment will be merged away anyway.
-            loadMemoryOptimizedSearcher();
-        }
+        loadMemoryOptimizedSearcherIfRequired();
 
         // Try with memory optimized searcher
         final VectorSearcher memoryOptimizedSearcher = vectorSearchers.get(field);
@@ -349,5 +286,81 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         }
 
         return cacheKeys;
+    }
+
+    private void loadMemoryOptimizedSearcherIfRequired() {
+        if (vectorSearchers != null) {
+            return;
+        }
+
+        synchronized (this) {
+            if (vectorSearchers != null) {
+                return;
+            }
+
+            // We need sufficient memory space for this table as it will be queried for every single search.
+            // Hence, having larger space to approximate a perfect hash here.
+            final Map<String, VectorSearcher> vectorSearcherPerField = new HashMap<>(
+                RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(),
+                SUFFICIENT_LOAD_FACTOR
+            );
+
+            try {
+                for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+                    final IOSupplier<VectorSearcher> searcherSupplier = getVectorSearcherSupplier(fieldInfo);
+                    if (searcherSupplier != null) {
+                        final VectorSearcher searcher = searcherSupplier.get();
+                        if (searcher != null) {
+                            // It's supported. There can be a case where a certain index type underlying is not yet supported while
+                            // KNNEngine
+                            // itself supports memory optimized searching.
+                            vectorSearcherPerField.put(fieldInfo.getName(), searcher);
+                        }
+                    }
+                }
+
+                vectorSearchers = vectorSearcherPerField;
+            } catch (Exception e) {
+                // Close opened searchers first, then suppress
+                try {
+                    IOUtils.closeWhileHandlingException(vectorSearcherPerField.values());
+                } catch (Exception closeException) {
+                    log.error(closeException.getMessage(), closeException);
+                }
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private IOSupplier<VectorSearcher> getVectorSearcherSupplier(final FieldInfo fieldInfo) {
+        // Skip non-knn fields.
+        final Map<String, String> attributes = fieldInfo.attributes();
+        if (attributes == null || attributes.containsKey(KNN_FIELD) == false) {
+            return null;
+        }
+
+        // Try to get KNN engine from fieldInfo.
+        final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+
+        // No KNNEngine is available
+        if (knnEngine == null) {
+            return null;
+        }
+
+        // Get memory optimized searcher from engine
+        final VectorSearcherFactory searcherFactory = knnEngine.getVectorSearcherFactory();
+        if (searcherFactory == null) {
+            // It's not supported
+            return null;
+        }
+
+        // Start creating searcher
+        final String fileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
+        if (fileName != null) {
+            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName);
+        }
+
+        // Not supported
+        return null;
     }
 }
