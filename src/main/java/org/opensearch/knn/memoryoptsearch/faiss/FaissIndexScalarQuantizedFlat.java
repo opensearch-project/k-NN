@@ -52,7 +52,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
         quantizerType = QuantizerType.values()[input.readInt()];
         if (quantizerType != QuantizerType.QT_8BIT_DIRECT_SIGNED) {
             // So far, we only support byte vector.
-            throw new IllegalArgumentException("Unsupported quantizer type: " + quantizerType);
+            throw new UnsupportedFaissIndexException("Unsupported quantizer type: " + quantizerType);
         }
 
         // Loading range statistics + arguments

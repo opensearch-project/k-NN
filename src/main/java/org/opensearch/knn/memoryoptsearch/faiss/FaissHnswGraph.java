@@ -31,10 +31,10 @@ public class FaissHnswGraph extends HnswGraph {
     private int numNeighbors;
     private int nextNeighborIndex;
 
-    public FaissHnswGraph(final FaissHNSW faissHNSW, final int numVectors, final IndexInput indexInput) {
+    public FaissHnswGraph(final FaissHNSW faissHNSW, final IndexInput indexInput) {
         this.faissHnsw = faissHNSW;
         this.indexInput = indexInput;
-        this.numVectors = numVectors;
+        this.numVectors = Math.toIntExact(faissHNSW.getTotalNumberOfVectors());
     }
 
     /**

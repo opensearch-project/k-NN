@@ -22,6 +22,7 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.IOUtils;
@@ -37,12 +38,12 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
@@ -60,21 +61,19 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private Map<String, String> quantizationStateCacheKeyPerField;
     private SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
-    private Map<String, VectorSearcher> vectorSearchers;
+    private volatile Map<String, VectorSearcher> vectorSearchers;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
-        this.vectorSearchers = new HashMap<>(RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(), SUFFICIENT_LOAD_FACTOR);
+        this.vectorSearchers = null;
+
         loadCacheKeyMap();
 
-        //
-        // TMP(KDY) : Dynamic update will be covered in part-7. Please refer to
-        // https://github.com/opensearch-project/k-NN/issues/2401#issuecomment-2699777824
-        //
-        final boolean isMemoryOptimizedSearchEnabled = false;
-        if (isMemoryOptimizedSearchEnabled) {
+        // Memory optimized searcher will be ONLY used for searching, we don't need this during merging.
+        // TODO(KDY) : Enable this based on setting flag value. e.g. index.knn.memory_optimized_search = True
+        if (state.context.context() != IOContext.Context.MERGE) {
             loadMemoryOptimizedSearcher();
         }
     }
@@ -107,19 +106,34 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         return null;
     }
 
-    private void loadMemoryOptimizedSearcher() {
+    private synchronized void loadMemoryOptimizedSearcher() {
+        if (vectorSearchers != null) {
+            return;
+        }
+
+        final Map<String, VectorSearcher> vectorSearcherPerField = new HashMap<>(
+            RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(),
+            SUFFICIENT_LOAD_FACTOR
+        );
+
         try {
             for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
                 final IOSupplier<VectorSearcher> searcherSupplier = getIndexFileNameIfMemoryOptimizedSearchSupported(fieldInfo);
                 if (searcherSupplier != null) {
-                    final VectorSearcher searcher = Objects.requireNonNull(searcherSupplier.get());
-                    vectorSearchers.put(fieldInfo.getName(), searcher);
+                    final VectorSearcher searcher = searcherSupplier.get();
+                    if (searcher != null) {
+                        // It's supported. There can be a case where a certain index type underlying is not yet supported while KNNEngine
+                        // itself supports memory optimized searching.
+                        vectorSearcherPerField.put(fieldInfo.getName(), searcher);
+                    }
                 }
             }
+
+            vectorSearchers = vectorSearcherPerField;
         } catch (Exception e) {
             // Close opened searchers first, then suppress
             try {
-                IOUtils.closeWhileHandlingException(vectorSearchers.values());
+                IOUtils.closeWhileHandlingException(vectorSearcherPerField.values());
             } catch (Exception closeException) {
                 log.error(closeException.getMessage(), closeException);
             }
@@ -207,10 +221,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             return;
         }
 
-        // Try with memory optimized searcher
-        final VectorSearcher memoryOptimizedSearcher = vectorSearchers.get(field);
-        if (memoryOptimizedSearcher != null) {
-            memoryOptimizedSearcher.search(target, knnCollector, acceptDocs);
+        if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, true)) {
             return;
         }
 
@@ -244,6 +255,10 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      */
     @Override
     public void search(String field, byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+        if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, false)) {
+            return;
+        }
+
         throw new UnsupportedOperationException("Search functionality using codec is not supported with Native Engine Reader");
     }
 
@@ -267,7 +282,15 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         cacheKeys.forEach(nativeMemoryCacheManager::invalidate);
 
         // Close a reader.
-        IOUtils.close(flatVectorsReader);
+        List<Closeable> closeables = new ArrayList<>();
+        closeables.add(flatVectorsReader);
+
+        // Close vector searchers if loaded.
+        if (vectorSearchers != null) {
+            closeables.addAll(vectorSearchers.values());
+        }
+
+        IOUtils.close(closeables);
 
         // Clean up quantized state cache.
         if (quantizationStateCacheKeyPerField != null) {
@@ -276,9 +299,33 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                 quantizationStateCacheManager.evict(cacheKey);
             }
         }
+    }
 
-        // TODO(KDY)
-        // Close all memory optimized searchers.
+    private boolean trySearchWithMemoryOptimizedSearch(
+        String field,
+        Object target,
+        KnnCollector knnCollector,
+        Bits acceptDocs,
+        boolean isFloatVector
+    ) throws IOException {
+        if (vectorSearchers == null) {
+            // Null `vectorSearchers` indicates that this reader was instantiated during merge.
+            // In this case, we load the searcher on demand for searching.
+            // This will not likely happen, by the time searching, this old segment will be merged away anyway.
+            loadMemoryOptimizedSearcher();
+        }
+
+        // Try with memory optimized searcher
+        final VectorSearcher memoryOptimizedSearcher = vectorSearchers.get(field);
+        if (memoryOptimizedSearcher != null) {
+            if (isFloatVector) {
+                memoryOptimizedSearcher.search((float[]) target, knnCollector, acceptDocs);
+            } else {
+                memoryOptimizedSearcher.search((byte[]) target, knnCollector, acceptDocs);
+            }
+            return true;
+        }
+        return false;
     }
 
     private void loadCacheKeyMap() {
