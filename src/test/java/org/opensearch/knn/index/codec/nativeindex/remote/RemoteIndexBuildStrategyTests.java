@@ -16,6 +16,8 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngineTests;
+import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -71,6 +73,15 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         );
         objectUnderTest.buildAndWriteIndex(buildIndexParams);
         assertTrue(fallback.get());
+        for (KNNRemoteIndexBuildValue value : KNNRemoteIndexBuildValue.values()) {
+            if (value == KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_TIME) {
+                assertTrue(value.getValue() > 0L);
+            } else if (value == KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT) {
+                assertEquals(1L, (long) value.getValue());
+            } else {
+                assertEquals(0L, (long) value.getValue());
+            }
+        }
     }
 
     public void testShouldBuildIndexRemotely() {
