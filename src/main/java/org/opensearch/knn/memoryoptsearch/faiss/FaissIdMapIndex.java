@@ -29,7 +29,7 @@ public class FaissIdMapIndex extends FaissIndex {
     public static final String IXMP = "IxMp";
 
     @Getter
-    private FaissHNSWIndex nestedIndex;
+    private AbstractFaissHNSWIndex nestedIndex;
     private long[] vectorIdToDocIdMapping;
 
     public FaissIdMapIndex() {
@@ -48,8 +48,8 @@ public class FaissIdMapIndex extends FaissIndex {
         readCommonHeader(input);
         final FaissIndex nestedIndex = FaissIndex.load(input);
 
-        if (nestedIndex instanceof FaissHNSWIndex) {
-            this.nestedIndex = (FaissHNSWIndex) nestedIndex;
+        if (nestedIndex instanceof AbstractFaissHNSWIndex nestedHnswIndex) {
+            this.nestedIndex = nestedHnswIndex;
         } else {
             throw new IllegalStateException(
                 "Invalid nested index. Expected " + FaissHNSWIndex.class.getSimpleName() + " , but got " + nestedIndex.getIndexType()

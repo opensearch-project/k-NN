@@ -31,9 +31,9 @@ public class FaissHNSW {
     // This indicates that 544th vector exists at all levels of (0-level, 1-level, 2-level).
     private FaissSection levels;
     // Entry point in HNSW graph
-    private int entryPoint;
+    protected int entryPoint;
     // Maximum level of HNSW graph
-    private int maxLevel = -1;
+    protected int maxLevel = -1;
     // Default efSearch parameter. This determines the navigation queue size.
     // More value, algorithm will more navigate candidates.
     private int efSearch = 16;

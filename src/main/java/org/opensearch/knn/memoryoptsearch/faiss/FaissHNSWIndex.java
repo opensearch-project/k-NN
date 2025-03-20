@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
-import lombok.Getter;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
@@ -18,7 +17,7 @@ import java.io.IOException;
  * This is the ported version of `IndexHNSW` from FAISS.
  * For more details, please refer to <a href="https://github.com/facebookresearch/faiss/blob/main/faiss/impl/index_read.cpp#L1111">...</a>
  */
-public class FaissHNSWIndex extends FaissIndex {
+public class FaissHNSWIndex extends AbstractFaissHNSWIndex {
     // Flat float vector format -
     // https://github.com/facebookresearch/faiss/blob/15491a1e4f5a513a8684e5b7262ef4ec22eda19d/faiss/IndexHNSW.h#L122
     public static final String IHNF = "IHNf";
@@ -26,13 +25,10 @@ public class FaissHNSWIndex extends FaissIndex {
     // https://github.com/facebookresearch/faiss/blob/15491a1e4f5a513a8684e5b7262ef4ec22eda19d/faiss/IndexHNSW.h#L144C8-L144C19
     public static final String IHNS = "IHNs";
 
-    @Getter
-    private FaissHNSW hnsw = new FaissHNSW();
-    private FaissIndex flatVectors;
     private VectorEncoding vectorEncoding;
 
     public FaissHNSWIndex(final String indexType) {
-        super(indexType);
+        super(indexType, new FaissHNSW());
 
         // Set encoding
         if (indexType.equals(IHNF)) {
