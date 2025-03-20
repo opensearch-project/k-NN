@@ -5,11 +5,9 @@
 
 package org.opensearch.knn.plugin.stats;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.indices.ModelCache;
@@ -26,7 +24,6 @@ import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplie
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -74,15 +71,8 @@ public class KNNStats {
         Map<String, KNNStat<?>> statsMap = new HashMap<>();
 
         for (Map.Entry<String, KNNStat<?>> entry : knnStats.entrySet()) {
-            // knnStats is initialized at node bootup, so we need to do feature flag enforcement when retrieving the stats instead
             if (entry.getValue().isClusterLevel() == getClusterStats) {
-                if (Objects.equals(entry.getKey(), StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName())) {
-                    if (isRemoteBuildEnabled()) {
-                        statsMap.put(entry.getKey(), entry.getValue());
-                    }
-                } else {
-                    statsMap.put(entry.getKey(), entry.getValue());
-                }
+                statsMap.put(entry.getKey(), entry.getValue());
             }
         }
         return statsMap;
@@ -272,16 +262,28 @@ public class KNNStats {
 
         Map<String, Object> buildStatsMap = new HashMap<>();
         buildStatsMap.put(
-            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_OPERATIONS.getName(),
-            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_OPERATIONS.getValue()
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.getValue()
         );
         buildStatsMap.put(
-            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_SIZE.getName(),
-            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_SIZE.getValue()
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS.getValue()
         );
         buildStatsMap.put(
-            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_TIME.getName(),
-            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_TIME.getValue()
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME.getValue()
         );
 
         Map<String, Map<String, Object>> remoteIndexBuildStatsMap = new HashMap<>();
@@ -289,10 +291,5 @@ public class KNNStats {
         remoteIndexBuildStatsMap.put(StatNames.CLIENT_STATS.getName(), clientStatsMap);
         remoteIndexBuildStatsMap.put(StatNames.REPOSITORY_STATS.getName(), repoStatsMap);
         return remoteIndexBuildStatsMap;
-    }
-
-    @VisibleForTesting
-    public boolean isRemoteBuildEnabled() {
-        return KNNFeatureFlags.isKNNRemoteVectorBuildEnabled();
     }
 }
