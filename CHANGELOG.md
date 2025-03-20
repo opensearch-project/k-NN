@@ -13,6 +13,7 @@ Add filter function to KNNQueryBuilder with unit tests and integration tests [#2
 ### Bug Fixes
 * Fixing bug to prevent NullPointerException while doing PUT mappings [#2556](https://github.com/opensearch-project/k-NN/issues/2556)
 ### Infrastructure
+* Add github action to run ITs against remote index builder [2620](https://github.com/opensearch-project/k-NN/pull/2620)
 ### Documentation
 ### Maintenance
 ### Refactoring
