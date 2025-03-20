@@ -11,18 +11,22 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.shard.IndexSettingProvider;
 
 public class KNNIndexSettingProvider implements IndexSettingProvider {
-    public static final ByteSizeValue CHANGED_KNN_VALUE = new ByteSizeValue(16, ByteSizeUnit.MB);
+    public static final ByteSizeValue KNN_DEFAULT_FLOOR_SEGMENT_VALUE = new ByteSizeValue(16, ByteSizeUnit.MB);
 
+    private static boolean isKNNIndex(Settings settings) {
+        return settings.hasValue("index.knn") && settings.getAsBoolean("index.knn", true);
+    }
+
+    /**
+     * Returns additional index settings for k-NN index. In particular, we set the index.merge.policy.floor_segment = 16MB.
+     * This change is in line with Lucene 10.2 default and will lead to fewer segments (more merges), improving search performance.
+     */
     @Override
     public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
         if (isKNNIndex(templateAndRequestSettings)) {
-            return Settings.builder().put("index.merge.policy.floor_segment", CHANGED_KNN_VALUE).build();
+            return Settings.builder().put("index.merge.policy.floor_segment", KNN_DEFAULT_FLOOR_SEGMENT_VALUE).build();
         } else {
             return Settings.EMPTY;
         }
-    }
-
-    private boolean isKNNIndex(Settings settings) {
-        return settings.hasValue("index.knn") && settings.getAsBoolean("index.knn", true);
     }
 }
