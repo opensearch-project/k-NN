@@ -23,7 +23,11 @@ import static org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod.HNSW_METHO
 /**
  * Method resolution logic for nmslib. Because nmslib does not support quantization, it is in general a validation
  * before returning the original request
+ *
+ * @deprecated As of 2.19.0, please use {@link org.opensearch.knn.index.engine.faiss.Faiss} or Lucene engine.
+ * This engine will be removed in a future release.
  */
+@Deprecated(since = "2.19.0", forRemoval = true)
 public class NmslibMethodResolver extends AbstractMethodResolver {
 
     private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(CompressionLevel.x1);

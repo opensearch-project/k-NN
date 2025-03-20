@@ -22,7 +22,11 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 /**
  * Implements NativeLibrary for the nmslib native library
+ *
+ * @deprecated As of 2.19.0, please use {@link org.opensearch.knn.index.engine.faiss.Faiss} or Lucene's native k-NN.
+ * This engine will be removed in a future release.
  */
+@Deprecated(since = "2.19.0", forRemoval = true)
 public class Nmslib extends NativeLibrary {
     // Extension to be used for Nmslib files. It is ".hnsw" and not ".nmslib" for legacy purposes.
     public final static String EXTENSION = ".hnsw";
