@@ -15,16 +15,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
-
 public class StatsIT extends AbstractRollingUpgradeTestCase {
     private KNNStats knnStats;
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        this.knnStats = spy(new KNNStats());
+        this.knnStats = new KNNStats();
     }
 
     // Validate if all the KNN Stats metrics from old version are present in new version
@@ -36,7 +33,6 @@ public class StatsIT extends AbstractRollingUpgradeTestCase {
         assertTrue(knnStats.getClusterStats().keySet().containsAll(clusterStats.keySet()));
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
         assertNotNull(nodeStats.get(0));
-        doReturn(randomBoolean()).when(knnStats).isRemoteBuildEnabled();
         assertTrue(knnStats.getNodeStats().keySet().containsAll(nodeStats.get(0).keySet()));
     }
 
