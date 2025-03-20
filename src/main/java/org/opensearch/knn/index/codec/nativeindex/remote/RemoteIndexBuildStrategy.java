@@ -50,9 +50,12 @@ import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUI
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.READ_FAILURE_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.READ_SUCCESS_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.READ_TIME;
-import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_OPERATIONS;
-import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_SIZE;
-import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_TIME;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.WAITING_TIME;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.WRITE_FAILURE_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.WRITE_SUCCESS_COUNT;
@@ -130,17 +133,21 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     /**
      * Entry point for flush/merge operations. This method orchestrates the following:
-     *      1. Writes required data to repository
-     *      2. Triggers index build
-     *      3. Awaits on vector build to complete
-     *      4. Downloads index file and writes to indexOutput
+     * 1. Writes required data to repository
+     * 2. Triggers index build
+     * 3. Awaits on vector build to complete
+     * 4. Downloads index file and writes to indexOutput
+     *
+     * @param indexInfo {@link BuildIndexParams} containing information about the index to be built
+     * @throws IOException if an error occurs during the build process
      */
     @Override
     public void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException {
+        boolean isFlush = indexInfo.isFlush();
         StopWatch remoteBuildStopWatch = new StopWatch();
         KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
         initializeVectorValues(knnVectorValues);
-        startRemoteIndexBuildStats((long) indexInfo.getTotalLiveDocs() * knnVectorValues.bytesPerVector(), remoteBuildStopWatch);
+        startRemoteIndexBuildStats((long) indexInfo.getTotalLiveDocs() * knnVectorValues.bytesPerVector(), remoteBuildStopWatch, isFlush);
 
         try {
             RepositoryContext repositoryContext = getRepositoryContext(indexInfo);
@@ -158,11 +165,15 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             // 4. Download index file and write to indexOutput
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
 
-            endRemoteIndexBuildStats((long) indexInfo.getTotalLiveDocs() * knnVectorValues.bytesPerVector(), remoteBuildStopWatch);
-            INDEX_BUILD_SUCCESS_COUNT.increment();
+            endRemoteIndexBuildStats(
+                (long) indexInfo.getTotalLiveDocs() * knnVectorValues.bytesPerVector(),
+                remoteBuildStopWatch,
+                true,
+                isFlush
+            );
         } catch (Exception e) {
             log.warn("Failed to build index remotely", e);
-            handleFailure(indexInfo, knnVectorValues.bytesPerVector(), remoteBuildStopWatch);
+            handleFailure(indexInfo, knnVectorValues.bytesPerVector(), remoteBuildStopWatch, isFlush);
         }
     }
 
@@ -178,7 +189,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         );
 
         StopWatch stopWatch = new StopWatch().start();
-        long time_in_millis;
+        boolean success = false;
         try {
             vectorRepositoryAccessor.writeToRepository(
                 repositoryContext.blobName,
@@ -186,15 +197,12 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexInfo.getVectorDataType(),
                 indexInfo.getKnnVectorValuesSupplier()
             );
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            WRITE_SUCCESS_COUNT.increment();
-            WRITE_TIME.incrementBy(time_in_millis);
-            log.debug("Repository write took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
-        } catch (Exception e) {
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            WRITE_FAILURE_COUNT.increment();
-            log.error("Repository write failed after {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName(), e);
+            success = true;
+        } catch (InterruptedException | IOException e) {
+            log.warn("Repository write failed for vector field [{}]", indexInfo.getFieldName());
             throw e;
+        } finally {
+            recordRepositoryWriteMetrics(success, stopWatch.stop().totalTime().millis(), indexInfo.getFieldName());
         }
     }
 
@@ -206,7 +214,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         throws IOException {
         final RemoteBuildResponse remoteBuildResponse;
         StopWatch stopWatch = new StopWatch().start();
-        long time_in_millis;
+        boolean success = false;
         try {
             final RemoteBuildRequest buildRequest = buildRemoteBuildRequest(
                 indexSettings,
@@ -216,15 +224,13 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 knnMethodContext
             );
             remoteBuildResponse = client.submitVectorBuild(buildRequest);
-            BUILD_REQUEST_SUCCESS_COUNT.increment();
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
+            success = true;
             return remoteBuildResponse;
         } catch (IOException e) {
-            BUILD_REQUEST_FAILURE_COUNT.increment();
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            log.error("Submit vector build failed after {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName(), e);
+            log.warn("Submit vector build failed for vector field [{}]", indexInfo.getFieldName());
             throw e;
+        } finally {
+            recordBuildRequestMetrics(success, stopWatch.stop().totalTime().millis(), indexInfo.getFieldName());
         }
     }
 
@@ -240,20 +246,21 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     ) throws IOException, InterruptedException {
         RemoteBuildStatusResponse remoteBuildStatusResponse;
         StopWatch stopWatch = new StopWatch().start();
-        long time_in_millis;
         try {
             final RemoteBuildStatusRequest remoteBuildStatusRequest = RemoteBuildStatusRequest.builder()
                 .jobId(remoteBuildResponse.getJobId())
                 .build();
             RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client);
             remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            WAITING_TIME.incrementBy(time_in_millis);
-            log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
+            incrementWaitingTime(stopWatch.stop().totalTime().millis(), indexInfo.getFieldName());
             return remoteBuildStatusResponse;
         } catch (InterruptedException | IOException e) {
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            log.error("Await vector build failed after {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName(), e);
+            log.warn(
+                "Await vector build failed after {} ms for vector field [{}]",
+                stopWatch.stop().totalTime().millis(),
+                indexInfo.getFieldName(),
+                e
+            );
             throw e;
         }
     }
@@ -267,21 +274,18 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         RemoteBuildStatusResponse remoteBuildStatusResponse
     ) throws IOException {
         StopWatch stopWatch = new StopWatch().start();
-        long time_in_millis;
+        boolean success = false;
         try {
             repositoryContext.vectorRepositoryAccessor.readFromRepository(
                 remoteBuildStatusResponse.getFileName(),
                 indexInfo.getIndexOutputWithBuffer()
             );
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            READ_SUCCESS_COUNT.increment();
-            READ_TIME.incrementBy(time_in_millis);
-            log.debug("Repository read took {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName());
+            success = true;
         } catch (Exception e) {
-            time_in_millis = stopWatch.stop().totalTime().millis();
-            READ_FAILURE_COUNT.increment();
-            log.error("Repository read failed after {} ms for vector field [{}]", time_in_millis, indexInfo.getFieldName(), e);
+            log.warn("Repository read failed for vector field [{}]", indexInfo.getFieldName());
             throw e;
+        } finally {
+            recordRepositoryReadMetrics(success, stopWatch.stop().totalTime().millis(), indexInfo.getFieldName());
         }
     }
 
@@ -346,34 +350,6 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     }
 
     /**
-     * Helper method to collect remote index build metrics on start
-     */
-    private void startRemoteIndexBuildStats(long size, StopWatch stopWatch) {
-        stopWatch.start();
-        REMOTE_INDEX_BUILD_CURRENT_OPERATIONS.increment();
-        REMOTE_INDEX_BUILD_CURRENT_SIZE.incrementBy(size);
-    }
-
-    /**
-     * Helper method to collect remote index build metrics on success
-     */
-    private void endRemoteIndexBuildStats(long size, StopWatch stopWatch) {
-        long time_in_millis = stopWatch.stop().totalTime().millis();
-        REMOTE_INDEX_BUILD_CURRENT_OPERATIONS.decrement();
-        REMOTE_INDEX_BUILD_CURRENT_SIZE.decrementBy(size);
-        REMOTE_INDEX_BUILD_TIME.incrementBy(time_in_millis);
-    }
-
-    /**
-     * Helper method to collect remote index build metrics on failure and invoke fallback strategy
-     */
-    private void handleFailure(BuildIndexParams indexParams, long bytesPerVector, StopWatch stopWatch) throws IOException {
-        endRemoteIndexBuildStats(indexParams.getTotalLiveDocs() * bytesPerVector, stopWatch);
-        INDEX_BUILD_FAILURE_COUNT.increment();
-        fallbackStrategy.buildAndWriteIndex(indexParams);
-    }
-
-    /**
      * Record to hold various repository related objects
      */
     private record RepositoryContext(BlobStoreRepository blobStoreRepository, BlobPath blobPath,
@@ -381,7 +357,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     }
 
     /**
-     * Helper method to get repository context
+     * Helper method to get repository context. Generates a unique UUID for the blobName so should only be used once.
      */
     private RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) {
         BlobStoreRepository repository = getRepository();
@@ -391,5 +367,85 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             repository.blobStore().blobContainer(blobPath)
         );
         return new RepositoryContext(repository, blobPath, vectorRepositoryAccessor, blobName);
+    }
+
+    /**
+     * Helper method to collect remote index build metrics on start
+     */
+    private void startRemoteIndexBuildStats(long size, StopWatch stopWatch, boolean isFlush) {
+        stopWatch.start();
+        if (isFlush) {
+            REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.increment();
+            REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.incrementBy(size);
+        } else {
+            REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS.increment();
+            REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE.incrementBy(size);
+        }
+    }
+
+    // Repository read phase metric helpers
+    private void recordRepositoryWriteMetrics(boolean success, long time_in_millis, String fieldName) {
+        if (success) {
+            WRITE_SUCCESS_COUNT.increment();
+            WRITE_TIME.incrementBy(time_in_millis);
+            log.debug("Repository write took {} ms for vector field [{}]", time_in_millis, fieldName);
+        } else {
+            WRITE_FAILURE_COUNT.increment();
+        }
+    }
+
+    // Build request phase metric helpers
+    private void recordBuildRequestMetrics(boolean success, long time_in_millis, String fieldName) {
+        if (success) {
+            BUILD_REQUEST_SUCCESS_COUNT.increment();
+            log.debug("Submit vector build took {} ms for vector field [{}]", time_in_millis, fieldName);
+        } else {
+            BUILD_REQUEST_FAILURE_COUNT.increment();
+        }
+    }
+
+    // Await index build phase metric helpers
+    private void incrementWaitingTime(long time_in_millis, String fieldName) {
+        WAITING_TIME.incrementBy(time_in_millis);
+        log.debug("Await vector build took {} ms for vector field [{}]", time_in_millis, fieldName);
+    }
+
+    // Repository read phase metric helpers
+    private void recordRepositoryReadMetrics(boolean success, long time_in_millis, String fieldName) {
+        if (success) {
+            READ_SUCCESS_COUNT.increment();
+            READ_TIME.incrementBy(time_in_millis);
+            log.debug("Repository read took {} ms for vector field [{}]", time_in_millis, fieldName);
+        } else {
+            READ_FAILURE_COUNT.increment();
+        }
+    }
+
+    /**
+     * Helper method to collect overall remote index build metrics on success
+     */
+    private void endRemoteIndexBuildStats(long size, StopWatch stopWatch, Boolean wasSuccessful, boolean isFlush) {
+        long time_in_millis = stopWatch.stop().totalTime().millis();
+        if (wasSuccessful) {
+            INDEX_BUILD_SUCCESS_COUNT.increment();
+        }
+        if (isFlush) {
+            REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.decrement();
+            REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.decrementBy(size);
+            REMOTE_INDEX_BUILD_FLUSH_TIME.incrementBy(time_in_millis);
+        } else {
+            REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS.decrement();
+            REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE.decrementBy(size);
+            REMOTE_INDEX_BUILD_MERGE_TIME.incrementBy(time_in_millis);
+        }
+    }
+
+    /**
+     * Helper method to collect overall remote index build metrics on failure and invoke fallback strategy
+     */
+    private void handleFailure(BuildIndexParams indexParams, long bytesPerVector, StopWatch stopWatch, boolean isFlush) throws IOException {
+        INDEX_BUILD_FAILURE_COUNT.increment();
+        endRemoteIndexBuildStats(indexParams.getTotalLiveDocs() * bytesPerVector, stopWatch, false, isFlush);
+        fallbackStrategy.buildAndWriteIndex(indexParams);
     }
 }

@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin.transport;
 import org.opensearch.action.support.nodes.BaseNodesRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.IOException;
@@ -60,10 +61,15 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
     }
 
     /**
-     * Add all stats to be retrieved
+     * Add all stats to be retrieved, omitting Remote Build metrics if disabled.
      */
     public void all() {
-        statsToBeRetrieved.addAll(validStats);
+        for (String stat : validStats) {
+            if (StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName().equals(stat) && !KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
+                continue;
+            }
+            statsToBeRetrieved.add(stat);
+        }
     }
 
     /**

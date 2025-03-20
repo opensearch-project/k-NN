@@ -25,6 +25,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -38,8 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
 import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
@@ -83,7 +82,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     @Before
     public void setup() {
-        knnStats = spy(new KNNStats());
+        knnStats = new KNNStats();
     }
 
     /**
@@ -92,12 +91,13 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * @throws IOException throws IOException
      */
     public void testCorrectStatsReturned() throws Exception {
+        // Enable flag to get all stats in KNNStats returned
+        updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
         assertEquals(knnStats.getClusterStats().keySet(), clusterStats.keySet());
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
-        doReturn(randomBoolean()).when(knnStats).isRemoteBuildEnabled();
         assertEquals(knnStats.getNodeStats().keySet(), nodeStats.get(0).keySet());
     }
 

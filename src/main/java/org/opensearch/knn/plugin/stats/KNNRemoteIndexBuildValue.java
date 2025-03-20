@@ -20,9 +20,12 @@ public enum KNNRemoteIndexBuildValue {
     READ_TIME("successful_read_time_in_millis"),
 
     // Remote Index Build Stats
-    REMOTE_INDEX_BUILD_CURRENT_OPERATIONS("remote_index_build_current_operations"),
-    REMOTE_INDEX_BUILD_CURRENT_SIZE("remote_index_build_current_size"),
-    REMOTE_INDEX_BUILD_TIME("remote_index_build_time_in_millis"),
+    REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS("remote_index_build_current_merge_operations"),
+    REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS("remote_index_build_current_flush_operations"),
+    REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE("remote_index_build_current_merge_size"),
+    REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE("remote_index_build_current_flush_size"),
+    REMOTE_INDEX_BUILD_MERGE_TIME("remote_index_build_merge_time_in_millis"),
+    REMOTE_INDEX_BUILD_FLUSH_TIME("remote_index_build_flush_time_in_millis"),
 
     // Client Stats
     BUILD_REQUEST_SUCCESS_COUNT("build_request_success_count"),
