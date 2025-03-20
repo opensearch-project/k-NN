@@ -473,6 +473,9 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
 
 integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    filter {
+        excludeTestsMatching "org.opensearch.knn.index.RemoteBuildIT"
+    }
 }
 
 task integTestRemoteIndexBuild(type: RestIntegTestTask) {

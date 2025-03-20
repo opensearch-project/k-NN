@@ -2,8 +2,8 @@ name: Build and Test k-NN using Remote Index Builder
 on:
   push:
     branches:
-      - "feature/github-ci-remote-index-build"
-      - "main"
+      - "*"
+      - "feature/**"
     paths:
       - 'build.gradle'
       - 'settings.gradle'
@@ -12,7 +12,7 @@ on:
       - 'buildSrc/**'
       - 'gradle/**'
       - 'jni/**'
-      - '.github/workflows/CI.yml'
+      - '.github/workflows/remote_index_build.yml'
   pull_request:
     branches:
       - "*"
@@ -25,7 +25,7 @@ on:
       - 'buildSrc/**'
       - 'gradle/**'
       - 'jni/**'
-      - '.github/workflows/CI.yml'
+      - '.github/workflows/remote_index_build.yml'
 
 jobs:
   Remote-Index-Build-IT-Tests:
@@ -102,7 +102,6 @@ jobs:
           sleep 5
 
       - name: Run tests
-        # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
         run: |
           if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw
           then

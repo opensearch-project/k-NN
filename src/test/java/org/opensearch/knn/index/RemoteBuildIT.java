@@ -76,14 +76,11 @@ public class RemoteBuildIT extends KNNRestTestCase {
 
     @Before
     public void setupAdditionalRemoteIndexBuildSettings() throws Exception {
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
-            updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
-            updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT, "http://0.0.0.0:80");
-            updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL, 0);
-            setupRepository("integ-test-repo");
-        }
+        updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
+        updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
+        updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT, "http://0.0.0.0:80");
+        updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL, 0);
+        setupRepository("integ-test-repo");
     }
 
     @SneakyThrows
@@ -338,18 +335,13 @@ public class RemoteBuildIT extends KNNRestTestCase {
     }
 
     protected Settings buildKNNIndexSettingsRemoteBuild(int approximateThreshold) {
-        Settings.Builder builder = Settings.builder()
+        return Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
             .put(KNN_INDEX, true)
-            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold);
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
-        }
-        return builder.build();
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold)
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD, true)
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb")
+            .build();
     }
 }
