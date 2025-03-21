@@ -23,6 +23,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
@@ -102,7 +103,7 @@ public class NativeIndexWriter {
      * @throws IOException
      */
     public void flushIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs) throws IOException {
-        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs);
+        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs, true);
         recordRefreshStats();
     }
 
@@ -122,11 +123,12 @@ public class NativeIndexWriter {
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
         startMergeStats(totalLiveDocs, bytesPerVector);
-        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs);
+        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs, false);
         endMergeStats(totalLiveDocs, bytesPerVector);
     }
 
-    private void buildAndWriteIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs) throws IOException {
+    private void buildAndWriteIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs, boolean isFlush)
+        throws IOException {
         if (totalLiveDocs == 0) {
             log.debug("No live docs for field {}", fieldInfo.name);
             return;
@@ -153,7 +155,11 @@ public class NativeIndexWriter {
                 totalLiveDocs,
                 knnVectorValuesSupplier.get()
             );
-            indexBuilder.buildAndWriteIndex(nativeIndexParams);
+            if (indexBuilder instanceof RemoteIndexBuildStrategy) {
+                indexBuilder.buildAndWriteIndex(nativeIndexParams, isFlush);
+            } else {
+                indexBuilder.buildAndWriteIndex(nativeIndexParams);
+            }
             CodecUtil.writeFooter(output);
         }
     }

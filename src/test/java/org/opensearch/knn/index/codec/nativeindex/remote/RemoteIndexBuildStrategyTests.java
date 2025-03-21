@@ -17,6 +17,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngineTests;
+import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -30,6 +31,8 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.S3;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
@@ -56,8 +59,21 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             mock(IndexSettings.class),
             null
         );
-        objectUnderTest.buildAndWriteIndex(buildIndexParams);
+        boolean randomFlush = randomBoolean();
+        objectUnderTest.buildAndWriteIndex(buildIndexParams, randomFlush);
         assertTrue(fallback.get());
+        for (KNNRemoteIndexBuildValue value : KNNRemoteIndexBuildValue.values()) {
+            if (value == REMOTE_INDEX_BUILD_FLUSH_TIME && randomFlush) {
+                assertTrue(value.getValue() >= 0L);
+            } else if (value == REMOTE_INDEX_BUILD_MERGE_TIME && !randomFlush) {
+                assertTrue(value.getValue() >= 0L);
+            } else if (value == KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT) {
+                assertEquals(1L, (long) value.getValue());
+            } else {
+                System.out.println(value);
+                assertEquals(0L, (long) value.getValue());
+            }
+        }
     }
 
     public void testShouldBuildIndexRemotely() {
