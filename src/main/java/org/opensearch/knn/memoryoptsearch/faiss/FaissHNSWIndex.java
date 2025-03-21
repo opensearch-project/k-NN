@@ -29,17 +29,11 @@ public class FaissHNSWIndex extends FaissIndex {
     @Getter
     private FaissHNSW hnsw = new FaissHNSW();
     private FaissIndex flatVectors;
-    private VectorEncoding vectorEncoding;
 
     public FaissHNSWIndex(final String indexType) {
         super(indexType);
 
-        // Set encoding
-        if (indexType.equals(IHNF)) {
-            vectorEncoding = VectorEncoding.FLOAT32;
-        } else if (indexType.equals(IHNS)) {
-            vectorEncoding = VectorEncoding.BYTE;
-        } else {
+        if (indexType.equals(IHNF) == false && indexType.equals(IHNS) == false) {
             throw new IllegalStateException("Unsupported index type: " + indexType + " in " + FaissHNSWIndex.class.getSimpleName());
         }
     }
@@ -65,7 +59,7 @@ public class FaissHNSWIndex extends FaissIndex {
 
     @Override
     public VectorEncoding getVectorEncoding() {
-        return vectorEncoding;
+        return flatVectors.getVectorEncoding();
     }
 
     @Override
