@@ -140,11 +140,11 @@ public class VectorProfiler<T extends Computation> {
      * @param computation The computation to be performed on the vectors
      */
     public static <T extends Computation> void recordReadTimeVectors(
-            String segBaseName,
-            String segSuffix,
-            Path directoryPath,
-            Collection<float[]> vectors,
-            T computation
+        String segBaseName,
+        String segSuffix,
+        Path directoryPath,
+        Collection<float[]> vectors,
+        T computation
     ) {
 
         if (vectors == null || vectors.isEmpty()) {
@@ -266,9 +266,9 @@ public class VectorProfiler<T extends Computation> {
             float[] stdDevVector = calculateVector(vectors, StatisticalOperators.STANDARD_DEVIATION);
 
             String statsFileName = IndexFileNames.segmentFileName(
-                    segmentWriteState.segmentInfo.name,
-                    segmentWriteState.segmentSuffix,
-                    "vectors_stats.txt"
+                segmentWriteState.segmentInfo.name,
+                segmentWriteState.segmentSuffix,
+                "vectors_stats.txt"
             );
 
             Directory directory = segmentWriteState.directory;

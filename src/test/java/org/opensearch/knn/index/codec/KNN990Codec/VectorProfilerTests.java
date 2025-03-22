@@ -26,7 +26,6 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     @Mock
     private SegmentWriteState segmentWriteState;
 
-
     private AutoCloseable mocks;
 
     @Before
@@ -59,33 +58,31 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     @Test
     public void testCalculateVector_HappyPath() {
         // Test valid mean calculation
-        List<float[]> vectors = Arrays.asList(
-                new float[]{1.0f, 2.0f},
-                new float[]{3.0f, 4.0f}
-        );
+        List<float[]> vectors = Arrays.asList(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f });
 
         float[] result = VectorProfiler.calculateVector(vectors, StatisticalOperators.MEAN);
-        assertArrayEquals(new float[]{2.0f, 3.0f}, result, 0.001f);
+        assertArrayEquals(new float[] { 2.0f, 3.0f }, result, 0.001f);
     }
 
     @Test
     public void testCalculateVector_EmptyVectors() {
         // Test empty input handling
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> VectorProfiler.calculateVector(Collections.emptyList(), StatisticalOperators.MEAN));
+        Exception ex = assertThrows(
+            IllegalArgumentException.class,
+            () -> VectorProfiler.calculateVector(Collections.emptyList(), StatisticalOperators.MEAN)
+        );
         assertEquals("Vectors collection cannot be null or empty", ex.getMessage());
     }
 
     @Test
     public void testCalculateVector_DimensionMismatch() {
         // Test invalid input dimensions
-        List<float[]> vectors = Arrays.asList(
-                new float[]{1.0f, 2.0f},
-                new float[]{3.0f}
-        );
+        List<float[]> vectors = Arrays.asList(new float[] { 1.0f, 2.0f }, new float[] { 3.0f });
 
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> VectorProfiler.calculateVector(vectors, StatisticalOperators.MEAN));
+        Exception ex = assertThrows(
+            IllegalArgumentException.class,
+            () -> VectorProfiler.calculateVector(vectors, StatisticalOperators.MEAN)
+        );
         assertEquals("All vectors must have same dimension", ex.getMessage());
     }
 
@@ -94,7 +91,7 @@ public class VectorProfilerTests extends OpenSearchTestCase {
         // Test initial recording for a segment
         String segName = "test_segment";
         Path dirPath = Paths.get("/test/path");
-        List<float[]> vectors = Arrays.asList(new float[]{1.0f, 2.0f});
+        List<float[]> vectors = Arrays.asList(new float[] { 1.0f, 2.0f });
 
         VectorProfiler.recordReadTimeVectors(segName, "v1", dirPath, vectors, StatisticalOperators.MEAN);
 
@@ -110,12 +107,10 @@ public class VectorProfilerTests extends OpenSearchTestCase {
         Path dirPath = Paths.get("/test/path");
 
         // First recording
-        VectorProfiler.recordReadTimeVectors(segName, "v1", dirPath,
-                Arrays.asList(new float[]{1.0f, 2.0f}), StatisticalOperators.MEAN);
+        VectorProfiler.recordReadTimeVectors(segName, "v1", dirPath, Arrays.asList(new float[] { 1.0f, 2.0f }), StatisticalOperators.MEAN);
 
         // Second recording
-        VectorProfiler.recordReadTimeVectors(segName, "v1", dirPath,
-                Arrays.asList(new float[]{3.0f, 4.0f}), StatisticalOperators.MEAN);
+        VectorProfiler.recordReadTimeVectors(segName, "v1", dirPath, Arrays.asList(new float[] { 3.0f, 4.0f }), StatisticalOperators.MEAN);
 
         String contextKey = segName + "_v1";
         assertEquals(2L, VectorProfiler.getSegmentVectorCount(contextKey));
@@ -137,7 +132,7 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     public void testAppendVector_ShortVector() {
         // Test full vector printing
         StringBuilder sb = new StringBuilder();
-        float[] vector = {1.1f, 2.2f, 3.3f};
+        float[] vector = { 1.1f, 2.2f, 3.3f };
         VectorProfiler.appendVector(sb, vector);
         assertEquals("1.1, 2.2, 3.3", sb.toString());
     }
@@ -157,21 +152,24 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     @Test
     public void testClearSegmentContexts() {
         // Test context cleanup
-        VectorProfiler.recordReadTimeVectors("seg1", "v1", Paths.get("/test"),
-                Arrays.asList(new float[]{1.0f}), StatisticalOperators.MEAN);
+        VectorProfiler.recordReadTimeVectors(
+            "seg1",
+            "v1",
+            Paths.get("/test"),
+            Arrays.asList(new float[] { 1.0f }),
+            StatisticalOperators.MEAN
+        );
 
         VectorProfiler.clearSegmentContexts();
         assertEquals(0, VectorProfiler.getSampleVectorsForSegment("seg1_v1").size());
     }
-
 
     @Test
     public void testGetSegmentMetadata() {
         // Test metadata accessors
         String segName = "meta_seg";
         Path dirPath = Paths.get("/meta/path");
-        VectorProfiler.recordReadTimeVectors(segName, "v2", dirPath,
-                Arrays.asList(new float[]{1.0f}), StatisticalOperators.MEAN);
+        VectorProfiler.recordReadTimeVectors(segName, "v2", dirPath, Arrays.asList(new float[] { 1.0f }), StatisticalOperators.MEAN);
 
         String contextKey = segName + "_v2";
         assertEquals(segName, VectorProfiler.getSegmentBaseName(contextKey));
