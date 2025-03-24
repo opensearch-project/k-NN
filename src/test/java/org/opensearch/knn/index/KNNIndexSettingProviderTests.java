@@ -19,23 +19,19 @@ public class KNNIndexSettingProviderTests extends KNNSingleNodeTestCase {
     private final String testIndexName = "test-index";
 
     public void testGetAdditionalIndexSettings_knnIndexEnabled() {
-        Settings templateSettings = Settings.builder()
-                .put(IS_KNN_INDEX_SETTING.getKey(), true)
-                .build();
+        Settings templateSettings = Settings.builder().put(IS_KNN_INDEX_SETTING.getKey(), true).build();
 
         Settings additionalSettings = provider.getAdditionalIndexSettings(testIndexName, false, templateSettings);
 
         assertNotNull(additionalSettings);
         assertEquals(
-                KNNIndexSettingProvider.KNN_DEFAULT_FLOOR_SEGMENT_VALUE,
-                additionalSettings.getAsBytesSize(INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), ByteSizeValue.ZERO)
+            KNNIndexSettingProvider.KNN_DEFAULT_FLOOR_SEGMENT_VALUE,
+            additionalSettings.getAsBytesSize(INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), ByteSizeValue.ZERO)
         );
     }
 
     public void testGetAdditionalIndexSettings_knnIndexDisabled() {
-        Settings templateSettings = Settings.builder()
-                .put(IS_KNN_INDEX_SETTING.getKey(), false)
-                .build();
+        Settings templateSettings = Settings.builder().put(IS_KNN_INDEX_SETTING.getKey(), false).build();
 
         Settings additionalSettings = provider.getAdditionalIndexSettings(testIndexName, false, templateSettings);
 
@@ -53,16 +49,14 @@ public class KNNIndexSettingProviderTests extends KNNSingleNodeTestCase {
     }
 
     public void testGetAdditionalIndexSettings_dataStreamIndex() {
-        Settings templateSettings = Settings.builder()
-                .put(IS_KNN_INDEX_SETTING.getKey(), true)
-                .build();
+        Settings templateSettings = Settings.builder().put(IS_KNN_INDEX_SETTING.getKey(), true).build();
 
         Settings additionalSettings = provider.getAdditionalIndexSettings(testIndexName, true, templateSettings);
 
         assertNotNull(additionalSettings);
         assertEquals(
-                KNNIndexSettingProvider.KNN_DEFAULT_FLOOR_SEGMENT_VALUE,
-                additionalSettings.getAsBytesSize(INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), ByteSizeValue.ZERO)
+            KNNIndexSettingProvider.KNN_DEFAULT_FLOOR_SEGMENT_VALUE,
+            additionalSettings.getAsBytesSize(INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), ByteSizeValue.ZERO)
         );
     }
 }
