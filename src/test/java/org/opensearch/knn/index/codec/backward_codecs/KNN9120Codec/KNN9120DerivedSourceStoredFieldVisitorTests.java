@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.opensearch.knn.KNNTestCase;
@@ -17,14 +17,14 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class DerivedSourceStoredFieldVisitorTests extends KNNTestCase {
+public class KNN9120DerivedSourceStoredFieldVisitorTests extends KNNTestCase {
 
     public void testBinaryField() throws Exception {
         StoredFieldVisitor delegate = mock(StoredFieldVisitor.class);
         doAnswer(invocationOnMock -> null).when(delegate).binaryField(any(), any());
         DerivedSourceVectorInjector derivedSourceVectorInjector = mock(DerivedSourceVectorInjector.class);
         when(derivedSourceVectorInjector.injectVectors(anyInt(), any())).thenReturn(new byte[0]);
-        DerivedSourceStoredFieldVisitor derivedSourceStoredFieldVisitor = new DerivedSourceStoredFieldVisitor(
+        KNN9120DerivedSourceStoredFieldVisitor derivedSourceStoredFieldVisitor = new KNN9120DerivedSourceStoredFieldVisitor(
             delegate,
             0,
             derivedSourceVectorInjector

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -32,7 +32,7 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 public class NestedPerFieldDerivedVectorInjector extends AbstractPerFieldDerivedVectorInjector {
 
     private final FieldInfo childFieldInfo;
-    private final DerivedSourceReaders derivedSourceReaders;
+    private final KNN9120DerivedSourceReaders derivedSourceReaders;
     private final SegmentReadState segmentReadState;
 
     @Override
