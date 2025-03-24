@@ -7,8 +7,10 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.util.packed.DirectMonotonicReader;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * While it follows the same steps as the original FAISS deserialization, differences in how the JVM and C++ handle floating-point
@@ -23,7 +25,7 @@ public class FaissHNSW {
     private int[] cumNumberNeighborPerLevel;
     // offsets[i]:offset[i+1] gives all the neighbors for vector i
     // Offset to be added to cumNumberNeighborPerLevel[level] to get the actual start offset of neighbor list.
-    private long[] offsets = null;
+    private DirectMonotonicReader offsetsReader = null;
     // Neighbor list storage.
     private FaissSection neighbors;
     // levels[i] = the maximum levels of `i`th vector + 1.
@@ -72,8 +74,8 @@ public class FaissHNSW {
 
         // Load `offsets` into memory.
         size = input.readLong();
-        offsets = new long[(int) size];
-        input.readLongs(offsets, 0, offsets.length);
+        offsetsReader = MonotonicIntegerSequenceEncoder.encode(Math.toIntExact(size), input);
+        Objects.requireNonNull(offsetsReader);
 
         // Mark neighbor list section.
         neighbors = new FaissSection(input, Integer.BYTES);

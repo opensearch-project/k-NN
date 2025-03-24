@@ -7,6 +7,7 @@ package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.util.packed.DirectMonotonicReader;
 import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
@@ -55,7 +56,10 @@ public class FaissHNSWTests extends KNNTestCase {
         assertArrayEquals(cumulativeNumNeighbors, faissHNSW.getCumNumberNeighborPerLevel());
 
         // offsets
-        assertArrayEquals(offsets, faissHNSW.getOffsets());
+        final DirectMonotonicReader offsetsReader = faissHNSW.getOffsetsReader();
+        for (int i = 0; i < offsets.length; i++) {
+            assertEquals(offsets[i], offsetsReader.get(i));
+        }
 
         // neighbors
         assertEquals(neighborsBaseOffset, faissHNSW.getNeighbors().getBaseOffset());
