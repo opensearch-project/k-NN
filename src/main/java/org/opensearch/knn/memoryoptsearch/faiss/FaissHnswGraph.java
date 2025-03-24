@@ -11,6 +11,7 @@ import org.apache.lucene.util.hnsw.HnswGraph;
 
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
@@ -18,7 +19,7 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  * This graph implements Lucene's HNSW graph interface using the FAISS HNSW graph. Conceptually, both libraries represent the graph
  * similarly, maintaining a list of neighbor IDs. This implementation acts as a bridge, enabling Lucene's HNSW graph searcher to perform
  * vector searches on a FAISS index.
- *
+ * <p>
  * NOTE: This is not thread safe. It should be created every time in {@link KnnVectorsReader}.search likewise
  * <a href="https://github.com/apache/lucene/blob/92290a0201458152c9e03d199f38f2e8a479f045/lucene/core/src/java/org/apache/lucene/codecs/lucene99/Lucene99HnswVectorsReader.java#L467">OffHeapHnswGraph</a>
  * in Lucene.
@@ -33,6 +34,8 @@ public class FaissHnswGraph extends HnswGraph {
 
     public FaissHnswGraph(final FaissHNSW faissHNSW, final IndexInput indexInput) {
         this.faissHnsw = faissHNSW;
+        // Offset readers MUST non null.
+        Objects.requireNonNull(faissHNSW.getOffsetsReader());
         this.indexInput = indexInput;
         this.numVectors = Math.toIntExact(faissHNSW.getTotalNumberOfVectors());
     }
@@ -45,7 +48,7 @@ public class FaissHnswGraph extends HnswGraph {
     @Override
     public void seek(int level, int internalVectorId) {
         // Get a relative starting offset of neighbor list at `level`.
-        long o = faissHnsw.getOffsets()[internalVectorId];
+        final long o = faissHnsw.getOffsetsReader().get(internalVectorId);
 
         // `begin` and `end` represent for a pair of staring offset and end offset.
         // But, what `end` represents is the maximum offset a neighbor list at a level can have.

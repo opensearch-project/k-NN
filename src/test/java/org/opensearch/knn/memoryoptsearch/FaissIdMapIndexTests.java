@@ -11,6 +11,7 @@ import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.store.ByteBuffersDataOutput;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.packed.DirectMonotonicReader;
 import org.mockito.MockedStatic;
 import org.mockito.stubbing.Answer;
 import org.opensearch.common.lucene.store.ByteArrayIndexInput;
@@ -50,7 +51,7 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable);
 
         // We expect it to be null when identity case.
-        final long[] loadedMappingTable = getVectorIdToDocIdMapping(index);
+        final long[] loadedMappingTable = getVectorIdToDocIdMapping(index, 0);
         assertNull(loadedMappingTable);
 
         // Validate common header
@@ -79,7 +80,7 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable);
 
         // We expect it to be null when identity case.
-        final long[] loadedMappingTable = getVectorIdToDocIdMapping(index);
+        final long[] loadedMappingTable = getVectorIdToDocIdMapping(index, totalNumberOfVectors);
         assertNotNull(loadedMappingTable);
         assertEquals(totalNumberOfVectors, loadedMappingTable.length);
         assertArrayEquals(mappingTable, loadedMappingTable);
@@ -128,9 +129,8 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable);
 
         // We expect it to be null when identity case.
-        final long[] loadedMappingTable = getVectorIdToDocIdMapping(index);
+        final long[] loadedMappingTable = getVectorIdToDocIdMapping(index, totalNumberOfVectors);
         assertNotNull(loadedMappingTable);
-        assertEquals(totalNumberOfVectors, loadedMappingTable.length);
         assertArrayEquals(mappingTable, loadedMappingTable);
 
         // Sparse byte vectors
@@ -157,10 +157,19 @@ public class FaissIdMapIndexTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static long[] getVectorIdToDocIdMapping(final FaissIdMapIndex index) {
-        final Field field = FaissIdMapIndex.class.getDeclaredField("vectorIdToDocIdMapping");
+    private static long[] getVectorIdToDocIdMapping(final FaissIdMapIndex index, final int totalNumberOfVectors) {
+        final Field field = FaissIdMapIndex.class.getDeclaredField("idMappingReader");
         field.setAccessible(true);
-        return (long[]) field.get(index);
+        DirectMonotonicReader decoder = (DirectMonotonicReader) field.get(index);
+        if (decoder == null) {
+            // It's an identical case
+            return null;
+        }
+        long[] mappingTable = new long[totalNumberOfVectors];
+        for (int i = 0; i < totalNumberOfVectors; ++i) {
+            mappingTable[i] = decoder.get(i);
+        }
+        return mappingTable;
     }
 
     @SneakyThrows
