@@ -27,7 +27,7 @@ public class SegmentSizeFloorMergePolicyIT extends KNNRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()

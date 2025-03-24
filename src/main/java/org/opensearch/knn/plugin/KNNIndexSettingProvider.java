@@ -10,12 +10,11 @@ import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.shard.IndexSettingProvider;
 
+import static org.opensearch.index.TieredMergePolicyProvider.INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING;
+import static org.opensearch.knn.index.KNNSettings.IS_KNN_INDEX_SETTING;
+
 public class KNNIndexSettingProvider implements IndexSettingProvider {
     public static final ByteSizeValue KNN_DEFAULT_FLOOR_SEGMENT_VALUE = new ByteSizeValue(16, ByteSizeUnit.MB);
-
-    private static boolean isKNNIndex(Settings settings) {
-        return settings.hasValue("index.knn") && settings.getAsBoolean("index.knn", true);
-    }
 
     /**
      * Returns additional index settings for k-NN index. In particular, we set the index.merge.policy.floor_segment = 16MB.
@@ -23,10 +22,9 @@ public class KNNIndexSettingProvider implements IndexSettingProvider {
      */
     @Override
     public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
-        if (isKNNIndex(templateAndRequestSettings)) {
-            return Settings.builder().put("index.merge.policy.floor_segment", KNN_DEFAULT_FLOOR_SEGMENT_VALUE).build();
-        } else {
-            return Settings.EMPTY;
+        if (IS_KNN_INDEX_SETTING.get(templateAndRequestSettings)) {
+            return Settings.builder().put(INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), KNN_DEFAULT_FLOOR_SEGMENT_VALUE).build();
         }
+        return Settings.EMPTY;
     }
 }
