@@ -49,8 +49,9 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
-        final KNNEngine knnEngine = createQueryRequest.getKnnEngine();
         final boolean expandNested = createQueryRequest.getExpandNested().orElse(false);
+        final boolean memoryOptimizedSearchSupported = createQueryRequest.isMemoryOptimizedSearchSupported();
+
         BitSetProducer parentFilter = null;
         int shardId = -1;
         if (createQueryRequest.getContext().isPresent()) {
@@ -70,7 +71,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
             );
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (memoryOptimizedSearchSupported == false
+            && KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
 
             log.debug(

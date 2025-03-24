@@ -42,7 +42,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         final FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
 
         // Load vector searchers
-        final Map<String, VectorSearcher> vectorSearchers = loadSearchers(fieldInfos, Collections.emptySet());
+        final Map<String, VectorSearcher> vectorSearchers = loadSearchers(fieldInfos, Collections.emptySet(), true);
         assertTrue(vectorSearchers.isEmpty());
     }
 
@@ -87,10 +87,69 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
 
             // Load vector searchers
-            final Map<String, VectorSearcher> vectorSearchers = loadSearchers(fieldInfos, filesInSegment);
+            final Map<String, VectorSearcher> vectorSearchers = loadSearchers(fieldInfos, filesInSegment, true);
 
             // Validate #searchers
             assertEquals(2, vectorSearchers.size());
+        }
+    }
+
+    @SneakyThrows
+    public void testWhenMemoryOptimizedSearchIsNotEnabled() {
+        // Prepare field infos
+        final FieldInfo[] fieldInfoArray = new FieldInfo[] {};
+        final FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+
+        // Load vector searchers
+        final Map<String, VectorSearcher> vectorSearchers = loadSearchers(fieldInfos, Collections.emptySet(), false);
+        assertNull(vectorSearchers);
+    }
+
+    @SneakyThrows
+    public void testWhenMemoryOptimizedSearchIsNotEnabled_mixedCase() {
+        // Prepare field infos
+        // - field1: Non KNN field
+        // - field2: KNN field, but using Lucene engine
+        // - field3: KNN field, FAISS
+        // - field4: KNN field, FAISS
+        // - field5: KNN field, FAISS, but it does not have file for some reason.
+
+        // Mocking FAISS engine to return a dummy vector searcher
+        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
+        when(mockFactory.createVectorSearcher(any(), any())).thenReturn(mock(VectorSearcher.class));
+        when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
+
+        try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
+            // Prepare field infos
+            final FieldInfo[] fieldInfoArray = new FieldInfo[] {
+                createFieldInfo("field1", null, 0),
+                createFieldInfo("field2", KNNEngine.LUCENE, 1),
+                createFieldInfo("field3", mockFaiss, 2),
+                createFieldInfo("field4", mockFaiss, 3),
+                createFieldInfo("field5", mockFaiss, 4) };
+            final FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+            final Set<String> filesInSegment = Set.of("_0_165_field3.faiss", "_0_165_field4.faiss");
+
+            // Replace static 'getEngine' to return mockFaiss
+            mockedStatic.when(() -> KNNEngine.getEngine(any())).thenAnswer(invocation -> {
+                final String strArg = invocation.getArgument(0);
+                // Intercept FAISS engine to return mock
+                if (strArg.equals(KNNEngine.FAISS.getName())) {
+                    return mockFaiss;
+                }
+
+                // Otherwise return Lucene, as field2 is using Lucene.
+                return KNNEngine.LUCENE;
+            });
+
+            mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+
+            // Load vector searchers
+            final Map<String, VectorSearcher> vectorSearchers = loadSearchers(fieldInfos, filesInSegment, false);
+
+            // The table should be null even we had faiss fields.
+            assertNull(vectorSearchers);
         }
     }
 
@@ -105,7 +164,11 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static Map<String, VectorSearcher> loadSearchers(final FieldInfos fieldInfos, final Set<String> filesInSegment) {
+    private static Map<String, VectorSearcher> loadSearchers(
+        final FieldInfos fieldInfos,
+        final Set<String> filesInSegment,
+        final boolean memoryOptimizedSearchEnabled
+    ) {
         // Prepare infra
         final IndexInput mockIndexInput = mock(IndexInput.class);
         final Directory mockDirectory = mock(Directory.class);
@@ -116,7 +179,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         final SegmentReadState readState = new SegmentReadState(mockDirectory, segmentInfo, fieldInfos, IOContext.DEFAULT);
 
         // Create reader
-        final NativeEngines990KnnVectorsReader reader = new NativeEngines990KnnVectorsReader(readState, null);
+        final NativeEngines990KnnVectorsReader reader = new NativeEngines990KnnVectorsReader(readState, null, memoryOptimizedSearchEnabled);
         final Class clazz = NativeEngines990KnnVectorsReader.class;
 
         // Get searcher table
