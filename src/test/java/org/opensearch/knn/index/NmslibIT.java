@@ -40,6 +40,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 
 @Ignore("Skipping integration tests for NmslibIT")
+@Deprecated(since = "2.19.0", forRemoval = true)
 public class NmslibIT extends KNNRestTestCase {
 
     static TestUtils.TestData testData;
