@@ -14,6 +14,9 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndexScalarQuantizedFlat;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructor;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructorFactory;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizerType;
 
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -41,7 +44,7 @@ public class FaissByteIndexTests extends KNNTestCase {
         assertEquals(FaissIndexScalarQuantizedFlat.IXSQ, faissByteIndex.getIndexType());
 
         // Quantizer type
-        assertEquals(FaissIndexScalarQuantizedFlat.QuantizerType.QT_8BIT_DIRECT_SIGNED, faissByteIndex.getQuantizerType());
+        assertEquals(FaissQuantizerType.QT_8BIT_DIRECT_SIGNED, faissByteIndex.getQuantizerType());
 
         // Range check
         assertEquals(FaissIndexScalarQuantizedFlat.RangeStat.MIN_MAX, faissByteIndex.getRangeStat());
@@ -55,12 +58,20 @@ public class FaissByteIndexTests extends KNNTestCase {
         assertEquals(8, faissByteIndex.getOneVectorElementBits());
 
         // 0th vector validation
+        final byte[] decodedBytes = new byte[DIMENSION];
+        final FaissQuantizedValueReconstructor decoder = FaissQuantizedValueReconstructorFactory.create(
+            FaissQuantizerType.QT_8BIT_DIRECT_SIGNED,
+            DIMENSION,
+            8 * Byte.BYTES
+        );
+        decoder.reconstruct(ANSWER_FIRST_QUANTIZED_VECTORS, decodedBytes);
         ByteVectorValues byteVectorValues = faissByteIndex.getByteValues(indexInput);
-        assertArrayEquals(ANSWER_FIRST_VECTORS, byteVectorValues.vectorValue(0));
+        assertArrayEquals(decodedBytes, byteVectorValues.vectorValue(0));
 
         // Last vector validation
         byteVectorValues = faissByteIndex.getByteValues(indexInput);
-        assertArrayEquals(ANSWER_LAST_VECTORS, byteVectorValues.vectorValue(NUM_VECTORS - 1));
+        decoder.reconstruct(ANSWER_LAST_QUANTIZED_VECTORS, decodedBytes);
+        assertArrayEquals(decodedBytes, byteVectorValues.vectorValue(NUM_VECTORS - 1));
     }
 
     @SneakyThrows
@@ -77,7 +88,7 @@ public class FaissByteIndexTests extends KNNTestCase {
         return indexInput;
     }
 
-    private static final byte[] ANSWER_FIRST_VECTORS = new byte[] {
+    private static final byte[] ANSWER_FIRST_QUANTIZED_VECTORS = new byte[] {
         (byte) 183,
         (byte) 162,
         (byte) 169,
@@ -87,7 +98,7 @@ public class FaissByteIndexTests extends KNNTestCase {
         (byte) 220,
         (byte) 201, };
 
-    private static final byte[] ANSWER_LAST_VECTORS = new byte[] {
+    private static final byte[] ANSWER_LAST_QUANTIZED_VECTORS = new byte[] {
         (byte) 182,
         (byte) 148,
         (byte) 195,

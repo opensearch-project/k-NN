@@ -25,18 +25,11 @@ public class FaissHNSWIndex extends AbstractFaissHNSWIndex {
     // https://github.com/facebookresearch/faiss/blob/15491a1e4f5a513a8684e5b7262ef4ec22eda19d/faiss/IndexHNSW.h#L144C8-L144C19
     public static final String IHNS = "IHNs";
 
-    private VectorEncoding vectorEncoding;
-
     public FaissHNSWIndex(final String indexType) {
         super(indexType, new FaissHNSW());
 
-        // Set encoding
-        if (indexType.equals(IHNF)) {
-            vectorEncoding = VectorEncoding.FLOAT32;
-        } else if (indexType.equals(IHNS)) {
-            vectorEncoding = VectorEncoding.BYTE;
-        } else {
-            throw new IllegalStateException("Unsupported index type: " + indexType + " in " + FaissHNSWIndex.class.getSimpleName());
+        if (indexType.equals(IHNF) == false && indexType.equals(IHNS) == false) {
+            throw new IllegalStateException("Unsupported index type: [" + indexType + "] in " + FaissHNSWIndex.class.getSimpleName());
         }
     }
 
@@ -61,7 +54,7 @@ public class FaissHNSWIndex extends AbstractFaissHNSWIndex {
 
     @Override
     public VectorEncoding getVectorEncoding() {
-        return vectorEncoding;
+        return flatVectors.getVectorEncoding();
     }
 
     @Override

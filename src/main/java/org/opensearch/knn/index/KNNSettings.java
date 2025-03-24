@@ -33,7 +33,6 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
-import org.opensearch.transport.client.Client;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -112,7 +111,6 @@ public class KNNSettings {
      */
     public static final String MEMORY_OPTIMIZED_KNN_SEARCH_MODE = "index.knn.memory_optimized_search";
     public static final boolean DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE = false;
->>>>>>> 58fcb371 (Added index scope setting 'index.knn.memory_optimized_search' (#2616))
 
     /**
      * Default setting values
