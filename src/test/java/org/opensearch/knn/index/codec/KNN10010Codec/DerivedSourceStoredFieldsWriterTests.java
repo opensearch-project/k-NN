@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN9120Codec;
+package org.opensearch.knn.index.codec.KNN10010Codec;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.StoredFieldsWriter;
@@ -13,7 +13,6 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.KNN10010Codec.KNN10010DerivedSourceStoredFieldsWriter;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 
 import java.util.List;

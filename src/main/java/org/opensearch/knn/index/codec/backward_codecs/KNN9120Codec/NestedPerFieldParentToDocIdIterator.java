@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.NumericDocValues;
@@ -27,7 +27,7 @@ public class NestedPerFieldParentToDocIdIterator {
 
     private final FieldInfo childFieldInfo;
     private final SegmentReadState segmentReadState;
-    private final DerivedSourceReaders derivedSourceReaders;
+    private final KNN9120DerivedSourceReaders derivedSourceReaders;
     private final int parentDocId;
     private final int previousParentDocId;
     private final List<Integer> children;
@@ -37,14 +37,14 @@ public class NestedPerFieldParentToDocIdIterator {
      *
      * @param childFieldInfo FieldInfo for the child field
      * @param segmentReadState SegmentReadState for the segment
-     * @param derivedSourceReaders {@link DerivedSourceReaders} instance
+     * @param derivedSourceReaders {@link KNN9120DerivedSourceReaders} instance
      * @param parentDocId Parent docId of the parent
      * @throws IOException if there is an error reading the parent docId
      */
     public NestedPerFieldParentToDocIdIterator(
         FieldInfo childFieldInfo,
         SegmentReadState segmentReadState,
-        DerivedSourceReaders derivedSourceReaders,
+        KNN9120DerivedSourceReaders derivedSourceReaders,
         int parentDocId
     ) throws IOException {
         this.childFieldInfo = childFieldInfo;
