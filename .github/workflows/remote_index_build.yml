@@ -31,7 +31,7 @@ jobs:
   Remote-Index-Build-IT-Tests:
     strategy:
       matrix:
-        java: [21, 23]
+        java: [21]
 
     env:
       AWS_ACCESS_KEY_ID: test
@@ -137,4 +137,6 @@ jobs:
         run: |
           docker ps -aq | xargs -r docker rm -f
           docker system prune -af --volumes
+          docker logout
+          rm -rf ${{ github.workspace }}/*
 
