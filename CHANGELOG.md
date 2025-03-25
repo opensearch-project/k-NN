@@ -27,3 +27,4 @@ Add filter function to KNNQueryBuilder with unit tests and integration tests [#2
 ### Documentation
 ### Maintenance
 ### Refactoring
+* Refactored the KNN Stat files for better readability.
