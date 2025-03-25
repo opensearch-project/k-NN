@@ -57,16 +57,11 @@ public class VectorProfiler {
         return new ArrayList<>(registeredComputations);
     }
 
-    public Map<Computation, float[]> sampleAndCompute(
-            Collection<float[]> vectors,
-            int... sampleSize) {
+    public Map<Computation, float[]> sampleAndCompute(Collection<float[]> vectors, int... sampleSize) {
 
         validateVectors(vectors);
 
-        Collection<float[]> sampledVectors = sampleVectors(
-                vectors,
-                sampleSize.length > 0 ? sampleSize[0] : DEFAULT_SAMPLE_SIZE
-        );
+        Collection<float[]> sampledVectors = sampleVectors(vectors, sampleSize.length > 0 ? sampleSize[0] : DEFAULT_SAMPLE_SIZE);
 
         Map<Computation, float[]> results = new HashMap<>();
         for (Computation computation : registeredComputations) {
@@ -80,9 +75,7 @@ public class VectorProfiler {
         return results;
     }
 
-    private float[] generateSampledDimensionVectors(
-            Collection<float[]> vectors,
-            Computation computation) {
+    private float[] generateSampledDimensionVectors(Collection<float[]> vectors, Computation computation) {
 
         if (vectors == null || vectors.isEmpty()) {
             throw new IllegalArgumentException("Vectors collection cannot be null or empty");
@@ -114,9 +107,7 @@ public class VectorProfiler {
         return result;
     }
 
-    private Collection<float[]> sampleVectors(
-            Collection<float[]> vectors,
-            int sampleSize) {
+    private Collection<float[]> sampleVectors(Collection<float[]> vectors, int sampleSize) {
 
         Sampler sampler = SamplingFactory.getSampler(SamplerType.RESERVOIR);
         int[] sampleIndices = sampler.sample(vectors.size(), Math.min(sampleSize, vectors.size()));

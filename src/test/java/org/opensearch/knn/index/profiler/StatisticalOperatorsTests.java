@@ -23,70 +23,70 @@ public class StatisticalOperatorsTests {
 
     @Test
     public void testMeanComputation() {
-        float[] values = new float[]{2.0f, 4.0f, 6.0f};
+        float[] values = new float[] { 2.0f, 4.0f, 6.0f };
         float[] result = mean.compute(values);
         assertEquals(4.0f, result[0], 0.0001);
     }
 
     @Test
     public void testMeanWithSingleValue() {
-        float[] values = new float[]{5.0f};
+        float[] values = new float[] { 5.0f };
         float[] result = mean.compute(values);
         assertEquals(5.0f, result[0], 0.0001);
     }
 
     @Test
     public void testMeanWithZeroValues() {
-        float[] values = new float[]{0.0f, 0.0f, 0.0f};
+        float[] values = new float[] { 0.0f, 0.0f, 0.0f };
         float[] result = mean.compute(values);
         assertEquals(0.0f, result[0], 0.0001);
     }
 
     @Test
     public void testVarianceComputation() {
-        float[] values = new float[]{2.0f, 4.0f, 6.0f};
+        float[] values = new float[] { 2.0f, 4.0f, 6.0f };
         float[] result = variance.compute(values);
         assertEquals(4.0f, result[0], 0.0001);
     }
 
     @Test
     public void testVarianceWithSingleValue() {
-        float[] values = new float[]{5.0f};
+        float[] values = new float[] { 5.0f };
         float[] result = variance.compute(values);
         assertEquals(0.0f, result[0], 0.0001);
     }
 
     @Test
     public void testVarianceWithIdenticalValues() {
-        float[] values = new float[]{2.0f, 2.0f, 2.0f};
+        float[] values = new float[] { 2.0f, 2.0f, 2.0f };
         float[] result = variance.compute(values);
         assertEquals(0.0f, result[0], 0.0001);
     }
 
     @Test
     public void testStandardDeviationComputation() {
-        float[] values = new float[]{2.0f, 4.0f, 6.0f};
+        float[] values = new float[] { 2.0f, 4.0f, 6.0f };
         float[] result = stdDev.compute(values);
         assertEquals(2.0f, result[0], 0.0001);
     }
 
     @Test
     public void testStandardDeviationWithSingleValue() {
-        float[] values = new float[]{5.0f};
+        float[] values = new float[] { 5.0f };
         float[] result = stdDev.compute(values);
         assertEquals(0.0f, result[0], 0.0001);
     }
 
     @Test
     public void testStandardDeviationWithIdenticalValues() {
-        float[] values = new float[]{2.0f, 2.0f, 2.0f};
+        float[] values = new float[] { 2.0f, 2.0f, 2.0f };
         float[] result = stdDev.compute(values);
         assertEquals(0.0f, result[0], 0.0001);
     }
 
     @Test
     public void testWithNegativeValues() {
-        float[] values = new float[]{-2.0f, 0.0f, 2.0f};
+        float[] values = new float[] { -2.0f, 0.0f, 2.0f };
         float[] meanResult = mean.compute(values);
         float[] varianceResult = variance.compute(values);
         float[] stdDevResult = stdDev.compute(values);
@@ -98,7 +98,7 @@ public class StatisticalOperatorsTests {
 
     @Test
     public void testWithEmptyArray() {
-        float[] values = new float[]{};
+        float[] values = new float[] {};
         float[] meanResult = mean.compute(values);
         float[] varianceResult = variance.compute(values);
         float[] stdDevResult = stdDev.compute(values);
@@ -121,7 +121,7 @@ public class StatisticalOperatorsTests {
 
     @Test
     public void testLargeNumbers() {
-        float[] values = new float[]{1000.0f, 2000.0f, 3000.0f};
+        float[] values = new float[] { 1000.0f, 2000.0f, 3000.0f };
         float[] meanResult = mean.compute(values);
         float[] varianceResult = variance.compute(values);
         float[] stdDevResult = stdDev.compute(values);

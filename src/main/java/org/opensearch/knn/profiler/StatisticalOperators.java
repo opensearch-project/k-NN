@@ -13,21 +13,21 @@ public enum StatisticalOperators implements Computation {
         @Override
         public float[] compute(float[] perDimensionVector) {
             if (perDimensionVector == null || perDimensionVector.length == 0) {
-                return new float[]{0.0f};
+                return new float[] { 0.0f };
             }
 
             float sum = 0.0f;
             for (float value : perDimensionVector) {
                 sum += value;
             }
-            return new float[]{sum / perDimensionVector.length};
+            return new float[] { sum / perDimensionVector.length };
         }
     },
     VARIANCE {
         @Override
         public float[] compute(float[] perDimensionVector) {
             if (perDimensionVector == null || perDimensionVector.length <= 1) {
-                return new float[]{0.0f};
+                return new float[] { 0.0f };
             }
 
             // First calculate mean
@@ -41,14 +41,14 @@ public enum StatisticalOperators implements Computation {
             }
 
             // Return sample variance
-            return new float[]{sumSquaredDiff / (perDimensionVector.length - 1)};
+            return new float[] { sumSquaredDiff / (perDimensionVector.length - 1) };
         }
     },
     STANDARD_DEVIATION {
         @Override
         public float[] compute(float[] perDimensionVector) {
             float[] variance = VARIANCE.compute(perDimensionVector);
-            return new float[]{(float) Math.sqrt(variance[0])};
+            return new float[] { (float) Math.sqrt(variance[0]) };
         }
     };
 }

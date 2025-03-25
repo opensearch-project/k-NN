@@ -39,11 +39,7 @@ public class VectorProfilerTests extends OpenSearchTestCase {
         profiler.initialize();
 
         // Create test vectors
-        testVectors = Arrays.asList(
-                new float[]{1.0f, 2.0f, 3.0f},
-                new float[]{4.0f, 5.0f, 6.0f},
-                new float[]{7.0f, 8.0f, 9.0f}
-        );
+        testVectors = Arrays.asList(new float[] { 1.0f, 2.0f, 3.0f }, new float[] { 4.0f, 5.0f, 6.0f }, new float[] { 7.0f, 8.0f, 9.0f });
     }
 
     @After
@@ -67,13 +63,13 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     public void testCustomComputation() {
         Computation maxComputation = perDimensionVector -> {
             if (perDimensionVector == null || perDimensionVector.length == 0) {
-                return new float[]{0.0f};
+                return new float[] { 0.0f };
             }
             float max = perDimensionVector[0];
             for (float value : perDimensionVector) {
                 max = Math.max(max, value);
             }
-            return new float[]{max};
+            return new float[] { max };
         };
 
         profiler.registerComputation(maxComputation);
@@ -81,7 +77,7 @@ public class VectorProfilerTests extends OpenSearchTestCase {
 
         float[] maxValues = results.get(maxComputation);
         assertNotNull(maxValues);
-        assertArrayEquals(new float[]{7.0f, 8.0f, 9.0f}, maxValues, 0.001f);
+        assertArrayEquals(new float[] { 7.0f, 8.0f, 9.0f }, maxValues, 0.001f);
     }
 
     @Test
@@ -90,32 +86,26 @@ public class VectorProfilerTests extends OpenSearchTestCase {
 
         // Test mean calculation
         float[] mean = results.get(StatisticalOperators.MEAN);
-        assertArrayEquals(new float[]{4.0f, 5.0f, 6.0f}, mean, 0.001f);
+        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, mean, 0.001f);
 
         // Test variance calculation
         float[] variance = results.get(StatisticalOperators.VARIANCE);
-        assertArrayEquals(new float[]{9.0f, 9.0f, 9.0f}, variance, 0.001f);
+        assertArrayEquals(new float[] { 9.0f, 9.0f, 9.0f }, variance, 0.001f);
 
         // Test standard deviation calculation
         float[] stdDev = results.get(StatisticalOperators.STANDARD_DEVIATION);
-        assertArrayEquals(new float[]{3.0f, 3.0f, 3.0f}, stdDev, 0.001f);
+        assertArrayEquals(new float[] { 3.0f, 3.0f, 3.0f }, stdDev, 0.001f);
     }
 
     @Test
     public void testSampleAndCompute_EmptyVectors() {
-        Exception ex = assertThrows(
-                IllegalArgumentException.class,
-                () -> profiler.sampleAndCompute(Collections.emptyList())
-        );
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> profiler.sampleAndCompute(Collections.emptyList()));
         assertEquals("Vectors collection cannot be null or empty", ex.getMessage());
     }
 
     @Test
     public void testSampleAndCompute_DifferentDimensions() {
-        List<float[]> differentDimVectors = Arrays.asList(
-                new float[]{1.0f, 2.0f},
-                new float[]{3.0f}
-        );
+        List<float[]> differentDimVectors = Arrays.asList(new float[] { 1.0f, 2.0f }, new float[] { 3.0f });
 
         Map<Computation, float[]> results = profiler.sampleAndCompute(differentDimVectors);
         assertNotNull(results.get(StatisticalOperators.MEAN));
@@ -134,28 +124,25 @@ public class VectorProfilerTests extends OpenSearchTestCase {
 
     @Test
     public void testSampleAndCompute_NullVectors() {
-        Exception ex = assertThrows(
-                IllegalArgumentException.class,
-                () -> profiler.sampleAndCompute(null)
-        );
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> profiler.sampleAndCompute(null));
         assertEquals("Vectors collection cannot be null or empty", ex.getMessage());
     }
 
     @Test
     public void testSingleVector() {
-        List<float[]> singleVector = Collections.singletonList(new float[]{1.0f, 2.0f, 3.0f});
+        List<float[]> singleVector = Collections.singletonList(new float[] { 1.0f, 2.0f, 3.0f });
         Map<Computation, float[]> results = profiler.sampleAndCompute(singleVector);
 
         assertArrayEquals(singleVector.get(0), results.get(StatisticalOperators.MEAN), 0.001f);
-        assertArrayEquals(new float[]{0.0f, 0.0f, 0.0f}, results.get(StatisticalOperators.VARIANCE), 0.001f);
-        assertArrayEquals(new float[]{0.0f, 0.0f, 0.0f}, results.get(StatisticalOperators.STANDARD_DEVIATION), 0.001f);
+        assertArrayEquals(new float[] { 0.0f, 0.0f, 0.0f }, results.get(StatisticalOperators.VARIANCE), 0.001f);
+        assertArrayEquals(new float[] { 0.0f, 0.0f, 0.0f }, results.get(StatisticalOperators.STANDARD_DEVIATION), 0.001f);
     }
 
     @Test
     public void testLargeVectors() {
         List<float[]> largeVectors = new ArrayList<>();
         for (int i = 0; i < 1000; i++) {
-            largeVectors.add(new float[]{i, i, i});
+            largeVectors.add(new float[] { i, i, i });
         }
 
         Map<Computation, float[]> results = profiler.sampleAndCompute(largeVectors);
@@ -168,7 +155,7 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     public void testComputationManagement() {
         int initialSize = profiler.getRegisteredComputations().size();
 
-        Computation newComp = perDimensionVector -> new float[]{perDimensionVector[0]};
+        Computation newComp = perDimensionVector -> new float[] { perDimensionVector[0] };
 
         profiler.registerComputation(newComp);
         assertEquals(initialSize + 1, profiler.getRegisteredComputations().size());

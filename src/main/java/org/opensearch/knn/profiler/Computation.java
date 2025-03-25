@@ -19,4 +19,3 @@ public interface Computation {
      */
     float[] compute(float[] perDimensionVector);
 }
-
