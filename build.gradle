@@ -493,7 +493,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
 
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
-        configureSecurityPlugin(testClusters.integTest)
+        configureSecurityPlugin(cluster)
     }
 
     cluster.plugin(project.tasks.bundlePlugin.archiveFile)
