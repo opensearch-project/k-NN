@@ -58,6 +58,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         QuantizationConfig quantizationConfig = knnMethodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
             .getQuantizationConfig();
+        KNNLibraryIndexingContext libraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
 
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -92,6 +94,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
                 @Override
                 public Version getIndexCreatedVersion() {
                     return knnMethodConfigContext.getVersionCreated();
+                }
+
+                @Override
+                public KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
+                    return libraryIndexingContext;
                 }
             }
         );

@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import lombok.extern.slf4j.Slf4j;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -37,10 +38,15 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
  * Faiss HNSW method implementation
  */
+@Slf4j
 public class FaissHNSWMethod extends AbstractFaissMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
@@ -154,34 +160,56 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     }
 
     /**
-     * Get the parameters that need to be passed to the remote build service for training from a KNNMethodContext
-     * @param knnMethodContext to parse
-     * @return Map of parameters to be used as "index_parameters"
+     * Get the parameters that need to be passed to the remote build service for training from a KNNLibraryIndexingContext LibraryParameters map
+     * See example map in {@link FaissHNSWMethod#supportsRemoteIndexBuild}
+     * @param parameters map to parse
+     * @return Map of parameters to be used as "index_parameters" in the remote build request
      */
-    public static RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+    @SuppressWarnings("unchecked")
+    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> parameters) {
         RemoteFaissHNSWIndexParameters.RemoteFaissHNSWIndexParametersBuilder<?, ?> builder = RemoteFaissHNSWIndexParameters.builder();
         builder.algorithm(METHOD_HNSW);
-        builder.spaceType(knnMethodContext.getSpaceType().getValue());
+        builder.spaceType(getStringFromMap(parameters, SPACE_TYPE));
 
-        MethodComponentContext methodComponentContext = knnMethodContext.getMethodComponentContext();
-        Map<String, Object> methodParams = methodComponentContext.getParameters();
-        builder.efConstruction(getIntegerFromMap(methodParams, METHOD_PARAMETER_EF_CONSTRUCTION));
-        builder.efSearch(getIntegerFromMap(methodParams, METHOD_PARAMETER_EF_SEARCH));
-        builder.m(getIntegerFromMap(methodParams, METHOD_PARAMETER_M));
+        Map<String, Object> innerParameters = (Map<String, Object>) parameters.get(PARAMETERS);
+        builder.efConstruction(getIntegerFromMap(innerParameters, METHOD_PARAMETER_EF_CONSTRUCTION));
+        builder.efSearch(getIntegerFromMap(innerParameters, METHOD_PARAMETER_EF_SEARCH));
+        builder.m(getIntegerFromMap(innerParameters, METHOD_PARAMETER_M));
         return builder.build();
     }
 
     /**
-     * @param methodParameters      Map of method parameters including encoder information
-     * @param vectorDataType        {@link VectorDataType}
-     * @return                      true if the method parameters + vector data type combination is supported for remote index build
+     * @param parameters Map of method parameters including encoder information
+     * Example JSON structure:
+     * {
+     *   "index_description": "HNSW12,Flat",
+     *   "spaceType": "innerproduct",
+     *   "name": "hnsw",
+     *   "data_type": "float",
+     *   "parameters": {
+     *     "ef_search": 24,
+     *     "ef_construction": 28,
+     *     "m": 12,
+     *     "encoder": {
+     *       "name": "flat",
+     *       "parameters": {}
+     *     }
+     *   }
+     * }
+     * @return true if the method parameters + vector data type combination is supported for remote index build
      */
-    static boolean supportsRemoteIndexBuild(Map<String, Object> methodParameters, VectorDataType vectorDataType) {
-        if (SUPPORTED_REMOTE_INDEX_DATA_TYPES.contains(vectorDataType)) {
-            String encoderName = ((MethodComponentContext) methodParameters.get(METHOD_ENCODER_PARAMETER)).getName();
-            return ENCODER_FLAT.equals(encoderName);
+    @SuppressWarnings("unchecked")
+    static boolean supportsRemoteIndexBuild(Map<String, Object> parameters) {
+        try {
+            Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
+            Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
+            String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
+            String encoder = getStringFromMap(encoderMap, NAME);
+            return SUPPORTED_REMOTE_INDEX_DATA_TYPES.contains(VectorDataType.get(dataType)) && ENCODER_FLAT.equals(encoder);
+        } catch (IllegalArgumentException e) {
+            log.error("Unrecognized indexing parameters in KNNLibraryIndexingContext", e);
+            return false;
         }
-        return false;
     }
 
     /**
@@ -195,6 +223,17 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         if (value instanceof String) {
             return Integer.parseInt((String) value);
         }
-        throw new IllegalArgumentException("Could not parse value for key: " + key);
+        throw new IllegalArgumentException("Could not parse value for key: " + key + " and map: " + map);
+    }
+
+    /**
+     * Safely retrieve a String from {@code map} using {@code key}
+     */
+    private static String getStringFromMap(Map<String, Object> map, String key) throws IllegalArgumentException {
+        Object value = map.get(key);
+        if (value instanceof String) {
+            return (String) value;
+        }
+        throw new IllegalArgumentException("Could not parse value for key: " + key + " and map: " + map);
     }
 }
