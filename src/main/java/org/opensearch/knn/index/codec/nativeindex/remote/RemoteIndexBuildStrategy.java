@@ -17,7 +17,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -33,6 +33,7 @@ import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.BUCKET;
@@ -55,7 +56,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final NativeIndexBuildStrategy fallbackStrategy;
     private final IndexSettings indexSettings;
-    private final KNNMethodContext knnMethodContext;
+    private final KNNLibraryIndexingContext knnLibraryIndexingContext;
 
     /**
      * Public constructor, intended to be called by {@link org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory} based in
@@ -63,18 +64,18 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @param repositoriesServiceSupplier       A supplier for {@link RepositoriesService} used to interact with a repository
      * @param fallbackStrategy                  Delegate {@link NativeIndexBuildStrategy} used to fall back to local build
      * @param indexSettings                    {@link IndexSettings} used to retrieve information about the index
-     * @param knnMethodContext                 {@link KNNMethodContext} used to retrieve method specific params for the remote build request
+     * @param knnLibraryIndexingContext                 {@link KNNLibraryIndexingContext} used to retrieve method specific params for the remote build request
      */
     public RemoteIndexBuildStrategy(
         Supplier<RepositoriesService> repositoriesServiceSupplier,
         NativeIndexBuildStrategy fallbackStrategy,
         IndexSettings indexSettings,
-        KNNMethodContext knnMethodContext
+        KNNLibraryIndexingContext knnLibraryIndexingContext
     ) {
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
         this.fallbackStrategy = fallbackStrategy;
         this.indexSettings = indexSettings;
-        this.knnMethodContext = knnMethodContext;
+        this.knnLibraryIndexingContext = knnLibraryIndexingContext;
     }
 
     /**
@@ -153,7 +154,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexInfo,
                 repository.getMetadata(),
                 blobPath.buildAsString() + blobName,
-                knnMethodContext
+                knnLibraryIndexingContext.getLibraryParameters()
             );
             stopWatch = new StopWatch().start();
             final RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(buildRequest);
@@ -199,10 +200,11 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     /**
      * Constructor for RemoteBuildRequest.
      *
-     * @param indexSettings IndexSettings object
-     * @param indexInfo BuildIndexParams object
+     * @param indexSettings      IndexSettings object
+     * @param indexInfo          BuildIndexParams object
      * @param repositoryMetadata RepositoryMetadata object
-     * @param fullPath Full blob path + file name representing location of the vectors/doc IDs (excludes repository-specific prefix)
+     * @param fullPath           Full blob path + file name representing location of the vectors/doc IDs (excludes repository-specific prefix)
+     * @param parameters         Map of parameters to be parsed and passed to the remote build service
      * @throws IOException if an I/O error occurs
      */
     static RemoteBuildRequest buildRemoteBuildRequest(
@@ -210,7 +212,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         BuildIndexParams indexInfo,
         RepositoryMetadata repositoryMetadata,
         String fullPath,
-        KNNMethodContext knnMethodContext
+        Map<String, Object> parameters
     ) throws IOException {
         String repositoryType = repositoryMetadata.type();
         String containerName;
@@ -236,7 +238,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             .docCount(indexInfo.getTotalLiveDocs())
             .vectorDataType(vectorDataType)
             .engine(indexInfo.getKnnEngine().getName())
-            .indexParameters(knnMethodContext.getKnnEngine().createRemoteIndexingParameters(knnMethodContext))
+            .indexParameters(indexInfo.getKnnEngine().createRemoteIndexingParameters(parameters))
             .build();
     }
 
