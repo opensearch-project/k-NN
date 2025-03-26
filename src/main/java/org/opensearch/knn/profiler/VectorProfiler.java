@@ -51,8 +51,10 @@ public class VectorProfiler {
             return;
         }
 
-        List<DimensionStatisticAggregator> aggregators = fieldToDimensionStats.computeIfAbsent(fieldName,
-                k -> initializeDimensionAggregators(dimensions));
+        List<DimensionStatisticAggregator> aggregators = fieldToDimensionStats.computeIfAbsent(
+            fieldName,
+            k -> initializeDimensionAggregators(dimensions)
+        );
         updateDimensionStatistics(aggregators, vectors);
     }
 
@@ -66,8 +68,7 @@ public class VectorProfiler {
 
     // TODO: Attach segmentID to a specific ID rather than a random one
     // Currently using UUID for example usecase by utilizing random IDs
-    private void updateDimensionStatistics(final List<DimensionStatisticAggregator> aggregators,
-                                           final Collection<float[]> vectors) {
+    private void updateDimensionStatistics(final List<DimensionStatisticAggregator> aggregators, final Collection<float[]> vectors) {
         String segmentId = UUID.randomUUID().toString();
         for (float[] vector : vectors) {
             for (int dim = 0; dim < Math.min(aggregators.size(), vector.length); dim++) {
@@ -87,7 +88,8 @@ public class VectorProfiler {
     }
 
     /**
-     * For testing purposes only - provides access to clear the internal map
+     * Retrieve the entire map of field to dimension statistics.
+     * @return fieldToDimensionStats
      */
     Map<String, List<DimensionStatisticAggregator>> getFieldToDimensionStats() {
         return fieldToDimensionStats;
