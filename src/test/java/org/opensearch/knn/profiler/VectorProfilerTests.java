@@ -14,7 +14,6 @@ import org.opensearch.test.OpenSearchTestCase;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 
 public class VectorProfilerTests extends OpenSearchTestCase {
@@ -23,13 +22,14 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     private VectorProfiler profiler;
     private List<float[]> testVectors;
     private static final String TEST_FIELD = "test_field";
+    private static final int TEST_DIMENSIONS = 3;
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
         mocks = MockitoAnnotations.openMocks(this);
         profiler = VectorProfiler.getInstance();
-        profiler.setFieldToDimensionStats(new HashMap<>());
+        profiler.processVectors(TEST_FIELD, null, TEST_DIMENSIONS);
         testVectors = Arrays.asList(new float[] { 1.0f, 2.0f, 3.0f }, new float[] { 4.0f, 5.0f, 6.0f }, new float[] { 7.0f, 8.0f, 9.0f });
     }
 
@@ -48,11 +48,11 @@ public class VectorProfilerTests extends OpenSearchTestCase {
 
     @Test
     public void testProcessVectors() {
-        profiler.processVectors(TEST_FIELD, testVectors);
+        profiler.processVectors(TEST_FIELD, testVectors, TEST_DIMENSIONS);
         List<DimensionStatisticAggregator> stats = profiler.getFieldStatistics(TEST_FIELD);
 
         assertNotNull(stats);
-        assertEquals(3, stats.size());
+        assertEquals(TEST_DIMENSIONS, stats.size());
 
         assertEquals(4.0, stats.get(0).getAggregateStatistics().getMean(), 0.001);
         assertEquals(5.0, stats.get(1).getAggregateStatistics().getMean(), 0.001);
@@ -64,26 +64,33 @@ public class VectorProfilerTests extends OpenSearchTestCase {
         String field1 = "field1";
         String field2 = "field2";
 
-        profiler.processVectors(field1, testVectors);
-        profiler.processVectors(field2, testVectors);
+        profiler.processVectors(field1, testVectors, TEST_DIMENSIONS);
+        profiler.processVectors(field2, testVectors, TEST_DIMENSIONS);
 
         assertNotSame(profiler.getFieldStatistics(field1), profiler.getFieldStatistics(field2));
     }
 
     @Test
     public void testEmptyVectors() {
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> profiler.processVectors(TEST_FIELD, Collections.emptyList()));
-        assertEquals("Vectors collection cannot be null or empty", ex.getMessage());
+        profiler.processVectors(TEST_FIELD, Collections.emptyList(), TEST_DIMENSIONS);
+        assertNull("No statistics should be created for empty vectors", profiler.getFieldStatistics(TEST_FIELD));
+    }
+
+    @Test
+    public void testNullVectors() {
+        profiler.processVectors(TEST_FIELD, null, TEST_DIMENSIONS);
+        assertNull("No statistics should be created for null vectors", profiler.getFieldStatistics(TEST_FIELD));
     }
 
     @Test
     public void testDifferentDimensions() {
         List<float[]> vectorsWith2Dimensions = Arrays.asList(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f });
 
-        profiler.processVectors(TEST_FIELD, vectorsWith2Dimensions);
+        profiler.processVectors(TEST_FIELD, vectorsWith2Dimensions, 2);
         List<DimensionStatisticAggregator> stats = profiler.getFieldStatistics(TEST_FIELD);
 
-        assertEquals("Number of dimension aggregators should match vector dimension", 2, stats.size());
+        assertEquals("Number of dimension aggregators should match specified dimensions", 2, stats.size());
+
         assertEquals(2.0, stats.get(0).getAggregateStatistics().getMean(), 0.001);
         assertEquals(3.0, stats.get(1).getAggregateStatistics().getMean(), 0.001);
     }
@@ -96,7 +103,7 @@ public class VectorProfilerTests extends OpenSearchTestCase {
             largeVectors.add(new float[] { i, i, i });
         }
 
-        profiler.processVectors(TEST_FIELD, largeVectors);
+        profiler.processVectors(TEST_FIELD, largeVectors, TEST_DIMENSIONS);
         List<DimensionStatisticAggregator> stats = profiler.getFieldStatistics(TEST_FIELD);
 
         double expectedMean = (numVectors - 1) / 2.0;
@@ -104,8 +111,13 @@ public class VectorProfilerTests extends OpenSearchTestCase {
     }
 
     @Test
-    public void testNullVectors() {
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> profiler.processVectors(TEST_FIELD, null));
-        assertEquals("Vectors collection cannot be null or empty", ex.getMessage());
+    public void testSmallerVectorDimension() {
+        List<float[]> smallerVectors = Arrays.asList(new float[] { 1.0f }, new float[] { 2.0f });
+
+        profiler.processVectors(TEST_FIELD, smallerVectors, 3);
+        List<DimensionStatisticAggregator> stats = profiler.getFieldStatistics(TEST_FIELD);
+
+        assertEquals(3, stats.size());
+        assertEquals(1.5, stats.get(0).getAggregateStatistics().getMean(), 0.001);
     }
 }
