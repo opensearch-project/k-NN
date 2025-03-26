@@ -146,7 +146,8 @@ testClusters {
                 knn_bwc_version.startsWith("2.15.") ||
                 knn_bwc_version.startsWith("2.16.") ||
                 knn_bwc_version.startsWith("2.17.") ||
-                knn_bwc_version.startsWith("2.18.")) {
+                knn_bwc_version.startsWith("2.18.") ||
+                knn_bwc_version.startsWith("2.19.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
             }
@@ -274,7 +275,8 @@ testClusters {
                 knn_bwc_version.startsWith("2.15.") ||
                 knn_bwc_version.startsWith("2.16.") ||
                 knn_bwc_version.startsWith("2.17.") ||
-                knn_bwc_version.startsWith("2.18.")) {
+                knn_bwc_version.startsWith("2.18.") ||
+                knn_bwc_version.startsWith("2.19.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
             }

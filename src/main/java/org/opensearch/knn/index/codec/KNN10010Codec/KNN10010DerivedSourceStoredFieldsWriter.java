@@ -48,7 +48,7 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
         if (vectorFieldTypes.isEmpty() == false) {
             this.vectorMask = XContentMapValues.transform(
                 vectorFieldTypes.stream().collect(Collectors.toMap(k -> k, k -> (Object o) -> o == null ? o : MASK)),
-                false
+                true
             );
         } else {
             this.vectorMask = null;
