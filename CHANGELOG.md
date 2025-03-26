@@ -20,6 +20,8 @@ Add filter function to KNNQueryBuilder with unit tests and integration tests [#2
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features
+* [Vector Profiler] Adding generic vector profiler implementation to sample vector statistics and output towards the API (#2622)
+
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure

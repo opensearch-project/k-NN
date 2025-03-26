@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
+import org.apache.commons.math3.stat.descriptive.StatisticalSummary;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,20 +19,21 @@ import java.util.HashMap;
 
 @Log4j2
 public class VectorProfiler {
-
     private static VectorProfiler INSTANCE;
-    private static final int DEFAULT_SAMPLE_SIZE = 100;
+    private static final int DEFAULT_SAMPLE_SIZE = 1000;
+    private final Map<String, List<DimensionStatisticAggregator>> fieldToDimensionStats;
     private List<Computation> registeredComputations;
 
     public VectorProfiler() {
         this.registeredComputations = new ArrayList<>();
+        this.fieldToDimensionStats = new HashMap<>();
+        initialize();
     }
 
     public void initialize() {
-        // Initialize default computations
-        registeredComputations.add(StatisticalOperators.MEAN);
-        registeredComputations.add(StatisticalOperators.VARIANCE);
-        registeredComputations.add(StatisticalOperators.STANDARD_DEVIATION);
+        registerComputation(stats -> stats.getMean());
+        registerComputation(stats -> stats.getVariance());
+        registerComputation(stats -> Math.sqrt(stats.getVariance()));
     }
 
     public static synchronized VectorProfiler getInstance() {
@@ -57,58 +59,71 @@ public class VectorProfiler {
         return new ArrayList<>(registeredComputations);
     }
 
-    public Map<Computation, float[]> sampleAndCompute(Collection<float[]> vectors, int... sampleSize) {
-
+    public Map<Computation, float[]> sampleAndCompute(String fieldName, Collection<float[]> vectors, int... sampleSize) {
         validateVectors(vectors);
 
         Collection<float[]> sampledVectors = sampleVectors(vectors, sampleSize.length > 0 ? sampleSize[0] : DEFAULT_SAMPLE_SIZE);
 
+        // Initialize dimension aggregators for the field if not exists
+        if (!fieldToDimensionStats.containsKey(fieldName)) {
+            int dimensions = sampledVectors.iterator().next().length;
+            List<DimensionStatisticAggregator> dimensionAggregators = new ArrayList<>(dimensions);
+            for (int i = 0; i < dimensions; i++) {
+                dimensionAggregators.add(new DimensionStatisticAggregator(i));
+            }
+            fieldToDimensionStats.put(fieldName, dimensionAggregators);
+        }
+
+        // Update statistics for each dimension
+        List<DimensionStatisticAggregator> aggregators = fieldToDimensionStats.get(fieldName);
+        updateDimensionStatistics(aggregators, sampledVectors);
+
+        // Compute results
         Map<Computation, float[]> results = new HashMap<>();
         for (Computation computation : registeredComputations) {
             try {
-                results.put(computation, generateSampledDimensionVectors(sampledVectors, computation));
+                results.put(computation, generateSampledDimensionVectors(aggregators, computation));
             } catch (IllegalArgumentException e) {
-                log.error("Error performing computation: " + e.getMessage());
+                log.error("Error performing computation for field {}: {}", fieldName, e.getMessage());
                 throw e;
             }
+        }
+
+        return results;
+    }
+
+    private void updateDimensionStatistics(List<DimensionStatisticAggregator> aggregators, Collection<float[]> vectors) {
+        int dimensions = aggregators.size();
+
+        // Collect values for each dimension
+        List<List<Float>> dimensionValues = new ArrayList<>(dimensions);
+        for (int i = 0; i < dimensions; i++) {
+            dimensionValues.add(new ArrayList<>());
+        }
+
+        // Group values by dimension
+        for (float[] vector : vectors) {
+            for (int dim = 0; dim < Math.min(dimensions, vector.length); dim++) {
+                dimensionValues.get(dim).add(vector[dim]);
+            }
+        }
+
+        // Update statistics for each dimension
+        for (int dim = 0; dim < dimensions; dim++) {
+            aggregators.get(dim).addSegmentStatistics(dimensionValues.get(dim));
+        }
+    }
+
+    private float[] generateSampledDimensionVectors(List<DimensionStatisticAggregator> aggregators, Computation computation) {
+        float[] results = new float[aggregators.size()];
+        for (int dim = 0; dim < aggregators.size(); dim++) {
+            StatisticalSummary stats = aggregators.get(dim).getAggregateStatistics();
+            results[dim] = (float) computation.compute(stats);
         }
         return results;
     }
 
-    private float[] generateSampledDimensionVectors(Collection<float[]> vectors, Computation computation) {
-
-        if (vectors == null || vectors.isEmpty()) {
-            throw new IllegalArgumentException("Vectors collection cannot be null or empty");
-        }
-
-        float[] firstVector = vectors.iterator().next();
-        int dim = firstVector.length;
-        int numVectors = vectors.size();
-
-        // Create rotated matrix where each row represents a dimension
-        float[][] rotatedMatrix = new float[dim][numVectors];
-
-        // Fill the rotated matrix
-        int vectorIndex = 0;
-        for (float[] vec : vectors) {
-            for (int dimIndex = 0; dimIndex < Math.min(dim, vec.length); dimIndex++) {
-                rotatedMatrix[dimIndex][vectorIndex] = vec[dimIndex];
-            }
-            vectorIndex++;
-        }
-
-        // Process each dimension
-        float[] result = new float[dim];
-        for (int dimIndex = 0; dimIndex < dim; dimIndex++) {
-            // Pass the entire dimension vector to compute
-            result[dimIndex] = computation.compute(rotatedMatrix[dimIndex])[0];
-        }
-
-        return result;
-    }
-
     private Collection<float[]> sampleVectors(Collection<float[]> vectors, int sampleSize) {
-
         Sampler sampler = SamplingFactory.getSampler(SamplerType.RESERVOIR);
         int[] sampleIndices = sampler.sample(vectors.size(), Math.min(sampleSize, vectors.size()));
 
