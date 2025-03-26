@@ -498,7 +498,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                     String.format("[" + NAME + "] requires distance to be non-negative for space type: %s", spaceType)
                 );
             }
-            radius = knnEngine.distanceToRadialThreshold(this.maxDistance, spaceType);
+            if (memoryOptimizedSearchSupported) {
+                radius = KNNEngine.LUCENE.distanceToRadialThreshold(this.maxDistance, spaceType);
+            } else {
+                radius = knnEngine.distanceToRadialThreshold(this.maxDistance, spaceType);
+            }
         }
 
         if (this.minScore != null) {
@@ -507,7 +511,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                     String.format("[" + NAME + "] requires score to be in the range [0, 1] for space type: %s", spaceType)
                 );
             }
-            radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
+            if (memoryOptimizedSearchSupported) {
+                radius = KNNEngine.LUCENE.scoreToRadialThreshold(this.minScore, spaceType);
+            } else {
+                radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
+            }
         }
 
         int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;

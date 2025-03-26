@@ -27,6 +27,8 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.generate.IndexingType;
+import org.opensearch.knn.generate.SearchTestHelper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
@@ -52,17 +54,12 @@ import java.lang.reflect.Constructor;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.LongStream;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -77,6 +74,10 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.generate.SearchTestHelper.generateOneSingleByteVector;
+import static org.opensearch.knn.generate.SearchTestHelper.generateOneSingleFloatVector;
+import static org.opensearch.knn.generate.SearchTestHelper.generateRandomByteVectors;
+import static org.opensearch.knn.generate.SearchTestHelper.getKnnAnswerSetForVectors;
 
 public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final String TARGET_FIELD = "target_field";
@@ -85,18 +86,11 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final String FLOAT16_HNSW_INDEX_DESCRIPTION = "HNSW8,SQfp16";
     private static final int DIMENSIONS = 128;
     private static final int TOTAL_NUM_DOCS_IN_SEGMENT = 300;
-    private static final int NUM_CHILD_DOCS = 5;
     private static final int TOP_K = 30;
     private static final float NO_FILTERING = Float.NaN;
 
     public void testFloatIndexType() {
-        final TestingSpec testingSpec = new TestingSpec(
-            VectorDataType.FLOAT,
-            VectorDataType.FLOAT,
-            FLOAT_HNSW_INDEX_DESCRIPTION,
-            -1000000,
-            1000000
-        );
+        final TestingSpec testingSpec = new TestingSpec(VectorDataType.FLOAT, FLOAT_HNSW_INDEX_DESCRIPTION, -1000000, 1000000);
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -112,7 +106,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     public void testByteIndexType() {
-        final TestingSpec testingSpec = new TestingSpec(VectorDataType.FLOAT, VectorDataType.BYTE, BYTE_HNSW_INDEX_DESCRIPTION, -128, 127) {
+        final TestingSpec testingSpec = new TestingSpec(VectorDataType.BYTE, BYTE_HNSW_INDEX_DESCRIPTION, -128, 127) {
             @Override
             public float trimValue(float value) {
                 return (byte) value;
@@ -133,13 +127,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     public void testFloat16IndexType() {
-        final TestingSpec testingSpec = new TestingSpec(
-            VectorDataType.FLOAT,
-            VectorDataType.FLOAT,
-            FLOAT16_HNSW_INDEX_DESCRIPTION,
-            -65504,
-            65504
-        );
+        final TestingSpec testingSpec = new TestingSpec(VectorDataType.FLOAT, FLOAT16_HNSW_INDEX_DESCRIPTION, -65504, 65504);
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -196,14 +184,14 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         long[] filteredIds = null;
         if (Float.compare(filteringRatio, NO_FILTERING) != 0) {
             // Take only X%. Ex: Keep 80% of docs = cut off 20% of docs.
-            final List<Integer> filteredDocIds = takePortions(buildInfo.documentIds, filteringRatio);
+            final List<Integer> filteredDocIds = SearchTestHelper.takePortions(buildInfo.documentIds, filteringRatio);
             filteredIds = filteredDocIds.stream().mapToLong(Integer::longValue).toArray();
         }
 
         // Reconstruct parent ids if it's necessary
         int[] parentIds = null;
         if (indexingType.isNested()) {
-            parentIds = extractParentIds(buildInfo.documentIds);
+            parentIds = SearchTestHelper.extractParentIds(buildInfo.documentIds);
         }
 
         // Take top-k results
@@ -213,14 +201,11 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final Object queryForVectorReader;
         final float[] query;
         final byte[] byteQuery;
-        if (testingSpec.searchDataType == VectorDataType.FLOAT) {
-            queryForVectorReader = query = generateOneSingleFloatVector(testingSpec);
-        } else if (testingSpec.searchDataType == VectorDataType.BYTE) {
-            queryForVectorReader = byteQuery = generateOneSingleByteVector(testingSpec);
-            query = new float[byteQuery.length];
-            for (int i = 0; i < byteQuery.length; i++) {
-                query[i] = byteQuery[i];
-            }
+        if (testingSpec.dataType == VectorDataType.FLOAT) {
+            queryForVectorReader = query = generateOneSingleFloatVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
+        } else if (testingSpec.dataType == VectorDataType.BYTE) {
+            queryForVectorReader = byteQuery = generateOneSingleByteVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
+            query = SearchTestHelper.convertToFloatArray(byteQuery);
         } else {
             throw new AssertionError();
         }
@@ -242,7 +227,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final KNNQueryResult[] resultsFromVectorReader = doSearchViaVectorReader(
             buildInfo,
             queryForVectorReader,
-            testingSpec.searchDataType,
+            testingSpec.dataType,
             filteredIds,
             k,
             doExhaustiveSearch
@@ -250,93 +235,15 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
         // Validate results
         validateResults(
-            buildInfo,
+            buildInfo.documentIds,
+            buildInfo.vectors,
             query,
             filteredIds,
-            testingSpec,
             resultsFromFaiss,
             resultsFromVectorReader,
-            spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+            spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
+            TOP_K
         );
-    }
-
-    private Set<Integer> getAnswerSet(
-        List<Integer> documentIds,
-        final List<float[]> vectors,
-        final float[] query,
-        long[] filteredIds,
-        final VectorSimilarityFunction similarityFunction
-    ) {
-
-        final Set<Integer> filteredIdSet;
-        if (filteredIds != null) {
-            filteredIdSet = LongStream.of(filteredIds).mapToInt(l -> (int) l).boxed().collect(Collectors.toSet());
-        } else {
-            filteredIdSet = null;
-        }
-
-        // Create a new one
-        documentIds = new ArrayList<>(documentIds);
-
-        // Sort indices by similarity
-        documentIds.sort(
-            (docId1, docId2) -> -Float.compare(
-                similarityFunction.compare(vectors.get(docId1), query),
-                similarityFunction.compare(vectors.get(docId2), query)
-            )
-        );
-
-        // Apply filtering and collect top K
-        final Set<Integer> answerSet = new HashSet<>();
-        int i = 0;
-        while (answerSet.size() < TOP_K && i < documentIds.size()) {
-            if (filteredIdSet == null || filteredIdSet.contains(documentIds.get(i))) {
-                answerSet.add(documentIds.get(i));
-            }
-            ++i;
-        }
-
-        return answerSet;
-    }
-
-    private void validateResults(
-        BuildInfo buildInfo,
-        Object query,
-        long[] filteredIds,
-        TestingSpec testingSpec,
-        KNNQueryResult[] resultsFromFaiss,
-        KNNQueryResult[] resultsFromVectorReader,
-        VectorSimilarityFunction similarityFunction
-    ) {
-        final Set<Integer> answerDocIds = getAnswerSet(
-            buildInfo.documentIds,
-            buildInfo.floatVectors,
-            (float[]) query,
-            filteredIds,
-            similarityFunction
-        );
-
-        final Set<Integer> expectedDocIds = new HashSet<>();
-        for (int i = 0; i < resultsFromFaiss.length; ++i) {
-            expectedDocIds.add(resultsFromFaiss[i].getId());
-        }
-        int answerMatchCount = 0;
-        int matchCount = 0;
-        for (int i = 0; i < resultsFromFaiss.length; ++i) {
-            if (expectedDocIds.contains(resultsFromVectorReader[i].getId())) {
-                ++matchCount;
-            }
-            if (answerDocIds.contains(resultsFromVectorReader[i].getId())) {
-                ++answerMatchCount;
-            }
-        }
-
-        final float matchRatio = ((float) matchCount) / resultsFromFaiss.length;
-        final float recall = ((float) answerMatchCount) / TOP_K;
-
-        // It can happen that match ratio between FAISS and MemOptimizedSearch is lower than 80%, but if it happens with a recall lower than
-        // 0.8 indicates something's off.
-        assertFalse(matchRatio < 0.8 && recall < 0.8);
     }
 
     @SneakyThrows
@@ -345,7 +252,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         Object query,
         VectorDataType vectorDataType,
         long[] filteredIds,
-        int k,
+        final int k,
         final boolean exhaustiveSearch
     ) {
         // Make KNN vector field info
@@ -421,13 +328,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 final BuildIndexParams.BuildIndexParamsBuilder builder = BuildIndexParams.builder();
                 builder.fieldName(TARGET_FIELD)
                     .knnEngine(KNNEngine.FAISS)
-                    .vectorDataType(testingSpec.indexingDataType)
+                    .vectorDataType(testingSpec.dataType)
                     .indexOutputWithBuffer(new IndexOutputWithBuffer(indexOutput));
 
                 // Set up parameters
                 final Map<String, Object> parameters = new HashMap<>();
                 parameters.put(NAME, METHOD_HNSW);
-                parameters.put(VECTOR_DATA_TYPE_FIELD, testingSpec.indexingDataType.getValue());
+                parameters.put(VECTOR_DATA_TYPE_FIELD, testingSpec.dataType.getValue());
                 parameters.put(SPACE_TYPE, spaceType.getValue());
                 parameters.put(INDEX_THREAD_QTY, 1);
                 parameters.put(INDEX_DESCRIPTION_PARAMETER, testingSpec.indexDescription);
@@ -444,11 +351,25 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 buildInfo = new BuildInfo(tempDir, fileName, parameters, documentIds);
                 builder.totalLiveDocs(documentIds.size());
 
-                if (testingSpec.indexingDataType == VectorDataType.BYTE) {
-                    final KNNVectorValues<byte[]> byteVectorValues = createKNNByteVectorValues(buildInfo, testingSpec);
+                if (testingSpec.dataType == VectorDataType.BYTE) {
+                    final List<byte[]> vectors = generateRandomByteVectors(
+                        documentIds,
+                        DIMENSIONS,
+                        testingSpec.minValue,
+                        testingSpec.maxValue
+                    );
+                    buildInfo.vectors = new SearchTestHelper.Vectors(VectorDataType.BYTE, vectors);
+                    final KNNVectorValues<byte[]> byteVectorValues = createKNNByteVectorValues(documentIds, vectors);
                     builder.knnVectorValuesSupplier(() -> byteVectorValues);
-                } else if (testingSpec.indexingDataType == VectorDataType.FLOAT) {
-                    final KNNVectorValues<float[]> floatVectorValues = createKNNFloatVectorValues(buildInfo, testingSpec);
+                } else if (testingSpec.dataType == VectorDataType.FLOAT) {
+                    final List<float[]> floatVectors = SearchTestHelper.generateRandomFloatVectors(
+                        buildInfo.documentIds,
+                        DIMENSIONS,
+                        testingSpec.minValue,
+                        testingSpec.maxValue
+                    );
+                    buildInfo.vectors = new SearchTestHelper.Vectors(floatVectors);
+                    final KNNFloatVectorValues floatVectorValues = createKNNFloatVectorValues(documentIds, floatVectors);
                     builder.knnVectorValuesSupplier(() -> floatVectorValues);
                 } else {
                     throw new AssertionError();
@@ -463,72 +384,43 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         return buildInfo;
     }
 
-    @SneakyThrows
-    private KNNByteVectorValues createKNNByteVectorValues(final BuildInfo buildInfo, final TestingSpec testingSpec) {
-        final List<Integer> documentIds = buildInfo.documentIds;
-        final List<byte[]> vectors = generateRandomByteVectors(documentIds, testingSpec);
-        buildInfo.byteVectors = vectors;
+    public static void validateResults(
+        final List<Integer> documentIds,
+        final SearchTestHelper.Vectors vectors,
+        final float[] query,
+        final long[] filteredIds,
+        KNNQueryResult[] resultsFromFaiss,
+        KNNQueryResult[] resultsFromVectorReader,
+        VectorSimilarityFunction similarityFunction,
+        final int topK
+    ) {
+        final Set<Integer> answerDocIds = getKnnAnswerSetForVectors(documentIds, vectors, query, filteredIds, similarityFunction, topK);
 
-        final KNNVectorValuesIterator iterator = new KNNVectorValuesIterator() {
-            private int index = -1;
-
-            @Override
-            public int docId() {
-                if (index == -1) {
-                    return -1;
-                } else if (index == DocIdSetIterator.NO_MORE_DOCS) {
-                    return DocIdSetIterator.NO_MORE_DOCS;
-                }
-                return documentIds.get(index);
+        final Set<Integer> expectedDocIds = Arrays.stream(resultsFromFaiss)
+            .mapToInt(KNNQueryResult::getId)
+            .boxed()
+            .collect(Collectors.toSet());
+        int answerMatchCount = 0;
+        int matchCount = 0;
+        for (int i = 0; i < resultsFromFaiss.length; ++i) {
+            if (expectedDocIds.contains(resultsFromVectorReader[i].getId())) {
+                ++matchCount;
             }
-
-            @Override
-            public int advance(int docId) throws IOException {
-                throw new UnsupportedEncodingException();
+            if (answerDocIds.contains(resultsFromVectorReader[i].getId())) {
+                ++answerMatchCount;
             }
+        }
 
-            @Override
-            public int nextDoc() {
-                if ((index + 1) >= documentIds.size()) {
-                    index = DocIdSetIterator.NO_MORE_DOCS;
-                    return DocIdSetIterator.NO_MORE_DOCS;
-                }
+        final float matchRatio = ((float) matchCount) / resultsFromFaiss.length;
+        final float recall = ((float) answerMatchCount) / topK;
 
-                return documentIds.get(++index);
-            }
-
-            @Override
-            public DocIdSetIterator getDocIdSetIterator() {
-                return null;
-            }
-
-            @Override
-            public long liveDocs() {
-                return documentIds.size();
-            }
-
-            @Override
-            public VectorValueExtractorStrategy getVectorExtractorStrategy() {
-                return new VectorValueExtractorStrategy() {
-                    @Override
-                    public byte[] extract(VectorDataType vectorDataType, KNNVectorValuesIterator vectorValuesIterator) {
-                        return vectors.get(vectorValuesIterator.docId());
-                    }
-                };
-            }
-        };
-
-        // Instantiate KNNFloatVectorValues
-        Constructor<KNNByteVectorValues> constructor = KNNByteVectorValues.class.getDeclaredConstructor(KNNVectorValuesIterator.class);
-        constructor.setAccessible(true);
-        return constructor.newInstance(iterator);
+        // It can happen that match ratio between FAISS and MemOptimizedSearch is lower than 80%, but if it happens with a recall lower than
+        // 0.8 indicates something's off.
+        assertFalse(matchRatio < 0.8 && recall < 0.8);
     }
 
     @SneakyThrows
-    private static KNNFloatVectorValues createKNNFloatVectorValues(final BuildInfo buildInfo, final TestingSpec testingSpec) {
-        final List<Integer> documentIds = buildInfo.documentIds;
-        final List<float[]> vectors = generateRandomFloatVectors(documentIds, testingSpec);
-        buildInfo.floatVectors = vectors;
+    public static KNNFloatVectorValues createKNNFloatVectorValues(final List<Integer> documentIds, final List<float[]> vectors) {
 
         final KNNVectorValuesIterator iterator = new KNNVectorValuesIterator() {
             private int index = -1;
@@ -585,172 +477,61 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         return constructor.newInstance(iterator);
     }
 
-    private static float[] generateOneSingleFloatVector(final TestingSpec testingSpec) {
-        final float[] vector = new float[DIMENSIONS];
-        for (int k = 0; k < DIMENSIONS; k++) {
-            final float value = testingSpec.minValue + ThreadLocalRandom.current().nextFloat() * (testingSpec.maxValue
-                - testingSpec.minValue);
-            vector[k] = testingSpec.trimValue(value);
-        }
-        return vector;
-    }
+    @SneakyThrows
+    public static KNNByteVectorValues createKNNByteVectorValues(final List<Integer> documentIds, final List<byte[]> vectors) {
+        final KNNVectorValuesIterator iterator = new KNNVectorValuesIterator() {
+            private int index = -1;
 
-    private static byte[] generateOneSingleByteVector(final TestingSpec testingSpec) {
-        final byte[] vector = new byte[DIMENSIONS];
-        for (int k = 0; k < DIMENSIONS; k++) {
-            vector[k] = (byte) (testingSpec.minValue + ThreadLocalRandom.current()
-                .nextInt((int) (testingSpec.maxValue - testingSpec.minValue + 1)));
-        }
-        return vector;
-    }
-
-    private static List<float[]> generateRandomFloatVectors(final List<Integer> docIds, final TestingSpec testingSpec) {
-        final List<float[]> vectors = new ArrayList<>();
-        for (int i = 0, j = 0; j < docIds.size(); j++) {
-            // Add null vectors.
-            // e.g. previous doc=15, current doc=18.
-            // then put two nulls for doc=16, 17. This indicates that doc=16 and 17 don't have vector field.
-            while (i < docIds.get(j)) {
-                vectors.add(null);
-                ++i;
-            }
-
-            vectors.add(generateOneSingleFloatVector(testingSpec));
-            ++i;
-        }
-
-        return vectors;
-    }
-
-    private List<byte[]> generateRandomByteVectors(final List<Integer> docIds, final TestingSpec testingSpec) {
-        final List<byte[]> vectors = new ArrayList<>();
-
-        for (int i = 0, j = 0; j < docIds.size(); j++) {
-            // Add null vectors.
-            // e.g. previous doc=15, current doc=18.
-            // then put two nulls for doc=16, 17. This indicates that doc=16 and 17 don't have vector field.
-            while (i < docIds.get(j)) {
-                vectors.add(null);
-                ++i;
-            }
-
-            vectors.add(generateOneSingleByteVector(testingSpec));
-            ++i;
-        }
-
-        return vectors;
-    }
-
-    private enum IndexingType {
-        DENSE {
             @Override
-            public List<Integer> generateDocumentIds(int numberOfTotalDocsInSegment) {
-                return IntStream.rangeClosed(0, numberOfTotalDocsInSegment - 1).boxed().collect(Collectors.toList());
-            }
-        },
-        SPARSE {
-            @Override
-            public List<Integer> generateDocumentIds(int numberOfTotalDocsInSegment) {
-                List<Integer> docIds = new ArrayList<>(
-                    IntStream.rangeClosed(0, numberOfTotalDocsInSegment - 1).boxed().collect(Collectors.toList())
-                );
-
-                // Take only 80% docs. e.g. 20% docs won't have vector field.
-                return takePortions(docIds, 0.8);
-            }
-        },
-        DENSE_NESTED {
-            @Override
-            public List<Integer> generateDocumentIds(int numberOfParentDocs) {
-                final int numDocsHavingVector = NUM_CHILD_DOCS * numberOfParentDocs;
-                final List<Integer> docIds = new ArrayList<>(numDocsHavingVector);
-                for (int i = 0; i < numberOfParentDocs; i++) {
-                    for (int j = 0; j < NUM_CHILD_DOCS; ++j) {
-                        docIds.add(i * (NUM_CHILD_DOCS + 1) + j);
-                    }
+            public int docId() {
+                if (index == -1) {
+                    return -1;
+                } else if (index == DocIdSetIterator.NO_MORE_DOCS) {
+                    return DocIdSetIterator.NO_MORE_DOCS;
                 }
-                // Ex: [[0, 1, 2, 3, 4],
-                // [6, 7, 8, 9, 10],
-                // [12, ...]
-                // Note that doc=5, doc=11 are parent document.
-                return docIds;
+                return documentIds.get(index);
             }
 
             @Override
-            public boolean isNested() {
-                return true;
+            public int advance(int docId) throws IOException {
+                throw new UnsupportedEncodingException();
             }
-        },
-        SPARSE_NESTED {
-            @Override
-            public List<Integer> generateDocumentIds(int numberOfTotalDocsInSegment) {
-                // Ex: [[0, 1, 2, 3, 4],
-                // [12, 13, 14, 15, 16],
-                // [18, ...]
-                // Note that docs in [6, 11] don't have vector fields.
-                List<Integer> docIds = new ArrayList<>();
-                int nextDocId = 0;
-                for (int i = 0; i < numberOfTotalDocsInSegment; i++) {
-                    // Only take 80%, or if it's last index
-                    // Why force it to add child docs at the last index?
-                    // -> So that we can always restore parent ids deterministically.
-                    if (i == (numberOfTotalDocsInSegment - 1) || ThreadLocalRandom.current().nextFloat(1f) >= 0.8f) {
-                        // This doc has vector
-                        for (int j = 0; j < NUM_CHILD_DOCS; j++) {
-                            docIds.add(nextDocId++);
-                        }
 
-                        // Visit a parent doc
-                        ++nextDocId;
-                    } else {
-                        // This doc don't have vector
-                        ++nextDocId;
-                    }
+            @Override
+            public int nextDoc() {
+                if ((index + 1) >= documentIds.size()) {
+                    index = DocIdSetIterator.NO_MORE_DOCS;
+                    return DocIdSetIterator.NO_MORE_DOCS;
                 }
 
-                return docIds;
+                return documentIds.get(++index);
             }
 
             @Override
-            public boolean isNested() {
-                return true;
+            public DocIdSetIterator getDocIdSetIterator() {
+                return null;
+            }
+
+            @Override
+            public long liveDocs() {
+                return documentIds.size();
+            }
+
+            @Override
+            public VectorValueExtractorStrategy getVectorExtractorStrategy() {
+                return new VectorValueExtractorStrategy() {
+                    @Override
+                    public byte[] extract(VectorDataType vectorDataType, KNNVectorValuesIterator vectorValuesIterator) {
+                        return vectors.get(vectorValuesIterator.docId());
+                    }
+                };
             }
         };
 
-        public abstract List<Integer> generateDocumentIds(int numberOfTotalDocsInSegment);
-
-        public boolean isNested() {
-            return false;
-        }
-    }
-
-    private static List<Integer> takePortions(final List<Integer> sequence, final double percentage) {
-        List<Integer> newSequence = new ArrayList<>(sequence);
-        Collections.shuffle(newSequence);
-        newSequence = newSequence.subList(0, (int) (newSequence.size() * percentage));
-        Collections.sort(newSequence);
-        return newSequence;
-    }
-
-    private static int[] extractParentIds(final List<Integer> childDocIds) {
-        // Reconstruct parent ids.
-        // e.g. with [0,1,2,3,4, 6,7,8,9,10 22,23,24,25,26], parent ids=[5, 14, 27] with 5 child docs
-        final List<Integer> parentIds = new ArrayList<>();
-        for (int i = 0, j = childDocIds.get(0); i < childDocIds.size();) {
-            if (childDocIds.get(i) != j) {
-                parentIds.add(j);
-                j = childDocIds.get(i);
-            } else {
-                ++i;
-                ++j;
-            }
-        }
-
-        // We always add child docs at the end.
-        // So we can safely add parent id here.
-        // Ex: With [, ..., 100, 101, 102, 103, 104], parent id would be 105 (e.g. having 5 child docs)
-        parentIds.add(childDocIds.get(childDocIds.size() - 1) + 1);
-        return parentIds.stream().mapToInt(Integer::intValue).toArray();
+        // Instantiate KNNFloatVectorValues
+        Constructor<KNNByteVectorValues> constructor = KNNByteVectorValues.class.getDeclaredConstructor(KNNVectorValuesIterator.class);
+        constructor.setAccessible(true);
+        return constructor.newInstance(iterator);
     }
 
     @RequiredArgsConstructor
@@ -759,15 +540,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final String faissIndexFile;
         final Map<String, Object> parameters;
         final List<Integer> documentIds;
-        List<float[]> floatVectors = null;
-        List<byte[]> byteVectors = null;
+        SearchTestHelper.Vectors vectors;
     }
 
     @RequiredArgsConstructor
     @AllArgsConstructor
     private static class TestingSpec {
-        public final VectorDataType indexingDataType;
-        public final VectorDataType searchDataType;
+        public final VectorDataType dataType;
         public final String indexDescription;
         public float minValue;
         public float maxValue;
