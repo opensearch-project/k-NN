@@ -12,6 +12,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.index.TieredMergePolicyProvider.INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING;
 
 public class SegmentSizeFloorMergePolicyIT extends KNNRestTestCase {
     @SneakyThrows
@@ -40,8 +41,8 @@ public class SegmentSizeFloorMergePolicyIT extends KNNRestTestCase {
         String regularIndexName = "test-regular-floor-segment";
         createIndex(regularIndexName, Settings.EMPTY);
 
-        String knnFloorSegment = getIndexSettingByName(knnIndexName, "index.merge.policy.floor_segment", true);
-        String regularFloorSegment = getIndexSettingByName(regularIndexName, "index.merge.policy.floor_segment", true);
+        String knnFloorSegment = getIndexSettingByName(knnIndexName, INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), true);
+        String regularFloorSegment = getIndexSettingByName(regularIndexName, INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), true);
 
         // Assert KNN index has 16mb floor segment
         assertEquals("KNN index should have 16mb floor segment", "16mb", knnFloorSegment);
