@@ -10,56 +10,66 @@ import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.test.OpenSearchTestCase;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Map;
 
 public class DimensionStatisticAggregatorTests extends OpenSearchTestCase {
 
     private DimensionStatisticAggregator aggregator;
-    private Collection<Float> testValues;
+    private static final String TEST_SEGMENT_ID = "test-segment";
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
         aggregator = new DimensionStatisticAggregator(0);
-        testValues = Arrays.asList(1.0f, 2.0f, 3.0f);
     }
 
     @Test
-    public void testAddSegmentStatistics() {
-        aggregator.addSegmentStatistics(testValues);
+    public void testAddValues() {
+        aggregator.addValue(TEST_SEGMENT_ID, 1.0f);
+        aggregator.addValue(TEST_SEGMENT_ID, 2.0f);
+        aggregator.addValue(TEST_SEGMENT_ID, 3.0f);
+
         assertEquals(1, aggregator.getSegmentStatistics().size());
+
+        SummaryStatistics stats = aggregator.getSegmentStatistic(TEST_SEGMENT_ID);
+        assertEquals(3, stats.getN());
+        assertEquals(2.0, stats.getMean(), 0.001);
     }
 
     @Test
     public void testMultipleSegments() {
-        aggregator.addSegmentStatistics(testValues);
-        aggregator.addSegmentStatistics(Arrays.asList(4.0f, 5.0f, 6.0f));
+        String segment1 = "segment1";
+        String segment2 = "segment2";
+
+        aggregator.addValue(segment1, 1.0f);
+        aggregator.addValue(segment1, 2.0f);
+        aggregator.addValue(segment2, 4.0f);
+        aggregator.addValue(segment2, 5.0f);
 
         Map<String, SummaryStatistics> segmentStats = aggregator.getSegmentStatistics();
         assertEquals(2, segmentStats.size());
+
+        assertEquals(1.5, aggregator.getSegmentStatistic(segment1).getMean(), 0.001);
+        assertEquals(4.5, aggregator.getSegmentStatistic(segment2).getMean(), 0.001);
     }
 
     @Test
     public void testAggregateStatistics() {
-        aggregator.addSegmentStatistics(testValues);
+        aggregator.addValue("segment1", 1.0f);
+        aggregator.addValue("segment1", 2.0f);
+        aggregator.addValue("segment2", 3.0f);
 
         assertEquals(2.0, aggregator.getAggregateStatistics().getMean(), 0.001);
         assertEquals(1.0, aggregator.getAggregateStatistics().getStandardDeviation(), 0.001);
     }
 
     @Test
-    public void testEmptyValues() {
-        aggregator.addSegmentStatistics(Arrays.asList());
-        assertEquals(0, aggregator.getAggregateStatistics().getN());
+    public void testGetDimension() {
+        assertEquals(0, aggregator.getDimensionId());
     }
 
     @Test
-    public void testMultipleSegmentsAggregation() {
-        aggregator.addSegmentStatistics(Arrays.asList(1.0f, 2.0f));
-        aggregator.addSegmentStatistics(Arrays.asList(3.0f, 4.0f));
-
-        assertEquals(2.5, aggregator.getAggregateStatistics().getMean(), 0.001);
+    public void testNonExistentSegment() {
+        assertNull(aggregator.getSegmentStatistic("non-existent"));
     }
 }

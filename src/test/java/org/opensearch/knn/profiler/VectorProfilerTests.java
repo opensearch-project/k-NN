@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.profiler;
 
-import org.apache.commons.math3.stat.descriptive.StatisticalSummary;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,15 +14,14 @@ import org.opensearch.test.OpenSearchTestCase;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class VectorProfilerTests extends OpenSearchTestCase {
 
     private AutoCloseable mocks;
     private VectorProfiler profiler;
     private List<float[]> testVectors;
-    private List<Computation> aggregateComputations;
     private static final String TEST_FIELD = "test_field";
 
     @Before
@@ -31,10 +29,8 @@ public class VectorProfilerTests extends OpenSearchTestCase {
         super.setUp();
         mocks = MockitoAnnotations.openMocks(this);
         profiler = VectorProfiler.getInstance();
-
+        profiler.setFieldToDimensionStats(new HashMap<>());
         testVectors = Arrays.asList(new float[] { 1.0f, 2.0f, 3.0f }, new float[] { 4.0f, 5.0f, 6.0f }, new float[] { 7.0f, 8.0f, 9.0f });
-
-        aggregateComputations = profiler.getRegisteredComputations();
     }
 
     @After
@@ -48,57 +44,48 @@ public class VectorProfilerTests extends OpenSearchTestCase {
         VectorProfiler instance1 = VectorProfiler.getInstance();
         VectorProfiler instance2 = VectorProfiler.getInstance();
         assertSame(instance1, instance2);
-
-        VectorProfiler mockInstance = new VectorProfiler();
-        VectorProfiler.setInstance(mockInstance);
-        assertSame(mockInstance, VectorProfiler.getInstance());
     }
 
     @Test
-    public void testFieldBasedComputation() {
-        Map<Computation, float[]> results = profiler.sampleAndCompute(TEST_FIELD, testVectors);
+    public void testProcessVectors() {
+        profiler.processVectors(TEST_FIELD, testVectors);
+        List<DimensionStatisticAggregator> stats = profiler.getFieldStatistics(TEST_FIELD);
 
-        float[] mean = results.get(aggregateComputations.get(0));
-        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, mean, 0.001f);
+        assertNotNull(stats);
+        assertEquals(3, stats.size());
+
+        assertEquals(4.0, stats.get(0).getAggregateStatistics().getMean(), 0.001);
+        assertEquals(5.0, stats.get(1).getAggregateStatistics().getMean(), 0.001);
+        assertEquals(6.0, stats.get(2).getAggregateStatistics().getMean(), 0.001);
     }
 
     @Test
-    public void testMultipleFieldsComputation() {
+    public void testMultipleFields() {
         String field1 = "field1";
         String field2 = "field2";
 
-        profiler.sampleAndCompute(field1, testVectors);
-        profiler.sampleAndCompute(field2, testVectors);
+        profiler.processVectors(field1, testVectors);
+        profiler.processVectors(field2, testVectors);
 
-        Map<Computation, float[]> results1 = profiler.sampleAndCompute(field1, testVectors);
-        Map<Computation, float[]> results2 = profiler.sampleAndCompute(field2, testVectors);
-
-        assertNotSame(results1, results2);
-    }
-
-    @Test
-    public void testCustomComputation() {
-        Computation maxComputation = StatisticalSummary::getMax;
-        profiler.registerComputation(maxComputation);
-
-        Map<Computation, float[]> results = profiler.sampleAndCompute(TEST_FIELD, testVectors);
-
-        float[] maxValues = results.get(maxComputation);
-        assertArrayEquals(new float[] { 7.0f, 8.0f, 9.0f }, maxValues, 0.001f);
+        assertNotSame(profiler.getFieldStatistics(field1), profiler.getFieldStatistics(field2));
     }
 
     @Test
     public void testEmptyVectors() {
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> profiler.sampleAndCompute(TEST_FIELD, Collections.emptyList()));
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> profiler.processVectors(TEST_FIELD, Collections.emptyList()));
         assertEquals("Vectors collection cannot be null or empty", ex.getMessage());
     }
 
     @Test
     public void testDifferentDimensions() {
-        List<float[]> differentDimVectors = Arrays.asList(new float[] { 1.0f, 2.0f }, new float[] { 3.0f });
+        List<float[]> vectorsWith2Dimensions = Arrays.asList(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f });
 
-        Map<Computation, float[]> results = profiler.sampleAndCompute(TEST_FIELD, differentDimVectors);
-        assertEquals(2, results.get(aggregateComputations.get(0)).length);
+        profiler.processVectors(TEST_FIELD, vectorsWith2Dimensions);
+        List<DimensionStatisticAggregator> stats = profiler.getFieldStatistics(TEST_FIELD);
+
+        assertEquals("Number of dimension aggregators should match vector dimension", 2, stats.size());
+        assertEquals(2.0, stats.get(0).getAggregateStatistics().getMean(), 0.001);
+        assertEquals(3.0, stats.get(1).getAggregateStatistics().getMean(), 0.001);
     }
 
     @Test
@@ -109,24 +96,16 @@ public class VectorProfilerTests extends OpenSearchTestCase {
             largeVectors.add(new float[] { i, i, i });
         }
 
-        Map<Computation, float[]> results = profiler.sampleAndCompute(TEST_FIELD, largeVectors);
+        profiler.processVectors(TEST_FIELD, largeVectors);
+        List<DimensionStatisticAggregator> stats = profiler.getFieldStatistics(TEST_FIELD);
 
-        float[] mean = results.get(aggregateComputations.get(0));
-        double expectedMean = numVectors / 2.0;
-        double tolerance = expectedMean * 0.20;
-
-        assertTrue(Math.abs(mean[0] - expectedMean) <= tolerance);
+        double expectedMean = (numVectors - 1) / 2.0;
+        assertEquals(expectedMean, stats.get(0).getAggregateStatistics().getMean(), 3.0);
     }
 
     @Test
-    public void testComputationManagement() {
-        int initialSize = profiler.getRegisteredComputations().size();
-        Computation newComp = StatisticalSummary::getMin;
-
-        profiler.registerComputation(newComp);
-        assertEquals(initialSize + 1, profiler.getRegisteredComputations().size());
-
-        profiler.unregisterComputation(newComp);
-        assertEquals(initialSize, profiler.getRegisteredComputations().size());
+    public void testNullVectors() {
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> profiler.processVectors(TEST_FIELD, null));
+        assertEquals("Vectors collection cannot be null or empty", ex.getMessage());
     }
 }
