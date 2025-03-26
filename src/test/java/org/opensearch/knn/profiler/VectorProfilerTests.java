@@ -29,7 +29,7 @@ public class VectorProfilerTests extends OpenSearchTestCase {
         super.setUp();
         mocks = MockitoAnnotations.openMocks(this);
         profiler = VectorProfiler.getInstance();
-        profiler.processVectors(TEST_FIELD, null, TEST_DIMENSIONS);
+        profiler.getFieldToDimensionStats().clear();
         testVectors = Arrays.asList(new float[] { 1.0f, 2.0f, 3.0f }, new float[] { 4.0f, 5.0f, 6.0f }, new float[] { 7.0f, 8.0f, 9.0f });
     }
 

@@ -48,28 +48,26 @@ public class VectorProfiler {
     public void processVectors(final String fieldName, final Collection<float[]> vectors, final int dimensions) {
         if (vectors == null || vectors.isEmpty()) {
             log.warn("No vectors to process for field: {}", fieldName);
-            fieldToDimensionStats.remove(fieldName);
             return;
         }
 
-        fieldToDimensionStats.remove(fieldName);
-
-        initializeDimensionAggregators(fieldName, dimensions);
-        List<DimensionStatisticAggregator> aggregators = fieldToDimensionStats.get(fieldName);
+        List<DimensionStatisticAggregator> aggregators = fieldToDimensionStats.computeIfAbsent(fieldName,
+                k -> initializeDimensionAggregators(dimensions));
         updateDimensionStatistics(aggregators, vectors);
     }
 
-    private void initializeDimensionAggregators(final String fieldName, final int dimensions) {
+    private List<DimensionStatisticAggregator> initializeDimensionAggregators(final int dimensions) {
         List<DimensionStatisticAggregator> dimensionAggregators = new ArrayList<>(dimensions);
         for (int i = 0; i < dimensions; i++) {
             dimensionAggregators.add(new DimensionStatisticAggregator(i));
         }
-        fieldToDimensionStats.put(fieldName, dimensionAggregators);
+        return dimensionAggregators;
     }
 
     // TODO: Attach segmentID to a specific ID rather than a random one
     // Currently using UUID for example usecase by utilizing random IDs
-    private void updateDimensionStatistics(final List<DimensionStatisticAggregator> aggregators, final Collection<float[]> vectors) {
+    private void updateDimensionStatistics(final List<DimensionStatisticAggregator> aggregators,
+                                           final Collection<float[]> vectors) {
         String segmentId = UUID.randomUUID().toString();
         for (float[] vector : vectors) {
             for (int dim = 0; dim < Math.min(aggregators.size(), vector.length); dim++) {
@@ -86,5 +84,12 @@ public class VectorProfiler {
      */
     public List<DimensionStatisticAggregator> getFieldStatistics(final String fieldName) {
         return fieldToDimensionStats.get(fieldName);
+    }
+
+    /**
+     * For testing purposes only - provides access to clear the internal map
+     */
+    Map<String, List<DimensionStatisticAggregator>> getFieldToDimensionStats() {
+        return fieldToDimensionStats;
     }
 }
