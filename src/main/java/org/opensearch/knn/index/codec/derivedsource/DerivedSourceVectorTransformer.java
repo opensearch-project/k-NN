@@ -59,7 +59,7 @@ public class DerivedSourceVectorTransformer implements Closeable {
             perFieldDerivedVectorTransformers.put(derivedFieldInfo.name(), perFieldDerivedVectorTransformer);
             perFieldDerivedVectorTransformersFunctionValues.put(derivedFieldInfo.name(), perFieldDerivedVectorTransformer);
         }
-        derivedSourceVectorTransformer = XContentMapValues.transform(perFieldDerivedVectorTransformersFunctionValues, false);
+        derivedSourceVectorTransformer = XContentMapValues.transform(perFieldDerivedVectorTransformersFunctionValues, true);
         derivedSourceLuceneHelper = new DerivedSourceLuceneHelper(derivedSourceReaders, segmentReadState);
     }
 
@@ -81,7 +81,7 @@ public class DerivedSourceVectorTransformer implements Closeable {
             MediaTypeRegistry.getDefaultMediaType()
         );
         // Have to create a copy of the map here to ensure that is mutable
-        Map<String, Object> sourceAsMap = new HashMap<>(mapTuple.v2());
+        Map<String, Object> sourceAsMap = mapTuple.v2();
 
         // We only need the offset for the nested fields. If there arent any, we can skip
         int offset = 0;
