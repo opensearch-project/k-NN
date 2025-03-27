@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin;
 import com.google.common.collect.ImmutableList;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.cluster.NamedDiff;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -31,6 +32,7 @@ import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.indices.SystemIndexDescriptor;
+import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
@@ -306,6 +308,19 @@ public class KNNPlugin extends Plugin
     public void onIndexModule(IndexModule indexModule) {
         KNNSettings.state().onIndexModule(indexModule);
         if (KNNSettings.isKNNDerivedSourceEnabled(indexModule.getSettings())) {
+            // Check if segrep is enabled as well - if so, we need to block changes to the remote store enabled
+            // exception
+            boolean isSegrepEnabled = ReplicationType.SEGMENT.equals(
+                IndexMetadata.INDEX_REPLICATION_TYPE_SETTING.get(indexModule.getSettings())
+            );
+            if (isSegrepEnabled) {
+                // We want to make sure that if segrep is enabled, we do not change the remote store. This is because
+                // derived source works for remote store, but not for node to node segrep. While we are able to
+                // effectively handle the case when the index is created, we do not want to change it.
+                indexModule.addSettingsUpdateConsumer(IndexMetadata.INDEX_REMOTE_STORE_ENABLED_SETTING, s -> {}, v -> {
+                    throw new IllegalArgumentException("Cannot update \"" + IndexMetadata.SETTING_REMOTE_STORE_ENABLED + "\"");
+                });
+            }
             indexModule.addIndexOperationListener(new DerivedSourceIndexOperationListener());
         }
     }

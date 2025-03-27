@@ -15,10 +15,10 @@ import lombok.Getter;
 import lombok.NonNull;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnFloatVectorField;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
+import org.opensearch.knn.index.DerivedKnnByteVectorField;
+import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
@@ -124,9 +124,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected List<Field> getFieldsForFloatVector(final float[] array) {
+    protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedSourceEnabled) {
         final List<Field> fieldsToBeAdded = new ArrayList<>();
-        fieldsToBeAdded.add(new KnnFloatVectorField(name(), array, fieldType));
+        fieldsToBeAdded.add(new DerivedKnnFloatVectorField(name(), array, fieldType, isDerivedSourceEnabled));
 
         if (hasDocValues && vectorFieldType != null) {
             fieldsToBeAdded.add(new VectorField(name(), array, vectorFieldType));
@@ -139,9 +139,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected List<Field> getFieldsForByteVector(final byte[] array) {
+    protected List<Field> getFieldsForByteVector(final byte[] array, boolean isDerivedSourceEnabled) {
         final List<Field> fieldsToBeAdded = new ArrayList<>();
-        fieldsToBeAdded.add(new KnnByteVectorField(name(), array, fieldType));
+        fieldsToBeAdded.add(new DerivedKnnByteVectorField(name(), array, fieldType, isDerivedSourceEnabled));
 
         if (hasDocValues && vectorFieldType != null) {
             fieldsToBeAdded.add(new VectorField(name(), array, vectorFieldType));
