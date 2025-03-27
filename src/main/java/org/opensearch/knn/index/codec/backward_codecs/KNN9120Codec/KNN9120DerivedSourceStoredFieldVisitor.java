@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.derivedsource;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import lombok.AllArgsConstructor;
 import org.apache.lucene.index.FieldInfo;
@@ -17,16 +17,16 @@ import java.io.IOException;
  * source vector fields into the document. After the source is modified, it is forwarded to the delegate.
  */
 @AllArgsConstructor
-public class DerivedSourceStoredFieldVisitor extends StoredFieldVisitor {
+public class KNN9120DerivedSourceStoredFieldVisitor extends StoredFieldVisitor {
 
     private final StoredFieldVisitor delegate;
     private final Integer documentId;
-    private final DerivedSourceVectorTransformer derivedSourceVectorTransformer;
+    private final DerivedSourceVectorInjector derivedSourceVectorInjector;
 
     @Override
     public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
         if (fieldInfo.name.equals(SourceFieldMapper.NAME)) {
-            delegate.binaryField(fieldInfo, derivedSourceVectorTransformer.injectVectors(documentId, value));
+            delegate.binaryField(fieldInfo, derivedSourceVectorInjector.injectVectors(documentId, value));
             return;
         }
         delegate.binaryField(fieldInfo, value);

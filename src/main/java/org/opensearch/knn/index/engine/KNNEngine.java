@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableSet;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
@@ -246,8 +247,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext) {
-        return knnLibrary.supportsRemoteIndexBuild(methodComponentContext);
+    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
+        return knnLibrary.supportsRemoteIndexBuild(methodComponentContext, vectorDataType);
     }
 
     @Override

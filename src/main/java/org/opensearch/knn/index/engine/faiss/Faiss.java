@@ -8,6 +8,7 @@ package org.opensearch.knn.index.engine.faiss;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -125,10 +126,10 @@ public class Faiss extends NativeLibrary {
      * Use the method name to route the check to the specific method class
      */
     @Override
-    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext) {
+    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
         if (METHOD_HNSW.equals(methodComponentContext.getName())) {
             if (methodComponentContext.getParameters() != null) {
-                return FaissHNSWMethod.supportsRemoteIndexBuild(methodComponentContext.getParameters());
+                return FaissHNSWMethod.supportsRemoteIndexBuild(methodComponentContext.getParameters(), vectorDataType);
             }
         }
         return false;

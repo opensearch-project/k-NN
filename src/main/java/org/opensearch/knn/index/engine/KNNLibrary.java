@@ -8,6 +8,7 @@ package org.opensearch.knn.index.engine;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Collections;
@@ -146,7 +147,7 @@ public interface KNNLibrary extends MethodResolver {
      * Returns whether the engine implementation supports remote index build
      * @return true if remote index build is supported, false otherwise
      */
-    default boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext) {
+    default boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
         return false;
     }
 

@@ -31,8 +31,8 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class DerivedSourceTestCase extends KNNRestTestCase {
-    protected final int TEST_DIMENSION = 128;
-    protected final int DOCS = 50;
+    protected final int TEST_DIMENSION = 16;
+    protected final int DOCS = 500;
     protected final static String NESTED_NAME = "test_nested";
     protected final static String FIELD_NAME = "test_vector";
 
@@ -78,6 +78,8 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
             derivedSourceDisabledContext.indexName,
             derivedSourceEnabledContext.indexName
         );
+        flush(derivedSourceEnabledContext.indexName, true);
+        flush(derivedSourceDisabledContext.indexName, true);
     }
 
     @SneakyThrows
@@ -86,8 +88,9 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
         String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
-        forceMergeKnnIndex(originalIndexNameDerivedSourceEnabled, 10);
-        forceMergeKnnIndex(originalIndexNameDerivedSourceDisabled, 10);
+        forceMergeKnnIndex(originalIndexNameDerivedSourceEnabled, 1);
+        forceMergeKnnIndex(originalIndexNameDerivedSourceDisabled, 1);
+
         refreshAllIndices();
         assertIndexBigger(originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
         assertDocsMatch(
@@ -100,6 +103,20 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         forceMergeKnnIndex(originalIndexNameDerivedSourceDisabled, 1);
         refreshAllIndices();
         assertIndexBigger(originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
+        assertDocsMatch(
+            derivedSourceDisabledContext.docCount,
+            originalIndexNameDerivedSourceDisabled,
+            originalIndexNameDerivedSourceEnabled
+        );
+        flush(derivedSourceEnabledContext.indexName, true);
+        flush(derivedSourceDisabledContext.indexName, true);
+    }
+
+    public void assertDocsMatch(List<IndexConfigContext> indexConfigContexts) {
+        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
+        String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
+        String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
         assertDocsMatch(
             derivedSourceDisabledContext.docCount,
             originalIndexNameDerivedSourceDisabled,

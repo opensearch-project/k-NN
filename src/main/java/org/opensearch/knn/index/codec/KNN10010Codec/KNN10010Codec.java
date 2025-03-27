@@ -91,18 +91,7 @@ public class KNN10010Codec extends FilterCodec {
             }
             return null;
 
-        }, (segmentReadState) -> {
-            if (segmentReadState.fieldInfos.hasPostings()) {
-                return postingsFormat().fieldsProducer(segmentReadState);
-            }
-            return null;
-
-        }, (segmentReadState -> {
-            if (segmentReadState.fieldInfos.hasNorms()) {
-                return normsFormat().normsProducer(segmentReadState);
-            }
-            return null;
-        }));
+        });
         return new KNN10010DerivedSourceStoredFieldsFormat(delegate.storedFieldsFormat(), derivedSourceReadersSupplier, mapperService);
     }
 }
