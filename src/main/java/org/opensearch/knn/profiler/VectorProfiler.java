@@ -4,6 +4,7 @@
  */
 package org.opensearch.knn.profiler;
 
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
 import java.util.Collection;
@@ -16,12 +17,13 @@ import java.util.UUID;
 /**
  * VectorProfiler is a singleton class that manages statistical aggregation of vector data across different fields.
  * It maintains dimension-specific statistics for each field, allowing for analysis of vector characteristics
- * across different segments of data.
+ * across different segments of an index.
  *
  * The profiler collects and maintains statistical information about vectors in different dimensions,
  * which can be used for various analytical purposes such as understanding data distribution,
  * identifying patterns, and optimizing vector operations.
  */
+@Getter
 @Log4j2
 public class VectorProfiler {
     private static VectorProfiler INSTANCE;
@@ -39,15 +41,16 @@ public class VectorProfiler {
     }
 
     /**
-     * Process a collection of vectors for a specific field and dimension size.
+     * Profiles a collection of vectors for a specific field, computing statistical summaries
+     * for each dimension. The statistics are aggregated across multiple segments of the index.
      *
      * @param fieldName The name of the field containing the vectors
-     * @param vectors The collection of vectors to process
+     * @param vectors The collection of vectors to profile
      * @param dimensions The number of dimensions in the vectors
      */
-    public void processVectors(final String fieldName, final Collection<float[]> vectors, final int dimensions) {
+    public void profileVectors(final String fieldName, final Collection<float[]> vectors, final int dimensions) {
         if (vectors == null || vectors.isEmpty()) {
-            log.warn("No vectors to process for field: {}", fieldName);
+            log.warn("No vectors to profile for field: {}", fieldName);
             return;
         }
 
@@ -85,13 +88,5 @@ public class VectorProfiler {
      */
     public List<DimensionStatisticAggregator> getFieldStatistics(final String fieldName) {
         return fieldToDimensionStats.get(fieldName);
-    }
-
-    /**
-     * Retrieve the entire map of field to dimension statistics.
-     * @return fieldToDimensionStats
-     */
-    Map<String, List<DimensionStatisticAggregator>> getFieldToDimensionStats() {
-        return fieldToDimensionStats;
     }
 }

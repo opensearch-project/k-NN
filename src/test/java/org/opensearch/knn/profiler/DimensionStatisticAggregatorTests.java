@@ -59,8 +59,8 @@ public class DimensionStatisticAggregatorTests extends OpenSearchTestCase {
         aggregator.addValue("segment1", 2.0f);
         aggregator.addValue("segment2", 3.0f);
 
-        assertEquals(2.0, aggregator.getAggregateStatistics().getMean(), 0.001);
-        assertEquals(1.0, aggregator.getAggregateStatistics().getStandardDeviation(), 0.001);
+        assertEquals(2.0, aggregator.getAggregateStats().getMean(), 0.001);
+        assertEquals(1.0, aggregator.getAggregateStats().getStandardDeviation(), 0.001);
     }
 
     @Test

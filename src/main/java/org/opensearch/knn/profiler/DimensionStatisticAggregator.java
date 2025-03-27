@@ -4,9 +4,9 @@
  */
 package org.opensearch.knn.profiler;
 
+import lombok.Getter;
 import org.apache.commons.math3.stat.descriptive.AggregateSummaryStatistics;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
-import org.apache.commons.math3.stat.descriptive.StatisticalSummary;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -14,8 +14,10 @@ import java.util.HashMap;
 /**
  * Aggregates statistics for a specific dimension across multiple segments.
  * This class is used to collect and analyze statistical data for a particular dimension
- * across multiple segments of a vector.
+ * across multiple segments of an index. This class helps to aggregate statistics across
+ * different portions of the index.
  */
+@Getter
 public class DimensionStatisticAggregator {
     // The index/position of this dimension in the vector
     private final int dimensionId;
@@ -40,13 +42,6 @@ public class DimensionStatisticAggregator {
             k -> aggregateStats.createContributingStatistics()
         );
         segmentStats.addValue(value);
-    }
-
-    /**
-     * @return the aggregate statistics across all segments
-     */
-    public StatisticalSummary getAggregateStatistics() {
-        return aggregateStats;
     }
 
     /**
