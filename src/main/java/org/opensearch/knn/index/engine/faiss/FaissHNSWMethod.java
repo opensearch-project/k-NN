@@ -13,17 +13,24 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
+import org.opensearch.remoteindexbuild.model.RemoteFaissHNSWIndexParameters;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -41,6 +48,8 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         VectorDataType.BINARY,
         VectorDataType.BYTE
     );
+
+    private static final Set<VectorDataType> SUPPORTED_REMOTE_INDEX_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
@@ -123,5 +132,69 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             DEFAULT_ENCODER_CONTEXT,
             SUPPORTED_ENCODERS.values().stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
         );
+    }
+
+    @Override
+    protected Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> doGetTrainingConfigValidationSetup() {
+        return (trainingConfigValidationInput) -> {
+
+            KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
+            TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
+
+            if (isEncoderSpecified(knnMethodContext) == false) {
+                return builder.build();
+            }
+            Encoder encoder = SUPPORTED_ENCODERS.get(getEncoderName(knnMethodContext));
+            if (encoder == null) {
+                return builder.build();
+            }
+
+            return encoder.validateEncoderConfig(trainingConfigValidationInput);
+        };
+    }
+
+    /**
+     * Get the parameters that need to be passed to the remote build service for training from a KNNMethodContext
+     * @param knnMethodContext to parse
+     * @return Map of parameters to be used as "index_parameters"
+     */
+    public static RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+        RemoteFaissHNSWIndexParameters.RemoteFaissHNSWIndexParametersBuilder<?, ?> builder = RemoteFaissHNSWIndexParameters.builder();
+        builder.algorithm(METHOD_HNSW);
+        builder.spaceType(knnMethodContext.getSpaceType().getValue());
+
+        MethodComponentContext methodComponentContext = knnMethodContext.getMethodComponentContext();
+        Map<String, Object> methodParams = methodComponentContext.getParameters();
+        builder.efConstruction(getIntegerFromMap(methodParams, METHOD_PARAMETER_EF_CONSTRUCTION));
+        builder.efSearch(getIntegerFromMap(methodParams, METHOD_PARAMETER_EF_SEARCH));
+        builder.m(getIntegerFromMap(methodParams, METHOD_PARAMETER_M));
+        return builder.build();
+    }
+
+    /**
+     * @param methodParameters      Map of method parameters including encoder information
+     * @param vectorDataType        {@link VectorDataType}
+     * @return                      true if the method parameters + vector data type combination is supported for remote index build
+     */
+    static boolean supportsRemoteIndexBuild(Map<String, Object> methodParameters, VectorDataType vectorDataType) {
+        if (SUPPORTED_REMOTE_INDEX_DATA_TYPES.contains(vectorDataType)) {
+            String encoderName = ((MethodComponentContext) methodParameters.get(METHOD_ENCODER_PARAMETER)).getName();
+            return ENCODER_FLAT.equals(encoderName);
+        }
+        return false;
+    }
+
+    /**
+     * Safely retrieve an Integer from {@code map} using {@code key}
+     */
+    private static Integer getIntegerFromMap(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        if (value instanceof String) {
+            return Integer.parseInt((String) value);
+        }
+        throw new IllegalArgumentException("Could not parse value for key: " + key);
     }
 }

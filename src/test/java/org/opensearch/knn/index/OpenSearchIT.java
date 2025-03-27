@@ -65,46 +65,25 @@ public class OpenSearchIT extends KNNRestTestCase {
 
     public void testEndToEnd() throws Exception {
         String indexName = "test-index-1";
-        KNNEngine knnEngine1 = KNNEngine.NMSLIB;
-        KNNEngine knnEngine2 = KNNEngine.FAISS;
-        String fieldName1 = "test-field-1";
-        String fieldName2 = "test-field-2";
-        SpaceType spaceType1 = SpaceType.COSINESIMIL;
-        SpaceType spaceType2 = SpaceType.L2;
+        KNNEngine knnEngine = KNNEngine.FAISS; // Only FAISS is used
+        String fieldName = "test-field";
+        SpaceType spaceType = SpaceType.L2; // Using L2 similarity for FAISS
 
-        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
-        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
-
         Integer dimension = testData.indexData.vectors[0].length;
 
-        // Create an index
+        // Create an index with a single FAISS knn_vector field
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
-            .startObject(fieldName1)
+            .startObject(fieldName)
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1.getValue())
-            .field(KNNConstants.KNN_ENGINE, knnEngine1.getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, knnEngine.getName()) // FAISS engine
             .startObject(KNNConstants.PARAMETERS)
-            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
-            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
-            .endObject()
-            .endObject()
-            .endObject()
-            .startObject(fieldName2)
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType2.getValue())
-            .field(KNNConstants.KNN_ENGINE, knnEngine2.getName())
-            .startObject(KNNConstants.PARAMETERS)
-            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
-            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
             .endObject()
             .endObject()
@@ -122,11 +101,8 @@ public class OpenSearchIT extends KNNRestTestCase {
             addKnnDoc(
                 indexName,
                 Integer.toString(testData.indexData.docs[i]),
-                ImmutableList.of(fieldName1, fieldName2),
-                ImmutableList.of(
-                    Floats.asList(testData.indexData.vectors[i]).toArray(),
-                    Floats.asList(testData.indexData.vectors[i]).toArray()
-                )
+                ImmutableList.of(fieldName), // Only one field
+                ImmutableList.of(Floats.asList(testData.indexData.vectors[i]).toArray())
             );
         }
 
@@ -136,33 +112,17 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         int k = 10;
         for (int i = 0; i < testData.queries.length; i++) {
-            // Search the first field
-            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName1, testData.queries[i], k), k);
+            // Search the single FAISS field
+            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, testData.queries[i], k), k);
             String responseBody = EntityUtils.toString(response.getEntity());
-            List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName1);
+            List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, knnResults.size());
 
-            List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName1);
+            List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    knnEngine1.score(1 - KNNScoringUtil.cosinesimil(testData.queries[i], primitiveArray), spaceType1),
-                    actualScores.get(j),
-                    0.0001
-                );
-            }
-
-            // Search the second field
-            response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName2, testData.queries[i], k), k);
-            responseBody = EntityUtils.toString(response.getEntity());
-            knnResults = parseSearchResponse(responseBody, fieldName2);
-            assertEquals(k, knnResults.size());
-
-            actualScores = parseSearchResponseScore(responseBody, fieldName2);
-            for (int j = 0; j < k; j++) {
-                float[] primitiveArray = knnResults.get(j).getVector();
-                assertEquals(
-                    knnEngine2.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType2),
+                    knnEngine.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );
@@ -178,7 +138,6 @@ public class OpenSearchIT extends KNNRestTestCase {
             if (getTotalGraphsInCache() == 0) {
                 return;
             }
-
             Thread.sleep(5 * 1000);
         }
 
@@ -277,10 +236,10 @@ public class OpenSearchIT extends KNNRestTestCase {
         String engine;
         String spaceType;
         if (valid) {
-            engine = randomFrom(KNNEngine.values()).getName();
+            engine = randomFrom(KNNEngine.FAISS, KNNEngine.LUCENE).getName();
             spaceType = SpaceType.L2.getValue();
         } else {
-            engine = randomFrom(KNNConstants.LUCENE_NAME, KNNConstants.NMSLIB_NAME);
+            engine = randomFrom(KNNConstants.LUCENE_NAME);
             spaceType = SpaceType.COSINESIMIL.getValue();
         }
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 4, method, engine, spaceType));
@@ -678,32 +637,20 @@ public class OpenSearchIT extends KNNRestTestCase {
      */
     public void testKNNIndex_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() throws Exception {
         final String indexName = "test-index-1";
-        final String fieldName1 = "test-field-1";
-        final String fieldName2 = "test-field-2";
-
+        final String fieldName = "test-field"; // Single field using FAISS
         final Integer dimension = testData.indexData.vectors[0].length;
         final Settings knnIndexSettings = buildKNNIndexSettings(-1);
 
-        // Create an index
+        // Create an index with a single FAISS knn_vector field
         final XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
-            .startObject(fieldName1)
+            .startObject(fieldName)
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
-            .startObject(KNNConstants.PARAMETERS)
-            .endObject()
-            .endObject()
-            .endObject()
-            .startObject(fieldName2)
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName()) // FAISS only
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()
@@ -718,37 +665,30 @@ public class OpenSearchIT extends KNNRestTestCase {
             addKnnDoc(
                 indexName,
                 Integer.toString(testData.indexData.docs[i]),
-                ImmutableList.of(fieldName1, fieldName2),
-                ImmutableList.of(
-                    Floats.asList(testData.indexData.vectors[i]).toArray(),
-                    Floats.asList(testData.indexData.vectors[i]).toArray()
-                )
+                ImmutableList.of(fieldName), // Only one field
+                ImmutableList.of(Floats.asList(testData.indexData.vectors[i]).toArray())
             );
         }
 
         refreshAllIndices();
+
         // Assert we have the right number of documents in the index
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
 
-        final List<KNNResult> nmslibNeighbors = getResults(indexName, fieldName1, testData.queries[0], 1);
-        assertEquals("unexpected neighbors are returned", nmslibNeighbors.size(), nmslibNeighbors.size());
-
-        final List<KNNResult> faissNeighbors = getResults(indexName, fieldName2, testData.queries[0], 1);
+        // Validate FAISS results
+        final List<KNNResult> faissNeighbors = getResults(indexName, fieldName, testData.queries[0], 1);
         assertEquals("unexpected neighbors are returned", faissNeighbors.size(), faissNeighbors.size());
 
-        // update build vector data structure setting
+        // Update build vector data structure setting
         updateIndexSettings(indexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
         forceMergeKnnIndex(indexName, 1);
 
         final int k = 10;
         for (int i = 0; i < testData.queries.length; i++) {
-            // Search nmslib field
-            final Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName1, testData.queries[i], k), k);
+            // Search FAISS field
+            final Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, testData.queries[i], k), k);
             final String responseBody = EntityUtils.toString(response.getEntity());
-            final List<KNNResult> nmslibValidNeighbors = parseSearchResponse(responseBody, fieldName1);
-            assertEquals(k, nmslibValidNeighbors.size());
-            // Search faiss field
-            final List<KNNResult> faissValidNeighbors = getResults(indexName, fieldName2, testData.queries[i], k);
+            final List<KNNResult> faissValidNeighbors = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, faissValidNeighbors.size());
         }
 
@@ -777,7 +717,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()
@@ -862,7 +802,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()
@@ -1206,6 +1146,104 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector1"));
         assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector2"));
         assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "text1"));
+    }
+
+    public void testKNNVectorMappingUpdate_whenMethodRemoved_thenThrowsException() throws Exception {
+        String indexName = "test-knn-index";
+        String fieldName = "my_vector2";
+
+        XContentBuilder initialMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", "4")
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), initialMapping.toString());
+
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 4)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        ResponseException exception = expectThrows(ResponseException.class, () -> putMappingRequest(indexName, updatedMapping.toString()));
+
+        assertThat(
+            EntityUtils.toString(exception.getResponse().getEntity()),
+            containsString("Cannot update parameter [method] from [hnsw] to [null]")
+        );
+    }
+
+    public void testCreateKNNIndexWithDifferentDimension() throws Exception {
+        String indexName = "test-knn-index-partial";
+        String fieldName = "my_vector2";
+
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 8)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), updatedMapping.toString());
+        Map<String, Object> mappingResponse = getIndexMappingAsMap(indexName);
+        assertEquals(8, ((Map<?, ?>) ((Map<?, ?>) mappingResponse.get("properties")).get(fieldName)).get("dimension"));
+    }
+
+    public void testKNNVectorMappingUpdate_whenMethodPartiallyRemoved_thenThrowsException() throws Exception {
+        String indexName = "test-knn-index-success";
+        String fieldName = "my_vector2";
+
+        XContentBuilder initialMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 4)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), initialMapping.toString());
+
+        XContentBuilder updatedMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", 8)
+            .startObject("method")
+            .field("engine", "faiss")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        ResponseException exception = expectThrows(ResponseException.class, () -> putMappingRequest(indexName, updatedMapping.toString()));
+
+        assertThat(EntityUtils.toString(exception.getResponse().getEntity()), containsString("name needs to be set"));
+
     }
 
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)

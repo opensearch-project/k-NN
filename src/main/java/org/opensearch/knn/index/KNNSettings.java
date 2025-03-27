@@ -5,20 +5,22 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
+import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
@@ -28,6 +30,7 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
+import org.opensearch.transport.client.Client;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -35,15 +38,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
+import static org.opensearch.common.settings.Setting.Property.Final;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
-import static org.opensearch.common.settings.Setting.Property.Final;
+import static org.opensearch.common.settings.Setting.Property.UnmodifiableOnRestore;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
@@ -67,19 +72,16 @@ public class KNNSettings {
     /**
      * Settings name
      */
-    public static final String KNN_SPACE_TYPE = "index.knn.space_type";
     public static final String INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD = "index.knn.advanced.approximate_threshold";
-    public static final String KNN_ALGO_PARAM_M = "index.knn.algo_param.m";
-    public static final String KNN_ALGO_PARAM_EF_CONSTRUCTION = "index.knn.algo_param.ef_construction";
     public static final String KNN_ALGO_PARAM_EF_SEARCH = "index.knn.algo_param.ef_search";
     public static final String KNN_ALGO_PARAM_INDEX_THREAD_QTY = "knn.algo_param.index_thread_qty";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_ENABLED = "knn.memory.circuit_breaker.enabled";
-    public static final String KNN_MEMORY_CIRCUIT_BREAKER_LIMIT = "knn.memory.circuit_breaker.limit";
+    public static final String KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT = "knn.memory.circuit_breaker.limit";
+    public static final String KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX = KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT + ".";
     public static final String KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB = "knn.vector_streaming_memory.limit";
     public static final String KNN_CIRCUIT_BREAKER_TRIGGERED = "knn.circuit_breaker.triggered";
     public static final String KNN_CACHE_ITEM_EXPIRY_ENABLED = "knn.cache.item.expiry.enabled";
     public static final String KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES = "knn.cache.item.expiry.minutes";
-    public static final String KNN_PLUGIN_ENABLED = "knn.plugin.enabled";
     public static final String KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE = "knn.circuit_breaker.unset.percentage";
     public static final String KNN_INDEX = "index.knn";
     public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model.index.number_of_shards";
@@ -92,6 +94,15 @@ public class KNNSettings {
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
     public static final String KNN_FAISS_AVX512_SPR_DISABLED = "knn.faiss.avx512_spr.disabled";
     public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
+    public static final String KNN_DERIVED_SOURCE_ENABLED = "index.knn.derived_source.enabled";
+    public static final String KNN_INDEX_REMOTE_VECTOR_BUILD = "index.knn.remote_index_build.enabled";
+    public static final String KNN_REMOTE_VECTOR_REPO = "knn.remote_index_build.vector_repo";
+    public static final String KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD = "index.knn.remote_index_build.size_threshold";
+    public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_index_build.client.endpoint";
+    public static final String KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL = "knn.remote_index_build.client.poll_interval";
+    public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT = "knn.remote_index_build.client.timeout";
+    public static final String KNN_REMOTE_BUILD_CLIENT_USERNAME = "knn.remote_index_build.client.username";
+    public static final String KNN_REMOTE_BUILD_CLIENT_PASSWORD = "knn.remote_index_build.client.password";
 
     /**
      * Default setting values
@@ -101,7 +112,7 @@ public class KNNSettings {
     public static final boolean KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
-    public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 15_000;
+    public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 0;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX = Integer.MAX_VALUE - 2;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE_FOR_BINARY = "hamming";
@@ -122,6 +133,12 @@ public class KNNSettings {
                                                                                              // 10% of the JVM heap
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = 60;
     public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = false;
+    // TODO: Tune this default value based on benchmarking
+    public static final ByteSizeValue KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE = new ByteSizeValue(50, ByteSizeUnit.MB);
+
+    // TODO: Tune these default values based on benchmarking
+    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = 60;
+    public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 5;
 
     /**
      * Settings Definition
@@ -155,14 +172,6 @@ public class KNNSettings {
         Setting.Property.NodeScope
     );
 
-    public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(
-        KNN_SPACE_TYPE,
-        INDEX_KNN_DEFAULT_SPACE_TYPE,
-        new SpaceTypeValidator(),
-        IndexScope,
-        Setting.Property.Deprecated
-    );
-
     /**
      * build_vector_data_structure_threshold - This parameter determines when to build vector data structure for knn fields during indexing
      * and merging. Setting -1 (min) will skip building graph, whereas on any other values, the graph will be built if
@@ -179,20 +188,6 @@ public class KNNSettings {
     );
 
     /**
-     * M - the number of bi-directional links created for every new element during construction.
-     * Reasonable range for M is 2-100. Higher M work better on datasets with high intrinsic
-     * dimensionality and/or high recall, while low M work better for datasets with low intrinsic dimensionality and/or low recalls.
-     * The parameter also determines the algorithm's memory consumption, which is roughly M * 8-10 bytes per stored element.
-     */
-    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_M_SETTING = Setting.intSetting(
-        KNN_ALGO_PARAM_M,
-        INDEX_KNN_DEFAULT_ALGO_PARAM_M,
-        2,
-        IndexScope,
-        Setting.Property.Deprecated
-    );
-
-    /**
      *  ef or efSearch - the size of the dynamic list for the nearest neighbors (used during the search).
      *  Higher ef leads to more accurate but slower search. ef cannot be set lower than the number of queried nearest neighbors k.
      *  The value ef can be anything between k and the size of the dataset.
@@ -203,18 +198,6 @@ public class KNNSettings {
         2,
         IndexScope,
         Dynamic
-    );
-
-    /**
-     * ef_constrution - the parameter has the same meaning as ef, but controls the index_time/index_accuracy.
-     * Bigger ef_construction leads to longer construction(more indexing time), but better index quality.
-     */
-    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING = Setting.intSetting(
-        KNN_ALGO_PARAM_EF_CONSTRUCTION,
-        INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-        2,
-        IndexScope,
-        Setting.Property.Deprecated
     );
 
     public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_SHARDS_SETTING = Setting.intSetting(
@@ -268,10 +251,24 @@ public class KNNSettings {
         Setting.Property.Dynamic
     );
 
+    public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = Setting.boolSetting(
+        KNN_DERIVED_SOURCE_ENABLED,
+        false,
+        IndexScope,
+        Final,
+        UnmodifiableOnRestore
+    );
+
     /**
      * This setting identifies KNN index.
      */
-    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope, Final);
+    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(
+        KNN_INDEX,
+        false,
+        IndexScope,
+        Final,
+        UnmodifiableOnRestore
+    );
 
     /**
      * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.
@@ -362,30 +359,115 @@ public class KNNSettings {
     );
 
     /**
+     * Index level setting to control whether remote index build is enabled or not.
+     */
+    public static final Setting<Boolean> KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
+        KNN_INDEX_REMOTE_VECTOR_BUILD,
+        false,
+        Dynamic,
+        IndexScope
+    );
+
+    /**
+     * Cluster level setting which indicates the repository that the remote index build should write to.
+     */
+    public static final Setting<String> KNN_REMOTE_VECTOR_REPO_SETTING = Setting.simpleString(KNN_REMOTE_VECTOR_REPO, Dynamic, NodeScope);
+
+    /**
+     * Index level setting which indicates the size threshold above which remote vector builds will be enabled.
+     */
+    public static final Setting<ByteSizeValue> KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING = Setting.byteSizeSetting(
+        KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD,
+        KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE,
+        Dynamic,
+        IndexScope
+    );
+    /**
+     * Remote build service endpoint to be used for remote index build.
+     */
+    public static final Setting<String> KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING = Setting.simpleString(
+        KNN_REMOTE_BUILD_SERVICE_ENDPOINT,
+        NodeScope,
+        Dynamic
+    );
+
+    /**
+     * Time the remote build service client will wait before falling back to CPU index build.
+     */
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_TIMEOUT,
+        TimeValue.timeValueMinutes(KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES),
+        NodeScope,
+        Dynamic
+    );
+
+    /**
+     * Setting to control how often the remote build service client polls the build service for the status of the job.
+     */
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL,
+        TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
+        NodeScope,
+        Dynamic
+    );
+
+    /**
+     * Keystore settings for build service HTTP authorization
+     */
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_USERNAME,
+        null
+    );
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_CLIENT_PASSWORD,
+        null
+    );
+
+    /**
      * Dynamic settings
      */
     public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
         {
             /**
-             * KNN plugin enable/disable setting
-             */
-            put(KNN_PLUGIN_ENABLED, Setting.boolSetting(KNN_PLUGIN_ENABLED, true, NodeScope, Dynamic));
-
-            /**
              * Weight circuit breaker settings
              */
             put(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, Setting.boolSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, true, NodeScope, Dynamic));
+
+            /**
+             * Group setting that manages node-level circuit breaker configurations based on node tiers.
+             * Settings under this group define memory limits for different node classifications.
+             * Validation of limit occurs before the setting is retrieved.
+             */
             put(
-                KNN_MEMORY_CIRCUIT_BREAKER_LIMIT,
+                KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX,
+                Setting.groupSetting(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX, settings -> {
+                    settings.keySet()
+                        .forEach(
+                            (limit) -> parseknnMemoryCircuitBreakerValue(
+                                settings.get(limit),
+                                KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
+                            )
+                        );
+                }, NodeScope, Dynamic)
+            );
+
+            /**
+             * Cluster-wide circuit breaker limit that serves as the default configuration.
+             * This setting is used when a node either:
+             * - Has no knn_cb_tier attribute defined
+             * - Has a tier that doesn't match any node-level configuration
+             * Default value: {@value KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT}
+             */
+            put(
+                KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT,
                 new Setting<>(
-                    KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT,
+                    KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT,
                     KNNSettings.KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT,
-                    (s) -> parseknnMemoryCircuitBreakerValue(s, KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT),
+                    (s) -> parseknnMemoryCircuitBreakerValue(s, KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT),
                     NodeScope,
                     Dynamic
                 )
             );
-
             /**
              * Cache expiry time settings
              */
@@ -402,6 +484,8 @@ public class KNNSettings {
 
     private ClusterService clusterService;
     private Client client;
+    @Setter
+    private Optional<String> nodeCbAttribute;
 
     private KNNSettings() {}
 
@@ -422,10 +506,8 @@ public class KNNSettings {
                 updatedSettings.getAsBoolean(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
             );
 
-            builder.maxWeight(((ByteSizeValue) getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb());
-            if (updatedSettings.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)) {
-                builder.maxWeight(((ByteSizeValue) getSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings)).getKb());
-            }
+            // Recompute cache weight
+            builder.maxWeight(getUpdatedCircuitBreakerLimit(updatedSettings).getKb());
 
             builder.isExpirationLimited(
                 updatedSettings.getAsBoolean(KNN_CACHE_ITEM_EXPIRY_ENABLED, getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
@@ -511,16 +593,48 @@ public class KNNSettings {
         if (KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED.equals(key)) {
             return KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING;
         }
+        if (KNN_DERIVED_SOURCE_ENABLED.equals(key)) {
+            return KNN_DERIVED_SOURCE_ENABLED_SETTING;
+        }
+
+        if (KNN_INDEX_REMOTE_VECTOR_BUILD.equals(key)) {
+            return KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
+        }
+
+        if (KNN_REMOTE_VECTOR_REPO.equals(key)) {
+            return KNN_REMOTE_VECTOR_REPO_SETTING;
+        }
+
+        if (KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD.equals(key)) {
+            return KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_SERVICE_ENDPOINT.equals(key)) {
+            return KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_TIMEOUT.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_USERNAME.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
+        }
+
+        if (KNN_REMOTE_BUILD_CLIENT_PASSWORD.equals(key)) {
+            return KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
+        }
 
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
     public List<Setting<?>> getSettings() {
         List<Setting<?>> settings = Arrays.asList(
-            INDEX_KNN_SPACE_TYPE,
             INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING,
-            INDEX_KNN_ALGO_PARAM_M_SETTING,
-            INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
             KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
             KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
@@ -536,26 +650,151 @@ public class KNNSettings {
             KNN_FAISS_AVX512_SPR_DISABLED_SETTING,
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
-            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING
+            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
+            KNN_DERIVED_SOURCE_ENABLED_SETTING,
+            KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
+            KNN_REMOTE_VECTOR_REPO_SETTING,
+            KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING,
+            KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
-    }
-
-    public static boolean isKNNPluginEnabled() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_PLUGIN_ENABLED);
     }
 
     public static boolean isCircuitBreakerTriggered() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED);
     }
 
-    public static ByteSizeValue getCircuitBreakerLimit() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
+    /**
+     * Retrieves the node-specific circuit breaker limit based on the existing settings.
+     *
+     * @return String representation of the node-specific circuit breaker limit,
+     *         or null if no node-specific limit is set or found
+     */
+    private String getNodeCbLimit() {
+        if (nodeCbAttribute.isPresent()) {
+            Settings configuredNodeCbLimits = KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX);
+            return configuredNodeCbLimits.get(nodeCbAttribute.get());
+        }
+        return null;
+    }
+
+    /**
+     * Gets node-specific circuit breaker limit from updated settings.
+     *
+     * @param updatedSettings Settings object containing pending updates
+     * @return String representation of new limit if exists for this node's tier, null otherwise
+     */
+    private String getNodeCbLimit(Settings updatedSettings) {
+        if (nodeCbAttribute.isPresent()) {
+            return updatedSettings.getByPrefix(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX).get(nodeCbAttribute.get());
+        }
+        return null;
+    }
+
+    /**
+     * Returns the cluster-level circuit breaker limit. Needed for initialization
+     * during startup when node attributes are not yet available through ClusterService.
+     * This limit serves two purposes:
+     * 1. As a temporary value during node startup before node-specific limits can be determined
+     * 2. As a fallback value for nodes that don't have a knn_cb_tier attribute or
+     *    whose tier doesn't match any configured node-level limit
+     *
+     * @return ByteSizeValue representing the cluster-wide circuit breaker limit
+     */
+    public static ByteSizeValue getClusterCbLimit() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT);
+    }
+
+    /**
+     * Returns the circuit breaker limit for this node using existing configuration. The limit is determined by:
+     * 1. Node-specific limit based on the node's circuit breaker tier attribute, if configured
+     * 2. Cluster-level default limit if no node-specific configuration exists
+     *
+     * @return ByteSizeValue representing the circuit breaker limit, either as a percentage
+     *         of available memory or as an absolute value
+     */
+    public ByteSizeValue getCircuitBreakerLimit() {
+
+        return parseknnMemoryCircuitBreakerValue(getNodeCbLimit(), getClusterCbLimit(), KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT);
+
+    }
+
+    /**
+     * Determines if and how the circuit breaker limit should be updated for this node.
+     * Evaluates both node-specific and cluster-level updates in the updated settings,
+     * maintaining proper precedence:
+     * 1. Node-tier specific limit from updates (if available)
+     * 2. Appropriate fallback value based on node's current configuration
+     *
+     * @param updatedCbLimits Settings object containing pending circuit breaker updates
+     * @return ByteSizeValue representing the new circuit breaker limit to apply,
+     *         or null if no applicable updates found
+     */
+    private ByteSizeValue getUpdatedCircuitBreakerLimit(Settings updatedCbLimits) {
+        // Parse any updates, using appropriate fallback if no node-specific limit update exists
+        return parseknnMemoryCircuitBreakerValue(
+            getNodeCbLimit(updatedCbLimits),
+            getFallbackCbLimitValue(updatedCbLimits),
+            KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
+        );
+    }
+
+    /**
+     * Determines the appropriate fallback circuit breaker limit value.
+     * The fallback logic follows this hierarchy:
+     * 1. If node currently uses cluster-level limit:
+     *    - Use updated cluster-level limit if available
+     *    - Otherwise maintain current limit
+     * 2. If node uses tier-specific limit:
+     *    - Maintain current limit (ignore cluster-level updates)
+     *
+     * This ensures nodes maintain their configuration hierarchy and don't
+     * inadvertently fall back to cluster-level limits when they should use
+     * tier-specific values.
+     *
+     * @param updatedCbLimits Settings object containing pending updates
+     * @return ByteSizeValue representing the appropriate fallback limit
+     */
+    private ByteSizeValue getFallbackCbLimitValue(Settings updatedCbLimits) {
+        // Update cluster level limit if used
+        if (getNodeCbLimit() == null && updatedCbLimits.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)) {
+            return (ByteSizeValue) getSetting(KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT).get(updatedCbLimits);
+
+        }
+
+        // Otherwise maintain current limit (either tier-specific or cluster-level)
+        return getCircuitBreakerLimit();
     }
 
     public static double getCircuitBreakerUnsetPercentage() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
+    }
+
+    /**
+     * Gets the remote build service endpoint.
+     * @return String representation of the remote build service endpoint URL
+     */
+    public static String getRemoteBuildServiceEndpoint() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT);
+    }
+
+    /**
+     * Gets the amount of time the client will wait before abandoning a remote build.
+     */
+    public static TimeValue getRemoteBuildClientTimeout() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_TIMEOUT);
+    }
+
+    /**
+     * Gets the interval at which a RemoteIndexPoller will poll for remote build status.
+     */
+    public static TimeValue getRemoteBuildClientPollInterval() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL);
     }
 
     public static boolean isFaissAVX2Disabled() {
@@ -572,6 +811,14 @@ public class KNNSettings {
             );
             return KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE;
         }
+    }
+
+    /**
+     * check this index enabled/disabled derived source
+     * @param settings Settings
+     */
+    public static boolean isKNNDerivedSourceEnabled(Settings settings) {
+        return KNN_DERIVED_SOURCE_ENABLED_SETTING.get(settings);
     }
 
     public static boolean isFaissAVX512Disabled() {
@@ -611,10 +858,15 @@ public class KNNSettings {
     public void initialize(Client client, ClusterService clusterService) {
         this.client = client;
         this.clusterService = clusterService;
+        this.nodeCbAttribute = Optional.empty();
         setSettingsUpdateConsumers();
     }
 
     public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, String settingName) {
+        return parseknnMemoryCircuitBreakerValue(sValue, null, settingName);
+    }
+
+    public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, ByteSizeValue defaultValue, String settingName) {
         settingName = Objects.requireNonNull(settingName);
         if (sValue != null && sValue.endsWith("%")) {
             final String percentAsString = sValue.substring(0, sValue.length() - 1);
@@ -634,7 +886,7 @@ public class KNNSettings {
                 throw new OpenSearchParseException("failed to parse [{}] as a double", e, percentAsString);
             }
         } else {
-            return parseBytesSizeValue(sValue, settingName);
+            return parseBytesSizeValue(sValue, defaultValue, settingName);
         }
     }
 
@@ -707,6 +959,14 @@ public class KNNSettings {
             // TODO: replace cache-rebuild with index reload into the cache
             NativeMemoryCacheManager.getInstance().rebuildCache();
         });
+    }
+
+    /**
+     * Get the index thread quantity setting value from cluster setting.
+     * @return int
+     */
+    public static int getIndexThreadQty() {
+        return KNNSettings.state().getSettingValue(KNN_ALGO_PARAM_INDEX_THREAD_QTY);
     }
 
     private static String percentageAsString(Integer percentage) {

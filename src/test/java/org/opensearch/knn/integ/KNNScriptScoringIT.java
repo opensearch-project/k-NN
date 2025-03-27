@@ -656,7 +656,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);
-        bulkIngestRandomVectors(TRAIN_INDEX_PARAMETER, TRAIN_FIELD_PARAMETER, dimensions * 3, dimensions);
+        bulkIngestRandomVectors(TRAIN_INDEX_PARAMETER, TRAIN_FIELD_PARAMETER, 1100, dimensions);
 
         XContentBuilder methodBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -942,7 +942,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         try {
             final int numDocsWithField = randomIntBetween(4, 10);
             Map<String, KNNResult> dataset = createDataset(scoreFunction, dimensions, numDocsWithField, dense, vectorDataType);
-            final float[] dummyVector = new float[1];
+            float[] dummyVector = new float[1];
             dataset.forEach((k, v) -> {
                 final float[] vector = (v != null) ? v.getVector() : dummyVector;
                 ExceptionsHelper.catchAsRuntimeException(() -> addKnnDoc(INDEX_NAME, k, (v != null) ? FIELD_NAME : "dummy", vector));
@@ -1001,5 +1001,9 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             bytes[i] = (byte) vector[i];
         }
         return bytes;
+    }
+
+    private float[] dummyFloatArrayBasedOnDimension(int dimesion) {
+        return new float[dimesion];
     }
 }

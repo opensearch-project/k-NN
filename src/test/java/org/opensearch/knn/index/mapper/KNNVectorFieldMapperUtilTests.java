@@ -17,7 +17,7 @@ import org.junit.Assert;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
 import java.util.Arrays;
 
@@ -41,11 +41,22 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         assertArrayEquals(byteAsIntArray, (int[]) vector);
     }
 
+    public void testStoredFields_whenVectorIsBinaryType_thenSucceed() {
+        StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForByteVector(TEST_FIELD_NAME, TEST_BYTE_VECTOR);
+        assertEquals(TEST_FIELD_NAME, storedField.name());
+        assertEquals(TEST_BYTE_VECTOR, storedField.binaryValue().bytes);
+        Object vector = KNNVectorFieldMapperUtil.deserializeStoredVector(storedField.binaryValue(), VectorDataType.BINARY);
+        assertTrue(vector instanceof int[]);
+        int[] byteAsIntArray = new int[TEST_BYTE_VECTOR.length];
+        Arrays.setAll(byteAsIntArray, i -> TEST_BYTE_VECTOR[i]);
+        assertArrayEquals(byteAsIntArray, (int[]) vector);
+    }
+
     public void testStoredFields_whenVectorIsFloatType_thenSucceed() {
         StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForFloatVector(TEST_FIELD_NAME, TEST_FLOAT_VECTOR);
         assertEquals(TEST_FIELD_NAME, storedField.name());
         BytesRef bytes = new BytesRef(storedField.binaryValue().bytes);
-        assertArrayEquals(TEST_FLOAT_VECTOR, KNNVectorSerializerFactory.getDefaultSerializer().byteToFloatArray(bytes), 0.001f);
+        assertArrayEquals(TEST_FLOAT_VECTOR, KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.byteToFloatArray(bytes), 0.001f);
 
         Object vector = KNNVectorFieldMapperUtil.deserializeStoredVector(storedField.binaryValue(), VectorDataType.FLOAT);
         assertTrue(vector instanceof float[]);
@@ -76,5 +87,14 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         Assert.assertFalse(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_16_0));
         Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_17_0));
         Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_3_0_0));
+    }
+
+    /**
+     * Test useFullFieldNameValidation method for different OpenSearch versions
+     */
+    public void testUseFullFieldNameValidation() {
+        Assert.assertFalse(KNNVectorFieldMapperUtil.useFullFieldNameValidation(Version.V_2_16_0));
+        Assert.assertTrue(KNNVectorFieldMapperUtil.useFullFieldNameValidation(Version.V_2_17_0));
+        Assert.assertTrue(KNNVectorFieldMapperUtil.useFullFieldNameValidation(Version.V_2_18_0));
     }
 }

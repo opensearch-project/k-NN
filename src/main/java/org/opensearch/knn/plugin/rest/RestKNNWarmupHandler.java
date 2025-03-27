@@ -13,7 +13,7 @@ import org.opensearch.knn.plugin.transport.KNNWarmupRequest;
 import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.client.node.NodeClient;
+import org.opensearch.transport.client.node.NodeClient;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -58,19 +58,7 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public List<ReplacedRoute> replacedRoutes() {
-        return ImmutableList.of(
-            new ReplacedRoute(
-                RestRequest.Method.GET,
-                KNNPlugin.KNN_BASE_URI + URL_PATH,
-                RestRequest.Method.GET,
-                KNNPlugin.LEGACY_KNN_BASE_URI + URL_PATH
-            )
-        );
+        return ImmutableList.of(new Route(RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + URL_PATH));
     }
 
     @Override

@@ -37,11 +37,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
 
     public void testKNNLegacySpaceTypeIndexingTest() throws IOException, ParseException {
         // Configure space_type at index level. This is deprecated and will be removed in the future.
-        final Settings indexSettings = Settings.builder()
-            .put("index.knn", true)
-            .put("knn.algo_param.ef_search", 100)
-            .put("knn.space_type", SpaceType.INNER_PRODUCT.getValue())
-            .build();
+        final Settings indexSettings = Settings.builder().put("index.knn", true).put("knn.algo_param.ef_search", 100).build();
 
         // This mapping does not have method.
         final String testField = "knn_field";
@@ -87,57 +83,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         for (KNNResult result : results) {
             docIds.add(result.getDocId());
         }
-        assertEquals(new HashSet<>(Arrays.asList("1", "3")), docIds);
-    }
-
-    /**
-     * KNN Index writes should be blocked when the plugin disabled
-     * @throws Exception Exception from test
-     */
-    public void testIndexWritesPluginDisabled() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-
-        Float[] vector = { 6.0f, 6.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
-
-        float[] qvector = { 1.0f, 2.0f };
-        Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
-        assertEquals("knn query failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        // disable plugin
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, false);
-
-        // indexing should be blocked
-        Exception ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, "2", FIELD_NAME, vector));
-        assertThat(ex.getMessage(), containsString("KNN plugin is disabled"));
-
-        // enable plugin
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, true);
-        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, vector);
-    }
-
-    public void testQueriesPluginDisabled() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-
-        Float[] vector = { 6.0f, 6.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
-
-        float[] qvector = { 1.0f, 2.0f };
-        Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
-        assertEquals("knn query failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        // update settings
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, false);
-
-        // indexing should be blocked
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1)
-        );
-        assertThat(ex.getMessage(), containsString("KNN plugin is disabled"));
-        // enable plugin
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, true);
-        searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
+        assertEquals(new HashSet<>(Arrays.asList("2", "4")), docIds);
     }
 
     public void testItemRemovedFromCache_expiration() throws Exception {

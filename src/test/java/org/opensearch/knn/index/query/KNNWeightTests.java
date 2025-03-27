@@ -41,12 +41,12 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
+import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.KNNCodecVersion;
-import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -99,6 +99,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES;
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE_LIMIT;
 
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
@@ -135,17 +137,22 @@ public class KNNWeightTests extends KNNTestCase {
         final KNNSettings knnSettings = mock(KNNSettings.class);
         knnSettingsMockedStatic = mockStatic(KNNSettings.class);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
-        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
+        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
 
         final ByteSizeValue v = ByteSizeValue.parseBytesSizeValue(
             CIRCUIT_BREAKER_LIMIT_100KB,
-            KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT
+            KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
         );
-        knnSettingsMockedStatic.when(KNNSettings::getCircuitBreakerLimit).thenReturn(v);
+        knnSettingsMockedStatic.when(KNNSettings::getClusterCbLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
-        knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
+        ByteSizeValue cacheSize = ByteSizeValue.parseBytesSizeValue("1024kb", QUANTIZATION_STATE_CACHE_SIZE_LIMIT); // Setting 1MB as an
+                                                                                                                    // example
+        when(knnSettings.getSettingValue(eq(QUANTIZATION_STATE_CACHE_SIZE_LIMIT))).thenReturn(cacheSize);
+        // Mock QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES setting
+        TimeValue mockTimeValue = TimeValue.timeValueMinutes(10);
+        when(knnSettings.getSettingValue(eq(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES))).thenReturn(mockTimeValue);
 
         nativeMemoryCacheManagerMockedStatic = mockStatic(NativeMemoryCacheManager.class);
 
@@ -263,7 +270,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -354,7 +361,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             false,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -371,7 +378,7 @@ public class KNNWeightTests extends KNNTestCase {
         // When no knn fields are available , field info for vector field will be null
         when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(null);
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
+        assertEquals(KNNScorer.emptyScorer(), knnScorer);
     }
 
     @SneakyThrows
@@ -397,7 +404,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -415,7 +422,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
 
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
+        assertEquals(KNNScorer.emptyScorer(), knnScorer);
     }
 
     @SneakyThrows
@@ -582,7 +589,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,  // Max document count for this segment
             false,  // Is this a compound file segment
             false,  // Is this a merged segment
-            KNNCodecVersion.current().getDefaultCodecDelegate(),  // Codec delegate for KNN
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),  // Diagnostics map
             new byte[StringHelper.ID_LENGTH],  // Segment ID
             Map.of(),  // Attributes
@@ -854,7 +861,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -985,7 +992,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             false,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -1076,7 +1083,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
         when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
         when(binaryDocValues.advance(filterDocId)).thenReturn(filterDocId);
-        BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
+        BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -1146,7 +1153,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
         when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
         when(binaryDocValues.advance(0)).thenReturn(0);
-        BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
+        BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -1291,7 +1298,7 @@ public class KNNWeightTests extends KNNTestCase {
         // Query vector is {1.8f, 2.4f}, therefore, second vector {1.9f, 2.5f} should be returned in a result
         final List<float[]> vectors = Arrays.asList(new float[] { 0.1f, 0.3f }, new float[] { 1.9f, 2.5f });
         final List<BytesRef> byteRefs = vectors.stream()
-            .map(vector -> new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector)))
+            .map(vector -> new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector)))
             .collect(Collectors.toList());
         final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
         when(binaryDocValues.binaryValue()).thenReturn(byteRefs.get(0), byteRefs.get(1));
@@ -1430,7 +1437,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -1507,7 +1514,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
@@ -1572,7 +1579,7 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            KNNCodecVersion.CURRENT_DEFAULT,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),

@@ -23,8 +23,10 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -304,7 +306,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // training data needs to be at least equal to the number of centroids for PQ
         // which is 2^8 = 256. 8 because that's the only valid code_size for HNSWPQ
-        int trainingDataCount = 256;
+        int trainingDataCount = 1100;
 
         SpaceType spaceType = SpaceType.L2;
 
@@ -452,6 +454,54 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testQueryWithFilterFunctionAppliedMultipleShards() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, "3")
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject(INTEGER_FIELD_NAME)
+            .field(TYPE_FIELD_NAME, FILED_TYPE_INTEGER)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        createIndex(INDEX_NAME, Settings.builder().put("number_of_shards", 10).put("number_of_replicas", 0).put("index.knn", true).build());
+        putMappingRequest(INDEX_NAME, mapping);
+
+        addKnnDocWithAttributes("doc1", new float[] { 7.0f, 7.0f, 3.0f }, ImmutableMap.of("dateReceived", "2024-10-01"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 7.0f, 3.0f };
+
+        // Add initial RangeQuery to a new KNNQueryBuilder
+        RangeQueryBuilder rangeQueryBuilder = QueryBuilders.rangeQuery("dateReceived").gte("2023-11-01");
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, searchVector, 1, null);
+        KNNQueryBuilder updatedKnnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.filter(rangeQueryBuilder);
+        Response response = searchKNNIndex(INDEX_NAME, updatedKnnQueryBuilder, 10);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(1, knnResults.size());
+
+        // Apply another MatchNoneQueryBuilder to new KNNQueryBuilder
+        updatedKnnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.filter(new MatchNoneQueryBuilder());
+        response = searchKNNIndex(INDEX_NAME, updatedKnnQueryBuilder, 10);
+        responseBody = EntityUtils.toString(response.getEntity());
+        knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(0, knnResults.size());
+    }
+
+    @SneakyThrows
     public void testEndToEnd_whenMethodIsHNSWPQ_thenSucceed() {
         String indexName = "test-index";
         String fieldName = "test-field";
@@ -468,7 +518,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // training data needs to be at least equal to the number of centroids for PQ
         // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
-        int trainingDataCount = 256;
+        int trainingDataCount = 1100;
 
         SpaceType spaceType = SpaceType.L2;
 
@@ -736,7 +786,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -796,7 +846,7 @@ public class FaissIT extends KNNRestTestCase {
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
 
-        int dimension = 2;
+        int dimension = 128;
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -830,7 +880,23 @@ public class FaissIT extends KNNRestTestCase {
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
-        Float[] vector = { -10.76f, 65504.2f };
+
+        Float[] vector = new Float[dimension];
+        Float[] vector1 = new Float[dimension];
+        Float[] vector2 = new Float[dimension];
+        int halfDimension = dimension / 2;
+
+        for (int i = 0; i < dimension; i++) {
+            if (i < halfDimension) {
+                vector[i] = -10.76f;
+                vector1[i] = -65506.84f;
+                vector2[i] = -65526.4567f;
+            } else {
+                vector[i] = 65504.2f;
+                vector1[i] = 12.56f;
+                vector2[i] = 65526.4567f;
+            }
+        }
 
         ResponseException ex = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "1", fieldName, vector));
         assertTrue(
@@ -847,8 +913,6 @@ public class FaissIT extends KNNRestTestCase {
                 )
         );
 
-        Float[] vector1 = { -65506.84f, 12.56f };
-
         ResponseException ex1 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "2", fieldName, vector1));
         assertTrue(
             ex1.getMessage()
@@ -863,8 +927,6 @@ public class FaissIT extends KNNRestTestCase {
                     )
                 )
         );
-
-        Float[] vector2 = { -65526.4567f, 65526.4567f };
 
         ResponseException ex2 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "3", fieldName, vector2));
         assertTrue(
@@ -893,7 +955,7 @@ public class FaissIT extends KNNRestTestCase {
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
 
-        int dimension = 2;
+        int dimension = 128;
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -928,16 +990,35 @@ public class FaissIT extends KNNRestTestCase {
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
-        Float[] vector1 = { -65523.76f, 65504.2f };
-        Float[] vector2 = { -270.85f, 65514.2f };
-        Float[] vector3 = { -150.9f, 65504.0f };
-        Float[] vector4 = { -20.89f, 100000000.0f };
+
+        Float[] vector1 = new Float[dimension];
+        Float[] vector2 = new Float[dimension];
+        Float[] vector3 = new Float[dimension];
+        Float[] vector4 = new Float[dimension];
+        float[] queryVector = new float[dimension];
+        int halfDimension = dimension / 2;
+
+        for (int i = 0; i < dimension; i++) {
+            if (i < halfDimension) {
+                vector1[i] = -65523.76f;
+                vector2[i] = -270.85f;
+                vector3[i] = -150.9f;
+                vector4[i] = -20.89f;
+                queryVector[i] = -10.5f;
+            } else {
+                vector1[i] = 65504.2f;
+                vector2[i] = 65514.2f;
+                vector3[i] = 65504.0f;
+                vector4[i] = 100000000.0f;
+                queryVector[i] = 25.48f;
+            }
+        }
+
         addKnnDoc(indexName, "1", fieldName, vector1);
         addKnnDoc(indexName, "2", fieldName, vector2);
         addKnnDoc(indexName, "3", fieldName, vector3);
         addKnnDoc(indexName, "4", fieldName, vector4);
 
-        float[] queryVector = { -10.5f, 25.48f };
         int k = 4;
         Response searchResponse = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, queryVector, k), k);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
@@ -960,7 +1041,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -1064,7 +1145,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -1144,7 +1225,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // training data needs to be at least equal to the number of centroids for PQ
         // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
-        int trainingDataCount = 256;
+        int trainingDataCount = 1100;
 
         SpaceType spaceType = SpaceType.L2;
 
@@ -1414,7 +1495,7 @@ public class FaissIT extends KNNRestTestCase {
 
         // Add training data
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        int trainingDataCount = 200;
+        int trainingDataCount = 1100;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         // Call train API - IVF with nlists = 1 is brute force, but will require training
@@ -1769,7 +1850,7 @@ public class FaissIT extends KNNRestTestCase {
 
         createKnnIndex(trainingIndexName, trainIndexMapping);
 
-        int trainingDataCount = 40;
+        int trainingDataCount = 1100;
         bulkIngestRandomBinaryVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         XContentBuilder trainModelXContentBuilder = XContentFactory.jsonBuilder()

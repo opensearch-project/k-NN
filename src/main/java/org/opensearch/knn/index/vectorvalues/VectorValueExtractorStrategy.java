@@ -8,19 +8,20 @@ package org.opensearch.knn.index.vectorvalues;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.io.IOException;
 
 /**
  * Provides different strategies to extract the vectors from different {@link KNNVectorValuesIterator}
  */
-interface VectorValueExtractorStrategy {
+public interface VectorValueExtractorStrategy {
 
     /**
      * Extract a float vector from KNNVectorValuesIterator.
@@ -69,35 +70,58 @@ interface VectorValueExtractorStrategy {
         @Override
         public <T> T extract(final VectorDataType vectorDataType, final KNNVectorValuesIterator vectorValuesIterator) throws IOException {
             final DocIdSetIterator docIdSetIterator = vectorValuesIterator.getDocIdSetIterator();
-            switch (vectorDataType) {
-                case FLOAT:
-                    if (docIdSetIterator instanceof BinaryDocValues) {
-                        final BinaryDocValues values = (BinaryDocValues) docIdSetIterator;
-                        return (T) getFloatVectorFromByteRef(values.binaryValue());
-                    } else if (docIdSetIterator instanceof FloatVectorValues) {
-                        return (T) ((FloatVectorValues) docIdSetIterator).vectorValue();
-                    }
-                    throw new IllegalArgumentException(
-                        "VectorValuesIterator is not of a valid type. Valid Types are: BinaryDocValues and FloatVectorValues"
-                    );
-                case BYTE:
-                case BINARY:
-                    if (docIdSetIterator instanceof BinaryDocValues) {
-                        final BinaryDocValues values = (BinaryDocValues) docIdSetIterator;
-                        final BytesRef bytesRef = values.binaryValue();
-                        return (T) ArrayUtil.copyOfSubArray(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length);
-                    } else if (docIdSetIterator instanceof ByteVectorValues) {
-                        return (T) ((ByteVectorValues) docIdSetIterator).vectorValue();
-                    }
-                    throw new IllegalArgumentException(
-                        "VectorValuesIterator is not of a valid type. Valid Types are: BinaryDocValues and ByteVectorValues"
-                    );
+
+            if (docIdSetIterator instanceof BinaryDocValues) {
+                return extractFromBinaryDocValues(vectorDataType, (BinaryDocValues) docIdSetIterator);
+            } else if (docIdSetIterator instanceof KnnVectorValues.DocIndexIterator) {
+                return extractFromKnnVectorValues(
+                    vectorDataType,
+                    (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValuesIterator,
+                    (KnnVectorValues.DocIndexIterator) docIdSetIterator
+                );
+            } else {
+                throw new IllegalArgumentException(
+                    "VectorValuesIterator is not of a valid type. Valid Types are: BinaryDocValues and KnnVectorValues.DocIndexIterator"
+                );
             }
-            throw new IllegalArgumentException("Valid Vector data type not passed to extract vector from DISIVectorExtractor strategy");
+        }
+
+        private <T> T extractFromBinaryDocValues(VectorDataType vectorDataType, BinaryDocValues values) throws IOException {
+            BytesRef bytesRef = values.binaryValue();
+            if (vectorDataType == VectorDataType.FLOAT) {
+                return (T) getFloatVectorFromByteRef(bytesRef);
+            } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
+                return (T) ArrayUtil.copyOfSubArray(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length);
+            }
+            throw new IllegalArgumentException("Invalid vector data type for BinaryDocValues");
+        }
+
+        private <T> T extractFromKnnVectorValues(
+            VectorDataType vectorDataType,
+            KNNVectorValuesIterator.DocIdsIteratorValues docIdsIteratorValues,
+            KnnVectorValues.DocIndexIterator docIdSetIterator
+        ) throws IOException {
+            int ord = docIdSetIterator.index();
+            if (ord == docIdsIteratorValues.getLastOrd()) {
+                return (T) docIdsIteratorValues.getLastAccessedVector();
+            }
+            docIdsIteratorValues.setLastOrd(ord);
+
+            if (vectorDataType == VectorDataType.FLOAT) {
+                FloatVectorValues knnVectorValues = (FloatVectorValues) docIdsIteratorValues.getKnnVectorValues();
+                docIdsIteratorValues.setLastAccessedVector(knnVectorValues.vectorValue(ord));
+            } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
+                ByteVectorValues byteVectorValues = (ByteVectorValues) docIdsIteratorValues.getKnnVectorValues();
+                docIdsIteratorValues.setLastAccessedVector(byteVectorValues.vectorValue(ord));
+            } else {
+                throw new IllegalArgumentException("Invalid vector data type for KnnVectorValues");
+            }
+
+            return (T) docIdsIteratorValues.getLastAccessedVector();
         }
 
         private float[] getFloatVectorFromByteRef(final BytesRef bytesRef) {
-            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(bytesRef);
+            final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
             return vectorSerializer.byteToFloatArray(bytesRef);
         }
     }

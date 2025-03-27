@@ -15,11 +15,14 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.common.Nullable;
+import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
@@ -45,6 +48,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -110,13 +114,27 @@ public class KNNWeight extends Weight {
     }
 
     @Override
-    public Scorer scorer(LeafReaderContext context) throws IOException {
-        final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
-        if (docIdToScoreMap.isEmpty()) {
-            return KNNScorer.emptyScorer(this);
-        }
-        final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-        return new KNNScorer(this, ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+    public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
+        return new ScorerSupplier() {
+            long cost = -1L;
+
+            @Override
+            public Scorer get(long leadCost) throws IOException {
+                final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
+                cost = docIdToScoreMap.size();
+                if (docIdToScoreMap.isEmpty()) {
+                    return KNNScorer.emptyScorer();
+                }
+                final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
+                return new KNNScorer(KNNWeight.this, ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+            }
+
+            @Override
+            public long cost() {
+                // Estimate the cost of the scoring operation, if applicable.
+                return cost == -1L ? knnQuery.getK() : cost;
+            }
+        };
     }
 
     /**
@@ -128,7 +146,13 @@ public class KNNWeight extends Weight {
      * @return A Map of docId to scores for top k results
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
+        final SegmentReader reader = Lucene.segmentReader(context.reader());
+        final String segmentName = reader.getSegmentName();
+
+        StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
+
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
@@ -152,7 +176,10 @@ public class KNNWeight extends Weight {
          * so that it will not do a bitset look up in bottom search layer.
          */
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
-        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, annFilter, cardinality, k);
+
+        StopWatch annStopWatch = startStopWatch();
+        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
+        stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
 
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
@@ -163,6 +190,14 @@ public class KNNWeight extends Weight {
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);
+    }
+
+    private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage, String segmentName) {
+        if (log.isDebugEnabled() && stopWatch != null) {
+            stopWatch.stop();
+            final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in nanos:[{}] ";
+            log.debug(logMessage, knnQuery.getShardId(), segmentName, knnQuery.getField(), stopWatch.totalTime().nanos());
+        }
     }
 
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
@@ -221,7 +256,7 @@ public class KNNWeight extends Weight {
         final LeafReaderContext context,
         final DocIdSetIterator acceptedDocs,
         final long numberOfAcceptedDocs,
-        int k
+        final int k
     ) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
             .isParentHits(true)
@@ -236,13 +271,12 @@ public class KNNWeight extends Weight {
     }
 
     private Map<Integer, Float> doANNSearch(
+        final SegmentReader reader,
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
         final int cardinality,
         final int k
     ) throws IOException {
-        final SegmentReader reader = Lucene.segmentReader(context.reader());
-
         FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
 
         if (fieldInfo == null) {
@@ -401,7 +435,11 @@ public class KNNWeight extends Weight {
         final LeafReaderContext leafReaderContext,
         final ExactSearcher.ExactSearcherContext exactSearcherContext
     ) throws IOException {
-        return exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        StopWatch stopWatch = startStopWatch();
+        Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
+        return exactSearchResults;
     }
 
     @Override
@@ -438,9 +476,23 @@ public class KNNWeight extends Weight {
          * TODO we can have a different MAX_DISTANCE_COMPUTATIONS for binary index as computation cost for binary index
          * is cheaper than computation cost for non binary vector
          */
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getVectorDataType() == VectorDataType.FLOAT
-            ? knnQuery.getQueryVector().length
-            : knnQuery.getByteQueryVector().length);
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * getQueryVectorLength();
+    }
+
+    /**
+     * Returns the length of query vector based on the query vector data type
+     * @return length of query vector
+     */
+    private int getQueryVectorLength() {
+        if (knnQuery.getVectorDataType() == VectorDataType.FLOAT || knnQuery.getVectorDataType() == VectorDataType.BYTE) {
+            return knnQuery.getQueryVector().length;
+        }
+        if (knnQuery.getVectorDataType() == VectorDataType.BINARY) {
+            return knnQuery.getByteQueryVector().length;
+        }
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "[%s] datatype is not supported for k-NN query vector", knnQuery.getVectorDataType().getValue())
+        );
     }
 
     /**
@@ -507,5 +559,12 @@ public class KNNWeight extends Weight {
             reader.getSegmentInfo().info
         );
         return engineFiles.isEmpty();
+    }
+
+    private StopWatch startStopWatch() {
+        if (log.isDebugEnabled()) {
+            return new StopWatch().start();
+        }
+        return null;
     }
 }

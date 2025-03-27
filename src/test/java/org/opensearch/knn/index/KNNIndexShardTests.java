@@ -17,7 +17,6 @@ import org.mockito.Mockito;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
-import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -109,27 +108,10 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
     public void testGetAllEngineFileContexts() throws IOException, ExecutionException, InterruptedException {
         IndexService indexService = createKNNIndex(testIndexName);
-        createKnnIndexMapping(testIndexName, testFieldName, dimensions, KNNEngine.NMSLIB);
-        updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
-
-        IndexShard indexShard = indexService.iterator().next();
-        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
-
-        Engine.Searcher searcher = indexShard.acquireSearcher("test-hnsw-paths-1");
-        List<KNNIndexShard.EngineFileContext> engineFileContexts = knnIndexShard.getAllEngineFileContexts(searcher.getIndexReader());
-        assertEquals(0, engineFileContexts.size());
-        searcher.close();
-
-        addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
-
-        searcher = indexShard.acquireSearcher("test-hnsw-paths-2");
-        engineFileContexts = knnIndexShard.getAllEngineFileContexts(searcher.getIndexReader());
-        assertEquals(1, engineFileContexts.size());
-        List<String> paths = engineFileContexts.stream()
-            .map(KNNIndexShard.EngineFileContext::getVectorFileName)
-            .collect(Collectors.toList());
-        assertTrue(paths.get(0).contains("hnsw") || paths.get(0).contains("hnswc"));
-        searcher.close();
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> createKnnIndexMapping(testIndexName, testFieldName, dimensions, KNNEngine.NMSLIB)
+        );
     }
 
     @SneakyThrows

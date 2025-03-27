@@ -42,13 +42,13 @@ public class KNNSettingsTests extends KNNTestCase {
     public void testGetSettingValueFromConfig() {
         long expectedKNNCircuitBreakerLimit = 13;
         Node mockNode = createMockNode(
-            Map.of(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
+            Map.of(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
         );
         mockNode.start();
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
+            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(expectedKNNCircuitBreakerLimit, actualKNNCircuitBreakerLimit);
     }
@@ -60,11 +60,11 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
+            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(
-            ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).getDefault(Settings.EMPTY))
-                .getKb(),
+            ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)
+                .getDefault(Settings.EMPTY)).getKb(),
             actualKNNCircuitBreakerLimit
 
         );
@@ -203,6 +203,17 @@ public class KNNSettingsTests extends KNNTestCase {
         boolean actualKNNFaissAVX2Disabled = KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
         mockNode.close();
         assertEquals(expectedKNNFaissAVX2Disabled, actualKNNFaissAVX2Disabled);
+    }
+
+    @SneakyThrows
+    public void testGetIndexThreadQty_WithDifferentValues_thenSuccess() {
+        Node mockNode = createMockNode(Map.of(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY, 3));
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        KNNSettings.state().setClusterService(clusterService);
+        int threadQty = KNNSettings.getIndexThreadQty();
+        mockNode.close();
+        assertEquals(3, threadQty);
     }
 
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {

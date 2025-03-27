@@ -50,7 +50,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
 import org.opensearch.knn.indices.ModelDao;
-
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -58,8 +57,8 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimensio
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createKNNMethodContextFromLegacy;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.useFullFieldNameValidation;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfCircuitBreakerIsNotTriggered;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfKNNPluginEnabled;
 import static org.opensearch.knn.index.mapper.ModelFieldMapper.UNSET_MODEL_DIMENSION_IDENTIFIER;
 
 /**
@@ -156,11 +155,20 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             () -> null,
             (n, c, o) -> KNNMethodContext.parse(o),
             m -> toType(m).originalMappingParameters.getKnnMethodContext()
-        ).setSerializer(((b, n, v) -> {
-            b.startObject(n);
-            v.toXContent(b, ToXContent.EMPTY_PARAMS);
-            b.endObject();
-        }), m -> m.getMethodComponentContext().getName());
+        ).setSerializer(
+            // Main serializer - handles null values with nullField
+            (b, f, v) -> {
+                if (v == null) {
+                    b.nullField(f);
+                } else {
+                    b.startObject(f);
+                    v.toXContent(b, ToXContent.EMPTY_PARAMS);
+                    b.endObject();
+                }
+            },
+            // Conflict serializer - simple string representation for error messages
+            v -> v == null ? null : v.getMethodComponentContext().getName()
+        );
 
         protected final Parameter<String> mode = Parameter.restrictedStringParam(
             KNNConstants.MODE_PARAMETER,
@@ -237,7 +245,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public KNNVectorFieldMapper build(BuilderContext context) {
-            validateFullFieldName(context);
+            if (useFullFieldNameValidation(indexCreatedVersion)) {
+                validateFullFieldName(context);
+            }
 
             final MultiFields multiFieldsBuilder = this.multiFieldsBuilder.build(this, context);
             final CopyTo copyToBuilder = copyTo.build();
@@ -265,7 +275,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use either LuceneFieldMapper
             // or
             // MethodFieldMapper to maintain backwards compatibility
-            if (originalParameters.getResolvedKnnMethodContext() == null && context.indexCreatedVersion().onOrAfter(Version.V_2_17_0)) {
+            if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -414,6 +424,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // Resolve method component. For the legacy case where space type can be configured at index level,
                 // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
                 resolveKNNMethodComponents(builder, parserContext, resolvedSpaceType);
+                // Validate if the KNN engine is allowed for index creation
+                validateBlockedKNNEngine(builder.knnMethodContext.get(), parserContext.indexVersionCreated());
                 validateFromKNNMethod(builder);
             }
 
@@ -442,6 +454,29 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (isModeOrCompressionConfigured && builder.vectorDataType.getValue() != VectorDataType.FLOAT) {
                 throw new MapperParsingException(
                     String.format(Locale.ROOT, "Compression and mode cannot be used for non-float32 data type for field %s", builder.name)
+                );
+            }
+        }
+
+        /**
+         * Validates whether the provided KNN engine is allowed for index creation.
+         * If the engine is NMSLIB and the OpenSearch version is 3.0.0 or later,
+         * it throws an IllegalArgumentException to prevent new index creation.
+         *
+         * @param knnMethodContext The KNN method configuration that contains the engine type.
+         * @param indexVersionCreated The OpenSearch version when the index is being created.
+         * @throws IllegalArgumentException if the engine is NMSLIB and version is 3.0.0 or later.
+         */
+        private void validateBlockedKNNEngine(KNNMethodContext knnMethodContext, Version indexVersionCreated) {
+            if (knnMethodContext == null) return;
+            KNNEngine engine = knnMethodContext.getKnnEngine();
+            if (engine.isRestricted(indexVersionCreated)) {
+                throw new IllegalArgumentException(
+                    engine.getName()
+                        + " engine is deprecated in OpenSearch "
+                        + " and cannot be used for new index creation in OpenSearch from  "
+                        + engine.getRestrictedFromVersion()
+                        + "."
                 );
             }
         }
@@ -672,7 +707,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * Validation checks before parsing of doc begins
      */
     protected void validatePreparse() {
-        validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
     }
 

@@ -10,13 +10,7 @@ import com.google.common.collect.Maps;
 import lombok.Builder;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
-import org.apache.lucene.index.DocValuesType;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.IndexOptions;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentWriteState;
-import org.apache.lucene.index.VectorEncoding;
-import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.index.*;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
@@ -172,6 +166,8 @@ public class KNNCodecTestUtil {
                 storePayloads,
                 indexOptions,
                 docValuesType,
+                DocValuesSkipIndexType.NONE,
+
                 dvGen,
                 attributes,
                 pointDimensionCount,
@@ -191,7 +187,7 @@ public class KNNCodecTestUtil {
     }
 
     public static void assertValidFooter(Directory dir, String filename) throws IOException {
-        ChecksumIndexInput indexInput = dir.openChecksumInput(filename, IOContext.DEFAULT);
+        ChecksumIndexInput indexInput = dir.openChecksumInput(filename);
         indexInput.seek(indexInput.length() - CodecUtil.footerLength());
         CodecUtil.checkFooter(indexInput);
         indexInput.close();
@@ -205,7 +201,7 @@ public class KNNCodecTestUtil {
         SpaceType spaceType,
         int dimension
     ) {
-        try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.LOAD)) {
+        try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.DEFAULT)) {
             final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
             long indexPtr = JNIService.loadIndex(
                 indexInputWithBuffer,
@@ -230,7 +226,7 @@ public class KNNCodecTestUtil {
         int dimension,
         VectorDataType vectorDataType
     ) {
-        try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.LOAD)) {
+        try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.DEFAULT)) {
             final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
             long indexPtr = JNIService.loadIndex(
                 indexInputWithBuffer,

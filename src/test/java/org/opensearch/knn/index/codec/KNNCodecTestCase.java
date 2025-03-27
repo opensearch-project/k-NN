@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.document.KnnFloatVectorField;
-import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -36,6 +35,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.BaseQueryFactory;
 import org.opensearch.knn.index.query.KNNQueryFactory;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -225,7 +225,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         int dimension = 3;
 
         // "Train" a faiss flat index - this really just creates an empty index that does brute force k-NN
-        long vectorsPointer = JNIService.transferVectors(0, new float[0][0]);
+        long vectorsPointer = JNICommons.storeVectorData(0, new float[0][0], 0);
         byte[] modelBlob = JNIService.trainIndex(
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,
@@ -411,9 +411,9 @@ public class KNNCodecTestCase extends KNNTestCase {
         iwc1.setMergeScheduler(new SerialMergeScheduler());
         iwc1.setCodec(codec);
         writer = new RandomIndexWriter(random(), dir, iwc1);
-        final FieldType luceneFieldType1 = KnnVectorField.createFieldType(2, VectorSimilarityFunction.EUCLIDEAN);
+        final FieldType luceneFieldType1 = KnnFloatVectorField.createFieldType(2, VectorSimilarityFunction.EUCLIDEAN);
         float[] array1 = { 6.0f, 14.0f };
-        KnnVectorField vectorField1 = new KnnVectorField(FIELD_NAME_TWO, array1, luceneFieldType1);
+        KnnFloatVectorField vectorField1 = new KnnFloatVectorField(FIELD_NAME_TWO, array1, luceneFieldType1);
         Document doc1 = new Document();
         doc1.add(vectorField1);
         writer.addDocument(doc1);

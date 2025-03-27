@@ -26,7 +26,7 @@ testClusters {
         environment "LD_LIBRARY_PATH", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
             // While running on Windows OS, setting the PATH environment variable to include the paths to dlls of JNI libraries and windows dependencies
-            environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+            environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
             systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
         } else {
             systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib:${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
@@ -56,8 +56,8 @@ task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
     dependsOn rootProject.tasks.assemble
     dependsOn "testAgainstOldCluster"
     doFirst {
-        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-0").environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
-        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-0").systemProperty("java.library.path", "$rootDir/jni/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-0").environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-0").systemProperty("java.library.path", "$rootDir/jni/build/release")
         testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
     systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
@@ -75,8 +75,8 @@ task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
     dependsOn "testAgainstOneThirdUpgradedCluster"
     useCluster testClusters."${baseName}"
     doFirst {
-        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-1").environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
-        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-1").systemProperty("java.library.path", "$rootDir/jni/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-1").environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-1").systemProperty("java.library.path", "$rootDir/jni/build/release")
         testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
     systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
@@ -94,8 +94,8 @@ task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
     dependsOn "testAgainstTwoThirdsUpgradedCluster"
     useCluster testClusters."${baseName}"
     doFirst {
-        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-2").environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
-        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-2").systemProperty("java.library.path", "$rootDir/jni/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-2").environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-2").systemProperty("java.library.path", "$rootDir/jni/build/release")
         testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
     mustRunAfter "testAgainstOneThirdUpgradedCluster"

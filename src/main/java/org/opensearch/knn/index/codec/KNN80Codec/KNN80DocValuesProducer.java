@@ -13,17 +13,10 @@ package org.opensearch.knn.index.codec.KNN80Codec;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BinaryDocValues;
-import org.apache.lucene.index.DocValuesType;
-import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.*;
 
 import java.io.IOException;
 
-import org.apache.lucene.index.NumericDocValues;
-import org.apache.lucene.index.SegmentReadState;
-import org.apache.lucene.index.SortedDocValues;
-import org.apache.lucene.index.SortedNumericDocValues;
-import org.apache.lucene.index.SortedSetDocValues;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -64,6 +57,18 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     @Override
     public SortedSetDocValues getSortedSet(FieldInfo field) throws IOException {
         return delegate.getSortedSet(field);
+    }
+
+    /**
+     * @param fieldInfo
+     * @return Returns a DocValuesSkipper for this field. The returned instance need not be thread-safe:
+     * it will only be used by a single thread.
+     * The return value is undefined if FieldInfo. docValuesSkipIndexType() returns DocValuesSkipIndexType. NONE.
+     * @throws IOException
+     */
+    @Override
+    public DocValuesSkipper getSkipper(FieldInfo fieldInfo) throws IOException {
+        return delegate.getSkipper(fieldInfo);
     }
 
     @Override

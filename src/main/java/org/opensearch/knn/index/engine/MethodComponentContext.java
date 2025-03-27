@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang.math.NumberUtils;
+import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -80,14 +81,22 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      */
     public MethodComponentContext(StreamInput in) throws IOException {
         this.name = in.readString();
-
-        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
-        // do not read if their are no bytes left is null. Make sure this is in sync with the fellow read method. For
-        // more information, refer to https://github.com/opensearch-project/k-NN/issues/353.
-        if (in.available() > 0) {
-            this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
+        // Check OpenSearch version to ensure backward compatibility
+        if (in.getVersion().onOrAfter(Version.V_3_0_0)) {
+            // In newer versions, explicitly read the boolean flag before reading parameters
+            boolean hasParameters = in.readBoolean();
+            if (hasParameters) {
+                this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
+            } else {
+                this.parameters = null;
+            }
         } else {
-            this.parameters = null;
+            // In older versions, read parameters directly (without boolean flag)
+            if (in.available() > 0) {
+                this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
+            } else {
+                this.parameters = null;
+            }
         }
     }
 
@@ -413,8 +422,17 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
         // do not write if parameters is null. Make sure this is in sync with the fellow read method. For more
         // information, refer to https://github.com/opensearch-project/k-NN/issues/353.
-        if (this.parameters != null) {
-            out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+        if (out.getVersion().onOrAfter(Version.V_3_0_0)) {
+            if (this.parameters != null) {
+                out.writeBoolean(true);
+                out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+            } else {
+                out.writeBoolean(false);
+            }
+        } else {
+            if (this.parameters != null) {
+                out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+            }
         }
     }
 

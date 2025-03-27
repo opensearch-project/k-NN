@@ -21,7 +21,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.jni.JNICommons;
@@ -122,6 +121,24 @@ public class TestUtils {
             float[] vector = new float[dimensions];
             for (int j = 0; j < dimensions; j++) {
                 vector[j] = rand.nextFloat();
+            }
+            standardVectors[i] = vector;
+        }
+        return standardVectors;
+    }
+
+    // Generating vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
+    public static int[][] randomlyGenerateStandardVectors(int numVectors, int dimensions, int dimPerByte, int seed) {
+        int numDims = dimensions / dimPerByte;
+        int[][] standardVectors = new int[numVectors][numDims];
+        Random rand = new Random(seed);
+
+        for (int i = 0; i < numVectors; i++) {
+            byte[] byteVector = new byte[numDims];
+            rand.nextBytes(byteVector);
+            int[] vector = new int[numDims];
+            for (int j = 0; j < numDims; j++) {
+                vector[j] = byteVector[j];
             }
             standardVectors[i] = vector;
         }
@@ -319,7 +336,7 @@ public class TestUtils {
                     vectorsArray[i][j] = vectorsList.get(i)[j];
                 }
             }
-            return new Pair(idsArray, vectorsArray[0].length, SerializationMode.COLLECTION_OF_FLOATS, vectorsArray);
+            return new Pair(idsArray, vectorsArray[0].length, vectorsArray);
         }
 
         private float[][] readQueries(String path) throws IOException {
@@ -421,7 +438,6 @@ public class TestUtils {
             @Getter
             @Setter
             private int dimension;
-            public SerializationMode serializationMode;
             public float[][] vectors;
         }
     }

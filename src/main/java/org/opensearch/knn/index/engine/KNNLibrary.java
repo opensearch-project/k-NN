@@ -5,8 +5,11 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Collections;
 import java.util.List;
@@ -138,5 +141,30 @@ public interface KNNLibrary extends MethodResolver {
      */
     default List<String> mmapFileExtensions() {
         return Collections.emptyList();
+    }
+
+    /**
+     * Returns whether the engine implementation supports remote index build
+     * @return true if remote index build is supported, false otherwise
+     */
+    default boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
+        return false;
+    }
+
+    /**
+     * Checks if the library is deprecated for a given OpenSearch version.
+     *
+     * @param indexVersionCreated the OpenSearch version where the index is created
+     * @return true if deprecated, false otherwise
+     */
+    default boolean isRestricted(Version indexVersionCreated) {
+        return false; // By default, libraries are not deprecated
+    }
+
+    /**
+     * Creates the set of index parameters needed to build the remote index
+     */
+    default RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+        throw new UnsupportedOperationException("Remote build service does not support this engine");
     }
 }

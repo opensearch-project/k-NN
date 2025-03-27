@@ -15,8 +15,8 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
-        version_qualifier = System.getProperty("build.version_qualifier", "")
+        opensearch_version = System.getProperty("opensearch.version", "3.0.0-beta1-SNAPSHOT")
+        version_qualifier = System.getProperty("build.version_qualifier", "beta1")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
         avx2_enabled = System.getProperty("avx2.enabled", "true")
@@ -302,6 +302,7 @@ task release(type: Copy, group: 'build') {
 //****************************************************************************/
 dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
+    api project(":remote-index-build-client")
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     api group: 'com.google.guava', name: 'guava', version:'32.1.3-jre'
@@ -314,14 +315,16 @@ dependencies {
     // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
     testFixturesImplementation('com.jayway.jsonpath:json-path:2.9.0') {
         exclude group: 'org.slf4j', module: 'slf4j-api'
+        exclude group: 'net.minidev', module: 'json-smart'
     }
+    // Explicitly include a safe version of json-smart for test fixtures
+    testFixturesImplementation group: 'net.minidev', name: 'json-smart', version: "${versions.json_smart}"
     testFixturesImplementation "org.opensearch:common-utils:${version}"
     implementation 'com.github.oshi:oshi-core:6.4.13'
     api "net.java.dev.jna:jna:5.13.0"
     api "net.java.dev.jna:jna-platform:5.13.0"
     // OpenSearch core is using slf4j 1.7.36. Therefore, we cannot change the version here.
     implementation 'org.slf4j:slf4j-api:1.7.36'
-
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
 }
 
@@ -329,11 +332,11 @@ task windowsPatches(type:Exec) {
     commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
 }
 
-task cmakeJniLib(type:Exec) {
-    workingDir 'jni'
+tasks.register('cmakeJniLib', Exec) {
     def args = []
     args.add("cmake")
-    args.add(".")
+    args.add("-S jni") // CMakelists.txt directory
+    args.add("-B jni/build") // Build directory
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DAVX2_ENABLED=${avx2_enabled}")
     args.add("-DAVX512_ENABLED=${avx512_enabled}")
@@ -342,9 +345,6 @@ task cmakeJniLib(type:Exec) {
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
-    if (Os.isFamily(Os.FAMILY_MAC)) {
-        environment('JAVA_HOME',javaHome)
-    }
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
         args.add("-G")
@@ -353,24 +353,46 @@ task cmakeJniLib(type:Exec) {
         args.add("-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
     }
 
+    // Print the command that will be executed
+    logger.lifecycle("CMake command: ${args.join(' ')}")
+    def outputStream = new ByteArrayOutputStream()
     commandLine args
+    standardOutput = outputStream
 }
 
-task buildJniLib(type:Exec) {
+// Makes sure that `./gradlew clean` removes all JNI build artifacts
+tasks.clean.doFirst {
+    // Delete JNI build directory
+    delete "${projectDir}/jni/build"
+}
+
+tasks.register('buildJniLib', Exec) {
     dependsOn cmakeJniLib
-    workingDir 'jni'
-    commandLine 'make', 'opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
+    def args = []
+    args.add("cmake")
+    args.add("--build")
+    args.add("jni/build")
+    args.add("--target")
+    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib']
+    if (project.hasProperty('knn_libs')) {
+        knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
+    }
+    args.addAll(knn_libs)
+    args.add("--parallel")
+    args.add("${nproc_count}")
+    logger.lifecycle("Build command: ${args.join(' ')}")
+    commandLine args
 }
 
 test {
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
-    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
     //this change enables mockito-inline that supports mocking of static classes/calls
     systemProperty "jdk.attach.allowAttachSelf", true
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
 }
 
@@ -381,7 +403,8 @@ integTest {
     }
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
-    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
+    systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
 
@@ -399,6 +422,7 @@ integTest {
     systemProperty("https", is_https)
     systemProperty("user", user)
     systemProperty("password", password)
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
 
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
@@ -424,6 +448,9 @@ integTest {
 testClusters.integTest {
     testDistribution = "ARCHIVE"
 
+    //Used for circuit breaker integration tests
+    setting 'node.attr.knn_cb_tier', 'integ'
+
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(testClusters.integTest)
@@ -432,8 +459,9 @@ testClusters.integTest {
     plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
+
 
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
@@ -447,7 +475,10 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    systemProperty("java.library.path", "$rootDir/jni/release")
+    systemProperty("java.library.path", "$rootDir/jni/build/release")
+    final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
+    testSnapshotFolder.mkdirs()
+    setting 'path.repo', "${buildDir}/testSnapshotFolder"
     systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
@@ -462,6 +493,7 @@ task integTestRemote(type: RestIntegTestTask) {
     systemProperty 'cluster.number_of_nodes', "${_numNodes}"
 
     systemProperty 'tests.security.manager', 'false'
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
 
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {

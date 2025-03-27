@@ -116,7 +116,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         } else {
             this.vectorFieldType = null;
         }
-
         KNNLibraryIndexingContext knnLibraryIndexingContext = resolvedKnnMethodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(resolvedKnnMethodContext, knnMethodConfigContext);
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();

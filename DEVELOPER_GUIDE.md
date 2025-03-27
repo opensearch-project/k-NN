@@ -62,11 +62,6 @@ One easy way to install on mac or linux is to use pip:
 pip install cmake==3.24.0
 ```
 
-On Mac M series machines, install cmake using:
-```bash
-brew install cmake
-```
-
 #### Faiss Dependencies
 
 To build the *faiss* JNI library, you need to have openmp, lapack and blas installed. For more information on *faiss* 
@@ -77,87 +72,15 @@ dependencies, please refer to [their documentation](https://github.com/facebookr
 brew install openblas
 ```
 
-Additionally, the `gcc` toolchain needs to be installed on Mac. To install, run:
+OpenMP can be installed on Mac via:
+```bash
+brew install libomp
+```
+
+Additionally, the `gcc` toolchain might need to be installed on Mac. To install, run:
 ```bash
 brew install gcc
 ```
-
-#### Additional setup for Mac M series Machines
-
-The following commands enable running/building k-NN on M series machines:
-
-```bash
-// Go to k-NN folder
-cd k-NN
-
-// Build to generate the necessary files to be modified below (will fail)
-./gradlew build
-
-//Go to jni folder
-cd jni
-
-// File changes required
-sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' cmake/init-faiss.cmake
-sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
-sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_search/src/distcomp_scalar.cc
-// Change -mcpu value to use chip version according to your M series, for example, -mcpu=apple-m1. You can see the supported mcpu values via gcc --print-supported-cpus
-sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
-sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
-
-// Install llvm
-brew install llvm
-echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-
-// Set compiler path for CMAKE
-export CC=/opt/homebrew/opt/llvm/bin/clang
-export CXX=/opt/homebrew/opt/llvm/bin/clang++
-
-// In case of linking issues with the external libraries and clang, you can try setting the CMAKE compiler to gcc/g++ instead through the following commands:
-export CC=gcc
-export CXX=g++
-sed -i '' '/set(CMAKE_CXX_STANDARD_REQUIRED True)/a\'$'\n''set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp -L/opt/homebrew/opt/libomp/lib -I/opt/homebrew/opt/libomp/include -lomp -arch arm64 -fexceptions")'$'\n''' CMakeLists.txt
-
-
-// Build
-cmake . --fresh
-make
-```
-
-Next, obtain a minimum distribution tarball of the k-NN version you want to build:
-
-1. Fork the [OpenSearch Repo](https://github.com/opensearch-project/OpenSearch) into your github account.
-2. Clone the repository locally
-3. Run the following commands:
-```cd OpenSearch && ./gradlew -p distribution/archives/darwin-tar assemble```
-4. You should see a opensearch-min-<version>-SNAPSHOT-darwin-x64.tar.gz file present in distribution/archives/darwin-tar/build/distributions/
-5. Build k-NN by passing the OpenSearch distribution path in `./gradlew <integTest/run> -PcustomDistributionUrl="<Full path to .tar.gz file you noted above>"`
-
-If you want to start OpenSearch directly on Mac M series, make sure to use JDK for ARM. Otherwise, you will see the following error: `mach-o file, but is an incompatible architecture (have 'arm64', need 'x86_64')`. It is better to start OpenSearch by running `bash opensearch-tar-install.sh` instead of `./bin/opensearch`. To run `./bin/opensearch`, the environment variable `JAVA_LIBRARY_PATH` needs to be set correctly so that OpenSearch can find the JNI library:
-
-```
-export OPENSEARCH_HOME=the directory of opensearch...
-export JAVA_LIBRARY_PATH=$JAVA_LIBRARY_PATH:$OPENSEARCH_HOME/plugins/opensearch-knn/lib
-```
-
-CMAKE will use as JAVA_HOME environment whatever your gradle is currently using. For example:
-```bash
-Java home directory found by gradle: /opt/homebrew/Cellar/openjdk@21/21.0.5/libexec/openjdk.jdk/Contents/Home
-=======================================
-OpenSearch Build Hamster says Hello!
-  Gradle Version        : 8.4
-  OS Info               : Mac OS X 14.4 (aarch64)
-  JDK Version           : 21 (Homebrew JDK)
-  JAVA_HOME             : /opt/homebrew/Cellar/openjdk@21/21.0.5/libexec/openjdk.jdk/Contents/Home
-  Random Testing Seed   : 8AB32A4719AA345E
-  In FIPS 140 mode      : false
-=======================================
-```
-The JAVA_HOME used by gradle will be the default that the project will be using.
-
-#### Environment
-
-Currently, the plugin only supports Linux on x64 and arm platforms.
 
 ## Use an Editor
 
@@ -209,11 +132,6 @@ Build OpenSearch k-NN using `gradlew build`
 
 ```
 ./gradlew build
-```
-
-For Mac M series machines use
-```
-./gradlew build -PcustomDistributionUrl="<Full path to .tar.gz file file you noted above>"
 ```
 
 
@@ -268,7 +186,7 @@ If you want to make a custom patch on JNI library
 1. Make a change on top of current version of JNI library and push the commit locally.
 2. Create a patch file for the change using `git format-patch -o patches HEAD^`
 3. Place the patch file under `jni/patches`
-4. Make a change in `jni/CmakeLists.txt`, `.github/workflows/CI.yml` to apply the patch during build
+4. Make a change in `jni/cmake/init-nmslib.cmake` or `jni/cmake/init-faiss.cmake` to apply the patch during build
 
 By default, in the cmake build system, these patches will be applied and committed to the native libraries. In order to 
 successfully make the commits the `user.name` and `user.email` git configurations need to be setup. If you cannot set 

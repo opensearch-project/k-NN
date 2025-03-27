@@ -8,7 +8,7 @@ package org.opensearch.knn.index.mapper;
 import lombok.Getter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.lucene.search.DocValuesFieldExistsQuery;
+import org.apache.lucene.search.FieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.fielddata.IndexFieldData;
@@ -81,7 +81,7 @@ public class KNNVectorFieldType extends MappedFieldType {
 
     @Override
     public Query existsQuery(QueryShardContext context) {
-        return new DocValuesFieldExistsQuery(name());
+        return new FieldExistsQuery(name());
     }
 
     @Override

@@ -6,8 +6,12 @@
 package org.opensearch.knn.index.query.common;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexReaderContext;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
@@ -15,8 +19,13 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.store.ByteBuffersDirectory;
+
+import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.mockito.Mock;
 import org.opensearch.test.OpenSearchTestCase;
+
+import java.io.IOException;
 
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
@@ -27,9 +36,6 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
     private LeafReaderContext leaf1;
     @Mock
     private IndexSearcher indexSearcher;
-    @Mock
-    private IndexReader reader;
-    @Mock
     private IndexReaderContext readerContext;
 
     private DocAndScoreQuery objectUnderTest;
@@ -39,9 +45,9 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         super.setUp();
         openMocks(this);
 
+        IndexReader reader = createTestIndexReader();
         when(indexSearcher.getIndexReader()).thenReturn(reader);
-        when(reader.getContext()).thenReturn(readerContext);
-        when(readerContext.id()).thenReturn(1);
+        readerContext = reader.getContext();
     }
 
     // Note: cannot test with multi leaf as there LeafReaderContext is readonly with no getters for some fields to mock
@@ -50,7 +56,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         int[] expectedDocs = { 0, 1, 2, 3, 4 };
         float[] expectedScores = { 0.1f, 1.2f, 2.3f, 5.1f, 3.4f };
         int[] findSegments = { 0, 2, 5 };
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, readerContext.id());
 
         // When
         Scorer scorer1 = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1).scorer(leaf1);
@@ -85,7 +91,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         Explanation expectedExplanation = Explanation.match(1.2f, "within top 4");
 
         // When
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, 1);
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, readerContext.id());
         Weight weight = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         Explanation explanation = weight.explain(leaf1, 1);
 
@@ -96,4 +102,13 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         assertEquals(expectedExplanation, explanation);
         assertEquals(Explanation.noMatch("not in top 4"), weight.explain(leaf1, 9));
     }
+
+    private IndexReader createTestIndexReader() throws IOException {
+        ByteBuffersDirectory directory = new ByteBuffersDirectory();
+        IndexWriter writer = new IndexWriter(directory, new IndexWriterConfig(new MockAnalyzer(random())));
+        writer.addDocument(new Document());
+        writer.close();
+        return DirectoryReader.open(directory);
+    }
+
 }

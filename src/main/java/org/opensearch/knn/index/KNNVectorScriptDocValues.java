@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.index.fielddata.ScriptDocValues;
@@ -32,9 +33,7 @@ public abstract class KNNVectorScriptDocValues<T> extends ScriptDocValues<T> {
         if (docId < lastDocID) {
             throw new IllegalArgumentException("docs were sent out-of-order: lastDocID=" + lastDocID + " vs docID=" + docId);
         }
-
         lastDocID = docId;
-
         int curDocID = vectorValues.docID();
         if (lastDocID > curDocID) {
             curDocID = vectorValues.advance(docId);
@@ -75,54 +74,80 @@ public abstract class KNNVectorScriptDocValues<T> extends ScriptDocValues<T> {
     /**
      * Creates a KNNVectorScriptDocValues object based on the provided parameters.
      *
-     * @param values          The DocIdSetIterator representing the vector values.
+     * @param knnVectorValues          The DocIdSetIterator representing the vector values.
      * @param fieldName       The name of the field.
      * @param vectorDataType  The data type of the vector.
      * @return A KNNVectorScriptDocValues object based on the type of the values.
      * @throws IllegalArgumentException If the type of values is unsupported.
      */
-    public static KNNVectorScriptDocValues<?> create(DocIdSetIterator values, String fieldName, VectorDataType vectorDataType) {
-        Objects.requireNonNull(values, "values must not be null");
-        if (values instanceof ByteVectorValues) {
-            return new KNNByteVectorScriptDocValues((ByteVectorValues) values, fieldName, vectorDataType);
-        } else if (values instanceof FloatVectorValues) {
-            return new KNNFloatVectorScriptDocValues((FloatVectorValues) values, fieldName, vectorDataType);
-        } else if (values instanceof BinaryDocValues) {
-            return new KNNNativeVectorScriptDocValues<>((BinaryDocValues) values, fieldName, vectorDataType);
+    public static KNNVectorScriptDocValues<?> create(KnnVectorValues knnVectorValues, String fieldName, VectorDataType vectorDataType) {
+        Objects.requireNonNull(knnVectorValues, "values must not be null");
+        if (knnVectorValues instanceof FloatVectorValues) {
+            return new KNNFloatVectorScriptDocValues((FloatVectorValues) knnVectorValues, fieldName, vectorDataType);
+        } else if (knnVectorValues instanceof ByteVectorValues) {
+            return new KNNByteVectorScriptDocValues((ByteVectorValues) knnVectorValues, fieldName, vectorDataType);
         } else {
-            throw new IllegalArgumentException("Unsupported values type: " + values.getClass());
+            throw new IllegalArgumentException("Unsupported values type: " + knnVectorValues.getClass());
         }
+    }
+
+    public static KNNVectorScriptDocValues<?> create(DocIdSetIterator docIdSetIterator, String fieldName, VectorDataType vectorDataType) {
+        Objects.requireNonNull(docIdSetIterator, "values must not be null");
+        if (docIdSetIterator instanceof BinaryDocValues) {
+            return new KNNNativeVectorScriptDocValues<>((BinaryDocValues) docIdSetIterator, fieldName, vectorDataType);
+        } else {
+            throw new IllegalArgumentException("Unsupported values type: " + docIdSetIterator.getClass());
+        }
+
     }
 
     private static final class KNNByteVectorScriptDocValues extends KNNVectorScriptDocValues<byte[]> {
         private final ByteVectorValues values;
+        private final KnnVectorValues.DocIndexIterator iterator;
 
         KNNByteVectorScriptDocValues(ByteVectorValues values, String field, VectorDataType type) {
-            super(values, field, type);
+            super(values.iterator(), field, type);
             this.values = values;
+            this.iterator = super.vectorValues instanceof KnnVectorValues.DocIndexIterator
+                ? (KnnVectorValues.DocIndexIterator) super.vectorValues
+                : values.iterator();
         }
 
         @Override
         protected byte[] doGetValue() throws IOException {
+            int docId = this.iterator.index();
+            if (docId == KnnVectorValues.DocIndexIterator.NO_MORE_DOCS) {
+                throw new IllegalStateException("No more ordinals to retrieve vector values.");
+            }
+
             try {
-                return values.vectorValue();
+                return values.vectorValue(docId);
             } catch (IOException e) {
                 throw ExceptionsHelper.convertToOpenSearchException(e);
             }
         }
+
     }
 
     private static final class KNNFloatVectorScriptDocValues extends KNNVectorScriptDocValues<float[]> {
         private final FloatVectorValues values;
+        private final KnnVectorValues.DocIndexIterator iterator;
 
         KNNFloatVectorScriptDocValues(FloatVectorValues values, String field, VectorDataType type) {
-            super(values, field, type);
+            super(values.iterator(), field, type);
             this.values = values;
+            this.iterator = super.vectorValues instanceof KnnVectorValues.DocIndexIterator
+                ? (KnnVectorValues.DocIndexIterator) super.vectorValues
+                : values.iterator();
         }
 
         @Override
         protected float[] doGetValue() throws IOException {
-            return values.vectorValue();
+            int ord = iterator.index();    // Fetch ordinal (index of vector)
+            if (ord == KnnVectorValues.DocIndexIterator.NO_MORE_DOCS) {
+                throw new IllegalStateException("No more ordinals to retrieve vector values.");
+            }
+            return values.vectorValue(ord);
         }
     }
 

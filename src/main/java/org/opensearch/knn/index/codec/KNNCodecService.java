@@ -5,10 +5,15 @@
 
 package org.opensearch.knn.index.codec;
 
-import org.opensearch.index.codec.CodecServiceConfig;
 import org.apache.lucene.codecs.Codec;
 import org.opensearch.index.codec.CodecService;
+import org.opensearch.index.codec.CodecServiceConfig;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.codec.KNN10010Codec.KNN10010Codec;
+import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+
+import java.util.Optional;
 
 /**
  * KNNCodecService to inject the right KNNCodec version
@@ -16,10 +21,12 @@ import org.opensearch.index.mapper.MapperService;
 public class KNNCodecService extends CodecService {
 
     private final MapperService mapperService;
+    private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
-    public KNNCodecService(CodecServiceConfig codecServiceConfig) {
+    public KNNCodecService(CodecServiceConfig codecServiceConfig, NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory) {
         super(codecServiceConfig.getMapperService(), codecServiceConfig.getIndexSettings(), codecServiceConfig.getLogger());
         mapperService = codecServiceConfig.getMapperService();
+        this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
     /**
@@ -30,6 +37,10 @@ public class KNNCodecService extends CodecService {
      */
     @Override
     public Codec codec(String name) {
-        return KNNCodecVersion.current().getKnnCodecSupplier().apply(super.codec(name), mapperService);
+        return KNN10010Codec.builder()
+            .delegate(super.codec(name))
+            .mapperService(mapperService)
+            .knnVectorsFormat(new KNN9120PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService), nativeIndexBuildStrategyFactory))
+            .build();
     }
 }

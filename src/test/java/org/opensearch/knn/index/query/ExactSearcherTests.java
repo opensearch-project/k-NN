@@ -155,7 +155,7 @@ public class ExactSearcherTests extends KNNTestCase {
                 100,
                 false,
                 false,
-                KNNCodecVersion.current().getDefaultCodecDelegate(),
+                KNNCodecVersion.CURRENT_DEFAULT,
                 Map.of(),
                 new byte[StringHelper.ID_LENGTH],
                 Map.of(),

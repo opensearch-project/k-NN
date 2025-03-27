@@ -151,7 +151,6 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
-
         try {
             this.fieldType.putAttribute(
                 PARAMETERS,

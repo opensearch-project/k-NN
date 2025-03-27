@@ -31,6 +31,7 @@ import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.SegmentInfo;
@@ -60,10 +61,11 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.UnitTestCodec;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
@@ -79,7 +81,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 
 @Log4j2
 public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
-    private static final Codec TESTING_CODEC = new UnitTestCodec();
+    private static final Codec TESTING_CODEC = new UnitTestCodec(() -> new NativeEngines990KnnVectorsFormat(0));
     private static final String FLAT_VECTOR_FILE_EXT = ".vec";
     private static final String FAISS_ENGINE_FILE_EXT = ".faiss";
     private static final String FLOAT_VECTOR_FIELD = "float_field";
@@ -236,20 +238,24 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         }
 
         final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD);
-        floatVectorValues.nextDoc();
-        assertArrayEquals(floatVector, floatVectorValues.vectorValue(), 0.0f);
+        floatVectorValues.iterator().nextDoc();
+        assertArrayEquals(floatVector, floatVectorValues.vectorValue(floatVectorValues.iterator().index()), 0.0f);
         assertEquals(1, floatVectorValues.size());
         assertEquals(3, floatVectorValues.dimension());
 
         final ByteVectorValues byteVectorValues = leafReader.getByteVectorValues(BYTE_VECTOR_FIELD);
-        byteVectorValues.nextDoc();
-        assertArrayEquals(byteVector, byteVectorValues.vectorValue());
+        byteVectorValues.iterator().nextDoc();
+        assertArrayEquals(byteVector, byteVectorValues.vectorValue(byteVectorValues.iterator().index()));
         assertEquals(1, byteVectorValues.size());
         assertEquals(2, byteVectorValues.dimension());
 
         final FloatVectorValues floatVectorValuesForBinaryQuantization = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
-        floatVectorValuesForBinaryQuantization.nextDoc();
-        assertArrayEquals(floatVectorForBinaryQuantization_1, floatVectorValuesForBinaryQuantization.vectorValue(), 0.0f);
+        floatVectorValuesForBinaryQuantization.iterator().nextDoc();
+        assertArrayEquals(
+            floatVectorForBinaryQuantization_1,
+            floatVectorValuesForBinaryQuantization.vectorValue(floatVectorValuesForBinaryQuantization.iterator().index()),
+            0.0f
+        );
         assertEquals(2, floatVectorValuesForBinaryQuantization.size());
         assertEquals(8, floatVectorValuesForBinaryQuantization.dimension());
 
@@ -296,8 +302,9 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         }
 
         final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
-        floatVectorValues.nextDoc();
-        assertArrayEquals(floatVectorForBinaryQuantization, floatVectorValues.vectorValue(), 0.0f);
+        KnnVectorValues.DocIndexIterator docIndexIterator = floatVectorValues.iterator();
+        docIndexIterator.nextDoc();
+        assertArrayEquals(floatVectorForBinaryQuantization, floatVectorValues.vectorValue(docIndexIterator.index()), 0.0f);
         assertEquals(1, floatVectorValues.size());
         assertEquals(8, floatVectorValues.dimension());
         indexReader.close();

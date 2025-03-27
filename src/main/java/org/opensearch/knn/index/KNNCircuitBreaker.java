@@ -13,7 +13,7 @@ import org.opensearch.knn.plugin.transport.KNNStatsRequest;
 import org.opensearch.knn.plugin.transport.KNNStatsResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.client.Client;
+import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
@@ -26,6 +26,7 @@ import java.util.List;
  */
 public class KNNCircuitBreaker {
     private static Logger logger = LogManager.getLogger(KNNCircuitBreaker.class);
+    public static final String KNN_CIRCUIT_BREAKER_TIER = "knn_cb_tier";
     public static int CB_TIME_INTERVAL = 2 * 60; // seconds
 
     private static KNNCircuitBreaker INSTANCE;
@@ -59,7 +60,7 @@ public class KNNCircuitBreaker {
         Runnable runnable = () -> {
             if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
                 long currentSizeKiloBytes = nativeMemoryCacheManager.getCacheSizeInKilobytes();
-                long circuitBreakerLimitSizeKiloBytes = KNNSettings.getCircuitBreakerLimit().getKb();
+                long circuitBreakerLimitSizeKiloBytes = KNNSettings.state().getCircuitBreakerLimit().getKb();
                 long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage() / 100)
                     * circuitBreakerLimitSizeKiloBytes);
                 /**

@@ -7,21 +7,21 @@ package org.opensearch.knn.plugin.script;
 
 import java.util.Arrays;
 import java.util.Locale;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.VectorField;
 import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.store.Directory;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -353,7 +353,8 @@ public class KNNScoringUtilTests extends KNNTestCase {
             IndexWriter writer = new IndexWriter(directory, conf);
             conf.setMergePolicy(NoMergePolicy.INSTANCE); // prevent merges for this test
             Document knnDocument = new Document();
-            knnDocument.add(new BinaryDocValuesField(fieldName, new VectorField(fieldName, content, new FieldType()).binaryValue()));
+            BytesRef vector = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(content));
+            knnDocument.add(new BinaryDocValuesField(fieldName, vector));
             writer.addDocument(knnDocument);
             writer.commit();
             writer.close();

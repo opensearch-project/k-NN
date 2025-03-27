@@ -9,7 +9,7 @@ import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import org.junit.After;
 import org.junit.Before;
-import org.opensearch.client.Client;
+import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;

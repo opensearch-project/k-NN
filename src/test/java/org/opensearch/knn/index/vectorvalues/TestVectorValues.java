@@ -5,23 +5,17 @@
 package org.opensearch.knn.index.vectorvalues;
 
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BinaryDocValues;
-import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FloatVectorValues;
-import org.apache.lucene.index.NumericDocValues;
-import org.apache.lucene.index.SortedDocValues;
-import org.apache.lucene.index.SortedNumericDocValues;
-import org.apache.lucene.index.SortedSetDocValues;
+import org.apache.lucene.index.*;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.carrotsearch.randomizedtesting.RandomizedTest.randomByte;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.randomFloat;
 
 public class TestVectorValues {
@@ -116,6 +110,18 @@ public class TestVectorValues {
             return null;
         }
 
+        /**
+         * Returns a {@link DocValuesSkipper} for this field. The returned instance need not be
+         * thread-safe: it will only be used by a single thread. The return value is undefined if {@link
+         * FieldInfo#docValuesSkipIndexType()} returns {@link DocValuesSkipIndexType#NONE}.
+         *
+         * @param field
+         */
+        @Override
+        public DocValuesSkipper getSkipper(FieldInfo field) throws IOException {
+            return null;
+        }
+
         @Override
         public void checkIntegrity() {
 
@@ -138,7 +144,7 @@ public class TestVectorValues {
             this.count = count;
             this.dimension = dimension;
             this.current = -1;
-            this.knnVectorSerializer = KNNVectorSerializerFactory.getDefaultSerializer();
+            this.knnVectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
         }
 
         @Override
@@ -204,7 +210,6 @@ public class TestVectorValues {
             return count;
         }
 
-        @Override
         public float[] vectorValue() throws IOException {
             // since in FloatVectorValues the reference to returned vector doesn't change. This code ensure that we
             // are replicating the behavior so that if someone uses this RandomFloatVectorValues they get an
@@ -214,28 +219,48 @@ public class TestVectorValues {
         }
 
         @Override
+        public float[] vectorValue(int ordId) throws IOException {
+            // since in FloatVectorValues the reference to returned vector doesn't change. This code ensure that we
+            // are replicating the behavior so that if someone uses this RandomFloatVectorValues they get an
+            // experience similar to what we get in prod.
+            System.arraycopy(vectors.get(ordId), 0, vector, 0, dimension);
+            return vector;
+        }
+
+        @Override
+        public DocIndexIterator iterator() {
+            return createDenseIterator();
+        }
+
+        /**
+         * @return
+         * @throws IOException
+         */
+        @Override
+        public FloatVectorValues copy() throws IOException {
+            return null;
+        }
+
+        @Override
         public VectorScorer scorer(float[] query) throws IOException {
             throw new UnsupportedOperationException("scorer not supported with PreDefinedFloatVectorValues");
         }
 
-        @Override
         public int docID() {
             if (this.current > this.count) {
-                return FloatVectorValues.NO_MORE_DOCS;
+                return DocIndexIterator.NO_MORE_DOCS;
             }
             return this.current;
         }
 
-        @Override
         public int nextDoc() throws IOException {
             return advance(current + 1);
         }
 
-        @Override
         public int advance(int target) throws IOException {
             current = target;
             if (current >= count) {
-                current = NO_MORE_DOCS;
+                current = DocIndexIterator.NO_MORE_DOCS;
             }
             return current;
         }
@@ -267,7 +292,6 @@ public class TestVectorValues {
             return count;
         }
 
-        @Override
         public byte[] vectorValue() throws IOException {
             // since in FloatVectorValues the reference to returned vector doesn't change. This code ensure that we
             // are replicating the behavior so that if someone uses this RandomFloatVectorValues they get an
@@ -277,28 +301,48 @@ public class TestVectorValues {
         }
 
         @Override
+        public byte[] vectorValue(int ordId) throws IOException {
+            // since in FloatVectorValues the reference to returned vector doesn't change. This code ensure that we
+            // are replicating the behavior so that if someone uses this RandomFloatVectorValues they get an
+            // experience similar to what we get in prod.
+            System.arraycopy(vectors.get(ordId), 0, vector, 0, dimension);
+            return vector;
+        }
+
+        /**
+         * @return
+         * @throws IOException
+         */
+        @Override
+        public ByteVectorValues copy() throws IOException {
+            return null;
+        }
+
+        @Override
+        public DocIndexIterator iterator() {
+            return createDenseIterator();
+        }
+
+        @Override
         public VectorScorer scorer(byte[] query) throws IOException {
             throw new UnsupportedOperationException("scorer not supported with PreDefinedFloatVectorValues");
         }
 
-        @Override
         public int docID() {
             if (this.current > this.count) {
-                return FloatVectorValues.NO_MORE_DOCS;
+                return DocIndexIterator.NO_MORE_DOCS;
             }
             return this.current;
         }
 
-        @Override
         public int nextDoc() throws IOException {
             return advance(current + 1);
         }
 
-        @Override
         public int advance(int target) throws IOException {
             current = target;
             if (current >= count) {
-                current = NO_MORE_DOCS;
+                current = DocIndexIterator.NO_MORE_DOCS;
             }
             return current;
         }
@@ -361,6 +405,14 @@ public class TestVectorValues {
         float[] data = new float[dimension];
         for (int i = 0; i < dimension; i++) {
             data[i] = randomFloat();
+        }
+        return data;
+    }
+
+    public static byte[] getRandomByteVector(int dimension) {
+        byte[] data = new byte[dimension];
+        for (int i = 0; i < dimension; i++) {
+            data[i] = randomByte();
         }
         return data;
     }

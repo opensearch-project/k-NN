@@ -16,8 +16,8 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.opensearch.common.util.set.Sets;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
+import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -36,7 +36,7 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
     @BeforeClass
     public static void setStaticVariables() {
         directory = newFSDirectory(createTempDir());
-        codec = new KNN87Codec();
+        codec = KNNCodecVersion.CURRENT_DEFAULT;
     }
 
     @AfterClass
@@ -47,9 +47,9 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
     public void testGetCompoundReader() throws IOException {
         CompoundDirectory dir = mock(CompoundDirectory.class);
         CompoundFormat delegate = mock(CompoundFormat.class);
-        when(delegate.getCompoundReader(null, null, null)).thenReturn(dir);
+        when(delegate.getCompoundReader(null, null)).thenReturn(dir);
         KNN80CompoundFormat knn80CompoundFormat = new KNN80CompoundFormat(delegate);
-        CompoundDirectory knnDir = knn80CompoundFormat.getCompoundReader(null, null, null);
+        CompoundDirectory knnDir = knn80CompoundFormat.getCompoundReader(null, null);
         assertTrue(knnDir instanceof KNN80CompoundDirectory);
         assertEquals(dir, ((KNN80CompoundDirectory) knnDir).getDelegate());
     }

@@ -8,12 +8,15 @@ package org.opensearch.knn.index.engine.faiss;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -117,5 +120,26 @@ public class Faiss extends NativeLibrary {
         final SpaceType spaceType
     ) {
         return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
+    }
+
+    /**
+     * Use the method name to route the check to the specific method class
+     */
+    @Override
+    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
+        if (METHOD_HNSW.equals(methodComponentContext.getName())) {
+            if (methodComponentContext.getParameters() != null) {
+                return FaissHNSWMethod.supportsRemoteIndexBuild(methodComponentContext.getParameters(), vectorDataType);
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+        if (METHOD_HNSW.equals(knnMethodContext.getMethodComponentContext().getName())) {
+            return FaissHNSWMethod.createRemoteIndexingParameters(knnMethodContext);
+        }
+        throw new IllegalArgumentException("Unsupported method for remote indexing");
     }
 }

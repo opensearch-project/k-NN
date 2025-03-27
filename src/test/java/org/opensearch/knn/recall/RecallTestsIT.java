@@ -47,7 +47,6 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
-import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.index.KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
 
@@ -67,7 +66,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     private final static String TRAIN_FIELD_NAME = "train_field";
     private final static String TEST_MODEL_ID = "test_model_id";
     private final static int TEST_DIMENSION = 32;
-    private final static int DOC_COUNT = 500;
+    private final static int DOC_COUNT = 1100;
     private final static int QUERY_COUNT = 100;
     private final static int TEST_K = 100;
     private final static double PERFECT_RECALL = 1.0;
@@ -101,65 +100,6 @@ public class RecallTestsIT extends KNNRestTestCase {
     public void setupClusterSettings() {
         updateClusterSettings(KNN_ALGO_PARAM_INDEX_THREAD_QTY, 2);
         updateClusterSettings(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, true);
-    }
-
-    /**
-     * {
-     * 	"properties": {
-     *     {
-     *      "type": "knn_vector",
-     *      "dimension": {DIMENSION},
-     *      "method": {
-     *          "name":"hnsw",
-     *          "engine":"nmslib",
-     *          "space_type": "{SPACE_TYPE}",
-     *          "parameters":{
-     *              "m":{HNSW_M},
-     *              "ef_construction": {HNSW_EF_CONSTRUCTION},
-     *              "ef_search": {HNSW_EF_SEARCH}
-     *          }
-     *       }
-     *     }
-     *   }
-     * }
-     */
-    @SneakyThrows
-    public void testRecall_whenNmslibHnswFP32_thenRecallAbove75percent() {
-        List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT);
-        for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.NMSLIB, spaceType);
-            XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES_FIELD)
-                .startObject(TEST_FIELD_NAME)
-                .field(TYPE, TYPE_KNN_VECTOR)
-                .field(DIMENSION, TEST_DIMENSION)
-                .startObject(KNN_METHOD)
-                .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNN_ENGINE, KNNEngine.NMSLIB.getName())
-                .field(NAME, METHOD_HNSW)
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
-                .field(METHOD_PARAMETER_M, HNSW_M)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
-            createIndexAndIngestDocs(
-                indexName,
-                TEST_FIELD_NAME,
-                Settings.builder()
-                    .put("number_of_shards", SHARD_COUNT)
-                    .put("number_of_replicas", REPLICA_COUNT)
-                    .put("index.knn", true)
-                    .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
-                    .put(KNN_ALGO_PARAM_EF_SEARCH, HNSW_EF_SEARCH)
-                    .build(),
-                builder.toString()
-            );
-            assertRecall(indexName, spaceType, 0.25f);
-        }
     }
 
     /**

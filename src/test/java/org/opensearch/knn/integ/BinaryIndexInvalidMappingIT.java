@@ -50,11 +50,6 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
         );
     }
 
-    public void testBinaryIndexCreation_whenInvalid_thenThrowException() {
-        Exception e = expectThrows(Exception.class, () -> createKnnIndex(INDEX_NAME, indexMapping));
-        assertTrue(e.getMessage(), e.getMessage().contains(expectedExceptionMessage));
-    }
-
     private static String createKnnHnswBinaryIndexMapping(
         final KNNEngine knnEngine,
         final String fieldName,

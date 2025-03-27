@@ -354,7 +354,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
      */
     @SneakyThrows
     public void testStoredFields_whenFloatDataType_thenSucceed() {
-        List<KNNEngine> enginesToTest = List.of(KNNEngine.NMSLIB, KNNEngine.FAISS, KNNEngine.LUCENE);
+        List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
         float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
         String expectedResponse = String.format("\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
         for (KNNEngine knnEngine : enginesToTest) {
@@ -375,6 +375,24 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
 
             deleteKNNIndex(INDEX_NAME);
         }
+    }
+
+    @SneakyThrows
+    public void testPutMappings_whenIndexAlreadyCreated_thenSuccess() {
+        List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
+        float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
+        for (KNNEngine knnEngine : enginesToTest) {
+            String indexName = INDEX_NAME + "_" + knnEngine.getName();
+            createKnnIndex(indexName, createVectorMapping(testVector.length, knnEngine.getName(), VectorDataType.FLOAT.getValue(), false));
+            putMappingRequest(
+                indexName,
+                createVectorMapping(testVector.length, knnEngine.getName(), VectorDataType.FLOAT.getValue(), false)
+            );
+        }
+        // Check with FlatMapper
+        String indexName = INDEX_NAME + "_flat_index";
+        createBasicKnnIndex(indexName, FIELD_NAME, testVector.length);
+        putMappingRequest(indexName, createKnnIndexMapping(FIELD_NAME, testVector.length));
     }
 
     /**

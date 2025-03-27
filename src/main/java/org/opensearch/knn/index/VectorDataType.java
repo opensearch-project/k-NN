@@ -9,11 +9,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.training.BinaryTrainingDataConsumer;
@@ -86,12 +86,12 @@ public enum VectorDataType {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
-            return KnnVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
+            return KnnFloatVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
         }
 
         @Override
         public float[] getVectorFromBytesRef(BytesRef binaryValue) {
-            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(binaryValue);
+            final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
             return vectorSerializer.byteToFloatArray(binaryValue);
         }
 
