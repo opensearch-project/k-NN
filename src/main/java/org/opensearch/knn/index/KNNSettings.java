@@ -6,12 +6,15 @@
 package org.opensearch.knn.index;
 
 import lombok.Setter;
+import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
+import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
@@ -30,7 +33,6 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
-import org.opensearch.transport.client.Client;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -105,6 +107,12 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_CLIENT_PASSWORD = "knn.remote_index_build.client.password";
 
     /**
+     * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
+     */
+    public static final String MEMORY_OPTIMIZED_KNN_SEARCH_MODE = "index.knn.memory_optimized_search";
+    public static final boolean DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE = false;
+
+    /**
      * Default setting values
      *
      */
@@ -128,9 +136,9 @@ public class KNNSettings {
 
     public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE = 5; // By default, set aside 5% of the JVM for
-                                                                                                // the limit
+    // the limit
     public static final Integer KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // Quantization state cache limit cannot exceed
-                                                                                             // 10% of the JVM heap
+    // 10% of the JVM heap
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = 60;
     public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = false;
     // TODO: Tune this default value based on benchmarking
@@ -268,6 +276,12 @@ public class KNNSettings {
         IndexScope,
         Final,
         UnmodifiableOnRestore
+    );
+
+    public static final Setting<Boolean> MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING = Setting.boolSetting(
+        MEMORY_OPTIMIZED_KNN_SEARCH_MODE,
+        false,
+        IndexScope
     );
 
     /**
@@ -659,7 +673,8 @@ public class KNNSettings {
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
             KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,
             KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING,
-            KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING
+            KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING,
+            MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -937,12 +952,25 @@ public class KNNSettings {
             );
     }
 
+    /**
+     * Return whether memory optimized search enabled for the given index.
+     *
+     * @param indexName The name of target index to test whether if it is on.
+     * @return True if memory optimized search is enabled, otherwise False.
+     */
+    public static boolean isMemoryOptimizedKnnSearchModeEnabled(@NonNull final String indexName) {
+        return KNNSettings.state().clusterService.state()
+            .getMetadata()
+            .index(indexName)
+            .getSettings()
+            .getAsBoolean(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
+    }
+
     public void setClusterService(ClusterService clusterService) {
         this.clusterService = clusterService;
     }
 
     static class SpaceTypeValidator implements Setting.Validator<String> {
-
         @Override
         public void validate(String value) {
             try {

@@ -10,6 +10,7 @@ import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
@@ -254,5 +255,10 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
         return knnLibrary.createRemoteIndexingParameters(knnMethodContext);
+    }
+
+    @Override
+    public VectorSearcherFactory getVectorSearcherFactory() {
+        return knnLibrary.getVectorSearcherFactory();
     }
 }

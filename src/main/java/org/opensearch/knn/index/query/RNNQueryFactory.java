@@ -71,8 +71,10 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
+        final boolean memoryOptimizedSearch = createQueryRequest.isMemoryOptimizedSearchSupported();
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (memoryOptimizedSearch == false
+            && KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             BitSetProducer parentFilter = null;
             QueryShardContext context = createQueryRequest.getContext().get();
 
@@ -96,6 +98,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         }
 
         log.debug(String.format("Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f", indexName, fieldName, radius));
+
         switch (vectorDataType) {
             case BYTE:
                 return getByteVectorSimilarityQuery(fieldName, byteVector, radius, filterQuery);

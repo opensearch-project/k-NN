@@ -10,6 +10,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
+import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
 import java.util.Collections;
 import java.util.List;
@@ -166,5 +167,15 @@ public interface KNNLibrary extends MethodResolver {
      */
     default RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
         throw new UnsupportedOperationException("Remote build service does not support this engine");
+    }
+
+    /**
+     * Create a new vector searcher factory that compatible with on Lucene search API.
+     * @return New searcher factory that returns {@link org.opensearch.knn.memoryoptsearch.VectorSearcher}
+     *         If it is not supported, it should return null.
+     *         But, if it is supported, the factory shall not return null searcher.
+     */
+    default VectorSearcherFactory getVectorSearcherFactory() {
+        return null;
     }
 }

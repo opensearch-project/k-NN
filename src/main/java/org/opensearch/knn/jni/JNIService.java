@@ -47,7 +47,6 @@ public class JNIService {
             }
 
             return FaissService.initIndex(numDocs, dim, parameters);
-
         }
 
         throw new IllegalArgumentException(
