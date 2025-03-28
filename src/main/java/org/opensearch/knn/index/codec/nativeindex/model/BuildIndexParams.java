@@ -36,4 +36,5 @@ public class BuildIndexParams {
     Supplier<KNNVectorValues<?>> knnVectorValuesSupplier;
     int totalLiveDocs;
     SegmentWriteState segmentWriteState;
+    boolean isFlush;
 }
