@@ -346,7 +346,6 @@ public class FaissTests extends KNNTestCase {
 
         Map<String, Object> expectedParametersMap = new HashMap<>(methodComponentContext.getParameters());
         expectedParametersMap.put(parameter3, defaultValue3);
-        expectedParametersMap.remove(parameter1);
         Map<String, Object> expectedMap = new HashMap<>();
         expectedMap.put(PARAMETERS, expectedParametersMap);
         expectedMap.put(NAME, methodName);
