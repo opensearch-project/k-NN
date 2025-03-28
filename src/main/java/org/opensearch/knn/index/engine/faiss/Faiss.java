@@ -16,6 +16,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.MethodResolver;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcherFactory;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.Map;
@@ -141,5 +143,10 @@ public class Faiss extends NativeLibrary {
             return FaissHNSWMethod.createRemoteIndexingParameters(knnMethodContext);
         }
         throw new IllegalArgumentException("Unsupported method for remote indexing");
+    }
+
+    @Override
+    public VectorSearcherFactory getVectorSearcherFactory() {
+        return new FaissMemoryOptimizedSearcherFactory();
     }
 }
