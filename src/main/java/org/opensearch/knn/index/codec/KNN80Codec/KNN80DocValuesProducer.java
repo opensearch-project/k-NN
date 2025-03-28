@@ -29,7 +29,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     private final DocValuesProducer delegate;
     private List<String> cacheKeys;
 
-    public KNN80DocValuesProducer(DocValuesProducer delegate, SegmentReadState state) {
+    public KNN80DocValuesProducer(DocValuesProducer delegate, SegmentReadState state) throws IOException {
         this.delegate = delegate;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
     }
@@ -87,7 +87,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         return new ArrayList<>(cacheKeys);
     }
 
-    private static List<String> getVectorCacheKeysFromSegmentReaderState(SegmentReadState segmentReadState) {
+    private static List<String> getVectorCacheKeysFromSegmentReaderState(SegmentReadState segmentReadState) throws IOException {
         final List<String> cacheKeys = new ArrayList<>();
 
         for (FieldInfo field : segmentReadState.fieldInfos) {

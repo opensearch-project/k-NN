@@ -6,20 +6,24 @@
 package org.opensearch.knn.index.codec.util;
 
 import lombok.NonNull;
+
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
@@ -27,6 +31,10 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 public class KNNCodecUtil {
     // Floats are 4 bytes in size
     public static final int FLOAT_BYTE_SIZE = 4;
+
+    public static boolean isSegmentUsingLegacyIndexCompoundCodec(SegmentInfo segmentInfo) {
+        return !segmentInfo.getVersion().onOrAfter(Version.LUCENE_10_0_0);
+    }
 
     /**
      * This method provides a rough estimate of the number of bytes used for storing an array with the given parameters.
@@ -72,25 +80,38 @@ public class KNNCodecUtil {
     /**
      * Get Engine Files from segment with specific fieldName and engine extension
      *
-     * @param extension Engine extension comes from {@link KNNEngine#getExtension()}}
+     * @param engine object comes from {@link KNNEngine} contains utilities for getting engine file extensions
      * @param fieldName Filed for knn field
      * @param segmentInfo {@link SegmentInfo} One Segment info to use for compute.
      * @return List of engine files
      */
-    public static List<String> getEngineFiles(String extension, String fieldName, SegmentInfo segmentInfo) {
+    public static List<String> getEngineFiles(KNNEngine engine, String fieldName, SegmentInfo segmentInfo) throws IOException {
         /*
-         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
+         * In case of legacy index codec compound file, extension would be <engine-extension> + c otherwise <engine-extension>
          */
-        String engineExtension = segmentInfo.getUseCompoundFile() ? extension + KNNConstants.COMPOUND_EXTENSION : extension;
+        boolean isLegacyIndexCodecWithCompoundFile = isSegmentUsingLegacyIndexCompoundCodec(segmentInfo) && segmentInfo.getUseCompoundFile();
+        String engineExtension = isLegacyIndexCodecWithCompoundFile ? engine.getCompoundExtension() : engine.getExtension();
         String engineSuffix = fieldName + engineExtension;
         String underLineEngineSuffix = "_" + engineSuffix;
 
-        List<String> engineFiles = segmentInfo.files()
-            .stream()
+        Set<String> segmentFiles = getSegmentFiles(segmentInfo);
+        return segmentFiles.stream()
             .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
             .sorted(Comparator.comparingInt(String::length))
             .collect(Collectors.toList());
-        return engineFiles;
+    }
+
+
+    private static Set<String> getSegmentFiles(SegmentInfo segmentInfo) throws IOException {
+        // Backwards compatibility case, if legacy compound codec or compound file is not enabled then read it from
+        // the segment directory. Otherwise, read from a compound directory
+        if (!segmentInfo.getUseCompoundFile() || isSegmentUsingLegacyIndexCompoundCodec(segmentInfo)) {
+            return segmentInfo.files();
+        }
+
+        try (Directory directory = segmentInfo.getCodec().compoundFormat().getCompoundReader(segmentInfo.dir, segmentInfo)) {
+            return Arrays.stream(directory.listAll()).collect(Collectors.toSet());
+        }
     }
 
     /**
@@ -101,7 +122,7 @@ public class KNNCodecUtil {
      * @param segmentInfo : Segment where we are collecting an engine file list.
      * @return : Found vector engine names, if not found, returns null.
      */
-    public static String getNativeEngineFileFromFieldInfo(FieldInfo field, SegmentInfo segmentInfo) {
+    public static String getNativeEngineFileFromFieldInfo(FieldInfo field, SegmentInfo segmentInfo) throws IOException {
         if (!field.attributes().containsKey(KNN_FIELD)) {
             return null;
         }
@@ -110,7 +131,8 @@ public class KNNCodecUtil {
         if (knnEngine == null) {
             return null;
         }
-        final List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), field.getName(), segmentInfo);
+
+        final List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine, field.getName(), segmentInfo);
         if (engineFiles.isEmpty()) {
             return null;
         } else {

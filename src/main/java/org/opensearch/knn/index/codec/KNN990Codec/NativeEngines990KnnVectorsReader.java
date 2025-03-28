@@ -63,7 +63,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private final List<String> cacheKeys;
     private volatile Map<String, VectorSearcher> vectorSearchers;
 
-    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
+    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
         this(state, flatVectorsReader, false);
     }
 
@@ -71,7 +71,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         final SegmentReadState state,
         final FlatVectorsReader flatVectorsReader,
         final boolean memoryOptimizedSearchEnabled
-    ) {
+    ) throws IOException {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
@@ -273,7 +273,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         }
     }
 
-    private static List<String> getVectorCacheKeysFromSegmentReaderState(SegmentReadState segmentReadState) {
+    private static List<String> getVectorCacheKeysFromSegmentReaderState(SegmentReadState segmentReadState) throws IOException {
         final List<String> cacheKeys = new ArrayList<>();
 
         for (FieldInfo field : segmentReadState.fieldInfos) {
@@ -332,7 +332,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         }
     }
 
-    private IOSupplier<VectorSearcher> getVectorSearcherSupplier(final FieldInfo fieldInfo) {
+    private IOSupplier<VectorSearcher> getVectorSearcherSupplier(final FieldInfo fieldInfo) throws IOException {
         // Skip non-knn fields.
         final Map<String, String> attributes = fieldInfo.attributes();
         if (attributes == null || attributes.containsKey(KNN_FIELD) == false) {

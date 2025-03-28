@@ -60,6 +60,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.UnitTestCodec;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -221,11 +222,18 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         IndexSearcher searcher = new IndexSearcher(indexReader);
         final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
         SegmentReader segmentReader = Lucene.segmentReader(leafReader);
-        final List<String> hnswfiles = getFilesFromSegment(dir, FAISS_ENGINE_FILE_EXT);
-        assertEquals(3, hnswfiles.size());
-        assertEquals(hnswfiles.stream().filter(x -> x.contains(FLOAT_VECTOR_FIELD)).count(), 1);
-        assertEquals(hnswfiles.stream().filter(x -> x.contains(BYTE_VECTOR_FIELD)).count(), 1);
-        assertEquals(hnswfiles.stream().filter(x -> x.contains(FLOAT_VECTOR_FIELD_BINARY)).count(), 1);
+        final List<String> floatVectorFieldFiles = KNNCodecUtil.getEngineFiles(
+            KNNEngine.FAISS, FLOAT_VECTOR_FIELD, segmentReader.getSegmentInfo().info
+        );
+        final List<String> byteVectorFieldFiles = KNNCodecUtil.getEngineFiles(
+            KNNEngine.FAISS, BYTE_VECTOR_FIELD, segmentReader.getSegmentInfo().info
+        );
+        final List<String> floatVectorFieldBinaryFiles = KNNCodecUtil.getEngineFiles(
+            KNNEngine.FAISS, FLOAT_VECTOR_FIELD_BINARY, segmentReader.getSegmentInfo().info
+        );
+        assertEquals(floatVectorFieldFiles.stream().filter(x -> x.contains(FLOAT_VECTOR_FIELD)).count(), 1);
+        assertEquals(byteVectorFieldFiles.stream().filter(x -> x.contains(BYTE_VECTOR_FIELD)).count(), 1);
+        assertEquals(floatVectorFieldBinaryFiles.stream().filter(x -> x.contains(FLOAT_VECTOR_FIELD_BINARY)).count(), 1);
 
         // Even setting IWC to not use compound file it still uses compound file, hence ensuring we don't check .vec
         // file in case segment uses compound format. use this seed once we fix this to validate everything is
@@ -311,6 +319,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     }
 
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {
+
         return Arrays.stream(dir.listAll()).filter(x -> x.contains(fileFormat)).collect(Collectors.toList());
     }
 

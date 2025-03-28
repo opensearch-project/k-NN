@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
@@ -29,6 +30,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexReader;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -318,7 +320,9 @@ public class KNNWeight extends Weight {
         // TODO: Change type of vector once more quantization methods are supported
         final byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
 
-        List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
+        final SegmentInfo segmentInfo = reader.getSegmentInfo().info;
+
+        List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine, knnQuery.getField(), reader.getSegmentInfo().info);
         if (engineFiles.isEmpty()) {
             log.debug("[KNN] No native engine files found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
             return Collections.emptyMap();
@@ -329,13 +333,12 @@ public class KNNWeight extends Weight {
 
         final KNNQueryResult[] results;
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
-
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
         try {
             indexAllocation = nativeMemoryCacheManager.get(
                 new NativeMemoryEntryContext.IndexEntryContext(
-                    reader.directory(),
+                    NativeIndexReader.getReader(segmentInfo),
                     cacheKey,
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                     getParametersAtLoading(
@@ -512,7 +515,7 @@ public class KNNWeight extends Weight {
      * @param annResultCount Count of Nearest Neighbours we got after doing filtered ANN Search.
      * @return boolean - true if exactSearch needs to be done after ANNSearch.
      */
-    private boolean isExactSearchRequire(final LeafReaderContext context, final int filterIdsCount, final int annResultCount) {
+    private boolean isExactSearchRequire(final LeafReaderContext context, final int filterIdsCount, final int annResultCount) throws IOException {
         if (annResultCount == 0 && isMissingNativeEngineFiles(context)) {
             log.debug("Perform exact search after approximate search since no native engine files are available");
             return true;
@@ -545,7 +548,7 @@ public class KNNWeight extends Weight {
      * This condition mainly checks whether segments has native engine files or not
      * @return boolean - false if exactSearch needs to be done since no native engine files are in segments.
      */
-    private boolean isMissingNativeEngineFiles(LeafReaderContext context) {
+    private boolean isMissingNativeEngineFiles(LeafReaderContext context) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
         // if segment has no documents with at least 1 vector field, field info will be null
@@ -554,7 +557,7 @@ public class KNNWeight extends Weight {
         }
         final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
         final List<String> engineFiles = KNNCodecUtil.getEngineFiles(
-            knnEngine.getExtension(),
+            knnEngine,
             knnQuery.getField(),
             reader.getSegmentInfo().info
         );

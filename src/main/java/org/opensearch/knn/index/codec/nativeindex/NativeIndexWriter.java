@@ -54,6 +54,10 @@ import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DES
 @AllArgsConstructor
 @Log4j2
 public class NativeIndexWriter {
+    public static final String NATIVE_INDEX_CODEC_NAME = "NATIVE_INDEX_BINARY_CODEC";
+    public static final int NATIVE_INDEX_CODEC_MIN_VERSION = 0;
+    public static final int NATIVE_INDEX_CODEC_CURRENT_VERSION = NATIVE_INDEX_CODEC_MIN_VERSION;
+    public static final String NATIVE_INDEX_CODEC_SUFFIX = "";
     private static final Long CRC32_CHECKSUM_SANITY = 0xFFFFFFFF00000000L;
 
     private final SegmentWriteState state;
@@ -152,6 +156,17 @@ public class NativeIndexWriter {
                 fieldInfo,
                 totalLiveDocs,
                 knnVectorValuesSupplier.get()
+            );
+
+            // Write header for native indexes that are persisted
+            // This is necessary for moving away from custom compound format since Lucene
+            // default compound codec requires headers and footers for files
+            CodecUtil.writeIndexHeader(
+                output,
+                NATIVE_INDEX_CODEC_NAME,
+                NATIVE_INDEX_CODEC_CURRENT_VERSION,
+                state.segmentInfo.getId(),
+                NATIVE_INDEX_CODEC_SUFFIX
             );
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
             CodecUtil.writeFooter(output);

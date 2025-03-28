@@ -12,13 +12,22 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
+
+import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.index.SegmentInfo;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.util.Version;
+import org.mockito.Mockito;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexReader;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
@@ -38,6 +47,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class NativeMemoryLoadStrategyTests extends KNNTestCase {
 
@@ -55,13 +65,19 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
                 ids[i] = i;
                 Arrays.fill(vectors[i], 1f);
             }
-            Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
+            Map<String, Object> parameters = ImmutableMap.of(
+                KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue()
+            );
             long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
             TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
 
+            IndexInput indexInput = luceneDirectory.openInput(indexFileName, IOContext.READONCE);
+            NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
+            when(nativeIndexReader.open(indexFileName)).thenReturn(indexInput);
+            when(nativeIndexReader.calculateIndexSize(indexFileName)).thenReturn(luceneDirectory.fileLength(indexFileName));
             // Setup mock resource manager
             NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-                luceneDirectory,
+                nativeIndexReader,
                 TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                 parameters,
@@ -107,8 +123,12 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
 
             // Setup mock resource manager
+            IndexInput indexInput = luceneDirectory.openInput(indexFileName, IOContext.READONCE);
+            NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
+            when(nativeIndexReader.open(indexFileName)).thenReturn(indexInput);
+            when(nativeIndexReader.calculateIndexSize(indexFileName)).thenReturn(luceneDirectory.fileLength(indexFileName));
             NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-                luceneDirectory,
+                nativeIndexReader,
                 TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                 parameters,
@@ -119,6 +139,8 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             indexEntryContext.open();
             // Load
             NativeMemoryAllocation.IndexAllocation indexAllocation = indexEntryContext.load();
+
+            indexInput.close();
 
             // Verify
             assertTrue(indexAllocation.isBinaryIndex());

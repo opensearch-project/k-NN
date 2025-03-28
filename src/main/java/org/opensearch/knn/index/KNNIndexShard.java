@@ -20,6 +20,8 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexReader;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.isSegmentUsingLegacyIndexCompoundCodec;
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
@@ -89,9 +92,10 @@ public class KNNIndexShard {
      */
     public void warmup() throws IOException {
         log.info("[KNN] Warming up index: [{}]", getIndexName());
-        final Directory directory = indexShard.store().directory();
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
+            log.info("[KNN] entered searcher");
             getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
+                log.info("[KNN] Engine file context: [{}]", engineFileContext);
                 try {
                     final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(
                         engineFileContext.vectorFileName,
@@ -99,7 +103,7 @@ public class KNNIndexShard {
                     );
                     nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
-                            directory,
+                            NativeIndexReader.getReader(engineFileContext.segmentInfo),
                             cacheKey,
                             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                             getParametersAtLoading(
@@ -113,7 +117,7 @@ public class KNNIndexShard {
                         ),
                         true
                     );
-                } catch (ExecutionException ex) {
+                } catch (ExecutionException | IOException ex) {
                     throw new RuntimeException(ex);
                 }
             });
@@ -173,9 +177,6 @@ public class KNNIndexShard {
 
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
             SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-            String fileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-                ? knnEngine.getCompoundExtension()
-                : knnEngine.getExtension();
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
@@ -188,7 +189,7 @@ public class KNNIndexShard {
                         getEngineFileContexts(
                             reader.getSegmentInfo(),
                             fieldInfo.name,
-                            fileExtension,
+                            knnEngine,
                             spaceType,
                             modelId,
                             FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
@@ -208,19 +209,16 @@ public class KNNIndexShard {
     List<EngineFileContext> getEngineFileContexts(
         SegmentCommitInfo segmentCommitInfo,
         String fieldName,
-        String fileExtension,
+        KNNEngine knnEngine,
         SpaceType spaceType,
         String modelId,
         VectorDataType vectorDataType
     ) throws IOException {
         // Ex: 0_
         final String prefix = buildEngineFilePrefix(segmentCommitInfo.info.name);
-        // Ex: _my_field.faiss
-        final String suffix = buildEngineFileSuffix(fieldName, fileExtension);
-        return segmentCommitInfo.files()
+        return KNNCodecUtil.getEngineFiles(knnEngine, fieldName, segmentCommitInfo.info)
             .stream()
             .filter(fileName -> fileName.startsWith(prefix))
-            .filter(fileName -> fileName.endsWith(suffix))
             .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
             .collect(Collectors.toList());
     }
