@@ -35,6 +35,7 @@ import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
+import org.opensearch.knn.index.codec.derivedsource.DerivedSourceIndexOperationListener;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -304,6 +305,9 @@ public class KNNPlugin extends Plugin
     @Override
     public void onIndexModule(IndexModule indexModule) {
         KNNSettings.state().onIndexModule(indexModule);
+        if (KNNSettings.isKNNDerivedSourceEnabled(indexModule.getSettings())) {
+            indexModule.addIndexOperationListener(new DerivedSourceIndexOperationListener());
+        }
     }
 
     /**
