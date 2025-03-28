@@ -41,13 +41,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -144,9 +140,9 @@ public class RemoteBuildIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testHNSWSQFP16_whenGraphThresholdIsMetDuringMerge_thenCreateGraph() {
-        final String indexName = "test-index-hnsw-sqfp16";
-        final String fieldName = "test-field-hnsw-sqfp16";
+    public void testHNSW_whenGraphThresholdIsMetDuringMerge_thenCreateGraph() {
+        final String indexName = "test-index-hnsw";
+        final String fieldName = "test-field-hnsw";
         final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
         final Random random = new Random();
         final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
@@ -165,12 +161,6 @@ public class RemoteBuildIT extends KNNRestTestCase {
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQ)
-            .startObject(PARAMETERS)
-            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-            .endObject()
-            .endObject()
             .endObject()
             .endObject()
             .endObject()

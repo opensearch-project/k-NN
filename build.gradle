@@ -17,7 +17,6 @@ buildscript {
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
         opensearch_version = System.getProperty("opensearch.version", "3.0.0-beta1-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "beta1")
-        arch = System.getProperty("arch", "arm64")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
         avx2_enabled = System.getProperty("avx2.enabled", "true")
@@ -46,9 +45,18 @@ buildscript {
             opensearch_build += "-SNAPSHOT"
         }
         opensearch_no_snapshot = opensearch_build.replace("-SNAPSHOT","")
+
+        os_platform = "linux"
+        artifact_type = "tar"
+
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            os_platform = "windows"
+            artifact_type = "zip"
+        }
+
         opensearch_version_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
         repo_s3_resource_folder = "build/resource/repository-s3"
-        repo_s3_download_url = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${opensearch_version_no_snapshot}/latest/linux/${arch}/tar/builds/opensearch/core-plugins/repository-s3-${opensearch_version_no_snapshot}.zip"
+        repo_s3_download_url = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${opensearch_version_no_snapshot}/latest/${os_platform}/x64/${artifact_type}/builds/opensearch/core-plugins/repository-s3-${opensearch_version_no_snapshot}.zip"
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
