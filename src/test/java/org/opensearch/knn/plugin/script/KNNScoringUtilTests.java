@@ -314,11 +314,10 @@ public class KNNScoringUtilTests extends KNNTestCase {
         byte[] b1 = { 1, 16, -128 };  // 0000 0001, 0001 0000, 1000 0000
         byte[] b2 = { 2, 17, -1 };    // 0000 0010, 0001 0001, 1111 1111
         float[] f1 = { 1, 16, -128 };  // 0000 0001, 0001 0000, 1000 0000
-        float[] f2 = { 2, 17, -1 };    // 0000 0010, 0001 0001, 1111 1111
         List<Number> queryVector = Arrays.asList(f1[0], f1[1], f1[2]);
-        KNNVectorScriptDocValues docValues = mock(KNNVectorScriptDocValues.class);
+        KNNVectorScriptDocValues<?> docValues = mock(KNNVectorScriptDocValues.class);
         when(docValues.getVectorDataType()).thenReturn(VectorDataType.BINARY);
-        when(docValues.getValue()).thenReturn(f2);
+        when(docValues.getValue()).thenReturn(b2);
         assertEquals(KNNScoringUtil.calculateHammingBit(b1, b2), KNNScoringUtil.hamming(queryVector, docValues), 0.01f);
     }
 

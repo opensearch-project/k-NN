@@ -55,6 +55,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    @SuppressWarnings("unchecked")
     public void testL2_whenValid_thenSucceed() {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
@@ -66,7 +67,12 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
-        assertEquals(1F, l2.getScoringMethod().apply(arrayFloat, arrayFloat), 0.1F);
+        float[] processedFloatQuery = (float[]) l2.getProcessedQuery(arrayListQueryObject, fieldType);
+        assertEquals(
+            1F,
+            ((BiFunction<float[], float[], Float>) l2.getScoringMethod(processedFloatQuery)).apply(arrayFloat, arrayFloat),
+            0.1F
+        );
     }
 
     @SneakyThrows
@@ -75,6 +81,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         expectThrowsExceptionWithKNNFieldWithBinaryDataType(KNNScoringSpace.L2.class);
     }
 
+    @SuppressWarnings("unchecked")
     public void testCosineSimilarity_whenValid_thenSucceed() {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(2.0, 4.0, 6.0));
@@ -87,9 +94,10 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
+        float[] processedFloatQuery = (float[]) cosineSimilarity.getProcessedQuery(arrayListQueryObject, fieldType);
         assertEquals(
             VectorSimilarityFunction.COSINE.compare(arrayFloat2, arrayFloat),
-            cosineSimilarity.getScoringMethod().apply(arrayFloat2, arrayFloat),
+            ((BiFunction<float[], float[], Float>) cosineSimilarity.getScoringMethod(processedFloatQuery)).apply(arrayFloat2, arrayFloat),
             0.1F
         );
 
@@ -131,6 +139,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         expectThrowsExceptionWithKNNFieldWithBinaryDataType(KNNScoringSpace.CosineSimilarity.class);
     }
 
+    @SuppressWarnings("unchecked")
     public void testInnerProd_whenValid_thenSucceed() {
         float[] arrayFloat_case1 = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject_case1 = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
@@ -145,23 +154,45 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         );
         KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
 
-        assertEquals(7.0F, innerProd.getScoringMethod().apply(arrayFloat_case1, arrayFloat2_case1), 0.001F);
+        float[] processedFloatQuery_case1 = (float[]) innerProd.getProcessedQuery(arrayListQueryObject_case1, fieldType);
+        assertEquals(
+            7.0F,
+            ((BiFunction<float[], float[], Float>) innerProd.getScoringMethod(processedFloatQuery_case1)).apply(
+                arrayFloat_case1,
+                arrayFloat2_case1
+            ),
+            0.001F
+        );
 
         float[] arrayFloat_case2 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
         List<Double> arrayListQueryObject_case2 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
         float[] arrayFloat2_case2 = new float[] { -100_000.0f, -200_000.0f, -300_000.0f };
 
         innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case2, fieldType);
-
-        assertEquals(7.142857143E-12F, innerProd.getScoringMethod().apply(arrayFloat_case2, arrayFloat2_case2), 1.0E-11F);
+        float[] processedFloatQuery_case2 = (float[]) innerProd.getProcessedQuery(arrayListQueryObject_case2, fieldType);
+        assertEquals(
+            7.142857143E-12F,
+            ((BiFunction<float[], float[], Float>) innerProd.getScoringMethod(processedFloatQuery_case2)).apply(
+                arrayFloat_case2,
+                arrayFloat2_case2
+            ),
+            1.0E-11F
+        );
 
         float[] arrayFloat_case3 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
         List<Double> arrayListQueryObject_case3 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
         float[] arrayFloat2_case3 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
 
         innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case3, fieldType);
-
-        assertEquals(140_000_000_001F, innerProd.getScoringMethod().apply(arrayFloat_case3, arrayFloat2_case3), 0.01F);
+        float[] processedFloatQuery_case3 = (float[]) innerProd.getProcessedQuery(arrayListQueryObject_case3, fieldType);
+        assertEquals(
+            140_000_000_001F,
+            ((BiFunction<float[], float[], Float>) innerProd.getScoringMethod(processedFloatQuery_case3)).apply(
+                arrayFloat_case3,
+                arrayFloat2_case3
+            ),
+            0.01F
+        );
     }
 
     @SneakyThrows
@@ -205,6 +236,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         );
     }
 
+    @SuppressWarnings("unchecked")
     public void testHamming_whenKNNFieldType_thenSucceed() {
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
         KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
@@ -216,9 +248,13 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         );
 
         KNNScoringSpace.Hamming hamming = new KNNScoringSpace.Hamming(arrayListQueryObject, fieldType);
-
-        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
-        assertEquals(1F, hamming.getScoringMethod().apply(arrayFloat, arrayFloat), 0.1F);
+        byte[] processedByteQuery = (byte[]) hamming.getProcessedQuery(arrayListQueryObject, fieldType);
+        byte[] arrayByte = new byte[] { 1, 2, 3 };
+        assertEquals(
+            1F,
+            ((BiFunction<byte[], byte[], Float>) hamming.getScoringMethod(processedByteQuery)).apply(arrayByte, arrayByte),
+            0.1F
+        );
     }
 
     public void testHamming_whenNonBinaryVectorDataType_thenException() {
