@@ -15,6 +15,7 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.opensearch.common.Nullable;
+import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
@@ -66,14 +67,39 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
     @Override
     public StoredFieldsWriter fieldsWriter(Directory directory, SegmentInfo segmentInfo, IOContext ioContext) throws IOException {
         StoredFieldsWriter delegateWriter = delegate.fieldsWriter(directory, segmentInfo, ioContext);
-        if (mapperService == null || KNNSettings.isKNNDerivedSourceEnabled(mapperService.getIndexSettings().getSettings()) == false) {
+        if (mapperService == null) {
+            return delegateWriter;
+        }
+
+        // If there are excluded fields, we will not derive any vector fields
+        if (mapperService.documentMapper().sourceMapper().enabled() == false) {
+            return delegateWriter;
+        }
+
+        // Skipping composite indices for now
+        if (mapperService.isCompositeIndexPresent() == true) {
+            return delegateWriter;
+        }
+
+        // Check if the feature is enabled.
+        if (KNNSettings.isKNNDerivedSourceEnabled(mapperService.getIndexSettings().getSettings()) == false) {
             return delegateWriter;
         }
 
         List<String> vectorFieldTypes = new ArrayList<>();
         List<String> nestedVectorFieldTypes = new ArrayList<>();
         for (MappedFieldType fieldType : mapperService.fieldTypes()) {
-            if (fieldType instanceof KNNVectorFieldType) {
+            if (fieldType instanceof KNNVectorFieldType knnVectorFieldType) {
+                // Skip copy to fields
+                if (mapperService.documentMapper().mappers().getMapper(knnVectorFieldType.name()) instanceof FieldMapper) {
+                    FieldMapper mapper = ((FieldMapper) mapperService.documentMapper().mappers().getMapper(fieldType.name()));
+                    if (mapper.copyTo() != null
+                        && mapper.copyTo().copyToFields() != null
+                        && mapper.copyTo().copyToFields().isEmpty() == false) {
+                        continue;
+                    }
+                }
+
                 boolean isNested = mapperService.documentMapper().mappers().getNestedScope(fieldType.name()) != null;
                 if (isNested) {
                     nestedVectorFieldTypes.add(fieldType.name());
