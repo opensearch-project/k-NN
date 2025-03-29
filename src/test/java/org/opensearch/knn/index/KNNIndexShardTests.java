@@ -8,6 +8,10 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+
+import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.CompoundDirectory;
+import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
@@ -18,6 +22,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.shard.IndexShard;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundDirectory;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
@@ -31,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 
 public class KNNIndexShardTests extends KNNSingleNodeTestCase {
@@ -119,7 +125,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         // Check that the correct engine paths are being returned by the KNNIndexShard
         String segmentName = "_0";
         String fieldName = "test_field";
-        String fileExt = ".test";
+        String fileExt = ".faiss";
         SpaceType spaceType = SpaceType.L2;
         String modelId = "test-model";
         VectorDataType vectorDataType = VectorDataType.FLOAT;
@@ -137,36 +143,38 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         );
 
         List<String> files = Stream.concat(includedFileNames.stream(), excludedFileNames.stream()).collect(Collectors.toList());
-
+        String[] filesArray = files.toArray(new String[files.size()]);
         KNNIndexShard knnIndexShard = new KNNIndexShard(null);
 
         final Directory dummyDirectory = Mockito.mock(Directory.class);
+        final Codec codec = Mockito.mock(Codec.class);
+
         final SegmentInfo segmentInfo = new SegmentInfo(
             dummyDirectory,
             Version.LATEST,
             null,
             segmentName,
             0,
+            true,
             false,
-            false,
-            null,
+            codec,
             Collections.emptyMap(),
             new byte[StringHelper.ID_LENGTH],
             Collections.emptyMap(),
             null
         );
-        // Inject 'files' into the segment info instance.
-        // Since SegmentInfo class does trim out its given file list, for example removing segment name from a file name etc,
-        // we can't just use 'setFiles' api to assign the file list. Which will lead this unit test to be fail.
-        final Field setFilesPrivateField = SegmentInfo.class.getDeclaredField("setFiles");
-        setFilesPrivateField.setAccessible(true);
-        setFilesPrivateField.set(segmentInfo, new HashSet<>(files));
+
+        final CompoundDirectory directory = Mockito.mock(KNN80CompoundDirectory.class);
+        final CompoundFormat compoundFormat = Mockito.mock(CompoundFormat.class);
+        when(codec.compoundFormat()).thenReturn(compoundFormat);
+        when(compoundFormat.getCompoundReader(dummyDirectory, segmentInfo)).thenReturn(directory);
+        when(directory.listAll()).thenReturn(filesArray);
 
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, -1, 0, 0, null);
         List<KNNIndexShard.EngineFileContext> included = knnIndexShard.getEngineFileContexts(
             segmentCommitInfo,
             fieldName,
-            fileExt,
+            KNNEngine.FAISS,
             spaceType,
             modelId,
             vectorDataType

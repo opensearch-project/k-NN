@@ -42,7 +42,7 @@ import static org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory.getKN
 import static org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory.getVectorValuesSupplier;
 
 /**
- * A KNNVectorsWriter class for writing the vector data strcutures and flat vectors for Native Engines.
+ * A KNNVectorsWriter class for writing the vector data structures and flat vectors for Native Engines.
  */
 @Log4j2
 public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {

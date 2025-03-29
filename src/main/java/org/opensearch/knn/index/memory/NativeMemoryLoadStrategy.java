@@ -14,6 +14,7 @@ package org.opensearch.knn.index.memory;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.Directory;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexReader;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.util.IndexUtil;
@@ -81,8 +82,8 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
             // Prepare for opening index input from directory.
             final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(vectorFileName);
-            final Directory directory = indexEntryContext.getDirectory();
-            final int indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
+            final NativeIndexReader nativeIndexReader = indexEntryContext.getNativeIndexReader();
+            final int indexSizeKb = Math.toIntExact(nativeIndexReader.calculateIndexSize(vectorFileName) / 1024);
 
             // Try to open an index input then pass it down to native engine for loading an index.
             // open in NativeMemoryEntryContext takes care of opening the indexInput file
