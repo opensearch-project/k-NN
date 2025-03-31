@@ -11,16 +11,14 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
-import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
@@ -32,7 +30,7 @@ public final class NativeIndexBuildStrategyFactory {
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final IndexSettings indexSettings;
     @Setter
-    private KNNMethodContext knnMethodContext;
+    private KNNLibraryIndexingContext knnLibraryIndexingContext;
 
     public NativeIndexBuildStrategyFactory() {
         this(null, null);
@@ -41,10 +39,6 @@ public final class NativeIndexBuildStrategyFactory {
     public NativeIndexBuildStrategyFactory(Supplier<RepositoriesService> repositoriesServiceSupplier, IndexSettings indexSettings) {
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
         this.indexSettings = indexSettings;
-    }
-
-    private Optional<KNNMethodContext> getKnnMethodContext() {
-        return Optional.ofNullable(knnMethodContext);
     }
 
     /**
@@ -74,10 +68,9 @@ public final class NativeIndexBuildStrategyFactory {
         if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()
             && repositoriesServiceSupplier != null
             && indexSettings != null
-            && getKnnMethodContext().isPresent()
-            && knnEngine.supportsRemoteIndexBuild(getKnnMethodContext().get().getMethodComponentContext(), extractVectorDataType(fieldInfo))
+            && knnEngine.supportsRemoteIndexBuild(knnLibraryIndexingContext)
             && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength)) {
-            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, getKnnMethodContext().get());
+            return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, knnLibraryIndexingContext);
         } else {
             return strategy;
         }

@@ -77,13 +77,10 @@ class MethodAsMapBuilder {
                 quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
             }
 
-            // We replace parameterName with the map that contains only parameters that are not included in
-            // the method description
             methodParameters.put(parameterName, subMethodAsMap);
         } else {
-            // Just add the value to the method description and remove from map
+            // Add the value to the method description
             indexDescription += value;
-            methodParameters.remove(parameterName);
         }
 
         indexDescription += suffix;
