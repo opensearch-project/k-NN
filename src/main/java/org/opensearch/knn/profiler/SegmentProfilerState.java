@@ -65,7 +65,7 @@ public class SegmentProfilerState {
         try {
             // Process the first vector to determine dimensions
             float[] firstVector = (float[]) vectorValues.getVector();
-            int dimension = firstVector.length;
+            int dimension = vectorValues.dimension();
             log.info("Starting vector profiling with dimension: {}", dimension);
 
             // Initialize statistics collectors for each dimension
@@ -73,38 +73,54 @@ public class SegmentProfilerState {
                 statistics.add(new SummaryStatistics());
             }
 
-            for (int j = 0; j < firstVector.length; j++) {
-                statistics.get(j).addValue(firstVector[j]);
-            }
+            processVectors(firstVector, statistics);
 
             // Process remaining vectors
             int vectorCount = 1;
             while (vectorValues.nextDoc() != NO_MORE_DOCS) {
                 vectorCount++;
                 float[] vector = (float[]) vectorValues.getVector();
-                for (int j = 0; j < vector.length; j++) {
-                    statistics.get(j).addValue(vector[j]);
-                }
+                processVectors(vector, statistics);
             }
 
             log.info("Vector profiling completed - processed {} vectors with {} dimensions", vectorCount, dimension);
-            for (int i = 0; i < dimension; i++) {
-                SummaryStatistics stats = statistics.get(i);
-                log.info(
-                    "Dimension {} stats: mean={}, std={}, min={}, max={}",
-                    i,
-                    stats.getMean(),
-                    stats.getStandardDeviation(),
-                    stats.getMin(),
-                    stats.getMax()
-                );
-            }
+            logDimensionStatistics(statistics, dimension);
 
             return new SegmentProfilerState(statistics);
         } catch (ClassCastException e) {
             // Handle cases where vector type casting fails
             log.error("Error during vector profiling: {}", e.getMessage(), e);
             return new SegmentProfilerState(statistics);
+        }
+    }
+
+    /**
+     * Helper method to process a vector and update statistics
+     * @param vector
+     * @param statistics
+     */
+    private static void processVectors(float[] vector, List<SummaryStatistics> statistics) {
+        for (int j = 0; j < vector.length; j++) {
+            statistics.get(j).addValue(vector[j]);
+        }
+    }
+
+    /**
+     * Helper method to log statistics for each dimension
+     * @param statistics
+     * @param dimension
+     */
+    private static void logDimensionStatistics(List<SummaryStatistics> statistics, int dimension) {
+        for (int i = 0; i < dimension; i++) {
+            SummaryStatistics stats = statistics.get(i);
+            log.info(
+                    "Dimension {} stats: mean={}, std={}, min={}, max={}",
+                    i,
+                    stats.getMean(),
+                    stats.getStandardDeviation(),
+                    stats.getMin(),
+                    stats.getMax()
+            );
         }
     }
 }

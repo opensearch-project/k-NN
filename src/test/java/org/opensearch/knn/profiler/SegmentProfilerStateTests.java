@@ -16,7 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class SegmentProfilerStateTests extends OpenSearchTestCase {
 
@@ -56,6 +57,7 @@ public class SegmentProfilerStateTests extends OpenSearchTestCase {
         float[] vector = new float[] { 1.0f, 2.0f, 3.0f };
 
         when(mockVectorValues.docId()).thenReturn(0);
+        when(mockVectorValues.dimension()).thenReturn(3);
         when(mockVectorValues.getVector()).thenReturn(vector);
         when(mockVectorValues.nextDoc()).thenReturn(DocIdSetIterator.NO_MORE_DOCS);
 
@@ -72,6 +74,7 @@ public class SegmentProfilerStateTests extends OpenSearchTestCase {
         float[] vector2 = new float[] { 3.0f, 4.0f };
 
         when(mockVectorValues.docId()).thenReturn(0);
+        when(mockVectorValues.dimension()).thenReturn(2);
         when(mockVectorValues.getVector()).thenReturn(vector1).thenReturn(vector2);
         when(mockVectorValues.nextDoc()).thenReturn(1).thenReturn(DocIdSetIterator.NO_MORE_DOCS);
 
@@ -84,6 +87,7 @@ public class SegmentProfilerStateTests extends OpenSearchTestCase {
 
     public void testProfileVectorsWithClassCastException() throws IOException {
         when(mockVectorValues.docId()).thenReturn(0);
+        when(mockVectorValues.dimension()).thenReturn(2);
         when(mockVectorValues.getVector()).thenThrow(new ClassCastException("Test exception"));
 
         SegmentProfilerState state = SegmentProfilerState.profileVectors(mockSupplier);
@@ -96,6 +100,7 @@ public class SegmentProfilerStateTests extends OpenSearchTestCase {
         float[] vector3 = new float[] { 5.0f, 6.0f };
 
         when(mockVectorValues.docId()).thenReturn(0);
+        when(mockVectorValues.dimension()).thenReturn(2);
         when(mockVectorValues.getVector()).thenReturn(vector1).thenReturn(vector2).thenReturn(vector3);
         when(mockVectorValues.nextDoc()).thenReturn(1).thenReturn(2).thenReturn(DocIdSetIterator.NO_MORE_DOCS);
 
