@@ -11,9 +11,11 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
+import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -23,6 +25,7 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
@@ -38,9 +41,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.TreeMap;
+import java.util.Collection;
 
+import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
+import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
@@ -51,12 +56,18 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.index.KNNSettings.*;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
+@AllArgsConstructor
 public class RemoteBuildIT extends KNNRestTestCase {
-    static TestUtils.TestData testData;
+    private static TestUtils.TestData testData;
+    private String description;
+    private SpaceType spaceType;
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -79,10 +90,19 @@ public class RemoteBuildIT extends KNNRestTestCase {
         setupRepository("integ-test-repo");
     }
 
+    @ParametersFactory(argumentFormatting = "description:%1$s; spaceType:%2$s")
+    public static Collection<Object[]> parameters() throws IOException {
+        return Arrays.asList(
+            $$(
+                $("SpaceType L2", SpaceType.L2),
+                $("SpaceType INNER_PRODUCT", SpaceType.INNER_PRODUCT),
+                $("SpaceType COSINESIMIL", SpaceType.COSINESIMIL)
+            )
+        );
+    }
+
     @SneakyThrows
     public void testEndToEnd_whenDoRadiusSearch_whenDistanceThreshold_whenMethodIsHNSWFlat_thenSucceed() {
-        SpaceType spaceType = SpaceType.L2;
-
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
@@ -135,115 +155,46 @@ public class RemoteBuildIT extends KNNRestTestCase {
         float distance = 300000000000f;
         validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, distance, null, spaceType, null, null);
 
+        forceMergeKnnIndex(INDEX_NAME, 1);
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, distance, null, spaceType, null, null);
+
         // Delete index
         deleteKNNIndex(INDEX_NAME);
     }
 
     @SneakyThrows
-    public void testHNSW_whenGraphThresholdIsMetDuringMerge_thenCreateGraph() {
-        final String indexName = "test-index-hnsw";
-        final String fieldName = "test-field-hnsw";
-        final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
-        final Random random = new Random();
-        final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
-        final int dimension = 128;
-        final int numDocs = 100;
+    public void testFilteredSearchWithFaissHnsw_whenFiltersMatchAllDocs_thenReturnCorrectResults() {
+        String filterFieldName = "color";
+        final int expectResultSize = randomIntBetween(1, 3);
+        final String filterValue = "red";
+        final Settings knnIndexSettings = buildKNNIndexSettingsRemoteBuild(0);
+        createKnnIndex(INDEX_NAME, knnIndexSettings, createKnnIndexMapping(FIELD_NAME, 3, METHOD_HNSW, FAISS_NAME, spaceType.getValue()));
 
-        // Create an index
-        final XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(fieldName)
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNN_METHOD)
-            .field(NAME, METHOD_HNSW)
-            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(PARAMETERS)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-
-        final Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        final String mapping = builder.toString();
-
-        final Settings knnIndexSettings = buildKNNIndexSettingsRemoteBuild(numDocs);
-        createKnnIndex(indexName, knnIndexSettings, mapping);
-        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
-        indexTestData(indexName, fieldName, dimension, numDocs);
-
-        final float[] queryVector = new float[dimension];
-        Arrays.fill(queryVector, (float) numDocs);
-
-        // Assert we have the right number of documents in the index
-        assertEquals(numDocs, getDocCount(indexName));
-
-        // KNN Query should return empty result
-        final Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, 1, queryVector, null), 1);
-        final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
-        assertEquals(1, results.size());
-
-        // update index setting to build graph and do force merge
-        // update build vector data structure setting
-        forceMergeKnnIndex(indexName, 1);
-
-        queryTestData(indexName, fieldName, dimension, numDocs);
-
-        deleteKNNIndex(indexName);
-        validateGraphEviction();
-    }
-
-    private void validateGraphEviction() throws Exception {
-        // Search every 5 seconds 14 times to confirm graph gets evicted
-        int intervals = 14;
-        for (int i = 0; i < intervals; i++) {
-            if (getTotalGraphsInCache() == 0) {
-                return;
-            }
-
-            Thread.sleep(5 * 1000);
+        // ingest 5 vector docs into the index with the same field {"color": "red"}
+        for (int i = 0; i < 5; i++) {
+            addKnnDocWithAttributes(String.valueOf(i), new float[] { i + 1, i + 1, i + 1 }, ImmutableMap.of(filterFieldName, filterValue));
         }
 
-        fail("Graphs are not getting evicted");
-    }
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
 
-    private void indexTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws Exception {
-        for (int i = 0; i < numDocs; i++) {
-            float[] indexVector = new float[dimension];
-            Arrays.fill(indexVector, (float) i);
-            addKnnDocWithAttributes(indexName, Integer.toString(i), fieldName, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
-        }
+        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 0));
 
-        // Assert that all docs are ingested
-        refreshAllNonSystemIndices();
-        assertEquals(numDocs, getDocCount(indexName));
-    }
-
-    @SneakyThrows
-    private void queryTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) {
-        queryTestData(indexName, fieldName, dimension, numDocs, null);
-    }
-
-    private void queryTestData(
-        final String indexName,
-        final String fieldName,
-        final int dimension,
-        final int numDocs,
-        Map<String, ?> methodParams
-    ) throws IOException, ParseException {
-        float[] queryVector = new float[dimension];
-        Arrays.fill(queryVector, (float) numDocs);
-        int k = 10;
-
-        Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, k, queryVector, methodParams), k);
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
-        assertEquals(k, results.size());
-        for (int i = 0; i < k; i++) {
-            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
-        }
+        Float[] queryVector = { 3f, 3f, 3f };
+        // All docs in one segment will match the filters value
+        String query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(expectResultSize)
+            .filterFieldName(filterFieldName)
+            .filterValue(filterValue)
+            .build()
+            .getQueryString();
+        Response response = searchKNNIndex(INDEX_NAME, query, expectResultSize);
+        String entity = EntityUtils.toString(response.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(expectResultSize, docIds.size());
+        assertEquals(expectResultSize, parseTotalSearchHits(entity));
     }
 
     private List<List<KNNResult>> validateRadiusSearchResults(
@@ -331,7 +282,7 @@ public class RemoteBuildIT extends KNNRestTestCase {
             .put(KNN_INDEX, true)
             .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold)
             .put(KNN_INDEX_REMOTE_VECTOR_BUILD, true)
-            .put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb")
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb")
             .build();
     }
 }
