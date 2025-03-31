@@ -8,7 +8,6 @@ package org.opensearch.knn.index.engine;
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
@@ -27,7 +26,6 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
  * passed to the respective k-NN library's JNI layer.
  */
 public enum KNNEngine implements KNNLibrary {
-    @Deprecated(since = "2.19.0", forRemoval = true)
     NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE),
     FAISS(FAISS_NAME, Faiss.INSTANCE),
     LUCENE(LUCENE_NAME, Lucene.INSTANCE);
@@ -218,12 +216,12 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
-        return knnLibrary.supportsRemoteIndexBuild(methodComponentContext, vectorDataType);
+    public boolean supportsRemoteIndexBuild(KNNLibraryIndexingContext knnLibraryIndexingContext) {
+        return knnLibrary.supportsRemoteIndexBuild(knnLibraryIndexingContext);
     }
 
     @Override
-    public RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
-        return knnLibrary.createRemoteIndexingParameters(knnMethodContext);
+    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> parameters) {
+        return knnLibrary.createRemoteIndexingParameters(parameters);
     }
 }

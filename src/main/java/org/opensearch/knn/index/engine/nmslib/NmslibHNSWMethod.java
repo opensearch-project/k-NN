@@ -28,7 +28,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  * @deprecated As of 2.19.0, please use {@link org.opensearch.knn.index.engine.faiss.Faiss} or Lucene engine.
  * This engine will be removed in a future release.
  */
-@Deprecated(since = "2.19.0", forRemoval = true)
 public class NmslibHNSWMethod extends AbstractKNNMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);

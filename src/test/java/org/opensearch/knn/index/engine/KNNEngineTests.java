@@ -5,15 +5,17 @@
 
 package org.opensearch.knn.index.engine;
 
+import lombok.SneakyThrows;
+import org.opensearch.Version;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
-import org.opensearch.remoteindexbuild.constants.KNNRemoteConstants;
 import org.opensearch.remoteindexbuild.model.RemoteFaissHNSWIndexParameters;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
@@ -23,7 +25,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.COMPOUND_EXTENSION;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.FAISS_EXTENSION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -31,9 +33,13 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.index.SpaceType.COSINESIMIL;
+import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
 import static org.opensearch.knn.index.SpaceType.L2;
-import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.METHOD_PARAMETER_ENCODER;
 
 public class KNNEngineTests extends KNNTestCase {
     /**
@@ -92,23 +98,24 @@ public class KNNEngineTests extends KNNTestCase {
     /**
      * The remote build service currently only supports HNSWFlat.
      */
+    @SneakyThrows
     public void testSupportsRemoteIndexBuild() {
         KNNEngine Faiss = KNNEngine.FAISS;
         KNNEngine Lucene = KNNEngine.LUCENE;
 
-        KNNMethodContext faissHNSWFlat = createMockMethodContext();
-        KNNMethodContext faissIVFFlat = createFaissIVFMethodContext();
-        KNNMethodContext luceneHNSWFlat = createLuceneHNSWMethodContext();
-
-        assertTrue(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext(), VectorDataType.FLOAT));
-        assertFalse(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext(), VectorDataType.BYTE));
-        assertFalse(Faiss.supportsRemoteIndexBuild(faissHNSWFlat.getMethodComponentContext(), VectorDataType.BINARY));
-        assertFalse(Faiss.supportsRemoteIndexBuild(faissIVFFlat.getMethodComponentContext(), VectorDataType.FLOAT));
-        assertFalse(Lucene.supportsRemoteIndexBuild(luceneHNSWFlat.getMethodComponentContext(), VectorDataType.FLOAT));
+        assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParams()));
+        assertFalse(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsByte()));
+        assertFalse(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsBinary()));
+        assertFalse(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsIVF()));
+        assertFalse(Lucene.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParams()));
     }
 
+    @SneakyThrows
     public void testCreateRemoteIndexingParameters_Success() {
-        RemoteIndexParameters result = FaissHNSWMethod.createRemoteIndexingParameters(createMockMethodContext());
+        FaissHNSWMethod method = new FaissHNSWMethod();
+        RemoteIndexParameters result = method.createRemoteIndexingParameters(
+            createMockKnnLibraryIndexingContextParams().getLibraryParameters()
+        );
 
         assertNotNull(result);
         assertTrue(result instanceof RemoteFaissHNSWIndexParameters);
@@ -122,43 +129,140 @@ public class KNNEngineTests extends KNNTestCase {
         assertEquals(14, hnswParams.getM());
     }
 
-    public static KNNMethodContext createFaissIVFMethodContext() {
-        MethodComponentContext encoder = new MethodComponentContext(ENCODER_SQ, Map.of());
-        Map<String, Object> encoderMap = Map.of(METHOD_ENCODER_PARAMETER, encoder);
-        Map<String, Object> parameters = Map.of(
-            METHOD_PARAMETER_EF_SEARCH,
-            24,
-            METHOD_PARAMETER_EF_CONSTRUCTION,
-            28,
-            METHOD_PARAMETER_M,
-            12,
-            METHOD_ENCODER_PARAMETER,
-            encoderMap
-        );
-        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_IVF, parameters);
-        return new KNNMethodContext(KNNEngine.FAISS, L2, methodComponentContext);
+    @SneakyThrows
+    public void testCreateRemoteIndexingParameters_CosineSpaceType() {
+        FaissHNSWMethod method = new FaissHNSWMethod();
+        KNNLibraryIndexingContext knnLibraryIndexingContext = createMockKnnLibraryIndexingContextParamsCosine();
+
+        RemoteIndexParameters result = method.createRemoteIndexingParameters(knnLibraryIndexingContext.getLibraryParameters());
+
+        assertNotNull(result);
+        assertTrue(result instanceof RemoteFaissHNSWIndexParameters);
+
+        RemoteFaissHNSWIndexParameters hnswParams = (RemoteFaissHNSWIndexParameters) result;
+
+        // Test that cosine space type is converted to inner product space type for Faiss
+        assertEquals(SpaceType.INNER_PRODUCT.getValue(), hnswParams.getSpaceType());
     }
 
-    public static KNNMethodContext createLuceneHNSWMethodContext() {
-        Map<String, Object> parameters = Map.of(METHOD_PARAMETER_EF_CONSTRUCTION, 28, METHOD_PARAMETER_M, 12);
-        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
-        return new KNNMethodContext(KNNEngine.LUCENE, L2, methodComponentContext);
+    @SneakyThrows
+    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParams() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_SEARCH, 89)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 94)
+            .field(METHOD_PARAMETER_M, 14)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_FLAT)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
-    public static KNNMethodContext createMockMethodContext() {
-        MethodComponentContext encoder = new MethodComponentContext(KNNConstants.ENCODER_FLAT, Map.of());
-        Map<String, Object> parameters = Map.of(
-            KNNRemoteConstants.METHOD_PARAMETER_EF_SEARCH,
-            89,
-            KNNRemoteConstants.METHOD_PARAMETER_EF_CONSTRUCTION,
-            94,
-            KNNRemoteConstants.METHOD_PARAMETER_M,
-            14,
-            METHOD_PARAMETER_ENCODER,
-            encoder
-        );
-        MethodComponentContext methodComponentContext = new MethodComponentContext(KNNConstants.METHOD_HNSW, parameters);
-        return new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
+    @SneakyThrows
+    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParamsByte() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.BYTE)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(METHOD_PARAMETER_SPACE_TYPE, INNER_PRODUCT.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_SEARCH, 24)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 28)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_FLAT)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
+    @SneakyThrows
+    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParamsIVF() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(METHOD_PARAMETER_SPACE_TYPE, INNER_PRODUCT.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_SEARCH, 24)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 28)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_FLAT)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+    }
+
+    @SneakyThrows
+    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParamsBinary() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.BINARY)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, INNER_PRODUCT.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_SEARCH, 24)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 28)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_FLAT)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+    }
+
+    @SneakyThrows
+    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParamsCosine() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.BINARY)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, COSINESIMIL.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_SEARCH, 24)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 28)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_FLAT)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+    }
 }
