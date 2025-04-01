@@ -15,6 +15,7 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
@@ -29,7 +30,7 @@ import static org.opensearch.knn.KNNRestTestCase.PROPERTIES_FIELD;
 import static org.opensearch.knn.TestUtils.BWC_VERSION;
 
 public class DerivedSourceUtils {
-    protected static final int TEST_DIMENSION = 16;
+    public static final int TEST_DIMENSION = 16;
     protected static final int DOCS = 500;
 
     protected static final Settings DERIVED_ENABLED_SETTINGS = Settings.builder()
@@ -46,6 +47,23 @@ public class DerivedSourceUtils {
         .put("index.knn", true)
         .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
         .build();
+
+    public static final Settings DERIVED_ENABLED_WITH_SEGREP_SETTINGS = Settings.builder()
+        .put(
+            "number_of_shards",
+            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+        )
+        .put(
+            "number_of_replicas",
+            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
+                ? 1
+                : 0
+        )
+        .put("index.replication.type", ReplicationType.SEGMENT.toString())
+        .put("index.knn", true)
+        .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+        .build();
+
     protected static final Settings DERIVED_DISABLED_SETTINGS = Settings.builder()
         .put(
             "number_of_shards",
@@ -73,6 +91,8 @@ public class DerivedSourceUtils {
         public boolean derivedEnabled = false;
         @Builder.Default
         public int docCount = DOCS;
+        @Builder.Default
+        public Settings settings = null;
 
         public void init() {
             if (random == null) {
@@ -84,6 +104,9 @@ public class DerivedSourceUtils {
         }
 
         public Settings getSettings() {
+            if (settings != null) {
+                return settings;
+            }
             return derivedEnabled ? DERIVED_ENABLED_SETTINGS : DERIVED_DISABLED_SETTINGS;
         }
 
@@ -403,7 +426,7 @@ public class DerivedSourceUtils {
         }
     }
 
-    private static Supplier<Object> randomVectorSupplier(Random random, int dimension, VectorDataType vectorDataType) {
+    public static Supplier<Object> randomVectorSupplier(Random random, int dimension, VectorDataType vectorDataType) {
         return () -> {
             switch (vectorDataType) {
                 case FLOAT:
