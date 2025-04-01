@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.mapper;
 
 import org.opensearch.Version;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 
@@ -70,5 +71,9 @@ public interface KNNMappingConfig {
      */
     default Version getIndexCreatedVersion() {
         return Version.CURRENT;
+    }
+
+    default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
+        return null;
     }
 }

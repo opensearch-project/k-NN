@@ -110,7 +110,7 @@ public class KNNCodecUtil {
         if (knnEngine == null) {
             return null;
         }
-        final List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), field.name, segmentInfo);
+        final List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), field.getName(), segmentInfo);
         if (engineFiles.isEmpty()) {
             return null;
         } else {

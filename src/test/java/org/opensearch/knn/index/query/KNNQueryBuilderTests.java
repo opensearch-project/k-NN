@@ -8,9 +8,12 @@ package org.opensearch.knn.index.query;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.lucene.search.FloatVectorSimilarityQuery;
+import org.apache.lucene.search.KnnByteVectorQuery;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.junit.Before;
+import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.service.ClusterService;
@@ -58,8 +61,10 @@ import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyMap;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
@@ -610,6 +615,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        when(mockQueryShardContext.index()).thenReturn(new Index("dummy", "dummy"));
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.COSINESIMIL,
@@ -644,6 +650,78 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+    }
+
+    public void testDoToQuery_whenMemoryOptimizedSearchIsEnabled() {
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.FLOAT);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.BYTE);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.FLOAT);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.BYTE);
+
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.FLOAT);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.BYTE);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.FLOAT);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.BYTE);
+    }
+
+    private void do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(
+        boolean memoryOptimizedSearchEnabled,
+        boolean memoryOptimizedSearchSupportedInField,
+        VectorDataType vectorDataType
+    ) {
+
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            // Index setting mocking
+            knnSettingsMockedStatic.when(() -> KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(any()))
+                .thenReturn(memoryOptimizedSearchEnabled);
+
+            // Query vector
+            float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+            KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
+
+            // Query shard context
+            Index dummyIndex = new Index("dummy", "dummy");
+            QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+            when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+
+            // Field type
+            KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+            when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+            when(mockKNNVectorField.isMemoryOptimizedSearchSupported()).thenReturn(memoryOptimizedSearchSupportedInField);
+            when(mockKNNVectorField.getVectorDataType()).thenReturn(vectorDataType);
+
+            // Method context
+            MethodComponentContext methodComponentContext = new MethodComponentContext(
+                org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
+                ImmutableMap.of()
+            );
+            final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
+
+            // KNN mapping config
+            when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
+
+            // Execute `doToQuery`
+            final Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
+            final boolean isEnabled = memoryOptimizedSearchEnabled && memoryOptimizedSearchSupportedInField;
+            if (isEnabled) {
+                // If memory optimized search is on then, use Lucene query
+                assertFalse(query instanceof NativeEngineKnnVectorQuery);
+                assertTrue(query instanceof LuceneEngineKnnVectorQuery);
+                final LuceneEngineKnnVectorQuery luceneQuery = (LuceneEngineKnnVectorQuery) query;
+
+                if (vectorDataType == VectorDataType.FLOAT) {
+                    assert (luceneQuery.getLuceneQuery() instanceof KnnFloatVectorQuery);
+                    assertEquals(queryVector.length, ((KnnFloatVectorQuery) luceneQuery.getLuceneQuery()).getTargetCopy().length);
+                } else if (vectorDataType == VectorDataType.BYTE) {
+                    assert (luceneQuery.getLuceneQuery() instanceof KnnByteVectorQuery);
+                    assertEquals(queryVector.length, ((KnnByteVectorQuery) luceneQuery.getLuceneQuery()).getTargetCopy().length);
+                }
+            } else {
+                // If memory optimized search is turned off then, use Native query
+                assertTrue(query instanceof NativeEngineKnnVectorQuery);
+                assertFalse(query instanceof LuceneEngineKnnVectorQuery);
+            }
+        }
     }
 
     @SneakyThrows

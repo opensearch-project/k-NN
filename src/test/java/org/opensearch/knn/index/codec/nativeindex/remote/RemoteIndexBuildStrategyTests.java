@@ -16,21 +16,34 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngineTests;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.METHOD_PARAMETER_ENCODER;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.S3;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
 
@@ -128,7 +141,7 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            KNNEngineTests.createMockMethodContext()
+            getMockParameterMap()
         );
         assertEquals(S3, request.getRepositoryType());
         assertEquals(TEST_BUCKET, request.getContainerName());
@@ -139,5 +152,32 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         assertEquals(TEST_CLUSTER, request.getTenantId());
         assertEquals(3, request.getDocCount());
         assertEquals(2, request.getDimension());
+    }
+
+    public Map<String, Object> getMockParameterMap() {
+        Map<String, Object> encoderSq = Map.of(ENCODER_SQ, Map.of());
+        Map<String, Object> encoderMap = Map.of(METHOD_ENCODER_PARAMETER, encoderSq);
+        Map<String, Object> innerParams = Map.of(
+            METHOD_PARAMETER_EF_SEARCH,
+            24,
+            METHOD_PARAMETER_EF_CONSTRUCTION,
+            28,
+            METHOD_PARAMETER_M,
+            12,
+            METHOD_PARAMETER_ENCODER,
+            encoderMap
+        );
+        return Map.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            "HNSW12,Flat",
+            SPACE_TYPE,
+            INNER_PRODUCT.getValue(),
+            NAME,
+            METHOD_HNSW,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.BYTE.getValue(),
+            PARAMETERS,
+            innerParams
+        );
     }
 }
