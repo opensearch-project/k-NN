@@ -73,8 +73,7 @@ public class SegmentProfilerState {
         int vectorCount = 0;
         for (int doc = vectorValues.docId(); doc != NO_MORE_DOCS; doc = vectorValues.nextDoc()) {
             vectorCount++;
-            Object vector = vectorValues.getVector();
-            processVectors(vector, statistics);
+            processVectors(vectorValues.getVector(), statistics);
         }
 
         log.info("Vector profiling completed - processed {} vectors", vectorCount);
@@ -88,13 +87,13 @@ public class SegmentProfilerState {
      * @param vector
      * @param statistics
      */
-    private static void processVectors(Object vector, List<SummaryStatistics> statistics) {
+    private static <T> void processVectors(T vector, List<SummaryStatistics> statistics) {
         if (vector instanceof float[]) {
             processFloatVector((float[]) vector, statistics);
         } else if (vector instanceof byte[]) {
             processByteVector((byte[]) vector, statistics);
         } else {
-            throw new IllegalArgumentException("Unsupported vector type.");
+            log.warn("Unsupported vector type: {}.", vector.getClass());
         }
     }
 
@@ -125,7 +124,7 @@ public class SegmentProfilerState {
      * @param statistics
      * @param dimension
      */
-    private static void logDimensionStatistics(List<SummaryStatistics> statistics, int dimension) {
+    private static void logDimensionStatistics(final List<SummaryStatistics> statistics, final int dimension) {
         for (int i = 0; i < dimension; i++) {
             SummaryStatistics stats = statistics.get(i);
             log.info(

@@ -117,16 +117,6 @@ public class SegmentProfilerStateTests extends OpenSearchTestCase {
         assertEquals(3.0, state.getStatistics().get(1).getMean(), 0.001);
     }
 
-    public void testProfileVectorsWithUnsupportedType() throws IOException {
-        Integer[] vector = new Integer[] { 1, 2 };
-
-        when(mockVectorValues.docId()).thenReturn(0);
-        when(mockVectorValues.dimension()).thenReturn(2);
-        when(mockVectorValues.getVector()).thenReturn(vector);
-
-        expectThrows(IllegalArgumentException.class, () -> SegmentProfilerState.profileVectors(mockSupplier));
-    }
-
     public void testProfileVectorsStatisticalValues() throws IOException {
         float[] vector1 = new float[] { 1.0f, 2.0f };
         float[] vector2 = new float[] { 3.0f, 4.0f };
