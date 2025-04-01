@@ -8,7 +8,16 @@ package org.opensearch.knn.integ;
 import lombok.SneakyThrows;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
+import org.opensearch.knn.Pair;
+import org.opensearch.knn.index.VectorDataType;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+
+import static org.opensearch.knn.DerivedSourceUtils.DERIVED_ENABLED_WITH_SEGREP_SETTINGS;
+import static org.opensearch.knn.DerivedSourceUtils.TEST_DIMENSION;
+import static org.opensearch.knn.DerivedSourceUtils.randomVectorSupplier;
 
 /**
  * Integration tests for derived source feature for vector fields. Currently, with derived source, there are
@@ -32,6 +41,78 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
     public void testNestedField() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getNestedIndexContexts("derivedit", true);
         testDerivedSourceE2E(indexConfigContexts);
+    }
+
+    @SneakyThrows
+    public void testDerivedSource_whenSegrepLocal_thenDisabled() {
+        // Set the data type input for float fields as byte. If derived source gets enabled, the original and derived
+        // wont match because original will have source like [0, 1, 2] and derived will have [0.0, 1.0, 2.0]
+        final List<Pair<String, Boolean>> indexPrefixToEnabled = List.of(
+            new Pair<>("original-enable-", true),
+            new Pair<>("original-disable-", false)
+        );
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        for (Pair<String, Boolean> index : indexPrefixToEnabled) {
+            DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
+                .indexName(getIndexName("deriveit", index.getFirst(), false))
+                .derivedEnabled(index.getSecond())
+                .random(new Random(1))
+                .settings(index.getSecond() ? DERIVED_ENABLED_WITH_SEGREP_SETTINGS : null)
+                .fields(
+                    List.of(
+                        DerivedSourceUtils.NestedFieldContext.builder()
+                            .fieldPath("nested_1")
+                            .children(
+                                List.of(
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                        .fieldPath("nested_1.test_vector")
+                                        .dimension(TEST_DIMENSION)
+                                        .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                                        .build()
+                                )
+                            )
+                            .build(),
+                        DerivedSourceUtils.NestedFieldContext.builder()
+                            .fieldPath("nested_2")
+                            .children(
+                                List.of(
+                                    DerivedSourceUtils.TextFieldType.builder().fieldPath("nested_2.test-text").build(),
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                        .fieldPath("nested_2.test_vector")
+                                        .dimension(TEST_DIMENSION)
+                                        .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                                        .build(),
+                                    DerivedSourceUtils.NestedFieldContext.builder()
+                                        .fieldPath("nested_2.nested_3")
+                                        .children(
+                                            List.of(
+                                                DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                                    .fieldPath("nested_2.nested_3.test_vector")
+                                                    .dimension(TEST_DIMENSION)
+                                                    .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                                                    .build(),
+                                                DerivedSourceUtils.IntFieldType.builder().fieldPath("nested_2.nested_3.test-int").build()
+                                            )
+                                        )
+                                        .build()
+                                )
+                            )
+                            .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .dimension(TEST_DIMENSION)
+                            .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                            .fieldPath("test_vector")
+                            .build(),
+                        DerivedSourceUtils.TextFieldType.builder().fieldPath("test-text").build(),
+                        DerivedSourceUtils.IntFieldType.builder().fieldPath("test-int").build()
+                    )
+                )
+                .build();
+            indexConfigContext.init();
+            indexConfigContexts.add(indexConfigContext);
+        }
+
+        prepareOriginalIndices(indexConfigContexts);
     }
 
     /**
