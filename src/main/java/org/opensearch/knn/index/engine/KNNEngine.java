@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableSet;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
@@ -29,6 +28,7 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
  * passed to the respective k-NN library's JNI layer.
  */
 public enum KNNEngine implements KNNLibrary {
+    @Deprecated(since = "2.19.0", forRemoval = true)
     NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0),
     FAISS(FAISS_NAME, Faiss.INSTANCE),
     LUCENE(LUCENE_NAME, Lucene.INSTANCE);
@@ -39,6 +39,7 @@ public enum KNNEngine implements KNNLibrary {
     private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
     private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
     public static final Set<KNNEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    public static final Set<KNNEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
 
     private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
@@ -248,13 +249,13 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
-        return knnLibrary.supportsRemoteIndexBuild(methodComponentContext, vectorDataType);
+    public boolean supportsRemoteIndexBuild(KNNLibraryIndexingContext knnLibraryIndexingContext) {
+        return knnLibrary.supportsRemoteIndexBuild(knnLibraryIndexingContext);
     }
 
     @Override
-    public RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
-        return knnLibrary.createRemoteIndexingParameters(knnMethodContext);
+    public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> parameters) {
+        return knnLibrary.createRemoteIndexingParameters(parameters);
     }
 
     @Override
