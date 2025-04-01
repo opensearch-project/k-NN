@@ -44,7 +44,6 @@ public class SegmentProfilerState {
      * @throws IOException
      */
     public static SegmentProfilerState profileVectors(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier) throws IOException {
-        // Get vector values from the supplier
         KNNVectorValues<?> vectorValues = knnVectorValuesSupplier.get();
 
         if (vectorValues == null) {
@@ -62,36 +61,26 @@ public class SegmentProfilerState {
             return new SegmentProfilerState(statistics);
         }
 
-        try {
-            // Process the first vector to determine dimensions
-            float[] firstVector = (float[]) vectorValues.getVector();
-            int dimension = vectorValues.dimension();
-            log.info("Starting vector profiling with dimension: {}", dimension);
+        int dimension = vectorValues.dimension();
+        log.info("Starting vector profiling with dimension: {}", dimension);
 
-            // Initialize statistics collectors for each dimension
-            for (int i = 0; i < dimension; i++) {
-                statistics.add(new SummaryStatistics());
-            }
-
-            processVectors(firstVector, statistics);
-
-            // Process remaining vectors
-            int vectorCount = 1;
-            while (vectorValues.nextDoc() != NO_MORE_DOCS) {
-                vectorCount++;
-                float[] vector = (float[]) vectorValues.getVector();
-                processVectors(vector, statistics);
-            }
-
-            log.info("Vector profiling completed - processed {} vectors with {} dimensions", vectorCount, dimension);
-            logDimensionStatistics(statistics, dimension);
-
-            return new SegmentProfilerState(statistics);
-        } catch (ClassCastException e) {
-            // Handle cases where vector type casting fails
-            log.error("Error during vector profiling: {}", e.getMessage(), e);
-            return new SegmentProfilerState(statistics);
+        // Initialize statistics collectors for each dimension
+        for (int i = 0; i < dimension; i++) {
+            statistics.add(new SummaryStatistics());
         }
+
+        // Process all vectors
+        int vectorCount = 0;
+        for (int doc = vectorValues.docId(); doc != NO_MORE_DOCS; doc = vectorValues.nextDoc()) {
+            vectorCount++;
+            Object vector = vectorValues.getVector();
+            processVectors(vector, statistics);
+        }
+
+        log.info("Vector profiling completed - processed {} vectors", vectorCount);
+        logDimensionStatistics(statistics, dimension);
+
+        return new SegmentProfilerState(statistics);
     }
 
     /**
@@ -99,9 +88,35 @@ public class SegmentProfilerState {
      * @param vector
      * @param statistics
      */
-    private static void processVectors(float[] vector, List<SummaryStatistics> statistics) {
+    private static void processVectors(Object vector, List<SummaryStatistics> statistics) {
+        if (vector instanceof float[]) {
+            processFloatVector((float[]) vector, statistics);
+        } else if (vector instanceof byte[]) {
+            processByteVector((byte[]) vector, statistics);
+        } else {
+            throw new IllegalArgumentException("Unsupported vector type.");
+        }
+    }
+
+    /**
+     * Processes a float vector by updating the statistical summaries for each dimension
+     * @param vector
+     * @param statistics
+     */
+    private static void processFloatVector(float[] vector, List<SummaryStatistics> statistics) {
         for (int j = 0; j < vector.length; j++) {
             statistics.get(j).addValue(vector[j]);
+        }
+    }
+
+    /**
+     * Processes a byte vector by updating the statistical summaries for each dimension
+     * @param vector
+     * @param statistics
+     */
+    private static void processByteVector(byte[] vector, List<SummaryStatistics> statistics) {
+        for (int j = 0; j < vector.length; j++) {
+            statistics.get(j).addValue(vector[j] & 0xFF);
         }
     }
 
