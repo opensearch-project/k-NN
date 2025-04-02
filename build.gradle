@@ -343,6 +343,7 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-DAVX512_SPR_ENABLED=${avx512_spr_enabled}")
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
+    args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
