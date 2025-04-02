@@ -21,8 +21,6 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.IndexOptions;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
@@ -39,6 +37,8 @@ import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.DerivedKnnByteVectorField;
+import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -49,6 +49,7 @@ import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.indices.ModelDao;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
@@ -618,6 +619,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected VectorDataType vectorDataType;
     protected ModelDao modelDao;
     protected boolean useLuceneBasedVectorField;
+    protected Boolean isDerivedSourceEnabled;
 
     // We need to ensure that the original KNNMethodContext as parsed is stored to initialize the
     // Builder for serialization. So, we need to store it here. This is mainly to ensure that the legacy field mapper
@@ -643,6 +645,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         updateEngineStats();
         this.indexCreatedVersion = indexCreatedVersion;
         this.originalMappingParameters = originalMappingParameters;
+        this.isDerivedSourceEnabled = null;
     }
 
     public KNNVectorFieldMapper clone() {
@@ -659,16 +662,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         parseCreateField(context, fieldType().getKnnMappingConfig().getDimension(), fieldType().getVectorDataType());
     }
 
-    private Field createVectorField(float[] vectorValue) {
+    private Field createVectorField(float[] vectorValue, boolean isDerivedEnabled) {
         if (useLuceneBasedVectorField) {
-            return new KnnFloatVectorField(name(), vectorValue, fieldType);
+            return new DerivedKnnFloatVectorField(name(), vectorValue, fieldType, isDerivedEnabled);
         }
         return new VectorField(name(), vectorValue, fieldType);
     }
 
-    private Field createVectorField(byte[] vectorValue) {
+    private Field createVectorField(byte[] vectorValue, boolean isDerivedEnabled) {
         if (useLuceneBasedVectorField) {
-            return new KnnByteVectorField(name(), vectorValue, fieldType);
+            return new DerivedKnnByteVectorField(name(), vectorValue, fieldType, isDerivedEnabled);
         }
         return new VectorField(name(), vectorValue, fieldType);
     }
@@ -679,9 +682,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * @param array array of floats
      * @return {@link List} of {@link Field}
      */
-    protected List<Field> getFieldsForFloatVector(final float[] array) {
+    protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedEnabled) {
         final List<Field> fields = new ArrayList<>();
-        fields.add(createVectorField(array));
+        fields.add(createVectorField(array, isDerivedEnabled));
         if (this.stored) {
             fields.add(createStoredFieldForFloatVector(name(), array));
         }
@@ -694,9 +697,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * @param array array of bytes
      * @return {@link List} of {@link Field}
      */
-    protected List<Field> getFieldsForByteVector(final byte[] array) {
+    protected List<Field> getFieldsForByteVector(final byte[] array, boolean isDerivedEnabled) {
         final List<Field> fields = new ArrayList<>();
-        fields.add(createVectorField(array));
+        fields.add(createVectorField(array, isDerivedEnabled));
         if (this.stored) {
             fields.add(createStoredFieldForByteVector(name(), array));
         }
@@ -759,7 +762,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final byte[] array = bytesArrayOptional.get();
             getVectorValidator().validateVector(array);
             getVectorTransformer().transform(array);
-            context.doc().addAll(getFieldsForByteVector(array));
+            context.doc().addAll(getFieldsForByteVector(array, isDerivedEnabled(context)));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
@@ -769,7 +772,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
             getVectorTransformer().transform(array);
-            context.doc().addAll(getFieldsForFloatVector(array));
+            context.doc().addAll(getFieldsForFloatVector(array, isDerivedEnabled(context)));
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
@@ -777,6 +780,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         context.path().remove();
+    }
+
+    private boolean isDerivedEnabled(ParseContext parseContext) {
+        if (isDerivedSourceEnabled == null) {
+            isDerivedSourceEnabled = IndexUtil.isDerivedEnabledForIndex(parseContext.mapperService())
+                && IndexUtil.isDerivedEnabledForField(fieldType(), parseContext.mapperService());
+        }
+        return isDerivedSourceEnabled;
     }
 
     // Returns an optional array of byte values where each value in the vector is parsed as a float and validated

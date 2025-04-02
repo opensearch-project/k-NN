@@ -394,7 +394,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
 
     @SneakyThrows
     protected void prepareOriginalIndices(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
-        assertEquals(6, indexConfigContexts.size());
+        assertTrue(1 < indexConfigContexts.size());
         DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
         DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
         createKnnIndex(

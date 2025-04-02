@@ -17,11 +17,11 @@ import org.apache.lucene.store.IOContext;
 import org.opensearch.common.Nullable;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.derivedsource.DerivedFieldInfo;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.util.IndexUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,14 +66,17 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
     @Override
     public StoredFieldsWriter fieldsWriter(Directory directory, SegmentInfo segmentInfo, IOContext ioContext) throws IOException {
         StoredFieldsWriter delegateWriter = delegate.fieldsWriter(directory, segmentInfo, ioContext);
-        if (mapperService == null || KNNSettings.isKNNDerivedSourceEnabled(mapperService.getIndexSettings().getSettings()) == false) {
+        if (IndexUtil.isDerivedEnabledForIndex(mapperService) == false) {
             return delegateWriter;
         }
-
         List<String> vectorFieldTypes = new ArrayList<>();
         List<String> nestedVectorFieldTypes = new ArrayList<>();
         for (MappedFieldType fieldType : mapperService.fieldTypes()) {
-            if (fieldType instanceof KNNVectorFieldType) {
+            if (fieldType instanceof KNNVectorFieldType knnVectorFieldType) {
+                if (IndexUtil.isDerivedEnabledForField(knnVectorFieldType, mapperService) == false) {
+                    continue;
+                }
+
                 boolean isNested = mapperService.documentMapper().mappers().getNestedScope(fieldType.name()) != null;
                 if (isNested) {
                     nestedVectorFieldTypes.add(fieldType.name());
