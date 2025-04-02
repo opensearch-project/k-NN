@@ -34,6 +34,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import org.apache.lucene.util.VectorUtil;
 
 import java.io.IOException;
 import java.net.URL;
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Collection;
+import java.util.function.BiFunction;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
@@ -121,9 +123,9 @@ public class RemoteBuildIT extends KNNRestTestCase {
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
-            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
-            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .field(METHOD_PARAMETER_M, randomFrom(mValues))
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, randomFrom(efConstructionValues))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, randomFrom(efSearchValues))
             .endObject()
             .endObject()
             .endObject()
@@ -195,6 +197,113 @@ public class RemoteBuildIT extends KNNRestTestCase {
         List<String> docIds = parseIds(entity);
         assertEquals(expectResultSize, docIds.size());
         assertEquals(expectResultSize, parseTotalSearchHits(entity));
+    }
+
+    @SneakyThrows
+    public void testHNSW_whenIndexedAndQueried_thenSucceed() {
+        String indexName = "test-index-hnsw";
+        String fieldName = "test-field-hnsw";
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
+
+        int dimension = 128;
+        int numDocs = 100;
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, randomFrom(mValues))
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, randomFrom(efConstructionValues))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, randomFrom(efSearchValues))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        final Settings knnIndexSettings = buildKNNIndexSettingsRemoteBuild(0);
+
+        createKnnIndex(indexName, knnIndexSettings, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        indexTestData(indexName, fieldName, dimension, numDocs);
+
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName);
+
+        queryTestData(indexName, fieldName, dimension, numDocs);
+        deleteKNNIndex(indexName);
+        validateGraphEviction();
+    }
+
+    private void indexTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws Exception {
+        for (int i = 0; i < numDocs; i++) {
+            float[] indexVector = new float[dimension];
+            Arrays.fill(indexVector, (float) i + 1);
+            addKnnDoc(indexName, Integer.toString(i), fieldName, indexVector);
+        }
+
+        // Assert that all docs are ingested
+        refreshAllNonSystemIndices();
+        assertEquals(numDocs, getDocCount(indexName));
+    }
+
+    @SneakyThrows
+    private void queryTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws IOException,
+        ParseException {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+
+        Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, k, queryVector, null), k);
+        final String responseBody = EntityUtils.toString(searchResponse.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, fieldName);
+        assertEquals(k, results.size());
+
+        if (spaceType == SpaceType.COSINESIMIL) {
+            final List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
+            final BiFunction<float[], float[], Float> scoringFunction = VectorUtil::cosine;
+
+            for (int j = 0; j < k; j++) {
+                final float[] primitiveArray = results.get(j).getVector();
+                assertEquals(
+                    KNNEngine.FAISS.score(scoringFunction.apply(queryVector, primitiveArray), SpaceType.COSINESIMIL),
+                    actualScores.get(j),
+                    0.0001
+                );
+            }
+        } else {
+            for (int i = 0; i < k; i++) {
+                assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+            }
+        }
+    }
+
+    private void validateGraphEviction() throws Exception {
+        // Search every 5 seconds 14 times to confirm graph gets evicted
+        int intervals = 14;
+        for (int i = 0; i < intervals; i++) {
+            if (getTotalGraphsInCache() == 0) {
+                return;
+            }
+
+            Thread.sleep(5 * 1000);
+        }
+
+        fail("Graphs are not getting evicted");
     }
 
     private List<List<KNNResult>> validateRadiusSearchResults(
