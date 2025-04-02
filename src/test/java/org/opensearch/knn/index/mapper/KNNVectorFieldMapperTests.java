@@ -1203,12 +1203,15 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     .build();
                 final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, spaceType, methodComponentContext);
 
+                IndexSettings indexSettingsMock = mock(IndexSettings.class);
+                when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
                 ParseContext.Document document = new ParseContext.Document();
                 ContentPath contentPath = new ContentPath();
                 ParseContext parseContext = mock(ParseContext.class);
                 when(parseContext.doc()).thenReturn(document);
                 when(parseContext.path()).thenReturn(contentPath);
                 when(parseContext.parser()).thenReturn(createXContentParser(dataType));
+                when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
 
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(true);
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(true);
@@ -1263,6 +1266,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 when(parseContext.doc()).thenReturn(document);
                 when(parseContext.path()).thenReturn(contentPath);
                 when(parseContext.parser()).thenReturn(createXContentParser(dataType));
+                when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
                 methodFieldMapper = MethodFieldMapper.createFieldMapper(
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
@@ -1315,10 +1319,14 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
                 ParseContext.Document document = new ParseContext.Document();
                 ContentPath contentPath = new ContentPath();
+                IndexSettings indexSettingsMock = mock(IndexSettings.class);
+                when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
+
                 ParseContext parseContext = mock(ParseContext.class);
                 when(parseContext.doc()).thenReturn(document);
                 when(parseContext.path()).thenReturn(contentPath);
                 when(parseContext.parser()).thenReturn(createXContentParser(dataType));
+                when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
 
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(true);
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(true);
@@ -1376,6 +1384,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 when(parseContext.doc()).thenReturn(document);
                 when(parseContext.path()).thenReturn(contentPath);
                 when(parseContext.parser()).thenReturn(createXContentParser(dataType));
+                when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
                 modelFieldMapper = ModelFieldMapper.createFieldMapper(
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
@@ -1406,13 +1415,15 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Create a lucene field mapper that creates a binary doc values field as well as KnnVectorField
         LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder inputBuilder =
             createLuceneFieldMapperInputBuilder();
-
+        IndexSettings indexSettingsMock = mock(IndexSettings.class);
+        when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
         ParseContext.Document document = new ParseContext.Document();
         ContentPath contentPath = new ContentPath();
         ParseContext parseContext = mock(ParseContext.class);
         when(parseContext.doc()).thenReturn(document);
         when(parseContext.path()).thenReturn(contentPath);
         when(parseContext.parser()).thenReturn(createXContentParser(VectorDataType.FLOAT));
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
             .versionCreated(CURRENT)
@@ -1469,6 +1480,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         when(parseContext.doc()).thenReturn(document);
         when(parseContext.path()).thenReturn(contentPath);
         when(parseContext.parser()).thenReturn(createXContentParser(VectorDataType.FLOAT));
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
 
         inputBuilder.hasDocValues(false);
 
@@ -1513,12 +1525,14 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder inputBuilder =
             createLuceneFieldMapperInputBuilder();
-
+        IndexSettings indexSettingsMock = mock(IndexSettings.class);
+        when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
         ParseContext.Document document = new ParseContext.Document();
         ContentPath contentPath = new ContentPath();
         ParseContext parseContext = mock(ParseContext.class);
         when(parseContext.doc()).thenReturn(document);
         when(parseContext.path()).thenReturn(contentPath);
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
 
         OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(
             VectorDataType.BYTE,
@@ -1578,6 +1592,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         parseContext = mock(ParseContext.class);
         when(parseContext.doc()).thenReturn(document);
         when(parseContext.path()).thenReturn(contentPath);
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
 
         inputBuilder.hasDocValues(false);
 

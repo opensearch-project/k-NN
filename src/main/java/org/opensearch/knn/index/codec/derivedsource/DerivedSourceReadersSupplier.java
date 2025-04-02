@@ -7,9 +7,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
-import org.apache.lucene.codecs.NormsProducer;
 import org.apache.lucene.index.SegmentReadState;
 
 import java.io.IOException;
@@ -23,8 +21,6 @@ import java.io.IOException;
 public class DerivedSourceReadersSupplier {
     private final DerivedSourceReaderSupplier<KnnVectorsReader> knnVectorsReaderSupplier;
     private final DerivedSourceReaderSupplier<DocValuesProducer> docValuesProducerSupplier;
-    private final DerivedSourceReaderSupplier<FieldsProducer> fieldsProducerSupplier;
-    private final DerivedSourceReaderSupplier<NormsProducer> normsProducer;
 
     /**
      * Get the readers for the segment
@@ -34,11 +30,6 @@ public class DerivedSourceReadersSupplier {
      * @throws IOException in case of I/O error
      */
     public DerivedSourceReaders getReaders(SegmentReadState state) throws IOException {
-        return new DerivedSourceReaders(
-            knnVectorsReaderSupplier.apply(state),
-            docValuesProducerSupplier.apply(state),
-            fieldsProducerSupplier.apply(state),
-            normsProducer.apply(state)
-        );
+        return new DerivedSourceReaders(knnVectorsReaderSupplier.apply(state), docValuesProducerSupplier.apply(state));
     }
 }

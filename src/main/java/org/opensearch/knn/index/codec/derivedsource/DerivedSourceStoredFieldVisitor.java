@@ -21,12 +21,12 @@ public class DerivedSourceStoredFieldVisitor extends StoredFieldVisitor {
 
     private final StoredFieldVisitor delegate;
     private final Integer documentId;
-    private final DerivedSourceVectorInjector derivedSourceVectorInjector;
+    private final DerivedSourceVectorTransformer derivedSourceVectorTransformer;
 
     @Override
     public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
         if (fieldInfo.name.equals(SourceFieldMapper.NAME)) {
-            delegate.binaryField(fieldInfo, derivedSourceVectorInjector.injectVectors(documentId, value));
+            delegate.binaryField(fieldInfo, derivedSourceVectorTransformer.injectVectors(documentId, value));
             return;
         }
         delegate.binaryField(fieldInfo, value);

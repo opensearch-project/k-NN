@@ -5,73 +5,413 @@
 
 package org.opensearch.knn;
 
-import lombok.Builder;
-import lombok.Data;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.common.CheckedConsumer;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.function.Function;
-
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.TYPE;
-import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import java.util.Random;
 
 public class DerivedSourceTestCase extends KNNRestTestCase {
-    protected final int TEST_DIMENSION = 128;
-    protected final int DOCS = 50;
-    protected final static String NESTED_NAME = "test_nested";
-    protected final static String FIELD_NAME = "test_vector";
 
-    protected static final Settings DERIVED_ENABLED_SETTINGS = Settings.builder()
-        .put("number_of_shards", 1)
-        .put("number_of_replicas", 0)
-        .put("index.knn", true)
-        .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
-        .build();
-    protected static final Settings DERIVED_DISABLED_SETTINGS = Settings.builder()
-        .put("number_of_shards", 1)
-        .put("number_of_replicas", 0)
-        .put("index.knn", true)
-        .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, false)
-        .build();
+    private static final List<Pair<String, Boolean>> INDEX_PREFIX_TO_ENABLED = List.of(
+        new Pair<>("original-enable-", true),
+        new Pair<>("original-disable-", false),
+        new Pair<>("e2e-", true),
+        new Pair<>("e2d-", false),
+        new Pair<>("d2e-", true),
+        new Pair<>("d2d-", false)
+    );
 
-    @Builder
-    @Data
-    protected static class IndexConfigContext {
-        public String indexName;
-        public List<String> vectorFieldNames;
-        public int dimension;
-        public Settings settings;
-        public String mapping;
-        public boolean isNested;
-        public int docCount;
-        public CheckedConsumer<IndexConfigContext, IOException> indexIngestor;
-        public Function<IndexConfigContext, Object> updateVectorSupplier;
+    /**
+     * Testing flat, single field base case with index configuration. The test will automatically skip adding fields for
+     *  random documents to ensure it works robustly. To ensure correctness, we repeat same operations against an
+     *  index without derived source enabled (baseline).
+     *  {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true/false
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     *  			"test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     * 			"test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     *             "test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     *             "test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     *             "test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     *             "test-text" {
+     *             	"type": "text"
+     *             },
+     *             "test-int" {
+     *             	"type": "text"
+     *             },
+     *         }
+     *     }
+     * }
+     */
+    protected List<DerivedSourceUtils.IndexConfigContext> getFlatIndexContexts(String testSuitePrefix, boolean addRandom) {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
+            DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
+                .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
+                .derivedEnabled(index.getSecond())
+                .random(new Random(1))
+                .fields(
+                    List.of(
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("test_float_vector").build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("update_float_vector").isUpdate(true).build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .fieldPath("test_byte_vector")
+                            .vectorDataType(VectorDataType.BYTE)
+                            .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .fieldPath("update_byte_vector")
+                            .vectorDataType(VectorDataType.BYTE)
+                            .isUpdate(true)
+                            .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .fieldPath("test_binary_vector")
+                            .vectorDataType(VectorDataType.BINARY)
+                            .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .fieldPath("update_binary_vector")
+                            .vectorDataType(VectorDataType.BINARY)
+                            .isUpdate(true)
+                            .build(),
+                        DerivedSourceUtils.TextFieldType.builder().fieldPath("test-text").build(),
+                        DerivedSourceUtils.IntFieldType.builder().fieldPath("test-int").build()
+                    )
+                )
+                .build();
+            indexConfigContext.init();
+            indexConfigContexts.add(indexConfigContext);
+        }
+        return indexConfigContexts;
+    }
+
+    /**
+     * Object field
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true/false
+     *     },
+     *     "mappings" : {
+     *       "properties" : {
+     *         "path_1" : {
+     *           "properties" : {
+     *             "test_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             },
+     *             "update_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             }
+     *           }
+     *         },
+     *         "path_2" : {
+     *           "properties" : {
+     *             "path_3" : {
+     *               "properties" : {
+     *                 "test-int" : {
+     *                   "type" : "integer"
+     *                 },
+     *                 "test_vector" : {
+     *                   "type" : "knn_vector",
+     *                   "dimension" : 16
+     *                 },
+     *                 "update_vector" : {
+     *                   "type" : "knn_vector",
+     *                   "dimension" : 16
+     *                 }
+     *               }
+     *             },
+     *             "test-text" : {
+     *               "type" : "text"
+     *             },
+     *             "test_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             },
+     *             "update_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             }
+     *           }
+     *         },
+     *         "test-int" : {
+     *           "type" : "integer"
+     *         },
+     *         "test-text" : {
+     *           "type" : "text"
+     *         },
+     *         "test_vector" : {
+     *           "type" : "knn_vector",
+     *           "dimension" : 16
+     *         },
+     *         "update_vector" : {
+     *           "type" : "knn_vector",
+     *           "dimension" : 16
+     *         }
+     *       }
+     *     }
+     *   }
+     * }
+     */
+    protected List<DerivedSourceUtils.IndexConfigContext> getObjectIndexContexts(String testSuitePrefix, boolean addRandom) {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
+            DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
+                .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
+                .derivedEnabled(index.getSecond())
+                .random(new Random(1))
+                .fields(
+                    List.of(
+                        DerivedSourceUtils.ObjectFieldContext.builder()
+                            .fieldPath("path_1")
+                            .children(
+                                List.of(
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("path_1.test_vector").build(),
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                        .fieldPath("path_1.update_vector")
+                                        .isUpdate(true)
+                                        .build()
+                                )
+                            )
+                            .build(),
+                        DerivedSourceUtils.ObjectFieldContext.builder()
+                            .fieldPath("path_2")
+                            .children(
+                                List.of(
+                                    DerivedSourceUtils.TextFieldType.builder().fieldPath("path_2.test-text").build(),
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("path_2.test_vector").build(),
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                        .fieldPath("path_2.update_vector")
+                                        .isUpdate(true)
+                                        .build(),
+                                    DerivedSourceUtils.ObjectFieldContext.builder()
+                                        .fieldPath("path_2.path_3")
+                                        .children(
+                                            List.of(
+                                                DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                                    .fieldPath("path_2.path_3.test_vector")
+                                                    .build(),
+                                                DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                                    .fieldPath("path_2.path_3.update_vector")
+                                                    .isUpdate(true)
+                                                    .build(),
+                                                DerivedSourceUtils.IntFieldType.builder().fieldPath("path_2.path_3.test-int").build()
+                                            )
+                                        )
+                                        .build()
+                                )
+                            )
+                            .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("test_vector").build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("update_vector").isUpdate(true).build(),
+
+                        DerivedSourceUtils.TextFieldType.builder().fieldPath("test-text").build(),
+                        DerivedSourceUtils.IntFieldType.builder().fieldPath("test-int").build()
+                    )
+                )
+                .build();
+            indexConfigContext.init();
+            indexConfigContexts.add(indexConfigContext);
+        }
+
+        return indexConfigContexts;
+    }
+
+    /**
+     * Testing nested fields
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true/false
+     *     },
+     *     "mappings" : {
+     *       "properties" : {
+     *         "nested_1" : {
+     *           "type" : "nested",
+     *           "properties" : {
+     *             "test_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             },
+     *             "update_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             }
+     *           }
+     *         },
+     *         "nested_2" : {
+     *           "type" : "nested",
+     *           "properties" : {
+     *             "nested_3" : {
+     *               "type" : "nested",
+     *               "properties" : {
+     *                 "test-int" : {
+     *                   "type" : "integer"
+     *                 },
+     *                 "test_vector" : {
+     *                   "type" : "knn_vector",
+     *                   "dimension" : 16
+     *                 },
+     *                 "update_vector" : {
+     *                   "type" : "knn_vector",
+     *                   "dimension" : 16
+     *                 }
+     *               }
+     *             },
+     *             "test-text" : {
+     *               "type" : "text"
+     *             },
+     *             "test_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             },
+     *             "update_vector" : {
+     *               "type" : "knn_vector",
+     *               "dimension" : 16
+     *             }
+     *           }
+     *         },
+     *         "test-int" : {
+     *           "type" : "integer"
+     *         },
+     *         "test-text" : {
+     *           "type" : "text"
+     *         },
+     *         "test_vector" : {
+     *           "type" : "knn_vector",
+     *           "dimension" : 16
+     *         },
+     *         "update_vector" : {
+     *           "type" : "knn_vector",
+     *           "dimension" : 16
+     *         }
+     *       }
+     *     }
+     *   }
+     */
+    protected List<DerivedSourceUtils.IndexConfigContext> getNestedIndexContexts(String testSuitePrefix, boolean addRandom) {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
+            DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
+                .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
+                .derivedEnabled(index.getSecond())
+                .random(new Random(1))
+                .fields(
+                    List.of(
+                        DerivedSourceUtils.NestedFieldContext.builder()
+                            .fieldPath("nested_1")
+                            .children(
+                                List.of(
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("nested_1.test_vector").build(),
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                        .fieldPath("nested_1.update_vector")
+                                        .isUpdate(true)
+                                        .build()
+                                )
+                            )
+                            .build(),
+                        DerivedSourceUtils.NestedFieldContext.builder()
+                            .fieldPath("nested_2")
+                            .children(
+                                List.of(
+                                    DerivedSourceUtils.TextFieldType.builder().fieldPath("nested_2.test-text").build(),
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("nested_2.test_vector").build(),
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                        .fieldPath("nested_2.update_vector")
+                                        .isUpdate(true)
+                                        .build(),
+                                    DerivedSourceUtils.NestedFieldContext.builder()
+                                        .fieldPath("nested_2.nested_3")
+                                        .children(
+                                            List.of(
+                                                DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                                    .fieldPath("nested_2.nested_3.test_vector")
+                                                    .build(),
+                                                DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                                    .fieldPath("nested_2.nested_3.update_vector")
+                                                    .isUpdate(true)
+                                                    .build(),
+                                                DerivedSourceUtils.IntFieldType.builder().fieldPath("nested_2.nested_3.test-int").build()
+                                            )
+                                        )
+                                        .build()
+                                )
+                            )
+                            .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("test_vector").build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().fieldPath("update_vector").isUpdate(true).build(),
+                        DerivedSourceUtils.TextFieldType.builder().fieldPath("test-text").build(),
+                        DerivedSourceUtils.IntFieldType.builder().fieldPath("test-int").build()
+                    )
+                )
+                .build();
+            indexConfigContext.init();
+            indexConfigContexts.add(indexConfigContext);
+        }
+        return indexConfigContexts;
     }
 
     @SneakyThrows
-    protected void prepareOriginalIndices(List<IndexConfigContext> indexConfigContexts) {
-        assertEquals(6, indexConfigContexts.size());
-        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
-        IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
-        createKnnIndex(derivedSourceEnabledContext.indexName, derivedSourceEnabledContext.settings, derivedSourceEnabledContext.mapping);
-        createKnnIndex(derivedSourceDisabledContext.indexName, derivedSourceDisabledContext.settings, derivedSourceDisabledContext.mapping);
-        derivedSourceEnabledContext.indexIngestor.accept(derivedSourceEnabledContext);
-        derivedSourceDisabledContext.indexIngestor.accept(derivedSourceDisabledContext);
+    protected void prepareOriginalIndices(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+        assertTrue(1 < indexConfigContexts.size());
+        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
+        createKnnIndex(
+            derivedSourceEnabledContext.indexName,
+            derivedSourceEnabledContext.getSettings(),
+            derivedSourceEnabledContext.getMapping()
+        );
+        createKnnIndex(
+            derivedSourceDisabledContext.indexName,
+            derivedSourceDisabledContext.getSettings(),
+            derivedSourceDisabledContext.getMapping()
+        );
+
+        for (int i = 0; i < derivedSourceDisabledContext.docCount; i++) {
+            addKnnDoc(derivedSourceEnabledContext.getIndexName(), String.valueOf(i + 1), derivedSourceEnabledContext.buildDoc());
+            addKnnDoc(derivedSourceDisabledContext.getIndexName(), String.valueOf(i + 1), derivedSourceDisabledContext.buildDoc());
+        }
         refreshAllIndices();
         assertDocsMatch(
             derivedSourceDisabledContext.docCount,
@@ -81,9 +421,9 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void testMerging(List<IndexConfigContext> indexConfigContexts) {
-        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
-        IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
+    protected void testMerging(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
         String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
         forceMergeKnnIndex(originalIndexNameDerivedSourceEnabled, 10);
@@ -108,37 +448,18 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void testUpdate(List<IndexConfigContext> indexConfigContexts) {
-        // Random variables
-        int docWithVectorUpdate = DOCS - 4;
-        int docWithVectorRemoval = 1;
-        int docWithVectorUpdateFromAPI = 2;
-        int docWithUpdateByQuery = 7;
-
-        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
-        IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
+    protected void testUpdate(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
         String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
-        Object updateVector = derivedSourceDisabledContext.updateVectorSupplier.apply(derivedSourceDisabledContext);
 
         // Update via POST /<index>/_doc/<docid>
-        for (String fieldName : derivedSourceEnabledContext.vectorFieldNames) {
-            updateKnnDoc(originalIndexNameDerivedSourceEnabled, String.valueOf(docWithVectorUpdate), fieldName, updateVector);
+        // For this, we are just going to replace all of the docs.
+        for (int i = 0; i < derivedSourceEnabledContext.docCount; i += 11) {
+            addKnnDoc(derivedSourceEnabledContext.getIndexName(), String.valueOf(i + 1), derivedSourceEnabledContext.buildDoc());
+            addKnnDoc(derivedSourceDisabledContext.getIndexName(), String.valueOf(i + 1), derivedSourceDisabledContext.buildDoc());
         }
-
-        for (String fieldName : derivedSourceDisabledContext.vectorFieldNames) {
-            updateKnnDoc(originalIndexNameDerivedSourceDisabled, String.valueOf(docWithVectorUpdate), fieldName, updateVector);
-        }
-        refreshAllIndices();
-        assertDocsMatch(
-            derivedSourceDisabledContext.docCount,
-            originalIndexNameDerivedSourceDisabled,
-            originalIndexNameDerivedSourceEnabled
-        );
-
-        // Sets the doc to an empty doc
-        setDocToEmpty(originalIndexNameDerivedSourceEnabled, String.valueOf(docWithVectorRemoval));
-        setDocToEmpty(originalIndexNameDerivedSourceDisabled, String.valueOf(docWithVectorRemoval));
         refreshAllIndices();
         assertDocsMatch(
             derivedSourceDisabledContext.docCount,
@@ -147,36 +468,34 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         );
 
         // Use update API
-        for (String fieldName : derivedSourceEnabledContext.vectorFieldNames) {
-            updateKnnDocWithUpdateAPI(
-                originalIndexNameDerivedSourceEnabled,
-                String.valueOf(docWithVectorUpdateFromAPI),
-                fieldName,
-                updateVector
+        for (int i = 0; i < derivedSourceEnabledContext.docCount; i += 13) {
+            updateUpdateAPI(
+                derivedSourceEnabledContext.getIndexName(),
+                String.valueOf(i + 1),
+                derivedSourceEnabledContext.partialUpdateSupplier()
+            );
+            updateUpdateAPI(
+                derivedSourceDisabledContext.getIndexName(),
+                String.valueOf(i + 1),
+                derivedSourceDisabledContext.partialUpdateSupplier()
             );
         }
-        for (String fieldName : derivedSourceDisabledContext.vectorFieldNames) {
-            updateKnnDocWithUpdateAPI(
-                originalIndexNameDerivedSourceDisabled,
-                String.valueOf(docWithVectorUpdateFromAPI),
-                fieldName,
-                updateVector
-            );
-        }
-        refreshAllIndices();
-        assertDocsMatch(
-            derivedSourceDisabledContext.docCount,
-            originalIndexNameDerivedSourceDisabled,
-            originalIndexNameDerivedSourceEnabled
-        );
 
         // Update by query
-        for (String fieldName : derivedSourceEnabledContext.vectorFieldNames) {
-            updateKnnDocByQuery(originalIndexNameDerivedSourceEnabled, String.valueOf(docWithUpdateByQuery), fieldName, updateVector);
+        for (int i = 0; i < derivedSourceEnabledContext.docCount; i += 17) {
+            updateKnnDocByQuery(
+                derivedSourceEnabledContext.getIndexName(),
+                derivedSourceEnabledContext.updateByQuerySupplier(String.valueOf(i + 1))
+            );
+            updateKnnDocByQuery(
+                derivedSourceDisabledContext.getIndexName(),
+                derivedSourceDisabledContext.updateByQuerySupplier(String.valueOf(i + 1))
+            );
         }
-        for (String fieldName : derivedSourceDisabledContext.vectorFieldNames) {
-            updateKnnDocByQuery(originalIndexNameDerivedSourceDisabled, String.valueOf(docWithUpdateByQuery), fieldName, updateVector);
-        }
+
+        // Sets the doc to an empty doc - make sure this is last - it can mess up update by query
+        setDocToEmpty(originalIndexNameDerivedSourceEnabled, String.valueOf(1));
+        setDocToEmpty(originalIndexNameDerivedSourceDisabled, String.valueOf(1));
         refreshAllIndices();
         assertDocsMatch(
             derivedSourceDisabledContext.docCount,
@@ -186,8 +505,8 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void testSearch(List<IndexConfigContext> indexConfigContexts) {
-        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+    protected void testSearch(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
 
         // Default - all fields should be there
@@ -202,7 +521,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
             derivedSourceEnabledContext.docCount,
             true,
             null,
-            derivedSourceEnabledContext.vectorFieldNames
+            derivedSourceEnabledContext.collectFieldNames()
         );
 
         // Include all vectors
@@ -210,7 +529,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
             originalIndexNameDerivedSourceEnabled,
             derivedSourceEnabledContext.docCount,
             true,
-            derivedSourceEnabledContext.vectorFieldNames,
+            derivedSourceEnabledContext.collectFieldNames(),
             null
         );
     }
@@ -259,12 +578,12 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void testDelete(List<IndexConfigContext> indexConfigContexts) {
+    protected void testDelete(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
         int docToDelete = 8;
         int docToDeleteByQuery = 11;
 
-        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
-        IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
+        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
         String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
 
@@ -290,13 +609,13 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void testReindex(List<IndexConfigContext> indexConfigContexts) {
-        IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
-        IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
-        IndexConfigContext reindexFromEnabledToEnabledContext = indexConfigContexts.get(2);
-        IndexConfigContext reindexFromEnabledToDisabledContext = indexConfigContexts.get(3);
-        IndexConfigContext reindexFromDisabledToEnabledContext = indexConfigContexts.get(4);
-        IndexConfigContext reindexFromDisabledToDisabledContext = indexConfigContexts.get(5);
+    protected void testReindex(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
+        DerivedSourceUtils.IndexConfigContext reindexFromEnabledToEnabledContext = indexConfigContexts.get(2);
+        DerivedSourceUtils.IndexConfigContext reindexFromEnabledToDisabledContext = indexConfigContexts.get(3);
+        DerivedSourceUtils.IndexConfigContext reindexFromDisabledToEnabledContext = indexConfigContexts.get(4);
+        DerivedSourceUtils.IndexConfigContext reindexFromDisabledToDisabledContext = indexConfigContexts.get(5);
 
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
         String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
@@ -392,37 +711,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         assertEquals("Docs do not match: " + docId, response1, response2);
     }
 
-    @SneakyThrows
-    protected String createVectorNonNestedMappings(final int dimension, String dataType) {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(PROPERTIES_FIELD)
-            .startObject(FIELD_NAME)
-            .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension);
-        if (dataType != null) {
-            builder.field(VECTOR_DATA_TYPE_FIELD, dataType);
+    protected String getIndexName(String testPrefix, String indexPrefix, boolean addRandom) {
+        String indexName = (testPrefix + "-" + indexPrefix + getTestName()).toLowerCase(Locale.ROOT);
+        if (addRandom) {
+            indexName += randomAlphaOfLength(6);
         }
-        builder.endObject().endObject().endObject();
-
-        return builder.toString();
-    }
-
-    @SneakyThrows
-    protected String createVectorNestedMappings(final int dimension, String dataType) {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(PROPERTIES_FIELD)
-            .startObject(NESTED_NAME)
-            .field(TYPE, "nested")
-            .startObject(PROPERTIES_FIELD)
-            .startObject(FIELD_NAME)
-            .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension);
-        if (dataType != null) {
-            builder.field(VECTOR_DATA_TYPE_FIELD, dataType);
-        }
-        builder.endObject().endObject().endObject().endObject().endObject();
-        return builder.toString();
+        return indexName.toLowerCase(Locale.ROOT);
     }
 }

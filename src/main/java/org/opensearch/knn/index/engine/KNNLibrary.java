@@ -8,11 +8,12 @@ package org.opensearch.knn.index.engine;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
+import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
@@ -147,7 +148,7 @@ public interface KNNLibrary extends MethodResolver {
      * Returns whether the engine implementation supports remote index build
      * @return true if remote index build is supported, false otherwise
      */
-    default boolean supportsRemoteIndexBuild(MethodComponentContext methodComponentContext, VectorDataType vectorDataType) {
+    default boolean supportsRemoteIndexBuild(KNNLibraryIndexingContext knnLibraryIndexingContext) {
         return false;
     }
 
@@ -164,7 +165,17 @@ public interface KNNLibrary extends MethodResolver {
     /**
      * Creates the set of index parameters needed to build the remote index
      */
-    default RemoteIndexParameters createRemoteIndexingParameters(KNNMethodContext knnMethodContext) {
+    default RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> parameters) {
         throw new UnsupportedOperationException("Remote build service does not support this engine");
+    }
+
+    /**
+     * Create a new vector searcher factory that compatible with on Lucene search API.
+     * @return New searcher factory that returns {@link org.opensearch.knn.memoryoptsearch.VectorSearcher}
+     *         If it is not supported, it should return null.
+     *         But, if it is supported, the factory shall not return null searcher.
+     */
+    default VectorSearcherFactory getVectorSearcherFactory() {
+        return null;
     }
 }

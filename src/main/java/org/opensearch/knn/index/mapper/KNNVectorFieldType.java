@@ -24,6 +24,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -44,6 +45,7 @@ public class KNNVectorFieldType extends MappedFieldType {
     private static final Logger logger = LogManager.getLogger(KNNVectorFieldType.class);
     KNNMappingConfig knnMappingConfig;
     VectorDataType vectorDataType;
+    boolean memoryOptimizedSearchSupported;
 
     /**
      * Constructor for KNNVectorFieldType.
@@ -57,6 +59,11 @@ public class KNNVectorFieldType extends MappedFieldType {
         super(name, false, false, true, TextSearchInfo.NONE, metadata);
         this.vectorDataType = vectorDataType;
         this.knnMappingConfig = annConfig;
+        this.memoryOptimizedSearchSupported = MemoryOptimizedSearchSupportSpec.supported(
+            knnMappingConfig.getKnnMethodContext(),
+            knnMappingConfig.getQuantizationConfig(),
+            vectorDataType
+        );
     }
 
     @Override
@@ -151,6 +158,5 @@ public class KNNVectorFieldType extends MappedFieldType {
             return;
         }
         throw new IllegalStateException("Either KNN method context or Model Id should be configured");
-
     }
 }
