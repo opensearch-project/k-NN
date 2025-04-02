@@ -101,10 +101,10 @@ public abstract class BaseQueryFactory {
             )
         );
 
-        //preserve nestedStack
+        // preserve nestedStack
         Deque<ObjectMapper> nestedLevelStack = new LinkedList<>();
         ObjectMapper objectMapper = null;
-        while((objectMapper = queryShardContext.nestedScope().getObjectMapper()) != null) {
+        while ((objectMapper = queryShardContext.nestedScope().getObjectMapper()) != null) {
             nestedLevelStack.push(objectMapper);
             queryShardContext.nestedScope().previousLevel();
         }
@@ -115,7 +115,7 @@ public abstract class BaseQueryFactory {
         } catch (IOException e) {
             throw new RuntimeException("Cannot create query with filter", e);
         } finally {
-            while((objectMapper = nestedLevelStack.peek()) != null) {
+            while ((objectMapper = nestedLevelStack.peek()) != null) {
                 queryShardContext.nestedScope().nextLevel(objectMapper);
                 nestedLevelStack.pop();
             }
@@ -126,14 +126,16 @@ public abstract class BaseQueryFactory {
             if (mightMatch) {
                 return filterQuery;
             } else if (filterQuery instanceof OpenSearchToParentBlockJoinQuery) {
-                //this case would happen when path = null, and filter is nested
-                return ((OpenSearchToParentBlockJoinQuery)filterQuery).getChildQuery();
+                // this case would happen when path = null, and filter is nested
+                return ((OpenSearchToParentBlockJoinQuery) filterQuery).getChildQuery();
             } else if (filterQuery instanceof BooleanQuery) {
                 KNNQueryVisitor knnQueryVisitor = new KNNQueryVisitor();
                 filterQuery.visit(knnQueryVisitor);
-                BooleanQuery.Builder builder = (new BooleanQuery.Builder())
-                        .add(new ToChildBlockJoinQuery(filterQuery, parentFilter), BooleanClause.Occur.FILTER);
-                for(Query q : knnQueryVisitor.nestedQuery) {
+                BooleanQuery.Builder builder = (new BooleanQuery.Builder()).add(
+                    new ToChildBlockJoinQuery(filterQuery, parentFilter),
+                    BooleanClause.Occur.FILTER
+                );
+                for (Query q : knnQueryVisitor.nestedQuery) {
                     builder.add(q, BooleanClause.Occur.FILTER);
                 }
                 return builder.build();
@@ -146,13 +148,15 @@ public abstract class BaseQueryFactory {
     @Getter
     static class KNNQueryVisitor extends QueryVisitor {
         List<Query> nestedQuery;
+
         public KNNQueryVisitor() {
             nestedQuery = new ArrayList<>();
         }
+
         public QueryVisitor getSubVisitor(BooleanClause.Occur occur, Query parent) {
             if (parent instanceof BooleanQuery && occur == BooleanClause.Occur.FILTER) {
-                Collection<Query> collection = ((BooleanQuery)parent).getClauses(BooleanClause.Occur.FILTER);
-                for(Query q : collection) {
+                Collection<Query> collection = ((BooleanQuery) parent).getClauses(BooleanClause.Occur.FILTER);
+                for (Query q : collection) {
                     if (q instanceof OpenSearchToParentBlockJoinQuery) {
                         nestedQuery.add(((OpenSearchToParentBlockJoinQuery) q).getChildQuery());
                     } else {

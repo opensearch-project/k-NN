@@ -456,7 +456,11 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
 
             // Validate number of documents returned as the expected number of documents
             Assert.assertEquals("For engine " + engine + ", hits with ANN search :", DOCUMENT_IN_RESPONSE, parseHits(response));
-            Assert.assertEquals("For engine " + engine + ", totalSearchHits with ANN search :", NUM_DOCS / 2, parseTotalSearchHits(response));
+            Assert.assertEquals(
+                "For engine " + engine + ", totalSearchHits with ANN search :",
+                NUM_DOCS / 2,
+                parseTotalSearchHits(response)
+            );
         }
     }
 
