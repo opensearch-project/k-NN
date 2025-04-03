@@ -1,0 +1,144 @@
+name: Build and Test k-NN using Remote Index Builder
+on:
+  schedule:
+    - cron: '0 0 * * *'  # every night
+  push:
+    branches:
+      - "*"
+      - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - '.github/workflows/remote_index_build.yml'
+  pull_request:
+    branches:
+      - "*"
+      - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - '.github/workflows/remote_index_build.yml'
+
+jobs:
+  Remote-Index-Build-IT-Tests:
+    strategy:
+      matrix:
+        java: [21]
+
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_SESSION_TOKEN: test
+
+    name: Remote-Index-Build-IT-Tests on Linux
+    runs-on:
+      group: selfhosted-gpu-runners
+      labels: g6xlarge
+
+    steps:
+      - name: Checkout k-NN
+        uses: actions/checkout@v4
+
+      # Setup git user so that patches for native libraries can be applied and committed
+      - name: Setup git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+
+      - name: Install dependencies on linux
+        run: |
+          sudo yum install gcc g++ -y
+          sudo yum install openblas openblas-devel -y
+          sudo yum install -y zlib
+          sudo yum install -y zlib-devel
+          sudo yum install -y cmake
+          sudo yum install gcc-gfortran -y
+
+      - name: Initial cleanup
+        run: |
+          docker ps -aq | xargs -r docker rm -f
+          docker system prune -af --volumes
+
+      - name: Pull Remote Index Build Docker Image from Docker Hub
+        run: |
+          docker pull rchitale7/remote-index-build-service:api
+
+      - name: Pull LocalStack Docker image
+        run: |
+          docker pull localstack/localstack:latest
+
+      - name: Run LocalStack
+        run: |
+          docker run --rm -d -p 4566:4566 localstack/localstack:latest
+
+      - name: Verify Localstack is ready
+        run: |
+          if ! timeout 3 bash -c 'until curl --silent --fail http://localhost:4566/_localstack/health; do sleep 1; done'; then
+            echo "Localstack health check failed after 3 seconds"
+            exit 1
+          fi
+
+      - name: Create S3 Bucket in LocalStack
+        run: |
+          aws --endpoint-url=http://localhost:4566 s3 mb s3://remote-index-build-bucket
+
+      - name: Run Docker container
+        run: |
+          docker run --rm -d --name remote-index-builder-container --gpus all -p 80:80 -e INTEGRATION_TESTS=TRUE -e AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} -e AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN}} rchitale7/remote-index-build-service:api
+          sleep 5
+
+      - name: Run tests
+        run: |
+          if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw
+          then
+            if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
+            then
+              echo "the system is an Intel(R) Sapphire Rapids or a newer-generation processor"
+              ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx512_spr.enabled=true -Dnproc.count=`nproc`
+            else
+              echo "avx512 available on system"
+              ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+            fi
+          elif lscpu  | grep -i avx2
+          then
+            echo "avx2 available on system"
+            ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+          else
+            echo "avx512 and avx2 not available on system"
+            ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+          fi
+
+      - name: Verify Remote Index Builder logs
+        run: |
+          if docker logs remote-index-builder-container 2>&1 | grep -q "INFO - Index built successfully!"; then
+            echo "Success logs found in Remote Index Builder container"
+          else
+            echo "No success logs found. Full logs:"
+            docker logs remote-index-builder-container
+            exit 1
+          fi
+
+      - name: Final cleanup
+        if: always()
+        run: |
+          docker ps -aq | xargs -r docker rm -f
+          docker system prune -af --volumes
+          docker logout
+          rm -rf ${{ github.workspace }}/*
+
