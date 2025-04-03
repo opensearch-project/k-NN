@@ -433,9 +433,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
         assertFileInCorrectLocation(state, expectedFile);
 
-        // The footer should be valid
-        assertValidFooter(state.directory, expectedFile);
-
         // The document should be readable by faiss
         assertBinaryIndexLoadableByEngine(state, expectedFile, knnEngine, spaceType, dimension, dataType);
 

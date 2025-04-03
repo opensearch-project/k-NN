@@ -19,6 +19,7 @@ import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexReader;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -44,9 +45,10 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_load() throws IOException {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
-                (Directory) null,
+                nativeIndexReader,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
@@ -72,8 +74,9 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_load_with_unopened_graphFile() throws IOException {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-            (Directory) null,
+            nativeIndexReader,
             TestUtils.createFakeNativeMamoryCacheKey("test"),
             indexLoadStrategy,
             null,
@@ -94,23 +97,25 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_calculateSize() throws IOException {
         // Create a file and write random bytes to it
-        final Path tmpDirectory = createTempDir();
-        final Directory directory = new MMapDirectory(tmpDirectory);
+//        final Path tmpDirectory = createTempDir();
+//        final Directory directory = new MMapDirectory(tmpDirectory);
         final String indexFileName = "test.faiss";
-        byte[] data = new byte[1024 * 3];
-        Arrays.fill(data, (byte) 'c');
-
-        try (IndexOutput output = directory.createOutput(indexFileName, IOContext.DEFAULT)) {
-            output.writeBytes(data, data.length);
-        }
-
-        // Get the expected size of this function
-        final long expectedSizeBytes = directory.fileLength(indexFileName);
+//        byte[] data = new byte[1024 * 3];
+//        Arrays.fill(data, (byte) 'c');
+//
+//        try (IndexOutput output = directory.createOutput(indexFileName, IOContext.DEFAULT)) {
+//            output.writeBytes(data, data.length);
+//        }
+//
+//        // Get the expected size of this function
+        final long expectedSizeBytes = 1024 * 3;
         final long expectedSizeKb = expectedSizeBytes / 1024L;
 
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
+        when(nativeIndexReader.calculateIndexSize(indexFileName)).thenReturn(expectedSizeBytes);
         // Check that the indexEntryContext will return the same thing
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-            directory,
+            nativeIndexReader,
             TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
             null,
             null,
@@ -122,8 +127,9 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_getOpenSearchIndexName() {
         String openSearchIndexName = "test-index";
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-            (Directory) null,
+            nativeIndexReader,
             TestUtils.createFakeNativeMamoryCacheKey("test"),
             null,
             null,
@@ -135,8 +141,9 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_getParameters() {
         Map<String, Object> parameters = ImmutableMap.of("test-1", 10);
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-            (Directory) null,
+            nativeIndexReader,
             TestUtils.createFakeNativeMamoryCacheKey("test"),
             null,
             parameters,

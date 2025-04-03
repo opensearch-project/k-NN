@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
-import org.apache.lucene.store.Directory;
+
 import org.apache.lucene.store.IndexInput;
 import org.junit.After;
 import org.junit.Before;
@@ -30,6 +30,7 @@ import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexReader;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -574,9 +575,10 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        NativeIndexReader mockNativeIndexReader = mock(NativeIndexReader.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext1 = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
-                (Directory) null,
+                mockNativeIndexReader,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
@@ -587,19 +589,18 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         doReturn(indexAllocation1).when(indexEntryContext1).load();
 
         doReturn(0).when(indexEntryContext1).calculateSizeInKB();
-        Directory mockDirectory = mock(Directory.class);
         IndexInput mockReadStream = mock(IndexInput.class);
-        when(mockDirectory.openInput(any(), any())).thenReturn(mockReadStream);
+        when(mockNativeIndexReader.open(any())).thenReturn(mockReadStream);
         // Add this line to handle the fileLength call
-        when(mockDirectory.fileLength(any())).thenReturn(1024L); // 1KB for testing
-        doReturn(mockDirectory).when(indexEntryContext1).getDirectory();
+        when(mockNativeIndexReader.calculateIndexSize(any())).thenReturn(1024L); // 1KB for testing
+        doReturn(mockNativeIndexReader).when(indexEntryContext1).getNativeIndexReader();
         assertFalse(indexEntryContext1.isIndexGraphFileOpened());
         assertEquals(indexAllocation1, nativeMemoryCacheManager.get(indexEntryContext1, false));
         // try-with-resources will anyway close the resources opened by indexEntryContext1
         assertFalse(indexEntryContext1.isIndexGraphFileOpened());
         assertEquals(indexAllocation1, nativeMemoryCacheManager.get(indexEntryContext1, false));
 
-        verify(mockDirectory, times(2)).openInput(any(), any());
+        verify(mockNativeIndexReader, times(2)).open(any());
         verify(mockReadStream, times(2)).seek(0);
         verify(mockReadStream, times(2)).close();
 
@@ -612,10 +613,9 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, "test")
+            new NativeMemoryEntryContext.IndexEntryContext((NativeIndexReader) null, "invalid-cache-key", indexLoadStrategy, null, "test")
         );
 
-        Directory mockDirectory = mock(Directory.class);
         // This should throw the exception
         nativeMemoryCacheManager.get(indexEntryContext, false);
     }
@@ -626,12 +626,12 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
+        when(nativeIndexReader.calculateIndexSize(any())).thenReturn(0l);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, "test")
+            new NativeMemoryEntryContext.IndexEntryContext(nativeIndexReader, "invalid-cache-key", indexLoadStrategy, null, "test")
         );
 
-        doReturn(0).when(indexEntryContext).calculateSizeInKB();
-        Directory mockDirectory = mock(Directory.class);
         // This should throw the exception
         nativeMemoryCacheManager.get(indexEntryContext, false);
     }
@@ -660,9 +660,10 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext1 = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
-                (Directory) null,
+                nativeIndexReader,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
@@ -671,12 +672,10 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         doReturn(indexAllocation1).when(indexEntryContext1).load();
-        doReturn(0).when(indexEntryContext1).calculateSizeInKB();
-        Directory mockDirectory = mock(Directory.class);
         IndexInput mockReadStream = mock(IndexInput.class);
-        when(mockDirectory.openInput(any(), any())).thenReturn(mockReadStream);
-        when(mockDirectory.fileLength(any())).thenReturn(1024L);
-        doReturn(mockDirectory).when(indexEntryContext1).getDirectory();
+        when(nativeIndexReader.open(any())).thenReturn(mockReadStream);
+        when(nativeIndexReader.calculateIndexSize(any())).thenReturn(1024L);
+        doReturn(nativeIndexReader).when(indexEntryContext1).getNativeIndexReader();
 
         assertFalse(indexEntryContext1.isIndexGraphFileOpened());
         assertEquals(indexAllocation1, nativeMemoryCacheManager.get(indexEntryContext1, false));
@@ -687,7 +686,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         assertTrue(indexEntryContext1.isIndexGraphFileOpened());
 
         // Should only be called once since second call is a cache hit
-        verify(mockDirectory, times(1)).openInput(any(), any());
+        verify(nativeIndexReader, times(1)).open(any());
         verify(mockReadStream, times(1)).seek(0);
         // Since we're not closing in try-with-resources, close shouldn't be called
         verify(mockReadStream, never()).close();
@@ -720,9 +719,10 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // Create and set up the spy context that will be shared across threads
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        NativeIndexReader nativeIndexReader = mock(NativeIndexReader.class);
         NativeMemoryEntryContext.IndexEntryContext sharedContext = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
-                (Directory) null,
+                nativeIndexReader,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
@@ -732,12 +732,10 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // Set up mocks
         doReturn(indexAllocation).when(sharedContext).load();
-        doReturn(0).when(sharedContext).calculateSizeInKB();
-        Directory mockDirectory = mock(Directory.class);
         IndexInput mockReadStream = mock(IndexInput.class);
-        when(mockDirectory.openInput(any(), any())).thenReturn(mockReadStream);
-        when(mockDirectory.fileLength(any())).thenReturn(1024L);
-        doReturn(mockDirectory).when(sharedContext).getDirectory();
+        when(nativeIndexReader.open(any())).thenReturn(mockReadStream);
+        when(nativeIndexReader.calculateIndexSize(any())).thenReturn(1024L);
+        doReturn(nativeIndexReader).when(sharedContext).getNativeIndexReader();
 
         // Add a delay in open to make concurrent access more likely
         doAnswer(invocation -> {
@@ -775,7 +773,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // but opening of the indexInput and seek only happens once, since rest of the threads will wait for first
         // thread and then pick up from cache
-        verify(mockDirectory, times(1)).openInput(any(), any());
+        verify(nativeIndexReader, times(1)).open(any());
         verify(mockReadStream, times(1)).seek(0);
 
     }

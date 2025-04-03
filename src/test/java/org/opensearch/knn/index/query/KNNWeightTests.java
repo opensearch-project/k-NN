@@ -8,6 +8,10 @@ package org.opensearch.knn.index.query;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
+
+import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.CompoundDirectory;
+import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -23,6 +27,7 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
@@ -108,14 +113,20 @@ public class KNNWeightTests extends KNNTestCase {
     private static final byte[] BYTE_QUERY_VECTOR = new byte[] { 1, 2 };
     private static final String SEGMENT_NAME = "0";
     private static final int K = 5;
-    private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0_2011_target_field.hnswc");
-    private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
+    private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0.cfs");
+    private static final String[] ENGINE_FILES_NMSLIB = {"_0_2011_target_field.hnsw"};
+    private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0.cfs");
+    private static final String[] ENGINE_FILES_FAISS = {"_0_2011_target_field.faiss"};
     private static final Set<String> SEGMENT_FILES_DEFAULT = SEGMENT_FILES_FAISS;
+    private static final String[] ENGINE_FILES_DEFAULT = ENGINE_FILES_FAISS;
     private static final Set<String> SEGMENT_MULTI_FIELD_FILES_FAISS = Set.of(
         "_0.cfe",
-        "_0_2011_target_field.faissc",
-        "_0_2011_long_target_field.faissc"
+        "_0.cfs"
     );
+    private static final String[] ENGINE_MULTI_FIELD_FILES_FAISS = {
+        "_0_2011_target_field.faiss",
+        "_0_2011_long_target_field.faiss"
+    };
     private static final String CIRCUIT_BREAKER_LIMIT_100KB = "100Kb";
     private static final Integer EF_SEARCH = 10;
     private static final Map<String, ?> HNSW_METHOD_PARAMETERS = Map.of(METHOD_PARAMETER_EF_SEARCH, EF_SEARCH);
@@ -185,6 +196,7 @@ public class KNNWeightTests extends KNNTestCase {
             testQueryScore(
                 space::scoreTranslation,
                 SEGMENT_FILES_NMSLIB,
+                ENGINE_FILES_NMSLIB,
                 Map.of(SPACE_TYPE, space.getValue(), KNN_ENGINE, KNNEngine.NMSLIB.getName())
             );
         }
@@ -195,6 +207,7 @@ public class KNNWeightTests extends KNNTestCase {
         testQueryScore(
             SpaceType.L2::scoreTranslation,
             SEGMENT_FILES_FAISS,
+            ENGINE_FILES_FAISS,
             Map.of(
                 SPACE_TYPE,
                 SpaceType.L2.getValue(),
@@ -208,6 +221,7 @@ public class KNNWeightTests extends KNNTestCase {
         testQueryScore(
             rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore),
             SEGMENT_FILES_FAISS,
+            ENGINE_FILES_FAISS,
             Map.of(
                 SPACE_TYPE,
                 SpaceType.INNER_PRODUCT.getValue(),
@@ -222,6 +236,7 @@ public class KNNWeightTests extends KNNTestCase {
         testQueryScore(
             rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore),
             SEGMENT_MULTI_FIELD_FILES_FAISS,
+            ENGINE_MULTI_FIELD_FILES_FAISS,
             Map.of(
                 SPACE_TYPE,
                 SpaceType.INNER_PRODUCT.getValue(),
@@ -262,6 +277,10 @@ public class KNNWeightTests extends KNNTestCase {
 
         final FSDirectory directory = mock(FSDirectory.class);
         when(reader.directory()).thenReturn(directory);
+        CompoundDirectory compoundDirectory = mock(CompoundDirectory.class);
+        Codec codec = mock(Codec.class);
+        CompoundFormat compoundFormat = mock(CompoundFormat.class);
+        when(codec.compoundFormat()).thenReturn(compoundFormat);
         final SegmentInfo segmentInfo = new SegmentInfo(
             directory,
             Version.LATEST,
@@ -270,12 +289,14 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.CURRENT_DEFAULT,
+            codec,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
             Sort.RELEVANCE
         );
+        when(compoundFormat.getCompoundReader(directory, segmentInfo)).thenReturn(compoundDirectory);
+        when(compoundDirectory.listAll()).thenReturn(ENGINE_FILES_FAISS);
         segmentInfo.setFiles(SEGMENT_FILES_FAISS);
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
@@ -396,6 +417,10 @@ public class KNNWeightTests extends KNNTestCase {
 
         final FSDirectory directory = mock(FSDirectory.class);
         when(reader.directory()).thenReturn(directory);
+        CompoundDirectory compoundDirectory = mock(CompoundDirectory.class);
+        Codec codec = mock(Codec.class);
+        CompoundFormat compoundFormat = mock(CompoundFormat.class);
+        when(codec.compoundFormat()).thenReturn(compoundFormat);
         final SegmentInfo segmentInfo = new SegmentInfo(
             directory,
             Version.LATEST,
@@ -404,12 +429,14 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.CURRENT_DEFAULT,
+            codec,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
             Sort.RELEVANCE
         );
+        when(compoundFormat.getCompoundReader(directory, segmentInfo)).thenReturn(compoundDirectory);
+        when(compoundDirectory.listAll()).thenReturn(ENGINE_FILES_DEFAULT);
         segmentInfo.setFiles(SEGMENT_FILES_DEFAULT);
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
@@ -602,7 +629,7 @@ public class KNNWeightTests extends KNNTestCase {
 
         try (MockedStatic<KNNCodecUtil> knnCodecUtilMockedStatic = mockStatic(KNNCodecUtil.class)) {
             List<String> engineFiles = List.of("_0_1_target_field.faiss");
-            knnCodecUtilMockedStatic.when(() -> KNNCodecUtil.getEngineFiles(anyString(), anyString(), eq(segmentInfo)))
+            knnCodecUtilMockedStatic.when(() -> KNNCodecUtil.getEngineFiles(any(), anyString(), eq(segmentInfo)))
                 .thenReturn(engineFiles);
 
             try (MockedStatic<SegmentLevelQuantizationUtil> quantizationUtilMockedStatic = mockStatic(SegmentLevelQuantizationUtil.class)) {
@@ -847,12 +874,16 @@ public class KNNWeightTests extends KNNTestCase {
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
     }
 
-    private SegmentReader mockSegmentReader() {
+    private SegmentReader mockSegmentReader() throws IOException {
         Path path = mock(Path.class);
 
         FSDirectory directory = mock(FSDirectory.class);
         when(directory.getDirectory()).thenReturn(path);
 
+        CompoundDirectory compoundDirectory = mock(CompoundDirectory.class);
+        Codec codec = mock(Codec.class);
+        CompoundFormat compoundFormat = mock(CompoundFormat.class);
+        when(codec.compoundFormat()).thenReturn(compoundFormat);
         SegmentInfo segmentInfo = new SegmentInfo(
             directory,
             Version.LATEST,
@@ -861,12 +892,14 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.CURRENT_DEFAULT,
+            codec,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
             Sort.RELEVANCE
         );
+        when(compoundFormat.getCompoundReader(directory, segmentInfo)).thenReturn(compoundDirectory);
+        when(compoundDirectory.listAll()).thenReturn(ENGINE_FILES_FAISS);
         segmentInfo.setFiles(SEGMENT_FILES_FAISS);
         SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
 
@@ -1429,6 +1462,10 @@ public class KNNWeightTests extends KNNTestCase {
 
         final FSDirectory directory = mock(FSDirectory.class);
         when(reader.directory()).thenReturn(directory);
+        CompoundDirectory compoundDirectory = mock(CompoundDirectory.class);
+        Codec codec = mock(Codec.class);
+        CompoundFormat compoundFormat = mock(CompoundFormat.class);
+        when(codec.compoundFormat()).thenReturn(compoundFormat);
         final SegmentInfo segmentInfo = new SegmentInfo(
             directory,
             Version.LATEST,
@@ -1437,12 +1474,14 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.CURRENT_DEFAULT,
+            codec,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
             Sort.RELEVANCE
         );
+        when(compoundFormat.getCompoundReader(directory, segmentInfo)).thenReturn(compoundDirectory);
+        when(compoundDirectory.listAll()).thenReturn(ENGINE_FILES_FAISS);
         segmentInfo.setFiles(SEGMENT_FILES_FAISS);
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
@@ -1492,7 +1531,7 @@ public class KNNWeightTests extends KNNTestCase {
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
     }
 
-    private SegmentReader getMockedSegmentReader() {
+    private SegmentReader getMockedSegmentReader() throws IOException {
         final SegmentReader reader = mock(SegmentReader.class);
         when(reader.maxDoc()).thenReturn(1);
 
@@ -1505,6 +1544,11 @@ public class KNNWeightTests extends KNNTestCase {
         when(directory.getDirectory()).thenReturn(path);
         when(reader.directory()).thenReturn(directory);
 
+        CompoundDirectory compoundDirectory = mock(CompoundDirectory.class);
+        Codec codec = mock(Codec.class);
+        CompoundFormat compoundFormat = mock(CompoundFormat.class);
+        when(codec.compoundFormat()).thenReturn(compoundFormat);
+
         // Prepare segment
         final SegmentInfo segmentInfo = new SegmentInfo(
             directory,
@@ -1514,12 +1558,14 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.CURRENT_DEFAULT,
+            codec,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
             Sort.RELEVANCE
         );
+        when(compoundFormat.getCompoundReader(directory, segmentInfo)).thenReturn(compoundDirectory);
+        when(compoundDirectory.listAll()).thenReturn(ENGINE_FILES_FAISS);
         segmentInfo.setFiles(SEGMENT_FILES_FAISS);
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
@@ -1549,6 +1595,7 @@ public class KNNWeightTests extends KNNTestCase {
     private void testQueryScore(
         final Function<Float, Float> scoreTranslator,
         final Set<String> segmentFiles,
+        final String[] engineFiles,
         final Map<String, String> fileAttributes
     ) throws IOException {
         jniServiceMockedStatic.when(
@@ -1571,6 +1618,10 @@ public class KNNWeightTests extends KNNTestCase {
 
         final FSDirectory directory = mock(FSDirectory.class);
         when(reader.directory()).thenReturn(directory);
+        CompoundDirectory compoundDirectory = mock(CompoundDirectory.class);
+        Codec codec = mock(Codec.class);
+        CompoundFormat compoundFormat = mock(CompoundFormat.class);
+        when(codec.compoundFormat()).thenReturn(compoundFormat);
         final SegmentInfo segmentInfo = new SegmentInfo(
             directory,
             Version.LATEST,
@@ -1579,12 +1630,14 @@ public class KNNWeightTests extends KNNTestCase {
             100,
             true,
             false,
-            KNNCodecVersion.CURRENT_DEFAULT,
+            codec,
             Map.of(),
             new byte[StringHelper.ID_LENGTH],
             Map.of(),
             Sort.RELEVANCE
         );
+        when(compoundFormat.getCompoundReader(directory, segmentInfo)).thenReturn(compoundDirectory);
+        when(compoundDirectory.listAll()).thenReturn(engineFiles);
         segmentInfo.setFiles(segmentFiles);
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
@@ -1599,9 +1652,9 @@ public class KNNWeightTests extends KNNTestCase {
 
         String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
         KNNEngine knnEngine = KNNEngine.getEngine(engineName);
-        List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), query.getField(), reader.getSegmentInfo().info);
-        String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
-        assertEquals(engineFiles.get(0), expectIndexPath);
+        List<String> knnEngineFiles = KNNCodecUtil.getEngineFiles(knnEngine, query.getField(), reader.getSegmentInfo().info);
+        String expectIndexPath = String.format("_%s_%s_%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension());
+        assertEquals(knnEngineFiles.get(0), expectIndexPath);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
