@@ -566,7 +566,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNEngine resolvedKNNEngine = EngineResolver.INSTANCE.resolveEngine(
                 builder.knnMethodConfigContext,
                 builder.originalParameters.getResolvedKnnMethodContext(),
-                false
+                false,
+                builder.indexCreatedVersion
             );
             setEngine(builder.originalParameters.getResolvedKnnMethodContext(), resolvedKNNEngine);
 

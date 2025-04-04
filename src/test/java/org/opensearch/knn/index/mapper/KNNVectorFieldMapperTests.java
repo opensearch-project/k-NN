@@ -1819,7 +1819,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertFalse(builder.getOriginalParameters().isLegacyMapping());
         validateBuilderAfterParsing(
             builder,
-            KNNEngine.NMSLIB,
+            KNNEngine.FAISS,
             SpaceType.L2,
             VectorDataType.FLOAT,
             CompressionLevel.x1,
