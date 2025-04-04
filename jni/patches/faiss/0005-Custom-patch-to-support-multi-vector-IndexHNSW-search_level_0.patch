@@ -1,0 +1,333 @@
+From a6cf4335366c696b7cc3cad8c5cb50e330c63814 Mon Sep 17 00:00:00 2001
+From: AnnTian Shao <anntians@amazon.com>
+Date: Thu, 3 Apr 2025 21:21:11 +0000
+Subject: [PATCH] Add multi-vector-support faiss patch to
+ IndexHNSW::search_level_0
+
+Signed-off-by: AnnTian Shao <anntians@amazon.com>
+---
+ faiss/IndexHNSW.cpp       | 123 +++++++++++++++++++++++++-----------
+ faiss/index_factory.cpp   |   7 ++-
+ tests/test_id_grouper.cpp | 128 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 222 insertions(+), 36 deletions(-)
+
+diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
+index eee3e99c6..7c5dfe020 100644
+--- a/faiss/IndexHNSW.cpp
++++ b/faiss/IndexHNSW.cpp
+@@ -286,6 +286,61 @@ void hnsw_search(
+     hnsw_stats.combine({n1, n2, ndis, nhops});
+ }
+ 
++template <class BlockResultHandler>
++void hnsw_search_level_0(
++        const IndexHNSW* index,
++        idx_t n,
++        const float* x,
++        idx_t k,
++        const storage_idx_t* nearest,
++        const float* nearest_d,
++        float* distances,
++        idx_t* labels,
++        int nprobe,
++        int search_type,
++        const SearchParameters* params_in,
++        BlockResultHandler& bres) {
++
++    const HNSW& hnsw = index->hnsw;
++    const SearchParametersHNSW* params = nullptr;
++
++    if (params_in) {
++        params = dynamic_cast<const SearchParametersHNSW*>(params_in);
++        FAISS_THROW_IF_NOT_MSG(params, "params type invalid");
++    }
++
++#pragma omp parallel
++    {
++        std::unique_ptr<DistanceComputer> qdis(
++                storage_distance_computer(index->storage));
++        HNSWStats search_stats;
++        VisitedTable vt(index->ntotal);
++        typename BlockResultHandler::SingleResultHandler res(bres);
++
++#pragma omp for
++        for (idx_t i = 0; i < n; i++) {
++            res.begin(i);
++            qdis->set_query(x + i * index->d);
++
++            hnsw.search_level_0(
++                    *qdis.get(),
++                    res,
++                    nprobe,
++                    nearest + i * nprobe,
++                    nearest_d + i * nprobe,
++                    search_type,
++                    search_stats,
++                    vt,
++                    params);
++            res.end();
++            vt.advance();
++        }
++#pragma omp critical
++        { hnsw_stats.combine(search_stats); }
++    }
++
++}
++
+ } // anonymous namespace
+ 
+ void IndexHNSW::search(
+@@ -419,46 +474,44 @@ void IndexHNSW::search_level_0(
+     FAISS_THROW_IF_NOT(k > 0);
+     FAISS_THROW_IF_NOT(nprobe > 0);
+ 
+-    const SearchParametersHNSW* params = nullptr;
+-
+-    if (params_in) {
+-        params = dynamic_cast<const SearchParametersHNSW*>(params_in);
+-        FAISS_THROW_IF_NOT_MSG(params, "params type invalid");
+-    }
+-
+     storage_idx_t ntotal = hnsw.levels.size();
+ 
+-    using RH = HeapBlockResultHandler<HNSW::C>;
+-    RH bres(n, distances, labels, k);
+ 
+-#pragma omp parallel
+-    {
+-        std::unique_ptr<DistanceComputer> qdis(
+-                storage_distance_computer(storage));
+-        HNSWStats search_stats;
+-        VisitedTable vt(ntotal);
+-        RH::SingleResultHandler res(bres);
++    if (params_in && params_in->grp) {
++        using RH = GroupedHeapBlockResultHandler<HNSW::C>;
++        RH bres(n, distances, labels, k, params_in->grp);
+ 
+-#pragma omp for
+-        for (idx_t i = 0; i < n; i++) {
+-            res.begin(i);
+-            qdis->set_query(x + i * d);
+ 
+-            hnsw.search_level_0(
+-                    *qdis.get(),
+-                    res,
+-                    nprobe,
+-                    nearest + i * nprobe,
+-                    nearest_d + i * nprobe,
+-                    search_type,
+-                    search_stats,
+-                    vt,
+-                    params);
+-            res.end();
+-            vt.advance();
+-        }
+-#pragma omp critical
+-        { hnsw_stats.combine(search_stats); }
++        hnsw_search_level_0(
++                this,
++                n,
++                x,
++                k,
++                nearest,
++                nearest_d,
++                distances,
++                labels,
++                nprobe, // n_probes
++                search_type, // search_type
++                params_in,
++                bres);
++    } else {
++        using RH = HeapBlockResultHandler<HNSW::C>;
++        RH bres(n, distances, labels, k);
++
++        hnsw_search_level_0(
++                this,
++                n,
++                x,
++                k,
++                nearest,
++                nearest_d,
++                distances,
++                labels,
++                nprobe, // n_probes
++                search_type, // search_type
++                params_in,
++                bres);
+     }
+     if (is_similarity_metric(this->metric_type)) {
+ // we need to revert the negated distances
+diff --git a/faiss/index_factory.cpp b/faiss/index_factory.cpp
+index 8ff4bfec7..24e65b632 100644
+--- a/faiss/index_factory.cpp
++++ b/faiss/index_factory.cpp
+@@ -453,6 +453,11 @@ IndexHNSW* parse_IndexHNSW(
+         return re_match(code_string, pattern, sm);
+     };
+ 
++    if (match("Cagra")) {
++        IndexHNSWCagra* cagra = new IndexHNSWCagra(d, hnsw_M, mt);
++        return cagra;
++    }
++
+     if (match("Flat|")) {
+         return new IndexHNSWFlat(d, hnsw_M, mt);
+     }
+@@ -781,7 +786,7 @@ std::unique_ptr<Index> index_factory_sub(
+ 
+     // HNSW variants (it was unclear in the old version that the separator was a
+     // "," so we support both "_" and ",")
+-    if (re_match(description, "HNSW([0-9]*)([,_].*)?", sm)) {
++    if (re_match(description, "HNSW([0-9]*)([,_].*)?(Cagra)?", sm)) {
+         int hnsw_M = mres_to_int(sm[1], 32);
+         // We also accept empty code string (synonym of Flat)
+         std::string code_string =
+diff --git a/tests/test_id_grouper.cpp b/tests/test_id_grouper.cpp
+index bd8ab5f9d..ebe16a364 100644
+--- a/tests/test_id_grouper.cpp
++++ b/tests/test_id_grouper.cpp
+@@ -172,6 +172,65 @@ TEST(IdGrouper, bitmap_with_hnsw) {
+     delete[] xb;
+ }
+ 
++TEST(IdGrouper, bitmap_with_hnsw_cagra) {
++    int d = 1;   // dimension
++    int nb = 10; // database size
++
++    std::mt19937 rng;
++    std::uniform_real_distribution<> distrib;
++
++    float* xb = new float[d * nb];
++
++    for (int i = 0; i < nb; i++) {
++        for (int j = 0; j < d; j++)
++            xb[d * i + j] = distrib(rng);
++        xb[d * i] += i / 1000.;
++    }
++
++    uint64_t bitmap[1] = {};
++    faiss::IDGrouperBitmap id_grouper(1, bitmap);
++    for (int i = 0; i < nb; i++) {
++        if (i % 2 == 1) {
++            id_grouper.set_group(i);
++        }
++    }
++
++    int k = 10;
++    int m = 8;
++    faiss::Index* index =
++            new faiss::IndexHNSWCagra(d, m, faiss::MetricType::METRIC_L2);
++    index->add(nb, xb); // add vectors to the index
++    dynamic_cast<faiss::IndexHNSWCagra*>(index)->base_level_only=true;
++
++    // search
++    idx_t* I = new idx_t[k];
++    float* D = new float[k];
++
++    auto pSearchParameters = new faiss::SearchParametersHNSW();
++    pSearchParameters->grp = &id_grouper;
++
++    index->search(1, xb, k, D, I, pSearchParameters);
++
++    std::unordered_set<int> group_ids;
++    ASSERT_EQ(0, I[0]);
++    ASSERT_EQ(0, D[0]);
++    group_ids.insert(id_grouper.get_group(I[0]));
++    for (int j = 1; j < 5; j++) {
++        ASSERT_NE(-1, I[j]);
++        ASSERT_NE(std::numeric_limits<float>::max(), D[j]);
++        group_ids.insert(id_grouper.get_group(I[j]));
++    }
++    for (int j = 5; j < k; j++) {
++        ASSERT_EQ(-1, I[j]);
++        ASSERT_EQ(std::numeric_limits<float>::max(), D[j]);
++    }
++    ASSERT_EQ(5, group_ids.size());
++
++    delete[] I;
++    delete[] D;
++    delete[] xb;
++}
++
+ TEST(IdGrouper, bitmap_with_binary_hnsw) {
+     int d = 16;   // dimension
+     int nb = 10; // database size
+@@ -291,6 +350,75 @@ TEST(IdGrouper, bitmap_with_hnsw_idmap) {
+     delete[] xb;
+ }
+ 
++TEST(IdGrouper, bitmap_with_hnsw_cagra_idmap) {
++    int d = 1;   // dimension
++    int nb = 10; // database size
++
++    std::mt19937 rng;
++    std::uniform_real_distribution<> distrib;
++
++    float* xb = new float[d * nb];
++    idx_t* xids = new idx_t[d * nb];
++
++    for (int i = 0; i < nb; i++) {
++        for (int j = 0; j < d; j++)
++            xb[d * i + j] = distrib(rng);
++        xb[d * i] += i / 1000.;
++    }
++
++    uint64_t bitmap[1] = {};
++    faiss::IDGrouperBitmap id_grouper(1, bitmap);
++    int num_grp = 0;
++    int grp_size = 2;
++    int id_in_grp = 0;
++    for (int i = 0; i < nb; i++) {
++        xids[i] = i + num_grp;
++        id_in_grp++;
++        if (id_in_grp == grp_size) {
++            id_grouper.set_group(i + num_grp + 1);
++            num_grp++;
++            id_in_grp = 0;
++        }
++    }
++
++    int k = 10;
++    int m = 8;
++    faiss::Index* index =
++            new faiss::IndexHNSWCagra(d, m, faiss::MetricType::METRIC_L2);
++    faiss::IndexIDMap id_map =
++            faiss::IndexIDMap(index); // add vectors to the index
++    id_map.add_with_ids(nb, xb, xids);
++    dynamic_cast<faiss::IndexHNSWCagra*>(id_map.index)->base_level_only=true;
++
++    // search
++    idx_t* I = new idx_t[k];
++    float* D = new float[k];
++
++    auto pSearchParameters = new faiss::SearchParametersHNSW();
++    pSearchParameters->grp = &id_grouper;
++
++    id_map.search(1, xb, k, D, I, pSearchParameters);
++
++    std::unordered_set<int> group_ids;
++    ASSERT_EQ(0, I[0]);
++    ASSERT_EQ(0, D[0]);
++    group_ids.insert(id_grouper.get_group(I[0]));
++    for (int j = 1; j < 5; j++) {
++        ASSERT_NE(-1, I[j]);
++        ASSERT_NE(std::numeric_limits<float>::max(), D[j]);
++        group_ids.insert(id_grouper.get_group(I[j]));
++    }
++    for (int j = 5; j < k; j++) {
++        ASSERT_EQ(-1, I[j]);
++        ASSERT_EQ(std::numeric_limits<float>::max(), D[j]);
++    }
++    ASSERT_EQ(5, group_ids.size());
++
++    delete[] I;
++    delete[] D;
++    delete[] xb;
++}
++
+ TEST(IdGrouper, bitmap_with_binary_hnsw_idmap) {
+     int d = 16;   // dimension
+     int nb = 10; // database size
+-- 
+2.47.1
+
