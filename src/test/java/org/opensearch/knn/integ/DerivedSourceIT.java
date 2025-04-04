@@ -6,6 +6,8 @@
 package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
+import org.junit.Before;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.knn.Pair;
@@ -13,6 +15,7 @@ import org.opensearch.knn.index.VectorDataType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 import static org.opensearch.knn.DerivedSourceUtils.DERIVED_ENABLED_WITH_SEGREP_SETTINGS;
@@ -24,6 +27,18 @@ import static org.opensearch.knn.DerivedSourceUtils.randomVectorSupplier;
  * a few gaps in functionality. Ignoring tests for now as feature is experimental.
  */
 public class DerivedSourceIT extends DerivedSourceTestCase {
+
+    private final String snapshot = "snapshot-test";
+    private final String repository = "repo";
+
+    @Before
+    @SneakyThrows
+    public void setUp() {
+        super.setUp();
+        final String pathRepo = System.getProperty("tests.path.repo");
+        Settings repoSettings = Settings.builder().put("compress", randomBoolean()).put("location", pathRepo).build();
+        registerRepository(repository, "fs", true, repoSettings);
+    }
 
     @SneakyThrows
     public void testFlatFields() {
@@ -144,6 +159,8 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
         // Reindex
         testReindex(indexConfigContexts);
-    }
 
+        // Snapshot restore
+        testSnapshotRestore(repository, snapshot + getTestName().toLowerCase(Locale.ROOT), indexConfigContexts);
+    }
 }
