@@ -16,6 +16,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -42,6 +43,8 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
 import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.METHOD_PARAMETER_ENCODER;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.S3;
@@ -71,6 +74,17 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         );
         objectUnderTest.buildAndWriteIndex(buildIndexParams);
         assertTrue(fallback.get());
+        for (KNNRemoteIndexBuildValue value : KNNRemoteIndexBuildValue.values()) {
+            if (value == REMOTE_INDEX_BUILD_FLUSH_TIME && buildIndexParams.isFlush()) {
+                assertTrue(value.getValue() >= 0L);
+            } else if (value == REMOTE_INDEX_BUILD_MERGE_TIME && !buildIndexParams.isFlush()) {
+                assertTrue(value.getValue() >= 0L);
+            } else if (value == KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT) {
+                assertEquals(1L, (long) value.getValue());
+            } else {
+                assertEquals(0L, (long) value.getValue());
+            }
+        }
     }
 
     public void testShouldBuildIndexRemotely() {
