@@ -95,7 +95,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected Boolean ignoreMalformed;
 
         protected final Parameter<Boolean> stored = Parameter.storeParam(m -> toType(m).stored, false);
-        protected final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
+        protected final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, false);
         protected final Parameter<Integer> dimension = new Parameter<>(
             KNNConstants.DIMENSION,
             false,
@@ -290,33 +290,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     copyToBuilder,
                     ignoreMalformed,
                     stored.get(),
-                    hasDocValues.get(),
+                    hasDocValues.isConfigured() ? hasDocValues.getValue() : true,
                     originalParameters
                 );
             }
 
-            if (originalParameters.getResolvedKnnMethodContext().getKnnEngine() == KNNEngine.LUCENE) {
-                log.debug(String.format(Locale.ROOT, "Use [LuceneFieldMapper] mapper for field [%s]", name));
-                LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput = LuceneFieldMapper.CreateLuceneFieldMapperInput
-                    .builder()
-                    .name(name)
-                    .multiFields(multiFieldsBuilder)
-                    .copyTo(copyToBuilder)
-                    .ignoreMalformed(ignoreMalformed)
-                    .stored(stored.getValue())
-                    .hasDocValues(hasDocValues.getValue())
-                    .originalKnnMethodContext(knnMethodContext.get())
-                    .build();
-                return LuceneFieldMapper.createFieldMapper(
-                    buildFullName(context),
-                    metaValue,
-                    knnMethodConfigContext,
-                    createLuceneFieldMapperInput,
-                    originalParameters
-                );
-            }
-
-            return MethodFieldMapper.createFieldMapper(
+            return EngineFieldMapper.createFieldMapper(
                 buildFullName(context),
                 name,
                 metaValue,
