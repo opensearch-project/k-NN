@@ -95,7 +95,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected Boolean ignoreMalformed;
 
         protected final Parameter<Boolean> stored = Parameter.storeParam(m -> toType(m).stored, false);
-        protected final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
+        protected final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, false);
         protected final Parameter<Integer> dimension = new Parameter<>(
             KNNConstants.DIMENSION,
             false,
@@ -290,7 +290,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     copyToBuilder,
                     ignoreMalformed,
                     stored.get(),
-                    hasDocValues.get(),
+                    hasDocValues.isConfigured() ? hasDocValues.getValue() : true,
                     originalParameters
                 );
             }
@@ -304,7 +304,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 copyToBuilder,
                 ignoreMalformed,
                 stored.getValue(),
-                hasDocValues.isConfigured() ? hasDocValues.getValue() : false,
+                hasDocValues.getValue(),
                 originalParameters
             );
         }

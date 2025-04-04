@@ -102,12 +102,14 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
 
                 @Override
                 public QuantizationConfig getQuantizationConfig() {
-                    return isLuceneEngine ? QuantizationConfig.EMPTY : libraryContext.getQuantizationConfig();
+                    return Optional.ofNullable(libraryContext)
+                        .map(KNNLibraryIndexingContext::getQuantizationConfig)
+                        .orElse(QuantizationConfig.EMPTY);
                 }
 
                 @Override
                 public KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
-                    return isLuceneEngine ? null : libraryContext;
+                    return libraryContext;
                 }
             }
         );
