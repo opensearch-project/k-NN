@@ -130,6 +130,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     @Override
     public void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException {
         metrics.startRemoteIndexBuildMetrics(indexInfo);
+        boolean success = false;
         try {
             RepositoryContext repositoryContext = getRepositoryContext(indexInfo);
 
@@ -146,10 +147,11 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             // 4. Download index file and write to indexOutput
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
 
-            metrics.endRemoteIndexBuildMetrics(true);
+            success = true;
         } catch (Exception e) {
-            metrics.endRemoteIndexBuildMetrics(false);
             fallbackStrategy.buildAndWriteIndex(indexInfo);
+        } finally {
+            metrics.endRemoteIndexBuildMetrics(success);
         }
     }
 
@@ -158,11 +160,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      */
     private void writeToRepository(RepositoryContext repositoryContext, BuildIndexParams indexInfo) throws IOException,
         InterruptedException {
-        BlobStoreRepository repository = repositoryContext.blobStoreRepository;
-        BlobPath blobPath = repositoryContext.blobPath;
-        VectorRepositoryAccessor vectorRepositoryAccessor = new DefaultVectorRepositoryAccessor(
-            repository.blobStore().blobContainer(blobPath)
-        );
+        VectorRepositoryAccessor vectorRepositoryAccessor = repositoryContext.vectorRepositoryAccessor;
         boolean success = false;
         metrics.startRepositoryWriteMetrics();
         try {
