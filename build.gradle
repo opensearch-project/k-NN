@@ -514,7 +514,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
 
 
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
-    if (_numNodes > 1) numberOfNodes = _numNodes
+    if (_numNodes > 1) cluster.numberOfNodes = _numNodes
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
     // since we also support multi node integration tests we increase debugPort per node
@@ -560,6 +560,7 @@ task integTestRemote(type: RestIntegTestTask) {
 
     systemProperty 'tests.security.manager', 'false'
     systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+    systemProperty "tests.path.repo", "${layout.buildDirectory.toString()}/testSnapshotFolder"
 
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {
