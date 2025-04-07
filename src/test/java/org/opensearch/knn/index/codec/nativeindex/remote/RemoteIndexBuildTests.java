@@ -100,6 +100,7 @@ abstract class RemoteIndexBuildTests extends KNNTestCase {
         .knnVectorValuesSupplier(knnVectorValuesSupplier)
         .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
         .segmentWriteState(segmentWriteState)
+        .isFlush(randomBoolean())
         .build();
 
     record TestIndexBuildStrategy(SetOnce<Boolean> fallback) implements NativeIndexBuildStrategy {
