@@ -90,6 +90,10 @@ public class JNIService {
         );
     }
 
+    public static void updateIndexSettings(long indexAddress, Map<String, Object> parameters) {
+        FaissService.updateIndexSettings(indexAddress, parameters);
+    }
+
     /**
      * Writes a faiss index to disk.
      *

@@ -66,6 +66,8 @@ namespace knn_jni {
         // Convert a java object to a cpp integer, if applicable
         virtual int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) = 0;
 
+        virtual bool ConvertJavaBoolToCppBool(JNIEnv *env, jobject objectJ) = 0;
+
         virtual std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ,
                                                                             int dim) = 0;
 
@@ -170,6 +172,7 @@ namespace knn_jni {
         std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) final;
         std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ) final;
         int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) final;
+        bool ConvertJavaBoolToCppBool(JNIEnv *env, jobject objectJ) final;
         std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim) final;
         std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) final;
         int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ) final;

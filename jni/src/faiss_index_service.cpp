@@ -138,6 +138,32 @@ void IndexService::insertToIndex(
     idMap->add_with_ids(numVectors, inputVectors->data(), ids.data());
 }
 
+void IndexService::updateIndexSettings(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        jlong idMapAddress,
+        std::unordered_map<std::string, jobject> settings
+    ) {
+
+    faiss::IndexIDMap * idMap = reinterpret_cast<faiss::IndexIDMap *> (idMapAddress);
+
+    for (const auto& entry : settings) {
+        const std::string& key = entry.first;
+        jobject value = entry.second;
+        if (key == "base_level_only") {
+            auto hnswCagra = dynamic_cast<faiss::IndexHNSWCagra*>(idMap->index);
+
+            bool cppBool = jniUtil->ConvertJavaBoolToCppBool(env, value);
+
+            if (hnswCagra) {
+                hnswCagra->base_level_only = cppBool;
+            }
+        }
+    }
+
+
+}
+
 void IndexService::writeIndex(
     faiss::IOWriter* writer,
     jlong idMapAddress

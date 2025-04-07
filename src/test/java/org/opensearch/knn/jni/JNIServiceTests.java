@@ -75,6 +75,7 @@ public class JNIServiceTests extends KNNTestCase {
     static TestUtils.TestData testData;
     static TestUtils.TestData testDataNested;
     private String faissMethod = "HNSW32,Flat";
+    private String faissMethodCagra = "HNSW32,Cagra";
     private String faissBinaryMethod = "BHNSW32";
 
     @BeforeClass
@@ -1291,7 +1292,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tempDirPath = createTempDir();
         try (Directory directory = newFSDirectory(tempDirPath)) {
-            List<String> methods = ImmutableList.of(faissMethod);
+            List<String> methods = ImmutableList.of(faissMethod, faissMethodCagra);
             List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
             int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
             Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);

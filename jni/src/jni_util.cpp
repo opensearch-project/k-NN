@@ -221,6 +221,25 @@ int knn_jni::JNIUtil::ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ
     return intCpp;
 }
 
+bool knn_jni::JNIUtil::ConvertJavaBoolToCppBool(JNIEnv *env, jobject objectJ) {
+    if (objectJ == nullptr) {
+        throw std::runtime_error("Object cannot be null");
+    }
+
+    jclass booleanClass = env->FindClass("java/lang/Boolean");
+    jmethodID booleanValueMethod = env->GetMethodID(booleanClass, "booleanValue", "()Z");
+
+    if (!env->IsInstanceOf(objectJ, booleanClass)) {
+        throw std::runtime_error("Cannot call BooleanMethod on non-boolean class");
+    }
+
+    jboolean javaBool = env->CallBooleanMethod(objectJ, booleanValueMethod);
+    this->HasExceptionInStack(env, "Could not call \"BooleanMethod\" method on Boolean");
+    bool cppBool = static_cast<bool>(javaBool);
+
+    return cppBool;
+}
+
 std::vector<float> knn_jni::JNIUtil::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ,
                                                                               int dim) {
     std::vector<float> vect;

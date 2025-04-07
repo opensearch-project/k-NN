@@ -23,6 +23,8 @@ namespace knn_jni {
 
         void InsertToIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ, jlong indexAddr, jint threadCount, IndexService *indexService);
 
+        void UpdateIndexSettings(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong index_ptr, jobject settings, IndexService* indexService);
+
         void WriteIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jobject output, jlong indexAddr, IndexService *indexService);
 
         // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
