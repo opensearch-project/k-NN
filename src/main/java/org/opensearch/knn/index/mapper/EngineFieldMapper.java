@@ -280,8 +280,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
 
     @Override
     void updateEngineStats() {
-        if (this.isLuceneEngine) {
-            KNNEngine.LUCENE.setInitialized(true);
-        }
+        Optional.ofNullable(originalMappingParameters)
+            .ifPresent(params -> params.getResolvedKnnMethodContext().getKnnEngine().setInitialized(true));
     }
 }

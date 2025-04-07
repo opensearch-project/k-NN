@@ -273,10 +273,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use either LuceneFieldMapper
-            // or
-            // MethodFieldMapper to maintain backwards compatibility
+            // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
+            // EngineFieldMapper to maintain backwards compatibility
             if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
+                // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
+                // hasDocValues to be true to maintain proper functionality for vector search operations.
+                // For indices created on or after 3.0.0, we automatically set hasDocValues to true if not
+                // explicitly configured to ensure consistent behavior.
+                if (indexCreatedVersion.onOrAfter(Version.V_3_0_0)) {
+                    hasDocValues.setValue(true);
+                }
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -290,7 +296,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     copyToBuilder,
                     ignoreMalformed,
                     stored.get(),
-                    hasDocValues.isConfigured() ? hasDocValues.getValue() : true,
+                    hasDocValues.getValue(),
                     originalParameters
                 );
             }
