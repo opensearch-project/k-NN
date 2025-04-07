@@ -8,8 +8,8 @@ package org.opensearch.knn.plugin.stats;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
@@ -86,6 +86,7 @@ public class KNNStats {
         addScriptStats(builder);
         addModelStats(builder);
         addGraphStats(builder);
+        addRemoteIndexBuildStats(builder);
         return builder.build();
     }
 
@@ -217,5 +218,78 @@ public class KNNStats {
         graphStatsMap.put(StatNames.MERGE.getName(), mergeMap);
         graphStatsMap.put(StatNames.REFRESH.getName(), refreshMap);
         return graphStatsMap;
+    }
+
+    private void addRemoteIndexBuildStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName(), new KNNStat<>(false, this::createRemoteIndexStatsMap));
+    }
+
+    private Map<String, Map<String, Object>> createRemoteIndexStatsMap() {
+        Map<String, Object> clientStatsMap = new HashMap<>();
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.BUILD_REQUEST_SUCCESS_COUNT.getName(),
+            KNNRemoteIndexBuildValue.BUILD_REQUEST_SUCCESS_COUNT.getValue()
+        );
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.BUILD_REQUEST_FAILURE_COUNT.getName(),
+            KNNRemoteIndexBuildValue.BUILD_REQUEST_FAILURE_COUNT.getValue()
+        );
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.STATUS_REQUEST_SUCCESS_COUNT.getName(),
+            KNNRemoteIndexBuildValue.STATUS_REQUEST_SUCCESS_COUNT.getValue()
+        );
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.STATUS_REQUEST_FAILURE_COUNT.getName(),
+            KNNRemoteIndexBuildValue.STATUS_REQUEST_FAILURE_COUNT.getValue()
+        );
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getName(),
+            KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getValue()
+        );
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getName(),
+            KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue()
+        );
+        clientStatsMap.put(KNNRemoteIndexBuildValue.WAITING_TIME.getName(), KNNRemoteIndexBuildValue.WAITING_TIME.getValue());
+
+        Map<String, Object> repoStatsMap = new HashMap<>();
+        repoStatsMap.put(KNNRemoteIndexBuildValue.WRITE_SUCCESS_COUNT.getName(), KNNRemoteIndexBuildValue.WRITE_SUCCESS_COUNT.getValue());
+        repoStatsMap.put(KNNRemoteIndexBuildValue.WRITE_FAILURE_COUNT.getName(), KNNRemoteIndexBuildValue.WRITE_FAILURE_COUNT.getValue());
+        repoStatsMap.put(KNNRemoteIndexBuildValue.WRITE_TIME.getName(), KNNRemoteIndexBuildValue.WRITE_TIME.getValue());
+        repoStatsMap.put(KNNRemoteIndexBuildValue.READ_SUCCESS_COUNT.getName(), KNNRemoteIndexBuildValue.READ_SUCCESS_COUNT.getValue());
+        repoStatsMap.put(KNNRemoteIndexBuildValue.READ_FAILURE_COUNT.getName(), KNNRemoteIndexBuildValue.READ_FAILURE_COUNT.getValue());
+        repoStatsMap.put(KNNRemoteIndexBuildValue.READ_TIME.getName(), KNNRemoteIndexBuildValue.READ_TIME.getValue());
+
+        Map<String, Object> buildStatsMap = new HashMap<>();
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_OPERATIONS.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_CURRENT_MERGE_SIZE.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME.getValue()
+        );
+        buildStatsMap.put(
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME.getName(),
+            KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME.getValue()
+        );
+
+        Map<String, Map<String, Object>> remoteIndexBuildStatsMap = new HashMap<>();
+        remoteIndexBuildStatsMap.put(StatNames.BUILD_STATS.getName(), buildStatsMap);
+        remoteIndexBuildStatsMap.put(StatNames.CLIENT_STATS.getName(), clientStatsMap);
+        remoteIndexBuildStatsMap.put(StatNames.REPOSITORY_STATS.getName(), repoStatsMap);
+        return remoteIndexBuildStatsMap;
     }
 }

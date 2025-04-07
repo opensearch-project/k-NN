@@ -25,17 +25,21 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import static org.opensearch.knn.TestUtils.*;
+import static org.opensearch.knn.TestUtils.KNN_VECTOR;
 import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
@@ -49,9 +53,10 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.plugin.stats.StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS;
 
 /**
  * Integration tests to check the correctness of RestKNNStatsHandler
@@ -87,13 +92,25 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testCorrectStatsReturned() throws IOException {
+    public void testCorrectStatsReturned() throws Exception {
+        // Enable flag to get all stats in KNNStats returned
+        updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
         assertEquals(knnStats.getClusterStats().keySet(), clusterStats.keySet());
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
         assertEquals(knnStats.getNodeStats().keySet(), nodeStats.get(0).keySet());
+    }
+
+    /**
+     * Test checks that handler correctly omits stats based on feature flag
+     */
+    public void testFeatureFlagOmittingStats() throws Exception {
+        updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), false);
+        Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        assertFalse(responseBody.contains(REMOTE_VECTOR_INDEX_BUILD_STATS.getName()));
     }
 
     /**
