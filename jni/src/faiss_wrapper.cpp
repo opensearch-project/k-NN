@@ -183,12 +183,6 @@ void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, 
     indexService->insertToIndex(dim, numIds, threadCount, vectorsAddress, ids, index_ptr);
 }
 
-void knn_jni::faiss_wrapper::UpdateIndexSettings(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong index_ptr, jobject settings, IndexService* indexService) {
-
-    auto settingsCpp = jniUtil->ConvertJavaMapToCppMap(env, settings);
-    indexService->updateIndexSettings(jniUtil, env, index_ptr, settingsCpp);
-}
-
 void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env,
                                         jobject output, jlong index_ptr, IndexService* indexService) {
 

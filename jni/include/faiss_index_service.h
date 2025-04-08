@@ -60,8 +60,6 @@ public:
      */
     virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress);
 
-    virtual void updateIndexSettings(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong idMapAddress, std::unordered_map<std::string, jobject> settings);
-
     /**
      * Write index to disk
      *

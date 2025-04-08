@@ -96,19 +96,6 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
     }
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_updateIndexSettings(JNIEnv * env, jclass cls, jlong indexAddress, jobject settings)
-{
-    try {
-        std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
-        knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
-        knn_jni::faiss_wrapper::UpdateIndexSettings(&jniUtil, env, indexAddress, settings, &indexService);
-    } catch (...) {
-        // NOTE: ADDING DELETE STATEMENT HERE CAUSES A CRASH!
-        jniUtil.CatchCppExceptionAndThrowJava(env);
-    }
-}
-
-
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIndex(JNIEnv * env, jclass cls, jintArray idsJ,
                                                                                     jlong vectorsAddressJ, jint dimJ,
                                                                                     jlong indexAddress, jint threadCount)

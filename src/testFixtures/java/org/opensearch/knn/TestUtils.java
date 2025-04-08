@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 import static org.apache.lucene.tests.util.LuceneTestCase.random;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 
 class DistVector {
     public float dist;
@@ -463,9 +462,6 @@ public class TestUtils {
             // We can initialize numDocs as 0, this will just not reserve anything.
             long indexAddress = JNIService.initIndex(0, dimension, parameters, engine);
             JNIService.insertToIndex(ids, address, dimension, parameters, indexAddress, engine);
-            if (parameters.containsKey(INDEX_DESCRIPTION_PARAMETER) && parameters.get(INDEX_DESCRIPTION_PARAMETER).equals("HNSW32,Cagra")) {
-                JNIService.updateIndexSettings(indexAddress, ImmutableMap.of("base_level_only", true));
-            }
             try (IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
                 final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
                 JNIService.writeIndex(indexOutputWithBuffer, indexAddress, engine, parameters);

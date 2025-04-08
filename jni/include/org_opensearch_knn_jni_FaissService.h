@@ -44,8 +44,6 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initByteIndex(J
                                                                                jlong numDocs, jint dimJ,
                                                                                jobject parametersJ);
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_updateIndexSettings(JNIEnv * env, jclass cls, jlong indexAddress, jobject settings);
-
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    insertToIndex

@@ -68,6 +68,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
 public class JNIServiceTests extends KNNTestCase {
     static final int FP16_MAX = 65504;
@@ -75,7 +76,6 @@ public class JNIServiceTests extends KNNTestCase {
     static TestUtils.TestData testData;
     static TestUtils.TestData testDataNested;
     private String faissMethod = "HNSW32,Flat";
-    private String faissMethodCagra = "HNSW32,Cagra";
     private String faissBinaryMethod = "BHNSW32";
 
     @BeforeClass
@@ -1292,7 +1292,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tempDirPath = createTempDir();
         try (Directory directory = newFSDirectory(tempDirPath)) {
-            List<String> methods = ImmutableList.of(faissMethod, faissMethodCagra);
+            List<String> methods = ImmutableList.of(faissMethod);
             List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
             int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
             Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
@@ -1340,6 +1340,48 @@ public class JNIServiceTests extends KNNTestCase {
                         assertEquals(results.length, parentIdSet.size());
                     }
                 }
+            }
+        }
+    }
+
+    public void testQueryIndex_faissCagra_parentIds() throws IOException {
+
+        int k = 100;
+        int efSearch = 100;
+
+        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
+        int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
+        Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
+        for (SpaceType spaceType : spaces) {
+
+            final long pointer;
+            try (IndexInput indexInput = loadHnswBinary("data/remoteindexbuild/faiss_hnsw_cagra_nested_float_1000_vectors_128_dims.bin")) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(
+                    indexInputWithBuffer,
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                    KNNEngine.FAISS
+                );
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
+
+            for (float[] query : testDataNested.queries) {
+                KNNQueryResult[] results = JNIService.queryIndex(
+                    pointer,
+                    query,
+                    k,
+                    Map.of("ef_search", efSearch),
+                    KNNEngine.FAISS,
+                    null,
+                    0,
+                    parentIds
+                );
+                // Verify there is no more than one result from same parent
+                Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
+                assertEquals(results.length, parentIdSet.size());
             }
         }
     }

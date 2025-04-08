@@ -1,4 +1,4 @@
-From a6cf4335366c696b7cc3cad8c5cb50e330c63814 Mon Sep 17 00:00:00 2001
+From 9ef5e349ca5893da07898d7f1d22b0a81f17fddc Mon Sep 17 00:00:00 2001
 From: AnnTian Shao <anntians@amazon.com>
 Date: Thu, 3 Apr 2025 21:21:11 +0000
 Subject: [PATCH] Add multi-vector-support faiss patch to
