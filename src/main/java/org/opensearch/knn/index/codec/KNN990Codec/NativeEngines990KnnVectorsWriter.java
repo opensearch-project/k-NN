@@ -108,7 +108,14 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 field.getVectors()
             );
             final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
-            SegmentProfilerState.profileVectors(knnVectorValuesSupplier);
+            try {
+                log.info("Starting vector profiling for field: {}", fieldInfo.getName());
+                SegmentProfilerState.profileVectors(knnVectorValuesSupplier, segmentWriteState, fieldInfo.getName());
+                log.info("Completed vector profiling for field: {}", fieldInfo.getName());
+            } catch (Exception e) {
+                log.error("Error during vector profiling for field {}: ", fieldInfo.getName(), e);
+            }
+
             // should skip graph building only for non quantization use case and if threshold is met
             if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
                 log.info(
@@ -150,7 +157,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             log.debug("[Merge] No live docs for field {}", fieldInfo.getName());
             return;
         }
-
         final QuantizationState quantizationState = train(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
         // should skip graph building only for non quantization use case and if threshold is met
         if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
