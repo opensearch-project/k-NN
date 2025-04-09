@@ -261,6 +261,95 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertNotNull(builderWithFaiss);
     }
 
+    public void testKNNVectorFieldMapperLucene_docValueDefaults() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // Creating a mapping before version 3.0.0 (doc values should be true)
+        XContentBuilder legacyDocValuesContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 128)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject();
+
+        // Should be true for versions before 3.0.0
+        KNNVectorFieldMapper.Builder builderBeforeV3 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(legacyDocValuesContentBuilder),
+            buildLegacyParserContext(indexName, settings, Version.V_2_19_0) // Version < 3.0.0
+        );
+        assertNotNull(builderBeforeV3);
+        assertTrue(builderBeforeV3.hasDocValues.getValue());
+
+        // Creating a mapping with Lucene on or after version 3.0.0 (doc values should default to false)
+        XContentBuilder currentDocValuesContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 128)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builderAfterV3 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(currentDocValuesContentBuilder),
+            buildParserContext(indexName, settings) // Version >= 3.0.0
+        );
+        assertNotNull(builderAfterV3);
+        assertFalse(builderAfterV3.hasDocValues.getValue());
+    }
+
+    public void testKNNVectorFieldMapperModel_docValueDefaults() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index";
+        String modelId = "test-model-id";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // Creating a model mapping before version 3.0.0 (doc values should be true)
+        XContentBuilder legacyDocValuesContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(MODEL_ID, modelId)
+            .endObject();
+
+        // Should be true for versions before 3.0.0
+        KNNVectorFieldMapper.Builder builderBeforeV3 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(legacyDocValuesContentBuilder),
+            buildLegacyParserContext(indexName, settings, Version.V_2_19_0) // Version < 3.0.0
+        );
+        assertNotNull(builderBeforeV3);
+        assertTrue(builderBeforeV3.hasDocValues.getValue());
+
+        // Creating a mapping with model on or after version 3.0.0 (doc values should default to false)
+        XContentBuilder currentDocValuesContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(MODEL_ID, modelId)
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builderAfterV3 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(currentDocValuesContentBuilder),
+            buildParserContext(indexName, settings) // Version >= 3.0.0
+        );
+        assertNotNull(builderAfterV3);
+        assertFalse(builderAfterV3.hasDocValues.getValue());
+    }
+
     public void testTypeParser_withDifferentSpaceTypeCombinations_thenSuccess() throws IOException {
         // Check that knnMethodContext takes precedent over both model and legacy
         ModelDao modelDao = mock(ModelDao.class);
