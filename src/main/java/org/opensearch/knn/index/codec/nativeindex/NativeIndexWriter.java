@@ -102,7 +102,7 @@ public class NativeIndexWriter {
      * @throws IOException
      */
     public void flushIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs) throws IOException {
-        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs);
+        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs, true);
         recordRefreshStats();
     }
 
@@ -122,11 +122,12 @@ public class NativeIndexWriter {
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
         startMergeStats(totalLiveDocs, bytesPerVector);
-        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs);
+        buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs, false);
         endMergeStats(totalLiveDocs, bytesPerVector);
     }
 
-    private void buildAndWriteIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs) throws IOException {
+    private void buildAndWriteIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs, boolean isFlush)
+        throws IOException {
         if (totalLiveDocs == 0) {
             log.debug("No live docs for field {}", fieldInfo.name);
             return;
@@ -146,12 +147,14 @@ public class NativeIndexWriter {
                 indexOutputWithBuffer,
                 knnEngine,
                 knnVectorValuesSupplier,
-                totalLiveDocs
+                totalLiveDocs,
+                isFlush
             );
             NativeIndexBuildStrategy indexBuilder = indexBuilderFactory.getBuildStrategy(
                 fieldInfo,
                 totalLiveDocs,
-                knnVectorValuesSupplier.get()
+                knnVectorValuesSupplier.get(),
+                nativeIndexParams
             );
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
             CodecUtil.writeFooter(output);
@@ -166,7 +169,8 @@ public class NativeIndexWriter {
         IndexOutputWithBuffer indexOutputWithBuffer,
         KNNEngine knnEngine,
         Supplier<KNNVectorValues<?>> knnVectorValuesSupplier,
-        int totalLiveDocs
+        int totalLiveDocs,
+        boolean isFlush
     ) throws IOException {
         final Map<String, Object> parameters;
         VectorDataType vectorDataType;
@@ -192,6 +196,7 @@ public class NativeIndexWriter {
             .knnVectorValuesSupplier(knnVectorValuesSupplier)
             .totalLiveDocs(totalLiveDocs)
             .segmentWriteState(state)
+            .isFlush(isFlush)
             .build();
     }
 
