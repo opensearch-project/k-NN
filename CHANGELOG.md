@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add index operation listener to update translog source [#2629](https://github.com/opensearch-project/k-NN/pull/2629)
 * Add parent join support for faiss hnsw cagra [#2647](https://github.com/opensearch-project/k-NN/pull/2647)
 * [Remote Vector Index Build] Fix bug to support `COSINESIMIL` space type [#2627](https://github.com/opensearch-project/k-NN/pull/2627)
+* Disable doc value storage for vector field storage [#2646](https://github.com/opensearch-project/k-NN/pull/2646)
 ### Infrastructure
 * Add github action to run ITs against remote index builder [2620](https://github.com/opensearch-project/k-NN/pull/2620)
 ### Documentation
@@ -26,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Refactoring
 * Switch derived source from field attributes to segment attribute [#2606](https://github.com/opensearch-project/k-NN/pull/2606)
 * Migrate derived source from filter to mask [#2612](https://github.com/opensearch-project/k-NN/pull/2612)
+* Consolidate MethodFieldMapper and LuceneFieldMapper into EngineFieldMapper [#2646](https://github.com/opensearch-project/k-NN/pull/2646)
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features
