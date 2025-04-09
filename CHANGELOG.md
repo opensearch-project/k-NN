@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add index operation listener to update translog source [#2629](https://github.com/opensearch-project/k-NN/pull/2629)
 * Add parent join support for faiss hnsw cagra [#2647](https://github.com/opensearch-project/k-NN/pull/2647)
 * [Remote Vector Index Build] Fix bug to support `COSINESIMIL` space type [#2627](https://github.com/opensearch-project/k-NN/pull/2627)
+* [BUGFIX] FIX nested vector query at efficient filter scenarios [#2641](https://github.com/opensearch-project/k-NN/pull/2641)
 ### Infrastructure
 * Add github action to run ITs against remote index builder [2620](https://github.com/opensearch-project/k-NN/pull/2620)
 ### Documentation
