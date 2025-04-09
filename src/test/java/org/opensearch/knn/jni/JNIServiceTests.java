@@ -1345,45 +1345,52 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testQueryIndex_faissCagra_parentIds() throws IOException {
+        doTestQueryIndex_faissCagra_parentIds(SpaceType.L2);
+        doTestQueryIndex_faissCagra_parentIds(SpaceType.INNER_PRODUCT);
+        doTestQueryIndex_faissCagra_parentIds(SpaceType.COSINESIMIL);
+
+    }
+
+    private void doTestQueryIndex_faissCagra_parentIds(SpaceType spaceType) throws IOException {
 
         int k = 100;
         int efSearch = 100;
 
-        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
         int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
         Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
-        for (SpaceType spaceType : spaces) {
 
-            final long pointer;
-            try (IndexInput indexInput = loadHnswBinary("data/remoteindexbuild/faiss_hnsw_cagra_nested_float_1000_vectors_128_dims.bin")) {
-                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
-                pointer = JNIService.loadIndex(
-                    indexInputWithBuffer,
-                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                    KNNEngine.FAISS
-                );
-                assertNotEquals(0, pointer);
-            } catch (Throwable e) {
-                fail(e.getMessage());
-                throw e;
-            }
-
-            for (float[] query : testDataNested.queries) {
-                KNNQueryResult[] results = JNIService.queryIndex(
-                    pointer,
-                    query,
-                    k,
-                    Map.of("ef_search", efSearch),
-                    KNNEngine.FAISS,
-                    null,
-                    0,
-                    parentIds
-                );
-                // Verify there is no more than one result from same parent
-                Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
-                assertEquals(results.length, parentIdSet.size());
-            }
+        final long pointer;
+        // This faiss graph binary was created with the IndexHNSWCagra index (base_level_only==true) containing the
+        // test_vectors_nested_1000x128.json vectors
+        try (IndexInput indexInput = loadHnswBinary("data/remoteindexbuild/faiss_hnsw_cagra_nested_float_1000_vectors_128_dims.bin")) {
+            final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+            pointer = JNIService.loadIndex(
+                indexInputWithBuffer,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                KNNEngine.FAISS
+            );
+            assertNotEquals(0, pointer);
+        } catch (Throwable e) {
+            fail(e.getMessage());
+            throw e;
         }
+
+        for (float[] query : testDataNested.queries) {
+            KNNQueryResult[] results = JNIService.queryIndex(
+                pointer,
+                query,
+                k,
+                Map.of("ef_search", efSearch),
+                KNNEngine.FAISS,
+                null,
+                0,
+                parentIds
+            );
+            // Verify there is no more than one result from same parent
+            Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
+            assertEquals(results.length, parentIdSet.size());
+        }
+
     }
 
     public void testQueryIndex_faiss_streaming_parentIds() throws IOException {
