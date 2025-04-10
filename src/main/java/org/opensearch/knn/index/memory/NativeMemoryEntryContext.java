@@ -13,11 +13,10 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexReader;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
@@ -83,7 +82,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
     public static class IndexEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.IndexAllocation> {
 
         @Getter
-        private final Directory directory;
+        private final NativeIndexReader nativeIndexReader;
         private final NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy;
         @Getter
         private final String openSearchIndexName;
@@ -107,26 +106,26 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         /**
          * Constructor
          *
-         * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
+         * @param nativeIndexReader native index reader that can read binary indexes from different codec types.
          * @param vectorIndexCacheKey Cache key for {@link NativeMemoryCacheManager}. It must contain a vector file name.
          * @param indexLoadStrategy Strategy to load index into memory
          * @param parameters Load time parameters
          * @param openSearchIndexName Opensearch index associated with index
          */
         public IndexEntryContext(
-            Directory directory,
+            NativeIndexReader nativeIndexReader,
             String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName
         ) {
-            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null);
+            this(nativeIndexReader, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null);
         }
 
         /**
          * Constructor
          *
-         * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
+         * @param nativeIndexReader native index reader that can read binary indexes from different codec types.
          * @param vectorIndexCacheKey Cache key for {@link NativeMemoryCacheManager}. It must contain a vector file name.
          * @param indexLoadStrategy strategy to load index into memory
          * @param parameters load time parameters
@@ -134,7 +133,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param modelId model to be loaded. If none available, pass null
          */
         public IndexEntryContext(
-            Directory directory,
+            NativeIndexReader nativeIndexReader,
             String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
@@ -142,7 +141,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             String modelId
         ) {
             super(vectorIndexCacheKey);
-            this.directory = directory;
+            this.nativeIndexReader = nativeIndexReader;
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;
             this.parameters = parameters;
@@ -153,7 +152,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         public Integer calculateSizeInKB() {
             final String indexFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(key);
             try {
-                final long fileLength = directory.fileLength(indexFileName);
+                final long fileLength = nativeIndexReader.calculateIndexSize(indexFileName);
                 return (int) (fileLength / 1024L);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -176,13 +175,10 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
                 );
             }
 
-            // Prepare for opening index input from directory.
-            final Directory directory = this.getDirectory();
-
             // Try to open an index input then pass it down to native engine for loading an index.
             try {
-                indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
-                readStream = directory.openInput(vectorFileName, IOContext.READONCE);
+                indexSizeKb = Math.toIntExact(nativeIndexReader.calculateIndexSize(vectorFileName) / 1024);
+                readStream = nativeIndexReader.open(vectorFileName);
                 readStream.seek(0);
                 indexInputWithBuffer = new IndexInputWithBuffer(readStream);
                 indexGraphFileOpened = true;
@@ -206,6 +202,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             if (readStream != null) {
                 try {
                     readStream.close();
+                    nativeIndexReader.close();
                     indexGraphFileOpened = false;
                 } catch (IOException e) {
                     throw new RuntimeException(

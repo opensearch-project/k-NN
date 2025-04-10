@@ -86,7 +86,9 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
         KNN80CompoundFormat knn80CompoundFormat = new KNN80CompoundFormat(delegate);
         knn80CompoundFormat.write(directory, segmentInfo, IOContext.DEFAULT);
 
-        assertTrue(segmentInfo.files().isEmpty());
+        // We don't remove segment files anymore to make them
+        // separate files so they should exist here
+        assertFalse(segmentInfo.files().isEmpty());
 
         Arrays.stream(directory.listAll()).forEach(filename -> {
             try {

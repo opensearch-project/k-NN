@@ -23,6 +23,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
@@ -308,8 +309,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             assertEquals(0, topDocs.scoreDocs[3].doc);
 
             reader.close();
-            dir.close();
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+            dir.close();
         }
     }
 
