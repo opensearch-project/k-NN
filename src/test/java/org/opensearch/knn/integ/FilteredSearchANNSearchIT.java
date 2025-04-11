@@ -28,8 +28,8 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         final String filterValue = "red";
         createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), createKnnIndexMapping(FIELD_NAME, 3, METHOD_HNSW, FAISS_NAME));
 
-        // ingest 4 vector docs into the index with the same field {"color": "red"}
-        for (int i = 0; i < 4; i++) {
+        // ingest 5 vector docs into the index with the same field {"color": "red"}
+        for (int i = 0; i < 5; i++) {
             addKnnDocWithAttributes(String.valueOf(i), new float[] { i, i, i }, ImmutableMap.of(filterFieldName, filterValue));
         }
 

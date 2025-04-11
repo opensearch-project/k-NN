@@ -49,6 +49,8 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.index.KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 /**
  * Tests confirm that for the different supported configurations, recall is sound. The recall thresholds are
@@ -446,12 +448,16 @@ public class RecallTestsIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        createIndexAndIngestDocs(
-            TRAIN_INDEX_NAME,
-            TRAIN_FIELD_NAME,
-            Settings.builder().put("number_of_shards", SHARD_COUNT).put("number_of_replicas", REPLICA_COUNT).build(),
-            trainingIndexBuilder.toString()
-        );
+
+        Settings.Builder builder = Settings.builder().put("number_of_shards", SHARD_COUNT).put("number_of_replicas", REPLICA_COUNT);
+
+        final String remoteBuild = System.getProperty("test.remoteBuild", null);
+        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
+        }
+
+        createIndexAndIngestDocs(TRAIN_INDEX_NAME, TRAIN_FIELD_NAME, builder.build(), trainingIndexBuilder.toString());
     }
 
     @SneakyThrows
@@ -469,11 +475,17 @@ public class RecallTestsIT extends KNNRestTestCase {
     }
 
     private Settings getSettings() {
-        return Settings.builder()
+        Settings.Builder builder = Settings.builder()
             .put("number_of_shards", SHARD_COUNT)
             .put("number_of_replicas", REPLICA_COUNT)
             .put("index.knn", true)
-            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
-            .build();
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
+
+        final String remoteBuild = System.getProperty("test.remoteBuild", null);
+        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
+        }
+        return builder.build();
     }
 }
