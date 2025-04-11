@@ -15,6 +15,7 @@ import com.sun.jna.Platform;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import oshi.util.platform.mac.SysctlUtil;
 
 import java.nio.file.Files;
@@ -27,7 +28,8 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 public class PlatformUtils {
-
+    private static volatile Boolean isAVX2Supported;
+    private static volatile Boolean isAVX512Supported;
     private static final Logger logger = LogManager.getLogger(PlatformUtils.class);
 
     /**
@@ -41,22 +43,26 @@ public class PlatformUtils {
      */
     public static boolean isAVX2SupportedBySystem() {
         if (!Platform.isIntel() || Platform.isWindows()) {
-            return false;
+            isAVX2Supported = false;
+        }
+
+        if (isAVX2Supported != null) {
+            return isAVX2Supported;
         }
 
         if (Platform.isMac()) {
-
             // sysctl or system control retrieves system info and allows processes with appropriate privileges
             // to set system info. This system info contains the machine dependent cpu features that are supported by it.
             // On MacOS, if the underlying processor supports AVX2 instruction set, it will be listed under the "leaf7"
             // subset of instructions ("sysctl -a | grep machdep.cpu.leaf7_features").
             // https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/sysctl.3.html
             try {
-                return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
+                isAVX2Supported = AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
                     String flags = SysctlUtil.sysctl("machdep.cpu.leaf7_features", "empty");
                     return (flags.toLowerCase(Locale.ROOT)).contains("avx2");
                 });
             } catch (Exception e) {
+                isAVX2Supported = false;
                 logger.error("[KNN] Error fetching cpu flags info. [{}]", e.getMessage(), e);
             }
 
@@ -70,17 +76,18 @@ public class PlatformUtils {
             // https://ark.intel.com/content/www/us/en/ark/products/199285/intel-pentium-gold-g6600-processor-4m-cache-4-20-ghz.html
             String fileName = "/proc/cpuinfo";
             try {
-                return AccessController.doPrivileged(
+                isAVX2Supported = AccessController.doPrivileged(
                     (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
                         .filter(s -> s.startsWith("flags"))
                         .anyMatch(s -> StringUtils.containsIgnoreCase(s, "avx2"))
                 );
 
             } catch (Exception e) {
+                isAVX2Supported = false;
                 logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
             }
         }
-        return false;
+        return isAVX2Supported;
     }
 
     public static boolean isAVX512SupportedBySystem() {
@@ -97,7 +104,11 @@ public class PlatformUtils {
         // https://github.com/facebookresearch/faiss/blob/main/faiss/CMakeLists.txt
 
         if (!Platform.isIntel() || Platform.isMac() || Platform.isWindows()) {
-            return false;
+            isAVX512Supported = false;
+        }
+
+        if (isAVX512Supported != null) {
+            return isAVX512Supported;
         }
 
         if (Platform.isLinux()) {
@@ -110,16 +121,16 @@ public class PlatformUtils {
             String fileName = "/proc/cpuinfo";
 
             try {
-                return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
+                isAVX512Supported = AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
                     Stream<String> linestream = Files.lines(Paths.get(fileName));
                     String flags = linestream.filter(line -> line.startsWith("flags")).findFirst().orElse("");
                     return Arrays.stream(avx512).allMatch(flags::contains);
                 });
-
             } catch (PrivilegedActionException e) {
+                isAVX512Supported = false;
                 logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
             }
         }
-        return false;
+        return isAVX512Supported;
     }
 }
