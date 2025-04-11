@@ -244,6 +244,29 @@ allprojects {
         project.noticeFile = rootProject.file('NOTICE.txt')
         project.forbiddenApis.ignoreFailures = true
     }
+
+    configurations {
+        agent
+    }
+
+    dependencies {
+    }
+
+    task prepareAgent(type: Copy) {
+        from(configurations.agent)
+        into "$buildDir/agent"
+    }
+
+    dependencies {
+        agent "org.opensearch:opensearch-agent-bootstrap:${opensearch_version}"
+        agent "org.opensearch:opensearch-agent:${opensearch_version}"
+        agent "net.bytebuddy:byte-buddy:${versions.bytebuddy}"
+    }
+
+    tasks.withType(Test) {
+      dependsOn prepareAgent
+      jvmArgs += ["-javaagent:" + project.layout.buildDirectory.file("agent/opensearch-agent-${opensearch_version}.jar").get()]
+    }
 }
 
 configurations {
