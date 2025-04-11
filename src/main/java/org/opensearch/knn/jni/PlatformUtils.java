@@ -26,9 +26,6 @@ import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Stream;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 
 public class PlatformUtils {
 
@@ -65,33 +62,24 @@ public class PlatformUtils {
             }
 
         } else if (Platform.isLinux()) {
+            // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
+            // by system. This info contains "flags" for each processor which determines the qualities of that processor
+            // and it's ability to process different instruction sets like mmx, avx, avx2 and so on.
+            // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
+            // Here, we are trying to read the details of all processors used by system and find if any of the processor
+            // supports AVX2 instructions. Pentium and Celeron are a couple of examples which doesn't support AVX2
+            // https://ark.intel.com/content/www/us/en/ark/products/199285/intel-pentium-gold-g6600-processor-4m-cache-4-20-ghz.html
+            String fileName = "/proc/cpuinfo";
             try {
-                // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
-                // by system. This info contains "flags" for each processor which determines the qualities of that processor
-                // and it's ability to process different instruction sets like mmx, avx, avx2 and so on.
-                // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
-                // Here, we are trying to read the details of all processors used by system and find if any of the processor
-                // supports AVX2 instructions. Pentium and Celeron are a couple of examples which doesn't support AVX2
-                // https://ark.intel.com/content/www/us/en/ark/products/199285/intel-pentium-gold-g6600-processor-4m-cache-4-20-ghz.html
-                // String fileName = "/proc/cpuinfo";
-                // try {
-                // return AccessController.doPrivileged(
-                // (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
-                // .filter(s -> s.startsWith("flags"))
-                // .anyMatch(s -> StringUtils.containsIgnoreCase(s, "avx2"))
-                // );
+                return AccessController.doPrivileged(
+                    (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
+                        .filter(s -> s.startsWith("flags"))
+                        .anyMatch(s -> StringUtils.containsIgnoreCase(s, "avx2"))
+                );
 
-                // } catch (Exception e) {
-                // logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
-                // }
-
-                Process p = Runtime.getRuntime().exec("lscpu");
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-                    return reader.lines().anyMatch(line -> line.toLowerCase().contains("avx512"));
-                } catch (Exception e) {
-                    logger.error("[KNN] Exception: ", e);
-                }
-            } catch (IOException ex) {}
+            } catch (Exception e) {
+                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
+            }
         }
         return false;
     }
