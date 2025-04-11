@@ -13,7 +13,6 @@ package org.opensearch.knn.jni;
 
 import com.sun.jna.Platform;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -76,24 +75,23 @@ public class PlatformUtils {
                 // https://ark.intel.com/content/www/us/en/ark/products/199285/intel-pentium-gold-g6600-processor-4m-cache-4-20-ghz.html
                 // String fileName = "/proc/cpuinfo";
                 // try {
-                //     return AccessController.doPrivileged(
-                //         (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
-                //             .filter(s -> s.startsWith("flags"))
-                //             .anyMatch(s -> StringUtils.containsIgnoreCase(s, "avx2"))
-                //     );
-                
+                // return AccessController.doPrivileged(
+                // (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
+                // .filter(s -> s.startsWith("flags"))
+                // .anyMatch(s -> StringUtils.containsIgnoreCase(s, "avx2"))
+                // );
+
                 // } catch (Exception e) {
-                //     logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
+                // logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
                 // }
-                
+
                 Process p = Runtime.getRuntime().exec("lscpu");
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
                     return reader.lines().anyMatch(line -> line.toLowerCase().contains("avx512"));
-                }  catch (Exception e) {
+                } catch (Exception e) {
                     logger.error("[KNN] Exception: ", e);
                 }
-            }  catch (IOException ex) {
-            }
+            } catch (IOException ex) {}
         }
         return false;
     }
