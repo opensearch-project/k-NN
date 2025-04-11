@@ -60,6 +60,8 @@ import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 public class KNNScriptScoringIT extends KNNRestTestCase {
 
@@ -844,6 +846,12 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         Settings.Builder builder = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", enableKnn);
         if (enableKnn) {
             builder.put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
+        }
+
+        final String remoteBuild = System.getProperty("test.remoteBuild", null);
+        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
         }
         Settings settings = builder.build();
         createKnnIndex(INDEX_NAME, settings, mapper);

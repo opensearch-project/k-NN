@@ -49,6 +49,9 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
 
         Float[] f4 = { 3.0f, 3.0f };
         addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
+
+        Float[] f5 = { 5.0f, 5.0f };
+        addKnnDoc(INDEX_NAME, "5", FIELD_NAME, f5);
     }
 
     public void testKNNResultsWithForceMerge() throws Exception {
@@ -251,7 +254,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, k);
         Response response = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        assertEquals(results.size(), 4);
+        assertEquals(results.size(), 5);
     }
 
     /**
