@@ -19,7 +19,7 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.index.fielddata.ScriptDocValues;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
+public abstract class KNNVectorScriptDocValues<T> extends ScriptDocValues<T> {
 
     private final DocIdSetIterator vectorValues;
     private final String fieldName;
@@ -41,7 +41,7 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         docExists = lastDocID == curDocID;
     }
 
-    public float[] getValue() {
+    public T getValue() {
         if (!docExists) {
             String errorMessage = String.format(
                 "One of the document doesn't have a value for field '%s'. "
@@ -59,7 +59,7 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         }
     }
 
-    protected abstract float[] doGetValue() throws IOException;
+    protected abstract T doGetValue() throws IOException;
 
     @Override
     public int size() {
@@ -67,7 +67,7 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
     }
 
     @Override
-    public float[] get(int i) {
+    public T get(int i) {
         throw new UnsupportedOperationException("knn vector does not support this operation");
     }
 
@@ -80,7 +80,7 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
      * @return A KNNVectorScriptDocValues object based on the type of the values.
      * @throws IllegalArgumentException If the type of values is unsupported.
      */
-    public static KNNVectorScriptDocValues create(KnnVectorValues knnVectorValues, String fieldName, VectorDataType vectorDataType) {
+    public static KNNVectorScriptDocValues<?> create(KnnVectorValues knnVectorValues, String fieldName, VectorDataType vectorDataType) {
         Objects.requireNonNull(knnVectorValues, "values must not be null");
         if (knnVectorValues instanceof FloatVectorValues) {
             return new KNNFloatVectorScriptDocValues((FloatVectorValues) knnVectorValues, fieldName, vectorDataType);
@@ -91,17 +91,17 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         }
     }
 
-    public static KNNVectorScriptDocValues create(DocIdSetIterator docIdSetIterator, String fieldName, VectorDataType vectorDataType) {
+    public static KNNVectorScriptDocValues<?> create(DocIdSetIterator docIdSetIterator, String fieldName, VectorDataType vectorDataType) {
         Objects.requireNonNull(docIdSetIterator, "values must not be null");
         if (docIdSetIterator instanceof BinaryDocValues) {
-            return new KNNNativeVectorScriptDocValues((BinaryDocValues) docIdSetIterator, fieldName, vectorDataType);
+            return new KNNNativeVectorScriptDocValues<>((BinaryDocValues) docIdSetIterator, fieldName, vectorDataType);
         } else {
             throw new IllegalArgumentException("Unsupported values type: " + docIdSetIterator.getClass());
         }
 
     }
 
-    private static final class KNNByteVectorScriptDocValues extends KNNVectorScriptDocValues {
+    private static final class KNNByteVectorScriptDocValues extends KNNVectorScriptDocValues<byte[]> {
         private final ByteVectorValues values;
         private final KnnVectorValues.DocIndexIterator iterator;
 
@@ -114,24 +114,22 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         }
 
         @Override
-        protected float[] doGetValue() throws IOException {
+        protected byte[] doGetValue() throws IOException {
             int docId = this.iterator.index();
             if (docId == KnnVectorValues.DocIndexIterator.NO_MORE_DOCS) {
                 throw new IllegalStateException("No more ordinals to retrieve vector values.");
             }
 
-            // Use the correct method to retrieve the byte vector for the current ordinal
-            byte[] bytes = values.vectorValue(docId);
-            float[] value = new float[bytes.length];
-            for (int i = 0; i < bytes.length; i++) {
-                value[i] = (float) bytes[i];
+            try {
+                return values.vectorValue(docId);
+            } catch (IOException e) {
+                throw ExceptionsHelper.convertToOpenSearchException(e);
             }
-            return value;
         }
 
     }
 
-    private static final class KNNFloatVectorScriptDocValues extends KNNVectorScriptDocValues {
+    private static final class KNNFloatVectorScriptDocValues extends KNNVectorScriptDocValues<float[]> {
         private final FloatVectorValues values;
         private final KnnVectorValues.DocIndexIterator iterator;
 
@@ -153,7 +151,7 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         }
     }
 
-    private static final class KNNNativeVectorScriptDocValues extends KNNVectorScriptDocValues {
+    private static final class KNNNativeVectorScriptDocValues<T> extends KNNVectorScriptDocValues<T> {
         private final BinaryDocValues values;
 
         KNNNativeVectorScriptDocValues(BinaryDocValues values, String field, VectorDataType type) {
@@ -162,7 +160,7 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         }
 
         @Override
-        protected float[] doGetValue() throws IOException {
+        protected T doGetValue() throws IOException {
             return getVectorDataType().getVectorFromBytesRef(values.binaryValue());
         }
     }
@@ -174,10 +172,18 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
      * @param type      The data type of the vector.
      * @return An empty KNNVectorScriptDocValues object.
      */
-    public static KNNVectorScriptDocValues emptyValues(String fieldName, VectorDataType type) {
-        return new KNNVectorScriptDocValues(DocIdSetIterator.empty(), fieldName, type) {
+    public static KNNVectorScriptDocValues<?> emptyValues(String fieldName, VectorDataType type) {
+        if (type == VectorDataType.FLOAT) {
+            return new KNNVectorScriptDocValues<float[]>(DocIdSetIterator.empty(), fieldName, type) {
+                @Override
+                protected float[] doGetValue() throws IOException {
+                    throw new UnsupportedOperationException("empty values");
+                }
+            };
+        }
+        return new KNNVectorScriptDocValues<byte[]>(DocIdSetIterator.empty(), fieldName, type) {
             @Override
-            protected float[] doGetValue() throws IOException {
+            protected byte[] doGetValue() throws IOException {
                 throw new UnsupportedOperationException("empty values");
             }
         };
