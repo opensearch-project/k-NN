@@ -15,6 +15,7 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
@@ -29,8 +30,10 @@ import static org.opensearch.knn.KNNRestTestCase.PROPERTIES_FIELD;
 import static org.opensearch.knn.TestUtils.BWC_VERSION;
 
 public class DerivedSourceUtils {
-    protected static final int TEST_DIMENSION = 16;
+    public static final int TEST_DIMENSION = 16;
     protected static final int DOCS = 500;
+
+    public static final float DEFAULT_NULL_PROB = 0.03f;
 
     protected static final Settings DERIVED_ENABLED_SETTINGS = Settings.builder()
         .put(
@@ -46,6 +49,23 @@ public class DerivedSourceUtils {
         .put("index.knn", true)
         .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
         .build();
+
+    public static final Settings DERIVED_ENABLED_WITH_SEGREP_SETTINGS = Settings.builder()
+        .put(
+            "number_of_shards",
+            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+        )
+        .put(
+            "number_of_replicas",
+            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
+                ? 1
+                : 0
+        )
+        .put("index.replication.type", ReplicationType.SEGMENT.toString())
+        .put("index.knn", true)
+        .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+        .build();
+
     protected static final Settings DERIVED_DISABLED_SETTINGS = Settings.builder()
         .put(
             "number_of_shards",
@@ -73,17 +93,20 @@ public class DerivedSourceUtils {
         public boolean derivedEnabled = false;
         @Builder.Default
         public int docCount = DOCS;
+        @Builder.Default
+        public Settings settings = null;
 
         public void init() {
-            if (random == null) {
-                random = new Random(1);
-            }
+            assert random != null;
             for (FieldContext context : fields) {
                 context.init(random);
             }
         }
 
         public Settings getSettings() {
+            if (settings != null) {
+                return settings;
+            }
             return derivedEnabled ? DERIVED_ENABLED_SETTINGS : DERIVED_DISABLED_SETTINGS;
         }
 
@@ -150,15 +173,17 @@ public class DerivedSourceUtils {
         @Builder.Default
         public float skipProb = 0.1f;
         @Builder.Default
+        public float nullProb = DEFAULT_NULL_PROB;
+        @Builder.Default
         public boolean isUpdate = false;
 
         abstract XContentBuilder buildMapping(XContentBuilder builder) throws IOException;
 
         XContentBuilder buildDoc(XContentBuilder builder) throws IOException {
-            return buildDoc(builder, skipProb);
+            return buildDoc(builder, skipProb, nullProb);
         }
 
-        abstract XContentBuilder buildDoc(XContentBuilder builder, float skipProb) throws IOException;
+        abstract XContentBuilder buildDoc(XContentBuilder builder, float skipProb, float nullProb) throws IOException;
 
         abstract XContentBuilder partialUpdate(XContentBuilder builder) throws IOException;
 
@@ -175,6 +200,10 @@ public class DerivedSourceUtils {
 
         protected boolean shouldSkip(float skipProb) {
             return isUpdate == false && random.nextFloat() < skipProb;
+        }
+
+        protected boolean shouldNull(float nullProb) {
+            return random.nextFloat() < nullProb;
         }
 
         String updateSourceString() throws IOException {
@@ -209,10 +238,10 @@ public class DerivedSourceUtils {
         }
 
         @Override
-        XContentBuilder buildDoc(XContentBuilder builder, float skipProb) throws IOException {
+        XContentBuilder buildDoc(XContentBuilder builder, float skipProb, float nullProb) throws IOException {
             builder.startObject(getFieldName());
             for (FieldContext child : children) {
-                child.buildDoc(builder, skipProb);
+                child.buildDoc(builder, skipProb, nullProb);
             }
             builder.endObject();
             return builder;
@@ -258,7 +287,7 @@ public class DerivedSourceUtils {
         }
 
         @Override
-        XContentBuilder buildDoc(XContentBuilder builder, float skipProb) throws IOException {
+        XContentBuilder buildDoc(XContentBuilder builder, float skipProb, float nullProb) throws IOException {
             if (shouldSkip(skipProb)) {
                 return builder;
             }
@@ -267,7 +296,7 @@ public class DerivedSourceUtils {
             if (docCount == 1) {
                 builder.startObject(getFieldName());
                 for (FieldContext child : children) {
-                    child.buildDoc(builder, skipProb);
+                    child.buildDoc(builder, skipProb, nullProb);
                 }
                 builder.endObject();
                 return builder;
@@ -277,7 +306,7 @@ public class DerivedSourceUtils {
             for (int i = 0; i < docCount; i++) {
                 builder.startObject();
                 for (FieldContext child : children) {
-                    child.buildDoc(builder, skipProb);
+                    child.buildDoc(builder, skipProb, nullProb);
                 }
                 builder.endObject();
             }
@@ -297,11 +326,12 @@ public class DerivedSourceUtils {
         public Supplier<Object> valueSupplier;
 
         @Override
-        XContentBuilder buildDoc(XContentBuilder builder, float skipProb) throws IOException {
+        XContentBuilder buildDoc(XContentBuilder builder, float skipProb, float nullProb) throws IOException {
             if (shouldSkip(skipProb)) {
                 return builder;
             }
-            return builder.field(getFieldName(), valueSupplier.get());
+            Object value = shouldNull(nullProb) ? null : valueSupplier.get();
+            return builder.field(getFieldName(), value);
         }
 
         public String updateSourceString() {
@@ -403,7 +433,7 @@ public class DerivedSourceUtils {
         }
     }
 
-    private static Supplier<Object> randomVectorSupplier(Random random, int dimension, VectorDataType vectorDataType) {
+    public static Supplier<Object> randomVectorSupplier(Random random, int dimension, VectorDataType vectorDataType) {
         return () -> {
             switch (vectorDataType) {
                 case FLOAT:

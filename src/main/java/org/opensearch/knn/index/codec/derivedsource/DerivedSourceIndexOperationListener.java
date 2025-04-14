@@ -6,8 +6,6 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.collect.Tuple;
@@ -22,6 +20,8 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.index.shard.IndexingOperationListener;
+import org.opensearch.knn.index.DerivedKnnByteVectorField;
+import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
 
@@ -51,12 +51,18 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
         if (isRecoverySourceEnabled(operation)) {
             return operation;
         }
+
+        Function<Map<String, Object>, Map<String, Object>> injectTransformer = createInjectTransformer(operation);
+        if (injectTransformer == null) {
+            return operation;
+        }
+
         Tuple<? extends MediaType, Map<String, Object>> originalSource = XContentHelper.convertToMap(
             operation.parsedDoc().source(),
             true,
             operation.parsedDoc().getMediaType()
         );
-        Map<String, Object> derivedSource = createInjectTransformer(operation).apply(originalSource.v2());
+        Map<String, Object> derivedSource = injectTransformer.apply(originalSource.v2());
 
         try (BytesStreamOutput bStream = new BytesStreamOutput();) {
             XContentBuilder builder = MediaTypeRegistry.contentBuilder(originalSource.v1(), bStream).map(derivedSource);
@@ -75,17 +81,22 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
         for (ParseContext.Document document : operation.parsedDoc().docs()) {
             for (Iterator<IndexableField> it = document.iterator(); it.hasNext();) {
                 IndexableField indexableField = it.next();
-                if (indexableField instanceof KnnFloatVectorField knnVectorFieldType) {
+                if (indexableField instanceof DerivedKnnFloatVectorField knnVectorFieldType && knnVectorFieldType.isDerivedEnabled()) {
                     injectedVectors.computeIfAbsent(indexableField.name(), k -> new ArrayList<>())
                         .add(formatVector(VectorDataType.FLOAT, knnVectorFieldType.vectorValue()));
                 }
 
-                if (indexableField instanceof KnnByteVectorField knnByteVectorField) {
+                if (indexableField instanceof DerivedKnnByteVectorField knnByteVectorField && knnByteVectorField.isDerivedEnabled()) {
                     injectedVectors.computeIfAbsent(indexableField.name(), k -> new ArrayList<>())
                         .add(formatVector(VectorDataType.BYTE, knnByteVectorField.vectorValue()));
                 }
             }
         }
+
+        if (injectedVectors.isEmpty()) {
+            return null;
+        }
+
         Map<String, Function<Object, Object>> injectTransformers = new HashMap<>();
         for (Map.Entry<String, List<Object>> entry : injectedVectors.entrySet()) {
             Iterator<Object> iterator = entry.getValue().iterator();

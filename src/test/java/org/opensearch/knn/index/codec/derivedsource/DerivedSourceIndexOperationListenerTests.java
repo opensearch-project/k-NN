@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.codec.derivedsource;
 
-import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.Term;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -19,6 +18,7 @@ import org.opensearch.index.engine.Engine;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.index.mapper.ParsedDocument;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +39,7 @@ public class DerivedSourceIndexOperationListenerTests extends KNNTestCase {
         BytesReference originalSource = bStream.bytes();
 
         ParseContext.Document document = new ParseContext.Document();
-        document.add(new KnnFloatVectorField(fieldName, backendVector));
+        document.add(new DerivedKnnFloatVectorField(fieldName, backendVector, true));
 
         Engine.Index operation = new Engine.Index(
             new Term("test-iud"),

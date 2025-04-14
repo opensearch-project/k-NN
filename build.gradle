@@ -45,6 +45,18 @@ buildscript {
             opensearch_build += "-SNAPSHOT"
         }
         opensearch_no_snapshot = opensearch_build.replace("-SNAPSHOT","")
+
+        os_platform = "linux"
+        artifact_type = "tar"
+
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            os_platform = "windows"
+            artifact_type = "zip"
+        }
+
+        opensearch_version_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
+        repo_s3_resource_folder = "build/resource/repository-s3"
+        repo_s3_download_url = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${opensearch_version_no_snapshot}/latest/${os_platform}/x64/${artifact_type}/builds/opensearch/core-plugins/repository-s3-${opensearch_version_no_snapshot}.zip"
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
@@ -71,6 +83,7 @@ buildscript {
 //****************************************************************************/
 
 plugins {
+    id 'eclipse'
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
@@ -84,7 +97,7 @@ apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.rest-test'
 apply plugin: 'opensearch.pluginzip'
 apply plugin: 'opensearch.repositories'
-
+apply plugin: 'opensearch.java-agent'
 
 def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
 opensearch_tmp_dir.mkdirs()
@@ -170,6 +183,28 @@ ext {
         )
         cluster.setSecure(true)
     }
+
+    configureS3Plugin = { OpenSearchCluster cluster ->
+        cluster.plugin(provider(new Callable<RegularFile>(){
+            @Override
+            RegularFile call() throws Exception {
+                return new RegularFile() {
+                    @Override
+                    File getAsFile() {
+                        if (new File("$project.rootDir/$repo_s3_resource_folder").exists()) {
+                            project.delete(files("$project.rootDir/$repo_s3_resource_folder"))
+                        }
+                        project.mkdir repo_s3_resource_folder
+                        ant.get(src: repo_s3_download_url,
+                                dest: repo_s3_resource_folder,
+                                httpusecaches: false)
+                        return fileTree(repo_s3_resource_folder).getSingleFile()
+                    }
+                }
+            }
+        }))
+    }
+
     propertyKeys = [
         breaker: [
             useRealMemory: 'tests.opensearch.indices.breaker.total.use_real_memory'
@@ -308,9 +343,9 @@ dependencies {
     api group: 'com.google.guava', name: 'guava', version:'32.1.3-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.15.10'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.15.4'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
     // json-path 2.9.0 depends on slf4j 2.0.11, which conflicts with the version used by OpenSearch core.
     // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
     testFixturesImplementation('com.jayway.jsonpath:json-path:2.9.0') {
@@ -321,8 +356,8 @@ dependencies {
     testFixturesImplementation group: 'net.minidev', name: 'json-smart', version: "${versions.json_smart}"
     testFixturesImplementation "org.opensearch:common-utils:${version}"
     implementation 'com.github.oshi:oshi-core:6.4.13'
-    api "net.java.dev.jna:jna:5.13.0"
-    api "net.java.dev.jna:jna-platform:5.13.0"
+    api "net.java.dev.jna:jna:${versions.jna}"
+    api "net.java.dev.jna:jna-platform:${versions.jna}"
     // OpenSearch core is using slf4j 1.7.36. Therefore, we cannot change the version here.
     implementation 'org.slf4j:slf4j-api:1.7.36'
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
@@ -343,6 +378,7 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-DAVX512_SPR_ENABLED=${avx512_spr_enabled}")
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
+    args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -397,16 +433,16 @@ test {
 }
 
 def _numNodes = findProperty('numNodes') as Integer ?: 1
-integTest {
+def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes){
     if (integTestDependOnJniLib) {
-        dependsOn buildJniLib
+        task.dependsOn buildJniLib
     }
-    systemProperty 'tests.security.manager', 'false'
-    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
-    systemProperty "java.library.path", "$rootDir/jni/build/release"
-    systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
+    task.systemProperty 'tests.security.manager', 'false'
+    task.systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    task.systemProperty "java.library.path", "$rootDir/jni/build/release"
+    task.systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
     // allows integration test classes to access test resource from project root path
-    systemProperty('project.root', project.rootDir.absolutePath)
+    task.systemProperty('project.root', project.rootDir.absolutePath)
 
     var is_https = System.getProperty("https")
     var user = System.getProperty("user")
@@ -419,67 +455,97 @@ integTest {
         password = password == null ? "admin" : password
     }
 
-    systemProperty("https", is_https)
-    systemProperty("user", user)
-    systemProperty("password", password)
-    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+    task.systemProperty("https", is_https)
+    task.systemProperty("user", user)
+    task.systemProperty("password", password)
+    task.systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
 
-    doFirst {
+    task.doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
         // use longer timeouts for requests.
         def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
-        systemProperty 'cluster.debug', isDebuggingCluster
+        task.systemProperty 'cluster.debug', isDebuggingCluster
         // Set number of nodes system property to be used in tests
-        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+        task.systemProperty 'cluster.number_of_nodes', "${_numNodes}"
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written
-        getClusters().forEach { cluster ->
+        task.getClusters().forEach { cluster ->
             cluster.waitForAllConditions()
         }
     }
 
     // The -Ddebug.es option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
-        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
+        task.jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
-    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+    task.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
-testClusters.integTest {
-    testDistribution = "ARCHIVE"
+integTest {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    filter {
+        excludeTestsMatching "org.opensearch.knn.index.RemoteBuildIT"
+    }
+}
+
+task integTestRemoteIndexBuild(type: RestIntegTestTask) {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
+    systemProperty("test.bucket", System.getProperty("test.bucket"))
+    systemProperty("test.base_path", System.getProperty("test.base_path"))
+}
+
+def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
+    cluster.testDistribution = "ARCHIVE"
 
     //Used for circuit breaker integration tests
-    setting 'node.attr.knn_cb_tier', 'integ'
+    cluster.setting 'node.attr.knn_cb_tier', 'integ'
 
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
-        configureSecurityPlugin(testClusters.integTest)
+        configureSecurityPlugin(cluster)
     }
 
-    plugin(project.tasks.bundlePlugin.archiveFile)
+    cluster.plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        cluster.environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
 
 
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
-    if (_numNodes > 1) numberOfNodes = _numNodes
+    if (_numNodes > 1) cluster.numberOfNodes = _numNodes
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
     // since we also support multi node integration tests we increase debugPort per node
     if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
-        nodes.forEach { node ->
+        cluster.nodes.forEach { node ->
             node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
             debugPort += 1
         }
     }
-    systemProperty("java.library.path", "$rootDir/jni/build/release")
+    cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
     testSnapshotFolder.mkdirs()
-    setting 'path.repo', "${buildDir}/testSnapshotFolder"
-    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+    cluster.setting 'path.repo', "${buildDir}/testSnapshotFolder"
+    cluster.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+}
+
+testClusters.integTest {
+    commonIntegTestClusters(it, _numNodes)
+}
+
+testClusters.integTestRemoteIndexBuild {
+    commonIntegTestClusters(it, _numNodes)
+    // Optionally install S3
+    if (System.getProperty("s3.enabled") != null) {
+        configureS3Plugin(testClusters.integTestRemoteIndexBuild)
+    }
+
+    keystore 's3.client.default.access_key', "${System.getProperty("access_key")}"
+    keystore 's3.client.default.secret_key', "${System.getProperty("secret_key")}"
+    keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
 }
 
 task integTestRemote(type: RestIntegTestTask) {
@@ -494,6 +560,7 @@ task integTestRemote(type: RestIntegTestTask) {
 
     systemProperty 'tests.security.manager', 'false'
     systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+    systemProperty "tests.path.repo", "${layout.buildDirectory.toString()}/testSnapshotFolder"
 
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {
