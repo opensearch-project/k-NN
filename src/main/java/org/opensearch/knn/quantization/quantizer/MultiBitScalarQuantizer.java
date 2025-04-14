@@ -110,13 +110,14 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) throws IOException {
         int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
-        // Calculate sum, mean, and standard deviation in one pass
-        Pair<float[], float[]> meanAndStdDev = QuantizerHelper.calculateMeanAndStdDev(trainingRequest, sampledIndices);
-        float[][] thresholds = calculateThresholds(meanAndStdDev.getA(), meanAndStdDev.getB());
+
         ScalarQuantizationParams params = (bitsPerCoordinate == 2)
-            ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
-            : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
-        return new MultiBitScalarQuantizationState(params, thresholds);
+                ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
+                : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+
+        return QuantizerHelper.calculateQuantizationState(
+                trainingRequest, sampledIndices, params, bitsPerCoordinate
+        );
     }
 
     /**
@@ -128,7 +129,7 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @param output the QuantizationOutput object to store the quantized representation of the vector.
      */
     @Override
-    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
+    public void quantize(float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
         if (vector == null) {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }
@@ -138,6 +139,10 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         float[][] thresholds = multiBitState.getThresholds();
         if (thresholds == null || thresholds[0].length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
+        }
+        float[][] rotationMatrix = multiBitState.getRotationMatrix();
+        if (rotationMatrix != null) {
+            vector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
         }
         output.prepareQuantizedVector(vectorLength);
         BitPacker.quantizeAndPackBits(vector, thresholds, bitsPerCoordinate, output.getQuantizedVector());
