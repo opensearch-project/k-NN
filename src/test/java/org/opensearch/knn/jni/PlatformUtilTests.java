@@ -12,8 +12,11 @@
 package org.opensearch.knn.jni;
 
 import com.sun.jna.Platform;
+
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 import org.mockito.MockedStatic;
-import org.opensearch.knn.KNNTestCase;
 import oshi.util.platform.mac.SysctlUtil;
 
 import java.nio.file.Files;
@@ -25,10 +28,16 @@ import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
 
-public class PlatformUtilTests extends KNNTestCase {
+public class PlatformUtilTests extends Assert {
     public static final String MAC_CPU_FEATURES = "machdep.cpu.leaf7_features";
     public static final String LINUX_PROC_CPU_INFO = "/proc/cpuinfo";
 
+    @Before
+    public void setUp() {
+        PlatformUtils.reset();
+    }
+
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsNotIntel_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(false);
@@ -36,6 +45,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -44,6 +54,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsMac_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -59,6 +70,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsMac_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -72,6 +84,7 @@ public class PlatformUtilTests extends KNNTestCase {
 
     }
 
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsMac_throwsExceptionReturnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -98,6 +111,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsLinux_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -112,6 +126,7 @@ public class PlatformUtilTests extends KNNTestCase {
 
     }
 
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsLinux_throwsExceptionReturnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -127,7 +142,7 @@ public class PlatformUtilTests extends KNNTestCase {
     }
 
     // AVX512 tests
-
+    @Test
     public void testIsAVX512SupportedBySystem_platformIsNotIntel_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(false);
@@ -135,6 +150,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SupportedBySystem_platformIsMac_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isMac).thenReturn(false);
@@ -142,6 +158,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SupportedBySystem_platformIsIntelMac_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -150,6 +167,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -158,6 +176,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SupportedBySystem_platformIsLinuxAllAVX512FlagsPresent_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -171,6 +190,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SupportedBySystem_platformIsLinuxSomeAVX512FlagsPresent_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -185,7 +205,7 @@ public class PlatformUtilTests extends KNNTestCase {
     }
 
     // Tests AVX512 instructions available since Intel(R) Sapphire Rapids.
-
+    @Test
     public void testIsAVX512SPRSupportedBySystem_platformIsNotIntel_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(false);
@@ -193,6 +213,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SPRSupportedBySystem_platformIsMac_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isMac).thenReturn(false);
@@ -200,6 +221,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SPRSupportedBySystem_platformIsIntelMac_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -208,6 +230,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SPRSupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -216,6 +239,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SPRSupportedBySystem_platformIsLinuxAllAVX512SPRFlagsPresent_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
@@ -229,6 +253,7 @@ public class PlatformUtilTests extends KNNTestCase {
         }
     }
 
+    @Test
     public void testIsAVX512SPRSupportedBySystem_platformIsLinuxSomeAVX512SPRFlagsPresent_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
