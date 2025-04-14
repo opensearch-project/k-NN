@@ -51,10 +51,12 @@ public class KNN9120DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
         if (derivedVectorFields == null || derivedVectorFields.isEmpty()) {
             return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
         }
+        SegmentReadState segmentReadState = new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext);
+        KNN9120DerivedSourceReaders derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         return new KNN9120DerivedSourceStoredFieldsReader(
             delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
             derivedVectorFields,
-            derivedSourceReadersSupplier,
+            derivedSourceReaders,
             new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext)
         );
     }
