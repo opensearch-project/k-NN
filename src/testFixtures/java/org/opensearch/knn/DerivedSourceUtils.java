@@ -91,13 +91,13 @@ public class DerivedSourceUtils {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (knnRestTestCase.isRemoteIndexBuildSupported(knnRestTestCase.getBWCVersion()) && remoteBuild != null) {
             derived_enabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            derived_enabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
+            derived_enabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
 
             derived_enabled_with_segrep_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            derived_enabled_with_segrep_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
+            derived_enabled_with_segrep_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
 
             derived_disabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            derived_disabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
+            derived_disabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
         }
 
         DERIVED_ENABLED_SETTINGS = derived_enabled_settings_builder.build();

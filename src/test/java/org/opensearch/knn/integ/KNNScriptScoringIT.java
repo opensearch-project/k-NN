@@ -851,7 +851,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
         }
         Settings settings = builder.build();
         createKnnIndex(INDEX_NAME, settings, mapper);

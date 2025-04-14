@@ -992,7 +992,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
         }
         return builder.build();
     }
@@ -1008,10 +1008,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         // Randomly enable remote index build feature to test fallbacks
         if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
         } else if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "1kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
         }
         return builder.build();
     }
