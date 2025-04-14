@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.0](https://github.com/opensearch-project/k-NN/compare/2.x...HEAD)
 ### Infrastructure
 * Add testing support to run all ITs with remote index builder [#2659](https://github.com/opensearch-project/k-NN/pull/2659)
+### Enhancements
+* Removing redundant type conversions for script scoring for hamming space with binary vectors [#2351](https://github.com/opensearch-project/k-NN/pull/2351)
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features
