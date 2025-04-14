@@ -13,6 +13,8 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.profiler.SegmentProfileStateReadConfig;
+import org.opensearch.knn.profiler.SegmentProfilerState;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
@@ -91,6 +93,45 @@ public final class KNN990QuantizationStateReader {
                 default:
                     throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
             }
+        }
+    }
+
+    /**
+     * TODO: Refactor to separate non-quantization stuff
+     */
+    public static SegmentProfilerState read(SegmentProfileStateReadConfig readConfig) throws IOException {
+        SegmentReadState segmentReadState = readConfig.getSegmentReadState();
+        String field = readConfig.getField();
+        String quantizationStateFileName = getQuantizationStateFileName(segmentReadState);
+        int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
+
+        try (IndexInput input = segmentReadState.directory.openInput(quantizationStateFileName, IOContext.DEFAULT)) {
+
+            CodecUtil.retrieveChecksum(input);
+            int numFields = getNumFields(input);
+
+            long position = -1;
+            int length = 0;
+
+            // Read each field's metadata from the index section, break when correct field is found
+            for (int i = 0; i < numFields; i++) {
+                int tempFieldNumber = input.readInt();
+                int tempLength = input.readInt();
+                long tempPosition = input.readVLong();
+                if (tempFieldNumber == fieldNumber) {
+                    position = tempPosition;
+                    length = tempLength;
+                    break;
+                }
+            }
+
+            if (position == -1 || length == 0) {
+                throw new IllegalArgumentException(String.format("Field %s not found", field));
+            }
+
+            byte[] stateBytes = readStateBytes(input, position, length);
+
+            return SegmentProfilerState.fromBytes(stateBytes);
         }
     }
 
