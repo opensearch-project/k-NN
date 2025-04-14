@@ -95,6 +95,21 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         BitPacker.quantizeAndPackBits(vector, thresholds, output.getQuantizedVector());
     }
 
+    @Override
+    public void transform(float[] vector, final QuantizationState state) {
+        if (vector == null) {
+            return;
+        }
+        validateState(state);
+        OneBitScalarQuantizationState binaryState = (OneBitScalarQuantizationState) state;
+        float[][] rotationMatrix = binaryState.getRotationMatrix();
+        if (rotationMatrix != null) {
+            vector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
+        }
+        output.prepareQuantizedVector(vectorLength);
+        BitPacker.quantizeAndPackBits(vector, thresholds, output.getQuantizedVector());
+    }
+
     /**
      * Validates the quantization state to ensure it is of the expected type.
      *
