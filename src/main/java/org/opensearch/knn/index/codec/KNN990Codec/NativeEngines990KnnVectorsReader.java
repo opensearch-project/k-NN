@@ -72,9 +72,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     }
 
     public NativeEngines990KnnVectorsReader(
-        final SegmentReadState state,
-        final FlatVectorsReader flatVectorsReader,
-        final boolean memoryOptimizedSearchEnabled
+            final SegmentReadState state,
+            final FlatVectorsReader flatVectorsReader,
+            final boolean memoryOptimizedSearchEnabled
     ) {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
@@ -155,21 +155,21 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             String cacheKey = quantizationStateCacheKeyPerField.get(field);
             FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
             QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
-                .getQuantizationState(
-                    new QuantizationStateReadConfig(
-                        segmentReadState,
-                        QuantizationService.getInstance().getQuantizationParams(fieldInfo),
-                        field,
-                        cacheKey
-                    )
-                );
+                    .getQuantizationState(
+                            new QuantizationStateReadConfig(
+                                    segmentReadState,
+                                    QuantizationService.getInstance().getQuantizationParams(fieldInfo),
+                                    field,
+                                    cacheKey
+                            )
+                    );
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
 
         if (knnCollector instanceof SegmentProfileKNNCollector) {
             SegmentProfilerState segmentProfileState = KNN990ProfileStateReader.read(
-                new SegmentProfileStateReadConfig(segmentReadState, field)
+                    new SegmentProfileStateReadConfig(segmentReadState, field)
             );
             ((SegmentProfileKNNCollector) knnCollector).setSegmentProfilerState(segmentProfileState);
             return;
@@ -256,11 +256,11 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     }
 
     private boolean trySearchWithMemoryOptimizedSearch(
-        String field,
-        Object target,
-        KnnCollector knnCollector,
-        Bits acceptDocs,
-        boolean isFloatVector
+            String field,
+            Object target,
+            KnnCollector knnCollector,
+            Bits acceptDocs,
+            boolean isFloatVector
     ) throws IOException {
         loadMemoryOptimizedSearcherIfRequired();
 
@@ -313,8 +313,8 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             // We need sufficient memory space for this table as it will be queried for every single search.
             // Hence, having larger space to approximate a perfect hash here.
             final Map<String, VectorSearcher> vectorSearcherPerField = new HashMap<>(
-                RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(),
-                SUFFICIENT_LOAD_FACTOR
+                    RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(),
+                    SUFFICIENT_LOAD_FACTOR
             );
 
             try {
