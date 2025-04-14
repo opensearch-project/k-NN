@@ -373,7 +373,7 @@ export AWS_SECRET_ACCESS_KEY=
 export AWS_SESSION_TOKEN=
 
 // 2. Run integration tests against remote index builder
-./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3 -Dtest.bucket=<bucket_name> -Dtest.base_path=vectors -Daccess_key=${AWS_ACCESS_KEY_ID} -Dsecret_key=${AWS_SECRET_ACCESS_KEY} -Dsession_token=${AWS_SESSION_TOKEN} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT
+./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3 -Dtest.bucket=<bucket_name> -Dtest.base_path=vectors -Daccess_key=${AWS_ACCESS_KEY_ID} -Dsecret_key=${AWS_SECRET_ACCESS_KEY} -Dsession_token=${AWS_SESSION_TOKEN}
 ```
 
 ### Debugging
