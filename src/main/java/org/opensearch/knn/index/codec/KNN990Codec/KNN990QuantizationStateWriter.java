@@ -12,7 +12,6 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.profiler.SegmentProfilerState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -81,20 +80,6 @@ public final class KNN990QuantizationStateWriter {
      */
     public void writeState(int fieldNumber, QuantizationState quantizationState) throws IOException {
         byte[] stateBytes = quantizationState.toByteArray();
-        long position = output.getFilePointer();
-        output.writeBytes(stateBytes, stateBytes.length);
-        fieldQuantizationStates.add(new FieldQuantizationState(fieldNumber, stateBytes, position));
-    }
-
-    /**
-     * Writes a segment profile state as bytes
-     *
-     * @param fieldNumber field number
-     * @param segmentProfilerState segment profiler state
-     * @throws IOException could be thrown while writing
-     */
-    public void writeState(int fieldNumber, SegmentProfilerState segmentProfilerState) throws IOException {
-        byte[] stateBytes = segmentProfilerState.toByteArray();
         long position = output.getFilePointer();
         output.writeBytes(stateBytes, stateBytes.length);
         fieldQuantizationStates.add(new FieldQuantizationState(fieldNumber, stateBytes, position));
