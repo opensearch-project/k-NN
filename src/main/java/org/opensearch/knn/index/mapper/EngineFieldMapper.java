@@ -9,6 +9,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -204,11 +205,10 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 final VectorEncoding encoding = mappedFieldType.vectorDataType == VectorDataType.FLOAT
                     ? VectorEncoding.FLOAT32
                     : VectorEncoding.BYTE;
-                fieldType.setVectorAttributes(
-                    adjustedDimension,
-                    encoding,
-                    SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+                final VectorSimilarityFunction similarityFunction = findBestMatchingVectorSimilarityFunction(
+                    resolvedKnnMethodContext.getSpaceType()
                 );
+                fieldType.setVectorAttributes(adjustedDimension, encoding, similarityFunction);
             } else {
                 fieldType.setDocValuesType(DocValuesType.BINARY);
             }
@@ -221,6 +221,23 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
         this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
+    }
+
+    private VectorSimilarityFunction findBestMatchingVectorSimilarityFunction(final SpaceType spaceType) {
+        if (indexCreatedVersion.onOrAfter(Version.V_3_0_0)) {
+            // We need to find the best matching similarity function and not just save DEFAULT space type after 3.0.
+            // This is required for memory optimized search where utilizing .vec file to retrieve vectors.
+            // During the retrieval, it will locate similarity function from the meta info. Without this best effort, always the default
+            // similarity function will be used even when other space type is configured in a mapping.
+            // However, for keeping the backward compatibility, we only apply this to indices created after 3.0+.
+            try {
+                return spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+
+        return SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
     }
 
     @Override
