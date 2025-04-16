@@ -28,8 +28,6 @@ import java.util.function.Supplier;
 
 import static org.opensearch.knn.KNNRestTestCase.PROPERTIES_FIELD;
 import static org.opensearch.knn.TestUtils.BWC_VERSION;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 public class DerivedSourceUtils {
     public static final int TEST_DIMENSION = 16;
@@ -37,74 +35,51 @@ public class DerivedSourceUtils {
 
     public static final float DEFAULT_NULL_PROB = 0.03f;
 
-    protected static Settings DERIVED_ENABLED_SETTINGS;
+    protected static final Settings DERIVED_ENABLED_SETTINGS = Settings.builder()
+        .put(
+            "number_of_shards",
+            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+        )
+        .put(
+            "number_of_replicas",
+            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
+                ? 1
+                : 0
+        )
+        .put("index.knn", true)
+        .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+        .build();
 
-    public static Settings DERIVED_ENABLED_WITH_SEGREP_SETTINGS;
+    public static final Settings DERIVED_ENABLED_WITH_SEGREP_SETTINGS = Settings.builder()
+        .put(
+            "number_of_shards",
+            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+        )
+        .put(
+            "number_of_replicas",
+            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
+                ? 1
+                : 0
+        )
+        .put("index.replication.type", ReplicationType.SEGMENT.toString())
+        .put("index.knn", true)
+        .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+        .build();
 
-    protected static Settings DERIVED_DISABLED_SETTINGS;
-
-    static {
-        KNNRestTestCase knnRestTestCase = new KNNRestTestCase();
-        Settings.Builder derived_enabled_settings_builder = Settings.builder()
-            .put(
-                "number_of_shards",
-                System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
-            )
-            .put(
-                "number_of_replicas",
-                Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
-                    ? 1
-                    : 0
-            )
-            .put("index.knn", true)
-            .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true);
-
-        Settings.Builder derived_enabled_with_segrep_settings_builder = Settings.builder()
-            .put(
-                "number_of_shards",
-                System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
-            )
-            .put(
-                "number_of_replicas",
-                Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
-                    ? 1
-                    : 0
-            )
-            .put("index.replication.type", ReplicationType.SEGMENT.toString())
-            .put("index.knn", true)
-            .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true);
-
-        Settings.Builder derived_disabled_settings_builder = Settings.builder()
-            .put(
-                "number_of_shards",
-                System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
-            )
-            .put(
-                "number_of_replicas",
-                Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
-                    ? 1
-                    : 0
-            )
-            .put("index.knn", true)
-            .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, false);
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (knnRestTestCase.isRemoteIndexBuildSupported(knnRestTestCase.getBWCVersion()) && remoteBuild != null) {
-            derived_enabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            derived_enabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-
-            derived_enabled_with_segrep_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            derived_enabled_with_segrep_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-
-            derived_disabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            derived_disabled_settings_builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-        }
-
-        DERIVED_ENABLED_SETTINGS = derived_enabled_settings_builder.build();
-        DERIVED_ENABLED_WITH_SEGREP_SETTINGS = derived_enabled_with_segrep_settings_builder.build();
-        DERIVED_DISABLED_SETTINGS = derived_disabled_settings_builder.build();
-    }
-
+    protected static final Settings DERIVED_DISABLED_SETTINGS = Settings.builder()
+        .put(
+            "number_of_shards",
+            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+        )
+        .put(
+            "number_of_replicas",
+            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
+                ? 1
+                : 0
+        )
+        .put("index.knn", true)
+        .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, false)
+        .build();
     private static final Logger log = LogManager.getLogger(DerivedSourceUtils.class);
 
     @SuperBuilder

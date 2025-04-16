@@ -34,6 +34,7 @@ public class SegmentReplicationIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testSearchOnReplicas_whenIndexHasDeletedDocs_thenSuccess() {
+        setExpectRemoteBuild(true);
         createKnnIndex(INDEX_NAME, getKNNSegmentReplicatedIndexSettings(), createKNNIndexMethodFieldMapping(FIELD_NAME, 2));
 
         Float[] vector = { 1.3f, 2.2f };

@@ -348,6 +348,9 @@ In case remote cluster is secured it's possible to pass username and password wi
 ```
 
 ### Run Integration Tests With Remote Index Builder Feature
+The steps below should be run from a GPU machine. Reference link below to provision a GPU instance
+
+https://github.com/opensearch-project/remote-vector-index-builder/blob/main/DEVELOPER_GUIDE.md#provisioning-an-instance-for-development
 
 To run integration tests using the remote index builder feature, first create an S3 bucket `<bucket_name>` in an AWS account. Then run below to setup remote index builder
 ```

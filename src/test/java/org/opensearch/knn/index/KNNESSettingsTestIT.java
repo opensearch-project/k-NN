@@ -30,24 +30,15 @@ import static org.opensearch.knn.TestUtils.KNN_VECTOR;
 import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 public class KNNESSettingsTestIT extends KNNRestTestCase {
 
     public static final int ALWAYS_BUILD_GRAPH = 0;
 
     public void testKNNLegacySpaceTypeIndexingTest() throws IOException, ParseException {
+        setExpectRemoteBuild(true);
         // Configure space_type at index level. This is deprecated and will be removed in the future.
-        Settings.Builder builder = Settings.builder().put("index.knn", true).put("knn.algo_param.ef_search", 100);
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-        }
-
-        final Settings indexSettings = builder.build();
+        final Settings indexSettings = Settings.builder().put("index.knn", true).put("knn.algo_param.ef_search", 100).build();
 
         // This mapping does not have method.
         final String testField = "knn_field";

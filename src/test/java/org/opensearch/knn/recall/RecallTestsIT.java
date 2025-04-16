@@ -49,8 +49,6 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.index.KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 /**
  * Tests confirm that for the different supported configurations, recall is sound. The recall thresholds are
@@ -173,6 +171,7 @@ public class RecallTestsIT extends KNNRestTestCase {
      */
     @SneakyThrows
     public void testRecall_whenFaissHnswFP32_thenRecallAbove75percent() {
+        setExpectRemoteBuild(true);
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {
             String indexName = createIndexName(KNNEngine.FAISS, spaceType);
@@ -448,16 +447,12 @@ public class RecallTestsIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-
-        Settings.Builder builder = Settings.builder().put("number_of_shards", SHARD_COUNT).put("number_of_replicas", REPLICA_COUNT);
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-        }
-
-        createIndexAndIngestDocs(TRAIN_INDEX_NAME, TRAIN_FIELD_NAME, builder.build(), trainingIndexBuilder.toString());
+        createIndexAndIngestDocs(
+            TRAIN_INDEX_NAME,
+            TRAIN_FIELD_NAME,
+            Settings.builder().put("number_of_shards", SHARD_COUNT).put("number_of_replicas", REPLICA_COUNT).build(),
+            trainingIndexBuilder.toString()
+        );
     }
 
     @SneakyThrows
@@ -475,17 +470,11 @@ public class RecallTestsIT extends KNNRestTestCase {
     }
 
     private Settings getSettings() {
-        Settings.Builder builder = Settings.builder()
+        return Settings.builder()
             .put("number_of_shards", SHARD_COUNT)
             .put("number_of_replicas", REPLICA_COUNT)
             .put("index.knn", true)
-            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-        }
-        return builder.build();
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .build();
     }
 }

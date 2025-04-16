@@ -42,24 +42,28 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
     @SneakyThrows
     public void testFlatFields() {
+        setExpectRemoteBuild(true);
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true, true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
     @SneakyThrows
     public void testObjectField() {
+        setExpectRemoteBuild(true);
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getObjectIndexContexts("derivedit", true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
     @SneakyThrows
     public void testNestedField() {
+        setExpectRemoteBuild(true);
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getNestedIndexContexts("derivedit", true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
     @SneakyThrows
     public void testDerivedSource_whenSegrepLocal_thenDisabled() {
+        setExpectRemoteBuild(true);
         // Set the data type input for float fields as byte. If derived source gets enabled, the original and derived
         // wont match because original will have source like [0, 1, 2] and derived will have [0.0, 1.0, 2.0]
         final List<Pair<String, Boolean>> indexPrefixToEnabled = List.of(

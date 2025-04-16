@@ -23,6 +23,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 public class FilteredSearchANNSearchIT extends KNNRestTestCase {
     @SneakyThrows
     public void testFilteredSearchWithFaissHnsw_whenFiltersMatchAllDocs_thenReturnCorrectResults() {
+        setExpectRemoteBuild(true);
         String filterFieldName = "color";
         final int expectResultSize = randomIntBetween(1, 3);
         final String filterValue = "red";

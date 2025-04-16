@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 /**
  * Integration tests to test Circuit Breaker functionality
@@ -102,27 +100,18 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
     private void generateCbLoad(String indexName1, String indexName2) throws Exception {
         // Create index with 1 primary and numNodes-1 replicas so that the data will be on every node in the cluster
         int numNodes = Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1"));
-        Settings.Builder settings = Settings.builder()
+        Settings settings = Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", numNodes - 1)
             .put("index.knn", true)
-            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, ALWAYS_BUILD_GRAPH);
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, ALWAYS_BUILD_GRAPH)
+            .build();
 
-        // through testing, 7 is minimum number of docs to trip circuit breaker at 1kb, using local index build
-        int docsInIndex = 7;
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            settings.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            settings.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-            // through testing, 10 is minimum number of docs to trip circuit breaker at 1kb, using remote index build
-            docsInIndex = 10;
-        }
-
-        createKnnIndex(indexName1, settings.build(), createKnnIndexMapping(FIELD_NAME, 2));
-        createKnnIndex(indexName2, settings.build(), createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(indexName1, settings, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(indexName2, settings, createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 1.3f, 2.2f };
+        int docsInIndex = 10; // through testing, 10 is minimum number of docs to trip circuit breaker at 1kb
 
         for (int i = 0; i < docsInIndex; i++) {
             addKnnDoc(indexName1, Integer.toString(i), FIELD_NAME, vector);
@@ -163,6 +152,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
     }
 
     public void testCbTripped() throws Exception {
+        setExpectRemoteBuild(true);
         setupIndices();
         testClusterLevelCircuitBreaker();
         testNodeLevelCircuitBreaker();

@@ -129,6 +129,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testIndexCreation_whenValid_ThenSucceed() {
+        setExpectRemoteBuild(true);
         XContentBuilder builder;
         for (String compressionLevel : COMPRESSION_LEVELS) {
             String indexName = INDEX_NAME + compressionLevel;

@@ -55,6 +55,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     }
 
     public void testKNNResultsWithForceMerge() throws Exception {
+        setExpectRemoteBuild(true);
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
         addTestData();
         forceMergeKnnIndex(INDEX_NAME);
@@ -77,6 +78,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     }
 
     public void testKNNResultsUpdateDocAndForceMerge() throws Exception {
+        setExpectRemoteBuild(true);
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
         addDocWithNumericField(INDEX_NAME, "1", "abc", 100);
         addTestData();

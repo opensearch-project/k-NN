@@ -60,14 +60,13 @@ import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 public class KNNScriptScoringIT extends KNNRestTestCase {
 
     private static final String TEST_MODEL = "test-model";
 
     public void testKNNL2ScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.L2);
     }
 
@@ -76,6 +75,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNL1ScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.L1);
     }
 
@@ -84,6 +84,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNLInfScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.LINF);
     }
 
@@ -92,6 +93,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNCosineScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.COSINESIMIL);
     }
 
@@ -544,6 +546,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNInnerProdScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
 
@@ -655,6 +658,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
+        setExpectRemoteBuild(true);
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);
@@ -939,12 +943,6 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         if (enableKnn) {
             builder.put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
         }
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-        }
         Settings settings = builder.build();
         createKnnIndex(INDEX_NAME, settings, mapper);
         try {
@@ -955,6 +953,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 final float[] vector = (v != null) ? v.getVector() : dummyVector;
                 ExceptionsHelper.catchAsRuntimeException(() -> addKnnDoc(INDEX_NAME, k, (v != null) ? FIELD_NAME : "dummy", vector));
             });
+
+            forceMergeKnnIndex(INDEX_NAME);
 
             /**
              * Construct Search Request

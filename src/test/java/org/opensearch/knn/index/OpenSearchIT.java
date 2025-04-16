@@ -64,6 +64,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     }
 
     public void testEndToEnd() throws Exception {
+        setExpectRemoteBuild(true);
         String indexName = "test-index-1";
         KNNEngine knnEngine = KNNEngine.FAISS; // Only FAISS is used
         String fieldName = "test-field";
@@ -636,6 +637,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         hits are returned.
      */
     public void testKNNIndex_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() throws Exception {
+        setExpectRemoteBuild(true);
         final String indexName = "test-index-1";
         final String fieldName = "test-field"; // Single field using FAISS
         final Integer dimension = testData.indexData.vectors[0].length;
@@ -702,6 +704,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         actual number of documents in segments
      */
     public void testKNNIndex_whenBuildVectorDataStructureIsLessThanDocCount_thenBuildGraphBasedSuccessfully() throws Exception {
+        setExpectRemoteBuild(true);
         final String indexName = "test-index-1";
         final String fieldName = "test-field-1";
 
@@ -786,6 +789,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     */
     public void testKNNIndex_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSettingUsingRadialSearch()
         throws Exception {
+        setExpectRemoteBuild(true);
         final String indexName = "test-index-1";
         final String fieldName1 = "test-field-1";
         final String fieldName2 = "test-field-2";
@@ -866,6 +870,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     }
 
     public void testKNNIndexSearchFieldsParameter() throws Exception {
+        setExpectRemoteBuild(true);
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2", "vector3"), Arrays.asList(2, 3, 5)));
         // Add docs with knn_vector fields
         for (int i = 1; i <= 20; i++) {
@@ -947,6 +952,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     }
 
     public void testKNNIndexSearchFieldsParameterWithOtherFields() throws Exception {
+        setExpectRemoteBuild(true);
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -1052,6 +1058,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     }
 
     public void testKNNIndexSearchFieldsParameterDocsWithOnlyOtherFields() throws Exception {
+        setExpectRemoteBuild(true);
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")

@@ -51,6 +51,7 @@ public class ConcurrentSegmentSearchIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testConcurrentSegmentSearch_thenSucceed() {
+        setExpectRemoteBuild(true);
         String indexName = "test-concurrent-segment";
         String fieldName = "test-field-1";
         int dimension = testData.indexData.vectors[0].length;

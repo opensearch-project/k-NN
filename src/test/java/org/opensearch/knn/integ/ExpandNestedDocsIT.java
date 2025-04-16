@@ -49,8 +49,6 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.TYPE_NESTED;
 import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 
 @Log4j2
 @AllArgsConstructor
@@ -171,6 +169,9 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testExpandNestedDocs_whenMultiShards_thenReturnCorrectResult() {
+        if (description.equals("Faiss with float format and in memory mode")) {
+            setExpectRemoteBuild(true);
+        }
         int numberOfNestedFields = 10;
         int numberOfDocuments = 5;
         createKnnIndex(engine, mode, dimension, dataType, 2);
@@ -327,19 +328,12 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
             .endObject();
 
         String mapping = builder.toString();
-        Settings.Builder settingBuilder = Settings.builder()
+        Settings settings = Settings.builder()
             .put("number_of_shards", numOfShards)
             .put("number_of_replicas", 0)
             .put("index.knn", true)
-            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
-
-        final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            settingBuilder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            settingBuilder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
-        }
-
-        Settings settings = settingBuilder.build();
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .build();
         createKnnIndex(INDEX_NAME, settings, mapping);
     }
 
