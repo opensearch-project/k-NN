@@ -36,6 +36,11 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_BLOB_FILE_EXTENSION;
 @Log4j2
 @AllArgsConstructor
 public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor {
+    // Buffer sizes for remote build repository interactions. The max memory usage is this buffer size * the number of indexing threads.
+    // e.g. 16 threads would use at most 0.8 GB or 800 MB (for vectors).
+    private static final int VECTOR_UPLOAD_BUFFER_SIZE = 50 * 1024 * 1024; // 50 MB
+    private static final int DOC_ID_UPLOAD_BUFFER_SIZE = 8 * 1024; // 8 KB
+    private static final int INDEX_DOWNLOAD_BUFFER_SIZE = 50 * 1024 * 1024; // 50 MB
     private final BlobContainer blobContainer;
 
     /**
@@ -95,8 +100,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
                 }
             }, latch));
 
-            // Then upload doc id blob before waiting on vector uploads
-            // TODO: We wrap with a BufferedInputStream to support retries. We can tune this buffer size to optimize performance.
+            // Then upload doc id blob before waiting on vector uploads, wrapping with a BufferedInputStream to support retries.
             // Note: We do not use the parallel upload API here as the doc id blob will be much smaller than the vector blob
             writeDocIds(knnVectorValuesSupplier.get(), vectorBlobLength, totalLiveDocs, blobName, blobContainer);
             latch.await();
@@ -108,7 +112,8 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
             // Write Vectors
             try (
                 InputStream vectorStream = new BufferedInputStream(
-                    new VectorValuesInputStream(knnVectorValuesSupplier.get(), vectorDataType)
+                    new VectorValuesInputStream(knnVectorValuesSupplier.get(), vectorDataType),
+                    VECTOR_UPLOAD_BUFFER_SIZE
                 )
             ) {
                 log.debug("Writing {} bytes for {} docs to {}", vectorBlobLength, totalLiveDocs, blobName + VECTOR_BLOB_FILE_EXTENSION);
@@ -135,7 +140,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
         String blobName,
         BlobContainer blobContainer
     ) throws IOException {
-        try (InputStream docStream = new BufferedInputStream(new DocIdInputStream(knnVectorValues))) {
+        try (InputStream docStream = new BufferedInputStream(new DocIdInputStream(knnVectorValues), DOC_ID_UPLOAD_BUFFER_SIZE)) {
             log.debug(
                 "Writing {} bytes for {} docs ids to {}",
                 vectorBlobLength,
@@ -234,6 +239,6 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
         // TODO: We are using the sequential download API as multi-part parallel download is difficult for us to implement today and
         // requires some changes in core. For more details, see: https://github.com/opensearch-project/k-NN/issues/2464
         InputStream graphStream = blobContainer.readBlob(fileName);
-        indexOutputWithBuffer.writeFromStreamWithBuffer(graphStream);
+        indexOutputWithBuffer.writeFromStreamWithBuffer(graphStream, INDEX_DOWNLOAD_BUFFER_SIZE);
     }
 }
