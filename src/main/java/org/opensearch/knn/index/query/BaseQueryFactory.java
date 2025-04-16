@@ -104,9 +104,11 @@ public abstract class BaseQueryFactory {
         // preserve nestedStack
         Deque<ObjectMapper> nestedLevelStack = new LinkedList<>();
         ObjectMapper objectMapper = null;
-        while ((objectMapper = queryShardContext.nestedScope().getObjectMapper()) != null) {
-            nestedLevelStack.push(objectMapper);
-            queryShardContext.nestedScope().previousLevel();
+        if (queryShardContext.nestedScope() != null) {
+            while ((objectMapper = queryShardContext.nestedScope().getObjectMapper()) != null) {
+                nestedLevelStack.push(objectMapper);
+                queryShardContext.nestedScope().previousLevel();
+            }
         }
 
         final Query filterQuery;
