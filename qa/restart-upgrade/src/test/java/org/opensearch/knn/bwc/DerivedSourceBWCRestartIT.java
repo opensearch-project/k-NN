@@ -6,6 +6,8 @@
 package org.opensearch.knn.bwc;
 
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
@@ -64,6 +66,29 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
 
             // Reindex
             testReindex(indexConfigContexts);
+        }
+    }
+
+    public void testOldSettingPreservedOnUpgrade() throws IOException {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        String indexName = getIndexName("knn-bwc", "defaults-", false);
+        if (isRunningAgainstOldCluster()) {
+            String fieldName = "test";
+            int dimension = 16;
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .endObject()
+                .endObject()
+                .endObject();
+            String mapping = builder.toString();
+            createKnnIndex(indexName, mapping);
+            validateDerivedSetting(indexName, false);
+        } else {
+            validateDerivedSetting(indexName, false);
         }
     }
 

@@ -16,6 +16,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.VectorDataType;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -948,5 +949,9 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
 
             return randomMultiple;
         };
+    }
+
+    protected void validateDerivedSetting(String indexName, boolean expectedValue) throws IOException {
+        assertEquals(expectedValue, Boolean.parseBoolean(getIndexSettingByName(indexName, "index.knn.derived_source.enabled", true)));
     }
 }
