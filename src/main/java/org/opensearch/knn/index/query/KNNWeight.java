@@ -38,6 +38,7 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder;
+import org.opensearch.knn.index.query.explain.KnnExplanation;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -77,6 +78,7 @@ public class KNNWeight extends Weight {
 
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
     private final QuantizationService quantizationService;
+    private final KnnExplanation knnExplanation;
 
     public KNNWeight(KNNQuery query, float boost) {
         super(query);
@@ -86,6 +88,7 @@ public class KNNWeight extends Weight {
         this.filterWeight = null;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
         this.quantizationService = QuantizationService.getInstance();
+        this.knnExplanation = new KnnExplanation();
     }
 
     public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
@@ -96,6 +99,7 @@ public class KNNWeight extends Weight {
         this.filterWeight = filterWeight;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
         this.quantizationService = QuantizationService.getInstance();
+        this.knnExplanation = new KnnExplanation();
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -108,9 +112,148 @@ public class KNNWeight extends Weight {
         KNNWeight.DEFAULT_EXACT_SEARCHER = exactSearcher;
     }
 
+    @VisibleForTesting
+    KnnExplanation getKnnExplanation() {
+        return knnExplanation;
+    }
+
     @Override
+    // This method is called in case of Radial-Search
     public Explanation explain(LeafReaderContext context, int doc) {
-        return Explanation.match(1.0f, "No Explanation");
+        return explain(context, doc, 0);
+    }
+
+    // This method is called for ANN/Exact/Disk-based/Efficient-filtering search
+    public Explanation explain(LeafReaderContext context, int doc, float score) {
+        knnQuery.setExplain(true);
+        try {
+            final KNNScorer knnScorer = getOrCreateKnnScorer(context);
+            if (score == 0) {
+                score = getKnnScore(knnScorer, doc);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(String.format("Error while explaining KNN score for doc [%d], score [%f]", doc, score), e);
+        }
+        final String highLevelExplanation = getHighLevelExplanation();
+        final StringBuilder leafLevelExplanation = getLeafLevelExplanation(context);
+
+        final SegmentReader reader = Lucene.segmentReader(context.reader());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        if (fieldInfo == null) {
+            return Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString()));
+        }
+        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        leafLevelExplanation.append(", spaceType = ").append(spaceType.getValue());
+
+        final Float rawScore = knnExplanation.getRawScore(doc);
+        Explanation rawScoreDetail = null;
+        if (rawScore != null && knnQuery.getRescoreContext() == null) {
+            leafLevelExplanation.append(" where score is computed as ")
+                .append(spaceType.explainScoreTranslation(rawScore))
+                .append(" from:");
+            rawScoreDetail = Explanation.match(
+                rawScore,
+                "rawScore, returned from " + FieldInfoExtractor.extractKNNEngine(fieldInfo) + " library"
+            );
+        }
+
+        return rawScoreDetail != null
+            ? Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString(), rawScoreDetail))
+            : Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString()));
+    }
+
+    private StringBuilder getLeafLevelExplanation(LeafReaderContext context) {
+        int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
+        int cardinality = knnExplanation.getCardinality();
+        final StringBuilder sb = new StringBuilder("the type of knn search executed at leaf was ");
+        if (filterWeight != null) {
+            if (isFilterIdCountLessThanK(cardinality)) {
+                sb.append(KNNConstants.EXACT_SEARCH)
+                    .append(" since filteredIds = ")
+                    .append(cardinality)
+                    .append(" is less than or equal to K = ")
+                    .append(knnQuery.getK());
+            } else if (isExactSearchThresholdSettingSet(filterThresholdValue) && (filterThresholdValue >= cardinality)) {
+                sb.append(KNNConstants.EXACT_SEARCH)
+                    .append(" since filtered threshold value = ")
+                    .append(filterThresholdValue)
+                    .append(" is greater than or equal to cardinality = ")
+                    .append(cardinality);
+            } else if (!isExactSearchThresholdSettingSet(filterThresholdValue) && isMDCGreaterThanFilterIdCnt(cardinality)) {
+                sb.append(KNNConstants.EXACT_SEARCH)
+                    .append(" since max distance computation = ")
+                    .append(KNNConstants.MAX_DISTANCE_COMPUTATIONS)
+                    .append(" is greater than or equal to cardinality = ")
+                    .append(cardinality);
+            }
+        }
+        final Integer annResult = knnExplanation.getAnnResult(context.id());
+        if (annResult != null && annResult == 0 && isMissingNativeEngineFiles(context)) {
+            sb.append(KNNConstants.EXACT_SEARCH).append(" since no native engine files are available");
+        }
+        if (annResult != null && isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
+            sb.append(KNNConstants.EXACT_SEARCH)
+                .append(" since the number of documents returned are less than K = ")
+                .append(knnQuery.getK())
+                .append(" and there are more than K filtered Ids = ")
+                .append(cardinality);
+        }
+        if (annResult != null && annResult > 0 && !isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
+            sb.append(KNNConstants.ANN_SEARCH);
+        }
+        sb.append(" with vectorDataType = ").append(knnQuery.getVectorDataType());
+        return sb;
+    }
+
+    private String getHighLevelExplanation() {
+        final StringBuilder sb = new StringBuilder("the type of knn search executed was ");
+        if (knnQuery.getRescoreContext() != null) {
+            sb.append(buildDiskBasedSearchExplanation());
+        } else if (knnQuery.getRadius() != null) {
+            sb.append(KNNConstants.RADIAL_SEARCH).append(" with the radius of ").append(knnQuery.getRadius());
+        } else {
+            sb.append(KNNConstants.ANN_SEARCH);
+        }
+        return sb.toString();
+    }
+
+    private String buildDiskBasedSearchExplanation() {
+        StringBuilder sb = new StringBuilder(KNNConstants.DISK_BASED_SEARCH);
+        boolean isShardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName());
+        if (!knnQuery.getRescoreContext().isRescoreEnabled()) {
+            isShardLevelRescoringDisabled = true;
+        }
+        int dimension = knnQuery.getQueryVector().length;
+        int firstPassK = knnQuery.getRescoreContext().getFirstPassK(knnQuery.getK(), isShardLevelRescoringDisabled, dimension);
+        sb.append(" and the first pass k was ")
+            .append(firstPassK)
+            .append(" with vector dimension of ")
+            .append(dimension)
+            .append(", over sampling factor of ")
+            .append(knnQuery.getRescoreContext().getOversampleFactor());
+        if (isShardLevelRescoringDisabled) {
+            sb.append(", shard level rescoring disabled");
+        } else {
+            sb.append(", shard level rescoring enabled");
+        }
+        return sb.toString();
+    }
+
+    private KNNScorer getOrCreateKnnScorer(LeafReaderContext context) throws IOException {
+        // First try to get the cached scorer
+        KNNScorer scorer = knnExplanation.getKnnScorer(context);
+
+        // If no cached scorer exists, create and cache a new one
+        if (scorer == null) {
+            scorer = (KNNScorer) scorer(context);
+            knnExplanation.addKnnScorer(context, scorer);
+        }
+
+        return scorer;
+    }
+
+    private float getKnnScore(KNNScorer knnScorer, int doc) throws IOException {
+        return (knnScorer.iterator().advance(doc) == doc) ? knnScorer.score() : 0;
     }
 
     @Override
@@ -161,6 +304,9 @@ public class KNNWeight extends Weight {
         if (filterWeight != null && cardinality == 0) {
             return PerLeafResult.EMPTY_RESULT;
         }
+        if (knnQuery.isExplain()) {
+            knnExplanation.setCardinality(cardinality);
+        }
         /*
          * The idea for this optimization is to get K results, we need to at least look at K vectors in the HNSW graph
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
@@ -180,7 +326,9 @@ public class KNNWeight extends Weight {
         StopWatch annStopWatch = startStopWatch();
         final Map<Integer, Float> docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
         stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
-
+        if (knnQuery.isExplain()) {
+            knnExplanation.addLeafResult(context.id(), docIdsToScoreMap.size());
+        }
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
@@ -417,6 +565,15 @@ public class KNNWeight extends Weight {
             log.debug("[KNN] Query yielded 0 results");
             return Collections.emptyMap();
         }
+        if (knnQuery.isExplain()) {
+            Arrays.stream(results).forEach(result -> {
+                if (KNNEngine.FAISS.getName().equals(knnEngine.getName()) && SpaceType.INNER_PRODUCT.equals(spaceType)) {
+                    knnExplanation.addRawScore(result.getId(), -1 * result.getScore());
+                } else {
+                    knnExplanation.addRawScore(result.getId(), result.getScore());
+                }
+            });
+        }
 
         if (quantizedVector != null) {
             return Arrays.stream(results)
@@ -463,12 +620,13 @@ public class KNNWeight extends Weight {
         );
         int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
         // Refer this GitHub around more details https://github.com/opensearch-project/k-NN/issues/1049 on the logic
-        if (knnQuery.getRadius() == null && filterIdsCount <= knnQuery.getK()) {
-            return true;
-        }
+        if (isFilterIdCountLessThanK(filterIdsCount)) return true;
         // See user has defined Exact Search filtered threshold. if yes, then use that setting.
         if (isExactSearchThresholdSettingSet(filterThresholdValue)) {
-            return filterThresholdValue >= filterIdsCount;
+            if (filterThresholdValue >= filterIdsCount) {
+                return true;
+            }
+            return false;
         }
 
         // if no setting is set, then use the default max distance computation value to see if we can do exact search.
@@ -476,7 +634,7 @@ public class KNNWeight extends Weight {
          * TODO we can have a different MAX_DISTANCE_COMPUTATIONS for binary index as computation cost for binary index
          * is cheaper than computation cost for non binary vector
          */
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * getQueryVectorLength();
+        return isMDCGreaterThanFilterIdCnt(filterIdsCount);
     }
 
     /**
@@ -493,6 +651,16 @@ public class KNNWeight extends Weight {
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "[%s] datatype is not supported for k-NN query vector", knnQuery.getVectorDataType().getValue())
         );
+    }
+
+    private boolean isMDCGreaterThanFilterIdCnt(int filterIdsCount) {
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getVectorDataType() == VectorDataType.FLOAT
+            ? knnQuery.getQueryVector().length
+            : knnQuery.getByteQueryVector().length);
+    }
+
+    private boolean isFilterIdCountLessThanK(int filterIdsCount) {
+        return knnQuery.getRadius() == null && filterIdsCount <= knnQuery.getK();
     }
 
     /**

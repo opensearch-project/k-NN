@@ -748,6 +748,84 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
     }
 }
 
+TEST(FaissQueryIndexHNSWCagraWithParentFilterTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
+    std::vector<float> vectors;
+    std::vector<int> parentIds;
+    int dim = 16;
+    for (int64_t i = 1; i < numIds + 1; i++) {
+        if (i % 10 == 0) {
+            parentIds.push_back(i);
+            continue;
+        }
+        ids.push_back(i);
+        for (int j = 0; j < dim; j++) {
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+    }
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string method = "HNSW32,Cagra";
+
+    // Define query data
+    int k = 20;
+    int numQueries = 100;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        std::vector<float> query;
+        query.reserve(dim);
+        for (int j = 0; j < dim; j++) {
+            query.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+        queries.push_back(query);
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(dim, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
+    dynamic_cast<faiss::IndexHNSWCagra*>(createdIndexWithData.index)->base_level_only=true;
+
+    int efSearch = 100;
+    std::unordered_map<std::string, jobject> methodParams;
+    methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+
+    // Setup jni
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    EXPECT_CALL(mockJNIUtil,
+                    GetJavaIntArrayLength(
+                            &jniEnv, reinterpret_cast<jintArray>(&parentIds)))
+                .WillRepeatedly(Return(parentIds.size()));
+    for (auto query : queries) {
+        std::unique_ptr<std::vector<std::pair<int, float> *>> results(
+                reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                        knn_jni::faiss_wrapper::QueryIndex(
+                                &mockJNIUtil, &jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jfloatArray>(&query), k, reinterpret_cast<jobject>(&methodParams),
+                                reinterpret_cast<jintArray>(&parentIds))));
+
+        // Even with k 20, result should have only 10 which is total number of groups
+        ASSERT_EQ(10, results->size());
+        // Result should be one for each group
+        std::set<int> idSet;
+        for (const auto& pairPtr : *results) {
+            idSet.insert(pairPtr->first / 10);
+        }
+        ASSERT_EQ(10, idSet.size());
+
+        // Need to free up each result
+        for (auto it : *results.get()) {
+            delete it;
+        }
+    }
+}
+
 TEST(FaissFreeTest, BasicAssertions) {
     // Define the data
     int dim = 2;
