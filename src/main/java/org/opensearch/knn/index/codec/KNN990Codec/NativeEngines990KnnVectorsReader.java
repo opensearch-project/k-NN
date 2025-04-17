@@ -35,6 +35,9 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
+import org.opensearch.knn.profiler.SegmentProfileKNNCollector;
+import org.opensearch.knn.profiler.SegmentProfileStateReadConfig;
+import org.opensearch.knn.profiler.SegmentProfilerState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -160,6 +163,12 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                     )
                 );
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
+            return;
+        }
+
+        if (knnCollector instanceof SegmentProfileKNNCollector) {
+            SegmentProfilerState segmentProfileState = KNN990QuantizationStateReader.read(new SegmentProfileStateReadConfig(segmentReadState, field));
+            ((SegmentProfileKNNCollector) knnCollector).setSegmentProfilerState(segmentProfileState);
             return;
         }
 

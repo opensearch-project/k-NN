@@ -5,13 +5,14 @@
 
 package org.opensearch.knn.profiler;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -23,19 +24,15 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  * This class calculates statistical measurements for each dimension of the vectors in a segment.
  */
 @Log4j2
-public class SegmentProfilerState {
+@AllArgsConstructor
+public class SegmentProfilerState implements Serializable {
 
     // Stores statistical summaries for each dimension of the vectors
     @Getter
     private final List<SummaryStatistics> statistics;
 
-    /**
-     * Constructor to initialize the SegmentProfilerState
-     * @param statistics
-     */
-    public SegmentProfilerState(final List<SummaryStatistics> statistics) {
-        this.statistics = statistics;
-    }
+    @Getter
+    private final int dimension;
 
     /**
      * Profiles vectors in a segment by analyzing their statistical values
@@ -48,7 +45,7 @@ public class SegmentProfilerState {
 
         if (vectorValues == null) {
             log.info("No vector values available");
-            return new SegmentProfilerState(new ArrayList<>());
+            return new SegmentProfilerState(new ArrayList<>(), 0);
         }
 
         // Initialize vector values
@@ -58,7 +55,7 @@ public class SegmentProfilerState {
         // Return empty state if no documents are present
         if (vectorValues.docId() == NO_MORE_DOCS) {
             log.info("No vectors to profile");
-            return new SegmentProfilerState(statistics);
+            return new SegmentProfilerState(statistics, vectorValues.dimension());
         }
 
         int dimension = vectorValues.dimension();
@@ -77,9 +74,11 @@ public class SegmentProfilerState {
         }
 
         log.info("Vector profiling completed - processed {} vectors", vectorCount);
+
+
         logDimensionStatistics(statistics, dimension);
 
-        return new SegmentProfilerState(statistics);
+        return new SegmentProfilerState(statistics, vectorValues.dimension());
     }
 
     /**
@@ -135,6 +134,27 @@ public class SegmentProfilerState {
                 stats.getMin(),
                 stats.getMax()
             );
+        }
+    }
+
+    public byte[] toByteArray() {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+
+            oos.writeObject(this);
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to serialize SegmentProfilerStates", e);
+        }
+    }
+
+    public static SegmentProfilerState fromBytes(byte[] bytes) {
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+             ObjectInputStream ois = new ObjectInputStream(bais)) {
+
+            return (SegmentProfilerState) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException("Failed to deserialize SegmentProfilerState", e);
         }
     }
 }

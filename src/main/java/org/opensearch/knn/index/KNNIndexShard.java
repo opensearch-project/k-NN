@@ -9,6 +9,9 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.math3.stat.descriptive.AggregateSummaryStatistics;
+import org.apache.commons.math3.stat.descriptive.StatisticalSummaryValues;
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -28,6 +31,8 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
+import org.opensearch.knn.profiler.SegmentProfilerState;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -80,6 +85,47 @@ public class KNNIndexShard {
      */
     public String getIndexName() {
         return indexShard.shardId().getIndexName();
+    }
+
+    public void profile() {
+        try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
+
+            List<SegmentProfilerState> segmentLevelProfilerStates = new ArrayList<>();
+
+            //TODO: Must specify field name as API input - leave it as a constant for now
+            //For each leaf, collect the profile
+            searcher.getIndexReader().leaves().forEach(leaf -> {
+                try {
+                    segmentLevelProfilerStates.add(SegmentLevelQuantizationUtil.getSegmentProfileState(leaf.reader(), "my_vector_field"));
+                } catch (IOException e) {
+                    //TODO:Better Exception Handling
+                    throw new RuntimeException(e);
+                }
+            });
+
+            //Aggregate profile per field/dimension for the shard
+            List<StatisticalSummaryValues> shardVectorProfile = new ArrayList<>();
+
+            //TODO: See if there's a better way to get the dimension other than the first element
+            //Transpose our list to aggregate per dimension
+            for (int i = 0; i < segmentLevelProfilerStates.getFirst().getDimension(); i++) {
+                int dimensionId = i;
+                List<SummaryStatistics> transposed = segmentLevelProfilerStates.stream()
+                        .map(state -> state.getStatistics().get(dimensionId))
+                        .toList();
+
+                shardVectorProfile.add(AggregateSummaryStatistics.aggregate(transposed));
+            }
+
+            //TODO: Return this as a API call instead of logging
+            for (StatisticalSummaryValues statisticalSummaryValues : shardVectorProfile) {
+
+                //Use the toString for now
+                log.info(statisticalSummaryValues.toString());
+            }
+
+            //TODO: Write unit tests to ensure that the segment statistic aggregation is correct.
+        }
     }
 
     /**

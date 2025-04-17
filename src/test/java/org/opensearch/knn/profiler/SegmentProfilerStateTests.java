@@ -35,7 +35,7 @@ public class SegmentProfilerStateTests extends OpenSearchTestCase {
         List<SummaryStatistics> statistics = new ArrayList<>();
         statistics.add(new SummaryStatistics());
 
-        SegmentProfilerState state = new SegmentProfilerState(statistics);
+        SegmentProfilerState state = new SegmentProfilerState(statistics, 0);
         assertEquals(statistics, state.getStatistics());
     }
 
