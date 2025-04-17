@@ -8,6 +8,8 @@ package org.opensearch.knn.integ;
 import lombok.SneakyThrows;
 import org.junit.Before;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.knn.Pair;
@@ -162,5 +164,27 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
         // Snapshot restore
         testSnapshotRestore(repository, snapshot + getTestName().toLowerCase(Locale.ROOT), indexConfigContexts);
+    }
+
+    @SneakyThrows
+    public void testDefaultSetting() {
+        String indexName = getIndexName("defaults", "test", false);
+        String fieldName = "test";
+        String indexNameDisabled = "disabled";
+        int dimension = 16;
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        createKnnIndex(indexName, mapping);
+        validateDerivedSetting(indexName, true);
+        createIndex(indexNameDisabled, Settings.builder().build());
+        validateDerivedSetting(indexNameDisabled, false);
     }
 }

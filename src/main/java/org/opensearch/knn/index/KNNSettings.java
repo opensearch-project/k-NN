@@ -259,19 +259,19 @@ public class KNNSettings {
         Setting.Property.Dynamic
     );
 
-    public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = Setting.boolSetting(
-        KNN_DERIVED_SOURCE_ENABLED,
+    /**
+     * This setting identifies KNN index.
+     */
+    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(
+        KNN_INDEX,
         false,
         IndexScope,
         Final,
         UnmodifiableOnRestore
     );
 
-    /**
-     * This setting identifies KNN index.
-     */
-    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(
-        KNN_INDEX,
+    public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = Setting.boolSetting(
+        KNN_DERIVED_SOURCE_ENABLED,
         false,
         IndexScope,
         Final,
