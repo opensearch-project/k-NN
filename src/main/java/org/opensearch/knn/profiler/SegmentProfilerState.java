@@ -75,7 +75,6 @@ public class SegmentProfilerState implements Serializable {
 
         log.info("Vector profiling completed - processed {} vectors", vectorCount);
 
-
         logDimensionStatistics(statistics, dimension);
 
         return new SegmentProfilerState(statistics, vectorValues.dimension());
@@ -137,9 +136,12 @@ public class SegmentProfilerState implements Serializable {
         }
     }
 
+    /**
+     * Serializes a SegmentProfilerState to a byte array
+     * @return
+     */
     public byte[] toByteArray() {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(baos)) {
 
             oos.writeObject(this);
             return baos.toByteArray();
@@ -148,9 +150,13 @@ public class SegmentProfilerState implements Serializable {
         }
     }
 
+    /**
+     * Deserializes a SegmentProfilerState from a byte array
+     * @param bytes
+     * @return
+     */
     public static SegmentProfilerState fromBytes(byte[] bytes) {
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-             ObjectInputStream ois = new ObjectInputStream(bais)) {
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes); ObjectInputStream ois = new ObjectInputStream(bais)) {
 
             return (SegmentProfilerState) ois.readObject();
         } catch (IOException | ClassNotFoundException e) {

@@ -57,31 +57,8 @@ import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.plugin.stats.KNNStats;
-import org.opensearch.knn.plugin.transport.ClearCacheAction;
-import org.opensearch.knn.plugin.transport.ClearCacheTransportAction;
-import org.opensearch.knn.plugin.transport.DeleteModelAction;
-import org.opensearch.knn.plugin.transport.DeleteModelTransportAction;
-import org.opensearch.knn.plugin.transport.GetModelAction;
-import org.opensearch.knn.plugin.transport.GetModelTransportAction;
-import org.opensearch.knn.plugin.transport.KNNStatsAction;
-import org.opensearch.knn.plugin.transport.KNNStatsTransportAction;
-import org.opensearch.knn.plugin.transport.KNNWarmupAction;
-import org.opensearch.knn.plugin.transport.KNNWarmupTransportAction;
-import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
-import org.opensearch.knn.plugin.transport.RemoveModelFromCacheTransportAction;
-import org.opensearch.knn.plugin.transport.SearchModelAction;
-import org.opensearch.knn.plugin.transport.SearchModelTransportAction;
-import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoAction;
-import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoTransportAction;
-import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
-import org.opensearch.knn.plugin.transport.TrainingJobRouterTransportAction;
-import org.opensearch.knn.plugin.transport.TrainingModelAction;
-import org.opensearch.knn.plugin.transport.TrainingModelRequest;
-import org.opensearch.knn.plugin.transport.TrainingModelTransportAction;
-import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
-import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
-import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
-import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.plugin.transport.*;
+import org.opensearch.knn.profiler.RestKNNProfileHandler;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -249,6 +226,12 @@ public class KNNPlugin extends Plugin
             clusterService,
             indexNameExpressionResolver
         );
+        RestKNNProfileHandler restKNNProfileHandler = new RestKNNProfileHandler(
+            settings,
+            restController,
+            clusterService,
+            indexNameExpressionResolver
+        );
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
         RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
@@ -258,6 +241,7 @@ public class KNNPlugin extends Plugin
         return ImmutableList.of(
             restKNNStatsHandler,
             restKNNWarmupHandler,
+            restKNNProfileHandler,
             restGetModelHandler,
             restDeleteModelHandler,
             restTrainModelHandler,
@@ -274,6 +258,7 @@ public class KNNPlugin extends Plugin
         return Arrays.asList(
             new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
             new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
+            new ActionHandler<>(KNNProfileAction.INSTANCE, KNNProfileTransportAction.class),
             new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
             new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE, TrainingJobRouteDecisionInfoTransportAction.class),
             new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),

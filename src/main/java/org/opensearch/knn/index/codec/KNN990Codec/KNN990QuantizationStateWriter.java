@@ -90,7 +90,7 @@ public final class KNN990QuantizationStateWriter {
      * Writes a segment profile state as bytes
      *
      * @param fieldNumber field number
-     * @param quantizationState quantization state
+     * @param segmentProfilerState segment profiler state
      * @throws IOException could be thrown while writing
      */
     public void writeState(int fieldNumber, SegmentProfilerState segmentProfilerState) throws IOException {

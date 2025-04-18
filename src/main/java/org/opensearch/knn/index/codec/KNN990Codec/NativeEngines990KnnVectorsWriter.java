@@ -153,7 +153,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
         final QuantizationState quantizationState = train(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
 
-        //Write the segment profile state to the directory
+        // Write the segment profile state to the directory
         profile(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
 
         // should skip graph building only for non quantization use case and if threshold is met
@@ -249,14 +249,14 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     }
 
     private SegmentProfilerState profile(
-            final FieldInfo fieldInfo,
-            final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier,
-            final int totalLiveDocs
+        final FieldInfo fieldInfo,
+        final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier,
+        final int totalLiveDocs
     ) throws IOException {
 
         SegmentProfilerState segmentProfilerState = null;
         if (totalLiveDocs > 0) {
-            //TODO:Refactor to another init
+            // TODO:Refactor to another init
             initQuantizationStateWriterIfNecessary();
             SegmentProfilerState profileResultForSegment = SegmentProfilerState.profileVectors(knnVectorValuesSupplier);
             quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), profileResultForSegment);
@@ -286,7 +286,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             quantizationStateWriter.writeHeader(segmentWriteState);
         }
     }
-
 
     private boolean shouldSkipBuildingVectorDataStructure(final long docCount) {
         if (approximateThreshold < 0) {

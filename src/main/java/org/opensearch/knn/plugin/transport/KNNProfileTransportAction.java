@@ -5,11 +5,10 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.knn.index.KNNIndexShard;
+import org.apache.commons.math3.stat.descriptive.StatisticalSummaryValues;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.core.action.support.DefaultShardOperationFailedException;
 import org.opensearch.action.support.broadcast.node.TransportBroadcastByNodeAction;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockException;
@@ -19,8 +18,10 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.core.action.support.DefaultShardOperationFailedException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.indices.IndicesService;
+import org.opensearch.knn.index.KNNIndexShard;
 import org.opensearch.transport.TransportService;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -28,21 +29,18 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Transport Action for warming up k-NN indices. TransportBroadcastByNodeAction will distribute the request to
- * all shards across the cluster for the given indices. For each shard, shardOperation will be called and the
- * warmup will take place.
+ * Transport action for profiling KNN vectors in an index
  */
-public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
-    KNNWarmupRequest,
-    KNNWarmupResponse,
-    TransportBroadcastByNodeAction.EmptyResult> {
+public class KNNProfileTransportAction extends TransportBroadcastByNodeAction<
+    KNNProfileRequest,
+    KNNProfileResponse,
+    KNNProfileShardResult> {
 
-    public static Logger logger = LogManager.getLogger(KNNWarmupTransportAction.class);
-
-    private IndicesService indicesService;
+    public static Logger logger = LogManager.getLogger(KNNProfileTransportAction.class);
+    private final IndicesService indicesService;
 
     @Inject
-    public KNNWarmupTransportAction(
+    public KNNProfileTransportAction(
         ClusterService clusterService,
         TransportService transportService,
         IndicesService indicesService,
@@ -50,62 +48,68 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
         IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         super(
-            KNNWarmupAction.NAME,
+            KNNProfileAction.NAME,
             clusterService,
             transportService,
             actionFilters,
             indexNameExpressionResolver,
-            KNNWarmupRequest::new,
+            KNNProfileRequest::new,
             ThreadPool.Names.SEARCH
         );
         this.indicesService = indicesService;
     }
 
     @Override
-    protected EmptyResult readShardResult(StreamInput in) throws IOException {
-        return EmptyResult.readEmptyResultFrom(in);
+    protected KNNProfileShardResult readShardResult(StreamInput in) throws IOException {
+        return new KNNProfileShardResult(in);
     }
 
     @Override
-    protected KNNWarmupResponse newResponse(
-        KNNWarmupRequest request,
+    protected KNNProfileResponse newResponse(
+        KNNProfileRequest request,
         int totalShards,
         int successfulShards,
         int failedShards,
-        List<EmptyResult> emptyResults,
+        List<KNNProfileShardResult> shardResults,
         List<DefaultShardOperationFailedException> shardFailures,
         ClusterState clusterState
     ) {
-        return new KNNWarmupResponse(totalShards, successfulShards, failedShards, shardFailures);
+        return new KNNProfileResponse(totalShards, successfulShards, failedShards, shardResults, shardFailures);
     }
 
     @Override
-    protected KNNWarmupRequest readRequestFrom(StreamInput in) throws IOException {
-        return new KNNWarmupRequest(in);
+    protected KNNProfileRequest readRequestFrom(StreamInput in) throws IOException {
+        return new KNNProfileRequest(in);
     }
 
     @Override
-    protected EmptyResult shardOperation(KNNWarmupRequest request, ShardRouting shardRouting) throws IOException {
+    protected KNNProfileShardResult shardOperation(KNNProfileRequest request, ShardRouting shardRouting) throws IOException {
         KNNIndexShard knnIndexShard = new KNNIndexShard(
             indicesService.indexServiceSafe(shardRouting.shardId().getIndex()).getShard(shardRouting.shardId().id())
         );
 
-        knnIndexShard.warmup();
-        return EmptyResult.INSTANCE;
+        List<StatisticalSummaryValues> profileResults = knnIndexShard.profile(request.getFieldName());
+        logger.info(
+            "[KNN] Profile completed for field: {} on shard: {} - stats count: {}",
+            request.getFieldName(),
+            shardRouting.shardId(),
+            profileResults != null ? profileResults.size() : 0
+        );
+        return new KNNProfileShardResult(shardRouting.shardId(), profileResults);
     }
 
     @Override
-    protected ShardsIterator shards(ClusterState state, KNNWarmupRequest request, String[] concreteIndices) {
+    protected ShardsIterator shards(ClusterState state, KNNProfileRequest request, String[] concreteIndices) {
         return state.routingTable().allShards(concreteIndices);
     }
 
     @Override
-    protected ClusterBlockException checkGlobalBlock(ClusterState state, KNNWarmupRequest request) {
+    protected ClusterBlockException checkGlobalBlock(ClusterState state, KNNProfileRequest request) {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_READ);
     }
 
     @Override
-    protected ClusterBlockException checkRequestBlock(ClusterState state, KNNWarmupRequest request, String[] concreteIndices) {
+    protected ClusterBlockException checkRequestBlock(ClusterState state, KNNProfileRequest request, String[] concreteIndices) {
         return state.blocks().indicesBlockedException(ClusterBlockLevel.METADATA_READ, concreteIndices);
     }
 }
