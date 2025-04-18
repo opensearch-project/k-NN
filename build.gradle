@@ -19,10 +19,10 @@ buildscript {
         version_qualifier = System.getProperty("build.version_qualifier", "beta1")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        avx2_enabled = System.getProperty("avx2.enabled", "true")
+        avx2_enabled = System.getProperty("avx2.enabled")
         nproc_count = System.getProperty("nproc.count", "1")
-        avx512_enabled = System.getProperty("avx512.enabled", "true")
-        avx512_spr_enabled = System.getProperty("avx512_spr.enabled", "true")
+        avx512_enabled = System.getProperty("avx512.enabled")
+        avx512_spr_enabled = System.getProperty("avx512_spr.enabled")
         // This flag determines whether the CMake build system should apply a custom patch. It prevents build failures
         // when the cmakeJniLib task is run multiple times. If the build.lib.commit_patches is true, the CMake build
         // system skips applying the patch if the patches have been applied already. If build.lib.commit_patches is
@@ -373,9 +373,15 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-S jni") // CMakelists.txt directory
     args.add("-B jni/build") // Build directory
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
-    args.add("-DAVX2_ENABLED=${avx2_enabled}")
-    args.add("-DAVX512_ENABLED=${avx512_enabled}")
-    args.add("-DAVX512_SPR_ENABLED=${avx512_spr_enabled}")
+    if (avx2_enabled != null) {
+        args.add("-DAVX2_ENABLED=${avx2_enabled}")
+    }
+    if (avx512_enabled != null) {
+        args.add("-DAVX512_ENABLED=${avx512_enabled}")
+    }
+    if (avx512_spr_enabled != null) {
+        args.add("-DAVX512_SPR_ENABLED=${avx512_spr_enabled}")
+    }
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
