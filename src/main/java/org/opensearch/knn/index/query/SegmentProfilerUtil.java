@@ -18,6 +18,7 @@ import java.util.Locale;
  */
 @UtilityClass
 public class SegmentProfilerUtil {
+
     /**
      * Gets the segment profile state for a given field
      * @param leafReader The leaf reader to query
