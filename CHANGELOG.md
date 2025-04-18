@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features
 * [Vector Profiler] Adding basic generic vector profiler implementation and tests. [#2624](https://github.com/opensearch-project/k-NN/pull/2624)
+* [Vector Profiler] Adding main segment implementation for API and indexing. [#2653](https://github.com/opensearch-project/k-NN/pull/2653)
 
 ### Enhancements
 ### Bug Fixes
