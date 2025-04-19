@@ -25,10 +25,10 @@ public enum CompressionLevel {
     x1(1, "1x", null, Collections.emptySet()),
     x2(2, "2x", null, Collections.emptySet()),
     x4(4, "4x", null, Collections.emptySet()),
-    x8(8, "8x", new RescoreContext(2.0f, false, false), Set.of(Mode.ON_DISK)),
-    x16(16, "16x", new RescoreContext(3.0f, false, false), Set.of(Mode.ON_DISK)),
-    x32(32, "32x", new RescoreContext(3.0f, false, false), Set.of(Mode.ON_DISK)),
-    x64(64, "64x", new RescoreContext(5.0f, false, false), Set.of(Mode.ON_DISK));
+    x8(8, "8x", new RescoreContext(2.0f, false, true), Set.of(Mode.ON_DISK)),
+    x16(16, "16x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),
+    x32(32, "32x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),
+    x64(64, "64x", new RescoreContext(5.0f, false, true), Set.of(Mode.ON_DISK));
 
     public static final CompressionLevel MAX_COMPRESSION_LEVEL = CompressionLevel.x64;
 
