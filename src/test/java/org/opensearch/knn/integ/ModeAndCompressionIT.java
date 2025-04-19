@@ -23,6 +23,8 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.parser.RescoreParser;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
@@ -81,6 +83,10 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         CompressionLevel.x8.getName(),
         CompressionLevel.x16.getName(),
         CompressionLevel.x32.getName() };
+
+    private static final String RE_SCORING_TEST_INDEX = "rescoring-test-index";
+    private static final SpaceType RE_SCORING_SPACE_TYPE = SpaceType.INNER_PRODUCT;
+    private static final List<Integer> RE_SCORING_DIMENSIONS = Arrays.asList(768, 1000, 1024);
 
     @SneakyThrows
     public void testIndexCreation_whenInvalid_thenFail() {
@@ -323,6 +329,39 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
         assertEquals(K, knnResults.size());
         Assert.assertEquals(exactSearchKnnResults, knnResults);
+    }
+
+    @SneakyThrows
+    public void testDefaultRescoringEnabled_whenForDifferentDimensionThresholds_thenSuccess() {
+        for (int dim : RE_SCORING_DIMENSIONS) {
+            String index = RE_SCORING_TEST_INDEX + "-dim-" + dim;
+            createOnDiskIndex(index, dim, RE_SCORING_SPACE_TYPE);
+            float[][] vectors = new float[1][dim];
+            for (int i = 0; i < dim; i++) {
+                vectors[0][i] = 2;
+            }
+            bulkAddKnnDocs(index, FIELD_NAME, vectors, vectors.length);
+            refreshIndex(index);
+            float[] query = new float[dim];
+            Arrays.fill(query, 1);
+            String kNNQuery = buildKNNQuery(query);
+            String responseString = EntityUtils.toString(performSearch(index, kNNQuery).getEntity());
+            Assert.assertEquals(1, parseIds(responseString).size());
+            double actualScore = RE_SCORING_SPACE_TYPE.getKnnVectorSimilarityFunction().compare(query, vectors[0]);
+            double expectedScore = parseScores(responseString).get(0);
+            Assert.assertEquals("Assert Failed for Rescoring test with dimension : " + dim, actualScore, expectedScore, 0);
+            deleteKNNIndex(index);
+        }
+    }
+
+    private String buildKNNQuery(float[] queryVector) throws IOException {
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().startObject("query");
+        queryBuilder.startObject("knn");
+        queryBuilder.startObject(FIELD_NAME);
+        queryBuilder.field("vector", queryVector);
+        queryBuilder.field("k", 10);
+        queryBuilder.endObject().endObject().endObject().endObject();
+        return queryBuilder.toString();
     }
 
     @SneakyThrows
