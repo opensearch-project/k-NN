@@ -43,7 +43,7 @@ import static org.opensearch.knn.common.KNNConstants.RADIAL_SEARCH;
 public class ExplainIT extends KNNRestTestCase {
 
     @SneakyThrows
-    public void testAnnSearch() {
+    public void testExplain_whenDefault_thenANNSearch() {
         int dimension = 128;
         int numDocs = 100;
         createDefaultKnnIndex(dimension);
@@ -63,7 +63,7 @@ public class ExplainIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testANNWithExactSearch() {
+    public void testExplain_whenFilterIdLessThanK_thenANNWithExactSearch() {
         createDefaultKnnIndex(2);
         indexTestData(INDEX_NAME, FIELD_NAME, 2, 2);
 
@@ -90,7 +90,7 @@ public class ExplainIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testRadialWithANNSearch() {
+    public void testExplain_whenDefaultWithDist_thenRadialWithANNSearch() {
         int dimension = 128;
         int numDocs = 100;
         createDefaultKnnIndex(dimension);
@@ -125,7 +125,7 @@ public class ExplainIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testRadialWithExactSearch() {
+    public void testExplain_whenFilerQueryWithDist_thenRadialWithExactSearch() {
         setupKNNIndexForFilterQuery();
 
         final float[] queryVector = new float[] { 3.3f, 3.0f, 5.0f };
@@ -159,7 +159,7 @@ public class ExplainIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testDiskBasedSearchWithDefaultRescoring() {
+    public void testExplain_whenDefaultDiskBasedSearch_thenRescoringEnabled() {
         int dimension = 16;
         float[] queryVector = new float[] {
             1.0f,
@@ -217,7 +217,7 @@ public class ExplainIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testDiskBasedSearchWithRescoringDisabled() {
+    public void testExplain_whenDiskBasedSearchRescoringDisabled_thenSucceed() {
         int dimension = 16;
         float[] queryVector = new float[] {
             1.0f,
