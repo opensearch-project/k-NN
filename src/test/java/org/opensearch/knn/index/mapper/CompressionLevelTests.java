@@ -52,30 +52,43 @@ public class CompressionLevelTests extends KNNTestCase {
         RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNotNull(rescoreContext);
         assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
 
         // x32 with dimension > 1000 should have an oversample factor of 3.0f
         rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, aboveThresholdDimension);
         assertNotNull(rescoreContext);
         assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
 
         // x16 with dimension <= 1000 should have an oversample factor of 5.0f
         rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNotNull(rescoreContext);
         assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
 
         // x16 with dimension > 1000 should have an oversample factor of 3.0f
         rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(mode, aboveThresholdDimension);
         assertNotNull(rescoreContext);
         assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
 
         // x8 with dimension <= 1000 should have an oversample factor of 5.0f
         rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNotNull(rescoreContext);
         assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
+
         // x8 with dimension > 1000 should have an oversample factor of 2.0f
         rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(mode, aboveThresholdDimension);
         assertNotNull(rescoreContext);
         assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
 
         // x4 with dimension <= 1000 should have an oversample factor of 5.0f (though it doesn't have its own RescoreContext)
         rescoreContext = CompressionLevel.x4.getDefaultRescoreContext(mode, belowThresholdDimension);
