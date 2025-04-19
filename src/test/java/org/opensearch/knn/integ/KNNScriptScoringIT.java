@@ -66,6 +66,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     private static final String TEST_MODEL = "test-model";
 
     public void testKNNL2ScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.L2);
     }
 
@@ -74,6 +75,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNL1ScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.L1);
     }
 
@@ -82,6 +84,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNLInfScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.LINF);
     }
 
@@ -90,6 +93,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNCosineScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.COSINESIMIL);
     }
 
@@ -542,6 +546,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNInnerProdScriptScore() throws Exception {
+        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
 
@@ -653,6 +658,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
+        setExpectRemoteBuild(true);
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);
@@ -947,6 +953,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 final float[] vector = (v != null) ? v.getVector() : dummyVector;
                 ExceptionsHelper.catchAsRuntimeException(() -> addKnnDoc(INDEX_NAME, k, (v != null) ? FIELD_NAME : "dummy", vector));
             });
+
+            forceMergeKnnIndex(INDEX_NAME);
 
             /**
              * Construct Search Request

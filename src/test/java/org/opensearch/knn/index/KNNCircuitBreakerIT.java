@@ -111,7 +111,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         createKnnIndex(indexName2, settings, createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 1.3f, 2.2f };
-        int docsInIndex = 7; // through testing, 7 is minimum number of docs to trip circuit breaker at 1kb
+        int docsInIndex = 10; // through testing, 10 is minimum number of docs to trip circuit breaker at 1kb
 
         for (int i = 0; i < docsInIndex; i++) {
             addKnnDoc(indexName1, Integer.toString(i), FIELD_NAME, vector);
@@ -152,6 +152,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
     }
 
     public void testCbTripped() throws Exception {
+        setExpectRemoteBuild(true);
         setupIndices();
         testClusterLevelCircuitBreaker();
         testNodeLevelCircuitBreaker();
