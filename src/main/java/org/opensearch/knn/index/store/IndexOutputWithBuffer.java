@@ -41,14 +41,15 @@ public class IndexOutputWithBuffer {
     }
 
     /**
-     * Writes to the {@link IndexOutput} by buffering bytes into the existing buffer in this class.
+     * Writes to the {@link IndexOutput} by buffering bytes into a new buffer of custom size.
      *
      * @param inputStream       The stream from which we are reading bytes to write
      * @throws IOException
      * @see IndexOutputWithBuffer#writeFromStreamWithBuffer(InputStream, byte[])
      */
-    public void writeFromStreamWithBuffer(InputStream inputStream) throws IOException {
-        writeFromStreamWithBuffer(inputStream, this.buffer);
+    public void writeFromStreamWithBuffer(InputStream inputStream, int size) throws IOException {
+        byte[] streamBuffer = new byte[size];
+        writeFromStreamWithBuffer(inputStream, streamBuffer);
     }
 
     /**
@@ -56,20 +57,19 @@ public class IndexOutputWithBuffer {
      * {@link org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy} to provide a separate, larger buffer as that buffer is for buffering
      * bytes downloaded from the repository, so it may be more performant to use a larger buffer.
      * We do not change the size of the existing buffer in case a fallback to the existing build strategy is needed.
-     * TODO: Tune the size of the buffer used by RemoteIndexBuildStrategy based on benchmarking
      *
      * @param inputStream       The stream from which we are reading bytes to write
      * @param outputBuffer      The buffer used to buffer bytes
      * @throws IOException
-     * @see IndexOutputWithBuffer#writeFromStreamWithBuffer(InputStream)
+     * @see IndexOutputWithBuffer#writeFromStreamWithBuffer(InputStream, int)
      */
     private void writeFromStreamWithBuffer(InputStream inputStream, byte[] outputBuffer) throws IOException {
         int bytesRead = 0;
         // InputStream uses -1 indicates there are no more bytes to be read
         while (bytesRead != -1) {
-            // Try to read CHUNK_SIZE into the buffer. The actual amount read may be less.
-            bytesRead = inputStream.read(outputBuffer, 0, CHUNK_SIZE);
-            assert bytesRead <= CHUNK_SIZE;
+            // Try to read enough bytes to fill the entire buffer. The actual amount read may be less.
+            bytesRead = inputStream.read(outputBuffer, 0, outputBuffer.length);
+            assert bytesRead <= outputBuffer.length;
             // However many bytes we read, write it to the IndexOutput if != -1
             if (bytesRead != -1) {
                 indexOutput.writeBytes(outputBuffer, 0, bytesRead);
