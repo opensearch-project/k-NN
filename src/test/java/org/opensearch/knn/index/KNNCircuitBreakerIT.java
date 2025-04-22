@@ -151,8 +151,8 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         return Boolean.parseBoolean(clusterStats.get("circuit_breaker_triggered").toString());
     }
 
+    @ExpectRemoteBuildValidation
     public void testCbTripped() throws Exception {
-        setExpectRemoteBuild(true);
         setupIndices();
         testClusterLevelCircuitBreaker();
         testNodeLevelCircuitBreaker();

@@ -81,6 +81,13 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.annotation.ElementType;
+import org.junit.Rule;
+import org.junit.rules.TestName;
+import java.lang.reflect.Method;
 
 import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.INDEX_KNN;
@@ -141,9 +148,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     private static final String SYSTEM_INDEX_PREFIX = ".opendistro";
     public static final int MIN_CODE_UNITS = 4;
     public static final int MAX_CODE_UNITS = 10;
-    private boolean expectRemoteBuild = false;
-    private int beforeCount;
-    private int afterCount;
+    private int BEFORE_INDEX_BUILD_SUCCESS_COUNT;
+    private int AFTER_INDEX_BUILD_SUCCESS_COUNT;
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -194,7 +200,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     @Before
     public void setupRemoteIndexBuildSettings() throws Exception {
-        setExpectRemoteBuild(false);
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
@@ -202,21 +207,28 @@ public class KNNRestTestCase extends ODFERestTestCase {
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT, "http://0.0.0.0:80");
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL, TimeValue.timeValueSeconds(0));
             setupRepository("integ-test-repo");
-            beforeCount = getRemoteIndexBuildSuccessCount();
+            BEFORE_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
         }
     }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    public @interface ExpectRemoteBuildValidation {
+    }
+
+    @Rule
+    public TestName testName = new TestName();
 
     @After
     public void verifyRemoteIndexBuild() throws Exception {
+        Method method = this.getClass().getMethod(testName.getMethodName());
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (expectRemoteBuild && isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            afterCount = getRemoteIndexBuildSuccessCount();
-            assertTrue(afterCount > beforeCount);
+        if (method.isAnnotationPresent(ExpectRemoteBuildValidation.class)
+            && isRemoteIndexBuildSupported(getBWCVersion())
+            && remoteBuild != null) {
+            AFTER_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
+            assertTrue(AFTER_INDEX_BUILD_SUCCESS_COUNT > BEFORE_INDEX_BUILD_SUCCESS_COUNT);
         }
-    }
-
-    protected void setExpectRemoteBuild(boolean expect) {
-        this.expectRemoteBuild = expect;
     }
 
     @SneakyThrows

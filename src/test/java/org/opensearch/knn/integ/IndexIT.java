@@ -52,8 +52,8 @@ public class IndexIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFaissHnsw_when1000Data_thenRecallIsAboveNinePointZero() {
-        setExpectRemoteBuild(true);
         // Create Index
         createKnnHnswIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
         ingestTestData(INDEX_NAME, FIELD_NAME);

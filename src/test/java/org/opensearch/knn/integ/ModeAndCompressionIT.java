@@ -128,6 +128,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testIndexCreation_whenValid_ThenSucceed() {
         XContentBuilder builder;
         for (String compressionLevel : COMPRESSION_LEVELS) {

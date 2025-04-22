@@ -65,8 +65,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     private static final String TEST_MODEL = "test-model";
 
+    @ExpectRemoteBuildValidation
     public void testKNNL2ScriptScore() throws Exception {
-        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.L2);
     }
 
@@ -74,8 +74,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNByteScriptScore(SpaceType.L2);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNL1ScriptScore() throws Exception {
-        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.L1);
     }
 
@@ -83,8 +83,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNByteScriptScore(SpaceType.L1);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNLInfScriptScore() throws Exception {
-        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.LINF);
     }
 
@@ -92,8 +92,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNByteScriptScore(SpaceType.LINF);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNCosineScriptScore() throws Exception {
-        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.COSINESIMIL);
     }
 
@@ -545,8 +545,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertArrayEquals(correctScores2, scores2, 0.001);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNInnerProdScriptScore() throws Exception {
-        setExpectRemoteBuild(true);
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
 
@@ -657,8 +657,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     @SuppressWarnings("unchecked")
+    @ExpectRemoteBuildValidation
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
-        setExpectRemoteBuild(true);
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);

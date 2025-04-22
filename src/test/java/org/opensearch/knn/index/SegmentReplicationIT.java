@@ -33,6 +33,7 @@ public class SegmentReplicationIT extends KNNRestTestCase {
     private static final String INDEX_NAME = "segment-replicated-knn-index";
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testSearchOnReplicas_whenIndexHasDeletedDocs_thenSuccess() {
         createKnnIndex(INDEX_NAME, getKNNSegmentReplicatedIndexSettings(), createKNNIndexMethodFieldMapping(FIELD_NAME, 2));
 

@@ -114,8 +114,8 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenDoRadiusSearch_whenDistanceThreshold_whenMethodIsHNSWFlat_thenSucceed() {
-        setExpectRemoteBuild(true);
         SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -173,8 +173,8 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenDoRadiusSearch_whenScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
-        setExpectRemoteBuild(true);
         SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -233,8 +233,8 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenDoRadiusSearch_whenMoreThanOneScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
-        setExpectRemoteBuild(true);
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -2112,20 +2112,20 @@ public class FaissIT extends KNNRestTestCase {
         testCosineSimilarityForApproximateSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
     }
 
+    @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withHNSW_withApproximate_thenSucceed() throws Exception {
-        setExpectRemoteBuild(true);
         testCosineSimilarityForApproximateSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
         validateGraphEviction();
     }
 
+    @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withGraph_withRadialSearch_withDistanceThreshold_thenSucceed() throws Exception {
-        setExpectRemoteBuild(true);
         testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, null, 0.1f);
         validateGraphEviction();
     }
 
+    @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withGraph_withRadialSearch_withScore_thenSucceed() throws Exception {
-        setExpectRemoteBuild(true);
         testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0.9f, null);
         validateGraphEviction();
     }

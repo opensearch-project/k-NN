@@ -103,8 +103,8 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFiltering_whenNestedKNNAndFilterFieldWithNestedQueries_thenSuccess() {
-        setExpectRemoteBuild(true);
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
             createKnnIndex(INDEX_NAME, createNestedMappings(1, engine));
@@ -170,8 +170,8 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFiltering_whenNestedKNNAndFilterFieldWithNoNestedContextInFilterQuery_thenSuccess() {
-        setExpectRemoteBuild(true);
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
             createKnnIndex(INDEX_NAME, createNestedMappings(1, engine));
@@ -234,8 +234,8 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      *
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFiltering_whenNestedKNNAndNonNestedFilterFieldWithNonNestedFilterQuery_thenSuccess() {
-        setExpectRemoteBuild(true);
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
             createKnnIndex(INDEX_NAME, createNestedMappings(1, engine));
@@ -302,8 +302,8 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFiltering_whenNonNestedKNNAndNestedFilterFieldWithNestedFilterQuery_thenSuccess() {
-        setExpectRemoteBuild(true);
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
             createKnnIndex(INDEX_NAME, createVectorNonNestedMappings(1, engine));
@@ -390,8 +390,8 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFiltering_whenNonNestedKNNAndNestedFilterAndNonNestedFieldWithNestedAndNonNestedFilterQuery_thenSuccess() {
-        setExpectRemoteBuild(true);
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
             createKnnIndex(INDEX_NAME, createVectorNonNestedMappings(1, engine));

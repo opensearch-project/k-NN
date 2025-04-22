@@ -352,7 +352,11 @@ The steps below should be run from a GPU machine. Reference link below to provis
 
 https://github.com/opensearch-project/remote-vector-index-builder/blob/main/DEVELOPER_GUIDE.md#provisioning-an-instance-for-development
 
-To run integration tests using the remote index builder feature, first create an S3 bucket `<bucket_name>` in an AWS account. Then run below to setup remote index builder
+There are two ways to run integration tests using the remote index builder feature, depending on the S3 bucket setup.
+
+#### S3 Bucket in AWS Account
+
+First create an S3 bucket `<bucket_name>` in an AWS account. Then run below to setup remote index builder
 ```
 // 1. Pull GPU remote index builder docker image
 docker pull opensearchstaging/remote-vector-index-builder:api-latest
@@ -379,30 +383,77 @@ export AWS_SESSION_TOKEN=
 ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3 -Dtest.bucket=<bucket_name> -Dtest.base_path=vectors -Daccess_key=${AWS_ACCESS_KEY_ID} -Dsecret_key=${AWS_SECRET_ACCESS_KEY} -Dsession_token=${AWS_SESSION_TOKEN}
 ```
 
+#### S3 Bucket in LocalStack
+First create an S3 bucket `<bucket_name>` in LocalStack. LocalStack simulates AWS locally, so the S3 bucket exists on the local machine.
+```
+1. Pull LocalStack Docker Image
+docker pull localstack/localstack:latest
+
+2. Run LocalStack
+docker run --rm -d -p 4566:4566 localstack/localstack:latest
+
+3. Create S3 Bucket in LocalStack
+aws --endpoint-url=http://localhost:4566 s3 mb s3://<bucket_name>
+```
+Then run below to setup remote index builder
+```
+// 1. Pull GPU remote index builder docker image
+docker pull opensearchstaging/remote-vector-index-builder:api-latest
+
+// 2. Set environment variables. The AWS credentials are dummy values, but need to be set for LocalStack to work
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_SESSION_TOKEN=test
+
+// 3. Run docker image
+docker run --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} opensearchstaging/remote-vector-index-builder:api-latest
+
+// 4. Health ping to check service is running
+curl -XGET "http://0.0.0.0:80/_status/<job_id>"
+```
+Then run integration tests with remote index builder
+```
+// 1. Set environment variables. The AWS credentials are dummy values, but need to be set for LocalStack to work
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_SESSION_TOKEN=test
+
+// 2. Run integration tests against remote index builder
+./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=<bucket_name> -Dtest.base_path=vectors -Daccess_key=${AWS_ACCESS_KEY_ID} -Dsecret_key=${AWS_SECRET_ACCESS_KEY} -Dsession_token=${AWS_SESSION_TOKEN}
+```
+To check s3 bucket content
+```
+aws --endpoint-url=http://localhost:4566 s3 ls s3://<bucket> --recursive
+```
+
 #### Verify Remote Index Build in Integration Tests
 Currently we have a subset of integration tests in which we explicitly verify remote index build is triggered. The integration tests below contain tests
-with `setExpectRemoteBuild`, which sets a flag for the `@After` method `verifyRemoteIndexBuild` in `KNNRestTestCase` to verify remote build was triggered.
+with `@ExpectRemoteBuildValidation`, for the `@After` method `verifyRemoteIndexBuild` in `KNNRestTestCase` to verify remote build was triggered.
 - AdvancedFilteringUseCasesIT
 - FaissHNSWFlatE2EIT
 - FaissIT
 - KNNCircuitBreakerIT
+- KNNESSettingsTestIT
 - KNNMapperSearcherIT
 - OpenSearchIT
+- SegmentReplicationIT
 - DerivedSourceIT
 - ExpandNestedDocsIT
 - FilteredSearchANNSearchIT
 - IndexIT
 - KNNScriptScoringIT
+- ModeAndCompressionIT
 - NestedSearchIT
 - ConcurrentSegmentSearchIT
 - MOSFaissFloatIndexIT
 - RestTrainModelHandlerIT
+- RecallTestsIT
 
 For future integration tests, to enable explicit checks for remote index build 
 1. Run integration tests with remote index build feature following
 instructions above. Then check the remote index builder logs for whether remote build was triggered. 
 2. To explicitly verify
-remote build was triggered in the test, add `setExpectRemoteBuild(true)`.
+remote build was triggered in the test, add `@ExpectRemoteBuildValidation`.
 
 
 ### Debugging

@@ -63,8 +63,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
+    @ExpectRemoteBuildValidation
     public void testEndToEnd() throws Exception {
-        setExpectRemoteBuild(true);
         String indexName = "test-index-1";
         KNNEngine knnEngine = KNNEngine.FAISS; // Only FAISS is used
         String fieldName = "test-field";
@@ -636,8 +636,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         then, confirm hits because of exact search though there are no graph. In next step, update setting to 0, force merge segment to 1, perform knn search and confirm expected
         hits are returned.
      */
+    @ExpectRemoteBuildValidation
     public void testKNNIndex_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSetting() throws Exception {
-        setExpectRemoteBuild(true);
         final String indexName = "test-index-1";
         final String fieldName = "test-field"; // Single field using FAISS
         final Integer dimension = testData.indexData.vectors[0].length;
@@ -703,8 +703,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         then, confirm expected hits are returned. Here, we don't need force merge to build graph, since, threshold is less than
         actual number of documents in segments
      */
+    @ExpectRemoteBuildValidation
     public void testKNNIndex_whenBuildVectorDataStructureIsLessThanDocCount_thenBuildGraphBasedSuccessfully() throws Exception {
-        setExpectRemoteBuild(true);
         final String indexName = "test-index-1";
         final String fieldName = "test-field-1";
 
@@ -787,9 +787,9 @@ public class OpenSearchIT extends KNNRestTestCase {
       then, confirm hits because of exact search though there are no graph. In next step, update setting to 0, force merge segment to 1, perform knn search and confirm expected
       hits are returned.
     */
+    @ExpectRemoteBuildValidation
     public void testKNNIndex_whenBuildVectorGraphThresholdIsProvidedEndToEnd_thenBuildGraphBasedOnSettingUsingRadialSearch()
         throws Exception {
-        setExpectRemoteBuild(true);
         final String indexName = "test-index-1";
         final String fieldName1 = "test-field-1";
         final String fieldName2 = "test-field-2";
@@ -869,8 +869,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameter() throws Exception {
-        setExpectRemoteBuild(true);
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2", "vector3"), Arrays.asList(2, 3, 5)));
         // Add docs with knn_vector fields
         for (int i = 1; i <= 20; i++) {
@@ -951,8 +951,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector3"));
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameterWithOtherFields() throws Exception {
-        setExpectRemoteBuild(true);
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -1057,8 +1057,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "float2"));
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameterDocsWithOnlyOtherFields() throws Exception {
-        setExpectRemoteBuild(true);
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")

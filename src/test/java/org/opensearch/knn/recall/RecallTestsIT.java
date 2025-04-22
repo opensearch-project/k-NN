@@ -170,6 +170,7 @@ public class RecallTestsIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testRecall_whenFaissHnswFP32_thenRecallAbove75percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {

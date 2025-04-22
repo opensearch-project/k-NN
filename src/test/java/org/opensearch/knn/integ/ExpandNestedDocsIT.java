@@ -168,9 +168,9 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testExpandNestedDocs_whenMultiShards_thenReturnCorrectResult() {
         if (description.equals("Faiss with float format and in memory mode")) {
-            setExpectRemoteBuild(true);
         }
         int numberOfNestedFields = 10;
         int numberOfDocuments = 5;

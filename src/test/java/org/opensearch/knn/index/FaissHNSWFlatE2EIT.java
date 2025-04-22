@@ -83,8 +83,8 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenMethodIsHNSWFlat_thenSucceed() {
-        setExpectRemoteBuild(true);
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
         SpaceType spaceType = SpaceType.L2;

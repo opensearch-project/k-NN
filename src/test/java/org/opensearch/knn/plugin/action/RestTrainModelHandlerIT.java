@@ -395,8 +395,8 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
     }
 
     // Test to checks when user tries to train a model with nested fields
+    @ExpectRemoteBuildValidation
     public void testTrainModel_success_nestedField() throws Exception {
-        setExpectRemoteBuild(true);
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String nestedFieldPath = "a.b.train-field";
@@ -466,8 +466,8 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
     }
 
     // Test to checks when user tries to train a model compression/mode and method
+    @ExpectRemoteBuildValidation
     public void testTrainModel_success_methodOverrideWithCompressionMode() throws Exception {
-        setExpectRemoteBuild(true);
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String nestedFieldPath = "a.b.train-field";

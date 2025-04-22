@@ -82,8 +82,8 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenKIsTwo_thenReturnTwoResults() {
-        setExpectRemoteBuild(true);
         createKnnIndex(2, KNNEngine.FAISS.getName());
 
         int totalDocCount = 15;
@@ -107,8 +107,8 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenRescoreEnabled_thenSucceed() {
-        setExpectRemoteBuild(true);
         createKnnIndex(2, KNNEngine.FAISS.getName());
 
         int totalDocCount = 15;
@@ -158,8 +158,8 @@ public class NestedSearchIT extends KNNRestTestCase {
      *
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenDoingExactSearch_thenReturnCorrectResults() {
-        setExpectRemoteBuild(true);
         createKnnIndex(3, KNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {
@@ -217,8 +217,8 @@ public class NestedSearchIT extends KNNRestTestCase {
      *
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedWithFaiss_whenFilter_whenDoRadialSearch_thenReturnCorrectResults() {
-        setExpectRemoteBuild(true);
         createKnnIndex(3, KNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {
