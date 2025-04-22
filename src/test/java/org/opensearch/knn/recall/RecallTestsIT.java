@@ -171,7 +171,6 @@ public class RecallTestsIT extends KNNRestTestCase {
      */
     @SneakyThrows
     public void testRecall_whenFaissHnswFP32_thenRecallAbove75percent() {
-        setExpectRemoteBuild(true);
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {
             String indexName = createIndexName(KNNEngine.FAISS, spaceType);

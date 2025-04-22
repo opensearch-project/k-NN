@@ -379,6 +379,32 @@ export AWS_SESSION_TOKEN=
 ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3 -Dtest.bucket=<bucket_name> -Dtest.base_path=vectors -Daccess_key=${AWS_ACCESS_KEY_ID} -Dsecret_key=${AWS_SECRET_ACCESS_KEY} -Dsession_token=${AWS_SESSION_TOKEN}
 ```
 
+#### Verify Remote Index Build in Integration Tests
+Currently we have a subset of integration tests in which we explicitly verify remote index build is triggered. The integration tests below contain tests
+with `setExpectRemoteBuild`, which sets a flag for the `@After` method `verifyRemoteIndexBuild` in `KNNRestTestCase` to verify remote build was triggered.
+- AdvancedFilteringUseCasesIT
+- FaissHNSWFlatE2EIT
+- FaissIT
+- KNNCircuitBreakerIT
+- KNNMapperSearcherIT
+- OpenSearchIT
+- DerivedSourceIT
+- ExpandNestedDocsIT
+- FilteredSearchANNSearchIT
+- IndexIT
+- KNNScriptScoringIT
+- NestedSearchIT
+- ConcurrentSegmentSearchIT
+- MOSFaissFloatIndexIT
+- RestTrainModelHandlerIT
+
+For future integration tests, to enable explicit checks for remote index build 
+1. Run integration tests with remote index build feature following
+instructions above. Then check the remote index builder logs for whether remote build was triggered. 
+2. To explicitly verify
+remote build was triggered in the test, add `setExpectRemoteBuild(true)`.
+
+
 ### Debugging
 
 Sometimes it is useful to attach a debugger to either the OpenSearch cluster or the integration test runner to see what's going on. For running unit tests, hit **Debug** from the IDE's gutter to debug the tests. For the OpenSearch cluster, first, make sure that the debugger is listening on port `5005`. Then, to debug the cluster code, run:

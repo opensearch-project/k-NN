@@ -36,7 +36,6 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     public static final int ALWAYS_BUILD_GRAPH = 0;
 
     public void testKNNLegacySpaceTypeIndexingTest() throws IOException, ParseException {
-        setExpectRemoteBuild(true);
         // Configure space_type at index level. This is deprecated and will be removed in the future.
         final Settings indexSettings = Settings.builder().put("index.knn", true).put("knn.algo_param.ef_search", 100).build();
 
