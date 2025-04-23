@@ -128,6 +128,8 @@ public class KNNWeight extends Weight {
         knnQuery.setExplain(true);
         try {
             final KNNScorer knnScorer = getOrCreateKnnScorer(context);
+            // calculate score only when its 0 as for disk-based search,
+            // score will be passed from the caller and there is no need to re-compute the score
             if (score == 0) {
                 score = getKnnScore(knnScorer, doc);
             }
