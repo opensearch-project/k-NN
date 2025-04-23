@@ -795,7 +795,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         final Map<String, KNNResult> dataset = new HashMap<>(dense ? numDocsWithField : numDocsWithField * 3);
         int id = 0;
         for (int i = 0; i < numDocsWithField; i++) {
-            final int dummyDocs = dense ? 0 : randomIntBetween(2, 5);
+            final int dummyDocs = dense ? 0 : 5;
             for (int j = 0; j < dummyDocs; j++) {
                 dataset.put(Integer.toString(id++), null);
             }
@@ -946,7 +946,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         Settings settings = builder.build();
         createKnnIndex(INDEX_NAME, settings, mapper);
         try {
-            final int numDocsWithField = randomIntBetween(4, 10);
+            final int numDocsWithField = 10;
             Map<String, KNNResult> dataset = createDataset(scoreFunction, dimensions, numDocsWithField, dense, vectorDataType);
             float[] dummyVector = new float[1];
             dataset.forEach((k, v) -> {

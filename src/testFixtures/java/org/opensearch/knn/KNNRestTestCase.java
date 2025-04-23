@@ -187,17 +187,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         clearCache();
     }
 
-    /**
-     * Set up cluster settings for remote index build feature. We do this for all tests to ensure the fallback mechanisms are working correctly.
-     */
-    @Before
-    public void setupRemoteIndexBuildSettingsTestFallback() throws Exception {
-        if (randomBoolean() && isRemoteIndexBuildSupported(getBWCVersion())) {
-            updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
-            updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
-        }
-    }
-
     @Before
     public void setupRemoteIndexBuildSettings() throws Exception {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
@@ -208,6 +197,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL, TimeValue.timeValueSeconds(0));
             setupRepository("integ-test-repo");
             BEFORE_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
+        } else if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
+            // Set up cluster settings for remote index build feature. We do this for all tests to ensure the fallback mechanisms are
+            // working correctly.
+            updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
+            updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
         }
     }
 
@@ -221,13 +215,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     @After
     public void verifyRemoteIndexBuild() throws Exception {
-        Method method = this.getClass().getMethod(testName.getMethodName());
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
-        if (method.isAnnotationPresent(ExpectRemoteBuildValidation.class)
-            && isRemoteIndexBuildSupported(getBWCVersion())
-            && remoteBuild != null) {
+        if (hasExpectRemoteBuildValidation() && isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             AFTER_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
             assertTrue(AFTER_INDEX_BUILD_SUCCESS_COUNT > BEFORE_INDEX_BUILD_SUCCESS_COUNT);
+        }
+    }
+
+    private boolean hasExpectRemoteBuildValidation() {
+        try {
+            Method method = this.getClass().getMethod(testName.getMethodName());
+            return method.isAnnotationPresent(ExpectRemoteBuildValidation.class);
+        } catch (NoSuchMethodException e) {
+            // Tests parameterized by @ParametersFactory will throw NoSuchMethodException
+            return false;
         }
     }
 
