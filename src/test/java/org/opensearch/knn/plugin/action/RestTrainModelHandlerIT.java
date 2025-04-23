@@ -20,6 +20,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.Map;
 

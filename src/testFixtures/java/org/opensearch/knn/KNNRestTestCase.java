@@ -56,6 +56,7 @@ import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.script.Script;
 import org.opensearch.search.SearchService;
 import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import javax.management.MBeanServerInvocationHandler;
 import javax.management.MalformedObjectNameException;
@@ -81,10 +82,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import java.lang.annotation.ElementType;
 import org.junit.Rule;
 import org.junit.rules.TestName;
 import java.lang.reflect.Method;
@@ -203,11 +200,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
             updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
             updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
         }
-    }
-
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.METHOD)
-    public @interface ExpectRemoteBuildValidation {
     }
 
     @Rule

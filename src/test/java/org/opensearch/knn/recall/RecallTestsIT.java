@@ -20,6 +20,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.List;
 import java.util.Map;

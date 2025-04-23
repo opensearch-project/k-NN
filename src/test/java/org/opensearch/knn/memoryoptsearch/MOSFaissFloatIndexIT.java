@@ -7,6 +7,7 @@ package org.opensearch.knn.memoryoptsearch;
 
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 public class MOSFaissFloatIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
 
