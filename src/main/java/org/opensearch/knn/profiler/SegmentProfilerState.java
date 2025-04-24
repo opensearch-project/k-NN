@@ -131,12 +131,12 @@ public class SegmentProfilerState implements Serializable {
         for (int i = 0; i < dimension; i++) {
             SummaryStatistics stats = statistics.get(i);
             log.info(
-                    "Dimension {} stats: mean={}, std={}, min={}, max={}",
-                    i,
-                    stats.getMean(),
-                    stats.getStandardDeviation(),
-                    stats.getMin(),
-                    stats.getMax()
+                "Dimension {} stats: mean={}, std={}, min={}, max={}",
+                i,
+                stats.getMean(),
+                stats.getStandardDeviation(),
+                stats.getMin(),
+                stats.getMax()
             );
         }
     }
