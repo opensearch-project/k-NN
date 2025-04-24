@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
@@ -42,17 +43,19 @@ public final class NativeIndexBuildStrategyFactory {
     }
 
     /**
-     * @param fieldInfo             Field related attributes/info
-     * @param totalLiveDocs         Number of documents with the vector field. This values comes from {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter#flush}
-     *                              and {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter#mergeOneField}
-     * @param knnVectorValues       An instance of {@link KNNVectorValues} which is used to evaluate the size threshold KNN_REMOTE_VECTOR_BUILD_THRESHOLD
-     * @return                      The {@link NativeIndexBuildStrategy} to be used. Intended to be used by {@link NativeIndexWriter}
+     * @param fieldInfo         Field related attributes/info
+     * @param totalLiveDocs     Number of documents with the vector field. This values comes from {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter#flush}
+     *                          and {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter#mergeOneField}
+     * @param knnVectorValues   An instance of {@link KNNVectorValues} which is used to evaluate the size threshold KNN_REMOTE_VECTOR_BUILD_THRESHOLD
+     * @param indexInfo  An instance of {@link BuildIndexParams} containing relevant index info
+     * @return The {@link NativeIndexBuildStrategy} to be used. Intended to be used by {@link NativeIndexWriter}
      * @throws IOException
      */
     public NativeIndexBuildStrategy getBuildStrategy(
         final FieldInfo fieldInfo,
         final int totalLiveDocs,
-        final KNNVectorValues<?> knnVectorValues
+        final KNNVectorValues<?> knnVectorValues,
+        BuildIndexParams indexInfo
     ) throws IOException {
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);

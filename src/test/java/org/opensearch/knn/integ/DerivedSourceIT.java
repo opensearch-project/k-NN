@@ -6,6 +6,10 @@
 package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
+import org.junit.Before;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.knn.Pair;
@@ -13,6 +17,7 @@ import org.opensearch.knn.index.VectorDataType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 import static org.opensearch.knn.DerivedSourceUtils.DERIVED_ENABLED_WITH_SEGREP_SETTINGS;
@@ -25,9 +30,21 @@ import static org.opensearch.knn.DerivedSourceUtils.randomVectorSupplier;
  */
 public class DerivedSourceIT extends DerivedSourceTestCase {
 
+    private final String snapshot = "snapshot-test";
+    private final String repository = "repo";
+
+    @Before
+    @SneakyThrows
+    public void setUp() {
+        super.setUp();
+        final String pathRepo = System.getProperty("tests.path.repo");
+        Settings repoSettings = Settings.builder().put("compress", randomBoolean()).put("location", pathRepo).build();
+        registerRepository(repository, "fs", true, repoSettings);
+    }
+
     @SneakyThrows
     public void testFlatFields() {
-        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true);
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true, true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
@@ -52,11 +69,13 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             new Pair<>("original-disable-", false)
         );
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        long consistentRandomSeed = random().nextLong();
         for (Pair<String, Boolean> index : indexPrefixToEnabled) {
+            Random random = new Random(consistentRandomSeed);
             DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
                 .indexName(getIndexName("deriveit", index.getFirst(), false))
                 .derivedEnabled(index.getSecond())
-                .random(new Random(1))
+                .random(random)
                 .settings(index.getSecond() ? DERIVED_ENABLED_WITH_SEGREP_SETTINGS : null)
                 .fields(
                     List.of(
@@ -67,7 +86,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                                         .fieldPath("nested_1.test_vector")
                                         .dimension(TEST_DIMENSION)
-                                        .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                                        .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
                                         .build()
                                 )
                             )
@@ -80,7 +99,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                                         .fieldPath("nested_2.test_vector")
                                         .dimension(TEST_DIMENSION)
-                                        .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                                        .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
                                         .build(),
                                     DerivedSourceUtils.NestedFieldContext.builder()
                                         .fieldPath("nested_2.nested_3")
@@ -89,7 +108,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                                                     .fieldPath("nested_2.nested_3.test_vector")
                                                     .dimension(TEST_DIMENSION)
-                                                    .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                                                    .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
                                                     .build(),
                                                 DerivedSourceUtils.IntFieldType.builder().fieldPath("nested_2.nested_3.test-int").build()
                                             )
@@ -100,7 +119,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                             .build(),
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                             .dimension(TEST_DIMENSION)
-                            .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
+                            .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
                             .fieldPath("test_vector")
                             .build(),
                         DerivedSourceUtils.TextFieldType.builder().fieldPath("test-text").build(),
@@ -142,6 +161,30 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
         // Reindex
         testReindex(indexConfigContexts);
+
+        // Snapshot restore
+        testSnapshotRestore(repository, snapshot + getTestName().toLowerCase(Locale.ROOT), indexConfigContexts);
     }
 
+    @SneakyThrows
+    public void testDefaultSetting() {
+        String indexName = getIndexName("defaults", "test", false);
+        String fieldName = "test";
+        String indexNameDisabled = "disabled";
+        int dimension = 16;
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        createKnnIndex(indexName, mapping);
+        validateDerivedSetting(indexName, true);
+        createIndex(indexNameDisabled, Settings.builder().build());
+        validateDerivedSetting(indexNameDisabled, false);
+    }
 }

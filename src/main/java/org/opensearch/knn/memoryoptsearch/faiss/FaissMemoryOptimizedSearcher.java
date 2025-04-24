@@ -26,14 +26,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private static final FlatVectorsScorer VECTOR_SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
 
     private final IndexInput indexInput;
-    private FaissIndex faissIndex;
-    private FaissHnswGraph faissHnswGraph;
+    private final FaissIndex faissIndex;
+    private final FaissHNSW hnsw;
 
     public FaissMemoryOptimizedSearcher(IndexInput indexInput) throws IOException {
         this.indexInput = indexInput;
         this.faissIndex = FaissIndex.load(indexInput);
-        final FaissHNSW hnsw = extractFaissHnsw(faissIndex);
-        this.faissHnswGraph = new FaissHnswGraph(hnsw, indexInput);
+        this.hnsw = extractFaissHnsw(faissIndex);
     }
 
     private static FaissHNSW extractFaissHnsw(final FaissIndex faissIndex) {
@@ -105,7 +104,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
         if (knnCollector.k() < scorer.maxOrd()) {
             // Do ANN search with Lucene's HNSW graph searcher.
-            HnswGraphSearcher.search(scorer, collector, faissHnswGraph, acceptedOrds);
+            HnswGraphSearcher.search(scorer, collector, new FaissHnswGraph(hnsw, indexInput), acceptedOrds);
         } else {
             // If k is larger than the number of vectors, we can just iterate over all vectors
             // and collect them.

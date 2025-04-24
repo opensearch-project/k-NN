@@ -16,6 +16,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.net.URIBuilder;
+import org.hamcrest.Matchers;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.Version;
@@ -24,6 +25,7 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -2358,6 +2360,32 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         // create snapshot
         createSnapshot(repository, snapshot, true);
+    }
+
+    protected static void restoreSnapshot(
+        String restoreIndexSuffix,
+        List<String> indices,
+        String repository,
+        String snapshot,
+        boolean waitForCompletion
+    ) throws IOException {
+        // valid restore
+        XContentBuilder restoreCommand = JsonXContent.contentBuilder().startObject();
+        restoreCommand.field("indices", String.join(",", indices));
+        restoreCommand.field("rename_pattern", "(.+)");
+        restoreCommand.field("rename_replacement", "$1" + restoreIndexSuffix);
+        restoreCommand.endObject();
+
+        Request restoreRequest = new Request("POST", "/_snapshot/" + repository + "/" + snapshot + "/_restore");
+        restoreRequest.addParameter("wait_for_completion", "true");
+        restoreRequest.setJsonEntity(restoreCommand.toString());
+
+        final Response restoreResponse = client().performRequest(restoreRequest);
+        assertThat(
+            "Failed to restore snapshot [" + snapshot + "] from repository [" + repository + "]: " + String.valueOf(restoreResponse),
+            restoreResponse.getStatusLine().getStatusCode(),
+            Matchers.equalTo(RestStatus.OK.getStatus())
+        );
     }
 
 }

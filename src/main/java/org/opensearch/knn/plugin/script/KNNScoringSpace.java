@@ -31,6 +31,7 @@ import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isKNNVectorFi
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isLongFieldType;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToBigInteger;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToFloatArray;
+import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToByteArray;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToLong;
 
 public interface KNNScoringSpace {
@@ -54,9 +55,9 @@ public interface KNNScoringSpace {
     abstract class KNNFieldSpace implements KNNScoringSpace {
         public static final Set<VectorDataType> DATA_TYPES_DEFAULT = Set.of(VectorDataType.FLOAT, VectorDataType.BYTE);
 
-        private float[] processedQuery;
+        private Object processedQuery;
         @Getter
-        private BiFunction<float[], float[], Float> scoringMethod;
+        private BiFunction<?, ?, Float> scoringMethod;
 
         public KNNFieldSpace(final Object query, final MappedFieldType fieldType, final String spaceName) {
             this(query, fieldType, spaceName, DATA_TYPES_DEFAULT);
@@ -73,6 +74,7 @@ public interface KNNScoringSpace {
             this.scoringMethod = getScoringMethod(this.processedQuery, knnVectorFieldType.getKnnMappingConfig().getIndexCreatedVersion());
         }
 
+        @SuppressWarnings("unchecked")
         public ScoreScript getScoreScript(
             Map<String, Object> params,
             String field,
@@ -80,7 +82,31 @@ public interface KNNScoringSpace {
             LeafReaderContext ctx,
             IndexSearcher searcher
         ) throws IOException {
-            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx, searcher);
+            if (processedQuery instanceof float[]) {
+                return new KNNScoreScript.KNNFloatVectorType(
+                    params,
+                    (float[]) this.processedQuery,
+                    field,
+                    (BiFunction<float[], float[], Float>) this.scoringMethod,
+                    lookup,
+                    ctx,
+                    searcher
+                );
+            } else if (processedQuery instanceof byte[]) {
+                return new KNNScoreScript.KNNByteVectorType(
+                    params,
+                    (byte[]) this.processedQuery,
+                    field,
+                    (BiFunction<byte[], byte[], Float>) this.scoringMethod,
+                    lookup,
+                    ctx,
+                    searcher
+                );
+            } else {
+                throw new IllegalStateException(
+                    "Unexpected type for processedQuery. Expected float[] or byte[], but got: " + processedQuery.getClass().getName()
+                );
+            }
         }
 
         private KNNVectorFieldType toKNNVectorFieldType(
@@ -113,17 +139,27 @@ public interface KNNScoringSpace {
             return knnVectorFieldType;
         }
 
-        protected float[] getProcessedQuery(final Object query, final KNNVectorFieldType knnVectorFieldType) {
-            return parseToFloatArray(
+        protected Object getProcessedQuery(final Object query, final KNNVectorFieldType knnVectorFieldType) {
+            VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType() == null
+                ? VectorDataType.FLOAT
+                : knnVectorFieldType.getVectorDataType();
+            if (vectorDataType == VectorDataType.FLOAT) {
+                return parseToFloatArray(
+                    query,
+                    KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType),
+                    knnVectorFieldType.getVectorDataType()
+                );
+            }
+            return parseToByteArray(
                 query,
                 KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType),
                 knnVectorFieldType.getVectorDataType()
             );
         }
 
-        protected abstract BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery);
+        public abstract BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery);
 
-        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery, Version indexCreatedVersion) {
+        protected BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery, Version indexCreatedVersion) {
             return getScoringMethod(processedQuery);
         }
 
@@ -135,8 +171,12 @@ public interface KNNScoringSpace {
         }
 
         @Override
-        public BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
-            return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l2Squared(q, v));
+        public BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery) {
+            if (processedQuery instanceof float[]) {
+                return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l2Squared(q, v));
+            } else {
+                return (byte[] q, byte[] v) -> 1 / (1 + KNNScoringUtil.l2Squared(q, v));
+            }
         }
     }
 
@@ -146,30 +186,35 @@ public interface KNNScoringSpace {
         }
 
         @Override
-        protected BiFunction<float[], float[], Float> getScoringMethod(float[] processedQuery) {
+        public BiFunction<?, ?, Float> getScoringMethod(Object processedQuery) {
             return getScoringMethod(processedQuery, Version.CURRENT);
         }
 
         @Override
-        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery, Version indexCreatedVersion) {
-            SpaceType.COSINESIMIL.validateVector(processedQuery);
-            float qVectorSquaredMagnitude = getVectorMagnitudeSquared(processedQuery);
-            if (indexCreatedVersion.onOrAfter(Version.V_2_19_0)) {
-                // To be consistent, we will be using same formula used by lucene as mentioned below
-                // https://github.com/apache/lucene/blob/0494c824e0ac8049b757582f60d085932a890800/lucene/core/src/java/org/apache/lucene/index/VectorSimilarityFunction.java#L73
-                // for indices that are created on or after 2.19.0
-                //
-                // OS Score = ( 2 − cosineSimil) / 2
-                // However cosineSimil = 1 - cos θ, after applying this to above formula,
-                // OS Score = ( 2 − ( 1 − cos θ ) ) / 2
-                // which simplifies to
-                // OS Score = ( 1 + cos θ ) / 2
-                return (float[] q, float[] v) -> Math.max(
-                    ((1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude)) / 2.0F),
-                    0
-                );
+        protected BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery, Version indexCreatedVersion) {
+            if (processedQuery instanceof float[]) {
+                SpaceType.COSINESIMIL.validateVector((float[]) processedQuery);
+                float qVectorSquaredMagnitude = getVectorMagnitudeSquared((float[]) processedQuery);
+                if (indexCreatedVersion.onOrAfter(Version.V_2_19_0)) {
+                    // To be consistent, we will be using same formula used by lucene as mentioned below
+                    // https://github.com/apache/lucene/blob/0494c824e0ac8049b757582f60d085932a890800/lucene/core/src/java/org/apache/lucene/index/VectorSimilarityFunction.java#L73
+                    // for indices that are created on or after 2.19.0
+                    //
+                    // OS Score = ( 2 − cosineSimil) / 2
+                    // However cosineSimil = 1 - cos θ, after applying this to above formula,
+                    // OS Score = ( 2 − ( 1 − cos θ ) ) / 2
+                    // which simplifies to
+                    // OS Score = ( 1 + cos θ ) / 2
+                    return (float[] q, float[] v) -> Math.max(
+                        ((1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude)) / 2.0F),
+                        0
+                    );
+                }
+                return (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
+            } else {
+                SpaceType.COSINESIMIL.validateVector((byte[]) processedQuery);
+                return (byte[] q, byte[] v) -> 1 + KNNScoringUtil.cosinesimil(q, v);
             }
-            return (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
         }
     }
 
@@ -179,8 +224,12 @@ public interface KNNScoringSpace {
         }
 
         @Override
-        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
-            return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l1Norm(q, v));
+        public BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery) {
+            if (processedQuery instanceof float[]) {
+                return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l1Norm(q, v));
+            } else {
+                return (byte[] q, byte[] v) -> 1 / (1 + KNNScoringUtil.l1Norm(q, v));
+            }
         }
     }
 
@@ -190,8 +239,12 @@ public interface KNNScoringSpace {
         }
 
         @Override
-        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
-            return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.lInfNorm(q, v));
+        public BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery) {
+            if (processedQuery instanceof float[]) {
+                return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.lInfNorm(q, v));
+            } else {
+                return (byte[] q, byte[] v) -> 1 / (1 + KNNScoringUtil.lInfNorm(q, v));
+            }
         }
     }
 
@@ -201,8 +254,12 @@ public interface KNNScoringSpace {
         }
 
         @Override
-        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
-            return (float[] q, float[] v) -> KNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
+        public BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery) {
+            if (processedQuery instanceof float[]) {
+                return (float[] q, float[] v) -> KNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
+            } else {
+                return (byte[] q, byte[] v) -> KNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
+            }
         }
     }
 
@@ -214,17 +271,8 @@ public interface KNNScoringSpace {
         }
 
         @Override
-        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
-            // TODO we want to avoid converting back and forth between byte and float
-            return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.calculateHammingBit(toByte(q), toByte(v)));
-        }
-
-        private byte[] toByte(final float[] vector) {
-            byte[] bytes = new byte[vector.length];
-            for (int i = 0; i < vector.length; i++) {
-                bytes[i] = (byte) vector[i];
-            }
-            return bytes;
+        public BiFunction<?, ?, Float> getScoringMethod(final Object processedQuery) {
+            return (byte[] q, byte[] v) -> 1 / (1 + KNNScoringUtil.calculateHammingBit(q, v));
         }
     }
 

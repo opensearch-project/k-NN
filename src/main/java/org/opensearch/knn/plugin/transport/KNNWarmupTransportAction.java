@@ -89,6 +89,7 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
         KNNIndexShard knnIndexShard = new KNNIndexShard(
             indicesService.indexServiceSafe(shardRouting.shardId().getIndex()).getShard(shardRouting.shardId().id())
         );
+
         knnIndexShard.warmup();
         return EmptyResult.INSTANCE;
     }

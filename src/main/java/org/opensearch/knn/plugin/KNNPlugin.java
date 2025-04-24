@@ -30,6 +30,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
+import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNCircuitBreaker;
@@ -47,6 +48,7 @@ import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelGraveyard;
+import org.opensearch.knn.jni.PlatformUtils;
 import org.opensearch.knn.plugin.rest.RestClearCacheHandler;
 import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
 import org.opensearch.knn.plugin.rest.RestGetModelHandler;
@@ -57,6 +59,9 @@ import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.plugin.stats.KNNStats;
+//import org.opensearch.knn.plugin.transport.*;
+import org.opensearch.knn.plugin.transport.KNNProfileTransportAction;
+import org.opensearch.knn.plugin.transport.KNNProfileAction;
 import org.opensearch.knn.plugin.transport.ClearCacheAction;
 import org.opensearch.knn.plugin.transport.ClearCacheTransportAction;
 import org.opensearch.knn.plugin.transport.DeleteModelAction;
@@ -82,6 +87,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.profiler.RestKNNProfileHandler;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -117,6 +123,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
@@ -124,6 +131,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TIER;
+import static org.opensearch.knn.index.KNNSettings.KNN_DERIVED_SOURCE_ENABLED;
 
 /**
  * Entry point for the KNN plugin where we define mapper for knn_vector type
@@ -173,6 +181,14 @@ public class KNNPlugin extends Plugin
     private KNNStats knnStats;
     private ClusterService clusterService;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
+
+    static {
+        ForkJoinPool.commonPool().execute(() -> {
+            PlatformUtils.isAVX2SupportedBySystem();
+            PlatformUtils.isAVX512SupportedBySystem();
+            PlatformUtils.isAVX512SPRSupportedBySystem();
+        });
+    }
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
@@ -232,6 +248,20 @@ public class KNNPlugin extends Plugin
         return KNNSettings.state().getSettings();
     }
 
+    @Override
+    public Collection<IndexSettingProvider> getAdditionalIndexSettingProviders() {
+        // Default derived source feature to true for knn indices.
+        return ImmutableList.of(new IndexSettingProvider() {
+            @Override
+            public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
+                if (templateAndRequestSettings.getAsBoolean(KNNSettings.KNN_INDEX, false)) {
+                    return Settings.builder().put(KNN_DERIVED_SOURCE_ENABLED, true).build();
+                }
+                return Settings.EMPTY;
+            }
+        });
+    }
+
     public List<RestHandler> getRestHandlers(
         Settings settings,
         RestController restController,
@@ -249,6 +279,12 @@ public class KNNPlugin extends Plugin
             clusterService,
             indexNameExpressionResolver
         );
+        RestKNNProfileHandler restKNNProfileHandler = new RestKNNProfileHandler(
+            settings,
+            restController,
+            clusterService,
+            indexNameExpressionResolver
+        );
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
         RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
@@ -258,6 +294,7 @@ public class KNNPlugin extends Plugin
         return ImmutableList.of(
             restKNNStatsHandler,
             restKNNWarmupHandler,
+            restKNNProfileHandler,
             restGetModelHandler,
             restDeleteModelHandler,
             restTrainModelHandler,
@@ -274,6 +311,7 @@ public class KNNPlugin extends Plugin
         return Arrays.asList(
             new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
             new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
+            new ActionHandler<>(KNNProfileAction.INSTANCE, KNNProfileTransportAction.class),
             new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
             new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE, TrainingJobRouteDecisionInfoTransportAction.class),
             new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),

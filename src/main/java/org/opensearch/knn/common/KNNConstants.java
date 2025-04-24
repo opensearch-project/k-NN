@@ -22,6 +22,10 @@ public class KNNConstants {
     public static final String PATH = "path";
     public static final String QUERY = "query";
     public static final String KNN = "knn";
+    public static final String EXACT_SEARCH = "Exact";
+    public static final String ANN_SEARCH = "Approximate-NN";
+    public static final String RADIAL_SEARCH = "Radial";
+    public static final String DISK_BASED_SEARCH = "Disk-based";
     public static final String VECTOR = "vector";
     public static final String K = "k";
     public static final String TYPE_KNN_VECTOR = "knn_vector";
@@ -80,6 +84,7 @@ public class KNNConstants {
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final String MODEL_VERSION = "model_version";
     public static final String QUANTIZATION_STATE_FILE_SUFFIX = "osknnqstate";
+    public static final String SEGMENT_PROFILE_STATE_FILE_SUFFIX = "segpfstate";
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
