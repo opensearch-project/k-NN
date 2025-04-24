@@ -73,7 +73,10 @@ jobs:
       - name: Initial cleanup
         run: |
           docker ps -aq | xargs -r docker rm -f
-          docker system prune -af --volumes
+          docker container prune -f
+          docker volume prune -af
+          docker network prune -f
+          docker rmi $(docker images -f "dangling=true" -q) || echo clean
 
       - name: Pull Remote Index Build Docker Image from Docker Hub
         run: |
@@ -138,7 +141,10 @@ jobs:
         if: always()
         run: |
           docker ps -aq | xargs -r docker rm -f
-          docker system prune -af --volumes
+          docker container prune -f
+          docker volume prune -af
+          docker network prune -f
+          docker rmi $(docker images -f "dangling=true" -q) || echo clean
           docker logout
           rm -rf ${{ github.workspace }}/*
 
