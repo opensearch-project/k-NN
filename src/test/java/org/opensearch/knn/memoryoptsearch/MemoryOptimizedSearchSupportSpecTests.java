@@ -22,12 +22,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
+    private static final Optional<String> NO_MODEL_ID = Optional.empty();
+
     public void testLuceneEngineIsSupported() {
         // Lucene + any configurations must be supported.
         final TestingSpec testingSpec = new TestingSpec(
@@ -35,7 +38,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             Arrays.asList(SpaceType.values()),
             Arrays.asList(VectorDataType.values()),
             // Don't care MethodComponentContext for Lucene
-            Collections.emptyList()
+            Collections.emptyList(),
+            NO_MODEL_ID
         );
 
         mustSupported(testingSpec);
@@ -58,7 +62,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     METHOD_HNSW,
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
                 )
-            )
+            ),
+            NO_MODEL_ID
         );
 
         mustSupported(testingSpec);
@@ -78,7 +83,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext("DUMMY_KEY", Collections.emptyMap()))
                 ),
                 new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new Object()))
-            )
+            ),
+            NO_MODEL_ID
         );
 
         mustNotSupported(testingSpec);
@@ -87,7 +93,6 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     public void testBinaryFiassNotSupportedCases() {
         // HNSW,binary, L2|IP, Flat
         // HNSW,binary, L2|IP, SQ
-        // Note that we do support byte index. And it is VectorDataType.FLOAT for the byte index, not VectorDataType.BYTE.
         final TestingSpec testingSpec = new TestingSpec(
             KNNEngine.FAISS,
             Arrays.asList(SpaceType.values()),
@@ -98,7 +103,53 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext("DUMMY_KEY", Collections.emptyMap()))
                 ),
                 new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new Object()))
-            )
+            ),
+            NO_MODEL_ID
+        );
+
+        mustNotSupported(testingSpec);
+    }
+
+    public void testBinaryFiassSupportedCases() {
+        // HNSW,binary, L2|IP, Flat
+        // HNSW,binary, L2|IP, SQ (=disk mode 2x)
+        // HNSW,binary, L2|IP, binary
+        final TestingSpec testingSpec = new TestingSpec(
+            KNNEngine.FAISS,
+            Arrays.asList(SpaceType.values()),
+            Arrays.asList(VectorDataType.BINARY),
+            Arrays.asList(
+                new MethodComponentContext(
+                    METHOD_HNSW,
+                    Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
+                ),
+                new MethodComponentContext(
+                    METHOD_HNSW,
+                    Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_BINARY, Collections.emptyMap()))
+                ),
+                new MethodComponentContext(
+                    METHOD_HNSW,
+                    Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
+                )
+            ),
+            NO_MODEL_ID
+        );
+
+        mustSupported(testingSpec);
+    }
+
+    public void testPQNotSupported() {
+        final TestingSpec testingSpec = new TestingSpec(
+            KNNEngine.FAISS,
+            Arrays.asList(SpaceType.values()),
+            Arrays.asList(VectorDataType.FLOAT),
+            Arrays.asList(
+                new MethodComponentContext(
+                    METHOD_HNSW,
+                    Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
+                )
+            ),
+            Optional.of("model_id")
         );
 
         mustNotSupported(testingSpec);
@@ -118,11 +169,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 for (final MethodComponentContext methodComponentContext : testingSpec.methodComponentContexts) {
                     final Params params = buildParameters(testingSpec.knnEngine, spaceType, vectorDataType, methodComponentContext);
 
-                    final boolean isSupported = MemoryOptimizedSearchSupportSpec.supported(
-                        params.methodContextOpt,
-                        params.quantizationConfig,
-                        params.vectorDataType
-                    );
+                    final boolean isSupported = MemoryOptimizedSearchSupportSpec.supported(params.methodContextOpt, testingSpec.modelId);
 
                     assertEquals(expected, isSupported);
                 }
@@ -159,5 +206,6 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         final List<SpaceType> spaceTypes;
         final List<VectorDataType> vectorDataTypes;
         final List<MethodComponentContext> methodComponentContexts;
+        final Optional<String> modelId;
     }
 }
