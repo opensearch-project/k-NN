@@ -19,13 +19,8 @@ import java.io.IOException;
  * <p>
  * The format consists of two parts:
  * 1. A binary header
- * 2. A quantized flat vector section
- * <p>
- * The quantized vector section contains a list of vectors, each of size `codeSize`.
- * For example, applying 8x compression to a 100-dimensional float vector results in
- * a `codeSize` of 50 bytes per vector, calculated as (4 * 100) / 8.
- * <p>
- * Note: Quantized vectors should be compared using Hamming distance only.
+ * 2. A flat binary vector section
+ * Note: Binary vectors stored within this format should be compared using Hamming distance only.
  * See <a href="https://github.com/facebookresearch/faiss/blob/main/faiss/IndexBinaryFlat.h">...</a> for more details.
  */
 public class FaissIndexBinaryFlat extends FaissBinaryIndex {
@@ -46,7 +41,7 @@ public class FaissIndexBinaryFlat extends FaissBinaryIndex {
      */
     @Override
     protected void doLoad(IndexInput input) throws IOException {
-        readCommonBinaryHeader(input);
+        readCommonHeader(input);
         binaryFlatVectorSection = new FaissSection(input, 1);
     }
 

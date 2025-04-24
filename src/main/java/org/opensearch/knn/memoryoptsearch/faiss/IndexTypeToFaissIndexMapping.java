@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.experimental.UtilityClass;
+import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissIndexBinaryFlat;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissHNSWCagraIndex;
 
@@ -37,6 +38,7 @@ public class IndexTypeToFaissIndexMapping {
 
         // Binary index
         mapping.put(FaissIndexBinaryFlat.IBXF, (indexType) -> new FaissIndexBinaryFlat());
+        mapping.put(FaissBinaryHnswIndex.IBHF, (indexType) -> new FaissBinaryHnswIndex());
 
         INDEX_TYPE_TO_FAISS_INDEX = Collections.unmodifiableMap(mapping);
     }
