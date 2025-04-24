@@ -46,7 +46,7 @@ public class FaissHNSWIndex extends AbstractFaissHNSWIndex {
         readCommonHeader(input);
 
         // Partial load HNSW graph
-        hnsw.load(input, getTotalNumberOfVectors());
+        faissHnsw.load(input, getTotalNumberOfVectors());
 
         // Partial load flat vector storage
         flatVectors = FaissIndex.load(input);

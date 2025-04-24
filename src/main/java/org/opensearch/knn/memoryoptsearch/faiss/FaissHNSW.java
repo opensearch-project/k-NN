@@ -93,4 +93,23 @@ public class FaissHNSW {
         // dummy read a deprecated field.
         input.readInt();
     }
+
+    public int getMaxNumNeighbors() {
+        if (cumNumberNeighborPerLevel != null && cumNumberNeighborPerLevel.length >= 1) {
+            // Faiss uses a prefix-sum table to track the number of neighbors per level (commonly referred to as "connections" in Lucene
+            // terminology).
+            // For example, if level 0 has 32 neighbors, level 1 has 16, and level 2 has 16, the prefix-sum table would be: [0, 32 + 0,
+            // 16 + 32 + 0, 16 + 16 + 32 + 0]. The number of neighbors at a given level `i` can be computed as table[i + 1] - table[i].
+            //
+            // In HNSW terminology, the number of neighbors per level is referred to as M, which is user-configurable.
+            // All levels above the bottom have up to M neighbors per node. The bottom level (level 0) can have up to 2 * M neighbors,
+            // which is also known as M₀.
+            //
+            // This method returns M₀. Note that the prefix-sum table always starts with 0 as its first element.
+            return cumNumberNeighborPerLevel[1];
+        }
+
+        // Two cases are possible: Either this was not initialized yet, or we don't have any vectors inside.
+        return 0;
+    }
 }
