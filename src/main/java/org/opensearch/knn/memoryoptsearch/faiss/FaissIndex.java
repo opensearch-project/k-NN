@@ -50,7 +50,7 @@ public abstract class FaissIndex {
      * @throws IOException
      */
     public static FaissIndex load(IndexInput input) throws IOException {
-        final String indexType = readIndexType(input);
+        final String indexType = FaissIndexLoadUtils.readIndexType(input);
         final FaissIndex faissIndex = IndexTypeToFaissIndexMapping.getFaissIndex(indexType);
         faissIndex.doLoad(input);
         return faissIndex;
@@ -76,12 +76,6 @@ public abstract class FaissIndex {
         } else {
             throw new IllegalStateException("Partial loading does not support metric type index=" + metricTypeIndex + " from FAISS.");
         }
-    }
-
-    static private String readIndexType(final IndexInput input) throws IOException {
-        final byte[] fourBytes = new byte[4];
-        input.readBytes(fourBytes, 0, fourBytes.length);
-        return new String(fourBytes);
     }
 
     /**
