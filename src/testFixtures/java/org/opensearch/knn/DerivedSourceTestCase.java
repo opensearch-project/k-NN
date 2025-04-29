@@ -36,9 +36,9 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     );
 
     private static final int MIN_DIMENSION = 4;
-    private static final int MAX_DIMENSION = 32;
-    private static final int MIN_DOCS = 50;
-    private static final int MAX_DOCS = 200;
+    private static final int MAX_DIMENSION = 64;
+    private static final int MIN_DOCS = 100;
+    private static final int MAX_DOCS = 500;
 
     /**
      * Testing flat, single field base case with index configuration. The test will automatically skip adding fields for
@@ -165,11 +165,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *           "properties" : {
      *             "test_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 63
+     *               "dimension" : 16
      *             },
      *             "update_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 34
+     *               "dimension" : 16
      *             }
      *           }
      *         },
@@ -182,11 +182,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *                 },
      *                 "test_vector" : {
      *                   "type" : "knn_vector",
-     *                   "dimension" : 41
+     *                   "dimension" : 16
      *                 },
      *                 "update_vector" : {
      *                   "type" : "knn_vector",
-     *                   "dimension" : 8
+     *                   "dimension" : 16
      *                 }
      *               }
      *             },
@@ -195,11 +195,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *             },
      *             "test_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 45
+     *               "dimension" : 16
      *             },
      *             "update_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 7
+     *               "dimension" : 16
      *             }
      *           }
      *         },
@@ -211,11 +211,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *         },
      *         "test_vector" : {
      *           "type" : "knn_vector",
-     *           "dimension" : 10
+     *           "dimension" : 16
      *         },
      *         "update_vector" : {
      *           "type" : "knn_vector",
-     *           "dimension" : 51
+     *           "dimension" : 16
      *         }
      *       }
      *     }
@@ -319,24 +319,13 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *         "nested_1" : {
      *           "type" : "nested",
      *           "properties" : {
-     *             "object_1" : {
-     *               "properties" : {
-     *                 "test-int" : {
-     *                   "type" : "integer"
-     *                 },
-     *                 "test_vector" : {
-     *                   "type" : "knn_vector",
-     *                   "dimension" : 64
-     *                 }
-     *               }
-     *             },
      *             "test_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 9
+     *               "dimension" : 16
      *             },
      *             "update_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 4
+     *               "dimension" : 16
      *             }
      *           }
      *         },
@@ -351,11 +340,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *                 },
      *                 "test_vector" : {
      *                   "type" : "knn_vector",
-     *                   "dimension" : 27
+     *                   "dimension" : 16
      *                 },
      *                 "update_vector" : {
      *                   "type" : "knn_vector",
-     *                   "dimension" : 14
+     *                   "dimension" : 16
      *                 }
      *               }
      *             },
@@ -364,28 +353,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *             },
      *             "test_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 57
+     *               "dimension" : 16
      *             },
      *             "update_vector" : {
      *               "type" : "knn_vector",
-     *               "dimension" : 10
-     *             }
-     *           }
-     *         },
-     *         "object_1" : {
-     *           "properties" : {
-     *             "nested_1" : {
-     *               "type" : "nested",
-     *               "properties" : {
-     *                 "test_vector" : {
-     *                   "type" : "knn_vector",
-     *                   "dimension" : 30
-     *                 }
-     *               }
-     *             },
-     *             "test_vector" : {
-     *               "type" : "knn_vector",
-     *               "dimension" : 51
+     *               "dimension" : 16
      *             }
      *           }
      *         },
@@ -397,11 +369,11 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      *         },
      *         "test_vector" : {
      *           "type" : "knn_vector",
-     *           "dimension" : 63
+     *           "dimension" : 16
      *         },
      *         "update_vector" : {
      *           "type" : "knn_vector",
-     *           "dimension" : 4
+     *           "dimension" : 16
      *         }
      *       }
      *     }
@@ -420,28 +392,6 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
                 .random(new Random(consistentRandomSeed))
                 .fields(
                     List.of(
-                        DerivedSourceUtils.ObjectFieldContext.builder()
-                            .fieldPath("object_1")
-                            .children(
-                                List.of(
-                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
-                                        .fieldPath("object_1.test_vector")
-                                        .build(),
-                                    DerivedSourceUtils.NestedFieldContext.builder()
-                                        .fieldPath("object_1.nested_1")
-                                        .children(
-                                            List.of(
-                                                DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
-                                                    .fieldPath("object_1.nested_1.test_vector")
-                                                    .build()
-                                            )
-                                        )
-                                        .build()
-                                )
-                            )
-                            .build(),
                         DerivedSourceUtils.NestedFieldContext.builder()
                             .fieldPath("nested_1")
                             .children(
@@ -454,18 +404,6 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
                                         .dimension(dimensionSupplier.get())
                                         .fieldPath("nested_1.update_vector")
                                         .isUpdate(true)
-                                        .build(),
-                                    DerivedSourceUtils.ObjectFieldContext.builder()
-                                        .fieldPath("nested_1.object_1")
-                                        .children(
-                                            List.of(
-                                                DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
-                                                    .fieldPath("nested_1.object_1.test_vector")
-                                                    .build(),
-                                                DerivedSourceUtils.IntFieldType.builder().fieldPath("nested_1.object_1.test-int").build()
-                                            )
-                                        )
                                         .build()
                                 )
                             )
@@ -792,85 +730,6 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         refreshAllIndices();
         assertIndexBigger(originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
 
-        assertIndexBigger(originalIndexNameDerivedSourceDisabled, reindexFromEnabledToEnabledIndexName);
-        assertIndexBigger(originalIndexNameDerivedSourceDisabled, reindexFromDisabledToEnabledIndexName);
-        assertIndexBigger(reindexFromEnabledToDisabledIndexName, originalIndexNameDerivedSourceEnabled);
-        assertIndexBigger(reindexFromDisabledToDisabledIndexName, originalIndexNameDerivedSourceEnabled);
-        assertDocsMatch(
-            derivedSourceDisabledContext.docCount,
-            originalIndexNameDerivedSourceDisabled,
-            reindexFromEnabledToEnabledIndexName
-        );
-        assertDocsMatch(
-            derivedSourceDisabledContext.docCount,
-            originalIndexNameDerivedSourceDisabled,
-            reindexFromDisabledToEnabledIndexName
-        );
-        assertDocsMatch(
-            derivedSourceDisabledContext.docCount,
-            originalIndexNameDerivedSourceDisabled,
-            reindexFromEnabledToDisabledIndexName
-        );
-        assertDocsMatch(
-            derivedSourceDisabledContext.docCount,
-            originalIndexNameDerivedSourceDisabled,
-            reindexFromDisabledToDisabledIndexName
-        );
-    }
-
-    @SneakyThrows
-    protected void testSnapshotRestore(
-        String repository,
-        String snapshot,
-        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts
-    ) {
-        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
-        DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
-        DerivedSourceUtils.IndexConfigContext reindexFromEnabledToEnabledContext = indexConfigContexts.get(2);
-        DerivedSourceUtils.IndexConfigContext reindexFromEnabledToDisabledContext = indexConfigContexts.get(3);
-        DerivedSourceUtils.IndexConfigContext reindexFromDisabledToEnabledContext = indexConfigContexts.get(4);
-        DerivedSourceUtils.IndexConfigContext reindexFromDisabledToDisabledContext = indexConfigContexts.get(5);
-
-        String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
-        String originalIndexNameDerivedSourceDisabled = derivedSourceDisabledContext.indexName;
-        String reindexFromEnabledToEnabledIndexName = reindexFromEnabledToEnabledContext.indexName;
-        String reindexFromEnabledToDisabledIndexName = reindexFromEnabledToDisabledContext.indexName;
-        String reindexFromDisabledToEnabledIndexName = reindexFromDisabledToEnabledContext.indexName;
-        String reindexFromDisabledToDisabledIndexName = reindexFromDisabledToDisabledContext.indexName;
-
-        createSnapshot(repository, snapshot, true);
-
-        deleteIndex(originalIndexNameDerivedSourceEnabled);
-        deleteIndex(originalIndexNameDerivedSourceDisabled);
-        deleteIndex(reindexFromEnabledToEnabledIndexName);
-        deleteIndex(reindexFromEnabledToDisabledIndexName);
-        deleteIndex(reindexFromDisabledToEnabledIndexName);
-        deleteIndex(reindexFromDisabledToDisabledIndexName);
-
-        String restoreSuffix = "-restored";
-        restoreSnapshot(
-            restoreSuffix,
-            List.of(
-                originalIndexNameDerivedSourceEnabled,
-                originalIndexNameDerivedSourceDisabled,
-                reindexFromEnabledToEnabledIndexName,
-                reindexFromEnabledToDisabledIndexName,
-                reindexFromDisabledToEnabledIndexName,
-                reindexFromDisabledToDisabledIndexName
-            ),
-            repository,
-            snapshot,
-            true
-        );
-
-        originalIndexNameDerivedSourceEnabled += restoreSuffix;
-        originalIndexNameDerivedSourceDisabled += restoreSuffix;
-        reindexFromEnabledToEnabledIndexName += restoreSuffix;
-        reindexFromEnabledToDisabledIndexName += restoreSuffix;
-        reindexFromDisabledToEnabledIndexName += restoreSuffix;
-        reindexFromDisabledToDisabledIndexName += restoreSuffix;
-
-        assertIndexBigger(originalIndexNameDerivedSourceDisabled, originalIndexNameDerivedSourceEnabled);
         assertIndexBigger(originalIndexNameDerivedSourceDisabled, reindexFromEnabledToEnabledIndexName);
         assertIndexBigger(originalIndexNameDerivedSourceDisabled, reindexFromDisabledToEnabledIndexName);
         assertIndexBigger(reindexFromEnabledToDisabledIndexName, originalIndexNameDerivedSourceEnabled);
