@@ -18,7 +18,6 @@ import org.opensearch.common.Nullable;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.derivedsource.DerivedFieldInfo;
-import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReaders;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -56,13 +55,11 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         if (derivedVectorFields.isEmpty()) {
             return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
         }
-        SegmentReadState segmentReadState = new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext);
-        DerivedSourceReaders derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         return new KNN10010DerivedSourceStoredFieldsReader(
             delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
             derivedVectorFields,
-            derivedSourceReaders,
-            segmentReadState
+            derivedSourceReadersSupplier,
+            new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext)
         );
     }
 

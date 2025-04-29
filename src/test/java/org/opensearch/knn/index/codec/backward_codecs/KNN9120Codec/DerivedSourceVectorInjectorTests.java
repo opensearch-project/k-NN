@@ -59,7 +59,7 @@ public class DerivedSourceVectorInjectorTests extends KNNTestCase {
             });
 
             DerivedSourceVectorInjector derivedSourceVectorInjector = new DerivedSourceVectorInjector(
-                new KNN9120DerivedSourceReaders(null, null, null, null),
+                new KNN9120DerivedSourceReadersSupplier(s -> null, s -> null, s -> null, s -> null),
                 null,
                 fields
             );
@@ -117,18 +117,20 @@ public class DerivedSourceVectorInjectorTests extends KNNTestCase {
             KNNCodecTestUtil.FieldInfoBuilder.builder("test3").build()
         );
 
-        DerivedSourceVectorInjector vectorInjector = new DerivedSourceVectorInjector(
-            new KNN9120DerivedSourceReaders(null, null, null, null),
-            null,
-            fields
-        );
-        assertTrue(vectorInjector.shouldInject(null, null));
-        assertTrue(vectorInjector.shouldInject(new String[] { "test1" }, null));
-        assertTrue(vectorInjector.shouldInject(new String[] { "test1", "test2", "test3" }, null));
-        assertTrue(vectorInjector.shouldInject(null, new String[] { "test2" }));
-        assertTrue(vectorInjector.shouldInject(new String[] { "test1" }, new String[] { "test2" }));
-        assertTrue(vectorInjector.shouldInject(new String[] { "test1" }, new String[] { "test2", "test3" }));
-        assertFalse(vectorInjector.shouldInject(null, new String[] { "test1", "test2", "test3" }));
-
+        try (
+            DerivedSourceVectorInjector vectorInjector = new DerivedSourceVectorInjector(
+                new KNN9120DerivedSourceReadersSupplier(s -> null, s -> null, s -> null, s -> null),
+                null,
+                fields
+            )
+        ) {
+            assertTrue(vectorInjector.shouldInject(null, null));
+            assertTrue(vectorInjector.shouldInject(new String[] { "test1" }, null));
+            assertTrue(vectorInjector.shouldInject(new String[] { "test1", "test2", "test3" }, null));
+            assertTrue(vectorInjector.shouldInject(null, new String[] { "test2" }));
+            assertTrue(vectorInjector.shouldInject(new String[] { "test1" }, new String[] { "test2" }));
+            assertTrue(vectorInjector.shouldInject(new String[] { "test1" }, new String[] { "test2", "test3" }));
+            assertFalse(vectorInjector.shouldInject(null, new String[] { "test1", "test2", "test3" }));
+        }
     }
 }

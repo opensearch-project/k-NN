@@ -23,7 +23,7 @@ import static org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN912
 public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     private final StoredFieldsReader delegate;
     private final List<FieldInfo> derivedVectorFields;
-    private final KNN9120DerivedSourceReaders derivedSourceReaders;
+    private final KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier;
     private final SegmentReadState segmentReadState;
     private final boolean shouldInject;
 
@@ -33,36 +33,36 @@ public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
      *
      * @param delegate delegate StoredFieldsReader
      * @param derivedVectorFields List of fields that are derived source fields
-     * @param derivedSourceReaders Derived source readers
+     * @param derivedSourceReadersSupplier Supplier for the derived source readers
      * @param segmentReadState SegmentReadState for the segment
      * @throws IOException in case of I/O error
      */
     public KNN9120DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
-        KNN9120DerivedSourceReaders derivedSourceReaders,
+        KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState
     ) throws IOException {
-        this(delegate, derivedVectorFields, derivedSourceReaders, segmentReadState, true);
+        this(delegate, derivedVectorFields, derivedSourceReadersSupplier, segmentReadState, true);
     }
 
     private KNN9120DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<FieldInfo> derivedVectorFields,
-        KNN9120DerivedSourceReaders derivedSourceReaders,
+        KNN9120DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState,
         boolean shouldInject
     ) throws IOException {
         this.delegate = delegate;
         this.derivedVectorFields = derivedVectorFields;
-        this.derivedSourceReaders = derivedSourceReaders;
+        this.derivedSourceReadersSupplier = derivedSourceReadersSupplier;
         this.segmentReadState = segmentReadState;
         this.shouldInject = shouldInject;
         this.derivedSourceVectorInjector = createDerivedSourceVectorInjector();
     }
 
     private DerivedSourceVectorInjector createDerivedSourceVectorInjector() throws IOException {
-        return new DerivedSourceVectorInjector(derivedSourceReaders, segmentReadState, derivedVectorFields);
+        return new DerivedSourceVectorInjector(derivedSourceReadersSupplier, segmentReadState, derivedVectorFields);
     }
 
     @Override
@@ -88,7 +88,7 @@ public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
             return new KNN9120DerivedSourceStoredFieldsReader(
                 delegate.clone(),
                 derivedVectorFields,
-                derivedSourceReaders.cloneWithMerge(),
+                derivedSourceReadersSupplier,
                 segmentReadState,
                 shouldInject
             );
@@ -104,7 +104,7 @@ public class KNN9120DerivedSourceStoredFieldsReader extends StoredFieldsReader {
 
     @Override
     public void close() throws IOException {
-        IOUtils.close(delegate, derivedSourceReaders);
+        IOUtils.close(delegate, derivedSourceVectorInjector);
     }
 
     /**

@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentHelper;
@@ -17,6 +18,7 @@ import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -25,7 +27,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Log4j2
-public class DerivedSourceVectorTransformer {
+public class DerivedSourceVectorTransformer implements Closeable {
 
     private final DerivedSourceReaders derivedSourceReaders;
     Function<Map<String, Object>, Map<String, Object>> derivedSourceVectorTransformer;
@@ -35,16 +37,16 @@ public class DerivedSourceVectorTransformer {
 
     /**
      *
-     * @param derivedSourceReaders derived source readers.
+     * @param derivedSourceReadersSupplier Supplier for the derived source readers.
      * @param segmentReadState Segment read state
      * @param fieldsToInjectVector List of fields to inject vectors into
      */
     public DerivedSourceVectorTransformer(
-        DerivedSourceReaders derivedSourceReaders,
+        DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState,
         List<DerivedFieldInfo> fieldsToInjectVector
-    ) {
-        this.derivedSourceReaders = derivedSourceReaders;
+    ) throws IOException {
+        this.derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         perFieldDerivedVectorTransformers = new HashMap<>();
         Map<String, Function<Object, Object>> perFieldDerivedVectorTransformersFunctionValues = new HashMap<>();
         for (DerivedFieldInfo derivedFieldInfo : fieldsToInjectVector) {
@@ -134,5 +136,10 @@ public class DerivedSourceVectorTransformer {
             return excludedVectorFieldCount < perFieldDerivedVectorTransformers.size();
         }
         return true;
+    }
+
+    @Override
+    public void close() throws IOException {
+        IOUtils.close(derivedSourceReaders);
     }
 }
