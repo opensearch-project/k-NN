@@ -51,39 +51,37 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
 
     /** Test for Float Vector Values */
     @Test
-    @SuppressWarnings("unchecked")
     public void testFloatVectorValues() throws IOException {
         createKNNVectorDocument(directory, FloatVectorValues.class);
         reader = DirectoryReader.open(directory);
         LeafReader leafReader = reader.leaves().get(0).reader();
 
         // Separate scriptDocValues instance for this test
-        KNNVectorScriptDocValues<?> scriptDocValues = KNNVectorScriptDocValues.create(
+        KNNVectorScriptDocValues scriptDocValues = KNNVectorScriptDocValues.create(
             leafReader.getFloatVectorValues(MOCK_INDEX_FIELD_NAME),
             MOCK_INDEX_FIELD_NAME,
             VectorDataType.FLOAT
         );
 
         scriptDocValues.setNextDocId(0);
-        Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, ((KNNVectorScriptDocValues<float[]>) scriptDocValues).getValue(), 0.1f);
+        Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, scriptDocValues.getValue(), 0.1f);
     }
 
     /** Test for Byte Vector Values */
     @Test
-    @SuppressWarnings("unchecked")
     public void testByteVectorValues() throws IOException {
         createKNNVectorDocument(directory, ByteVectorValues.class);
         reader = DirectoryReader.open(directory);
         LeafReader leafReader = reader.leaves().get(0).reader();
 
-        KNNVectorScriptDocValues<?> scriptDocValues = KNNVectorScriptDocValues.create(
+        KNNVectorScriptDocValues scriptDocValues = KNNVectorScriptDocValues.create(
             leafReader.getByteVectorValues(MOCK_INDEX_FIELD_NAME),
             MOCK_INDEX_FIELD_NAME,
             VectorDataType.BYTE
         );
 
         scriptDocValues.setNextDocId(0);
-        Assert.assertArrayEquals(SAMPLE_BYTE_VECTOR_DATA, ((KNNVectorScriptDocValues<byte[]>) scriptDocValues).getValue());
+        Assert.assertArrayEquals(new float[] { SAMPLE_BYTE_VECTOR_DATA[0], SAMPLE_BYTE_VECTOR_DATA[1] }, scriptDocValues.getValue(), 0.1f);
     }
 
     /** Test for Binary Vector Values */
@@ -93,7 +91,7 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         reader = DirectoryReader.open(directory);
         LeafReader leafReader = reader.leaves().get(0).reader();
 
-        KNNVectorScriptDocValues<?> scriptDocValues = KNNVectorScriptDocValues.create(
+        KNNVectorScriptDocValues scriptDocValues = KNNVectorScriptDocValues.create(
             leafReader.getBinaryDocValues(MOCK_INDEX_FIELD_NAME),
             MOCK_INDEX_FIELD_NAME,
             VectorDataType.BINARY
@@ -110,7 +108,7 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         reader = DirectoryReader.open(directory);
         LeafReader leafReader = reader.leaves().get(0).reader();
 
-        KNNVectorScriptDocValues<?> scriptDocValues = KNNVectorScriptDocValues.create(
+        KNNVectorScriptDocValues scriptDocValues = KNNVectorScriptDocValues.create(
             leafReader.getFloatVectorValues(MOCK_INDEX_FIELD_NAME),
             MOCK_INDEX_FIELD_NAME,
             VectorDataType.FLOAT
@@ -158,7 +156,7 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
     /** Ensure empty values case */
     @Test
     public void testEmptyValues() throws IOException {
-        KNNVectorScriptDocValues<?> values = KNNVectorScriptDocValues.emptyValues(MOCK_INDEX_FIELD_NAME, VectorDataType.FLOAT);
+        KNNVectorScriptDocValues values = KNNVectorScriptDocValues.emptyValues(MOCK_INDEX_FIELD_NAME, VectorDataType.FLOAT);
         assertEquals(0, values.size());
     }
 

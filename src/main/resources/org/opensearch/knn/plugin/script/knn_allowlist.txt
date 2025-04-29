@@ -4,7 +4,7 @@
 # Painless definition of classes used by knn plugin
 
 class org.opensearch.knn.index.KNNVectorScriptDocValues {
-  Object getValue()
+  float[] getValue()
 }
 static_import {
   float l2Squared(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil

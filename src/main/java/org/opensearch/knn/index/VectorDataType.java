@@ -46,8 +46,15 @@ public enum VectorDataType {
         }
 
         @Override
-        public byte[] getVectorFromBytesRef(BytesRef binaryValue) {
-            return binaryValue.bytes;
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
+            float[] vector = new float[binaryValue.length];
+            int i = 0;
+            int j = binaryValue.offset;
+
+            while (i < binaryValue.length) {
+                vector[i++] = binaryValue.bytes[j++];
+            }
+            return vector;
         }
 
         @Override
@@ -68,8 +75,15 @@ public enum VectorDataType {
         }
 
         @Override
-        public byte[] getVectorFromBytesRef(BytesRef binaryValue) {
-            return binaryValue.bytes;
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
+            float[] vector = new float[binaryValue.length];
+            int i = 0;
+            int j = binaryValue.offset;
+
+            while (i < binaryValue.length) {
+                vector[i++] = binaryValue.bytes[j++];
+            }
+            return vector;
         }
 
         @Override
@@ -129,7 +143,7 @@ public enum VectorDataType {
      * @param binaryValue Binary Value
      * @return float vector deserialized from binary value
      */
-    public abstract <T> T getVectorFromBytesRef(BytesRef binaryValue);
+    public abstract float[] getVectorFromBytesRef(BytesRef binaryValue);
 
     /**
      * @param trainingDataAllocation training data that has been allocated in native memory

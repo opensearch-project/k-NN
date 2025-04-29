@@ -32,7 +32,7 @@ public class VectorDataTypeTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetDocValuesWithFloatVectorDataType() {
-        KNNVectorScriptDocValues<float[]> scriptDocValues = getKNNFloatVectorScriptDocValues();
+        KNNVectorScriptDocValues scriptDocValues = getKNNFloatVectorScriptDocValues();
 
         scriptDocValues.setNextDocId(0);
         Assert.assertArrayEquals(SAMPLE_FLOAT_VECTOR_DATA, scriptDocValues.getValue(), 0.1f);
@@ -43,37 +43,35 @@ public class VectorDataTypeTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetDocValuesWithByteVectorDataType() {
-        KNNVectorScriptDocValues<byte[]> scriptDocValues = getKNNByteVectorScriptDocValues();
+        KNNVectorScriptDocValues scriptDocValues = getKNNByteVectorScriptDocValues();
 
         scriptDocValues.setNextDocId(0);
-        Assert.assertArrayEquals(SAMPLE_BYTE_VECTOR_DATA, scriptDocValues.getValue());
+        Assert.assertArrayEquals(SAMPLE_FLOAT_VECTOR_DATA, scriptDocValues.getValue(), 0.1f);
 
         reader.close();
         directory.close();
     }
 
-    @SuppressWarnings("unchecked")
     @SneakyThrows
-    private KNNVectorScriptDocValues<float[]> getKNNFloatVectorScriptDocValues() {
+    private KNNVectorScriptDocValues getKNNFloatVectorScriptDocValues() {
         directory = newDirectory();
         createKNNFloatVectorDocument(directory);
         reader = DirectoryReader.open(directory);
         LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
-        return (KNNVectorScriptDocValues<float[]>) KNNVectorScriptDocValues.create(
+        return KNNVectorScriptDocValues.create(
             leafReaderContext.reader().getBinaryDocValues(VectorDataTypeTests.MOCK_FLOAT_INDEX_FIELD_NAME),
             VectorDataTypeTests.MOCK_FLOAT_INDEX_FIELD_NAME,
             VectorDataType.FLOAT
         );
     }
 
-    @SuppressWarnings("unchecked")
     @SneakyThrows
-    private KNNVectorScriptDocValues<byte[]> getKNNByteVectorScriptDocValues() {
+    private KNNVectorScriptDocValues getKNNByteVectorScriptDocValues() {
         directory = newDirectory();
         createKNNByteVectorDocument(directory);
         reader = DirectoryReader.open(directory);
         LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
-        return (KNNVectorScriptDocValues<byte[]>) KNNVectorScriptDocValues.create(
+        return KNNVectorScriptDocValues.create(
             leafReaderContext.reader().getBinaryDocValues(VectorDataTypeTests.MOCK_BYTE_INDEX_FIELD_NAME),
             VectorDataTypeTests.MOCK_BYTE_INDEX_FIELD_NAME,
             VectorDataType.BYTE
@@ -103,7 +101,8 @@ public class VectorDataTypeTests extends KNNTestCase {
 
     public void testGetVectorFromBytesRef_whenBinary_thenException() {
         byte[] vector = { 1, 2, 3 };
+        float[] expected = { 1, 2, 3 };
         BytesRef bytesRef = new BytesRef(vector);
-        assertArrayEquals(vector, VectorDataType.BINARY.getVectorFromBytesRef(bytesRef));
+        assertArrayEquals(expected, VectorDataType.BINARY.getVectorFromBytesRef(bytesRef), 0.01f);
     }
 }

@@ -58,22 +58,20 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
         directory.close();
     }
 
-    @SuppressWarnings("unchecked")
     public void testGetScriptValues() {
         KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
             leafReaderContext.reader(),
             MOCK_INDEX_FIELD_NAME,
             VectorDataType.FLOAT
         );
-        ScriptDocValues<float[]> scriptValues = (ScriptDocValues<float[]>) leafFieldData.getScriptValues();
+        ScriptDocValues<float[]> scriptValues = leafFieldData.getScriptValues();
         assertNotNull(scriptValues);
         assertTrue(scriptValues instanceof KNNVectorScriptDocValues);
     }
 
-    @SuppressWarnings("unchecked")
     public void testGetScriptValuesWrongFieldName() {
         KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "invalid", VectorDataType.FLOAT);
-        ScriptDocValues<float[]> scriptValues = (ScriptDocValues<float[]>) leafFieldData.getScriptValues();
+        ScriptDocValues<float[]> scriptValues = leafFieldData.getScriptValues();
         assertNotNull(scriptValues);
     }
 

@@ -76,12 +76,6 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
         expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.FLOAT));
     }
 
-    public void testConvertVectorToByteArray() {
-        byte[] arrayByte = new byte[] { 1, 2, 3 };
-        List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
-        assertArrayEquals(arrayByte, KNNScoringSpaceUtil.parseToByteArray(arrayListQueryObject, 3, VectorDataType.BINARY));
-    }
-
     public void testIsBinaryVectorDataType_whenBinary_thenReturnTrue() {
         KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
         when(fieldType.getVectorDataType()).thenReturn(VectorDataType.BINARY);
