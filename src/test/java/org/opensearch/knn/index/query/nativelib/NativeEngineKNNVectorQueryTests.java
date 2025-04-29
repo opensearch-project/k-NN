@@ -152,6 +152,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         // Set the reader and searcher
         reader = directoryReader;
+        ;
         indexReaderContext = reader.getContext();
         // Extract LeafReaderContext
         List<LeafReaderContext> leaves = reader.leaves();
@@ -183,44 +184,6 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         // Then
         Query expected = QueryUtils.INSTANCE.createDocAndScoreQuery(reader, expectedTopDocs);
         assertEquals(expected, actual.getQuery());
-    }
-
-    @SneakyThrows
-    public void testExplain() {
-
-        List<LeafReaderContext> leaves = reader.leaves();
-        assertEquals(1, leaves.size());
-        leaf1 = leaves.get(0);
-        leafReader1 = leaf1.reader();
-
-        PerLeafResult leafResult = new PerLeafResult(null, new HashMap<>(Map.of(4, 3.4f, 3, 5.1f)));
-
-        when(knnWeight.searchLeaf(leaf1, 4)).thenReturn(leafResult);
-
-        Bits liveDocs = mock(Bits.class);
-        when(liveDocs.get(anyInt())).thenReturn(true);
-        when(liveDocs.get(2)).thenReturn(false);
-        when(liveDocs.get(1)).thenReturn(false);
-
-        // k=4 to make sure we get topk results even if docs are deleted/less in one of the leaves
-        when(knnQuery.getK()).thenReturn(4);
-
-        TopDocs[] topDocs = { ResultUtil.resultMapToTopDocs(leafResult.getResult(), leaf1.docBase) };
-        TopDocs expectedTopDocs = TopDocs.merge(4, topDocs);
-
-        // When
-        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
-
-        // Then
-        Query expected = QueryUtils.INSTANCE.createDocAndScoreQuery(reader, expectedTopDocs);
-        assertEquals(expected, actual.getQuery());
-        for (ScoreDoc scoreDoc : expectedTopDocs.scoreDocs) {
-            int docId = scoreDoc.doc;
-            if (docId == 0) continue;
-            float score = scoreDoc.score;
-            actual.explain(leaf1, docId);
-            verify(knnWeight).explain(leaf1, docId, score);
-        }
     }
 
     @SneakyThrows
@@ -257,6 +220,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         // Set the reader and searcher
         reader = directoryReader;
+        ;
         indexReaderContext = reader.getContext();
         // Extract LeafReaderContext
         List<LeafReaderContext> leaves = reader.leaves();
@@ -507,7 +471,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         QueryUtils queryUtils = mock(QueryUtils.class);
         when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(allSiblings);
-        when(queryUtils.createDocAndScoreQuery(eq(reader), any(), eq(knnWeight))).thenReturn(finalQuery);
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
 
         // Run
         NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, queryUtils, true);
@@ -518,7 +482,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, queryFilterBits);
         verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, queryFilterBits);
         ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
-        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture(), eq(knnWeight));
+        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture());
         TopDocs capturedTopDocs = topDocsCaptor.getValue();
         assertEquals(topK.totalHits, capturedTopDocs.totalHits);
         for (int i = 0; i < topK.scoreDocs.length; i++) {

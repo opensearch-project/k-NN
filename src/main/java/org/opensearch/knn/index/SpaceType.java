@@ -40,7 +40,7 @@ public enum SpaceType {
             throw new IllegalStateException("Unsupported method");
         }
     },
-    L2("l2", SpaceType.GENERIC_SCORE_TRANSLATION) {
+    L2("l2") {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
@@ -59,7 +59,7 @@ public enum SpaceType {
             return 1 / score - 1;
         }
     },
-    COSINESIMIL("cosinesimil", "`Math.max((2.0F - rawScore) / 2.0F, 0.0F)`") {
+    COSINESIMIL("cosinesimil") {
         /**
          * Cosine similarity has range of [-1, 1] where -1 represents vectors are at diametrically opposite, and 1 is where
          * they are identical in direction and perfectly similar. In Lucene, scores have to be in the range of [0, Float.MAX_VALUE].
@@ -100,13 +100,13 @@ public enum SpaceType {
             }
         }
     },
-    L1("l1", SpaceType.GENERIC_SCORE_TRANSLATION) {
+    L1("l1") {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
         }
     },
-    LINF("linf", SpaceType.GENERIC_SCORE_TRANSLATION) {
+    LINF("linf") {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
@@ -130,16 +130,11 @@ public enum SpaceType {
         }
 
         @Override
-        public String explainScoreTranslation(float rawScore) {
-            return rawScore >= 0 ? GENERIC_SCORE_TRANSLATION : "`-rawScore + 1`";
-        }
-
-        @Override
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
     },
-    HAMMING("hamming", SpaceType.GENERIC_SCORE_TRANSLATION) {
+    HAMMING("hamming") {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
@@ -174,28 +169,13 @@ public enum SpaceType {
         .collect(Collectors.toList())
         .toArray(new String[0]);
 
-    private static final String GENERIC_SCORE_TRANSLATION = "`1 / (1 + rawScore)`";
     private final String value;
-    private final String explanationFormula;
 
     SpaceType(String value) {
         this.value = value;
-        this.explanationFormula = null;
-    }
-
-    SpaceType(String value, String explanationFormula) {
-        this.value = value;
-        this.explanationFormula = explanationFormula;
     }
 
     public abstract float scoreTranslation(float rawScore);
-
-    public String explainScoreTranslation(float rawScore) {
-        if (explanationFormula != null) {
-            return explanationFormula;
-        }
-        throw new UnsupportedOperationException("explainScoreTranslation is not defined for this space type.");
-    }
 
     /**
      * Get KNNVectorSimilarityFunction that maps to this SpaceType

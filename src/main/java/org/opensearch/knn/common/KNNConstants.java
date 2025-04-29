@@ -22,10 +22,6 @@ public class KNNConstants {
     public static final String PATH = "path";
     public static final String QUERY = "query";
     public static final String KNN = "knn";
-    public static final String EXACT_SEARCH = "Exact";
-    public static final String ANN_SEARCH = "Approximate-NN";
-    public static final String RADIAL_SEARCH = "Radial";
-    public static final String DISK_BASED_SEARCH = "Disk-based";
     public static final String VECTOR = "vector";
     public static final String K = "k";
     public static final String TYPE_KNN_VECTOR = "knn_vector";
