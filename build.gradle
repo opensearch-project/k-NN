@@ -45,18 +45,6 @@ buildscript {
             opensearch_build += "-SNAPSHOT"
         }
         opensearch_no_snapshot = opensearch_build.replace("-SNAPSHOT","")
-
-        os_platform = "linux"
-        artifact_type = "tar"
-
-        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-            os_platform = "windows"
-            artifact_type = "zip"
-        }
-
-        opensearch_version_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
-        repo_s3_resource_folder = "build/resource/repository-s3"
-        repo_s3_download_url = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${opensearch_version_no_snapshot}/latest/${os_platform}/x64/${artifact_type}/builds/opensearch/core-plugins/repository-s3-${opensearch_version_no_snapshot}.zip"
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
@@ -183,28 +171,6 @@ ext {
         )
         cluster.setSecure(true)
     }
-
-    configureS3Plugin = { OpenSearchCluster cluster ->
-        cluster.plugin(provider(new Callable<RegularFile>(){
-            @Override
-            RegularFile call() throws Exception {
-                return new RegularFile() {
-                    @Override
-                    File getAsFile() {
-                        if (new File("$project.rootDir/$repo_s3_resource_folder").exists()) {
-                            project.delete(files("$project.rootDir/$repo_s3_resource_folder"))
-                        }
-                        project.mkdir repo_s3_resource_folder
-                        ant.get(src: repo_s3_download_url,
-                                dest: repo_s3_resource_folder,
-                                httpusecaches: false)
-                        return fileTree(repo_s3_resource_folder).getSingleFile()
-                    }
-                }
-            }
-        }))
-    }
-
     propertyKeys = [
         breaker: [
             useRealMemory: 'tests.opensearch.indices.breaker.total.use_real_memory'
@@ -433,16 +399,16 @@ test {
 }
 
 def _numNodes = findProperty('numNodes') as Integer ?: 1
-def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes){
+integTest {
     if (integTestDependOnJniLib) {
-        task.dependsOn buildJniLib
+        dependsOn buildJniLib
     }
-    task.systemProperty 'tests.security.manager', 'false'
-    task.systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
-    task.systemProperty "java.library.path", "$rootDir/jni/build/release"
-    task.systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
+    systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
     // allows integration test classes to access test resource from project root path
-    task.systemProperty('project.root', project.rootDir.absolutePath)
+    systemProperty('project.root', project.rootDir.absolutePath)
 
     var is_https = System.getProperty("https")
     var user = System.getProperty("user")
@@ -455,61 +421,47 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
         password = password == null ? "admin" : password
     }
 
-    task.systemProperty("https", is_https)
-    task.systemProperty("user", user)
-    task.systemProperty("password", password)
-    task.systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+    systemProperty("https", is_https)
+    systemProperty("user", user)
+    systemProperty("password", password)
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
 
-    task.doFirst {
+    doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
         // use longer timeouts for requests.
         def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
-        task.systemProperty 'cluster.debug', isDebuggingCluster
+        systemProperty 'cluster.debug', isDebuggingCluster
         // Set number of nodes system property to be used in tests
-        task.systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written
-        task.getClusters().forEach { cluster ->
+        getClusters().forEach { cluster ->
             cluster.waitForAllConditions()
         }
     }
 
     // The -Ddebug.es option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
-        task.jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
-    task.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
-integTest {
-    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
-    filter {
-        excludeTestsMatching "org.opensearch.knn.index.RemoteBuildIT"
-    }
-}
-
-task integTestRemoteIndexBuild(type: RestIntegTestTask) {
-    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
-    systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
-    systemProperty("test.bucket", System.getProperty("test.bucket"))
-    systemProperty("test.base_path", System.getProperty("test.base_path"))
-}
-
-def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
-    cluster.testDistribution = "ARCHIVE"
+testClusters.integTest {
+    testDistribution = "ARCHIVE"
 
     //Used for circuit breaker integration tests
-    cluster.setting 'node.attr.knn_cb_tier', 'integ'
+    setting 'node.attr.knn_cb_tier', 'integ'
 
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
-        configureSecurityPlugin(cluster)
+        configureSecurityPlugin(testClusters.integTest)
     }
 
-    cluster.plugin(project.tasks.bundlePlugin.archiveFile)
+    plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
-        cluster.environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
 
 
@@ -520,32 +472,16 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     // since we also support multi node integration tests we increase debugPort per node
     if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
-        cluster.nodes.forEach { node ->
+        nodes.forEach { node ->
             node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
             debugPort += 1
         }
     }
-    cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
+    systemProperty("java.library.path", "$rootDir/jni/build/release")
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
     testSnapshotFolder.mkdirs()
-    cluster.setting 'path.repo', "${buildDir}/testSnapshotFolder"
-    cluster.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
-}
-
-testClusters.integTest {
-    commonIntegTestClusters(it, _numNodes)
-}
-
-testClusters.integTestRemoteIndexBuild {
-    commonIntegTestClusters(it, _numNodes)
-    // Optionally install S3
-    if (System.getProperty("s3.enabled") != null) {
-        configureS3Plugin(testClusters.integTestRemoteIndexBuild)
-    }
-
-    keystore 's3.client.default.access_key', "${System.getProperty("access_key")}"
-    keystore 's3.client.default.secret_key', "${System.getProperty("secret_key")}"
-    keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
+    setting 'path.repo', "${buildDir}/testSnapshotFolder"
+    systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
 task integTestRemote(type: RestIntegTestTask) {
