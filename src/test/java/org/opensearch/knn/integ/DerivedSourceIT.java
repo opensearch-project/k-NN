@@ -44,7 +44,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
     @SneakyThrows
     public void testFlatFields() {
-        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true, true);
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
@@ -69,13 +69,11 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             new Pair<>("original-disable-", false)
         );
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
-        long consistentRandomSeed = random().nextLong();
         for (Pair<String, Boolean> index : indexPrefixToEnabled) {
-            Random random = new Random(consistentRandomSeed);
             DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
                 .indexName(getIndexName("deriveit", index.getFirst(), false))
                 .derivedEnabled(index.getSecond())
-                .random(random)
+                .random(new Random(1))
                 .settings(index.getSecond() ? DERIVED_ENABLED_WITH_SEGREP_SETTINGS : null)
                 .fields(
                     List.of(
@@ -86,7 +84,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                                         .fieldPath("nested_1.test_vector")
                                         .dimension(TEST_DIMENSION)
-                                        .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
+                                        .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
                                         .build()
                                 )
                             )
@@ -99,7 +97,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                                         .fieldPath("nested_2.test_vector")
                                         .dimension(TEST_DIMENSION)
-                                        .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
+                                        .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
                                         .build(),
                                     DerivedSourceUtils.NestedFieldContext.builder()
                                         .fieldPath("nested_2.nested_3")
@@ -108,7 +106,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                                                     .fieldPath("nested_2.nested_3.test_vector")
                                                     .dimension(TEST_DIMENSION)
-                                                    .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
+                                                    .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
                                                     .build(),
                                                 DerivedSourceUtils.IntFieldType.builder().fieldPath("nested_2.nested_3.test-int").build()
                                             )
@@ -119,7 +117,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                             .build(),
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                             .dimension(TEST_DIMENSION)
-                            .valueSupplier(randomVectorSupplier(random, TEST_DIMENSION, VectorDataType.BYTE))
+                            .valueSupplier(randomVectorSupplier(new Random(0), TEST_DIMENSION, VectorDataType.BYTE))
                             .fieldPath("test_vector")
                             .build(),
                         DerivedSourceUtils.TextFieldType.builder().fieldPath("test-text").build(),

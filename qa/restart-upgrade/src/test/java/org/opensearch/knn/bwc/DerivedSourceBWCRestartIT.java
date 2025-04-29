@@ -24,12 +24,12 @@ import static org.opensearch.knn.TestUtils.RESTART_UPGRADE_OLD_CLUSTER;
 public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
 
     public void testFlat_indexAndForceMergeOnOld_injectOnNew() throws IOException {
-        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("knn-bwc", false, false);
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("knn-bwc", false);
         testIndexAndForceMergeOnOld_injectOnNew(indexConfigContexts);
     }
 
     public void testFlat_indexOnOld_forceMergeAndInjectOnNew() throws IOException {
-        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("knn-bwc", false, false);
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("knn-bwc", false);
         testIndexOnOld_forceMergeAndInjectOnNew(indexConfigContexts);
     }
 
