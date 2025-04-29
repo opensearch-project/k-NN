@@ -22,8 +22,6 @@ import org.opensearch.threadpool.ThreadPool;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES;
@@ -68,8 +66,7 @@ public class QuantizationStateCache implements Closeable {
     }
 
     private void buildCache() {
-        final long maxCacheSizeInBytes = maxCacheSizeInKB * 1024;
-        this.cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumWeight(maxCacheSizeInBytes).weigher((k, v) -> {
+        this.cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumWeight(maxCacheSizeInKB).weigher((k, v) -> {
             try {
                 return ((QuantizationState) v).toByteArray().length;
             } catch (IOException e) {
@@ -125,12 +122,17 @@ public class QuantizationStateCache implements Closeable {
      * @param fieldName The name of the field.
      * @return The associated QuantizationState, or null if not present.
      */
-    QuantizationState getQuantizationState(final String fieldName, final Callable<QuantizationState> valueLoader) {
-        try {
-            return cache.get(fieldName, valueLoader);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+    QuantizationState getQuantizationState(String fieldName) {
+        return cache.getIfPresent(fieldName);
+    }
+
+    /**
+     * Adds or updates a quantization state in the cache.
+     * @param fieldName The name of the field.
+     * @param quantizationState The quantization state to store.
+     */
+    void addQuantizationState(String fieldName, QuantizationState quantizationState) {
+        cache.put(fieldName, quantizationState);
     }
 
     /**
