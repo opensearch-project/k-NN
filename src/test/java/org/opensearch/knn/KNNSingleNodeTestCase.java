@@ -41,9 +41,6 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.test.hamcrest.OpenSearchAssertions;
 
-import com.carrotsearch.randomizedtesting.ThreadFilter;
-import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
-
 import java.io.IOException;
 import java.util.Base64;
 import java.util.Collection;
@@ -66,18 +63,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
-@ThreadLeakFilters(defaultFilters = true, filters = { KNNSingleNodeTestCase.ForkJoinFilter.class })
 public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
-    /**
-     * The the ForkJoinPool.commonPool() never terminates until program shutdown.
-     */
-    public static final class ForkJoinFilter implements ThreadFilter {
-        @Override
-        public boolean reject(Thread t) {
-            return t.getName().startsWith("ForkJoinPool.commonPool-worker");
-        }
-    }
-
     @Override
     public void setUp() throws Exception {
         super.setUp();

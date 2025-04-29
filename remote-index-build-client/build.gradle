@@ -10,7 +10,6 @@ plugins {
     id "io.freefair.lombok"
     id 'com.diffplug.spotless' version '6.25.0'
     id 'opensearch.build'
-    id 'opensearch.java-agent'
 }
 
 repositories {

@@ -48,7 +48,6 @@ import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelGraveyard;
-import org.opensearch.knn.jni.PlatformUtils;
 import org.opensearch.knn.plugin.rest.RestClearCacheHandler;
 import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
 import org.opensearch.knn.plugin.rest.RestGetModelHandler;
@@ -123,7 +122,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
@@ -181,14 +179,6 @@ public class KNNPlugin extends Plugin
     private KNNStats knnStats;
     private ClusterService clusterService;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
-
-    static {
-        ForkJoinPool.commonPool().execute(() -> {
-            PlatformUtils.isAVX2SupportedBySystem();
-            PlatformUtils.isAVX512SupportedBySystem();
-            PlatformUtils.isAVX512SPRSupportedBySystem();
-        });
-    }
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {

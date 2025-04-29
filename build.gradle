@@ -71,7 +71,6 @@ buildscript {
 //****************************************************************************/
 
 plugins {
-    id 'eclipse'
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
@@ -85,7 +84,7 @@ apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.rest-test'
 apply plugin: 'opensearch.pluginzip'
 apply plugin: 'opensearch.repositories'
-apply plugin: 'opensearch.java-agent'
+
 
 def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
 opensearch_tmp_dir.mkdirs()
