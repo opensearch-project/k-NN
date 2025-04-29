@@ -11,7 +11,6 @@ import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.VectorEncoding;
-import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Assert;
 import org.mockito.MockedStatic;
@@ -1279,89 +1278,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testMethodFieldMapper_saveBestMatchingVectorSimilarityFunction() {
-        final MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-
-        doTestMethodFieldMapper_saveBestMatchingVectorSimilarityFunction(methodComponentContext, SpaceType.INNER_PRODUCT, Version.V_2_19_0);
-
-        doTestMethodFieldMapper_saveBestMatchingVectorSimilarityFunction(methodComponentContext, SpaceType.HAMMING, Version.V_2_19_0);
-
-        doTestMethodFieldMapper_saveBestMatchingVectorSimilarityFunction(methodComponentContext, SpaceType.INNER_PRODUCT, Version.V_3_0_0);
-
-        doTestMethodFieldMapper_saveBestMatchingVectorSimilarityFunction(methodComponentContext, SpaceType.HAMMING, Version.V_3_0_0);
-    }
-
-    @SneakyThrows
-    private void doTestMethodFieldMapper_saveBestMatchingVectorSimilarityFunction(
-        MethodComponentContext methodComponentContext,
-        SpaceType spaceType,
-        final Version version
-    ) {
-        try (MockedStatic<KNNVectorFieldMapperUtil> utilMockedStatic = Mockito.mockStatic(KNNVectorFieldMapperUtil.class)) {
-            final VectorDataType dataType = VectorDataType.FLOAT;
-            final int dimension = TEST_VECTOR.length;
-
-            final KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-                .vectorDataType(dataType)
-                .versionCreated(version)
-                .dimension(dimension)
-                .build();
-            final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, spaceType, methodComponentContext);
-
-            final IndexSettings indexSettingsMock = mock(IndexSettings.class);
-            when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
-            final ParseContext.Document document = new ParseContext.Document();
-            final ContentPath contentPath = new ContentPath();
-            final ParseContext parseContext = mock(ParseContext.class);
-            when(parseContext.doc()).thenReturn(document);
-            when(parseContext.path()).thenReturn(contentPath);
-            when(parseContext.parser()).thenReturn(createXContentParser(dataType));
-            when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
-
-            utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(true);
-            utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(true);
-
-            final OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(
-                dataType,
-                dimension,
-                knnMethodContext,
-                Mode.NOT_CONFIGURED.getName(),
-                CompressionLevel.NOT_CONFIGURED.getName(),
-                null,
-                SpaceType.UNDEFINED.getValue()
-            );
-            originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
-            EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
-                TEST_FIELD_NAME,
-                TEST_FIELD_NAME,
-                Collections.emptyMap(),
-                knnMethodConfigContext,
-                FieldMapper.MultiFields.empty(),
-                FieldMapper.CopyTo.empty(),
-                new Explicit<>(true, true),
-                false,
-                false,
-                originalMappingParameters
-            );
-            methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
-            final IndexableField field1 = document.getFields().get(0);
-
-            VectorSimilarityFunction similarityFunction = SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
-
-            if (version.onOrAfter(Version.V_3_0_0)) {
-                // If version >= 3.0, then it should find the best matching function.
-                try {
-                    similarityFunction = spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
-                } catch (Exception e) {
-                    // Ignore
-                }
-            }
-
-            assertEquals(similarityFunction, field1.fieldType().vectorSimilarityFunction());
-        }
-    }
-
-    @SneakyThrows
     public void testMethodFieldMapperParseCreateField_validInput_thenDifferentFieldTypes() {
         try (MockedStatic<KNNVectorFieldMapperUtil> utilMockedStatic = Mockito.mockStatic(KNNVectorFieldMapperUtil.class)) {
             for (VectorDataType dataType : VectorDataType.values()) {
@@ -1426,10 +1342,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
                 assertEquals(field1.fieldType().vectorDimension(), adjustDimensionForSearch(dimension, dataType));
                 assertEquals(Integer.parseInt(field1.fieldType().getAttributes().get(DIMENSION_FIELD_NAME)), dimension);
-                final VectorSimilarityFunction similarityFunction = spaceType != SpaceType.HAMMING
-                    ? spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
-                    : SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
-                assertEquals(field1.fieldType().vectorSimilarityFunction(), similarityFunction);
+                assertEquals(
+                    field1.fieldType().vectorSimilarityFunction(),
+                    SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+                );
 
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(false);
                 utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(false);
