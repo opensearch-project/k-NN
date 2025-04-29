@@ -93,7 +93,7 @@ public class RestKNNProfileHandler extends BaseRestHandler {
 
         KNNProfileRequest profileRequest = new KNNProfileRequest(indexNames);
 
-        String fieldName = request.param("field_name", "my_vector_field");
+        String fieldName = request.param("field_name", "target_field");
         profileRequest.setFieldName(fieldName);
 
         return profileRequest;

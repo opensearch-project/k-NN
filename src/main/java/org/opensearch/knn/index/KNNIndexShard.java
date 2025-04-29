@@ -106,8 +106,11 @@ public class KNNIndexShard {
             searcher.getIndexReader().leaves().forEach(leaf -> {
                 try {
                     log.info("[KNN] Processing leaf reader for segment: {}", leaf.reader());
-                    segmentLevelProfilerStates.add(SegmentProfilerUtil.getSegmentProfileState(leaf.reader(), fieldName));
-                    log.info("[KNN] Successfully obtained segment profile state");
+                    SegmentProfilerState state = SegmentProfilerUtil.getSegmentProfileState(leaf.reader(), fieldName);
+                    if (state != null && !state.getStatistics().isEmpty()) {
+                        segmentLevelProfilerStates.add(state);
+                        log.info("[KNN] Successfully obtained segment profile state with dimension: {}", state.getDimension());
+                    }
                 } catch (Exception e) {
                     log.error("[KNN] Error profiling segment: {}", e.getMessage(), e);
                 }
@@ -120,18 +123,35 @@ public class KNNIndexShard {
 
             log.info("[KNN] Collected {} segment profiles", segmentLevelProfilerStates.size());
 
-            // Get dimension
+            // Get dimension and validate all segments have the same dimension
             int dimension = segmentLevelProfilerStates.get(0).getDimension();
+            boolean dimensionsMatch = segmentLevelProfilerStates.stream().allMatch(state -> state.getDimension() == dimension);
+
+            if (!dimensionsMatch) {
+                log.error("[KNN] Inconsistent dimensions found across segments");
+                return shardVectorProfile; // Return empty list
+            }
+
             log.info("[KNN] Vector dimension: {}", dimension);
 
             // Transpose our list to aggregate per dimension
             for (int i = 0; i < dimension; i++) {
                 final int dimensionId = i;
-                List<SummaryStatistics> transposed = segmentLevelProfilerStates.stream()
-                    .map(state -> state.getStatistics().get(dimensionId))
-                    .collect(Collectors.toList());
+                List<SummaryStatistics> transposed = new ArrayList<>();
 
-                shardVectorProfile.add(AggregateSummaryStatistics.aggregate(transposed));
+                for (SegmentProfilerState state : segmentLevelProfilerStates) {
+                    List<SummaryStatistics> stateStats = state.getStatistics();
+                    if (dimensionId < stateStats.size()) {
+                        SummaryStatistics stat = stateStats.get(dimensionId);
+                        if (stat != null) {
+                            transposed.add(stat);
+                        }
+                    }
+                }
+
+                if (!transposed.isEmpty()) {
+                    shardVectorProfile.add(AggregateSummaryStatistics.aggregate(transposed));
+                }
             }
 
             // Log the results for each dimension
@@ -324,6 +344,6 @@ public class KNNIndexShard {
      * @return List of statistical summaries for each dimension
      */
     public List<StatisticalSummaryValues> profile() {
-        return profile("my_vector_field");
+        return profile("target_field");
     }
 }
