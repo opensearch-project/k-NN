@@ -30,6 +30,7 @@ import org.opensearch.knn.index.codec.derivedsource.ParentChildHelper;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
@@ -185,6 +186,26 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected void createKnnIndex(String index, String mapping) throws IOException {
         createIndex(index, getKNNDefaultIndexSettings());
         putMappingRequest(index, mapping);
+    }
+
+    /**
+     * Builds a KNN Index for dimension and index, with on_disk mode
+     */
+    protected void createOnDiskIndex(String index, Integer dimensions, SpaceType spaceType) throws IOException {
+        createIndex(index, getKNNDefaultIndexSettings());
+        String mappings = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimensions.toString())
+            .field("space_type", spaceType.getValue())
+            .field("mode", Mode.ON_DISK.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        putMappingRequest(index, mappings);
     }
 
     /**
@@ -1145,6 +1166,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
         ).map().get("hits")).get("hits");
 
         return hits.stream().map(hit -> (String) ((Map<String, Object>) hit).get("_id")).collect(Collectors.toList());
+    }
+
+    protected List<Double> parseScores(String searchResponseBody) throws IOException {
+        @SuppressWarnings("unchecked")
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            searchResponseBody
+        ).map().get("hits")).get("hits");
+
+        return hits.stream().map(hit -> (Double) ((Map<String, Object>) hit).get("_score")).collect(Collectors.toList());
     }
 
     /**
