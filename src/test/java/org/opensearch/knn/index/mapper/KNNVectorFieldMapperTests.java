@@ -2008,7 +2008,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertFalse(builder.getOriginalParameters().isLegacyMapping());
         validateBuilderAfterParsing(
             builder,
-            KNNEngine.FAISS,
+            KNNEngine.NMSLIB,
             SpaceType.L2,
             VectorDataType.FLOAT,
             CompressionLevel.x1,
