@@ -9,7 +9,6 @@ import lombok.experimental.UtilityClass;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -61,10 +60,6 @@ public class FieldInfoExtractor {
             if (modelMetadata != null) {
                 VectorDataType vectorDataType = modelMetadata.getVectorDataType();
                 vectorDataTypeString = vectorDataType == null ? null : vectorDataType.getValue();
-            } else if (fieldInfo.hasVectorValues()) {
-                vectorDataTypeString = fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32
-                    ? VectorDataType.FLOAT.toString()
-                    : VectorDataType.BYTE.toString();
             }
         }
         return StringUtils.isNotEmpty(vectorDataTypeString) ? VectorDataType.get(vectorDataTypeString) : VectorDataType.DEFAULT;
