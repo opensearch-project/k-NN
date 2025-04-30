@@ -73,11 +73,14 @@ jobs:
       - name: Initial cleanup
         run: |
           docker ps -aq | xargs -r docker rm -f
-          docker system prune -af --volumes
+          docker container prune -f
+          docker volume prune -af
+          docker network prune -f
+          docker rmi $(docker images -f "dangling=true" -q) || echo clean
 
       - name: Pull Remote Index Build Docker Image from Docker Hub
         run: |
-          docker pull rchitale7/remote-index-build-service:api
+          docker pull opensearchstaging/remote-vector-index-builder:api-latest
 
       - name: Pull LocalStack Docker image
         run: |
@@ -100,7 +103,7 @@ jobs:
 
       - name: Run Docker container
         run: |
-          docker run --rm -d --name remote-index-builder-container --gpus all -p 80:80 -e INTEGRATION_TESTS=TRUE -e AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} -e AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN}} rchitale7/remote-index-build-service:api
+          docker run --rm -d --name remote-index-builder-container --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} -e AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN}} opensearchstaging/remote-vector-index-builder:api-latest
           sleep 5
 
       - name: Run tests
@@ -110,23 +113,23 @@ jobs:
             if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
             then
               echo "the system is an Intel(R) Sapphire Rapids or a newer-generation processor"
-              ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx512_spr.enabled=true -Dnproc.count=`nproc`
+              ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512_spr.enabled=true -Dnproc.count=`nproc`
             else
               echo "avx512 available on system"
-              ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+              ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512_spr.enabled=false -Dnproc.count=`nproc`
             fi
           elif lscpu  | grep -i avx2
           then
             echo "avx2 available on system"
-            ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+            ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
           else
             echo "avx512 and avx2 not available on system"
-            ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Dtests.class=org.opensearch.knn.index.RemoteBuildIT -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+            ./gradlew :integTestRemoteIndexBuild -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
           fi
 
       - name: Verify Remote Index Builder logs
         run: |
-          if docker logs remote-index-builder-container 2>&1 | grep -q "INFO - Index built successfully!"; then
+          if docker logs remote-index-builder-container 2>&1 | grep -q "completed with status: JobStatus.COMPLETED"; then
             echo "Success logs found in Remote Index Builder container"
           else
             echo "No success logs found. Full logs:"
@@ -138,7 +141,10 @@ jobs:
         if: always()
         run: |
           docker ps -aq | xargs -r docker rm -f
-          docker system prune -af --volumes
+          docker container prune -f
+          docker volume prune -af
+          docker network prune -f
+          docker rmi $(docker images -f "dangling=true" -q) || echo clean
           docker logout
           rm -rf ${{ github.workspace }}/*
 

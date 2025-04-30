@@ -21,6 +21,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.List;
@@ -212,6 +213,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testMultiFlatFields() {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -368,6 +370,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
      *     }
      * }
      */
+    @ExpectRemoteBuildValidation
     public void testNestedSingleDocBasic() {
         String nestedMapping = createVectorNestedMappings(TEST_DIMENSION);
         List<IndexConfigContext> indexConfigContexts = List.of(
@@ -506,6 +509,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedMultiDocBasic() {
         String nestedMapping = createVectorNestedMappings(TEST_DIMENSION);
         List<IndexConfigContext> indexConfigContexts = List.of(
@@ -666,6 +670,7 @@ public class DerivedSourceIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testObjectFieldTypes() {
         String PATH_1_NAME = "path_1";
         String PATH_2_NAME = "path_2";

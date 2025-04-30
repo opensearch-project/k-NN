@@ -20,6 +20,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
+import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
@@ -40,6 +41,7 @@ import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,7 +70,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
 public class JNIServiceTests extends KNNTestCase {
     static final int FP16_MAX = 65504;
@@ -2093,5 +2094,15 @@ public class JNIServiceTests extends KNNTestCase {
         );
         assertTrue(directory.fileLength(indexFileName1) > 0);
         return indexFileName1;
+    }
+
+    @SneakyThrows
+    public static IndexInput loadHnswBinary(final String relativePath) {
+        final URL hnswWithOneVector = JNIServiceTests.class.getClassLoader().getResource(relativePath);
+        if (hnswWithOneVector == null) {
+            throw new IllegalArgumentException("Resource not found: " + relativePath);
+        }
+        final byte[] bytes = Files.readAllBytes(Path.of(hnswWithOneVector.toURI()));
+        return new ByteArrayIndexInput("FaissHNSWTests", bytes);
     }
 }

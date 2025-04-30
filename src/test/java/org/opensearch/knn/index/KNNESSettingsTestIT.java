@@ -15,6 +15,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.StatNames;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
 
     public static final int ALWAYS_BUILD_GRAPH = 0;
 
+    @ExpectRemoteBuildValidation
     public void testKNNLegacySpaceTypeIndexingTest() throws IOException {
         // Configure space_type at index level. This is deprecated and will be removed in the future.
         final Settings indexSettings = Settings.builder()

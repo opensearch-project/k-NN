@@ -22,6 +22,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.parser.RescoreParser;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -134,6 +135,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testIndexCreation_whenValid_ThenSucceed() {
         XContentBuilder builder;
         for (String compressionLevel : COMPRESSION_LEVELS) {

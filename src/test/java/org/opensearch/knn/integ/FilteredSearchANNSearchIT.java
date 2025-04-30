@@ -15,6 +15,7 @@ import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import java.util.List;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -22,14 +23,15 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 @Log4j2
 public class FilteredSearchANNSearchIT extends KNNRestTestCase {
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFilteredSearchWithFaissHnsw_whenFiltersMatchAllDocs_thenReturnCorrectResults() {
         String filterFieldName = "color";
         final int expectResultSize = randomIntBetween(1, 3);
         final String filterValue = "red";
         createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), createKnnIndexMapping(FIELD_NAME, 3, METHOD_HNSW, FAISS_NAME));
 
-        // ingest 4 vector docs into the index with the same field {"color": "red"}
-        for (int i = 0; i < 4; i++) {
+        // ingest 5 vector docs into the index with the same field {"color": "red"}
+        for (int i = 0; i < 5; i++) {
             addKnnDocWithAttributes(String.valueOf(i), new float[] { i, i, i }, ImmutableMap.of(filterFieldName, filterValue));
         }
 

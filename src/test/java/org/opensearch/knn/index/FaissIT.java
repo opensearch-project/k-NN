@@ -34,6 +34,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.net.URL;
@@ -112,6 +113,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenDoRadiusSearch_whenDistanceThreshold_whenMethodIsHNSWFlat_thenSucceed() {
         SpaceType spaceType = SpaceType.L2;
 
@@ -170,6 +172,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenDoRadiusSearch_whenScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
         SpaceType spaceType = SpaceType.L2;
 
@@ -229,6 +232,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenDoRadiusSearch_whenMoreThanOneScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
 
@@ -2057,16 +2061,19 @@ public class FaissIT extends KNNRestTestCase {
         testCosineSimilarityForApproximateSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
     }
 
+    @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withHNSW_withApproximate_thenSucceed() throws Exception {
         testCosineSimilarityForApproximateSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
         validateGraphEviction();
     }
 
+    @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withGraph_withRadialSearch_withDistanceThreshold_thenSucceed() throws Exception {
         testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, null, 0.1f);
         validateGraphEviction();
     }
 
+    @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withGraph_withRadialSearch_withScore_thenSucceed() throws Exception {
         testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0.9f, null);
         validateGraphEviction();

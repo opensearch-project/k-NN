@@ -20,6 +20,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.net.URL;
@@ -50,6 +51,7 @@ public class ConcurrentSegmentSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testConcurrentSegmentSearch_thenSucceed() {
         String indexName = "test-concurrent-segment";
         String fieldName = "test-field-1";

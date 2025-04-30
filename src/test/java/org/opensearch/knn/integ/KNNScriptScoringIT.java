@@ -37,6 +37,7 @@ import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.script.KNNScoringSpace;
 import org.opensearch.knn.plugin.script.KNNScoringSpaceFactory;
 import org.opensearch.script.Script;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,6 +67,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     private static final String TEST_MODEL = "test-model";
 
+    @ExpectRemoteBuildValidation
     public void testKNNL2ScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.L2);
     }
@@ -74,6 +76,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNByteScriptScore(SpaceType.L2);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNL1ScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.L1);
     }
@@ -82,6 +85,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNByteScriptScore(SpaceType.L1);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNLInfScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.LINF);
     }
@@ -90,6 +94,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         testKNNByteScriptScore(SpaceType.LINF);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNCosineScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.COSINESIMIL);
     }
@@ -532,6 +537,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertArrayEquals(correctScores2, scores2, 0.001);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNInnerProdScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
@@ -643,6 +649,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     @SuppressWarnings("unchecked")
+    @ExpectRemoteBuildValidation
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
@@ -780,7 +787,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         final Map<String, KNNResult> dataset = new HashMap<>(dense ? numDocsWithField : numDocsWithField * 3);
         int id = 0;
         for (int i = 0; i < numDocsWithField; i++) {
-            final int dummyDocs = dense ? 0 : randomIntBetween(2, 5);
+            final int dummyDocs = dense ? 0 : 5;
             for (int j = 0; j < dummyDocs; j++) {
                 dataset.put(Integer.toString(id++), null);
             }
@@ -931,13 +938,15 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         Settings settings = builder.build();
         createKnnIndex(INDEX_NAME, settings, mapper);
         try {
-            final int numDocsWithField = randomIntBetween(4, 10);
+            final int numDocsWithField = 10;
             Map<String, KNNResult> dataset = createDataset(scoreFunction, dimensions, numDocsWithField, dense, vectorDataType);
             final float[] dummyVector = new float[1];
             dataset.forEach((k, v) -> {
                 final float[] vector = (v != null) ? v.getVector() : dummyVector;
                 ExceptionsHelper.catchAsRuntimeException(() -> addKnnDoc(INDEX_NAME, k, (v != null) ? FIELD_NAME : "dummy", vector));
             });
+
+            forceMergeKnnIndex(INDEX_NAME);
 
             /**
              * Construct Search Request
