@@ -9,6 +9,9 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.math3.stat.descriptive.AggregateSummaryStatistics;
+import org.apache.commons.math3.stat.descriptive.StatisticalSummaryValues;
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -28,6 +31,8 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.SegmentProfilerUtil;
+import org.opensearch.knn.profiler.SegmentProfilerState;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -83,6 +88,103 @@ public class KNNIndexShard {
     }
 
     /**
+     * Profile the vector fields in this shard and return statistical information.
+     *
+     * @param fieldName The name of the vector field to profile
+     * @return List of statistical summaries for each dimension
+     */
+    // TODO: Write unit tests to ensure that the segment statistic aggregation is correct.
+    public List<StatisticalSummaryValues> profile(String fieldName) {
+        List<StatisticalSummaryValues> shardVectorProfile = new ArrayList<>();
+
+        try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-profile")) {
+            List<SegmentProfilerState> segmentLevelProfilerStates = new ArrayList<>();
+
+            log.info("[KNN] Beginning profiling for field: {} in shard: {}", fieldName, indexShard.shardId());
+
+            // For each leaf, collect the profile
+            searcher.getIndexReader().leaves().forEach(leaf -> {
+                try {
+                    log.info("[KNN] Processing leaf reader for segment: {}", leaf.reader());
+                    SegmentProfilerState state = SegmentProfilerUtil.getSegmentProfileState(leaf.reader(), fieldName);
+                    if (state != null && !state.getStatistics().isEmpty()) {
+                        segmentLevelProfilerStates.add(state);
+                        log.info("[KNN] Successfully obtained segment profile state with dimension: {}", state.getDimension());
+                    }
+                } catch (Exception e) {
+                    log.error("[KNN] Error profiling segment: {}", e.getMessage(), e);
+                }
+            });
+
+            if (segmentLevelProfilerStates.isEmpty()) {
+                log.info("[KNN] No segment profiles were collected for field: {} in shard: {}", fieldName, indexShard.shardId());
+                return shardVectorProfile; // Return empty list
+            }
+
+            log.info("[KNN] Collected {} segment profiles", segmentLevelProfilerStates.size());
+
+            // Get dimension and validate all segments have the same dimension
+            int dimension = segmentLevelProfilerStates.get(0).getDimension();
+            boolean dimensionsMatch = segmentLevelProfilerStates.stream().allMatch(state -> state.getDimension() == dimension);
+
+            if (!dimensionsMatch) {
+                log.error("[KNN] Inconsistent dimensions found across segments");
+                return shardVectorProfile; // Return empty list
+            }
+
+            log.info("[KNN] Vector dimension: {}", dimension);
+
+            // Transpose our list to aggregate per dimension
+            for (int i = 0; i < dimension; i++) {
+                final int dimensionId = i;
+                List<SummaryStatistics> transposed = new ArrayList<>();
+
+                for (SegmentProfilerState state : segmentLevelProfilerStates) {
+                    List<SummaryStatistics> stateStats = state.getStatistics();
+                    if (dimensionId < stateStats.size()) {
+                        SummaryStatistics stat = stateStats.get(dimensionId);
+                        if (stat != null) {
+                            transposed.add(stat);
+                        }
+                    }
+                }
+
+                if (!transposed.isEmpty()) {
+                    shardVectorProfile.add(AggregateSummaryStatistics.aggregate(transposed));
+                }
+            }
+
+            // Log the results for each dimension
+            for (int i = 0; i < shardVectorProfile.size(); i++) {
+                StatisticalSummaryValues stats = shardVectorProfile.get(i);
+                log.info(
+                        "[KNN] Dimension {}: count={}, min={}, max={}, mean={}, sum={}, variance={}, std_deviation={}",
+                        i,
+                        stats.getN(),
+                        stats.getMin(),
+                        stats.getMax(),
+                        stats.getMean(),
+                        stats.getSum(),
+                        stats.getVariance(),
+                        Math.sqrt(stats.getVariance())
+                );
+            }
+
+            log.info("[KNN] Profiling completed for field: {} in shard: {}", fieldName, indexShard.shardId());
+        } catch (Exception e) {
+            log.error(
+                    "[KNN] Critical error during profiling for field: {} in shard: {}: {}",
+                    fieldName,
+                    indexShard.shardId(),
+                    e.getMessage(),
+                    e
+            );
+        }
+
+        return shardVectorProfile;
+    }
+
+    /**
      * Load all of the k-NN segments for this shard into the cache.
      *
      * @throws IOException Thrown when getting the HNSW Paths to be loaded in
@@ -94,24 +196,24 @@ public class KNNIndexShard {
             getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                 try {
                     final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(
-                        engineFileContext.vectorFileName,
-                        engineFileContext.segmentInfo
+                            engineFileContext.vectorFileName,
+                            engineFileContext.segmentInfo
                     );
                     nativeMemoryCacheManager.get(
-                        new NativeMemoryEntryContext.IndexEntryContext(
-                            directory,
-                            cacheKey,
-                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                            getParametersAtLoading(
-                                engineFileContext.getSpaceType(),
-                                KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
-                                getIndexName(),
-                                engineFileContext.getVectorDataType()
+                            new NativeMemoryEntryContext.IndexEntryContext(
+                                    directory,
+                                    cacheKey,
+                                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                                    getParametersAtLoading(
+                                            engineFileContext.getSpaceType(),
+                                            KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
+                                            getIndexName(),
+                                            engineFileContext.getVectorDataType()
+                                    ),
+                                    getIndexName(),
+                                    engineFileContext.getModelId()
                             ),
-                            getIndexName(),
-                            engineFileContext.getModelId()
-                        ),
-                        true
+                            true
                     );
                 } catch (ExecutionException ex) {
                     throw new RuntimeException(ex);
@@ -138,8 +240,8 @@ public class KNNIndexShard {
             try (Engine.Searcher searcher = indexShard.acquireSearcher(INDEX_SHARD_CLEAR_CACHE_SEARCHER)) {
                 getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                     final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(
-                        engineFileContext.vectorFileName,
-                        engineFileContext.segmentInfo
+                            engineFileContext.vectorFileName,
+                            engineFileContext.segmentInfo
                     );
                     nativeMemoryCacheManager.invalidate(cacheKey);
                 });
@@ -174,8 +276,8 @@ public class KNNIndexShard {
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
             SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
             String fileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-                ? knnEngine.getCompoundExtension()
-                : knnEngine.getExtension();
+                    ? knnEngine.getCompoundExtension()
+                    : knnEngine.getExtension();
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
@@ -185,18 +287,18 @@ public class KNNIndexShard {
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
                     engineFiles.addAll(
-                        getEngineFileContexts(
-                            reader.getSegmentInfo(),
-                            fieldInfo.name,
-                            fileExtension,
-                            spaceType,
-                            modelId,
-                            FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
-                                ? VectorDataType.get(
-                                    fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-                                )
-                                : VectorDataType.BINARY
-                        )
+                            getEngineFileContexts(
+                                    reader.getSegmentInfo(),
+                                    fieldInfo.name,
+                                    fileExtension,
+                                    spaceType,
+                                    modelId,
+                                    FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
+                                            ? VectorDataType.get(
+                                            fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+                                    )
+                                            : VectorDataType.BINARY
+                            )
                     );
                 }
             }
@@ -206,23 +308,23 @@ public class KNNIndexShard {
 
     @VisibleForTesting
     List<EngineFileContext> getEngineFileContexts(
-        SegmentCommitInfo segmentCommitInfo,
-        String fieldName,
-        String fileExtension,
-        SpaceType spaceType,
-        String modelId,
-        VectorDataType vectorDataType
+            SegmentCommitInfo segmentCommitInfo,
+            String fieldName,
+            String fileExtension,
+            SpaceType spaceType,
+            String modelId,
+            VectorDataType vectorDataType
     ) throws IOException {
         // Ex: 0_
         final String prefix = buildEngineFilePrefix(segmentCommitInfo.info.name);
         // Ex: _my_field.faiss
         final String suffix = buildEngineFileSuffix(fieldName, fileExtension);
         return segmentCommitInfo.files()
-            .stream()
-            .filter(fileName -> fileName.startsWith(prefix))
-            .filter(fileName -> fileName.endsWith(suffix))
-            .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
-            .collect(Collectors.toList());
+                .stream()
+                .filter(fileName -> fileName.startsWith(prefix))
+                .filter(fileName -> fileName.endsWith(suffix))
+                .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
+                .collect(Collectors.toList());
     }
 
     @AllArgsConstructor
@@ -234,5 +336,14 @@ public class KNNIndexShard {
         private final String vectorFileName;
         private final VectorDataType vectorDataType;
         private final SegmentInfo segmentInfo;
+    }
+
+    /**
+     * Profile the vector fields in this shard with default field name.
+     *
+     * @return List of statistical summaries for each dimension
+     */
+    public List<StatisticalSummaryValues> profile() {
+        return profile("target_field");
     }
 }

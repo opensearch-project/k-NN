@@ -84,6 +84,9 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.profiler.RestKNNProfileHandler;
+import org.opensearch.knn.plugin.transport.KNNProfileTransportAction;
+import org.opensearch.knn.plugin.transport.KNNProfileAction;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -275,6 +278,12 @@ public class KNNPlugin extends Plugin
             clusterService,
             indexNameExpressionResolver
         );
+        RestKNNProfileHandler restKNNProfileHandler = new RestKNNProfileHandler(
+                settings,
+                restController,
+                clusterService,
+                indexNameExpressionResolver
+        );
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
         RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
@@ -284,6 +293,7 @@ public class KNNPlugin extends Plugin
         return ImmutableList.of(
             restKNNStatsHandler,
             restKNNWarmupHandler,
+                restKNNProfileHandler,
             restGetModelHandler,
             restDeleteModelHandler,
             restTrainModelHandler,
@@ -300,7 +310,8 @@ public class KNNPlugin extends Plugin
         return Arrays.asList(
             new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
             new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
-            new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
+                new ActionHandler<>(KNNProfileAction.INSTANCE, KNNProfileTransportAction.class),
+                new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
             new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE, TrainingJobRouteDecisionInfoTransportAction.class),
             new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),
             new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),

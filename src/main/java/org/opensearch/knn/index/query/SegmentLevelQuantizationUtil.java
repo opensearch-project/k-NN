@@ -9,6 +9,8 @@ import lombok.experimental.UtilityClass;
 import org.apache.lucene.index.LeafReader;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.profiler.SegmentProfileKNNCollector;
+import org.opensearch.knn.profiler.SegmentProfilerState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -36,9 +38,9 @@ public class SegmentLevelQuantizationUtil {
         // TODO: We are converting the output of Quantize to byte array for now. But this needs to be fixed when
         // other types of quantized outputs are returned like float[].
         return (byte[]) quantizationService.quantize(
-            segmentLevelQuantizationInfo.getQuantizationState(),
-            vector,
-            quantizationService.createQuantizationOutput(segmentLevelQuantizationInfo.getQuantizationParams())
+                segmentLevelQuantizationInfo.getQuantizationState(),
+                vector,
+                quantizationService.createQuantizationOutput(segmentLevelQuantizationInfo.getQuantizationParams())
         );
     }
 
@@ -57,4 +59,23 @@ public class SegmentLevelQuantizationUtil {
         }
         return tempCollector.getQuantizationState();
     }
+
+    /**
+     * A utility function to get {@link SegmentProfilerState} for a given segment and field.
+     * This needs to public as we are accessing this on a transport action
+     * TODO: move this out of this Util class and into another one.
+     * @param leafReader {@link LeafReader}
+     * @param fieldName {@link String}
+     * @return {@link SegmentProfilerState}
+     * @throws IOException exception during reading the {@link SegmentProfilerState}
+     */
+    public static SegmentProfilerState getSegmentProfileState(final LeafReader leafReader, String fieldName) throws IOException {
+        final SegmentProfileKNNCollector tempCollector = new SegmentProfileKNNCollector();
+        leafReader.searchNearestVectors(fieldName, new float[0], tempCollector, null);
+        if (tempCollector.getSegmentProfilerState() == null) {
+            throw new IllegalStateException(String.format(Locale.ROOT, "No segment state found for field %s", fieldName));
+        }
+        return tempCollector.getSegmentProfilerState();
+    }
+
 }
