@@ -20,6 +20,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.List;
 import java.util.Map;
@@ -170,6 +171,7 @@ public class RecallTestsIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testRecall_whenFaissHnswFP32_thenRecallAbove75percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {

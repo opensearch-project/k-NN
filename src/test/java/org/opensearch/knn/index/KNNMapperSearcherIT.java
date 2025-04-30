@@ -14,6 +14,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,8 +50,12 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
 
         Float[] f4 = { 3.0f, 3.0f };
         addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
+
+        Float[] f5 = { 5.0f, 5.0f };
+        addKnnDoc(INDEX_NAME, "5", FIELD_NAME, f5);
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNResultsWithForceMerge() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
         addTestData();
@@ -73,6 +78,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
         }
     }
 
+    @ExpectRemoteBuildValidation
     public void testKNNResultsUpdateDocAndForceMerge() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
         addDocWithNumericField(INDEX_NAME, "1", "abc", 100);
@@ -251,7 +257,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, k);
         Response response = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        assertEquals(results.size(), 4);
+        assertEquals(results.size(), 5);
     }
 
     /**

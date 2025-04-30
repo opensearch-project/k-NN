@@ -28,6 +28,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.net.URL;
@@ -83,6 +84,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testEndToEnd_whenMethodIsHNSWFlat_thenSucceed() {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";

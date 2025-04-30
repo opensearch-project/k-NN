@@ -18,6 +18,7 @@ import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.List;
@@ -82,6 +83,7 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenKIsTwo_thenReturnTwoResults() {
         createKnnIndex(2, KNNEngine.FAISS.getName());
 
@@ -106,6 +108,7 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenRescoreEnabled_thenSucceed() {
         createKnnIndex(2, KNNEngine.FAISS.getName());
 
@@ -156,6 +159,7 @@ public class NestedSearchIT extends KNNRestTestCase {
      *
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenDoingExactSearch_thenReturnCorrectResults() {
         createKnnIndex(3, KNNEngine.FAISS.getName());
 
@@ -214,6 +218,7 @@ public class NestedSearchIT extends KNNRestTestCase {
      *
      */
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedWithFaiss_whenFilter_whenDoRadialSearch_thenReturnCorrectResults() {
         createKnnIndex(3, KNNEngine.FAISS.getName());
 

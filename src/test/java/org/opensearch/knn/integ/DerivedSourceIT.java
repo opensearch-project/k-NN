@@ -14,6 +14,7 @@ import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.knn.Pair;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,24 +44,28 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testFlatFields() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true, true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testObjectField() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getObjectIndexContexts("derivedit", true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testNestedField() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getNestedIndexContexts("derivedit", true);
         testDerivedSourceE2E(indexConfigContexts);
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testDerivedSource_whenSegrepLocal_thenDisabled() {
         // Set the data type input for float fields as byte. If derived source gets enabled, the original and derived
         // wont match because original will have source like [0, 1, 2] and derived will have [0.0, 1.0, 2.0]

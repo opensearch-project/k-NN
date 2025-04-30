@@ -20,6 +20,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.List;
 
@@ -33,6 +34,7 @@ public class SegmentReplicationIT extends KNNRestTestCase {
     private static final String INDEX_NAME = "segment-replicated-knn-index";
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testSearchOnReplicas_whenIndexHasDeletedDocs_thenSuccess() {
         createKnnIndex(INDEX_NAME, getKNNSegmentReplicatedIndexSettings(), createKNNIndexMethodFieldMapping(FIELD_NAME, 2));
 
