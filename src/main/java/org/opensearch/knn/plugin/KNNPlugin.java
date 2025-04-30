@@ -279,10 +279,10 @@ public class KNNPlugin extends Plugin
             indexNameExpressionResolver
         );
         RestKNNProfileHandler restKNNProfileHandler = new RestKNNProfileHandler(
-                settings,
-                restController,
-                clusterService,
-                indexNameExpressionResolver
+            settings,
+            restController,
+            clusterService,
+            indexNameExpressionResolver
         );
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
@@ -293,7 +293,7 @@ public class KNNPlugin extends Plugin
         return ImmutableList.of(
             restKNNStatsHandler,
             restKNNWarmupHandler,
-                restKNNProfileHandler,
+            restKNNProfileHandler,
             restGetModelHandler,
             restDeleteModelHandler,
             restTrainModelHandler,
@@ -310,8 +310,8 @@ public class KNNPlugin extends Plugin
         return Arrays.asList(
             new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
             new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
-                new ActionHandler<>(KNNProfileAction.INSTANCE, KNNProfileTransportAction.class),
-                new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
+            new ActionHandler<>(KNNProfileAction.INSTANCE, KNNProfileTransportAction.class),
+            new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
             new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE, TrainingJobRouteDecisionInfoTransportAction.class),
             new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),
             new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),

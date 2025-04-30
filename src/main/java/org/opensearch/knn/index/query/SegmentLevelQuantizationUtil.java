@@ -38,9 +38,9 @@ public class SegmentLevelQuantizationUtil {
         // TODO: We are converting the output of Quantize to byte array for now. But this needs to be fixed when
         // other types of quantized outputs are returned like float[].
         return (byte[]) quantizationService.quantize(
-                segmentLevelQuantizationInfo.getQuantizationState(),
-                vector,
-                quantizationService.createQuantizationOutput(segmentLevelQuantizationInfo.getQuantizationParams())
+            segmentLevelQuantizationInfo.getQuantizationState(),
+            vector,
+            quantizationService.createQuantizationOutput(segmentLevelQuantizationInfo.getQuantizationParams())
         );
     }
 

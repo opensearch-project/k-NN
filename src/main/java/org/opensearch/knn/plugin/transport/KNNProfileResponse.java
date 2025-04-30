@@ -32,11 +32,11 @@ public class KNNProfileResponse extends BroadcastResponse implements ToXContentO
      * Constructor
      */
     public KNNProfileResponse(
-            int totalShards,
-            int successfulShards,
-            int failedShards,
-            List<KNNProfileShardResult> shardResults,
-            List<DefaultShardOperationFailedException> shardFailures
+        int totalShards,
+        int successfulShards,
+        int failedShards,
+        List<KNNProfileShardResult> shardResults,
+        List<DefaultShardOperationFailedException> shardFailures
     ) {
         super(totalShards, successfulShards, failedShards, shardFailures);
         this.shardResults = shardResults != null ? shardResults : List.of();

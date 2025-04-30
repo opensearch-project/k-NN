@@ -20,9 +20,9 @@ public final class KNN990ProfileStateReader {
         SegmentReadState srs = readConfig.getSegmentReadState();
         String field = readConfig.getField();
         String fileName = IndexFileNames.segmentFileName(
-                srs.segmentInfo.name,
-                srs.segmentSuffix,
-                KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
+            srs.segmentInfo.name,
+            srs.segmentSuffix,
+            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
         );
         int targetField = srs.fieldInfos.fieldInfo(field).getFieldNumber();
 

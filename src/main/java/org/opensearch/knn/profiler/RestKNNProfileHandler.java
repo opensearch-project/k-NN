@@ -43,10 +43,10 @@ public class RestKNNProfileHandler extends BaseRestHandler {
     private ClusterService clusterService;
 
     public RestKNNProfileHandler(
-            Settings settings,
-            RestController controller,
-            ClusterService clusterService,
-            IndexNameExpressionResolver indexNameExpressionResolver
+        Settings settings,
+        RestController controller,
+        ClusterService clusterService,
+        IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
@@ -66,9 +66,9 @@ public class RestKNNProfileHandler extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         KNNProfileRequest knnProfileRequest = createKNNProfileRequest(request);
         logger.info(
-                "[KNN] Profile started for the following indices: {} and field: {}",
-                String.join(",", knnProfileRequest.indices()),
-                knnProfileRequest.getFieldName()
+            "[KNN] Profile started for the following indices: {} and field: {}",
+            String.join(",", knnProfileRequest.indices()),
+            knnProfileRequest.getFieldName()
         );
         return channel -> client.execute(KNNProfileAction.INSTANCE, knnProfileRequest, new RestToXContentListener<>(channel));
     }
@@ -86,8 +86,8 @@ public class RestKNNProfileHandler extends BaseRestHandler {
 
         if (invalidIndexNames.size() != 0) {
             throw new KNNInvalidIndicesException(
-                    invalidIndexNames,
-                    "Profile request rejected. One or more indices have 'index.knn' set to false."
+                invalidIndexNames,
+                "Profile request rejected. One or more indices have 'index.knn' set to false."
             );
         }
 

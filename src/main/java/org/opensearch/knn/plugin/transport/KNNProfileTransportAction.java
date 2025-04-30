@@ -32,29 +32,29 @@ import java.util.List;
  * Transport action for profiling KNN vectors in an index
  */
 public class KNNProfileTransportAction extends TransportBroadcastByNodeAction<
-        KNNProfileRequest,
-        KNNProfileResponse,
-        KNNProfileShardResult> {
+    KNNProfileRequest,
+    KNNProfileResponse,
+    KNNProfileShardResult> {
 
     public static Logger logger = LogManager.getLogger(KNNProfileTransportAction.class);
     private final IndicesService indicesService;
 
     @Inject
     public KNNProfileTransportAction(
-            ClusterService clusterService,
-            TransportService transportService,
-            IndicesService indicesService,
-            ActionFilters actionFilters,
-            IndexNameExpressionResolver indexNameExpressionResolver
+        ClusterService clusterService,
+        TransportService transportService,
+        IndicesService indicesService,
+        ActionFilters actionFilters,
+        IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         super(
-                KNNProfileAction.NAME,
-                clusterService,
-                transportService,
-                actionFilters,
-                indexNameExpressionResolver,
-                KNNProfileRequest::new,
-                ThreadPool.Names.SEARCH
+            KNNProfileAction.NAME,
+            clusterService,
+            transportService,
+            actionFilters,
+            indexNameExpressionResolver,
+            KNNProfileRequest::new,
+            ThreadPool.Names.SEARCH
         );
         this.indicesService = indicesService;
     }
@@ -66,13 +66,13 @@ public class KNNProfileTransportAction extends TransportBroadcastByNodeAction<
 
     @Override
     protected KNNProfileResponse newResponse(
-            KNNProfileRequest request,
-            int totalShards,
-            int successfulShards,
-            int failedShards,
-            List<KNNProfileShardResult> shardResults,
-            List<DefaultShardOperationFailedException> shardFailures,
-            ClusterState clusterState
+        KNNProfileRequest request,
+        int totalShards,
+        int successfulShards,
+        int failedShards,
+        List<KNNProfileShardResult> shardResults,
+        List<DefaultShardOperationFailedException> shardFailures,
+        ClusterState clusterState
     ) {
         return new KNNProfileResponse(totalShards, successfulShards, failedShards, shardResults, shardFailures);
     }
@@ -85,15 +85,15 @@ public class KNNProfileTransportAction extends TransportBroadcastByNodeAction<
     @Override
     protected KNNProfileShardResult shardOperation(KNNProfileRequest request, ShardRouting shardRouting) throws IOException {
         KNNIndexShard knnIndexShard = new KNNIndexShard(
-                indicesService.indexServiceSafe(shardRouting.shardId().getIndex()).getShard(shardRouting.shardId().id())
+            indicesService.indexServiceSafe(shardRouting.shardId().getIndex()).getShard(shardRouting.shardId().id())
         );
 
         List<StatisticalSummaryValues> profileResults = knnIndexShard.profile(request.getFieldName());
         logger.info(
-                "[KNN] Profile completed for field: {} on shard: {} - stats count: {}",
-                request.getFieldName(),
-                shardRouting.shardId(),
-                profileResults != null ? profileResults.size() : 0
+            "[KNN] Profile completed for field: {} on shard: {} - stats count: {}",
+            request.getFieldName(),
+            shardRouting.shardId(),
+            profileResults != null ? profileResults.size() : 0
         );
         return new KNNProfileShardResult(shardRouting.shardId(), profileResults);
     }

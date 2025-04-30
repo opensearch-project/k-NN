@@ -158,26 +158,26 @@ public class KNNIndexShard {
             for (int i = 0; i < shardVectorProfile.size(); i++) {
                 StatisticalSummaryValues stats = shardVectorProfile.get(i);
                 log.info(
-                        "[KNN] Dimension {}: count={}, min={}, max={}, mean={}, sum={}, variance={}, std_deviation={}",
-                        i,
-                        stats.getN(),
-                        stats.getMin(),
-                        stats.getMax(),
-                        stats.getMean(),
-                        stats.getSum(),
-                        stats.getVariance(),
-                        Math.sqrt(stats.getVariance())
+                    "[KNN] Dimension {}: count={}, min={}, max={}, mean={}, sum={}, variance={}, std_deviation={}",
+                    i,
+                    stats.getN(),
+                    stats.getMin(),
+                    stats.getMax(),
+                    stats.getMean(),
+                    stats.getSum(),
+                    stats.getVariance(),
+                    Math.sqrt(stats.getVariance())
                 );
             }
 
             log.info("[KNN] Profiling completed for field: {} in shard: {}", fieldName, indexShard.shardId());
         } catch (Exception e) {
             log.error(
-                    "[KNN] Critical error during profiling for field: {} in shard: {}: {}",
-                    fieldName,
-                    indexShard.shardId(),
-                    e.getMessage(),
-                    e
+                "[KNN] Critical error during profiling for field: {} in shard: {}: {}",
+                fieldName,
+                indexShard.shardId(),
+                e.getMessage(),
+                e
             );
         }
 
@@ -196,24 +196,24 @@ public class KNNIndexShard {
             getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                 try {
                     final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(
-                            engineFileContext.vectorFileName,
-                            engineFileContext.segmentInfo
+                        engineFileContext.vectorFileName,
+                        engineFileContext.segmentInfo
                     );
                     nativeMemoryCacheManager.get(
-                            new NativeMemoryEntryContext.IndexEntryContext(
-                                    directory,
-                                    cacheKey,
-                                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                    getParametersAtLoading(
-                                            engineFileContext.getSpaceType(),
-                                            KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
-                                            getIndexName(),
-                                            engineFileContext.getVectorDataType()
-                                    ),
-                                    getIndexName(),
-                                    engineFileContext.getModelId()
+                        new NativeMemoryEntryContext.IndexEntryContext(
+                            directory,
+                            cacheKey,
+                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                            getParametersAtLoading(
+                                engineFileContext.getSpaceType(),
+                                KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
+                                getIndexName(),
+                                engineFileContext.getVectorDataType()
                             ),
-                            true
+                            getIndexName(),
+                            engineFileContext.getModelId()
+                        ),
+                        true
                     );
                 } catch (ExecutionException ex) {
                     throw new RuntimeException(ex);
@@ -240,8 +240,8 @@ public class KNNIndexShard {
             try (Engine.Searcher searcher = indexShard.acquireSearcher(INDEX_SHARD_CLEAR_CACHE_SEARCHER)) {
                 getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                     final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(
-                            engineFileContext.vectorFileName,
-                            engineFileContext.segmentInfo
+                        engineFileContext.vectorFileName,
+                        engineFileContext.segmentInfo
                     );
                     nativeMemoryCacheManager.invalidate(cacheKey);
                 });
@@ -276,8 +276,8 @@ public class KNNIndexShard {
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
             SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
             String fileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-                    ? knnEngine.getCompoundExtension()
-                    : knnEngine.getExtension();
+                ? knnEngine.getCompoundExtension()
+                : knnEngine.getExtension();
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
@@ -287,18 +287,18 @@ public class KNNIndexShard {
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
                     engineFiles.addAll(
-                            getEngineFileContexts(
-                                    reader.getSegmentInfo(),
-                                    fieldInfo.name,
-                                    fileExtension,
-                                    spaceType,
-                                    modelId,
-                                    FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
-                                            ? VectorDataType.get(
-                                            fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-                                    )
-                                            : VectorDataType.BINARY
-                            )
+                        getEngineFileContexts(
+                            reader.getSegmentInfo(),
+                            fieldInfo.name,
+                            fileExtension,
+                            spaceType,
+                            modelId,
+                            FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
+                                ? VectorDataType.get(
+                                    fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+                                )
+                                : VectorDataType.BINARY
+                        )
                     );
                 }
             }
@@ -308,23 +308,23 @@ public class KNNIndexShard {
 
     @VisibleForTesting
     List<EngineFileContext> getEngineFileContexts(
-            SegmentCommitInfo segmentCommitInfo,
-            String fieldName,
-            String fileExtension,
-            SpaceType spaceType,
-            String modelId,
-            VectorDataType vectorDataType
+        SegmentCommitInfo segmentCommitInfo,
+        String fieldName,
+        String fileExtension,
+        SpaceType spaceType,
+        String modelId,
+        VectorDataType vectorDataType
     ) throws IOException {
         // Ex: 0_
         final String prefix = buildEngineFilePrefix(segmentCommitInfo.info.name);
         // Ex: _my_field.faiss
         final String suffix = buildEngineFileSuffix(fieldName, fileExtension);
         return segmentCommitInfo.files()
-                .stream()
-                .filter(fileName -> fileName.startsWith(prefix))
-                .filter(fileName -> fileName.endsWith(suffix))
-                .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
-                .collect(Collectors.toList());
+            .stream()
+            .filter(fileName -> fileName.startsWith(prefix))
+            .filter(fileName -> fileName.endsWith(suffix))
+            .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
+            .collect(Collectors.toList());
     }
 
     @AllArgsConstructor
