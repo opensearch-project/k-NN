@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.apache.commons.math3.stat.descriptive.AggregateSummaryStatistics;
+import org.apache.commons.math3.stat.descriptive.StatisticalSummary;
+import org.apache.commons.math3.stat.descriptive.StatisticalSummaryValues;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.opensearch.action.support.broadcast.BroadcastResponse;
 import org.opensearch.core.action.support.DefaultShardOperationFailedException;
@@ -18,6 +21,81 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Response object for KNN profile requests that provides statistical information about vectors
+ * at segment, shard, and cluster levels.
+ *
+ * Example response:
+ * {
+ *   "total_shards": 2,
+ *   "successful_shards": 2,
+ *   "failed_shards": 0,
+ *   "shard_profiles": {
+ *     "0": {
+ *       "segments": [
+ *         {
+ *           "segment_id": "_0",
+ *           "dimension": 128,
+ *           "vector_statistics": [
+ *             {
+ *               "dimension_index": 0,
+ *               "statistics": {
+ *                 "count": 1000,
+ *                 "min": -0.523,
+ *                 "max": 0.785,
+ *                 "sum": 156.78,
+ *                 "mean": 0.157,
+ *                 "geometric_mean": 0.145,
+ *                 "variance": 0.089,
+ *                 "std_deviation": 0.298,
+ *                 "sum_of_squares": 245.67
+ *               }
+ *             }
+ *             // ... additional dimensions
+ *           ]
+ *         }
+ *         // ... additional segments
+ *       ],
+ *       "aggregated": {
+ *         "total_segments": 3,
+ *         "dimension": 128,
+ *         "dimensions": [
+ *           {
+ *             "dimension_id": 0,
+ *             "count": 3000,
+ *             "min": -0.723,
+ *             "max": 0.892,
+ *             "mean": 0.167,
+ *             "std_deviation": 0.312,
+ *             "sum": 501.23,
+ *             "variance": 0.097
+ *           }
+ *           // ... additional dimensions
+ *         ]
+ *       }
+ *     }
+ *     // ... additional shards
+ *   },
+ *   "cluster_aggregation": {
+ *     "total_shards": 2,
+ *     "dimension": 128,
+ *     "dimensions": [
+ *       {
+ *         "dimension_id": 0,
+ *         "count": 6000,
+ *         "min": -0.723,
+ *         "max": 0.892,
+ *         "mean": 0.172,
+ *         "std_deviation": 0.315,
+ *         "sum": 1032.45,
+ *         "variance": 0.099
+ *       }
+ *       // ... additional dimensions
+ *     ]
+ *   },
+ *   "failures": []
+ * }
+ */
 public class KNNProfileResponse extends BroadcastResponse implements ToXContentObject {
 
     List<KNNIndexShardProfileResult> shardProfileResults;
@@ -26,11 +104,6 @@ public class KNNProfileResponse extends BroadcastResponse implements ToXContentO
 
     public KNNProfileResponse(StreamInput in) throws IOException {
         super(in);
-        int size = in.readInt();
-        shardProfileResults = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            shardProfileResults.add(new KNNIndexShardProfileResult(in));
-        }
     }
 
     public KNNProfileResponse(
@@ -47,12 +120,7 @@ public class KNNProfileResponse extends BroadcastResponse implements ToXContentO
 
     @Override
     public void writeTo(StreamOutput streamOutput) throws IOException {
-        super.writeTo(streamOutput);
-        streamOutput.writeInt(shardProfileResults.size());
-
-        for (KNNIndexShardProfileResult result : shardProfileResults) {
-            result.writeTo(streamOutput);
-        }
+        throw new UnsupportedOperationException("This method is not available");
     }
 
     @Override
@@ -109,40 +177,27 @@ public class KNNProfileResponse extends BroadcastResponse implements ToXContentO
                     .startArray("dimensions");
 
                 for (int dim = 0; dim < dimensionCount; dim++) {
-                    // Initialize aggregation variables
-                    long totalCount = 0;
-                    double min = Double.POSITIVE_INFINITY;
-                    double max = Double.NEGATIVE_INFINITY;
-                    double sumOfValues = 0.0;
-                    double sumOfSquares = 0.0;
+                    List<StatisticalSummary> dimensionStats = new ArrayList<>();
 
-                    // Combine statistics properly
+                    // Collect statistics from all segments for this dimension
                     for (SegmentProfilerState state : shardProfileResult.segmentProfilerStateList) {
                         if (dim < state.getStatistics().size()) {
-                            SummaryStatistics stats = state.getStatistics().get(dim);
-
-                            totalCount += stats.getN();
-                            min = Math.min(min, stats.getMin());
-                            max = Math.max(max, stats.getMax());
-                            sumOfValues += stats.getSum();
-                            sumOfSquares += stats.getSumsq();
+                            dimensionStats.add(state.getStatistics().get(dim));
                         }
                     }
 
-                    // Calculate aggregate statistics
-                    double mean = totalCount > 0 ? sumOfValues / totalCount : 0.0;
-                    double variance = totalCount > 0 ? (sumOfSquares / totalCount) - (mean * mean) : 0.0;
+                    // Use AggregateSummaryStatistics to combine segment statistics
+                    StatisticalSummaryValues aggregatedStats = AggregateSummaryStatistics.aggregate(dimensionStats);
 
                     builder.startObject()
                         .field("dimension_id", dim)
-                        .field("count", totalCount)
-                        .field("min", min == Double.POSITIVE_INFINITY ? 0.0 : min)
-                        .field("max", max == Double.NEGATIVE_INFINITY ? 0.0 : max)
-                        .field("mean", mean)
-                        .field("std_deviation", Math.sqrt(variance))
-                        .field("sum", sumOfValues)
-                        .field("sum_of_squares", sumOfSquares)
-                        .field("variance", variance)
+                        .field("count", aggregatedStats.getN())
+                        .field("min", aggregatedStats.getMin())
+                        .field("max", aggregatedStats.getMax())
+                        .field("mean", aggregatedStats.getMean())
+                        .field("std_deviation", Math.sqrt(aggregatedStats.getVariance()))
+                        .field("sum", aggregatedStats.getSum())
+                        .field("variance", aggregatedStats.getVariance())
                         .endObject();
                 }
                 builder.endArray().endObject();
@@ -151,6 +206,44 @@ public class KNNProfileResponse extends BroadcastResponse implements ToXContentO
             builder.endObject();
         }
         builder.endObject();
+
+        // Add cluster-level aggregation
+        if (!shardProfileResults.isEmpty() && !shardProfileResults.get(0).segmentProfilerStateList.isEmpty()) {
+            SegmentProfilerState firstState = shardProfileResults.get(0).segmentProfilerStateList.get(0);
+            int dimensionCount = firstState.getDimension();
+
+            builder.startObject("cluster_aggregation")
+                .field("total_shards", getSuccessfulShards())
+                .field("dimension", dimensionCount)
+                .startArray("dimensions");
+
+            for (int dim = 0; dim < dimensionCount; dim++) {
+                List<StatisticalSummary> dimensionStats = new ArrayList<>();
+
+                // Collect statistics from all shards and segments for this dimension
+                for (KNNIndexShardProfileResult shardResult : shardProfileResults) {
+                    for (SegmentProfilerState state : shardResult.segmentProfilerStateList) {
+                        if (dim < state.getStatistics().size()) {
+                            dimensionStats.add(state.getStatistics().get(dim));
+                        }
+                    }
+                }
+
+                StatisticalSummaryValues aggregatedStats = AggregateSummaryStatistics.aggregate(dimensionStats);
+
+                builder.startObject()
+                    .field("dimension_id", dim)
+                    .field("count", aggregatedStats.getN())
+                    .field("min", aggregatedStats.getMin())
+                    .field("max", aggregatedStats.getMax())
+                    .field("mean", aggregatedStats.getMean())
+                    .field("std_deviation", Math.sqrt(aggregatedStats.getVariance()))
+                    .field("sum", aggregatedStats.getSum())
+                    .field("variance", aggregatedStats.getVariance())
+                    .endObject();
+            }
+            builder.endArray().endObject();
+        }
 
         // Add any shard failures
         if (getShardFailures() != null && getShardFailures().length > 0) {
@@ -163,4 +256,5 @@ public class KNNProfileResponse extends BroadcastResponse implements ToXContentO
 
         return builder.endObject();
     }
+
 }
