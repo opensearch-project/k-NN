@@ -6,60 +6,71 @@
 package org.opensearch.knn.profiler;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.common.KNNConstants;
+
 import java.io.IOException;
 
+/**
+ * Reader class for segment profiler states
+ */
+@Log4j2
 public final class KNN990ProfileStateReader {
 
+    /**
+     * Reads a segment profiler state for a given field
+     *
+     * @param readConfig config for reading the profiler state
+     * @return SegmentProfilerState object
+     * @throws IOException if there's an error reading the state
+     */
     public static SegmentProfilerState read(SegmentProfileStateReadConfig readConfig) throws IOException {
-        SegmentReadState srs = readConfig.getSegmentReadState();
+        SegmentReadState segmentReadState = readConfig.getSegmentReadState();
         String field = readConfig.getField();
-        String fileName = IndexFileNames.segmentFileName(
-            srs.segmentInfo.name,
-            srs.segmentSuffix,
-            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
-        );
-        int targetField = srs.fieldInfos.fieldInfo(field).getFieldNumber();
+        String stateFileName = getQuantizationStateFileName(segmentReadState);
+        int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
 
-        try (IndexInput in = srs.directory.openInput(fileName, IOContext.DEFAULT)) {
-            CodecUtil.retrieveChecksum(in);
-            int numFields = getNumFields(in);
+        try (IndexInput input = segmentReadState.directory.openInput(stateFileName, IOContext.DEFAULT)) {
+            CodecUtil.retrieveChecksum(input);
+            int numFields = getNumFields(input);
+
             long position = -1;
             int length = 0;
 
+            // Read each field's metadata from the index section, break when correct field is found
             for (int i = 0; i < numFields; i++) {
-                int fnum = in.readInt();
-                int len = in.readInt();
-                long pos = in.readVLong();
-                if (fnum == targetField) {
-                    position = pos;
-                    length = len;
+                int tempFieldNumber = input.readInt();
+                int tempLength = input.readInt();
+                long tempPosition = input.readVLong();
+                if (tempFieldNumber == fieldNumber) {
+                    position = tempPosition;
+                    length = tempLength;
                     break;
                 }
             }
-            if (position < 0) {
-                throw new IllegalArgumentException("Field " + field + " not found in state file");
+
+            if (position == -1 || length == 0) {
+                throw new IllegalArgumentException(String.format("Field %s not found", field));
             }
-            in.seek(position);
-            byte[] info = new byte[length];
-            in.readBytes(info, 0, length);
-            return SegmentProfilerState.fromBytes(info);
+
+            byte[] stateBytes = readStateBytes(input, position, length);
+            return SegmentProfilerState.fromBytes(stateBytes);
         }
     }
 
     @VisibleForTesting
-    static int getNumFields(IndexInput in) throws IOException {
-        long footerStart = in.length() - CodecUtil.footerLength();
-        long markerPos = footerStart - Integer.BYTES - Long.BYTES;
-        in.seek(markerPos);
-        long indexStart = in.readLong();
-        in.seek(indexStart);
-        return in.readInt();
+    static int getNumFields(IndexInput input) throws IOException {
+        long footerStart = input.length() - CodecUtil.footerLength();
+        long markerAndIndexPosition = footerStart - Integer.BYTES - Long.BYTES;
+        input.seek(markerAndIndexPosition);
+        long indexStartPosition = input.readLong();
+        input.seek(indexStartPosition);
+        return input.readInt();
     }
 
     @VisibleForTesting

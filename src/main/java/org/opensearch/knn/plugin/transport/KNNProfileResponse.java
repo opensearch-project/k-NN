@@ -5,168 +5,162 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import lombok.extern.log4j.Log4j2;
-import org.apache.commons.math3.stat.descriptive.StatisticalSummaryValues;
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.opensearch.action.support.broadcast.BroadcastResponse;
 import org.opensearch.core.action.support.DefaultShardOperationFailedException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.profiler.SegmentProfilerState;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 
-/**
- * Response for KNN profile request
- */
-@Log4j2
 public class KNNProfileResponse extends BroadcastResponse implements ToXContentObject {
-    private final List<KNNProfileShardResult> shardResults;
 
-    /**
-     * Constructor
-     */
+    List<KNNIndexShardProfileResult> shardProfileResults;
+
+    public KNNProfileResponse() {}
+
+    public KNNProfileResponse(StreamInput in) throws IOException {
+        super(in);
+        int size = in.readInt();
+        shardProfileResults = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            shardProfileResults.add(new KNNIndexShardProfileResult(in));
+        }
+    }
+
     public KNNProfileResponse(
+        List<KNNIndexShardProfileResult> shardProfileResults,
         int totalShards,
         int successfulShards,
         int failedShards,
-        List<KNNProfileShardResult> shardResults,
         List<DefaultShardOperationFailedException> shardFailures
     ) {
         super(totalShards, successfulShards, failedShards, shardFailures);
-        this.shardResults = shardResults != null ? shardResults : List.of();
-    }
 
-    /**
-     * Constructor for serialization
-     */
-    public KNNProfileResponse(StreamInput in) throws IOException {
-        super(in);
-        int size = in.readVInt();
-        shardResults = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            shardResults.add(new KNNProfileShardResult(in));
-        }
+        this.shardProfileResults = shardProfileResults;
     }
 
     @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-        out.writeVInt(shardResults.size());
-        for (KNNProfileShardResult result : shardResults) {
-            result.writeTo(out);
+    public void writeTo(StreamOutput streamOutput) throws IOException {
+        super.writeTo(streamOutput);
+        streamOutput.writeInt(shardProfileResults.size());
+
+        for (KNNIndexShardProfileResult result : shardProfileResults) {
+            result.writeTo(streamOutput);
         }
-    }
-
-    /**
-     * Get aggregated dimension statistics by index
-     */
-    private Map<String, Map<Integer, Map<String, Object>>> getAggregatedStats() {
-        Map<String, Map<Integer, Map<String, Object>>> indexDimensions = new HashMap<>();
-
-        for (KNNProfileShardResult result : shardResults) {
-            String indexName = result.getShardId().getIndexName();
-            List<StatisticalSummaryValues> stats = result.getDimensionStats();
-
-            if (stats == null || stats.isEmpty()) {
-                continue;
-            }
-
-            Map<Integer, Map<String, Object>> dimensions = indexDimensions.computeIfAbsent(indexName, k -> new HashMap<>());
-
-            for (int i = 0; i < stats.size(); i++) {
-                StatisticalSummaryValues stat = stats.get(i);
-                if (stat == null) {
-                    continue;
-                }
-
-                int finalI = i;
-                Map<String, Object> dimension = dimensions.computeIfAbsent(i, k -> {
-                    Map<String, Object> newDim = new HashMap<>();
-                    newDim.put("dimension", finalI);
-                    newDim.put("count", 0L);
-                    newDim.put("sum", 0.0);
-                    return newDim;
-                });
-
-                long oldCount = (Long) dimension.get("count");
-                double oldSum = (Double) dimension.get("sum");
-                long newCount = oldCount + stat.getN();
-                double newSum = oldSum + stat.getSum();
-
-                dimension.put("count", newCount);
-                dimension.put("sum", newSum);
-                dimension.put("mean", newCount > 0 ? newSum / newCount : 0);
-
-                if (!dimension.containsKey("min") || stat.getMin() < (Double) dimension.get("min")) {
-                    dimension.put("min", stat.getMin());
-                }
-                if (!dimension.containsKey("max") || stat.getMax() > (Double) dimension.get("max")) {
-                    dimension.put("max", stat.getMax());
-                }
-
-                if (newCount > 0) {
-                    dimension.put("variance", stat.getVariance());
-                    dimension.put("std_deviation", Math.sqrt(stat.getVariance()));
-                }
-            }
-        }
-
-        return indexDimensions;
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field("total_shards", getTotalShards());
-        builder.field("successful_shards", getSuccessfulShards());
-        builder.field("failed_shards", getFailedShards());
 
-        builder.startObject("profile_results");
+        builder.field("total_shards", getTotalShards())
+            .field("successful_shards", getSuccessfulShards())
+            .field("failed_shards", getFailedShards())
+            .startObject("shard_profiles");
 
-        try {
-            Map<String, Map<Integer, Map<String, Object>>> indexDimensions = getAggregatedStats();
+        // Add shard profile results
+        for (KNNIndexShardProfileResult shardProfileResult : shardProfileResults) {
+            builder.startObject(shardProfileResult.shardId);
 
-            for (Map.Entry<String, Map<Integer, Map<String, Object>>> indexEntry : indexDimensions.entrySet()) {
-                String indexName = indexEntry.getKey();
-                Map<Integer, Map<String, Object>> dimensions = indexEntry.getValue();
+            // Individual segment statistics
+            builder.startArray("segments");
+            for (SegmentProfilerState state : shardProfileResult.segmentProfilerStateList) {
+                builder.startObject()
+                    .field("segment_id", state.getSegmentId())
+                    .field("dimension", state.getDimension())
+                    .startArray("vector_statistics");
 
-                builder.startObject(indexName);
-                builder.startArray("dimensions");
-
-                List<Integer> dimensionIndices = new ArrayList<>(dimensions.keySet());
-                Collections.sort(dimensionIndices);
-
-                for (Integer dimIndex : dimensionIndices) {
-                    builder.map(dimensions.get(dimIndex));
+                for (int i = 0; i < state.getStatistics().size(); i++) {
+                    SummaryStatistics stats = state.getStatistics().get(i);
+                    builder.startObject()
+                        .field("dimension_index", i)
+                        .startObject("statistics")
+                        .field("count", stats.getN())
+                        .field("min", stats.getMin())
+                        .field("max", stats.getMax())
+                        .field("sum", stats.getSum())
+                        .field("mean", stats.getMean())
+                        .field("geometric_mean", stats.getGeometricMean())
+                        .field("variance", stats.getVariance())
+                        .field("std_deviation", stats.getStandardDeviation())
+                        .field("sum_of_squares", stats.getSumsq())
+                        .endObject()
+                        .endObject();
                 }
 
-                builder.endArray();
-                builder.endObject();
+                builder.endArray().endObject();
+            }
+            builder.endArray();
+
+            // Aggregated statistics for all segments in this shard
+            if (!shardProfileResult.segmentProfilerStateList.isEmpty()) {
+                SegmentProfilerState firstState = shardProfileResult.segmentProfilerStateList.get(0);
+                int dimensionCount = firstState.getDimension();
+
+                builder.startObject("aggregated")
+                    .field("total_segments", shardProfileResult.segmentProfilerStateList.size())
+                    .field("dimension", dimensionCount)
+                    .startArray("dimensions");
+
+                for (int dim = 0; dim < dimensionCount; dim++) {
+                    // Initialize aggregation variables
+                    long totalCount = 0;
+                    double min = Double.POSITIVE_INFINITY;
+                    double max = Double.NEGATIVE_INFINITY;
+                    double sumOfValues = 0.0;
+                    double sumOfSquares = 0.0;
+
+                    // Combine statistics properly
+                    for (SegmentProfilerState state : shardProfileResult.segmentProfilerStateList) {
+                        if (dim < state.getStatistics().size()) {
+                            SummaryStatistics stats = state.getStatistics().get(dim);
+
+                            totalCount += stats.getN();
+                            min = Math.min(min, stats.getMin());
+                            max = Math.max(max, stats.getMax());
+                            sumOfValues += stats.getSum();
+                            sumOfSquares += stats.getSumsq();
+                        }
+                    }
+
+                    // Calculate aggregate statistics
+                    double mean = totalCount > 0 ? sumOfValues / totalCount : 0.0;
+                    double variance = totalCount > 0 ? (sumOfSquares / totalCount) - (mean * mean) : 0.0;
+
+                    builder.startObject()
+                        .field("dimension_id", dim)
+                        .field("count", totalCount)
+                        .field("min", min == Double.POSITIVE_INFINITY ? 0.0 : min)
+                        .field("max", max == Double.NEGATIVE_INFINITY ? 0.0 : max)
+                        .field("mean", mean)
+                        .field("std_deviation", Math.sqrt(variance))
+                        .field("sum", sumOfValues)
+                        .field("sum_of_squares", sumOfSquares)
+                        .field("variance", variance)
+                        .endObject();
+                }
+                builder.endArray().endObject();
             }
 
-        } catch (Exception e) {
-            log.error("Error generating profile results", e);
+            builder.endObject();
         }
-
         builder.endObject();
 
+        // Add any shard failures
         if (getShardFailures() != null && getShardFailures().length > 0) {
             builder.startArray("failures");
             for (DefaultShardOperationFailedException failure : getShardFailures()) {
-                builder.startObject();
                 failure.toXContent(builder, params);
-                builder.endObject();
             }
             builder.endArray();
         }
 
-        builder.endObject();
-        return builder;
+        return builder.endObject();
     }
 }

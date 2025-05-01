@@ -6,15 +6,22 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionType;
+import org.opensearch.core.common.io.stream.Writeable;
 
-/**
- * Action for profiling KNN vectors in an index
- */
 public class KNNProfileAction extends ActionType<KNNProfileResponse> {
-    public static final String NAME = "indices:knn/vector/profile";
-    public static final KNNProfileAction INSTANCE = new KNNProfileAction();
 
+    public static final KNNProfileAction INSTANCE = new KNNProfileAction();
+    public static final String NAME = "cluster:admin/knn_profile_action";
+
+    /**
+     * Constructor
+     */
     private KNNProfileAction() {
         super(NAME, KNNProfileResponse::new);
+    }
+
+    @Override
+    public Writeable.Reader<KNNProfileResponse> getResponseReader() {
+        return KNNProfileResponse::new;
     }
 }

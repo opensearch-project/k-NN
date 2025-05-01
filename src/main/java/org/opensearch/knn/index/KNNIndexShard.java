@@ -9,9 +9,6 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.math3.stat.descriptive.AggregateSummaryStatistics;
-import org.apache.commons.math3.stat.descriptive.StatisticalSummaryValues;
-import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -32,6 +29,7 @@ import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.SegmentProfilerUtil;
+import org.opensearch.knn.plugin.transport.KNNIndexShardProfileResult;
 import org.opensearch.knn.profiler.SegmentProfilerState;
 
 import java.io.IOException;
@@ -87,101 +85,40 @@ public class KNNIndexShard {
         return indexShard.shardId().getIndexName();
     }
 
-    /**
-     * Profile the vector fields in this shard and return statistical information.
-     *
-     * @param fieldName The name of the vector field to profile
-     * @return List of statistical summaries for each dimension
-     */
-    // TODO: Write unit tests to ensure that the segment statistic aggregation is correct.
-    public List<StatisticalSummaryValues> profile(String fieldName) {
-        List<StatisticalSummaryValues> shardVectorProfile = new ArrayList<>();
-
+    public KNNIndexShardProfileResult profile(final String field) {
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-profile")) {
+            log.info("[KNN] Profiling field [{}] in index [{}]", field, getIndexName());
+
             List<SegmentProfilerState> segmentLevelProfilerStates = new ArrayList<>();
 
-            log.info("[KNN] Beginning profiling for field: {} in shard: {}", fieldName, indexShard.shardId());
-
             // For each leaf, collect the profile
-            searcher.getIndexReader().leaves().forEach(leaf -> {
+            for (LeafReaderContext leaf : searcher.getIndexReader().leaves()) {
                 try {
-                    log.info("[KNN] Processing leaf reader for segment: {}", leaf.reader());
-                    SegmentProfilerState state = SegmentProfilerUtil.getSegmentProfileState(leaf.reader(), fieldName);
-                    if (state != null && !state.getStatistics().isEmpty()) {
-                        segmentLevelProfilerStates.add(state);
-                        log.info("[KNN] Successfully obtained segment profile state with dimension: {}", state.getDimension());
-                    }
-                } catch (Exception e) {
-                    log.error("[KNN] Error profiling segment: {}", e.getMessage(), e);
+                    SegmentProfilerState state = SegmentProfilerUtil.getSegmentProfileState(leaf.reader(), field);
+                    segmentLevelProfilerStates.add(state);
+                    log.debug("[KNN] Successfully profiled segment for field [{}]", field);
+                } catch (IOException e) {
+                    log.error("[KNN] Failed to profile segment for field [{}]: {}", field, e.getMessage(), e);
+                    throw new RuntimeException("Failed to profile segment: " + e.getMessage(), e);
                 }
-            });
+            }
 
             if (segmentLevelProfilerStates.isEmpty()) {
-                log.info("[KNN] No segment profiles were collected for field: {} in shard: {}", fieldName, indexShard.shardId());
-                return shardVectorProfile; // Return empty list
-            }
-
-            log.info("[KNN] Collected {} segment profiles", segmentLevelProfilerStates.size());
-
-            // Get dimension and validate all segments have the same dimension
-            int dimension = segmentLevelProfilerStates.get(0).getDimension();
-            boolean dimensionsMatch = segmentLevelProfilerStates.stream().allMatch(state -> state.getDimension() == dimension);
-
-            if (!dimensionsMatch) {
-                log.error("[KNN] Inconsistent dimensions found across segments");
-                return shardVectorProfile; // Return empty list
-            }
-
-            log.info("[KNN] Vector dimension: {}", dimension);
-
-            // Transpose our list to aggregate per dimension
-            for (int i = 0; i < dimension; i++) {
-                final int dimensionId = i;
-                List<SummaryStatistics> transposed = new ArrayList<>();
-
-                for (SegmentProfilerState state : segmentLevelProfilerStates) {
-                    List<SummaryStatistics> stateStats = state.getStatistics();
-                    if (dimensionId < stateStats.size()) {
-                        SummaryStatistics stat = stateStats.get(dimensionId);
-                        if (stat != null) {
-                            transposed.add(stat);
-                        }
-                    }
-                }
-
-                if (!transposed.isEmpty()) {
-                    shardVectorProfile.add(AggregateSummaryStatistics.aggregate(transposed));
-                }
-            }
-
-            // Log the results for each dimension
-            for (int i = 0; i < shardVectorProfile.size(); i++) {
-                StatisticalSummaryValues stats = shardVectorProfile.get(i);
+                log.warn("[KNN] No segments found with field [{}] in index [{}]", field, getIndexName());
+            } else {
                 log.info(
-                    "[KNN] Dimension {}: count={}, min={}, max={}, mean={}, sum={}, variance={}, std_deviation={}",
-                    i,
-                    stats.getN(),
-                    stats.getMin(),
-                    stats.getMax(),
-                    stats.getMean(),
-                    stats.getSum(),
-                    stats.getVariance(),
-                    Math.sqrt(stats.getVariance())
+                    "[KNN] Successfully profiled [{}] segments for field [{}] in index [{}]",
+                    segmentLevelProfilerStates.size(),
+                    field,
+                    getIndexName()
                 );
             }
 
-            log.info("[KNN] Profiling completed for field: {} in shard: {}", fieldName, indexShard.shardId());
+            return new KNNIndexShardProfileResult(segmentLevelProfilerStates, indexShard.shardId().toString());
         } catch (Exception e) {
-            log.error(
-                "[KNN] Critical error during profiling for field: {} in shard: {}: {}",
-                fieldName,
-                indexShard.shardId(),
-                e.getMessage(),
-                e
-            );
+            log.error("[KNN] Error profiling field [{}] in index [{}]: {}", field, getIndexName(), e.getMessage(), e);
+            throw new RuntimeException("Error during profiling: " + e.getMessage(), e);
         }
-
-        return shardVectorProfile;
     }
 
     /**
@@ -336,14 +273,5 @@ public class KNNIndexShard {
         private final String vectorFileName;
         private final VectorDataType vectorDataType;
         private final SegmentInfo segmentInfo;
-    }
-
-    /**
-     * Profile the vector fields in this shard with default field name.
-     *
-     * @return List of statistical summaries for each dimension
-     */
-    public List<StatisticalSummaryValues> profile() {
-        return profile("target_field");
     }
 }

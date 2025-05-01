@@ -5,72 +5,50 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.Getter;
+import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.broadcast.BroadcastRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 
-/**
- * Request for KNN profile operation
- */
+@Getter
 public class KNNProfileRequest extends BroadcastRequest<KNNProfileRequest> {
-    private String fieldName;
+
+    private String index;
+    private String field;
 
     /**
      * Constructor
      */
-    public KNNProfileRequest() {
+    public KNNProfileRequest(String index, String field) {
         super();
+        this.index = index;
+        this.field = field;
     }
 
     /**
-     * Constructor with indices
+     * Constructor
      *
-     * @param indices Indices to profile
-     */
-    public KNNProfileRequest(String... indices) {
-        super(indices);
-    }
-
-    /**
-     * Constructor from StreamInput
-     *
-     * @param in StreamInput
-     * @throws IOException if there's an error reading from stream
+     * @param in input stream
+     * @throws IOException in case of I/O errors
      */
     public KNNProfileRequest(StreamInput in) throws IOException {
         super(in);
-        this.fieldName = in.readOptionalString();
+        index = in.readString();
+        field = in.readString();
     }
 
-    /**
-     * Write to StreamOutput
-     *
-     * @param out StreamOutput
-     * @throws IOException if there's an error writing to stream
-     */
+    @Override
+    public ActionRequestValidationException validate() {
+        return null;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeOptionalString(fieldName);
-    }
-
-    /**
-     * Get field name to profile
-     *
-     * @return field name
-     */
-    public String getFieldName() {
-        return fieldName;
-    }
-
-    /**
-     * Set field name to profile
-     *
-     * @param fieldName field name
-     */
-    public void setFieldName(String fieldName) {
-        this.fieldName = fieldName;
+        out.writeString(index);
+        out.writeString(field);
     }
 }

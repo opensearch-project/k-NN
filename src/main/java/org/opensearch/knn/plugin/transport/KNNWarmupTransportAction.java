@@ -91,7 +91,6 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
         );
 
         knnIndexShard.warmup();
-        knnIndexShard.profile();
         return EmptyResult.INSTANCE;
     }
 

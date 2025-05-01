@@ -272,13 +272,8 @@ public class KNNPlugin extends Plugin
     ) {
 
         RestKNNStatsHandler restKNNStatsHandler = new RestKNNStatsHandler();
+        RestKNNProfileHandler restKNNProfileHandler = new RestKNNProfileHandler();
         RestKNNWarmupHandler restKNNWarmupHandler = new RestKNNWarmupHandler(
-            settings,
-            restController,
-            clusterService,
-            indexNameExpressionResolver
-        );
-        RestKNNProfileHandler restKNNProfileHandler = new RestKNNProfileHandler(
             settings,
             restController,
             clusterService,
