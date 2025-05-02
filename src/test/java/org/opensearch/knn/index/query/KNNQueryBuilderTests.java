@@ -198,7 +198,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = ((NativeEngineKnnVectorQuery) knnQueryBuilder.doToQuery(mockQueryShardContext)).getKnnQuery();
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
@@ -606,8 +606,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then
         assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(NativeEngineKnnVectorQuery.class));
-        assertEquals(HNSW_METHOD_PARAMS, ((NativeEngineKnnVectorQuery) query).getKnnQuery().getMethodParameters());
+        assertTrue(query instanceof KNNQuery);
+        assertEquals(HNSW_METHOD_PARAMS, ((KNNQuery) query).getMethodParameters());
     }
 
     public void testDoToQuery_ThrowsIllegalArgumentExceptionForUnknownMethodParameter() {
@@ -718,7 +718,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 }
             } else {
                 // If memory optimized search is turned off then, use Native query
-                assertTrue(query instanceof NativeEngineKnnVectorQuery);
+                assertTrue(query instanceof KNNQuery);
                 assertFalse(query instanceof LuceneEngineKnnVectorQuery);
             }
         }
@@ -750,7 +750,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNQueryBuilder.initialize(modelDao);
 
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = ((NativeEngineKnnVectorQuery) knnQueryBuilder.doToQuery(mockQueryShardContext)).getKnnQuery();
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
@@ -1106,7 +1106,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 32));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = ((NativeEngineKnnVectorQuery) knnQueryBuilder.doToQuery(mockQueryShardContext)).getKnnQuery();
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertArrayEquals(expectedQueryVector, query.getByteQueryVector());
         assertNull(query.getQueryVector());
     }
