@@ -16,6 +16,7 @@ import org.apache.lucene.document.KnnByteVectorField;
 
 public class DerivedKnnByteVectorField extends KnnByteVectorField {
 
+    // comment
     @Getter
     private final boolean isDerivedEnabled;
 
