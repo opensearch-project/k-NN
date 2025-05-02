@@ -32,7 +32,7 @@ public final class KNN990ProfileStateReader {
     public static SegmentProfilerState read(SegmentProfileStateReadConfig readConfig) throws IOException {
         SegmentReadState segmentReadState = readConfig.getSegmentReadState();
         String field = readConfig.getField();
-        String stateFileName = getQuantizationStateFileName(segmentReadState);
+        String stateFileName = getProfileStateFileName(segmentReadState);
         int fieldNumber = segmentReadState.fieldInfos.fieldInfo(field).getFieldNumber();
 
         try (IndexInput input = segmentReadState.directory.openInput(stateFileName, IOContext.DEFAULT)) {
@@ -81,8 +81,17 @@ public final class KNN990ProfileStateReader {
         return stateBytes;
     }
 
+//    @VisibleForTesting
+//    static String getQuantizationStateFileName(SegmentReadState state) {
+//        return IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
+//    }
+
     @VisibleForTesting
-    static String getQuantizationStateFileName(SegmentReadState state) {
-        return IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
+    static String getProfileStateFileName(SegmentReadState state) {
+        return IndexFileNames.segmentFileName(
+                state.segmentInfo.name,
+                state.segmentSuffix,
+                KNNConstants.SEGMENT_PROFILE_STATE_FILE_SUFFIX // Add this constant to KNNConstants
+        );
     }
 }
