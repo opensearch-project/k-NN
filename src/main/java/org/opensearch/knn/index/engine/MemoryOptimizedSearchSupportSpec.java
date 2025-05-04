@@ -5,15 +5,13 @@
 
 package org.opensearch.knn.index.engine;
 
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -26,7 +24,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
  * The overall logic will be made based on the given method context and quantization configuration.
  */
 public class MemoryOptimizedSearchSupportSpec {
-    private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ);
+    private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY);
 
     /**
      * Determine whether if a KNN field supports memory-optimized-search.
@@ -34,15 +32,15 @@ public class MemoryOptimizedSearchSupportSpec {
      * Which can be obtained from a factory acquired from {@link KNNEngine#getVectorSearcherFactory()}.
      *
      * @param methodContextOpt   Optional method context.
-     * @param quantizationConfig Quantization configuration.
-     * @param vectorDataType Vector data type.
+     * @param modelId            Optional model id that a mapping is referring to.
      * @return True if memory-optimized-search is supported, otherwise false.
      */
-    public static boolean supported(
-        final Optional<KNNMethodContext> methodContextOpt,
-        final QuantizationConfig quantizationConfig,
-        final VectorDataType vectorDataType
-    ) {
+    public static boolean supported(final Optional<KNNMethodContext> methodContextOpt, Optional<String> modelId) {
+        // PQ is not supported.
+        if (modelId.isPresent()) {
+            return false;
+        }
+
         if (methodContextOpt.isPresent()) {
             final KNNMethodContext methodContext = methodContextOpt.get();
             final KNNEngine engine = methodContext.getKnnEngine();
@@ -63,29 +61,16 @@ public class MemoryOptimizedSearchSupportSpec {
                 return false;
             }
 
-            // We don't support quantization yet.
-            if (quantizationConfig != null && quantizationConfig.getQuantizationType() != null) {
-                return false;
-            }
-
-            // Only support FLOAT/BYTE index.
-            if (vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.BYTE) {
-                return false;
-            }
-
-            // L2 or Inner product are supported.
-            if (methodContext.getSpaceType() != SpaceType.L2 && methodContext.getSpaceType() != SpaceType.INNER_PRODUCT) {
-                return false;
-            }
-
-            // We only support Flat and SQ encoder for HNSW.
+            // We only support Flat, SQ and binary encoder for HNSW.
             final Map<String, Object> parameters = methodComponentContext.getParameters();
             final Object methodComponentContextObj = parameters.get(METHOD_ENCODER_PARAMETER);
             if ((methodComponentContextObj instanceof MethodComponentContext) == false) {
                 return false;
             }
 
-            if (SUPPORTED_HNSW_ENCODING.contains(((MethodComponentContext) methodComponentContextObj).getName()) == false) {
+            final MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) methodComponentContextObj;
+
+            if (SUPPORTED_HNSW_ENCODING.contains(encoderMethodComponentContext.getName()) == false) {
                 return false;
             }
 

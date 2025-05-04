@@ -5,9 +5,9 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
-import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
@@ -15,6 +15,7 @@ import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.hnsw.HnswGraphSearcher;
 import org.apache.lucene.util.hnsw.OrdinalTranslatedKnnCollector;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 
 import java.io.IOException;
@@ -23,15 +24,22 @@ import java.io.IOException;
  * This searcher directly reads FAISS index file via the provided {@link IndexInput} then perform vector search on it.
  */
 public class FaissMemoryOptimizedSearcher implements VectorSearcher {
-    private static final FlatVectorsScorer VECTOR_SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
-
     private final IndexInput indexInput;
     private final FaissIndex faissIndex;
+    private final FlatVectorsScorer flatVectorsScorer;
     private final FaissHNSW hnsw;
+    private final VectorSimilarityFunction vectorSimilarityFunction;
 
     public FaissMemoryOptimizedSearcher(IndexInput indexInput) throws IOException {
         this.indexInput = indexInput;
         this.faissIndex = FaissIndex.load(indexInput);
+        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
+        this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
+        if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
+            vectorSimilarityFunction = knnVectorSimilarityFunction.getVectorSimilarityFunction();
+        } else {
+            vectorSimilarityFunction = null;
+        }
         this.hnsw = extractFaissHnsw(faissIndex);
     }
 
@@ -47,11 +55,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     public void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         search(
             VectorEncoding.FLOAT32,
-            () -> VECTOR_SCORER.getRandomVectorScorer(
-                faissIndex.getVectorSimilarityFunction().getVectorSimilarityFunction(),
-                faissIndex.getFloatValues(indexInput),
-                target
-            ),
+            () -> flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, faissIndex.getFloatValues(indexInput), target),
             knnCollector,
             acceptDocs
         );
@@ -61,11 +65,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     public void search(byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         search(
             VectorEncoding.BYTE,
-            () -> VECTOR_SCORER.getRandomVectorScorer(
-                faissIndex.getVectorSimilarityFunction().getVectorSimilarityFunction(),
-                faissIndex.getByteValues(indexInput),
-                target
-            ),
+            () -> flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, faissIndex.getByteValues(indexInput), target),
             knnCollector,
             acceptDocs
         );
