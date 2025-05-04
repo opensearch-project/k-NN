@@ -299,20 +299,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         }
     }
 
-//private void initSegmentStateWriterIfNecessary() throws IOException {
-//    if (segmentStateWriter == null) {
-//        String profileStateFileName = IndexFileNames.segmentFileName(
-//                segmentWriteState.segmentInfo.name,
-//                segmentWriteState.segmentSuffix,
-//                KNNConstants.SEGMENT_PROFILE_STATE_FILE_SUFFIX
-//        );
-//        segmentStateWriter = new KNN990QuantizationStateWriter(
-//                segmentWriteState.directory.createOutput(profileStateFileName, segmentWriteState.context)
-//        );
-//        segmentStateWriter.writeHeader(segmentWriteState);
-//    }
-//}
-
     private boolean shouldSkipBuildingVectorDataStructure(final long docCount) {
         if (approximateThreshold < 0) {
             return true;

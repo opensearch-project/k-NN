@@ -81,17 +81,12 @@ public final class KNN990ProfileStateReader {
         return stateBytes;
     }
 
-//    @VisibleForTesting
-//    static String getQuantizationStateFileName(SegmentReadState state) {
-//        return IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
-//    }
-
     @VisibleForTesting
     static String getProfileStateFileName(SegmentReadState state) {
         return IndexFileNames.segmentFileName(
                 state.segmentInfo.name,
                 state.segmentSuffix,
-                KNNConstants.SEGMENT_PROFILE_STATE_FILE_SUFFIX // Add this constant to KNNConstants
+                KNNConstants.SEGMENT_PROFILE_STATE_FILE_SUFFIX
         );
     }
 }

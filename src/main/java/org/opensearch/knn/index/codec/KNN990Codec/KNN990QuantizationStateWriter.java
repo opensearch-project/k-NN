@@ -112,26 +112,6 @@ public final class KNN990QuantizationStateWriter {
         fieldQuantizationStates.add(new FieldQuantizationState(fieldNumber, stateBytes, position));
     }
 
-    public void writeState(int fieldNumber, Object state) throws IOException {
-        byte[] stateBytes;
-        byte stateType; // Add a type identifier
-
-        if (state instanceof QuantizationState) {
-            stateBytes = ((QuantizationState) state).toByteArray();
-            stateType = 1; // Quantization state
-        } else if (state instanceof SegmentProfilerState) {
-            stateBytes = ((SegmentProfilerState) state).toByteArray();
-            stateType = 2; // Profiler state
-        } else {
-            throw new IllegalArgumentException("Unsupported state type: " + state.getClass());
-        }
-
-        long position = output.getFilePointer();
-        output.writeByte(stateType); // Write the type identifier
-        output.writeBytes(stateBytes, stateBytes.length);
-        fieldQuantizationStates.add(new FieldQuantizationState(fieldNumber, stateBytes, position));
-    }
-
     /**
      * Writes a segment profile state as bytes
      *
