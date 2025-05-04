@@ -23,6 +23,9 @@ import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -33,6 +36,8 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 public class FaissIdMapIndexTests extends KNNTestCase {
+    public static final int CODE_SIZE = 64;
+
     public void testLoadDenseCase() {
         // Dimension : 128
         // #Vectors : 100
@@ -157,6 +162,21 @@ public class FaissIdMapIndexTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testLoadBinaryIdMapIndex() {
+        final String relativePath = "data/memoryoptsearch/faiss_binary_50_vectors_512_dim.bin";
+        final URL floatFloatVectors = FaissHNSWTests.class.getClassLoader().getResource(relativePath);
+        byte[] bytes = Files.readAllBytes(Path.of(floatFloatVectors.toURI()));
+        final IndexInput indexInput = new ByteArrayIndexInput("FaissIndexFloatFlatTests", bytes);
+
+        final FaissIndex faissIndex = FaissIndex.load(indexInput);
+        assert (faissIndex instanceof FaissIdMapIndex);
+
+        final FaissIdMapIndex faissIdMapIndex = (FaissIdMapIndex) faissIndex;
+        assertEquals(FaissIdMapIndex.IBMP, faissIdMapIndex.getIndexType());
+        assertEquals(CODE_SIZE, faissIdMapIndex.getCodeSize());
+    }
+
+    @SneakyThrows
     private static long[] getVectorIdToDocIdMapping(final FaissIdMapIndex index, final int totalNumberOfVectors) {
         final Field field = FaissIdMapIndex.class.getDeclaredField("idMappingReader");
         field.setAccessible(true);
@@ -235,7 +255,7 @@ public class FaissIdMapIndexTests extends KNNTestCase {
 
     @SneakyThrows
     private static FaissIdMapIndex triggerDoLoad(final IndexInput input) {
-        final FaissIdMapIndex index = new FaissIdMapIndex();
+        final FaissIdMapIndex index = new FaissIdMapIndex(FaissIdMapIndex.IXMP);
         final Method doLoadMethod = FaissIdMapIndex.class.getDeclaredMethod("doLoad", IndexInput.class);
         doLoadMethod.setAccessible(true);
         doLoadMethod.invoke(index, input);
