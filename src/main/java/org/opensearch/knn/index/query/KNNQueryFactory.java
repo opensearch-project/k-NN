@@ -26,6 +26,7 @@ import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
+import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS;
 
 /**
  * Creates the Lucene k-NN queries
@@ -50,7 +51,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
         final KNNEngine knnEngine = createQueryRequest.getKnnEngine();
-        final boolean expandNested = createQueryRequest.getExpandNested().orElse(false);
+        final boolean expandNested = createQueryRequest.isExpandNested();
         BitSetProducer parentFilter = null;
         int shardId = -1;
         if (createQueryRequest.getContext().isPresent()) {
@@ -113,7 +114,12 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .build();
             }
 
-            return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.INSTANCE, expandNested);
+            if (createQueryRequest.getRescoreContext().isPresent()
+                || (ENGINES_SUPPORTING_NESTED_FIELDS.contains(createQueryRequest.getKnnEngine()) && expandNested)) {
+                return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.INSTANCE, expandNested);
+            }
+
+            return knnQuery;
         }
 
         Integer requestEfSearch = null;

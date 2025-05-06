@@ -550,7 +550,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .filter(this.filter)
                 .context(context)
                 .rescoreContext(processedRescoreContext)
-                .expandNested(expandNested)
+                .expandNested(expandNested == null ? false : expandNested)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }
