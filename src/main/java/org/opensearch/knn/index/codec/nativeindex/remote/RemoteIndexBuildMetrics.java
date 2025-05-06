@@ -141,7 +141,7 @@ public class RemoteIndexBuildMetrics {
             log.debug("Remote index build succeeded after {} ms for vector field [{}]", time_in_millis, fieldName);
         } else {
             INDEX_BUILD_FAILURE_COUNT.increment();
-            log.warn("Remote index build failed after {} ms for vector field [{}]", time_in_millis, fieldName);
+            log.debug("Remote index build failed after {} ms for vector field [{}]", time_in_millis, fieldName);
         }
         if (isFlush) {
             REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.decrement();
