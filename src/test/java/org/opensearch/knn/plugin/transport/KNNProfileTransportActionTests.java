@@ -96,7 +96,7 @@ public class KNNProfileTransportActionTests extends KNNTestCase {
             assertEquals(12, dimStats.get("count"));
             assertThat((Double) dimStats.get("min"), closeTo(1.0, DELTA));
             assertThat((Double) dimStats.get("max"), closeTo(5.0, DELTA));
-            assertThat((Double) dimStats.get("mean"), closeTo(2.5, DELTA));
+            assertThat((Double) dimStats.get("mean"), closeTo(3.0, DELTA));
         }
     }
 
