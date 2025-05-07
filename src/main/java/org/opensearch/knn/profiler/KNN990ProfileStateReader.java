@@ -83,10 +83,6 @@ public final class KNN990ProfileStateReader {
 
     @VisibleForTesting
     static String getProfileStateFileName(SegmentReadState state) {
-        return IndexFileNames.segmentFileName(
-                state.segmentInfo.name,
-                state.segmentSuffix,
-                KNNConstants.SEGMENT_PROFILE_STATE_FILE_SUFFIX
-        );
+        return IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, KNNConstants.SEGMENT_PROFILE_STATE_FILE_SUFFIX);
     }
 }

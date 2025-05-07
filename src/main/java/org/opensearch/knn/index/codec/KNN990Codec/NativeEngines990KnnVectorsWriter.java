@@ -287,7 +287,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
     private void initQuantizationStateWriterIfNecessary() throws IOException {
         if (quantizationStateWriter == null) {
-            quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState,  KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
+            quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState, KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
             quantizationStateWriter.writeHeader(segmentWriteState);
         }
     }

@@ -18,7 +18,6 @@ public class KNNIndexShardProfileResult implements Writeable {
     List<SegmentProfilerState> segmentProfilerStateList;
     String shardId;
 
-    @Override
     public void writeTo(StreamOutput streamOutput) throws IOException {
         streamOutput.writeString(shardId);
 

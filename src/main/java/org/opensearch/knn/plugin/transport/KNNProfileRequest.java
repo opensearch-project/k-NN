@@ -16,8 +16,8 @@ import java.io.IOException;
 @Getter
 public class KNNProfileRequest extends BroadcastRequest<KNNProfileRequest> {
 
-    private String index;
-    private String field;
+    private final String index;
+    private final String field;
 
     /**
      * Constructor
