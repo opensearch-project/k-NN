@@ -28,6 +28,9 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.SegmentProfilerUtil;
+import org.opensearch.knn.plugin.transport.KNNIndexShardProfileResult;
+import org.opensearch.knn.profiler.SegmentProfilerState;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -80,6 +83,42 @@ public class KNNIndexShard {
      */
     public String getIndexName() {
         return indexShard.shardId().getIndexName();
+    }
+
+    public KNNIndexShardProfileResult profile(final String field) {
+        try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-profile")) {
+            log.info("[KNN] Profiling field [{}] in index [{}]", field, getIndexName());
+
+            List<SegmentProfilerState> segmentLevelProfilerStates = new ArrayList<>();
+
+            // For each leaf, collect the profile
+            for (LeafReaderContext leaf : searcher.getIndexReader().leaves()) {
+                try {
+                    SegmentProfilerState state = SegmentProfilerUtil.getSegmentProfileState(leaf.reader(), field);
+                    segmentLevelProfilerStates.add(state);
+                    log.debug("[KNN] Successfully profiled segment for field [{}]", field);
+                } catch (IOException e) {
+                    log.error("[KNN] Failed to profile segment for field [{}]: {}", field, e.getMessage(), e);
+                    throw new RuntimeException("Failed to profile segment: " + e.getMessage(), e);
+                }
+            }
+
+            if (segmentLevelProfilerStates.isEmpty()) {
+                log.warn("[KNN] No segments found with field [{}] in index [{}]", field, getIndexName());
+            } else {
+                log.info(
+                    "[KNN] Successfully profiled [{}] segments for field [{}] in index [{}]",
+                    segmentLevelProfilerStates.size(),
+                    field,
+                    getIndexName()
+                );
+            }
+
+            return new KNNIndexShardProfileResult(segmentLevelProfilerStates, indexShard.shardId().toString());
+        } catch (Exception e) {
+            log.error("[KNN] Error profiling field [{}] in index [{}]: {}", field, getIndexName(), e.getMessage(), e);
+            throw new RuntimeException("Error during profiling: " + e.getMessage(), e);
+        }
     }
 
     /**
