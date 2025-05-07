@@ -31,12 +31,14 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.List;
+import java.util.Random;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
+import static org.hamcrest.Matchers.closeTo;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -187,5 +189,94 @@ public class KNNProfileTransportActionIT extends KNNRestTestCase {
 
     private Settings getIndexSettings() {
         return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put(KNN_INDEX, true).build();
+    }
+
+    @SneakyThrows
+    public void testProfileWithNormalizedDistribution() {
+        final int dimension = 4;
+        final int numDocs = 1000;
+        final double expectedMean = 0.5;
+        final double allowedDeviation = 0.05;
+
+        createKnnIndex(INDEX_NAME, getIndexSettings(), createKnnIndexMapping(FIELD_NAME, dimension));
+
+        Random random = new Random(42);
+        for (int i = 0; i < numDocs; i++) {
+            float[] vector = new float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = random.nextFloat();
+            }
+            addKnnDoc(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector);
+        }
+
+        refreshIndex(INDEX_NAME);
+        forceMerge(INDEX_NAME);
+
+        Response profileResponse = executeProfileRequest(INDEX_NAME, FIELD_NAME);
+        Map<String, Object> responseMap = parseResponse(profileResponse);
+
+        Map<String, Object> clusterAgg = (Map<String, Object>) responseMap.get("cluster_aggregation");
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) clusterAgg.get("dimensions");
+
+        for (Map<String, Object> dimStats : dimensions) {
+            double mean = (Double) dimStats.get("mean");
+            double min = (Double) dimStats.get("min");
+            double max = (Double) dimStats.get("max");
+            double stdDev = (Double) dimStats.get("std_deviation");
+
+            assertTrue(Math.abs(mean - expectedMean) < allowedDeviation);
+
+            assertTrue(min >= 0.0 && min < 1.0);
+            assertTrue(max > 0.0 && max <= 1.0);
+
+            assertTrue(Math.abs(stdDev - 0.289) < allowedDeviation);
+        }
+    }
+
+    @SneakyThrows
+    public void testExplicitSegmentAggregation() {
+        final int dimension = 4;
+
+        createKnnIndex(INDEX_NAME, getIndexSettings(), createKnnIndexMapping(FIELD_NAME, dimension));
+
+        float[] firstSegmentValue = new float[] { 0.1f, 0.2f, 0.3f, 0.4f };
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, firstSegmentValue);
+        refreshIndex(INDEX_NAME);
+
+        float[] secondSegmentValue = new float[] { 0.5f, 0.6f, 0.7f, 0.8f };
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, secondSegmentValue);
+        refreshIndex(INDEX_NAME);
+
+        Response profileResponse = executeProfileRequest(INDEX_NAME, FIELD_NAME);
+        Map<String, Object> responseMap = parseResponse(profileResponse);
+
+        Map<String, Object> shardProfiles = (Map<String, Object>) responseMap.get("shard_profiles");
+        Map<String, Object> shardProfile = (Map<String, Object>) shardProfiles.get("0");
+        List<Map<String, Object>> segments = (List<Map<String, Object>>) shardProfile.get("segments");
+
+        assertEquals(2, segments.size());
+
+        Map<String, Object> aggregated = (Map<String, Object>) shardProfile.get("aggregated");
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) aggregated.get("dimensions");
+
+        for (int i = 0; i < dimension; i++) {
+            Map<String, Object> dimStats = dimensions.get(i);
+
+            double expectedMin = Math.min(firstSegmentValue[i], secondSegmentValue[i]);
+            double expectedMax = Math.max(firstSegmentValue[i], secondSegmentValue[i]);
+            double expectedMean = (firstSegmentValue[i] + secondSegmentValue[i]) / 2.0;
+
+            assertEquals(2L, dimStats.get("count"));
+            assertThat((Double) dimStats.get("min"), closeTo(expectedMin, 0.0001));
+            assertThat((Double) dimStats.get("max"), closeTo(expectedMax, 0.0001));
+            assertThat((Double) dimStats.get("mean"), closeTo(expectedMean, 0.0001));
+        }
+    }
+
+    private void forceMerge(String indexName) throws IOException {
+        Request request = new Request("POST", "/" + indexName + "/_forcemerge");
+        request.addParameter("max_num_segments", "1");
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 }

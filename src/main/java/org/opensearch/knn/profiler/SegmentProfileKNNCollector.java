@@ -10,6 +10,10 @@ import lombok.Setter;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopDocs;
 
+/**
+ * Segment profiler collector for KNN plugin which is used to
+ * collect profiling information for a segment.
+ */
 @Setter
 @Getter
 public class SegmentProfileKNNCollector implements KnnCollector {

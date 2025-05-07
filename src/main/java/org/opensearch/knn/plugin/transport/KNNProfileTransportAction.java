@@ -5,8 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.broadcast.node.TransportBroadcastByNodeAction;
 import org.opensearch.cluster.ClusterState;
@@ -27,12 +26,11 @@ import org.opensearch.transport.TransportService;
 import java.io.IOException;
 import java.util.List;
 
+@Log4j2
 public class KNNProfileTransportAction extends TransportBroadcastByNodeAction<
     KNNProfileRequest,
     KNNProfileResponse,
     KNNIndexShardProfileResult> {
-
-    public static Logger logger = LogManager.getLogger(KNNProfileTransportAction.class);
 
     private IndicesService indicesService;
 
@@ -56,9 +54,14 @@ public class KNNProfileTransportAction extends TransportBroadcastByNodeAction<
         this.indicesService = indicesService;
     }
 
+    // @Override
+    // protected KNNIndexShardProfileResult readShardResult(StreamInput in) throws IOException {
+    // return new KNNIndexShardProfileResult(null, null);
+    // }
+
     @Override
     protected KNNIndexShardProfileResult readShardResult(StreamInput in) throws IOException {
-        return new KNNIndexShardProfileResult(null, null);
+        return new KNNIndexShardProfileResult(in);
     }
 
     @Override

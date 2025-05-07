@@ -47,14 +47,18 @@ public final class KNN990QuantizationStateWriter {
      * @param segmentWriteState segment write state containing segment information
      * @throws IOException exception could be thrown while creating the output
      */
-    public KNN990QuantizationStateWriter(SegmentWriteState segmentWriteState) throws IOException {
-        String quantizationStateFileName = IndexFileNames.segmentFileName(
+    public KNN990QuantizationStateWriter(SegmentWriteState segmentWriteState, String fileSuffix) throws IOException {
+        String stateFileName = IndexFileNames.segmentFileName(
             segmentWriteState.segmentInfo.name,
             segmentWriteState.segmentSuffix,
-            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
+            fileSuffix
         );
 
-        output = segmentWriteState.directory.createOutput(quantizationStateFileName, segmentWriteState.context);
+        output = segmentWriteState.directory.createOutput(stateFileName, segmentWriteState.context);
+    }
+
+    public KNN990QuantizationStateWriter(SegmentWriteState segmentWriteState) throws IOException {
+        this(segmentWriteState, KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX);
     }
 
     /**

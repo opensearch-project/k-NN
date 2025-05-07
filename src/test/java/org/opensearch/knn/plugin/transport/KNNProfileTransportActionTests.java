@@ -100,6 +100,19 @@ public class KNNProfileTransportActionTests extends KNNTestCase {
         }
     }
 
+    public void testEmptyResponse() throws IOException {
+        KNNProfileResponse emptyResponse = new KNNProfileResponse(new ArrayList<>(), 0, 0, 0, new ArrayList<>());
+
+        XContentBuilder builder = jsonBuilder();
+        emptyResponse.toXContent(builder, ToXContent.EMPTY_PARAMS);
+        Map<String, Object> responseMap = createParser(builder).map();
+
+        assertEquals(Integer.valueOf(0), responseMap.get("total_shards"));
+        assertEquals(Integer.valueOf(0), responseMap.get("successful_shards"));
+        assertEquals(Integer.valueOf(0), responseMap.get("failed_shards"));
+        assertTrue(((Map<String, Object>) responseMap.get("shard_profiles")).isEmpty());
+    }
+
     public void testFailedShards() throws IOException {
         List<DefaultShardOperationFailedException> failures = new ArrayList<>();
         failures.add(new DefaultShardOperationFailedException("test_index", 0, new RuntimeException("Test failure")));
@@ -110,25 +123,12 @@ public class KNNProfileTransportActionTests extends KNNTestCase {
         responseWithFailures.toXContent(builder, ToXContent.EMPTY_PARAMS);
         Map<String, Object> responseMap = createParser(builder).map();
 
-        assertEquals(2, responseMap.get("total_shards"));
-        assertEquals(1, responseMap.get("successful_shards"));
-        assertEquals(1, responseMap.get("failed_shards"));
+        assertEquals(Integer.valueOf(2), responseMap.get("total_shards"));
+        assertEquals(Integer.valueOf(1), responseMap.get("successful_shards"));
+        assertEquals(Integer.valueOf(1), responseMap.get("failed_shards"));
 
         List<Map<String, Object>> failuresList = (List<Map<String, Object>>) responseMap.get("failures");
         assertEquals(1, failuresList.size());
         assertEquals("test_index", failuresList.get(0).get("index"));
-    }
-
-    public void testEmptyResponse() throws IOException {
-        KNNProfileResponse emptyResponse = new KNNProfileResponse(new ArrayList<>(), 0, 0, 0, new ArrayList<>());
-
-        XContentBuilder builder = jsonBuilder();
-        emptyResponse.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        Map<String, Object> responseMap = createParser(builder).map();
-
-        assertEquals(0, responseMap.get("total_shards"));
-        assertEquals(0, responseMap.get("successful_shards"));
-        assertEquals(0, responseMap.get("failed_shards"));
-        assertTrue(((Map<String, Object>) responseMap.get("shard_profiles")).isEmpty());
     }
 }
