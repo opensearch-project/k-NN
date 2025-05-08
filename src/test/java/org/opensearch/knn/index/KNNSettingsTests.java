@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -228,26 +229,22 @@ public class KNNSettingsTests extends KNNTestCase {
             configFileWriter.write("\"" + setting.getKey() + "\": " + setting.getValue());
         }
         configFileWriter.close();
-        return new MockNode(
-            baseSettings().build(),
-            basePlugins().stream()
-                .map(
-                    p -> new PluginInfo(
-                        p.getName(),
-                        "classpath plugin",
-                        "NA",
-                        Version.CURRENT,
-                        "1.8",
-                        p.getName(),
-                        null,
-                        Collections.emptyList(),
-                        false
-                    )
+        Collection<PluginInfo> plugins = basePlugins().stream()
+            .map(
+                p -> new PluginInfo(
+                    p.getName(),
+                    "classpath plugin",
+                    "NA",
+                    Version.CURRENT,
+                    "1.8",
+                    p.getName(),
+                    null,
+                    Collections.emptyList(),
+                    false
                 )
-                .collect(Collectors.toList()),
-            configDir,
-            true
-        );
+            )
+            .collect(Collectors.toList());
+        return new MockNode(baseSettings().build(), plugins, configDir, true);
     }
 
     private List<Class<? extends Plugin>> basePlugins() {
