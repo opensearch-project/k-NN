@@ -21,6 +21,7 @@ import org.opensearch.node.MockNode;
 import org.opensearch.node.Node;
 import org.opensearch.Version;
 import org.opensearch.plugins.Plugin;
+import org.opensearch.plugins.PluginInfo;
 import org.opensearch.test.InternalTestCluster;
 import org.opensearch.test.MockHttpTransport;
 
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.opensearch.test.NodeRoles.dataNode;
 
