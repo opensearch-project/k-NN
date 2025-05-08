@@ -19,6 +19,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.node.MockNode;
 import org.opensearch.node.Node;
+import org.opensearch.Version;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalTestCluster;
 import org.opensearch.test.MockHttpTransport;
@@ -225,7 +226,26 @@ public class KNNSettingsTests extends KNNTestCase {
             configFileWriter.write("\"" + setting.getKey() + "\": " + setting.getValue());
         }
         configFileWriter.close();
-        return new MockNode(baseSettings().build(), basePlugins(), configDir, true);
+        return new MockNode(
+            baseSettings().build(),
+            basePlugins().stream()
+                .map(
+                    p -> new PluginInfo(
+                        p.getName(),
+                        "classpath plugin",
+                        "NA",
+                        Version.CURRENT,
+                        "1.8",
+                        p.getName(),
+                        null,
+                        Collections.emptyList(),
+                        false
+                    )
+                )
+                .collect(Collectors.toList()),
+            configDir,
+            true
+        );
     }
 
     private List<Class<? extends Plugin>> basePlugins() {
