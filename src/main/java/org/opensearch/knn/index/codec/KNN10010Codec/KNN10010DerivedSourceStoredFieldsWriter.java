@@ -35,7 +35,7 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
     private final Function<Map<String, Object>, Map<String, Object>> vectorMask;
 
     // Keeping the mask as small as possible.
-    private final static Byte MASK = 0x1;
+    public final static Byte MASK = 0x1;
 
     /**
      *
