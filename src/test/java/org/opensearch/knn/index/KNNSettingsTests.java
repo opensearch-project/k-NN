@@ -19,7 +19,9 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.node.MockNode;
 import org.opensearch.node.Node;
+import org.opensearch.Version;
 import org.opensearch.plugins.Plugin;
+import org.opensearch.plugins.PluginInfo;
 import org.opensearch.test.InternalTestCluster;
 import org.opensearch.test.MockHttpTransport;
 
@@ -29,8 +31,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.opensearch.test.NodeRoles.dataNode;
 
@@ -225,7 +229,22 @@ public class KNNSettingsTests extends KNNTestCase {
             configFileWriter.write("\"" + setting.getKey() + "\": " + setting.getValue());
         }
         configFileWriter.close();
-        return new MockNode(baseSettings().build(), basePlugins(), configDir, true);
+        Collection<PluginInfo> plugins = basePlugins().stream()
+            .map(
+                p -> new PluginInfo(
+                    p.getName(),
+                    "classpath plugin",
+                    "NA",
+                    Version.CURRENT,
+                    "1.8",
+                    p.getName(),
+                    null,
+                    Collections.emptyList(),
+                    false
+                )
+            )
+            .collect(Collectors.toList());
+        return new MockNode(baseSettings().build(), plugins, configDir, true);
     }
 
     private List<Class<? extends Plugin>> basePlugins() {
