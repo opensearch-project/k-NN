@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes 
 * [BUGFIX] Honors slice counts for non-quantization cases [#2692](https://github.com/opensearch-project/k-NN/pull/2692)
 * [Remote Vector Index Build] End  remote build metrics before falling back to CPU, exception logging
+* [BUGFIX] Block derived source enable if index.knn is false [#2702](https://github.com/opensearch-project/k-NN/pull/2702)
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.19...2.x)
 ### Features

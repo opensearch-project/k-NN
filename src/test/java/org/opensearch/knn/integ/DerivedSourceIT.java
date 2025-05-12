@@ -7,6 +7,7 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.junit.Before;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -186,5 +187,35 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         validateDerivedSetting(indexName, true);
         createIndex(indexNameDisabled, Settings.builder().build());
         validateDerivedSetting(indexNameDisabled, false);
+    }
+
+    @SneakyThrows
+    public void testBlockSettingIfKNNFalse() {
+        String indexName = getIndexName("setting-blocked", "test", false);
+        String fieldName = "test";
+        int dimension = 16;
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndex(
+                indexName,
+                Settings.builder().put("index.knn", false).put("index.knn.derived_source.enabled", true).build(),
+                mapping
+            )
+        );
+
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndex(indexName, Settings.builder().put("index.knn.derived_source.enabled", true).build(), mapping)
+        );
     }
 }
