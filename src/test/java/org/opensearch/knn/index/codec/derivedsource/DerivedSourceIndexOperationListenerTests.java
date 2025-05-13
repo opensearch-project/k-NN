@@ -5,11 +5,15 @@
 
 package org.opensearch.knn.index.codec.derivedsource;
 
+import org.apache.lucene.document.StoredField;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
@@ -17,8 +21,10 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.index.mapper.ParsedDocument;
+import org.opensearch.index.mapper.SourceFieldMapper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.DerivedKnnFloatVectorField;
+import org.opensearch.knn.index.codec.KNN10010Codec.KNN10010DerivedSourceStoredFieldsWriter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +46,7 @@ public class DerivedSourceIndexOperationListenerTests extends KNNTestCase {
 
         ParseContext.Document document = new ParseContext.Document();
         document.add(new DerivedKnnFloatVectorField(fieldName, backendVector, true));
+        document.add(new StoredField(SourceFieldMapper.NAME, originalSource.toBytesRef()));
 
         Engine.Index operation = new Engine.Index(
             new Term("test-iud"),
@@ -56,5 +63,16 @@ public class DerivedSourceIndexOperationListenerTests extends KNNTestCase {
         );
 
         assertEquals(expectedOutputAsList, modifiedSource.v2().get(fieldName));
+        IndexableField field = operation.parsedDoc().rootDoc().getField(SourceFieldMapper.CONTENT_TYPE);
+        assertTrue(field instanceof StoredField);
+        StoredField sourceField = (StoredField) field;
+        assertEquals(sourceField.binaryValue(), sourceField.storedValue().getBinaryValue());
+        BytesRef bytesRef = sourceField.binaryValue();
+        Tuple<? extends MediaType, Map<String, Object>> maskedSourceBinaryValueMap = XContentHelper.convertToMap(
+            new BytesArray(bytesRef.bytes, bytesRef.offset, bytesRef.length),
+            true,
+            operation.parsedDoc().getMediaType()
+        );
+        assertEquals(KNN10010DerivedSourceStoredFieldsWriter.MASK.intValue(), maskedSourceBinaryValueMap.v2().get(fieldName));
     }
 }
