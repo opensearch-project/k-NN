@@ -41,11 +41,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.opensearch.common.Booleans.parseBoolean;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.Final;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
@@ -270,13 +272,31 @@ public class KNNSettings {
         UnmodifiableOnRestore
     );
 
-    public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = Setting.boolSetting(
+    public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = new Setting<>(
         KNN_DERIVED_SOURCE_ENABLED,
-        false,
+        (s) -> Boolean.toString(false),
+        (b) -> Booleans.parseBooleanStrict(b, false),
         IndexScope,
         Final,
         UnmodifiableOnRestore
-    );
+    ) {
+        @Override
+        public Set<SettingDependency> getSettingsDependencies(String key) {
+            return Set.of(new SettingDependency() {
+                @Override
+                public Setting<Boolean> getSetting() {
+                    return IS_KNN_INDEX_SETTING;
+                }
+
+                @Override
+                public void validate(String key, Object value, Object dependency) {
+                    if (dependency instanceof Boolean isKnnEnabled && isKnnEnabled == false) {
+                        throw new IllegalArgumentException("Index setting \"index.knn\" must be true in order to enabled derived source");
+                    }
+                }
+            });
+        }
+    };
 
     public static final Setting<Boolean> MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING = Setting.boolSetting(
         MEMORY_OPTIMIZED_KNN_SEARCH_MODE,
@@ -837,7 +857,7 @@ public class KNNSettings {
     }
 
     public static boolean isFaissAVX512Disabled() {
-        return Booleans.parseBoolean(
+        return parseBoolean(
             Objects.requireNonNullElse(
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED),
                 KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE
@@ -846,7 +866,7 @@ public class KNNSettings {
     }
 
     public static boolean isFaissAVX512SPRDisabled() {
-        return Booleans.parseBoolean(
+        return parseBoolean(
             Objects.requireNonNullElse(
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED),
                 KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
