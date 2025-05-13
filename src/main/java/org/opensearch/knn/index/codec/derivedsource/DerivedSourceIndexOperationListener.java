@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.collect.Tuple;
@@ -75,6 +76,11 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
             throw new RuntimeException(e);
         }
 
+        // We are applying the max here and serializing to the Source's StoredField's bytes value. This is an
+        // optimization. Right now, we perform the deserialization of the source in the index operation listener along
+        // with the codec writer. Deserialization is very expensive. So, by applying the mask here, we avoid having to
+        // do an extra large deserialization in the codec writer. At the moment, we redundantly apply the mask in the
+        // writer as well as a safeguard. In the future, we can move to just masking in the listener.
         IndexableField field = operation.parsedDoc().rootDoc().getField(SourceFieldMapper.CONTENT_TYPE);
         if (field == null || field.storedValue() == null) {
             return operation;
@@ -83,7 +89,9 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
         try (BytesStreamOutput bStream = new BytesStreamOutput();) {
             XContentBuilder builder = MediaTypeRegistry.contentBuilder(originalSource.v1(), bStream).map(maskedVectorSource);
             builder.close();
-            field.storedValue().setBinaryValue(bStream.bytes().toBytesRef());
+            if (field instanceof StoredField storedField) {
+                storedField.setBytesValue(bStream.bytes().toBytesRef());
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
