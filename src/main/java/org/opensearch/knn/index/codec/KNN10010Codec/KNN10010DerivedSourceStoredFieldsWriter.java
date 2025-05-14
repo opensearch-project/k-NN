@@ -108,6 +108,11 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
         if (vectorMask != null && Objects.equals(fieldInfo.name, SourceFieldMapper.NAME)) {
             // Reference:
             // https://github.com/opensearch-project/OpenSearch/blob/2.18.0/server/src/main/java/org/opensearch/index/mapper/SourceFieldMapper.java#L322
+
+            // In the Index operation listener, preindex, we apply the mask operation. We apply it again for safety
+            // here because writeField may not always follow the preindex step, so it might have the vector (think
+            // merge). This may be overly cautious and we can remove/optimize it in the future. For now, its a safety
+            // net.
             Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
                 BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length)),
                 true,
