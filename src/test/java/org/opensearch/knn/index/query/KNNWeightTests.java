@@ -927,7 +927,6 @@ public class KNNWeightTests extends KNNWeightTestCase {
             )
         );
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)

@@ -409,7 +409,7 @@ public class KNNWeight extends Weight {
         final int k
     ) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
+            .parentsFilter(knnQuery.getParentsFilter())
             .k(k)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.

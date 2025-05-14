@@ -17,6 +17,7 @@ import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
@@ -163,7 +164,7 @@ public class ExactSearcher {
         }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
 
-        boolean isNestedRequired = exactSearcherContext.isParentHits() && knnQuery.getParentsFilter() != null;
+        boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
 
         if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
@@ -252,6 +253,6 @@ public class ExactSearcher {
          * filtered nested search where the matchedDocs contain the parent ids and {@link NestedVectorIdsKNNIterator}
          * needs to be used.
          */
-        boolean isParentHits;
+        BitSetProducer parentsFilter;
     }
 }

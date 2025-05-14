@@ -154,7 +154,6 @@ public class NativeEngineKnnVectorQuery extends Query {
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
                     .useQuantizedVectorsForSearch(useQuantizedVectors)
                     .k((int) allSiblings.cost())
-                    .isParentHits(false)
                     .knnQuery(knnQuery)
                     .build();
                 Map<Integer, Float> rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
@@ -201,7 +200,6 @@ public class NativeEngineKnnVectorQuery extends Query {
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
                     .useQuantizedVectorsForSearch(false)
                     .k(k)
-                    .isParentHits(false)
                     .knnQuery(knnQuery)
                     .build();
                 Map<Integer, Float> rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
