@@ -268,7 +268,6 @@ public class ExplainTests extends KNNWeightTestCase {
         final KNNWeight knnWeight = new KNNWeight(query, 1.0f);
 
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
@@ -481,7 +480,6 @@ public class ExplainTests extends KNNWeightTestCase {
         setupTest(null, attributesMap, 1, spaceType, false, null, null, null);
 
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
@@ -820,7 +818,6 @@ public class ExplainTests extends KNNWeightTestCase {
         final float boost = 1;
         final KNNWeight knnWeight = new KNNWeight(query, boost);
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
