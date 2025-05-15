@@ -415,6 +415,7 @@ public class KNNWeight extends Weight {
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
             .knnQuery(knnQuery)
+            .field(knnQuery.getField())
             .matchedDocsIterator(acceptedDocs)
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .queryVector(new QueryVector(knnQuery.getQueryVector(), knnQuery.getByteQueryVector()));

@@ -272,6 +272,8 @@ public class ExplainTests extends KNNWeightTestCase {
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
             .knnQuery(query)
+            .queryVector(new QueryVector(queryVector))
+            .field(FIELD_NAME)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
 
@@ -484,6 +486,8 @@ public class ExplainTests extends KNNWeightTestCase {
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
             .knnQuery(query)
+            .field(FIELD_NAME)
+            .queryVector(new QueryVector(queryVector))
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -822,6 +826,8 @@ public class ExplainTests extends KNNWeightTestCase {
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
             .knnQuery(query)
+            .queryVector(new QueryVector(queryVector))
+            .field(FIELD_NAME)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
 
