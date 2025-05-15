@@ -272,7 +272,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use either LuceneFieldMapper
             // or
             // MethodFieldMapper to maintain backwards compatibility
-            if (originalParameters.getResolvedKnnMethodContext() == null && context.indexCreatedVersion().onOrAfter(Version.V_2_17_0)) {
+            if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
                 return FlatVectorFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
