@@ -171,7 +171,7 @@ public class ExactSearcher {
             if (isNestedRequired) {
                 return new NestedBinaryVectorIdsKNNIterator(
                     matchedDocs,
-                    knnQuery.getByteQueryVector(),
+                    exactSearcherContext.getQueryVector().getByteVector(),
                     (KNNBinaryVectorValues) vectorValues,
                     spaceType,
                     knnQuery.getParentsFilter().getBitSet(leafReaderContext)
@@ -179,7 +179,7 @@ public class ExactSearcher {
             }
             return new BinaryVectorIdsKNNIterator(
                 matchedDocs,
-                knnQuery.getByteQueryVector(),
+                exactSearcherContext.getQueryVector().getByteVector(),
                 (KNNBinaryVectorValues) vectorValues,
                 spaceType
             );
@@ -190,13 +190,18 @@ public class ExactSearcher {
             if (isNestedRequired) {
                 return new NestedByteVectorIdsKNNIterator(
                     matchedDocs,
-                    knnQuery.getQueryVector(),
+                    exactSearcherContext.getQueryVector().getFloatVector(),
                     (KNNByteVectorValues) vectorValues,
                     spaceType,
                     knnQuery.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
-            return new ByteVectorIdsKNNIterator(matchedDocs, knnQuery.getQueryVector(), (KNNByteVectorValues) vectorValues, spaceType);
+            return new ByteVectorIdsKNNIterator(
+                matchedDocs,
+                exactSearcherContext.getQueryVector().getFloatVector(),
+                (KNNByteVectorValues) vectorValues,
+                spaceType
+            );
         }
         final byte[] quantizedQueryVector;
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
@@ -204,7 +209,10 @@ public class ExactSearcher {
             // Build Segment Level Quantization info.
             segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, knnQuery.getField());
             // Quantize the Query Vector Once.
-            quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+            quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
+                exactSearcherContext.getQueryVector().getFloatVector(),
+                segmentLevelQuantizationInfo
+            );
         } else {
             segmentLevelQuantizationInfo = null;
             quantizedQueryVector = null;
@@ -214,7 +222,7 @@ public class ExactSearcher {
         if (isNestedRequired) {
             return new NestedVectorIdsKNNIterator(
                 matchedDocs,
-                knnQuery.getQueryVector(),
+                exactSearcherContext.getQueryVector().getFloatVector(),
                 (KNNFloatVectorValues) vectorValues,
                 spaceType,
                 knnQuery.getParentsFilter().getBitSet(leafReaderContext),
@@ -224,7 +232,7 @@ public class ExactSearcher {
         }
         return new VectorIdsKNNIterator(
             matchedDocs,
-            knnQuery.getQueryVector(),
+            exactSearcherContext.getQueryVector().getFloatVector(),
             (KNNFloatVectorValues) vectorValues,
             spaceType,
             quantizedQueryVector,
@@ -245,6 +253,7 @@ public class ExactSearcher {
          */
         boolean useQuantizedVectorsForSearch;
         int k;
+        Float radius;
         DocIdSetIterator matchedDocsIterator;
         long numberOfMatchedDocs;
         KNNQuery knnQuery;
@@ -254,5 +263,6 @@ public class ExactSearcher {
          * needs to be used.
          */
         BitSetProducer parentsFilter;
+        QueryVector queryVector;
     }
 }

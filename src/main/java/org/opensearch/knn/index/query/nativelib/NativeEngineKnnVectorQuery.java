@@ -21,11 +21,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.query.ExactSearcher;
-import org.opensearch.knn.index.query.KNNQuery;
-import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.query.PerLeafResult;
-import org.opensearch.knn.index.query.ResultUtil;
+import org.opensearch.knn.index.query.*;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
@@ -155,6 +151,7 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .useQuantizedVectorsForSearch(useQuantizedVectors)
                     .k((int) allSiblings.cost())
                     .knnQuery(knnQuery)
+                    .queryVector(new QueryVector(knnQuery.getQueryVector(), knnQuery.getByteQueryVector()))
                     .build();
                 Map<Integer, Float> rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 perLeafResult.setResult(rescoreResult);
@@ -199,6 +196,7 @@ public class NativeEngineKnnVectorQuery extends Query {
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
                     .useQuantizedVectorsForSearch(false)
                     .k(k)
+                    .queryVector(new QueryVector(knnQuery.getQueryVector(), knnQuery.getByteQueryVector()))
                     .knnQuery(knnQuery)
                     .build();
                 Map<Integer, Float> rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
