@@ -92,7 +92,7 @@ public class ExactSearcher {
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, exactSearcherContext.getField());
         if (fieldInfo == null) {
             return Collections.emptyMap();
         }
@@ -157,9 +157,13 @@ public class ExactSearcher {
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final DocIdSetIterator matchedDocs = exactSearcherContext.getMatchedDocsIterator();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, exactSearcherContext.getField());
         if (fieldInfo == null) {
-            log.debug("[KNN] Cannot get KNNIterator as Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
+            log.debug(
+                "[KNN] Cannot get KNNIterator as Field info not found for {}:{}",
+                exactSearcherContext.getField(),
+                reader.getSegmentName()
+            );
             return null;
         }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
@@ -207,7 +211,7 @@ public class ExactSearcher {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
         if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
             // Build Segment Level Quantization info.
-            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, knnQuery.getField());
+            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, exactSearcherContext.getField());
             // Quantize the Query Vector Once.
             quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
                 exactSearcherContext.getQueryVector().getFloatVector(),
@@ -264,5 +268,6 @@ public class ExactSearcher {
          */
         BitSetProducer parentsFilter;
         QueryVector queryVector;
+        String field;
     }
 }
