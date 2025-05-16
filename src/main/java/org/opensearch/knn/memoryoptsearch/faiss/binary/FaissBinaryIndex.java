@@ -33,6 +33,7 @@ public abstract class FaissBinaryIndex extends FaissIndex {
      * @param inputStream Input stream reading bytes from Faiss index file.
      * @throws IOException
      */
+    @Override
     protected void readCommonHeader(final IndexInput inputStream) throws IOException {
         dimension = inputStream.readInt();
         codeSize = inputStream.readInt();

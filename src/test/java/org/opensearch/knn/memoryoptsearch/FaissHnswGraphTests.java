@@ -105,7 +105,7 @@ public class FaissHnswGraphTests extends KNNTestCase {
         final int totalNumberOfVectors = 100;
         final FaissHNSW faissHNSW = new FaissHNSW();
         faissHNSW.load(indexInput, totalNumberOfVectors);
-        when(parentIndex.getHnsw()).thenReturn(faissHNSW);
+        when(parentIndex.getFaissHnsw()).thenReturn(faissHNSW);
         when(parentIndex.getTotalNumberOfVectors()).thenReturn(totalNumberOfVectors);
 
         // Create LuceneFaissHnswGraph
