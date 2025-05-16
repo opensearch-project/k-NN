@@ -414,7 +414,6 @@ public class KNNWeight extends Weight {
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .knnQuery(knnQuery)
             .field(knnQuery.getField())
             .radius(knnQuery.getRadius())
             .matchedDocsIterator(acceptedDocs)
