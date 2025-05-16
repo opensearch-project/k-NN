@@ -416,9 +416,13 @@ public class KNNWeight extends Weight {
             .useQuantizedVectorsForSearch(true)
             .knnQuery(knnQuery)
             .field(knnQuery.getField())
+            .radius(knnQuery.getRadius())
             .matchedDocsIterator(acceptedDocs)
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .queryVector(new QueryVector(knnQuery.getQueryVector(), knnQuery.getByteQueryVector()));
+        if (knnQuery.getContext() != null) {
+            exactSearcherContextBuilder.maxResultWindow(knnQuery.getContext().getMaxResultWindow());
+        }
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
