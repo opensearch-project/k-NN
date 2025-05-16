@@ -409,14 +409,19 @@ public class KNNWeight extends Weight {
         final int k
     ) throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
+            .parentsFilter(knnQuery.getParentsFilter())
             .k(k)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .knnQuery(knnQuery)
+            .field(knnQuery.getField())
+            .radius(knnQuery.getRadius())
             .matchedDocsIterator(acceptedDocs)
-            .numberOfMatchedDocs(numberOfAcceptedDocs);
+            .numberOfMatchedDocs(numberOfAcceptedDocs)
+            .queryVector(new QueryVector(knnQuery.getQueryVector(), knnQuery.getByteQueryVector()));
+        if (knnQuery.getContext() != null) {
+            exactSearcherContextBuilder.maxResultWindow(knnQuery.getContext().getMaxResultWindow());
+        }
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
