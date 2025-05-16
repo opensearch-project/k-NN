@@ -153,7 +153,6 @@ public class ExactSearcher {
     }
 
     private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
-        final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final DocIdSetIterator matchedDocs = exactSearcherContext.getMatchedDocsIterator();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, exactSearcherContext.getField());
@@ -165,11 +164,12 @@ public class ExactSearcher {
             );
             return null;
         }
+        final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
 
         boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
 
-        if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
+        if (VectorDataType.BINARY == vectorDataType) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
             if (isNestedRequired) {
                 return new NestedBinaryVectorIdsKNNIterator(
@@ -177,7 +177,7 @@ public class ExactSearcher {
                     exactSearcherContext.getQueryVector().getByteVector(),
                     (KNNBinaryVectorValues) vectorValues,
                     spaceType,
-                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
             return new BinaryVectorIdsKNNIterator(
@@ -188,7 +188,7 @@ public class ExactSearcher {
             );
         }
 
-        if (VectorDataType.BYTE == knnQuery.getVectorDataType()) {
+        if (VectorDataType.BYTE == vectorDataType) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
             if (isNestedRequired) {
                 return new NestedByteVectorIdsKNNIterator(
@@ -196,7 +196,7 @@ public class ExactSearcher {
                     exactSearcherContext.getQueryVector().getFloatVector(),
                     (KNNByteVectorValues) vectorValues,
                     spaceType,
-                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
             return new ByteVectorIdsKNNIterator(
@@ -228,7 +228,7 @@ public class ExactSearcher {
                 exactSearcherContext.getQueryVector().getFloatVector(),
                 (KNNFloatVectorValues) vectorValues,
                 spaceType,
-                knnQuery.getParentsFilter().getBitSet(leafReaderContext),
+                exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext),
                 quantizedQueryVector,
                 segmentLevelQuantizationInfo
             );
@@ -259,7 +259,6 @@ public class ExactSearcher {
         Float radius;
         DocIdSetIterator matchedDocsIterator;
         long numberOfMatchedDocs;
-        KNNQuery knnQuery;
         /**
          * whether the matchedDocs contains parent ids or child ids. This is relevant in the case of
          * filtered nested search where the matchedDocs contain the parent ids and {@link NestedVectorIdsKNNIterator}
