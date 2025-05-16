@@ -65,7 +65,7 @@ public class ExactSearcher {
         if (iterator == null) {
             return Collections.emptyMap();
         }
-        if (exactSearcherContext.getKnnQuery().getRadius() != null) {
+        if (exactSearcherContext.getRadius() != null) {
             return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
         }
         if (exactSearcherContext.getMatchedDocsIterator() != null
@@ -91,7 +91,6 @@ public class ExactSearcher {
         KNNIterator iterator
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, exactSearcherContext.getField());
         if (fieldInfo == null) {
             return Collections.emptyMap();
@@ -101,7 +100,7 @@ public class ExactSearcher {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
-        final float minScore = spaceType.scoreTranslation(knnQuery.getRadius());
+        final float minScore = spaceType.scoreTranslation(exactSearcherContext.getRadius());
         return filterDocsByMinScore(exactSearcherContext, iterator, minScore);
     }
 
@@ -148,7 +147,7 @@ public class ExactSearcher {
 
     private Map<Integer, Float> filterDocsByMinScore(ExactSearcherContext context, KNNIterator iterator, float minScore)
         throws IOException {
-        int maxResultWindow = context.getKnnQuery().getContext().getMaxResultWindow();
+        int maxResultWindow = context.getMaxResultWindow();
         Predicate<Float> scoreGreaterThanOrEqualToMinScore = score -> score >= minScore;
         return searchTopCandidates(iterator, maxResultWindow, scoreGreaterThanOrEqualToMinScore);
     }
@@ -269,5 +268,6 @@ public class ExactSearcher {
         BitSetProducer parentsFilter;
         QueryVector queryVector;
         String field;
+        Integer maxResultWindow;
     }
 }
