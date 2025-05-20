@@ -119,6 +119,11 @@ public class FaissHnswGraph extends HnswGraph {
     }
 
     @Override
+    public int maxConn() {
+        return numNeighbors;
+    }
+
+    @Override
     public int entryNode() {
         return faissHnsw.getEntryPoint();
     }
@@ -186,5 +191,10 @@ public class FaissHnswGraph extends HnswGraph {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public int neighborCount() {
+        return 0;
     }
 }

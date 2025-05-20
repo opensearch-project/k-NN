@@ -12,6 +12,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
+import org.apache.lucene.util.hnsw.UpdateableRandomVectorScorer;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 
 import java.io.IOException;
@@ -26,7 +27,7 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         KnnVectorValues randomAccessVectorValues
     ) throws IOException {
         if (randomAccessVectorValues instanceof ByteVectorValues) {
-            return new BinaryRandomVectorScorerSupplier((ByteVectorValues) randomAccessVectorValues);
+            return (RandomVectorScorerSupplier) new BinaryRandomVectorScorerSupplier((ByteVectorValues) randomAccessVectorValues);
         }
         throw new IllegalArgumentException("vectorValues must be an instance of RandomAccessVectorValues.Bytes");
     }
@@ -52,7 +53,7 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         throw new IllegalArgumentException("vectorValues must be an instance of RandomAccessVectorValues.Bytes");
     }
 
-    static class BinaryRandomVectorScorer implements RandomVectorScorer {
+    static class BinaryRandomVectorScorer implements UpdateableRandomVectorScorer {
         private final ByteVectorValues vectorValues;
         private final byte[] queryVector;
 
@@ -80,9 +81,14 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         public Bits getAcceptOrds(Bits acceptDocs) {
             return vectorValues.getAcceptOrds(acceptDocs);
         }
+
+        @Override
+        public void setScoringOrdinal(int node) throws IOException {
+
+        }
     }
 
-    static class BinaryRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
+    static class BinaryRandomVectorScorerSupplier implements UpdateableRandomVectorScorer {
         protected final ByteVectorValues vectorValues;
         protected final ByteVectorValues vectorValues1;
         protected final ByteVectorValues vectorValues2;
@@ -94,14 +100,18 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         }
 
         @Override
-        public RandomVectorScorer scorer(int ord) throws IOException {
-            byte[] queryVector = vectorValues1.vectorValue(ord);
-            return new BinaryRandomVectorScorer(vectorValues2, queryVector);
+        public void setScoringOrdinal(int node) throws IOException {
+
         }
 
         @Override
-        public RandomVectorScorerSupplier copy() throws IOException {
-            return new BinaryRandomVectorScorerSupplier(vectorValues.copy());
+        public float score(int node) throws IOException {
+            return 0;
+        }
+
+        @Override
+        public int maxOrd() {
+            return 0;
         }
     }
 }
