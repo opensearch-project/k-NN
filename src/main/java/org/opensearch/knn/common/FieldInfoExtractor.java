@@ -98,13 +98,20 @@ public class FieldInfoExtractor {
         }
 
         final String modelId = fieldInfo.getAttribute(MODEL_ID);
-        if (StringUtils.isEmpty(modelId)) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Unable to find the Space Type from Field Info attribute for field %s", fieldInfo.getName())
-            );
+        if (StringUtils.isNotEmpty(modelId)) {
+            return getSpaceTypeFromModel(modelDao, modelId);
         }
+        if (fieldInfo.getVectorSimilarityFunction() != null) {
+            return SpaceType.getSpace(fieldInfo.getVectorSimilarityFunction());
+        }
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "Unable to find the Space Type from Field Info attribute for field %s", fieldInfo.getName())
+        );
 
-        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+    }
+
+    private static SpaceType getSpaceTypeFromModel(final ModelDao modelDao, final String modelId) {
+        final ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
         if (modelMetadata == null) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Unable to find the model metadata for model id %s", modelId));
         }

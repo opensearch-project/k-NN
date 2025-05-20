@@ -11,6 +11,9 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Getter;
+import org.apache.lucene.index.VectorSimilarityFunction;
+
 import java.util.Arrays;
 import java.util.Locale;
 
@@ -52,6 +55,11 @@ public enum SpaceType {
         }
 
         @Override
+        public boolean supportsVectorSimilarityFunction() {
+            return true;
+        }
+
+        @Override
         public float scoreToDistanceTranslation(float score) {
             if (score == 0) {
                 throw new IllegalArgumentException(String.format(Locale.ROOT, "score cannot be 0 when space type is [%s]", getValue()));
@@ -80,6 +88,11 @@ public enum SpaceType {
         @Override
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.COSINE;
+        }
+
+        @Override
+        public boolean supportsVectorSimilarityFunction() {
+            return true;
         }
 
         @Override
@@ -138,6 +151,16 @@ public enum SpaceType {
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
+
+        @Override
+        public boolean supportsVectorSimilarityFunction() {
+            return true;
+        }
+
+        @Override
+        public String getValue() {
+            return super.getValue();
+        }
     },
     HAMMING("hamming", SpaceType.GENERIC_SCORE_TRANSLATION) {
         @Override
@@ -163,6 +186,11 @@ public enum SpaceType {
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.HAMMING;
         }
+
+        @Override
+        public boolean supportsVectorSimilarityFunction() {
+            return true;
+        }
     };
 
     public static SpaceType DEFAULT = L2;
@@ -175,6 +203,13 @@ public enum SpaceType {
         .toArray(new String[0]);
 
     private static final String GENERIC_SCORE_TRANSLATION = "`1 / (1 + rawScore)`";
+    /**
+     * -- GETTER --
+     *  Get space type name in engine
+     *
+     * @return name
+     */
+    @Getter
     private final String value;
     private final String explanationFormula;
 
@@ -204,6 +239,15 @@ public enum SpaceType {
      */
     public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
         throw new UnsupportedOperationException(String.format("Space [%s] does not have a knn vector similarity function", getValue()));
+    }
+
+    /**
+     * Returns true if this space type supports vector similarity function
+     *
+     * @return {@code true} if this space type supports vector similarity function;
+     */
+    public boolean supportsVectorSimilarityFunction() {
+        return false;
     }
 
     /**
@@ -237,15 +281,6 @@ public enum SpaceType {
         }
     }
 
-    /**
-     * Get space type name in engine
-     *
-     * @return name
-     */
-    public String getValue() {
-        return value;
-    }
-
     public static Set<String> getValues() {
         Set<String> values = new HashSet<>();
 
@@ -263,6 +298,23 @@ public enum SpaceType {
         }
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "Unable to find space: %s . Valid values are: %s", spaceTypeName, Arrays.toString(VALID_VALUES))
+        );
+    }
+
+    public static SpaceType getSpace(VectorSimilarityFunction similarityFunction) {
+        for (SpaceType currentSpaceType : SpaceType.values()) {
+            if (currentSpaceType.supportsVectorSimilarityFunction()
+                && currentSpaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction() == similarityFunction) {
+                return currentSpaceType;
+            }
+        }
+        throw new IllegalArgumentException(
+            String.format(
+                Locale.ROOT,
+                "Unable to find space type for similarity function : %s . Valid values are: %s",
+                similarityFunction,
+                Arrays.toString(KNNVectorSimilarityFunction.values())
+            )
         );
     }
 

@@ -14,12 +14,14 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
@@ -166,7 +168,9 @@ public class ExactSearcher {
         }
         final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
-
+        final KNNVectorSimilarityFunction vectorSimilarityFunction = KNNVectorSimilarityFunction.valueOf(
+            fieldInfo.getVectorSimilarityFunction().name()
+        );
         boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
 
         if (VectorDataType.BINARY == vectorDataType) {
@@ -268,5 +272,6 @@ public class ExactSearcher {
         QueryVector queryVector;
         String field;
         Integer maxResultWindow;
+        VectorSimilarityFunction similarityFunction;
     }
 }

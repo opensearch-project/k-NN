@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
-import java.util.Objects;
+import java.util.Arrays;
 
 public class QueryVector {
     private float[] floatVector;
@@ -30,11 +30,17 @@ public class QueryVector {
     }
 
     public byte[] getByteVector() {
-        return byteVector;
+        if (hasByteVector()) {
+            return byteVector;
+        }
+        throw new IllegalStateException("QueryVector does not have byte array");
     }
 
     public float[] getFloatVector() {
-        return floatVector;
+        if (hasFloatVector()) {
+            return floatVector;
+        }
+        throw new IllegalStateException("QueryVector does not have float array");
     }
 
     public boolean hasFloatVector() {
@@ -48,10 +54,10 @@ public class QueryVector {
     @Override
     public int hashCode() {
         if (hasFloatVector()) {
-            return Objects.hash(floatVector);
+            return Arrays.hashCode(floatVector);
         }
         if (hasByteVector()) {
-            return Objects.hash(byteVector);
+            return Arrays.hashCode(byteVector);
         }
         return super.hashCode();
     }
@@ -66,11 +72,32 @@ public class QueryVector {
         }
         QueryVector other = (QueryVector) obj;
         if (hasFloatVector() && other.hasFloatVector()) {
-            return Objects.equals(floatVector, other.floatVector);
+            return Arrays.equals(floatVector, other.floatVector);
         }
         if (hasByteVector() && other.hasByteVector()) {
-            return Objects.equals(byteVector, other.byteVector);
+            return Arrays.equals(byteVector, other.byteVector);
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        if (hasFloatVector()) {
+            return "QueryVector[" + Arrays.toString(floatVector) + "]";
+        }
+        if (hasByteVector()) {
+            return "QueryVector[" + Arrays.toString(byteVector) + "]";
+        }
+        throw new IllegalStateException("QueryVector has neither float nor byte array");
+    }
+
+    public int getLength() {
+        if (hasFloatVector()) {
+            return floatVector.length;
+        }
+        if (hasByteVector()) {
+            return byteVector.length;
+        }
+        throw new IllegalStateException("QueryVector has neither float nor byte array");
     }
 }
