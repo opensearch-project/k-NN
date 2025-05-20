@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.index;
 
-import lombok.Getter;
 import org.apache.lucene.index.VectorSimilarityFunction;
 
 import java.util.Arrays;
@@ -156,11 +155,6 @@ public enum SpaceType {
         public boolean supportsVectorSimilarityFunction() {
             return true;
         }
-
-        @Override
-        public String getValue() {
-            return super.getValue();
-        }
     },
     HAMMING("hamming", SpaceType.GENERIC_SCORE_TRANSLATION) {
         @Override
@@ -203,13 +197,6 @@ public enum SpaceType {
         .toArray(new String[0]);
 
     private static final String GENERIC_SCORE_TRANSLATION = "`1 / (1 + rawScore)`";
-    /**
-     * -- GETTER --
-     *  Get space type name in engine
-     *
-     * @return name
-     */
-    @Getter
     private final String value;
     private final String explanationFormula;
 
@@ -279,6 +266,15 @@ public enum SpaceType {
                 String.format(Locale.ROOT, "Space type [%s] is not supported with [%s] data type", getValue(), vectorDataType.getValue())
             );
         }
+    }
+
+    /**
+     * Get space type name in engine
+     *
+     * @return name
+     */
+    public String getValue() {
+        return value;
     }
 
     public static Set<String> getValues() {

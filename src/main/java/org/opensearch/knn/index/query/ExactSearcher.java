@@ -21,7 +21,6 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
@@ -56,25 +55,24 @@ public class ExactSearcher {
      * Execute an exact search on a subset of documents of a leaf
      *
      * @param leafReaderContext {@link LeafReaderContext}
-     * @param exactSearcherContext {@link ExactSearcherContext}
+     * @param context {@link ExactSearcherContext}
      * @return Map of re-scored results
      * @throws IOException exception during execution of exact search
      */
-    public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
+    public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext context)
         throws IOException {
-        final KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
+        final KNNIterator iterator = getKNNIterator(leafReaderContext, context);
         // because of any reason if we are not able to get KNNIterator, return an empty map
         if (iterator == null) {
             return Collections.emptyMap();
         }
-        if (exactSearcherContext.getRadius() != null) {
-            return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
+        if (context.getRadius() != null) {
+            return doRadialSearch(leafReaderContext, context, iterator);
         }
-        if (exactSearcherContext.getMatchedDocsIterator() != null
-            && exactSearcherContext.numberOfMatchedDocs <= exactSearcherContext.getK()) {
+        if (context.getMatchedDocsIterator() != null && context.numberOfMatchedDocs <= context.getK()) {
             return scoreAllDocs(iterator);
         }
-        return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
+        return searchTopCandidates(iterator, context.getK(), Predicates.alwaysTrue());
     }
 
     /**
@@ -82,18 +80,15 @@ public class ExactSearcher {
      * Hence, we assume that Radius from knnQuery is always distance, and we convert it to score since we do exact search uses scores
      * to filter out the documents that does not have given min score.
      * @param leafReaderContext {@link LeafReaderContext}
-     * @param exactSearcherContext {@link ExactSearcherContext}
+     * @param context {@link ExactSearcherContext}
      * @param iterator {@link KNNIterator}
      * @return Map of docId and score
      * @throws IOException exception raised by iterator during traversal
      */
-    private Map<Integer, Float> doRadialSearch(
-        LeafReaderContext leafReaderContext,
-        ExactSearcherContext exactSearcherContext,
-        KNNIterator iterator
-    ) throws IOException {
+    private Map<Integer, Float> doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext context, KNNIterator iterator)
+        throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, exactSearcherContext.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
         if (fieldInfo == null) {
             return Collections.emptyMap();
         }
@@ -102,8 +97,8 @@ public class ExactSearcher {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
-        final float minScore = spaceType.scoreTranslation(exactSearcherContext.getRadius());
-        return filterDocsByMinScore(exactSearcherContext, iterator, minScore);
+        final float minScore = spaceType.scoreTranslation(context.getRadius());
+        return filterDocsByMinScore(context, iterator, minScore);
     }
 
     private Map<Integer, Float> scoreAllDocs(KNNIterator iterator) throws IOException {
@@ -168,9 +163,6 @@ public class ExactSearcher {
         }
         final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
-        final KNNVectorSimilarityFunction vectorSimilarityFunction = KNNVectorSimilarityFunction.valueOf(
-            fieldInfo.getVectorSimilarityFunction().name()
-        );
         boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
 
         if (VectorDataType.BINARY == vectorDataType) {
