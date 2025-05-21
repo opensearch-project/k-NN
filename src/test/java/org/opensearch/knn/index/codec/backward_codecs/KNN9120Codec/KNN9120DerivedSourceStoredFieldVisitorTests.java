@@ -21,7 +21,7 @@ public class KNN9120DerivedSourceStoredFieldVisitorTests extends KNNTestCase {
 
     public void testBinaryField() throws Exception {
         StoredFieldVisitor delegate = mock(StoredFieldVisitor.class);
-        doAnswer(invocationOnMock -> null).when(delegate).binaryField(any(), any());
+        doAnswer(invocationOnMock -> null).when(delegate).binaryField(any(), (byte[]) any());
         DerivedSourceVectorInjector derivedSourceVectorInjector = mock(DerivedSourceVectorInjector.class);
         when(derivedSourceVectorInjector.injectVectors(anyInt(), any())).thenReturn(new byte[0]);
         KNN9120DerivedSourceStoredFieldVisitor derivedSourceStoredFieldVisitor = new KNN9120DerivedSourceStoredFieldVisitor(
@@ -31,13 +31,13 @@ public class KNN9120DerivedSourceStoredFieldVisitorTests extends KNNTestCase {
         );
 
         // When field is not _source, then do not call the injector
-        derivedSourceStoredFieldVisitor.binaryField(KNNCodecTestUtil.FieldInfoBuilder.builder("test").build(), null);
+        derivedSourceStoredFieldVisitor.binaryField(KNNCodecTestUtil.FieldInfoBuilder.builder("test").build(), (byte[]) null);
         verify(derivedSourceVectorInjector, times(0)).injectVectors(anyInt(), any());
-        verify(delegate, times(1)).binaryField(any(), any());
+        verify(delegate, times(1)).binaryField(any(), (byte[]) any());
 
         // When field is not _source, then do call the injector
-        derivedSourceStoredFieldVisitor.binaryField(KNNCodecTestUtil.FieldInfoBuilder.builder("_source").build(), null);
+        derivedSourceStoredFieldVisitor.binaryField(KNNCodecTestUtil.FieldInfoBuilder.builder("_source").build(), (byte[]) null);
         verify(derivedSourceVectorInjector, times(1)).injectVectors(anyInt(), any());
-        verify(delegate, times(2)).binaryField(any(), any());
+        verify(delegate, times(2)).binaryField(any(), (byte[]) any());
     }
 }
