@@ -17,6 +17,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.tests.util.LuceneTestCase;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
@@ -60,6 +61,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.RADIAL_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
+@LuceneTestCase.AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/2717")
 public class ExplainTests extends KNNWeightTestCase {
 
     @Mock
