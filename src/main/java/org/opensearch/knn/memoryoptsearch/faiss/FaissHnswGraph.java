@@ -187,4 +187,14 @@ public class FaissHnswGraph extends HnswGraph {
             throw new RuntimeException(e);
         }
     }
+
+    @Override
+    public int neighborCount() {
+        return numNeighbors;
+    }
+
+    @Override
+    public int maxConn() {
+        return UNKNOWN_MAX_CONN;
+    }
 }
