@@ -155,7 +155,7 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
     public void testTrain_withRotationApplied() throws IOException {
         float[][] vectors = { { 10.0f, 200.0f, 3000.0f }, { 4000.0f, 5000.0f, 6000.0f }, { 7000.0f, 8000.0f, 9000.0f } };
 
-        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length) {
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length, true) {
             @Override
             public float[] getVectorAtThePosition(int position) {
                 return vectors[position];
@@ -167,7 +167,7 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
             }
         };
 
-        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer(true);
         OneBitScalarQuantizationState state = (OneBitScalarQuantizationState) quantizer.train(trainingRequest);
 
         assertNotNull(state);
@@ -178,7 +178,7 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
     public void testTrain_withoutRotationMatrix() throws IOException {
         float[][] vectors = { { 1.0f, 1.0f, 1.0f }, { 1.1f, 1.1f, 1.1f }, { 0.9f, 0.9f, 0.9f } };
 
-        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length) {
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length, false) {
             @Override
             public float[] getVectorAtThePosition(int position) {
                 return vectors[position];

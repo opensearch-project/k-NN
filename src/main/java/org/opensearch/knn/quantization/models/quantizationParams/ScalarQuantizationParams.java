@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
@@ -25,6 +26,11 @@ import java.io.IOException;
 @EqualsAndHashCode
 public class ScalarQuantizationParams implements QuantizationParams {
     private ScalarQuantizationType sqType;
+    private boolean isEnableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+
+    public ScalarQuantizationParams(ScalarQuantizationType quantizationType) {
+        sqType = quantizationType;
+    }
 
     /**
      * Static method to generate type identifier based on ScalarQuantizationType.

@@ -83,9 +83,13 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             out.writeFloatArray(row); // Write each row as a float array
         }
 
-        if (Version.CURRENT.onOrAfter(Version.V_3_0_0)) {
-            out.writeOptionalArray(belowThresholdMeans != null ? new FloatArrayWrapper[]{new FloatArrayWrapper(belowThresholdMeans)} : null);
-            out.writeOptionalArray(aboveThresholdMeans != null ? new FloatArrayWrapper[]{new FloatArrayWrapper(aboveThresholdMeans)} : null);
+        if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
+            out.writeOptionalArray(
+                belowThresholdMeans != null ? new FloatArrayWrapper[] { new FloatArrayWrapper(belowThresholdMeans) } : null
+            );
+            out.writeOptionalArray(
+                aboveThresholdMeans != null ? new FloatArrayWrapper[] { new FloatArrayWrapper(aboveThresholdMeans) } : null
+            );
             out.writeOptionalDouble(averageL2L1Ratio);
             if (rotationMatrix != null) {
                 out.writeBoolean(true);
@@ -117,7 +121,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             this.thresholds[i] = in.readFloatArray();
         }
 
-        if (Version.fromId(version).onOrAfter(Version.V_3_0_0)) {
+        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
             FloatArrayWrapper[] wrappedBelowMeans = in.readOptionalArray(FloatArrayWrapper::new, FloatArrayWrapper[]::new);
             this.belowThresholdMeans = wrappedBelowMeans != null ? wrappedBelowMeans[0].getArray() : null;
 

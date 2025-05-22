@@ -20,6 +20,7 @@ public class QuantizationConfigParser {
     public static final String TYPE_NAME = "type";
     public static final String BINARY_TYPE = QFrameBitEncoder.NAME;
     public static final String BIT_COUNT_NAME = QFrameBitEncoder.BITCOUNT_PARAM;
+    public static final String RANDOM_ROTATION_NAME = QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM;
 
     /**
      * Parse quantization config to csv format
@@ -34,7 +35,17 @@ public class QuantizationConfigParser {
             return "";
         }
 
-        return TYPE_NAME + SEPARATOR + BINARY_TYPE + "," + BIT_COUNT_NAME + SEPARATOR + quantizationConfig.getQuantizationType().getId();
+        return TYPE_NAME
+            + SEPARATOR
+            + BINARY_TYPE
+            + ","
+            + BIT_COUNT_NAME
+            + SEPARATOR
+            + quantizationConfig.getQuantizationType().getId()
+            + ","
+            + RANDOM_ROTATION_NAME
+            + SEPARATOR
+            + quantizationConfig.isEnableRandomRotation();
     }
 
     /**
@@ -49,7 +60,7 @@ public class QuantizationConfigParser {
         }
 
         String[] csvArray = CSVUtil.parse(csv);
-        if (csvArray.length != 2) {
+        if (csvArray.length != 3) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
         }
 
@@ -60,8 +71,11 @@ public class QuantizationConfigParser {
 
         String bitsValue = getValueOrThrow(BIT_COUNT_NAME, csvArray[1]);
         int bitCount = Integer.parseInt(bitsValue);
+
+        String isEnableRandomRotationValue = getValueOrThrow(RANDOM_ROTATION_NAME, csvArray[2]);
+        boolean isEnableRandomRotation = Boolean.parseBoolean(isEnableRandomRotationValue);
         ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
-        return QuantizationConfig.builder().quantizationType(quantizationType).build();
+        return QuantizationConfig.builder().quantizationType(quantizationType).enableRandomRotation(isEnableRandomRotation).build();
     }
 
     private static String getValueOrThrow(String expectedKey, String keyValue) {

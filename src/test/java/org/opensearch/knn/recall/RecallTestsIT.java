@@ -18,14 +18,15 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.TestUtils;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.Assert.assertEquals;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -43,10 +44,12 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
+// import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.index.KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
@@ -66,8 +69,8 @@ public class RecallTestsIT extends KNNRestTestCase {
     private final static String TRAIN_INDEX_NAME = "train_index";
     private final static String TRAIN_FIELD_NAME = "train_field";
     private final static String TEST_MODEL_ID = "test_model_id";
-    private final static int TEST_DIMENSION = 32;
-    private final static int DOC_COUNT = 1100;
+    private final static int TEST_DIMENSION = 128;
+    private final static int DOC_COUNT = 11000;
     private final static int QUERY_COUNT = 100;
     private final static int TEST_K = 100;
     private final static double PERFECT_RECALL = 1.0;
@@ -83,6 +86,9 @@ public class RecallTestsIT extends KNNRestTestCase {
     private final static int IVF_NPROBES = IVF_NLIST; // This equates to essentially a brute force search
     private final static int PQ_CODE_SIZE = 8; // This is low and going to produce bad recall, but reduces build time
     private final static int PQ_M = TEST_DIMENSION / 8; // Will give low recall, but required for test time
+
+    // on disk settings
+    private final static String ON_DISK = "on_disk";
 
     // Setup ground truth for all tests once
     private final static float[][] INDEX_VECTORS = TestUtils.getIndexVectors(DOC_COUNT, TEST_DIMENSION, true);
@@ -101,6 +107,109 @@ public class RecallTestsIT extends KNNRestTestCase {
     public void setupClusterSettings() {
         updateClusterSettings(KNN_ALGO_PARAM_INDEX_THREAD_QTY, 2);
         updateClusterSettings(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, true);
+    }
+
+    /**
+     * {
+     * 	"properties": {
+     *     {
+     *      "type": "knn_vector",
+     *      "dimension": {TEST_DIMENSION},
+     *      "mode": "on_disk"
+     *      "method": {
+     *          "name":"hnsw",
+     *          "engine":"faiss",
+     *          "space_type": "{SPACE_TYPE}",
+     *          "parameters":{
+     *              "m":{HNSW_M},
+     *              "ef_construction": {HNSW_EF_CONSTRUCTION},
+     *              "ef_search": {HNSW_EF_SEARCH},
+     *              "encoder": {
+     *                  "name": "binary",
+     *                  "parameters": {
+     *                      "bits": {num_bits},
+     *                      "enable_random_rotation": true
+     *                  }
+     *              }
+     *          }
+     *       }
+     *     }
+     *   }
+     *
+     * }
+     * Expect something like the following:
+     * With Random Rotation ON:
+     * L2:
+     *     1 bit:  0.3789 recall
+     *     2 bits: 0.4951 recall
+     *     4 bits: 0.5539 recall
+     *
+     * INNER_PRODUCT:
+     *     1 bit:  0.1616 recall
+     *     2 bits: 0.1847 recall
+     *     4 bits: 0.1957 recall
+     *
+     * COSINE:
+     *     1 bit:  0.3715 recall
+     *     2 bits: 0.4862 recall
+     *     4 bits: 0.5553 recall
+     *
+     * With Random Rotation OFF:
+     * L2:
+     *     1 bit:  0.4839 recall
+     *     2 bits: 0.5834 recall
+     *     4 bits: 0.6546 recall
+     *
+     * INNER_PRODUCT:
+     *     1 bit:  0.1929 recall
+     *     2 bits: 0.2225 recall
+     *     4 bits: 0.2295 recall
+     *
+     * COSINE:
+     *     1 bit:  0.4695 recall
+     *     2 bits: 0.5728 recall
+     *     4 bits: 0.6313 recall
+     *
+     * Test duration: ~1.5 minutes locally (m3 pro)
+     */
+    @SneakyThrows
+    public void testRecall_whenRandomRotationEnabled_thenRecallAbove40Percent() {
+        List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
+        List<Integer> numBits = List.of(1, 2, 4);
+        for (SpaceType spaceType : spaceTypes) {
+            for (Integer bits : numBits) {
+                String indexName = createIndexName(KNNEngine.FAISS, spaceType) + "(" + bits + "bits)";
+                XContentBuilder builder = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject(PROPERTIES_FIELD)
+                    .startObject(TEST_FIELD_NAME)
+                    .field(TYPE, TYPE_KNN_VECTOR)
+                    .field(DIMENSION, TEST_DIMENSION)
+                    .field(MODE_PARAMETER, ON_DISK)
+                    .startObject(KNN_METHOD)
+                    .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+                    .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+                    .field(NAME, METHOD_HNSW)
+                    .startObject(PARAMETERS)
+                    .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
+                    .field(METHOD_PARAMETER_M, HNSW_M)
+                    .field(METHOD_PARAMETER_EF_SEARCH, 100)
+                    .startObject("encoder")
+                    .field(NAME, "binary")
+                    .startObject("parameters")
+                    .field("bits", (int) bits)
+                    .field("enable_random_rotation", true)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject();
+                createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), builder.toString());
+                assertRecall(indexName, spaceType, 0.9f);
+            }
+        }
     }
 
     /**
@@ -421,8 +530,9 @@ public class RecallTestsIT extends KNNRestTestCase {
     @SneakyThrows
     private void assertRecall(String testIndexName, SpaceType spaceType, float acceptableRecallFromPerfect) {
         List<List<String>> searchResults = bulkSearch(testIndexName, TEST_FIELD_NAME, QUERY_VECTORS, TEST_K);
+        logger.info("bulk search complete");
         double recallValue = TestUtils.calculateRecallValue(searchResults, GROUND_TRUTH.get(spaceType), TEST_K);
-        logger.info("Recall value = {}", recallValue);
+        logger.info("Recall value for SpaceType {} = {}", spaceType, recallValue);
         assertEquals(PERFECT_RECALL, recallValue, acceptableRecallFromPerfect);
     }
 
@@ -434,7 +544,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     private void createIndexAndIngestDocs(String indexName, String fieldName, Settings settings, String mapping) {
         createKnnIndex(indexName, settings, mapping);
         bulkAddKnnDocs(indexName, fieldName, INDEX_VECTORS, DOC_COUNT);
-        forceMergeKnnIndex(indexName, MAX_SEGMENT_COUNT);
+        forceMergeKnnIndex(indexName, 1);
     }
 
     @SneakyThrows

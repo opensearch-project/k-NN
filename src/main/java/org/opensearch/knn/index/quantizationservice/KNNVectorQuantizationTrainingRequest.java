@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.quantizationservice;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 
@@ -30,7 +31,14 @@ final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
      * @param knnVectorValuesSupplier the KNNVectorValues instance containing the vectors.
      */
     KNNVectorQuantizationTrainingRequest(Supplier<KNNVectorValues<T>> knnVectorValuesSupplier, long liveDocs) {
-        super((int) liveDocs);
+        super((int) liveDocs, QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION);
+        this.knnVectorValuesSupplier = knnVectorValuesSupplier;
+        resetVectorValues(); // Initialize the first instance
+        this.lastIndex = 0;
+    }
+
+    KNNVectorQuantizationTrainingRequest(Supplier<KNNVectorValues<T>> knnVectorValuesSupplier, long liveDocs, boolean doRandomRotation) {
+        super((int) liveDocs, doRandomRotation);
         this.knnVectorValuesSupplier = knnVectorValuesSupplier;
         resetVectorValues(); // Initialize the first instance
         this.lastIndex = 0;

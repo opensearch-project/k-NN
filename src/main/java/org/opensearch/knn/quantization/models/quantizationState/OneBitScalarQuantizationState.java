@@ -102,7 +102,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
         int version = in.readVInt(); // Read the version
         this.quantizationParams = new ScalarQuantizationParams(in, version);
         this.meanThresholds = in.readFloatArray();
-        if (Version.fromId(version).onOrAfter(Version.V_3_0_0)) {
+        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
             // Deserialize belowThresholdMeans using readOptionalArray
             FloatArrayWrapper[] wrappedBelowThresholdMeans = in.readOptionalArray(FloatArrayWrapper::new, FloatArrayWrapper[]::new);
             this.belowThresholdMeans = wrappedBelowThresholdMeans != null ? wrappedBelowThresholdMeans[0].getArray() : null;
@@ -119,6 +119,22 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
                 }
             }
         }
+    }
+
+    /**
+     * Constructor that takes only the meanthreshold parameter for non-random rotation/adc cases.
+     * This constructor is provided for backward compatibility with existing unit tests.
+     *
+     * @param quantizationParams The scalar quantization parameters
+     * @param meanThresholds The mean thresholds used for quantization
+     */
+    public OneBitScalarQuantizationState(@NonNull ScalarQuantizationParams quantizationParams, @NonNull float[] meanThresholds) {
+        this.quantizationParams = quantizationParams;
+        this.meanThresholds = meanThresholds;
+        this.belowThresholdMeans = null;
+        this.aboveThresholdMeans = null;
+        this.averageL2L1Ratio = 0.0;
+        this.rotationMatrix = null;
     }
 
     /**
