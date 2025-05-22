@@ -85,7 +85,9 @@ public final class ResultUtil {
         }
         final DocIdSetBuilder docIdSetBuilder = new DocIdSetBuilder(maxDoc);
         final DocIdSetBuilder.BulkAdder setAdder = docIdSetBuilder.grow(resultMap.size());
-        resultMap.keySet().forEach(setAdder::add);
+        for (int doc : resultMap.keySet()) {
+            setAdder.add(doc);
+        }
         return docIdSetBuilder.build().iterator();
     }
 
