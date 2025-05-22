@@ -12,6 +12,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
+import org.apache.lucene.util.hnsw.UpdateableRandomVectorScorer;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 
 import java.io.IOException;
@@ -52,7 +53,7 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         throw new IllegalArgumentException("vectorValues must be an instance of RandomAccessVectorValues.Bytes");
     }
 
-    static class BinaryRandomVectorScorer implements RandomVectorScorer {
+    static class BinaryRandomVectorScorer implements UpdateableRandomVectorScorer {
         private final ByteVectorValues vectorValues;
         private final byte[] queryVector;
 
@@ -80,23 +81,26 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         public Bits getAcceptOrds(Bits acceptDocs) {
             return vectorValues.getAcceptOrds(acceptDocs);
         }
+
+        @Override
+        public void setScoringOrdinal(int node) throws IOException {
+            System.arraycopy(vectorValues.vectorValue(node), 0, queryVector, 0, queryVector.length);
+        }
     }
 
     static class BinaryRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
         protected final ByteVectorValues vectorValues;
-        protected final ByteVectorValues vectorValues1;
-        protected final ByteVectorValues vectorValues2;
+        protected final ByteVectorValues targetVectors;
 
         public BinaryRandomVectorScorerSupplier(ByteVectorValues vectorValues) throws IOException {
             this.vectorValues = vectorValues;
-            this.vectorValues1 = vectorValues.copy();
-            this.vectorValues2 = vectorValues.copy();
+            this.targetVectors = vectorValues.copy();
         }
 
         @Override
-        public RandomVectorScorer scorer(int ord) throws IOException {
-            byte[] queryVector = vectorValues1.vectorValue(ord);
-            return new BinaryRandomVectorScorer(vectorValues2, queryVector);
+        public UpdateableRandomVectorScorer scorer() throws IOException {
+            byte[] query = new byte[vectorValues.dimension()];
+            return new BinaryRandomVectorScorer(vectorValues, query);
         }
 
         @Override

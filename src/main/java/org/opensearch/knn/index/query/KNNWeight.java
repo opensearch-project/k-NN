@@ -136,6 +136,9 @@ public class KNNWeight extends Weight {
         } catch (IOException e) {
             throw new RuntimeException(String.format("Error while explaining KNN score for doc [%d], score [%f]", doc, score), e);
         }
+        // catch (Exception e) {
+        // throw new RuntimeException(String.format("Error while explaining KNN score for doc [%d], score [%f]", doc, score), e);
+        // }
         final String highLevelExplanation = getHighLevelExplanation();
         final StringBuilder leafLevelExplanation = getLeafLevelExplanation(context);
 
@@ -242,6 +245,10 @@ public class KNNWeight extends Weight {
     }
 
     private KNNScorer getOrCreateKnnScorer(LeafReaderContext context) throws IOException {
+        // Disabling the cache mechanism due to interface updates for RandomVectorScorer
+        // Issue: https://github.com/opensearch-project/k-NN/issues/2717
+
+        /*
         // First try to get the cached scorer
         KNNScorer scorer = knnExplanation.getKnnScorer(context);
 
@@ -250,8 +257,9 @@ public class KNNWeight extends Weight {
             scorer = (KNNScorer) scorer(context);
             knnExplanation.addKnnScorer(context, scorer);
         }
+        */
 
-        return scorer;
+        return (KNNScorer) scorer(context);
     }
 
     private float getKnnScore(KNNScorer knnScorer, int doc) throws IOException {
