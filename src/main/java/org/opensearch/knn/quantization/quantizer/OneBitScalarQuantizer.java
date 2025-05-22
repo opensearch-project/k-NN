@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
@@ -15,6 +16,8 @@ import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
+import lombok.extern.log4j.Log4j2;
+
 import java.io.IOException;
 
 /**
@@ -22,8 +25,10 @@ import java.io.IOException;
  * It computes the mean of each dimension during training and then uses these means as thresholds
  * for quantizing the vectors.
  */
+@Log4j2
 public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
     private final int samplingSize; // Sampling size for training
+    private final boolean shouldUseRandomRotation;
     private static final boolean IS_TRAINING_REQUIRED = true;
     private final Sampler sampler; // Sampler for training
     // Currently Lucene has sampling size as
@@ -36,7 +41,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * Constructs a OneBitScalarQuantizer with a default sampling size of 25000.
      */
     public OneBitScalarQuantizer() {
-        this(DEFAULT_SAMPLE_SIZE, SamplingFactory.getSampler(SamplerType.RESERVOIR));
+        this(DEFAULT_SAMPLE_SIZE, QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION, SamplingFactory.getSampler(SamplerType.RESERVOIR));
     }
 
     /**
@@ -44,9 +49,19 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      *
      * @param samplingSize the number of samples to use for training.
      */
-    public OneBitScalarQuantizer(final int samplingSize, final Sampler sampler) {
-
+    public OneBitScalarQuantizer(final int samplingSize, final boolean shouldUseRandomRotation, final Sampler sampler) {
         this.samplingSize = samplingSize;
+        this.shouldUseRandomRotation = shouldUseRandomRotation;
+        this.sampler = sampler;
+    }
+
+    public OneBitScalarQuantizer(final boolean shouldUseRandomRotation) {
+        this(DEFAULT_SAMPLE_SIZE, shouldUseRandomRotation, SamplingFactory.getSampler(SamplerType.RESERVOIR));
+    }
+
+    public OneBitScalarQuantizer(final int samplingSize, final Sampler sampler) {
+        this.samplingSize = samplingSize;
+        this.shouldUseRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
         this.sampler = sampler;
     }
 
@@ -63,7 +78,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         return QuantizerHelper.calculateQuantizationState(
             trainingRequest,
             sampledDocIds,
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT)
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT, trainingRequest.isEnableRandomRotation())
         );
     }
 
@@ -87,21 +102,6 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds.length != vectorLength) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        float[][] rotationMatrix = binaryState.getRotationMatrix();
-        if (rotationMatrix != null) {
-            vector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
-        }
-        output.prepareQuantizedVector(vectorLength);
-        BitPacker.quantizeAndPackBits(vector, thresholds, output.getQuantizedVector());
-    }
-
-    @Override
-    public void transform(float[] vector, final QuantizationState state) {
-        if (vector == null) {
-            return;
-        }
-        validateState(state);
-        OneBitScalarQuantizationState binaryState = (OneBitScalarQuantizationState) state;
         float[][] rotationMatrix = binaryState.getRotationMatrix();
         if (rotationMatrix != null) {
             vector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);

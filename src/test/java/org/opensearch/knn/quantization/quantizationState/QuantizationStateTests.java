@@ -112,9 +112,9 @@ public class QuantizationStateTests extends KNNTestCase {
         float[][] thresholds = { { 0.5f, 1.5f, 2.5f }, { 1.0f, 2.0f, 3.0f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .thresholds(thresholds)
-                .build();
+            .quantizationParams(params)
+            .thresholds(thresholds)
+            .build();
 
         byte[] serializedState = state.toByteArray();
 
@@ -134,22 +134,21 @@ public class QuantizationStateTests extends KNNTestCase {
         float[][] thresholds = { { 0.5f, 1.5f, 2.5f }, { 1.0f, 2.0f, 3.0f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .thresholds(thresholds)
-                .build();
+            .quantizationParams(params)
+            .thresholds(thresholds)
+            .build();
 
         long manualEstimatedRamBytesUsed = 0L;
         manualEstimatedRamBytesUsed += alignSize(16L); // object overhead
-        manualEstimatedRamBytesUsed += alignSize(16L); // param object
+        manualEstimatedRamBytesUsed += alignSize(32L); // param object (sqType + isEnableRandomRotation)
         manualEstimatedRamBytesUsed += alignSize(16L + 4L * thresholds.length);
         manualEstimatedRamBytesUsed += alignSize(16L); // for Above and below Threshold for Object Oveerhead
         for (float[] row : thresholds) {
             manualEstimatedRamBytesUsed += alignSize(16L + 4L * row.length);
         }
 
-        long ramEstimatorRamBytesUsed = RamUsageEstimator.shallowSizeOfInstance(MultiBitScalarQuantizationState.class)
-                + RamUsageEstimator.shallowSizeOf(params)
-                + RamUsageEstimator.shallowSizeOf(thresholds);
+        long ramEstimatorRamBytesUsed = RamUsageEstimator.shallowSizeOfInstance(MultiBitScalarQuantizationState.class) + RamUsageEstimator
+            .shallowSizeOf(params) + RamUsageEstimator.shallowSizeOf(thresholds);
 
         for (float[] row : thresholds) {
             ramEstimatorRamBytesUsed += RamUsageEstimator.sizeOf(row);
@@ -162,15 +161,12 @@ public class QuantizationStateTests extends KNNTestCase {
 
     public void testMultiBitScalarQuantizationStateGetDimensions_withAlignedThresholds() {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        float[][] thresholds = {
-                { 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f },
-                { 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f }
-        };
+        float[][] thresholds = { { 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f }, { 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .thresholds(thresholds)
-                .build();
+            .quantizationParams(params)
+            .thresholds(thresholds)
+            .build();
 
         int expectedDimensions = 16; // 2 bit levels × 8 dims already aligned
         assertEquals(expectedDimensions, state.getDimensions());
@@ -178,21 +174,16 @@ public class QuantizationStateTests extends KNNTestCase {
 
     public void testMultiBitScalarQuantizationStateGetDimensions_withUnalignedThresholds() {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        float[][] thresholds = {
-                { 0.1f, 0.2f, 0.3f },
-                { 1.1f, 1.2f, 1.3f }
-        };
+        float[][] thresholds = { { 0.1f, 0.2f, 0.3f }, { 1.1f, 1.2f, 1.3f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .thresholds(thresholds)
-                .build();
+            .quantizationParams(params)
+            .thresholds(thresholds)
+            .build();
 
         int expectedDimensions = 16; // 2 bits × 3 dims = 6 bits, padded to next multiple of 8 = 16
         assertEquals(expectedDimensions, state.getDimensions());
     }
-
-
 
     public void testOneBitScalarQuantizationStateGetDimensions_withDimensionNotMultipleOf8_thenSuccess() {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);

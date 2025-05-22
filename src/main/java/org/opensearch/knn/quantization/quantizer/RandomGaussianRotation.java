@@ -9,6 +9,8 @@ import lombok.experimental.UtilityClass;
 
 import java.util.Random;
 
+import static org.opensearch.knn.common.KNNConstants.QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED;
+
 @UtilityClass
 public class RandomGaussianRotation {
 
@@ -19,7 +21,7 @@ public class RandomGaussianRotation {
      * @return A 2D float array representing the rotation matrix.
      */
     public float[][] generateRotationMatrix(int dimensions) {
-        Random random = new Random();
+        Random random = new Random(QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED);
         float[][] rotationMatrix = new float[dimensions][dimensions];
 
         // Step 1: Generate random Gaussian values

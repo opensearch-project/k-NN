@@ -21,20 +21,16 @@ public class QuantizationStateSerializerTests extends KNNTestCase {
         float[] below = new float[] { 0.05f, 0.15f, 0.25f };
         float[] above = new float[] { 0.15f, 0.25f, 0.35f };
         double l2l1Ratio = 0.7;
-        float[][] rotationMatrix = new float[][] {
-                { 1.0f, 0.0f, 0.0f },
-                { 0.0f, 1.0f, 0.0f },
-                { 0.0f, 0.0f, 1.0f }
-        };
+        float[][] rotationMatrix = new float[][] { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .meanThresholds(mean)
-                .belowThresholdMeans(below)
-                .aboveThresholdMeans(above)
-                .averageL2L1Ratio(l2l1Ratio)
-                .rotationMatrix(rotationMatrix)
-                .build();
+            .quantizationParams(params)
+            .meanThresholds(mean)
+            .belowThresholdMeans(below)
+            .aboveThresholdMeans(above)
+            .averageL2L1Ratio(l2l1Ratio)
+            .rotationMatrix(rotationMatrix)
+            .build();
 
         byte[] serialized = state.toByteArray();
         OneBitScalarQuantizationState deserialized = OneBitScalarQuantizationState.fromByteArray(serialized);
@@ -49,27 +45,20 @@ public class QuantizationStateSerializerTests extends KNNTestCase {
 
     public void testSerializeAndDeserializeMultiBitScalarQuantizationState() throws IOException {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        float[][] thresholds = new float[][] {
-                { 0.1f, 0.2f, 0.3f },
-                { 0.4f, 0.5f, 0.6f }
-        };
+        float[][] thresholds = new float[][] { { 0.1f, 0.2f, 0.3f }, { 0.4f, 0.5f, 0.6f } };
         float[] belowMeans = new float[] { 0.1f, 0.2f, 0.3f };
         float[] aboveMeans = new float[] { 0.5f, 0.6f, 0.7f };
         double l2l1Ratio = 0.65;
-        float[][] rotationMatrix = new float[][] {
-                { 1.0f, 0.0f, 0.0f },
-                { 0.0f, 1.0f, 0.0f },
-                { 0.0f, 0.0f, 1.0f }
-        };
+        float[][] rotationMatrix = new float[][] { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .thresholds(thresholds)
-                .belowThresholdMeans(belowMeans)
-                .aboveThresholdMeans(aboveMeans)
-                .averageL2L1Ratio(l2l1Ratio)
-                .rotationMatrix(rotationMatrix)
-                .build();
+            .quantizationParams(params)
+            .thresholds(thresholds)
+            .belowThresholdMeans(belowMeans)
+            .aboveThresholdMeans(aboveMeans)
+            .averageL2L1Ratio(l2l1Ratio)
+            .rotationMatrix(rotationMatrix)
+            .build();
 
         byte[] serialized = state.toByteArray();
         MultiBitScalarQuantizationState deserialized = MultiBitScalarQuantizationState.fromByteArray(serialized);
