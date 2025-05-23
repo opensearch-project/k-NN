@@ -257,13 +257,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(
-                        quantizationService.train(
-                            quantizationParams,
-                            expectedVectorValuesSuppliers.get(i).get(),
-                            vectorsPerField.get(i).size()
-                        )
-                    ).thenReturn(quantizationState);
+                    when(quantizationService.train(quantizationParams, expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size()))
+                        .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -683,13 +678,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(
-                        quantizationService.train(
-                            quantizationParams,
-                            expectedVectorValuesSuppliers.get(i).get(),
-                            vectorsPerField.get(i).size()
-                        )
-                    ).thenReturn(quantizationState);
+                    when(quantizationService.train(quantizationParams, expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size()))
+                        .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -788,13 +778,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
                 try {
-                    when(
-                        quantizationService.train(
-                            quantizationParams,
-                            expectedVectorValuesSuppliers.get(i).get(),
-                            vectorsPerField.get(i).size()
-                        )
-                    ).thenReturn(quantizationState);
+                    when(quantizationService.train(quantizationParams, expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size()))
+                        .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
