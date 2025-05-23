@@ -9,7 +9,16 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.search.*;
+import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MatchNoDocsQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
+import org.apache.lucene.search.ScoreMode;
+import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopDocsCollector;
+import org.apache.lucene.search.Weight;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
@@ -41,25 +50,6 @@ public class RescoreKNNVectorQuery extends Query {
     private int shardId;
 
     @Override
-    public void visit(QueryVisitor visitor) {
-        visitor.visitLeaf(this);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (!sameClassAs(obj)) {
-            return false;
-        }
-        RescoreKNNVectorQuery other = (RescoreKNNVectorQuery) obj;
-        return innerQuery == other.innerQuery;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(classHash(), innerQuery.hashCode());
-    }
-
-    @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
         Weight weight = searcher.createWeight(innerQuery, scoreMode, boost);
         StopWatch stopWatch = startStopWatch();
@@ -75,13 +65,14 @@ public class RescoreKNNVectorQuery extends Query {
     private TopDocs[] doRescore(final IndexSearcher indexSearcher, Weight weight, int k) throws IOException {
         List<LeafReaderContext> leafReaderContexts = indexSearcher.getIndexReader().leaves();
         List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
+        ExactSearcher searcher = new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            rescoreTasks.add(() -> searchLeaf(weight, k, leafReaderContext));
+            rescoreTasks.add(() -> searchLeaf(searcher, weight, k, leafReaderContext));
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks).toArray(TopDocs[]::new);
     }
 
-    private TopDocs searchLeaf(Weight weight, int k, LeafReaderContext leafReaderContext) throws IOException {
+    private TopDocs searchLeaf(ExactSearcher searcher, Weight weight, int k, LeafReaderContext leafReaderContext) throws IOException {
         Scorer scorer = weight.scorer(leafReaderContext);
         if (scorer == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
@@ -96,7 +87,6 @@ public class RescoreKNNVectorQuery extends Query {
             .field(field)
             .queryVector(queryVector)
             .build();
-        ExactSearcher searcher = new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
         Map<Integer, Float> integerFloatMap = searcher.searchLeaf(leafReaderContext, exactSearcherContext);
         return ResultUtil.resultMapToTopDocs(integerFloatMap, leafReaderContext.docBase);
     }
@@ -112,7 +102,8 @@ public class RescoreKNNVectorQuery extends Query {
         if (log.isDebugEnabled() && stopWatch != null) {
             stopWatch.stop();
             log.debug(
-                "[Rescore KNN Vector Query] shard: [{}], field: [{}], time in nanos:[{}] ",
+                "[{}] shard: [{}], field: [{}], time in nanos:[{}] ",
+                this.getClass().getSimpleName(),
                 shardId,
                 field,
                 stopWatch.totalTime().nanos()
@@ -123,14 +114,39 @@ public class RescoreKNNVectorQuery extends Query {
     @Override
     public String toString(String field) {
         return this.getClass().getSimpleName()
-                + "innerQuery="
-                + innerQuery
-                + "field="
-                + field
-                + ", vector="
-                + queryVector
-                + ", k="
-                + k
-                + "]";
+            + "innerQuery="
+            + innerQuery
+            + "field="
+            + field
+            + ", vector="
+            + queryVector
+            + ", k="
+            + k
+            + ", shardId="
+            + shardId
+            + "]";
+    }
+
+    @Override
+    public void visit(QueryVisitor visitor) {
+        visitor.visitLeaf(this);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!sameClassAs(obj)) {
+            return false;
+        }
+        RescoreKNNVectorQuery other = (RescoreKNNVectorQuery) obj;
+        return Objects.equals(innerQuery, other.innerQuery)
+            && Objects.equals(queryVector, other.queryVector)
+            && Objects.equals(field, other.field)
+            && k == other.k
+            && shardId == other.shardId;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(innerQuery, queryVector, field, k, shardId);
     }
 }

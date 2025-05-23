@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
@@ -24,8 +25,6 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS;
 
 /**
@@ -136,7 +135,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             overSampledK = rescoreContext.getFirstPassK(k, false, queryVector.getLength());
         }
         int luceneK = requestEfSearch == null ? overSampledK : Math.max(overSampledK, requestEfSearch);
-        log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, overSampledK);
+        log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, luceneK);
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
             getKnnVectorQuery(fieldName, queryVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType)
         );
@@ -172,18 +171,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery,
         final BitSetProducer parentFilter,
         final boolean expandNested,
-        final VectorDataType vectorDataType
+        @NonNull final VectorDataType vectorDataType
     ) {
-        if (vectorDataType == null) {
-            throw new IllegalArgumentException(
-                String.format(
-                    Locale.ROOT,
-                    "Invalid value provided for [%s] field. Supported values are [%s], but got: null",
-                    VECTOR_DATA_TYPE_FIELD,
-                    SUPPORTED_VECTOR_DATA_TYPES
-                )
-            );
-        }
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return vectorDataType == VectorDataType.FLOAT
