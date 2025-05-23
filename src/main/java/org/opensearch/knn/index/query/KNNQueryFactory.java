@@ -128,22 +128,23 @@ public class KNNQueryFactory extends BaseQueryFactory {
         if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
             requestEfSearch = (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
         }
-        int luceneK = requestEfSearch == null ? k : Math.max(k, requestEfSearch);
         QueryVector queryVector = new QueryVector(vector, byteVector);
-        int overSampledK = luceneK;
+        int overSampledK = k;
         boolean needsRescore = shouldRescore(rescoreContext);
         if (needsRescore) {
-            overSampledK = rescoreContext.getFirstPassK(luceneK, false, queryVector.getLength());
+            // Will not be able
+            overSampledK = rescoreContext.getFirstPassK(k, false, queryVector.getLength());
         }
+        int luceneK = requestEfSearch == null ? overSampledK : Math.max(overSampledK, requestEfSearch);
         log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, overSampledK);
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
-            getKnnVectorQuery(fieldName, queryVector, overSampledK, filterQuery, parentFilter, expandNested, vectorDataType)
+            getKnnVectorQuery(fieldName, queryVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType)
         );
         return needsRescore
             ? RescoreKNNVectorQuery.builder()
                 .innerQuery(luceneKnnQuery)
                 .field(fieldName)
-                .k(luceneK)
+                .k(k)
                 .queryVector(queryVector)
                 .queryUtils(QueryUtils.INSTANCE)
                 .shardId(shardId)

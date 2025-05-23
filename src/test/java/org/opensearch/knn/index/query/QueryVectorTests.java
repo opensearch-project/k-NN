@@ -5,12 +5,13 @@
 
 package org.opensearch.knn.index.query;
 
-import org.junit.Test;
+import org.opensearch.knn.KNNTestCase;
+
+import static org.apache.lucene.tests.util.LuceneTestCase.expectThrows;
 import static org.junit.Assert.*;
 
-public class QueryVectorTests {
+public class QueryVectorTests extends KNNTestCase {
 
-    @Test
     public void testFloatVectorConstructor() {
         float[] floatVector = new float[] { 1.0f, 2.0f, 3.0f };
         QueryVector queryVector = new QueryVector(floatVector);
@@ -19,7 +20,6 @@ public class QueryVectorTests {
         assertNull(queryVector.getByteVector());
     }
 
-    @Test
     public void testByteVectorConstructor() {
         byte[] byteVector = new byte[] { 1, 2, 3 };
         QueryVector queryVector = new QueryVector(byteVector);
@@ -28,15 +28,12 @@ public class QueryVectorTests {
         assertNull(queryVector.getFloatVector());
     }
 
-    @Test(expected = IllegalArgumentException.class)
     public void testBothVectorsConstructor_ThrowsException() {
         float[] floatVector = new float[] { 1.0f, 2.0f, 3.0f };
         byte[] byteVector = new byte[] { 1, 2, 3 };
-
-        new QueryVector(floatVector, byteVector);
+        expectThrows(IllegalArgumentException.class, () -> { new QueryVector(floatVector, byteVector); });
     }
 
-    @Test
     public void testNullVectorsConstructor() {
         QueryVector queryVector = new QueryVector(null, null);
 
@@ -44,7 +41,6 @@ public class QueryVectorTests {
         assertNull(queryVector.getByteVector());
     }
 
-    @Test
     public void testEmptyVectors() {
         float[] emptyFloat = new float[0];
         byte[] emptyByte = new byte[0];

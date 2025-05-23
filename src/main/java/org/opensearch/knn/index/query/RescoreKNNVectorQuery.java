@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.*;
@@ -25,29 +26,19 @@ import java.util.concurrent.Callable;
 @Log4j2
 public class RescoreKNNVectorQuery extends Query {
 
+    @NonNull
     private Query innerQuery;
+    @NonNull
     private String field;
     private int k;
+    @NonNull
     private QueryVector queryVector;
+    @NonNull
     private QueryUtils queryUtils;
 
     // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
     private int shardId;
-
-    @Override
-    public String toString(String field) {
-        return this.getClass().getSimpleName()
-            + "innerQuery="
-            + innerQuery
-            + "field="
-            + field
-            + ", vector="
-            + queryVector
-            + ", k="
-            + k
-            + "]";
-    }
 
     @Override
     public void visit(QueryVisitor visitor) {
@@ -59,7 +50,8 @@ public class RescoreKNNVectorQuery extends Query {
         if (!sameClassAs(obj)) {
             return false;
         }
-        return innerQuery == ((RescoreKNNVectorQuery) obj).innerQuery;
+        RescoreKNNVectorQuery other = (RescoreKNNVectorQuery) obj;
+        return innerQuery == other.innerQuery;
     }
 
     @Override
@@ -126,5 +118,19 @@ public class RescoreKNNVectorQuery extends Query {
                 stopWatch.totalTime().nanos()
             );
         }
+    }
+
+    @Override
+    public String toString(String field) {
+        return this.getClass().getSimpleName()
+                + "innerQuery="
+                + innerQuery
+                + "field="
+                + field
+                + ", vector="
+                + queryVector
+                + ", k="
+                + k
+                + "]";
     }
 }
