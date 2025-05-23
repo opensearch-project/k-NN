@@ -52,13 +52,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.ANN_SEARCH;
-import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.RADIAL_SEARCH;
-import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.*;
 
 public class ExplainTests extends KNNWeightTestCase {
 
@@ -112,6 +106,9 @@ public class ExplainTests extends KNNWeightTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
         when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+        when(fieldInfo.getAttribute(VECTOR_DATA_TYPE_FIELD)).thenReturn(
+            byteVector != null ? VectorDataType.BINARY.getValue() : VectorDataType.FLOAT.getValue()
+        );
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
 
         if (floatVector != null) {
@@ -268,11 +265,11 @@ public class ExplainTests extends KNNWeightTestCase {
         final KNNWeight knnWeight = new KNNWeight(query, 1.0f);
 
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .knnQuery(query)
+            .queryVector(new QueryVector(queryVector))
+            .field(FIELD_NAME)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
 
@@ -481,11 +478,11 @@ public class ExplainTests extends KNNWeightTestCase {
         setupTest(null, attributesMap, 1, spaceType, false, null, null, null);
 
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .knnQuery(query)
+            .field(FIELD_NAME)
+            .queryVector(new QueryVector(queryVector))
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -820,11 +817,13 @@ public class ExplainTests extends KNNWeightTestCase {
         final float boost = 1;
         final KNNWeight knnWeight = new KNNWeight(query, boost);
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .knnQuery(query)
+            .queryVector(new QueryVector(queryVector))
+            .field(FIELD_NAME)
+            .radius(radius)
+            .maxResultWindow(maxResults)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
 
