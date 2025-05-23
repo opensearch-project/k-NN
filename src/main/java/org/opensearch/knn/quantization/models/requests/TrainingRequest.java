@@ -43,5 +43,9 @@ public abstract class TrainingRequest<T> {
      */
     public abstract T getVectorAtThePosition(int position) throws IOException;
 
+    /**
+     * Resets the KNNVectorValues in implementation to enable a fresh iteration by calling the supplier again.
+     * If the implementation does not use KNNVectorValues resetVectorValues is a no-op.
+     */
     public abstract void resetVectorValues();
 }

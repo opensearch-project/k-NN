@@ -59,6 +59,9 @@ public class QuantizationConfigParserTests extends KNNTestCase {
                     + ","
                     + QuantizationConfigParser.BIT_COUNT_NAME
                     + "=4"
+                    + ","
+                    + QuantizationConfigParser.RANDOM_ROTATION_NAME
+                    + "=false"
             )
         );
     }
@@ -67,7 +70,7 @@ public class QuantizationConfigParserTests extends KNNTestCase {
         assertEquals("", QuantizationConfigParser.toCsv(null));
         assertEquals("", QuantizationConfigParser.toCsv(QuantizationConfig.EMPTY));
         assertEquals(
-            "type=binary,bits=2",
+            "type=binary,bits=2,random_rotation=false",
             QuantizationConfigParser.toCsv(QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build())
         );
     }

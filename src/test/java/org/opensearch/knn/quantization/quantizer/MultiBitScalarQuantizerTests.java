@@ -29,8 +29,6 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
         MultiBitScalarQuantizationState state = (MultiBitScalarQuantizationState) quantizer.train(request);
 
         assertEquals(2, state.getThresholds().length);
-        assertNotNull(state.getBelowThresholdMeans());
-        assertNotNull(state.getAboveThresholdMeans());
     }
 
     public void testTrain_fourBit_withRotationMatrix() throws IOException {
@@ -136,11 +134,6 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
         MultiBitScalarQuantizer quantizer = new MultiBitScalarQuantizer(2);
         TrainingRequest<float[]> request = new MockTrainingRequest(new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT), vectors);
         MultiBitScalarQuantizationState state = (MultiBitScalarQuantizationState) quantizer.train(request);
-
-        for (float f : state.getAboveThresholdMeans())
-            assertTrue(f > 5.0f);
-        for (float f : state.getBelowThresholdMeans())
-            assertTrue(f < 5.0f);
     }
 
     private static class MockTrainingRequest extends TrainingRequest<float[]> {

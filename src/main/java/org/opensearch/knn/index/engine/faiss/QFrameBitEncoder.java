@@ -33,7 +33,7 @@ public class QFrameBitEncoder implements Encoder {
     public static final String NAME = "binary";
     public static final String BITCOUNT_PARAM = "bits";
     private static final int DEFAULT_BITS = 1;
-    public static final String ENABLE_RANDOM_ROTATION_PARAM = "enable_random_rotation";
+    public static final String ENABLE_RANDOM_ROTATION_PARAM = "random_rotation";
     public static final Boolean DEFAULT_ENABLE_RANDOM_ROTATION = false;
     private static final Set<Integer> validBitCounts = ImmutableSet.of(1, 2, 4);
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
@@ -44,7 +44,7 @@ public class QFrameBitEncoder implements Encoder {
      *     "name": "binary",
      *     "parameters": {
      *       "bits": 2,
-     *       "enable_random_rotation": true,
+     *       "random_rotation": true,
      *     }
      *   }
      * }
@@ -59,8 +59,7 @@ public class QFrameBitEncoder implements Encoder {
             ENABLE_RANDOM_ROTATION_PARAM,
             new Parameter.BooleanParameter(ENABLE_RANDOM_ROTATION_PARAM, DEFAULT_ENABLE_RANDOM_ROTATION, (v, context) -> {
                 return true; // all booleans are valid for this toggleable setting.
-            }
-            )
+            })
         )
         .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
 

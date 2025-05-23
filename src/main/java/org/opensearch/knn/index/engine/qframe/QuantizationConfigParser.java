@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.qframe;
 
 import org.apache.lucene.analysis.util.CSVUtil;
+import org.opensearch.Version;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
@@ -34,18 +35,19 @@ public class QuantizationConfigParser {
             || quantizationConfig.getQuantizationType() == null) {
             return "";
         }
-
-        return TYPE_NAME
+        String result = TYPE_NAME
             + SEPARATOR
             + BINARY_TYPE
             + ","
             + BIT_COUNT_NAME
             + SEPARATOR
-            + quantizationConfig.getQuantizationType().getId()
-            + ","
-            + RANDOM_ROTATION_NAME
-            + SEPARATOR
-            + quantizationConfig.isEnableRandomRotation();
+            + quantizationConfig.getQuantizationType().getId();
+
+        if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
+            result = result + "," + RANDOM_ROTATION_NAME + SEPARATOR + quantizationConfig.isEnableRandomRotation();
+        }
+
+        return result;
     }
 
     /**
@@ -59,6 +61,14 @@ public class QuantizationConfigParser {
             return QuantizationConfig.EMPTY;
         }
 
+        if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
+            return parseCurrentVersion(csv);
+        } else {
+            return parseLegacyVersion(csv);
+        }
+    }
+
+    private static QuantizationConfig parseCurrentVersion(String csv) {
         String[] csvArray = CSVUtil.parse(csv);
         if (csvArray.length != 3) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
@@ -74,8 +84,30 @@ public class QuantizationConfigParser {
 
         String isEnableRandomRotationValue = getValueOrThrow(RANDOM_ROTATION_NAME, csvArray[2]);
         boolean isEnableRandomRotation = Boolean.parseBoolean(isEnableRandomRotationValue);
+
         ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
         return QuantizationConfig.builder().quantizationType(quantizationType).enableRandomRotation(isEnableRandomRotation).build();
+    }
+
+    private static QuantizationConfig parseLegacyVersion(String csv) {
+        String[] csvArray = CSVUtil.parse(csv);
+        if (csvArray.length != 2) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
+        }
+
+        String typeValue = getValueOrThrow(TYPE_NAME, csvArray[0]);
+        if (!typeValue.equals(BINARY_TYPE)) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported quantization type: \"%s\"", typeValue));
+        }
+
+        String bitsValue = getValueOrThrow(BIT_COUNT_NAME, csvArray[1]);
+        int bitCount = Integer.parseInt(bitsValue);
+
+        ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
+        return QuantizationConfig.builder()
+            .quantizationType(quantizationType)
+            .enableRandomRotation(QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION)  // default value for legacy version
+            .build();
     }
 
     private static String getValueOrThrow(String expectedKey, String keyValue) {

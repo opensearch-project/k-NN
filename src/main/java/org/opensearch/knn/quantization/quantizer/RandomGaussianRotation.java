@@ -15,7 +15,17 @@ import static org.opensearch.knn.common.KNNConstants.QUANTIZATION_RANDOM_ROTATIO
 public class RandomGaussianRotation {
 
     /**
-     * Generates a random rotation matrix using Gaussian distribution and orthogonalization.
+     * Generates a random rotation matrix. Each entry is sampled from a standard Gaussian distribution.
+     * Then Gram-Schmidt is used to make the random matrix orthonormal (so it represents
+     * a rotation or rotation + reflection). The matrix preserves distances with probability 1; norm(Mx) = norm(x)
+     * for l1 and l2 norms.
+     *
+     * Random rotation improves k-NN search by making each vector coordinate roughly equal. That is, it smooths the
+     * data so each dimension has roughly equal variance in our vector population. To see this, note that
+     * Var[(Mx)_i] = (1/d) sum_j Var[x_j] for each i due to each entry in the random matrix being independent.
+     *
+     * The RNG is seeded with QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED to achieve reproducible rotations across
+     * different indexing runs.
      *
      * @param dimensions The number of dimensions for the rotation matrix.
      * @return A 2D float array representing the rotation matrix.
@@ -71,9 +81,9 @@ public class RandomGaussianRotation {
     /**
      * Applies a rotation to a vector using the provided rotation matrix.
      *
-     * @param vector The input vector to be rotated.
+     * @param vector The input vector to be rotated. The input vector is not modified.
      * @param rotationMatrix The rotation matrix.
-     * @return The rotated vector.
+     * @return The copy of the original vector but rotated.
      */
     public float[] applyRotation(float[] vector, float[][] rotationMatrix) {
         int dimensions = vector.length;

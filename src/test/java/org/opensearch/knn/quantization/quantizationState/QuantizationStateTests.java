@@ -36,22 +36,16 @@ public class QuantizationStateTests extends KNNTestCase {
         float delta = 0.0001f;
         assertArrayEquals(mean, deserializedState.getMeanThresholds(), delta);
         assertEquals(params.getSqType(), deserializedState.getQuantizationParams().getSqType());
-        assertNull(deserializedState.getBelowThresholdMeans());
-        assertNull(deserializedState.getAboveThresholdMeans());
     }
 
     // Test serialization and deserialization with optional fields
     public void testOneBitScalarQuantizationState_WithOptionalFields() throws IOException {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         float[] mean = { 1.0f, 2.0f, 3.0f };
-        float[] belowThresholdMeans = { 0.5f, 1.5f, 2.5f };
-        float[] aboveThresholdMeans = { 1.5f, 2.5f, 3.5f };
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
             .quantizationParams(params)
             .meanThresholds(mean)
-            .aboveThresholdMeans(aboveThresholdMeans)
-            .belowThresholdMeans(belowThresholdMeans)
             .build();
 
         // Serialize
@@ -63,8 +57,6 @@ public class QuantizationStateTests extends KNNTestCase {
 
         // Assertions
         assertArrayEquals(mean, deserializedState.getMeanThresholds(), 0.0f);
-        assertArrayEquals(belowThresholdMeans, deserializedState.getBelowThresholdMeans(), 0.0f);
-        assertArrayEquals(aboveThresholdMeans, deserializedState.getAboveThresholdMeans(), 0.0f);
         assertEquals(params, deserializedState.getQuantizationParams());
     }
 
@@ -89,20 +81,15 @@ public class QuantizationStateTests extends KNNTestCase {
     public void testOneBitScalarQuantizationState_RamBytesUsedWithAllFields() {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         float[] mean = { 1.0f, 2.0f, 3.0f };
-        float[] belowThresholdMeans = { 0.5f, 1.5f, 2.5f };
-        float[] aboveThresholdMeans = { 1.5f, 2.5f, 3.5f };
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
             .quantizationParams(params)
             .meanThresholds(mean)
-            .aboveThresholdMeans(aboveThresholdMeans)
-            .belowThresholdMeans(belowThresholdMeans)
             .build();
 
         long actualRamBytesUsed = state.ramBytesUsed();
         long expectedRamBytesUsed = RamUsageEstimator.shallowSizeOfInstance(OneBitScalarQuantizationState.class) + RamUsageEstimator
-            .shallowSizeOf(params) + RamUsageEstimator.sizeOf(mean) + RamUsageEstimator.sizeOf(belowThresholdMeans) + RamUsageEstimator
-                .sizeOf(aboveThresholdMeans);
+            .shallowSizeOf(params) + RamUsageEstimator.sizeOf(mean);
 
         assertEquals(expectedRamBytesUsed, actualRamBytesUsed);
     }
@@ -142,7 +129,6 @@ public class QuantizationStateTests extends KNNTestCase {
         manualEstimatedRamBytesUsed += alignSize(16L); // object overhead
         manualEstimatedRamBytesUsed += alignSize(32L); // param object (sqType + isEnableRandomRotation)
         manualEstimatedRamBytesUsed += alignSize(16L + 4L * thresholds.length);
-        manualEstimatedRamBytesUsed += alignSize(16L); // for Above and below Threshold for Object Oveerhead
         for (float[] row : thresholds) {
             manualEstimatedRamBytesUsed += alignSize(16L + 4L * row.length);
         }

@@ -127,7 +127,7 @@ public class QFrameBitEncoderTests extends KNNTestCase {
         ValidationException validationException = methodComponent.validate(invalidContext, knnMethodConfigContext);
 
         assertTrue(
-            validationException.getMessage().contains("value is not an instance of Boolean for Boolean parameter [enable_random_rotation].")
+            validationException.getMessage().contains("value is not an instance of Boolean for Boolean parameter [random_rotation].")
         );
     }
 

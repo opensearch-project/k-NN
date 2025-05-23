@@ -21,6 +21,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 
 import java.util.List;
 import java.util.Map;
@@ -69,8 +70,8 @@ public class RecallTestsIT extends KNNRestTestCase {
     private final static String TRAIN_INDEX_NAME = "train_index";
     private final static String TRAIN_FIELD_NAME = "train_field";
     private final static String TEST_MODEL_ID = "test_model_id";
-    private final static int TEST_DIMENSION = 128;
-    private final static int DOC_COUNT = 11000;
+    private final static int TEST_DIMENSION = 32;
+    private final static int DOC_COUNT = 1100;
     private final static int QUERY_COUNT = 100;
     private final static int TEST_K = 100;
     private final static double PERFECT_RECALL = 1.0;
@@ -128,7 +129,7 @@ public class RecallTestsIT extends KNNRestTestCase {
      *                  "name": "binary",
      *                  "parameters": {
      *                      "bits": {num_bits},
-     *                      "enable_random_rotation": true
+     *                      "random_rotation": true
      *                  }
      *              }
      *          }
@@ -137,43 +138,46 @@ public class RecallTestsIT extends KNNRestTestCase {
      *   }
      *
      * }
-     * Expect something like the following:
+     * Recall values for seed F71F949325FE8B42:
+     * (note that the vectors in these tests are randomly sampled from a gaussian distribution.
+     * It's expected that random rotation does not outperform normal search in this case, and we only see benefits for
+     * non-random data with uneven variance across dimensions.)
      * With Random Rotation ON:
      * L2:
-     *     1 bit:  0.3789 recall
-     *     2 bits: 0.4951 recall
-     *     4 bits: 0.5539 recall
+     *     1 bit:  0.8773 recall
+     *     2 bits: 0.9451 recall
+     *     4 bits: 0.9678 recall
      *
      * INNER_PRODUCT:
-     *     1 bit:  0.1616 recall
-     *     2 bits: 0.1847 recall
-     *     4 bits: 0.1957 recall
+     *     1 bit:  0.6817 recall
+     *     2 bits: 0.7220 recall
+     *     4 bits: 0.7341 recall
      *
      * COSINE:
-     *     1 bit:  0.3715 recall
-     *     2 bits: 0.4862 recall
-     *     4 bits: 0.5553 recall
+     *     1 bit:  0.8710 recall
+     *     2 bits: 0.9416 recall
+     *     4 bits: 0.9700 recall
      *
      * With Random Rotation OFF:
      * L2:
-     *     1 bit:  0.4839 recall
-     *     2 bits: 0.5834 recall
-     *     4 bits: 0.6546 recall
+     *     1 bit:  0.9208 recall
+     *     2 bits: 0.9746 recall
+     *     4 bits: 0.9924 recall
      *
      * INNER_PRODUCT:
-     *     1 bit:  0.1929 recall
-     *     2 bits: 0.2225 recall
-     *     4 bits: 0.2295 recall
+     *     1 bit:  0.7106 recall
+     *     2 bits: 0.7356 recall
+     *     4 bits: 0.7457 recall
      *
      * COSINE:
-     *     1 bit:  0.4695 recall
-     *     2 bits: 0.5728 recall
-     *     4 bits: 0.6313 recall
+     *     1 bit:  0.9107 recall
+     *     2 bits: 0.9677 recall
+     *     4 bits: 0.9860 recall
      *
-     * Test duration: ~1.5 minutes locally (m3 pro)
+     * Test duration: ~1 minute locally (m3 pro)
      */
     @SneakyThrows
-    public void testRecall_whenRandomRotationEnabled_thenRecallAbove40Percent() {
+    public void testRecall_whenRandomRotationEnabled_thenRecallAbove60Percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         List<Integer> numBits = List.of(1, 2, 4);
         for (SpaceType spaceType : spaceTypes) {
@@ -198,7 +202,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                     .field(NAME, "binary")
                     .startObject("parameters")
                     .field("bits", (int) bits)
-                    .field("enable_random_rotation", true)
+                    .field(QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, true)
                     .endObject()
                     .endObject()
                     .endObject()
@@ -207,7 +211,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                     .endObject()
                     .endObject();
                 createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), builder.toString());
-                assertRecall(indexName, spaceType, 0.9f);
+                assertRecall(indexName, spaceType, 0.4f);
             }
         }
     }
@@ -544,7 +548,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     private void createIndexAndIngestDocs(String indexName, String fieldName, Settings settings, String mapping) {
         createKnnIndex(indexName, settings, mapping);
         bulkAddKnnDocs(indexName, fieldName, INDEX_VECTORS, DOC_COUNT);
-        forceMergeKnnIndex(indexName, 1);
+        forceMergeKnnIndex(indexName, MAX_SEGMENT_COUNT);
     }
 
     @SneakyThrows

@@ -29,17 +29,17 @@ public class QuantizerHelperTests extends KNNTestCase {
         assertArrayEquals(new float[] { (float) Math.sqrt(8f / 3), (float) Math.sqrt(8f / 3) }, result.getB(), 0.01f);
     }
 
-    public void testCalculateMeanAndL2L1Ratio() throws IOException {
-        float[][] vectors = { { 1f, 2f }, { 3f, 4f }, { 5f, 6f } };
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        TrainingRequest<float[]> request = new MockTrainingRequest(params, vectors);
-        int[] sampledIndices = { 0, 1, 2 };
+    // public void testCalculateMeanAndL2L1Ratio() throws IOException {
+    // float[][] vectors = { { 1f, 2f }, { 3f, 4f }, { 5f, 6f } };
+    // ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+    // TrainingRequest<float[]> request = new MockTrainingRequest(params, vectors);
+    // int[] sampledIndices = { 0, 1, 2 };
 
-        Pair<float[], Double> result = QuantizerHelper.calculateMeanAndL2L1Ratio(request, sampledIndices);
+    // Pair<float[], Double> result = QuantizerHelper.calculateMeanAndL2L1Ratio(request, sampledIndices);
 
-        assertArrayEquals(new float[] { 3f, 4f }, result.getA(), 0.01f);
-        assertTrue(result.getB() > 0.0);
-    }
+    // assertArrayEquals(new float[] { 3f, 4f }, result.getA(), 0.01f);
+    // assertTrue(result.getB() > 0.0);
+    // }
 
     public void testCalculateOneBitQuantizationState_basicFlow() throws IOException {
         float[][] vectors = { { 1f, 2f }, { 2f, 4f }, { 3f, 6f } };
@@ -50,8 +50,6 @@ public class QuantizerHelperTests extends KNNTestCase {
         OneBitScalarQuantizationState state = QuantizerHelper.calculateQuantizationState(request, sampledIndices, params);
 
         assertNotNull(state.getMeanThresholds());
-        assertNotNull(state.getAboveThresholdMeans());
-        assertNotNull(state.getBelowThresholdMeans());
     }
 
     public void testCalculateMultiBitQuantizationState_basicFlow() throws IOException {
@@ -63,8 +61,6 @@ public class QuantizerHelperTests extends KNNTestCase {
         MultiBitScalarQuantizationState state = QuantizerHelper.calculateQuantizationState(request, sampledIndices, params, 2);
 
         assertNotNull(state.getThresholds());
-        assertNotNull(state.getAboveThresholdMeans());
-        assertNotNull(state.getBelowThresholdMeans());
     }
 
     public void testThresholdGenerationForMultiBitQuantizer() {

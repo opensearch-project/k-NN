@@ -66,12 +66,6 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
 
         float[] expectedMeanThresholds = { 4.0f, 5.0f, 6.0f };
         assertArrayEquals(expectedMeanThresholds, oneBitState.getMeanThresholds(), 0.001f);
-
-        // Validate below and above thresholds
-        float[] expectedBelowThresholdMeans = { 2.5f, 3.5f, 4.5f };
-        float[] expectedAboveThresholdMeans = { 7.0f, 8.0f, 9.0f };
-        assertArrayEquals(expectedBelowThresholdMeans, oneBitState.getBelowThresholdMeans(), 0.001f);
-        assertArrayEquals(expectedAboveThresholdMeans, oneBitState.getAboveThresholdMeans(), 0.001f);
     }
 
     public void testQuantize_withState() throws IOException {
