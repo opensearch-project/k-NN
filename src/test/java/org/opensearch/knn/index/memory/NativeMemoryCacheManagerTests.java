@@ -12,8 +12,10 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IndexInput;
+import org.junit.Assert;
 import org.junit.Before;
 import lombok.SneakyThrows;
 import org.junit.Test;
@@ -592,8 +594,8 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         assertFalse(indexEntryContext1.isIndexGraphFileOpened());
         assertEquals(indexAllocation1, nativeMemoryCacheManager.get(indexEntryContext1, false));
 
-        verify(mockDirectory, times(2)).openInput(any(), any());
-        verify(mockReadStream, times(2)).seek(0);
+        verify(mockDirectory, times(1)).openInput(any(), any());
+        verify(mockReadStream, times(1)).seek(0);
         verify(mockReadStream, times(2)).close();
 
     }
@@ -614,7 +616,6 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     }
 
     @SneakyThrows
-    @Test(expected = IllegalStateException.class)
     public void testGetWithInvalidFile_IllegalStateException() {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
@@ -626,7 +627,11 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         doReturn(0).when(indexEntryContext).calculateSizeInKB();
         Directory mockDirectory = mock(Directory.class);
         // This should throw the exception
-        nativeMemoryCacheManager.get(indexEntryContext, false);
+        Exception exception = Assert.assertThrows(
+            UncheckedExecutionException.class,
+            () -> nativeMemoryCacheManager.get(indexEntryContext, false)
+        );
+        assertTrue(exception.getCause() instanceof IllegalStateException);
     }
 
     @SneakyThrows
