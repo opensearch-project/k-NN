@@ -7,9 +7,8 @@ package org.opensearch.knn.index.query;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Scorer;
-import org.apache.lucene.search.Weight;
 
-import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -27,7 +26,7 @@ public class KNNScorer extends Scorer {
     private final Map<Integer, Float> scores;
     private final float boost;
 
-    public KNNScorer(Weight weight, DocIdSetIterator docIdsIter, Map<Integer, Float> scores, float boost) {
+    public KNNScorer(DocIdSetIterator docIdsIter, Map<Integer, Float> scores, float boost) {
         super();
         this.docIdsIter = docIdsIter;
         this.scores = scores;
@@ -40,7 +39,7 @@ public class KNNScorer extends Scorer {
     }
 
     @Override
-    public float getMaxScore(int upTo) throws IOException {
+    public float getMaxScore(int upTo) {
         return Float.MAX_VALUE;
     }
 
@@ -58,72 +57,12 @@ public class KNNScorer extends Scorer {
     }
 
     /**
-     * Returns the Empty Scorer implementation. We use this scorer to short circuit the actual search when it is not
-     * required.
+     * Returns an Empty Scorer. We use this scorer to short circuit the actual search when it is not
+     * required. Since the underlying DocIdSetIterator.empty() is stateful and not thread-safe we must create a new
+     * scorer instance each time to avoid race conditions.
      * @return {@link KNNScorer}
      */
-    public static Scorer emptyScorer() {
-        return EMPTY_SCORER_INSTANCE;
+    public static KNNScorer emptyScorer() {
+        return new KNNScorer(DocIdSetIterator.empty(), Collections.emptyMap(), 0);
     }
-
-    private static final Scorer EMPTY_SCORER_INSTANCE = new Scorer() {
-        /**
-         * stateless empty DocIdSetIterator. Used in testing as opposed to DocIdSetIterator.empty() since
-         * DocIdSetIterator.empty() contains a stateful exhausted variable. If we associate a particular
-         * DocIdSetIterator.empty() instance with our static EMPTY_SCORER_INSTANCE then we hit an assertion error
-         * when multiple threads race to call advance() as it is not thread-safe.
-         */
-        public static DocIdSetIterator statelessEmptyDocIdSetIterator() {
-            return new DocIdSetIterator() {
-                public int advance(int target) {
-                    return Integer.MAX_VALUE;
-                }
-
-                public int docID() {
-                    return DocIdSetIterator.NO_MORE_DOCS;
-                }
-
-                public int nextDoc() {
-                    return Integer.MAX_VALUE;
-                }
-
-                public long cost() {
-                    return 0L;
-                }
-            };
-        }
-
-        private static final DocIdSetIterator docIdsIter = statelessEmptyDocIdSetIterator();
-
-        @Override
-        public DocIdSetIterator iterator() {
-            return docIdsIter;
-        }
-
-        @Override
-        public float getMaxScore(int upTo) throws IOException {
-            return 0;
-        }
-
-        @Override
-        public float score() throws IOException {
-            assert docID() != DocIdSetIterator.NO_MORE_DOCS;
-            return 0;
-        }
-
-        @Override
-        public int docID() {
-            return docIdsIter.docID();
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            return this == obj; // Singleton ensures only one instance exists
-        }
-
-        @Override
-        public int hashCode() {
-            return System.identityHashCode(this); // Consistent hash for singleton
-        }
-    };
 }
