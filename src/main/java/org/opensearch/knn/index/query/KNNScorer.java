@@ -67,7 +67,33 @@ public class KNNScorer extends Scorer {
     }
 
     private static final Scorer EMPTY_SCORER_INSTANCE = new Scorer() {
-        private final DocIdSetIterator docIdsIter = DocIdSetIterator.empty();
+        /**
+         * stateless empty DocIdSetIterator. Used in testing as opposed to DocIdSetIterator.empty() since
+         * DocIdSetIterator.empty() contains a stateful exhausted variable. If we associate a particular
+         * DocIdSetIterator.empty() instance with our static EMPTY_SCORER_INSTANCE then we hit an assertion error
+         * when multiple threads race to call advance() as it is not thread-safe.
+         */
+        public static DocIdSetIterator statelessEmptyDocIdSetIterator() {
+            return new DocIdSetIterator() {
+                public int advance(int target) {
+                    return Integer.MAX_VALUE;
+                }
+
+                public int docID() {
+                    return DocIdSetIterator.NO_MORE_DOCS;
+                }
+
+                public int nextDoc() {
+                    return Integer.MAX_VALUE;
+                }
+
+                public long cost() {
+                    return 0L;
+                }
+            };
+        }
+
+        private static final DocIdSetIterator docIdsIter = statelessEmptyDocIdSetIterator();
 
         @Override
         public DocIdSetIterator iterator() {
