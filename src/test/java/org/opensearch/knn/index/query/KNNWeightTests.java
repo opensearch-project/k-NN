@@ -286,7 +286,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         // When no knn fields are available , field info for vector field will be null
         when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(null);
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertEquals(KNNScorer.emptyScorer(), knnScorer);
+        assertEmptyScorer(knnScorer);
     }
 
     @SneakyThrows
@@ -330,7 +330,14 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
 
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertEquals(KNNScorer.emptyScorer(), knnScorer);
+        assertEmptyScorer(knnScorer);
+    }
+
+    @SneakyThrows
+    public static void assertEmptyScorer(Scorer knnScorer) {
+        final DocIdSetIterator iterator = knnScorer.iterator();
+        assertEquals(-1, iterator.docID());
+        assertEquals(NO_MORE_DOCS, iterator.nextDoc());
     }
 
     @SneakyThrows

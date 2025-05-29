@@ -259,7 +259,7 @@ public class KNNWeight extends Weight {
     }
 
     @Override
-    public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
+    public ScorerSupplier scorerSupplier(LeafReaderContext context) {
         return new ScorerSupplier() {
             long cost = -1L;
 
@@ -271,7 +271,7 @@ public class KNNWeight extends Weight {
                     return KNNScorer.emptyScorer();
                 }
                 final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-                return new KNNScorer(KNNWeight.this, ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+                return new KNNScorer(ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
             }
 
             @Override
