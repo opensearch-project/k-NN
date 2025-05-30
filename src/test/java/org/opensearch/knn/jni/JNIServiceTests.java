@@ -1922,9 +1922,7 @@ public class JNIServiceTests extends KNNTestCase {
                 KNNEngine.FAISS
             );
             fail("Exception thrown was expected");
-        } catch (Throwable t) {
-            System.out.println("!!!!!!!!!!!!!!!!!!!!! " + t.getMessage());
-        }
+        } catch (Throwable expectedToBeThrown) {}
     }
 
     @SneakyThrows

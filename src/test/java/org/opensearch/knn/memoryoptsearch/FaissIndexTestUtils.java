@@ -5,12 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
-import lombok.SneakyThrows;
 import org.apache.lucene.store.ByteBuffersDataOutput;
-import org.apache.lucene.store.IndexInput;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
-
-import java.lang.reflect.Method;
 
 public class FaissIndexTestUtils {
     public static byte[] makeCommonHeader(final int dimension, final long totalNumberOfVectors, final boolean l2MetricType) {
@@ -33,11 +28,19 @@ public class FaissIndexTestUtils {
         return output.toArrayCopy();
     }
 
-    @SneakyThrows
-    public static <T> T triggerDoLoad(final IndexInput input, T index) {
-        final Method doLoadMethod = FaissIdMapIndex.class.getDeclaredMethod("doLoad", IndexInput.class);
-        doLoadMethod.setAccessible(true);
-        doLoadMethod.invoke(index, input);
-        return index;
+    public static byte[] makeBinaryCommonHeader(final int dimension, final int codeSize, final long totalNumberOfVectors) {
+        final ByteBuffersDataOutput output = new ByteBuffersDataOutput();
+        // Dimension
+        output.writeInt(dimension);
+        // Code size
+        output.writeInt(codeSize);
+        // #vectors
+        output.writeLong(totalNumberOfVectors);
+
+        // Two dummy fields: is_trained, metric_type
+        output.writeByte((byte) 0);
+        output.writeInt((byte) 0);
+
+        return output.toArrayCopy();
     }
 }

@@ -45,7 +45,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
     @Override
     protected void doLoad(IndexInput input) throws IOException {
         // Read common binary index header
-        readCommonHeader(input);
+        readBinaryCommonHeader(input);
 
         // Partial load HNSW graph
         faissHnsw.load(input, getTotalNumberOfVectors());
