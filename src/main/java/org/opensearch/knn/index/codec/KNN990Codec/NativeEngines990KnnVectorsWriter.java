@@ -233,8 +233,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         QuantizationState quantizationState = null;
         if (quantizationParams != null && totalLiveDocs > 0) {
             initQuantizationStateWriterIfNecessary();
-            KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
-            quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs);
+            quantizationState = quantizationService.train(quantizationParams, knnVectorValuesSupplier, totalLiveDocs);
             quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
         }
 

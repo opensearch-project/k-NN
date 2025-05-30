@@ -19,6 +19,7 @@ import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 import java.io.IOException;
+import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractQuantizationConfig;
 
@@ -53,19 +54,27 @@ public final class QuantizationService<T, R> {
      * {@link QuantizationState}. The quantizer is determined based on the given {@link QuantizationParams}.
      *
      * @param quantizationParams The {@link QuantizationParams} containing the parameters for quantization.
-     * @param knnVectorValues The {@link KNNVectorValues} representing the vector data to be used for training.
+     * @param knnVectorValuesSupplier The {@link KNNVectorValues} representing the vector data to be used for training.
      * @return The {@link QuantizationState} containing the state of the trained quantizer.
      * @throws IOException If an I/O error occurs during the training process.
      */
     public QuantizationState train(
         final QuantizationParams quantizationParams,
-        final KNNVectorValues<T> knnVectorValues,
+        final Supplier<KNNVectorValues<T>> knnVectorValuesSupplier,
         final long liveDocs
     ) throws IOException {
         Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
-
-        // Create the training request from the vector values
-        KNNVectorQuantizationTrainingRequest<T> trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValues, liveDocs);
+        KNNVectorQuantizationTrainingRequest<T> trainingRequest;
+        if (quantizationParams instanceof ScalarQuantizationParams scalarQuantizationParams) {
+            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(
+                knnVectorValuesSupplier,
+                liveDocs,
+                scalarQuantizationParams.isEnableRandomRotation()
+            );
+        } else {
+            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValuesSupplier, liveDocs);
+        }
+        // Create the training request using the supplier
 
         // Train the quantizer and return the quantization state
         return quantizer.train(trainingRequest);
@@ -92,7 +101,7 @@ public final class QuantizationService<T, R> {
     public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo) {
         QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
-            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType());
+            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType(), quantizationConfig.isEnableRandomRotation());
         }
         return null;
     }
