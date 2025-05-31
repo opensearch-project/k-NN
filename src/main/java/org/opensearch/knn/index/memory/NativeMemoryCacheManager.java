@@ -424,11 +424,16 @@ public class NativeMemoryCacheManager implements Closeable {
                 return result;
             }
         } else {
-            // open graphFile before load
             try (nativeMemoryEntryContext) {
                 String key = nativeMemoryEntryContext.getKey();
-                openIndex(key, nativeMemoryEntryContext);
-                return cache.get(key, nativeMemoryEntryContext::load);
+                // if we already have the allocation we should not open file again as this will cause slowdown in
+                // heavy throughput cases, since open() function do locking while opening and mapping the graph file to
+                // memory.
+                return cache.get(key, () -> {
+                    // open graphFile before load
+                    openIndex(key, nativeMemoryEntryContext);
+                    return nativeMemoryEntryContext.load();
+                });
             }
         }
     }
