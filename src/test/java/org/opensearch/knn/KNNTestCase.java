@@ -5,6 +5,9 @@
 
 package org.opensearch.knn;
 
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.cluster.service.ClusterService;
@@ -29,6 +32,7 @@ import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -137,6 +141,24 @@ public class KNNTestCase extends OpenSearchTestCase {
                 return dimension;
             }
         };
+    }
+
+    protected TopDocs buildTopDocs(Map<Integer, Float> result) {
+        ScoreDoc[] allScoreDocs = result.entrySet()
+            .stream()
+            .map(entry -> new ScoreDoc(entry.getKey(), entry.getValue()))
+            .toArray(ScoreDoc[]::new);
+
+        return new TopDocs(new TotalHits(result.size(), TotalHits.Relation.EQUAL_TO), allScoreDocs);
+    }
+
+    protected Map<Integer, Float> convertTopDocsToMap(TopDocs topDocs) {
+
+        Map<Integer, Float> resultMap = new HashMap<>();
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+            resultMap.put(scoreDoc.doc, scoreDoc.score);
+        }
+        return resultMap;
     }
 
     public static KNNMappingConfig getMappingConfigForFlatMapping(int dimension) {

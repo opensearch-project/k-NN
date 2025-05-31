@@ -27,11 +27,11 @@ public class ResultUtilTests extends KNNTestCase {
 
         List<Map<Integer, Float>> initialLeafResults = getRandomListOfResults(firstPassK, segmentCount);
         List<PerLeafResult> perLeafLeafResults = initialLeafResults.stream()
-            .map(result -> new PerLeafResult(null, new HashMap<>(result)))
+            .map(result -> new PerLeafResult(null, buildTopDocs(result)))
             .collect(Collectors.toList());
         ResultUtil.reduceToTopK(perLeafLeafResults, finalK);
         List<Map<Integer, Float>> reducedLeafResults = perLeafLeafResults.stream()
-            .map(PerLeafResult::getResult)
+            .map(leaf -> convertTopDocsToMap(leaf.getResult()))
             .collect(Collectors.toList());
         assertTopK(initialLeafResults, reducedLeafResults, finalK);
 
@@ -41,10 +41,10 @@ public class ResultUtilTests extends KNNTestCase {
 
         initialLeafResults = getRandomListOfResults(firstPassK, segmentCount);
         perLeafLeafResults = initialLeafResults.stream()
-            .map(result -> new PerLeafResult(null, new HashMap<>(result)))
+            .map(result -> new PerLeafResult(null, buildTopDocs(result)))
             .collect(Collectors.toList());
         ResultUtil.reduceToTopK(perLeafLeafResults, finalK);
-        reducedLeafResults = perLeafLeafResults.stream().map(PerLeafResult::getResult).collect(Collectors.toList());
+        reducedLeafResults = perLeafLeafResults.stream().map(leaf -> convertTopDocsToMap(leaf.getResult())).collect(Collectors.toList());
         assertTopK(initialLeafResults, reducedLeafResults, firstPassK);
     }
 

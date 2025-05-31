@@ -13,6 +13,7 @@ import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
@@ -27,9 +28,9 @@ import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -67,11 +68,11 @@ public class ExactSearcherTests extends KNNTestCase {
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(query.getField())).thenReturn(null);
-        Map<Integer, Float> docIds = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+        TopDocs docs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
         Mockito.verify(fieldInfos).fieldInfo(query.getField());
         Mockito.verify(reader).getFieldInfos();
         Mockito.verify(leafReaderContext).reader();
-        assertEquals(0, docIds.size());
+        assertEquals(0, docs.scoreDocs.length);
     }
 
     @SneakyThrows
@@ -97,11 +98,11 @@ public class ExactSearcherTests extends KNNTestCase {
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(query.getField())).thenReturn(null);
-        Map<Integer, Float> docIds = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+        TopDocs docs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
         Mockito.verify(fieldInfos).fieldInfo(query.getField());
         Mockito.verify(reader).getFieldInfos();
         Mockito.verify(leafReaderContext).reader();
-        assertEquals(0, docIds.size());
+        assertEquals(0, docs.scoreDocs.length);
     }
 
     @SneakyThrows
@@ -116,6 +117,7 @@ public class ExactSearcherTests extends KNNTestCase {
             );
             final List<Float> expectedScores = dataVectors.stream()
                 .map(vector -> spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector))
+                .sorted(Comparator.reverseOrder())
                 .collect(Collectors.toList());
             final Float score = Collections.min(expectedScores);
             final float radius = KNNEngine.FAISS.scoreToRadialThreshold(score, spaceType);
@@ -186,9 +188,10 @@ public class ExactSearcherTests extends KNNTestCase {
             valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(floatVectorValues);
             when(floatVectorValues.nextDoc()).thenReturn(0, 1, 2, NO_MORE_DOCS);
             when(floatVectorValues.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
-            final Map<Integer, Float> integerFloatMap = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
-            assertEquals(integerFloatMap.size(), dataVectors.size());
-            assertEquals(expectedScores, new ArrayList<>(integerFloatMap.values()));
+            final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+            assertEquals(topDocs.scoreDocs.length, dataVectors.size());
+            List<Float> actualScores = Arrays.stream(topDocs.scoreDocs).map(scoreDoc -> scoreDoc.score).toList();
+            assertEquals(expectedScores, actualScores);
         }
     }
 }
