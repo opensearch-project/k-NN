@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import lombok.AllArgsConstructor;
-import org.opensearch.Version;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
@@ -114,8 +113,8 @@ class MethodAsMapBuilder {
         );
 
         QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
-        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4
-            && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_2_19_0)) {
+        // TODO: Validate if it impacts Lucene
+        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4) {
             quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.EIGHT_BIT).build();
         }
         return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext, quantizationConfig);

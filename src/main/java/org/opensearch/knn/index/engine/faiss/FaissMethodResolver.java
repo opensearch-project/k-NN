@@ -115,6 +115,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             encoderComponentContext.getParameters().put(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16);
         }
 
+        // TODO: Verify this with mode in_memory
         if (CompressionLevel.x4 == resolvedCompressionLevel) {
             encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
             encoder = encoderMap.get(ENCODER_SQ);
@@ -203,13 +204,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         if (method == IVF_COMPONENT && compressionLevel == CompressionLevel.x4) {
             ValidationException validationException = new ValidationException();
             validationException.addValidationError(
-                String.format(
-                    Locale.ROOT,
-                    "sq \"%s\" encoder or compression level \"%s\" does not support \"%s\" method",
-                    FAISS_SQ_ENCODER_INT8,
-                    CompressionLevel.x4.getName(),
-                    METHOD_IVF
-                )
+                String.format(Locale.ROOT, "sq \"%s\" encoder does not support \"%s\" method", FAISS_SQ_ENCODER_INT8, METHOD_IVF)
             );
             throw validationException;
         }

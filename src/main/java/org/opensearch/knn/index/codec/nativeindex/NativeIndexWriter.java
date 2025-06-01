@@ -327,14 +327,5 @@ public class NativeIndexWriter {
         NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
         return new NativeIndexWriter(state, fieldInfo, nativeIndexBuildStrategyFactory, quantizationState);
-
-        // TODO: Revisit and fix this
-//        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
-//        boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
-//        boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
-//        NativeIndexBuildStrategy strategy = iterative
-//            ? MemOptimizedNativeIndexBuildStrategy.getInstance()
-//            : DefaultIndexBuildStrategy.getInstance();
-//        return new NativeIndexWriter(state, fieldInfo, strategy, quantizationState);
     }
 }

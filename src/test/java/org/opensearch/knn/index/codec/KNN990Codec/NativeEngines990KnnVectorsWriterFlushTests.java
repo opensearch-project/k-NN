@@ -267,7 +267,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                             quantizationParams,
                             expectedVectorValuesSuppliers.get(i).get(),
                             vectorsPerField.get(i).size(),
-                                fieldInfo
+                            fieldInfo
                         )
                     ).thenReturn(quantizationState);
                 } catch (Exception e) {
@@ -697,7 +697,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                             quantizationParams,
                             expectedVectorValuesSuppliers.get(i).get(),
                             vectorsPerField.get(i).size(),
-                                fieldInfo
+                            fieldInfo
                         )
                     ).thenReturn(quantizationState);
                 } catch (Exception e) {
@@ -806,7 +806,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                             quantizationParams,
                             expectedVectorValuesSuppliers.get(i).get(),
                             vectorsPerField.get(i).size(),
-                                fieldInfo
+                            fieldInfo
                         )
                     ).thenReturn(quantizationState);
                 } catch (Exception e) {

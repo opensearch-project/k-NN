@@ -11,7 +11,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.FieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
-import org.opensearch.Version;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.ArraySourceValueFetcher;
@@ -21,6 +20,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -114,10 +114,10 @@ public class KNNVectorFieldType extends MappedFieldType {
      * Resolve the rescore context provided for a user based on the field configuration
      *
      * @param userProvidedContext {@link RescoreContext} user passed; if null, the default should be configured
-     * @param indexVersionCreated OpenSearch cluster version in which the index was created
+     * @param knnEngine KNNEngine
      * @return resolved {@link RescoreContext}
      */
-    public RescoreContext resolveRescoreContext(RescoreContext userProvidedContext, Version indexVersionCreated) {
+    public RescoreContext resolveRescoreContext(RescoreContext userProvidedContext, KNNEngine knnEngine) {
         if (userProvidedContext != null) {
             return userProvidedContext;
         }
@@ -125,7 +125,7 @@ public class KNNVectorFieldType extends MappedFieldType {
         int dimension = knnMappingConfig.getDimension();
         CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         Mode mode = knnMappingConfig.getMode();
-        return compressionLevel.getDefaultRescoreContext(mode, dimension, indexVersionCreated);
+        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnEngine);
     }
 
     /**

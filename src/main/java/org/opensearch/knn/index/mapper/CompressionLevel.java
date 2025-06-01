@@ -7,8 +7,8 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
@@ -25,7 +25,6 @@ public enum CompressionLevel {
     NOT_CONFIGURED(-1, "", null, Collections.emptySet()),
     x1(1, "1x", null, Collections.emptySet()),
     x2(2, "2x", null, Collections.emptySet()),
-    // TODO: Revisit and fix this
     x4(4, "4x", new RescoreContext(2.0f, false, true), Set.of(Mode.ON_DISK)),
     x8(8, "8x", new RescoreContext(2.0f, false, true), Set.of(Mode.ON_DISK)),
     x16(16, "16x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),
@@ -103,18 +102,14 @@ public enum CompressionLevel {
      *
      * @param mode      The {@link Mode} for which to retrieve the {@link RescoreContext}.
      * @param dimension The dimensional value that determines the {@link RescoreContext} behavior.
-     * @param indexVersionCreated OpenSearch cluster version in which the index was created
+     * @param knnEngine KNNEngine
      * @return          A {@link RescoreContext} with an oversample factor of 5.0f if {@code dimension} is less than
      *                  or equal to 1000, the default {@link RescoreContext} if greater, or {@code null} if the mode
      *                  is invalid.
      */
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version indexVersionCreated) {
-
-        // x4 compression was supported by Lucene engine before version 2.19.0 and there is no default rescore context
-        if (compressionLevel == CompressionLevel.x4.compressionLevel && indexVersionCreated.before(Version.V_2_19_0)) {
-            return null;
-        }
-        if (modesForRescore.contains(mode)) {
+    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, KNNEngine knnEngine) {
+        if ((modesForRescore.contains(mode) && knnEngine != KNNEngine.LUCENE)
+            || (compressionLevel == CompressionLevel.x4.compressionLevel && knnEngine == KNNEngine.FAISS)) {
             // Adjust RescoreContext based on dimension
             if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
                 // For dimensions <= 1000, return a RescoreContext with 5.0f oversample factor
