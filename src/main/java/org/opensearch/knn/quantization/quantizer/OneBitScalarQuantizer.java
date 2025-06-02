@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
-import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
