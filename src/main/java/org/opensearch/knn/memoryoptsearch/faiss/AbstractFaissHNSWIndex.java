@@ -7,13 +7,13 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
 
-public abstract class AbstractFaissHNSWIndex extends FaissIndex {
+public abstract class AbstractFaissHNSWIndex extends FaissIndex implements FaissHNSWProvider {
     @Getter
-    protected FaissHNSW hnsw = new FaissHNSW();
+    protected FaissHNSW faissHnsw;
     protected FaissIndex flatVectors;
 
-    public AbstractFaissHNSWIndex(final String indexType, final FaissHNSW hnsw) {
+    public AbstractFaissHNSWIndex(final String indexType, final FaissHNSW faissHnsw) {
         super(indexType);
-        this.hnsw = hnsw;
+        this.faissHnsw = faissHnsw;
     }
 }

@@ -45,7 +45,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
     private static FaissHNSW extractFaissHnsw(final FaissIndex faissIndex) {
         if (faissIndex instanceof FaissIdMapIndex idMapIndex) {
-            return idMapIndex.getNestedIndex().getHnsw();
+            return idMapIndex.getFaissHnsw();
         }
 
         throw new IllegalArgumentException("Faiss index [" + faissIndex.getIndexType() + "] does not have HNSW as an index.");

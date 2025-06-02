@@ -20,9 +20,13 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -33,7 +37,14 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 public class FaissIdMapIndexTests extends KNNTestCase {
+    public static final int CODE_SIZE = 64;
+
     public void testLoadDenseCase() {
+        doTestLoadDenseCase(FaissIdMapIndex.IXMP);
+        doTestLoadDenseCase(FaissIdMapIndex.IBMP);
+    }
+
+    private void doTestLoadDenseCase(final String indexType) {
         // Dimension : 128
         // #Vectors : 100
         // Metric : L2
@@ -48,20 +59,23 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         }
 
         // Load index
-        final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable);
+        final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable, indexType);
 
         // We expect it to be null when identity case.
         final long[] loadedMappingTable = getVectorIdToDocIdMapping(index, 0);
         assertNull(loadedMappingTable);
 
         // Validate common header
-        assertEquals(dimension, index.getDimension());
-        assertEquals(totalNumberOfVectors, index.getTotalNumberOfVectors());
-        assertEquals(SpaceType.L2, index.getSpaceType());
+        validateHeader(indexType, index, dimension, totalNumberOfVectors);
+    }
+
+    public void testLoadSparseCase() {
+        doTestLoadSparseCase(FaissIdMapIndex.IXMP);
+        doTestLoadSparseCase(FaissIdMapIndex.IBMP);
     }
 
     @SneakyThrows
-    public void testLoadSparseCase() {
+    private void doTestLoadSparseCase(final String indexType) {
         // Dimension : 128
         // #Vectors : 100
         // Metric : L2
@@ -77,7 +91,7 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         }
 
         // Load index
-        final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable);
+        final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable, indexType);
 
         // We expect it to be null when identity case.
         final long[] loadedMappingTable = getVectorIdToDocIdMapping(index, totalNumberOfVectors);
@@ -108,8 +122,13 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         }
     }
 
-    @SneakyThrows
     public void testParentChildNestedCase() {
+        doTestParentChildNestedCase(FaissIdMapIndex.IXMP);
+        doTestParentChildNestedCase(FaissIdMapIndex.IBMP);
+    }
+
+    @SneakyThrows
+    private void doTestParentChildNestedCase(final String indexType) {
         // Dimension : 128
         // #Vectors : 100
         // Metric : L2
@@ -126,7 +145,7 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         }
 
         // Load index
-        final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable);
+        final FaissIdMapIndex index = triggerLoadAndGetIndex(dimension, totalNumberOfVectors, l2Metric, mappingTable, indexType);
 
         // We expect it to be null when identity case.
         final long[] loadedMappingTable = getVectorIdToDocIdMapping(index, totalNumberOfVectors);
@@ -157,6 +176,21 @@ public class FaissIdMapIndexTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testLoadBinaryIdMapIndex() {
+        final String relativePath = "data/memoryoptsearch/faiss_binary_50_vectors_512_dim.bin";
+        final URL floatFloatVectors = FaissHNSWTests.class.getClassLoader().getResource(relativePath);
+        byte[] bytes = Files.readAllBytes(Path.of(floatFloatVectors.toURI()));
+        final IndexInput indexInput = new ByteArrayIndexInput("FaissIndexFloatFlatTests", bytes);
+
+        final FaissIndex faissIndex = FaissIndex.load(indexInput);
+        assert (faissIndex instanceof FaissIdMapIndex);
+
+        final FaissIdMapIndex faissIdMapIndex = (FaissIdMapIndex) faissIndex;
+        assertEquals(FaissIdMapIndex.IBMP, faissIdMapIndex.getIndexType());
+        assertEquals(CODE_SIZE, faissIdMapIndex.getCodeSize());
+    }
+
+    @SneakyThrows
     private static long[] getVectorIdToDocIdMapping(final FaissIdMapIndex index, final int totalNumberOfVectors) {
         final Field field = FaissIdMapIndex.class.getDeclaredField("idMappingReader");
         field.setAccessible(true);
@@ -177,7 +211,8 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         final int dimension,
         final long totalNumberOfVectors,
         final boolean useL2Metric,
-        final long[] mappingTable
+        final long[] mappingTable,
+        final String indexType
     ) {
         // Mock static `load` to return a dummy mock
         try (MockedStatic<FaissIndex> mockStaticFaissIndex = mockStatic(FaissIndex.class)) {
@@ -210,8 +245,8 @@ public class FaissIdMapIndexTests extends KNNTestCase {
             when(mockFloatValues.getAcceptOrds(any())).thenReturn(mockBitsFromFloatVectors);
 
             // Trigger load
-            final IndexInput input = prepareBytes(dimension, totalNumberOfVectors, useL2Metric, mappingTable);
-            final FaissIdMapIndex index = triggerDoLoad(input);
+            final IndexInput input = prepareBytes(dimension, totalNumberOfVectors, useL2Metric, mappingTable, indexType);
+            final FaissIdMapIndex index = triggerDoLoad(input, indexType);
             return index;
         }
     }
@@ -220,9 +255,15 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         final int dimension,
         final long totalNumberOfVectors,
         final boolean useL2Metric,
-        final long[] mappingTable
+        final long[] mappingTable,
+        final String indexType
     ) {
-        final byte[] commonHeader = FaissIndexTestUtils.makeCommonHeader(dimension, totalNumberOfVectors, useL2Metric);
+        byte[] commonHeader;
+        if (indexType.equals(FaissIdMapIndex.IXMP)) {
+            commonHeader = FaissIndexTestUtils.makeCommonHeader(dimension, totalNumberOfVectors, useL2Metric);
+        } else {
+            commonHeader = FaissIndexTestUtils.makeBinaryCommonHeader(dimension, CODE_SIZE, totalNumberOfVectors);
+        }
         final ByteBuffersDataOutput output = new ByteBuffersDataOutput();
         output.writeBytes(commonHeader);
         output.writeLong(mappingTable.length);
@@ -234,11 +275,25 @@ public class FaissIdMapIndexTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static FaissIdMapIndex triggerDoLoad(final IndexInput input) {
-        final FaissIdMapIndex index = new FaissIdMapIndex();
+    private static FaissIdMapIndex triggerDoLoad(final IndexInput input, final String indexType) {
+        final FaissIdMapIndex index = new FaissIdMapIndex(indexType);
         final Method doLoadMethod = FaissIdMapIndex.class.getDeclaredMethod("doLoad", IndexInput.class);
         doLoadMethod.setAccessible(true);
         doLoadMethod.invoke(index, input);
         return index;
+    }
+
+    private void validateHeader(final String indexType, final FaissIndex index, final int dimension, final long totalNumberOfVectors) {
+        if (indexType.equals(FaissIdMapIndex.IXMP)) {
+            assertEquals(dimension, index.getDimension());
+            assertEquals(totalNumberOfVectors, index.getTotalNumberOfVectors());
+            assertEquals(SpaceType.L2, index.getSpaceType());
+        } else {
+            final FaissBinaryIndex binaryIndex = (FaissBinaryIndex) index;
+            assertEquals(dimension, binaryIndex.getDimension());
+            assertEquals(CODE_SIZE, binaryIndex.getCodeSize());
+            assertEquals(totalNumberOfVectors, binaryIndex.getTotalNumberOfVectors());
+            assertEquals(SpaceType.HAMMING, binaryIndex.getSpaceType());
+        }
     }
 }

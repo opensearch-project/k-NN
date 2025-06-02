@@ -13,6 +13,8 @@ import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.packed.DirectMonotonicReader;
+import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
 
 import java.io.IOException;
 
@@ -26,15 +28,17 @@ import java.io.IOException;
  * into the corresponding Lucene document ID.
  * If the mapping is an identity mapping, where each `i` is mapped to itself, we omit storing it to save memory.
  */
-public class FaissIdMapIndex extends FaissIndex {
+public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvider {
     public static final String IXMP = "IxMp";
+    public static final String IBMP = "IBMp";
 
     @Getter
-    private AbstractFaissHNSWIndex nestedIndex;
+    private FaissIndex nestedIndex;
+    private FaissHNSWProvider hnswGetter;
     private DirectMonotonicReader idMappingReader;
 
-    public FaissIdMapIndex() {
-        super(IXMP);
+    public FaissIdMapIndex(final String indexType) {
+        super(indexType);
     }
 
     /**
@@ -46,15 +50,18 @@ public class FaissIdMapIndex extends FaissIndex {
      */
     @Override
     protected void doLoad(IndexInput input) throws IOException {
-        readCommonHeader(input);
+        if (indexType.equals(IXMP)) {
+            readCommonHeader(input);
+        } else {
+            readBinaryCommonHeader(input);
+        }
         final FaissIndex nestedIndex = FaissIndex.load(input);
 
-        if (nestedIndex instanceof AbstractFaissHNSWIndex nestedHnswIndex) {
-            this.nestedIndex = nestedHnswIndex;
+        if (nestedIndex instanceof AbstractFaissHNSWIndex || nestedIndex instanceof FaissBinaryHnswIndex) {
+            this.nestedIndex = nestedIndex;
+            this.hnswGetter = (FaissHNSWProvider) nestedIndex;
         } else {
-            throw new IllegalStateException(
-                "Invalid nested index. Expected " + FaissHNSWIndex.class.getSimpleName() + " , but got " + nestedIndex.getIndexType()
-            );
+            throw new IllegalStateException("Invalid nested HNSW index type, got index type=" + nestedIndex.getIndexType());
         }
 
         final int numElements = Math.toIntExact(input.readLong());
@@ -71,11 +78,6 @@ public class FaissIdMapIndex extends FaissIndex {
     @Override
     public VectorEncoding getVectorEncoding() {
         return nestedIndex.getVectorEncoding();
-    }
-
-    @Override
-    public String getIndexType() {
-        return IXMP;
     }
 
     @Override
@@ -231,5 +233,10 @@ public class FaissIdMapIndex extends FaissIndex {
         }
 
         return new SparseFloatVectorValuesImpl(vectorValues);
+    }
+
+    @Override
+    public FaissHNSW getFaissHnsw() {
+        return hnswGetter.getFaissHnsw();
     }
 }

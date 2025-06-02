@@ -41,7 +41,7 @@ public class FaissIndexBinaryFlat extends FaissBinaryIndex {
      */
     @Override
     protected void doLoad(IndexInput input) throws IOException {
-        readCommonHeader(input);
+        readBinaryCommonHeader(input);
         binaryFlatVectorSection = new FaissSection(input, 1);
     }
 
