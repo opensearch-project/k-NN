@@ -55,6 +55,9 @@ public class FaissHNSWTests extends KNNTestCase {
         // Cumulative number of neighbor per level
         assertArrayEquals(cumulativeNumNeighbors, faissHNSW.getCumNumberNeighborPerLevel());
 
+        // Max conn test
+        assertEquals(cumulativeNumNeighbors[1], faissHNSW.getMaxNumNeighbors());
+
         // offsets
         final DirectMonotonicReader offsetsReader = faissHNSW.getOffsetsReader();
         for (int i = 0; i < offsets.length; i++) {
