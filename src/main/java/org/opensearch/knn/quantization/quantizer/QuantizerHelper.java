@@ -10,7 +10,6 @@ import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQu
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import lombok.experimental.UtilityClass;
-import lombok.extern.log4j.Log4j2;
 import oshi.util.tuples.Pair;
 
 import java.io.IOException;
@@ -20,7 +19,6 @@ import java.io.IOException;
  * OneBit and MultiBit scalar quantizers. Handles computing thresholds,
  * below/above mean statistics, and rotation matrix application.
  */
-@Log4j2
 @UtilityClass
 class QuantizerHelper {
     private static final int ONE_BIT_BITS_PER_COORDINATE = 1;
@@ -76,8 +74,6 @@ class QuantizerHelper {
             .rotationMatrix(quantizerHelperResult.rotationMatrix())
             .build();
     }
-
-    // ========================= INTERNAL HELPERS ========================= //
 
     /**
      * Validates that sampled indices are not null or empty.

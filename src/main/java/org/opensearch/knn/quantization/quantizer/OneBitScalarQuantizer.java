@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
@@ -16,8 +17,6 @@ import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
-import lombok.extern.log4j.Log4j2;
-
 import java.io.IOException;
 
 /**
@@ -25,7 +24,6 @@ import java.io.IOException;
  * It computes the mean of each dimension during training and then uses these means as thresholds
  * for quantizing the vectors.
  */
-@Log4j2
 public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
     private final int samplingSize; // Sampling size for training
     private final boolean shouldUseRandomRotation;

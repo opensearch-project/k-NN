@@ -45,7 +45,8 @@ public abstract class TrainingRequest<T> {
 
     /**
      * Resets the KNNVectorValues in implementation to enable a fresh iteration by calling the supplier again.
-     * If the implementation does not use KNNVectorValues resetVectorValues is a no-op.
+     * If the implementation does not use KNNVectorValues and getVectorAtThePosition is stateless then
+     * resetVectorValues is a no-op.
      */
     public abstract void resetVectorValues();
 }
