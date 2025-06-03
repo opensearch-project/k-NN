@@ -533,7 +533,6 @@ public class RecallTestsIT extends KNNRestTestCase {
     @SneakyThrows
     private void assertRecall(String testIndexName, SpaceType spaceType, float acceptableRecallFromPerfect) {
         List<List<String>> searchResults = bulkSearch(testIndexName, TEST_FIELD_NAME, QUERY_VECTORS, TEST_K);
-        logger.info("bulk search complete");
         double recallValue = TestUtils.calculateRecallValue(searchResults, GROUND_TRUTH.get(spaceType), TEST_K);
         logger.info("Recall value for SpaceType {} = {}", spaceType, recallValue);
         assertEquals(PERFECT_RECALL, recallValue, acceptableRecallFromPerfect);
