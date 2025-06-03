@@ -12,18 +12,24 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 
-public class KnnDocIdIterator extends DocIdSetIterator {
+/**
+ * A DocIdSetIterator implementation that iterates over documents from TopDocs in sorted order.
+ * This class maintains document IDs and their corresponding scores from the search results.
+ * The implementation is inspired from
+ * <a href="https://github.com/apache/lucene/blob/17a40bd1137837fee924a8ac4b2d4c9c1af16307/lucene/core/src/java/org/apache/lucene/search/SeededKnnVectorQuery.java#L228">SeededKnnVectorQuery.java</a>
+ */
+public class TopDocsDISI extends DocIdSetIterator {
 
     private final int[] sortedDocIds;
     private final float[] scores;
     private int idx = -1;
 
-    public KnnDocIdIterator(TopDocs topDocs) {
+    public TopDocsDISI(TopDocs topDocs) {
+        // Sort documents by document ID
         Arrays.sort(topDocs.scoreDocs, Comparator.comparingInt(a -> a.doc));
         sortedDocIds = new int[topDocs.scoreDocs.length];
         scores = new float[topDocs.scoreDocs.length];
         for (int i = 0; i < topDocs.scoreDocs.length; i++) {
-            // Remove the doc base as added by the collector
             sortedDocIds[i] = topDocs.scoreDocs[i].doc;
             scores[i] = topDocs.scoreDocs[i].score;
         }

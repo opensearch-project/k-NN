@@ -40,11 +40,9 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.Predicate;
 
 @Log4j2
@@ -58,13 +56,13 @@ public class ExactSearcher {
      *
      * @param leafReaderContext {@link LeafReaderContext}
      * @param exactSearcherContext {@link ExactSearcherContext}
-     * @return Map of re-scored results
+     * @return TopDocs containing the results of the search
      * @throws IOException exception during execution of exact search
      */
     public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
         throws IOException {
         final KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
-        // because of any reason if we are not able to get KNNIterator, return an empty map
+        // because of any reason if we are not able to get KNNIterator, return empty top docss
         if (iterator == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
@@ -73,7 +71,7 @@ public class ExactSearcher {
         }
         if (exactSearcherContext.getMatchedDocsIterator() != null
             && exactSearcherContext.numberOfMatchedDocs <= exactSearcherContext.getK()) {
-            return scoreAllDocs(iterator);
+            return scoreAllDocs(iterator, exactSearcherContext.numberOfMatchedDocs);
         }
         return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
     }
@@ -85,7 +83,7 @@ public class ExactSearcher {
      * @param leafReaderContext {@link LeafReaderContext}
      * @param exactSearcherContext {@link ExactSearcherContext}
      * @param iterator {@link KNNIterator}
-     * @return Map of docId and score
+     * @return TopDocs containing the results of the search
      * @throws IOException exception raised by iterator during traversal
      */
     private TopDocs doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext, KNNIterator iterator)
@@ -105,20 +103,22 @@ public class ExactSearcher {
         return filterDocsByMinScore(exactSearcherContext, iterator, minScore);
     }
 
-    private TopDocs scoreAllDocs(KNNIterator iterator) throws IOException {
-        final List<ScoreDoc> scoreDocList = new ArrayList<>();
+    private TopDocs scoreAllDocs(KNNIterator iterator, long docsCount) throws IOException {
+        final ScoreDoc[] scoreDocs = new ScoreDoc[(int) docsCount];
+        int index = 0;
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-            scoreDocList.add(new ScoreDoc(docId, iterator.score()));
+            scoreDocs[index] = new ScoreDoc(docId, iterator.score());
+            index++;
         }
-        return new TopDocs(new TotalHits(scoreDocList.size(), TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
+        Arrays.sort(scoreDocs, Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));
+        return new TopDocs(new TotalHits(index, TotalHits.Relation.EQUAL_TO), scoreDocs);
     }
 
     private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
-        final Map<Integer, Float> docToScore = new HashMap<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
             final float currentScore = iterator.score();
@@ -133,7 +133,7 @@ public class ExactSearcher {
 
         // If scores are negative we will remove them.
         // This is done, because there can be negative values in the Heap as we init the heap with Score as -INF.
-        // If filterIds < k, the some values in heap can have a negative score.
+        // If filterIds < k, some values in heap can have a negative score.
         while (queue.size() > 0 && queue.top().score < 0) {
             queue.pop();
         }

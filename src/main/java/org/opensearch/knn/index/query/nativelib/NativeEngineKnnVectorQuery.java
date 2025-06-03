@@ -26,7 +26,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.query.KnnDocIdIterator;
+import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.common.QueryUtils;
@@ -35,7 +35,6 @@ import org.opensearch.knn.index.query.rescore.RescoreContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -97,7 +96,6 @@ public class NativeEngineKnnVectorQuery extends Query {
         TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
         for (int i = 0; i < perLeafResults.size(); i++) {
             TopDocs leafTopDocs = perLeafResults.get(i).getResult();
-            Arrays.sort(leafTopDocs.scoreDocs, Comparator.comparing(a -> a.score));
             for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
                 scoreDoc.doc += leafReaderContexts.get(i).docBase;
             }
@@ -206,7 +204,7 @@ public class NativeEngineKnnVectorQuery extends Query {
                 if (perLeafeResult.getResult().scoreDocs.length == 0) {
                     return perLeafeResult;
                 }
-                DocIdSetIterator matchedDocs = new KnnDocIdIterator(perLeafeResult.getResult());
+                DocIdSetIterator matchedDocs = new TopDocsDISI(perLeafeResult.getResult());
                 final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
                     .matchedDocsIterator(matchedDocs)
                     .numberOfMatchedDocs(perLeafResults.get(finalI).getResult().scoreDocs.length)

@@ -242,15 +242,15 @@ public class KNNWeight extends Weight {
 
     private Scorer getOrCreateKnnScorer(LeafReaderContext context) throws IOException {
         // First try to get the cached scorer
-        Scorer knnScorer = knnExplanation.getKnnScorer(context);
+        Scorer scorer = knnExplanation.getKnnScorer(context);
 
         // If no cached scorer exists, create and cache a new one
-        if (knnScorer == null) {
-            knnScorer = scorer(context);
-            knnExplanation.addKnnScorer(context, knnScorer);
+        if (scorer == null) {
+            scorer = scorer(context);
+            knnExplanation.addKnnScorer(context, scorer);
         }
 
-        return knnScorer;
+        return scorer;
     }
 
     private float getKnnScore(Scorer knnScorer, int doc) throws IOException {
@@ -575,7 +575,7 @@ public class KNNWeight extends Weight {
             });
         }
 
-        TopApproxSearchCollector collector = new TopApproxSearchCollector(
+        TopApproxKnnCollector collector = new TopApproxKnnCollector(
             knnQuery.getK() > 0 ? knnQuery.getK() : knnQuery.getContext().getMaxResultWindow(),
             knnEngine,
             quantizedVector != null ? SpaceType.HAMMING : spaceType
@@ -588,8 +588,8 @@ public class KNNWeight extends Weight {
     }
 
     /**
-     * Execute exact search for the given matched doc ids and return the results as a map of docId to score.
-     * @return Map of docId to score for the exact search results.
+     * Execute exact search for the given matched doc ids and return the results as {@link TopDocs}.
+     * @return TopDocs containing the search results.
      * @throws IOException If an error occurs during the search.
      */
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)

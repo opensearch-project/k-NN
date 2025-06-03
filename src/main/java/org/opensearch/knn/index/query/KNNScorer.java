@@ -22,11 +22,12 @@ import org.apache.lucene.search.TopDocsCollector;
 public class KNNScorer extends Scorer {
 
     private final float boost;
-    private final KnnDocIdIterator docIdsIter;
+    private final TopDocsDISI docIdsIter;
 
     public KNNScorer(TopDocs topDocs, final float boost) {
+        super();
         this.boost = boost;
-        this.docIdsIter = new KnnDocIdIterator(topDocs);
+        this.docIdsIter = new TopDocsDISI(topDocs);
     }
 
     @Override
