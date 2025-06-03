@@ -40,15 +40,11 @@ public class SegmentLevelQuantizationInfo {
         final String fieldName,
         Version luceneVersion
     ) throws IOException {
-        // TODO: here3
-
         final QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo, luceneVersion);
         if (quantizationParams == null) {
             return null;
         }
         final QuantizationState quantizationState = SegmentLevelQuantizationUtil.getQuantizationState(leafReader, fieldName);
-
         return new SegmentLevelQuantizationInfo(quantizationParams, quantizationState);
     }
-
 }

@@ -55,12 +55,9 @@ public class QFrameBitEncoder implements Encoder {
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
             BITCOUNT_PARAM,
-            new Parameter.IntegerParameter(BITCOUNT_PARAM, DEFAULT_BITS, (v, context) -> {
-                log.info("Validating bit count: {}", v);
-                return validBitCounts.contains(v);
-            }
-            )
+            new Parameter.IntegerParameter(BITCOUNT_PARAM, DEFAULT_BITS, (v, context) -> validBitCounts.contains(v))
         )
+
         .addParameter(
             ENABLE_RANDOM_ROTATION_PARAM,
             new Parameter.BooleanParameter(ENABLE_RANDOM_ROTATION_PARAM, DEFAULT_ENABLE_RANDOM_ROTATION, (v, context) -> {

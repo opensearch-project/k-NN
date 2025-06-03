@@ -100,8 +100,6 @@ public final class QuantizationService<T, R> {
      * Retrieves quantization parameters from the FieldInfo.
      */
     public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {
-        // TODO: HERE 4
-        // convert lucene version to opensearch version before passing in
         QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return new ScalarQuantizationParams(quantizationConfig.getQuantizationType(), quantizationConfig.isEnableRandomRotation());
@@ -118,12 +116,7 @@ public final class QuantizationService<T, R> {
      * @return The {@link VectorDataType} to be used during the vector transfer process
      */
     public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo, Version luceneVersion) {
-        // TODO: Here5
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(
-            fieldInfo,
-            luceneVersion
-
-        );
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return VectorDataType.BINARY;
         }

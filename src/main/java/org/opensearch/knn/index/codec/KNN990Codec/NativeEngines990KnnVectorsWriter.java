@@ -229,7 +229,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     ) throws IOException {
 
         final QuantizationService quantizationService = QuantizationService.getInstance();
-        // TODO: HERE2
         final QuantizationParams quantizationParams = quantizationService.getQuantizationParams(
             fieldInfo,
             segmentWriteState.segmentInfo.getVersion()
