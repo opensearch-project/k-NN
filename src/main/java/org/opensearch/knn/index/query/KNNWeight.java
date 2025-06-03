@@ -463,7 +463,8 @@ public class KNNWeight extends Weight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,
-            knnQuery.getField()
+            knnQuery.getField(),
+            reader.getSegmentInfo().info.getVersion()
         );
         // TODO: Change type of vector once more quantization methods are supported
         final byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
@@ -519,7 +520,11 @@ public class KNNWeight extends Weight {
             int[] parentIds = getParentIdsArray(context);
             if (k > 0) {
                 if (knnQuery.getVectorDataType() == VectorDataType.BINARY
-                    || quantizedVector != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
+                    || quantizedVector != null
+                        && quantizationService.getVectorDataTypeForTransfer(
+                            fieldInfo,
+                            reader.getSegmentInfo().info.getVersion()
+                        ) == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
                         // TODO: In the future, quantizedVector can have other data types than byte
