@@ -40,8 +40,9 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Predicate;
 
@@ -71,7 +72,7 @@ public class ExactSearcher {
         }
         if (exactSearcherContext.getMatchedDocsIterator() != null
             && exactSearcherContext.numberOfMatchedDocs <= exactSearcherContext.getK()) {
-            return scoreAllDocs(iterator, exactSearcherContext.numberOfMatchedDocs);
+            return scoreAllDocs(iterator);
         }
         return searchTopCandidates(iterator, exactSearcherContext.getK(), Predicates.alwaysTrue());
     }
@@ -103,16 +104,16 @@ public class ExactSearcher {
         return filterDocsByMinScore(exactSearcherContext, iterator, minScore);
     }
 
-    private TopDocs scoreAllDocs(KNNIterator iterator, long docsCount) throws IOException {
-        final ScoreDoc[] scoreDocs = new ScoreDoc[(int) docsCount];
+    private TopDocs scoreAllDocs(KNNIterator iterator) throws IOException {
+        final List<ScoreDoc> scoreDocList = new ArrayList<>();
         int index = 0;
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-            scoreDocs[index] = new ScoreDoc(docId, iterator.score());
+            scoreDocList.add(new ScoreDoc(docId, iterator.score()));
             index++;
         }
-        Arrays.sort(scoreDocs, Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));
-        return new TopDocs(new TotalHits(index, TotalHits.Relation.EQUAL_TO), scoreDocs);
+        scoreDocList.sort(Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));
+        return new TopDocs(new TotalHits(index, TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
     }
 
     private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {

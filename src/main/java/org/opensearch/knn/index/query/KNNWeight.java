@@ -576,7 +576,7 @@ public class KNNWeight extends Weight {
         }
 
         TopApproxKnnCollector collector = new TopApproxKnnCollector(
-            knnQuery.getK() > 0 ? knnQuery.getK() : knnQuery.getContext().getMaxResultWindow(),
+            k > 0 ? k : knnQuery.getContext().getMaxResultWindow(),
             knnEngine,
             quantizedVector != null ? SpaceType.HAMMING : spaceType
         );
