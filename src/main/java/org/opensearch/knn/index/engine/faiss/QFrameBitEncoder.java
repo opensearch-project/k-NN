@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
@@ -28,6 +29,7 @@ import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER
 /**
  * Quantization framework binary encoder,
  */
+@Log4j2
 public class QFrameBitEncoder implements Encoder {
 
     public static final String NAME = "binary";
@@ -53,7 +55,11 @@ public class QFrameBitEncoder implements Encoder {
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
             BITCOUNT_PARAM,
-            new Parameter.IntegerParameter(BITCOUNT_PARAM, DEFAULT_BITS, (v, context) -> validBitCounts.contains(v))
+            new Parameter.IntegerParameter(BITCOUNT_PARAM, DEFAULT_BITS, (v, context) -> {
+                log.info("Validating bit count: {}", v);
+                return validBitCounts.contains(v);
+            }
+            )
         )
         .addParameter(
             ENABLE_RANDOM_ROTATION_PARAM,

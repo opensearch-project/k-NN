@@ -56,12 +56,12 @@ public class QuantizationConfigParser {
      * @param csv Csv format of quantization config
      * @return Quantization config
      */
-    public static QuantizationConfig fromCsv(String csv) {
+    public static QuantizationConfig fromCsv(String csv, org.apache.lucene.util.Version luceneVersion) {
         if (csv == null || csv.isEmpty()) {
             return QuantizationConfig.EMPTY;
         }
 
-        if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
+        if (luceneVersion.onOrAfter(org.apache.lucene.util.Version.LUCENE_10_2_1)) {
             return parseCurrentVersion(csv);
         } else {
             return parseLegacyVersion(csv);

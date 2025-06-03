@@ -229,7 +229,11 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     ) throws IOException {
 
         final QuantizationService quantizationService = QuantizationService.getInstance();
-        final QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
+        // TODO: HERE2
+        final QuantizationParams quantizationParams = quantizationService.getQuantizationParams(
+            fieldInfo,
+            segmentWriteState.segmentInfo.getVersion()
+        );
         QuantizationState quantizationState = null;
         if (quantizationParams != null && totalLiveDocs > 0) {
             initQuantizationStateWriterIfNecessary();

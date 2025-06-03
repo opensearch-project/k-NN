@@ -8,6 +8,7 @@ package org.opensearch.knn.index.quantizationservice;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -98,8 +99,10 @@ public final class QuantizationService<T, R> {
     /**
      * Retrieves quantization parameters from the FieldInfo.
      */
-    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {
+        // TODO: HERE 4
+        // convert lucene version to opensearch version before passing in
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return new ScalarQuantizationParams(quantizationConfig.getQuantizationType(), quantizationConfig.isEnableRandomRotation());
         }
@@ -114,8 +117,13 @@ public final class QuantizationService<T, R> {
      *                  is being determined.
      * @return The {@link VectorDataType} to be used during the vector transfer process
      */
-    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo, Version luceneVersion) {
+        // TODO: Here5
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(
+            fieldInfo,
+            luceneVersion
+
+        );
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return VectorDataType.BINARY;
         }

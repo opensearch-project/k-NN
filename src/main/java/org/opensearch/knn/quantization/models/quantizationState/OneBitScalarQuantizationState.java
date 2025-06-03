@@ -85,7 +85,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
         int version = in.readVInt(); // Read the version
         this.quantizationParams = new ScalarQuantizationParams(in, version);
         this.meanThresholds = in.readFloatArray();
-
+        // this.version
         if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
             // Read rotation matrix
             if (in.readBoolean()) {
