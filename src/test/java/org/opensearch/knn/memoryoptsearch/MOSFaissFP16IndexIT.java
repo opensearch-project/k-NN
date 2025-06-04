@@ -20,20 +20,25 @@ public class MOSFaissFP16IndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         }""".trim();
 
     public void testNonNestedFloatIndexWithL2() {
-        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.L2);
-        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.L2);
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
 
     public void testNestedFloatIndexWithL2() {
-        doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.L2);
+        doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
 
     public void testNonNestedFloatIndexWithIP() {
-        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.INNER_PRODUCT);
-        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.INNER_PRODUCT);
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
     }
 
     public void testNestedFloatIndexWithIP() {
-        doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.INNER_PRODUCT);
+        doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
+    }
+
+    public void testWhenNoIndexBuilt() {
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.L2, NO_BUILD_HNSW);
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.L2, NO_BUILD_HNSW);
     }
 }

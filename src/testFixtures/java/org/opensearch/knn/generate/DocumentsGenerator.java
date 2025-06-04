@@ -72,5 +72,4 @@ public abstract class DocumentsGenerator {
 
     protected record GeneratedDocAndVector(String docString, List<float[]> vectors) {
     }
-
 }

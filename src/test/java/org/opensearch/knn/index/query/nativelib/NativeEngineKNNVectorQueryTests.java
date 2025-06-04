@@ -462,7 +462,6 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         // Set the reader and searcher
         reader = directoryReader;
-        ;
         indexReaderContext = reader.getContext();
         // Extract LeafReaderContext
         List<LeafReaderContext> leaves = reader.leaves();

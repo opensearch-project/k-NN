@@ -10,21 +10,24 @@ import org.opensearch.knn.index.VectorDataType;
 
 public class MOSFaissByteIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
 
-    public void testNonNestedFloatIndexWithL2() {
-        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, true, SpaceType.L2);
-        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, false, SpaceType.L2);
+    public void testNonNestedByteIndexWithL2() {
+        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, false, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
 
-    public void testNestedFloatIndexWithL2() {
-        doTestNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, SpaceType.L2);
+    public void testNestedByteIndexWithL2() {
+        doTestNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
 
-    public void testNonNestedFloatIndexWithIP() {
-        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, true, SpaceType.INNER_PRODUCT);
-        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, false, SpaceType.INNER_PRODUCT);
+    public void testNonNestedByteIndexWithIP() {
+        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, false, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
     }
 
-    public void testNestedFloatIndexWithIP() {
-        doTestNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, SpaceType.INNER_PRODUCT);
+    public void testNestedByteIndexWithIP() {
+        doTestNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
+    }
+
+    public void testWhenNoHNSW() {
+        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, false, SpaceType.L2, NO_BUILD_HNSW);
+        doTestNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, SpaceType.INNER_PRODUCT, NO_BUILD_HNSW);
     }
 }
