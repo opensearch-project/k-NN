@@ -9,6 +9,10 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
+
+import static org.opensearch.knn.memoryoptsearch.NonNestedNMappingSchema.createModeCompressionLevelPartInMapping;
 
 @Accessors(fluent = true, chain = true)
 @Setter
@@ -21,6 +25,8 @@ public class NestedMappingSchema {
     private String filterFieldName;
     private String idFieldName;
     private SpaceType spaceType;
+    private Mode mode;
+    private CompressionLevel compressionLevel;
 
     public String createString() {
         final String mapping = """
@@ -33,6 +39,7 @@ public class NestedMappingSchema {
                       "type": "knn_vector",
                       "dimension": %s,
                       "data_type": "%s",
+                      %s
                       "space_type": "%s",
                       "method": {
                         "engine": "faiss",
@@ -58,6 +65,7 @@ public class NestedMappingSchema {
             knnFieldName,
             Integer.toString(dimension),
             dataType.getValue(),
+            createModeCompressionLevelPartInMapping(mode, compressionLevel),
             spaceType.getValue(),
             methodParamString,
             filterFieldName,

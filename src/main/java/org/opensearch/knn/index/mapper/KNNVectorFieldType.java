@@ -61,6 +61,7 @@ public class KNNVectorFieldType extends MappedFieldType {
         this.knnMappingConfig = annConfig;
         this.memoryOptimizedSearchSupported = MemoryOptimizedSearchSupportSpec.supported(
             knnMappingConfig.getKnnMethodContext(),
+            annConfig.getQuantizationConfig(),
             annConfig.getModelId()
         );
     }
