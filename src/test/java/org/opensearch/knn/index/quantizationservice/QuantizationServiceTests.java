@@ -5,16 +5,21 @@
 
 package org.opensearch.knn.index.quantizationservice;
 
+import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.KNNTestCase;
 import org.junit.Before;
 
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNNCodecTestUtil;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.ByteScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -24,6 +29,7 @@ import java.util.List;
 public class QuantizationServiceTests extends KNNTestCase {
     private QuantizationService<float[], byte[]> quantizationService;
     private KNNVectorValues<float[]> knnVectorValues;
+    private FieldInfo fieldInfo;
 
     @Before
     public void setUp() throws Exception {
@@ -42,11 +48,19 @@ public class QuantizationServiceTests extends KNNTestCase {
             VectorDataType.FLOAT,
             new TestVectorValues.PreDefinedFloatVectorValues(floatVectors)
         );
+
+        fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field").addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true").build();
     }
 
     public void testTrain_oneBitQuantizer_success() throws IOException {
         ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        QuantizationState quantizationState = quantizationService.train(oneBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+
+        QuantizationState quantizationState = quantizationService.train(
+            oneBitParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
 
         assertTrue(quantizationState instanceof OneBitScalarQuantizationState);
         OneBitScalarQuantizationState oneBitState = (OneBitScalarQuantizationState) quantizationState;
@@ -62,7 +76,12 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testTrain_twoBitQuantizer_success() throws IOException {
         ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        QuantizationState quantizationState = quantizationService.train(twoBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            twoBitParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
 
         assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
         MultiBitScalarQuantizationState multiBitState = (MultiBitScalarQuantizationState) quantizationState;
@@ -85,7 +104,12 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testTrain_fourBitQuantizer_success() throws IOException {
         ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
-        QuantizationState quantizationState = quantizationService.train(fourBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            fourBitParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
 
         assertTrue(quantizationState instanceof MultiBitScalarQuantizationState);
         MultiBitScalarQuantizationState multiBitState = (MultiBitScalarQuantizationState) quantizationState;
@@ -108,9 +132,36 @@ public class QuantizationServiceTests extends KNNTestCase {
         }
     }
 
+    public void testTrain_eightBitQuantizer_success() throws IOException {
+        ScalarQuantizationParams byteSQParams = new ScalarQuantizationParams(ScalarQuantizationType.EIGHT_BIT);
+        String parameterString =
+            "{\"index_description\":\"HNSW16,SQ8\",\"spaceType\":\"l2\",\"name\":\"hnsw\",\"data_type\":\"float\",\"parameters\":{\"ef_search\":256,\"ef_construction\":256,\"encoder\":{\"name\":\"sq\",\"parameters\":{\"clip\":false}}}}";
+        fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.PARAMETERS, parameterString)
+            .build();
+        QuantizationState quantizationState = quantizationService.train(
+            byteSQParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
+        assertTrue(quantizationState instanceof ByteScalarQuantizationState);
+        ByteScalarQuantizationState byteScalarQuantizationState = (ByteScalarQuantizationState) quantizationState;
+
+        // Validate the template index obtained from the training
+        byte[] indexTemplate = byteScalarQuantizationState.getIndexTemplate();
+        assertNotNull("Index Template should not be null", indexTemplate);
+    }
+
     public void testQuantize_oneBitQuantizer_success() throws IOException {
         ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        QuantizationState quantizationState = quantizationService.train(oneBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            oneBitParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
 
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(oneBitParams);
 
@@ -125,7 +176,12 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testQuantize_twoBitQuantizer_success() throws IOException {
         ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        QuantizationState quantizationState = quantizationService.train(twoBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            twoBitParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(twoBitParams);
         byte[] quantizedVector = quantizationService.quantize(quantizationState, new float[] { 4.0f, 5.0f, 6.0f }, quantizationOutput);
 
@@ -138,7 +194,12 @@ public class QuantizationServiceTests extends KNNTestCase {
 
     public void testQuantize_fourBitQuantizer_success() throws IOException {
         ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
-        QuantizationState quantizationState = quantizationService.train(fourBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            fourBitParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(fourBitParams);
 
         byte[] quantizedVector = quantizationService.quantize(quantizationState, new float[] { 7.0f, 8.0f, 9.0f }, quantizationOutput);
@@ -150,9 +211,28 @@ public class QuantizationServiceTests extends KNNTestCase {
         assertArrayEquals(expectedQuantizedVector, quantizedVector);
     }
 
+    public void testGetVectorDataTypeForTransfer_success() {
+        fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.QFRAMEWORK_CONFIG, "type=byte,bits=8")
+            .build();
+        assertEquals(VectorDataType.FLOAT, quantizationService.getVectorDataTypeForTransfer(fieldInfo));
+
+        fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.QFRAMEWORK_CONFIG, "type=binary,bits=2")
+            .build();
+        assertEquals(VectorDataType.BINARY, quantizationService.getVectorDataTypeForTransfer(fieldInfo));
+    }
+
     public void testQuantize_whenInvalidInput_thenThrows() throws IOException {
         ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        QuantizationState quantizationState = quantizationService.train(oneBitParams, knnVectorValues, knnVectorValues.totalLiveDocs());
+        QuantizationState quantizationState = quantizationService.train(
+            oneBitParams,
+            knnVectorValues,
+            knnVectorValues.totalLiveDocs(),
+            fieldInfo
+        );
         QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(oneBitParams);
         assertThrows(IllegalArgumentException.class, () -> quantizationService.quantize(quantizationState, null, quantizationOutput));
     }

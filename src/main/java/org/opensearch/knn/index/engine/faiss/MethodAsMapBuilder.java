@@ -14,6 +14,8 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -109,6 +111,12 @@ class MethodAsMapBuilder {
             PARAMETERS,
             MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent, knnMethodConfigContext)
         );
-        return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext, QuantizationConfig.EMPTY);
+
+        QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
+        // TODO: Validate if it impacts Lucene
+        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4) {
+            quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.EIGHT_BIT).build();
+        }
+        return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext, quantizationConfig);
     }
 }

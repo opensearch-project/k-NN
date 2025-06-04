@@ -70,5 +70,9 @@ public class QuantizationConfigParserTests extends KNNTestCase {
             "type=binary,bits=2",
             QuantizationConfigParser.toCsv(QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build())
         );
+        assertEquals(
+            "type=byte,bits=8",
+            QuantizationConfigParser.toCsv(QuantizationConfig.builder().quantizationType(ScalarQuantizationType.EIGHT_BIT).build())
+        );
     }
 }

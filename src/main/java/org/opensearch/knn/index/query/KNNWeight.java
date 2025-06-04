@@ -44,6 +44,9 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -493,7 +496,7 @@ public class KNNWeight extends Weight {
                         knnEngine,
                         knnQuery.getIndexName(),
                         // TODO: In the future, more vector data types will be supported with quantization
-                        quantizedVector == null ? vectorDataType : VectorDataType.BINARY
+                        getVectorDataType(fieldInfo, vectorDataType)
                     ),
                     knnQuery.getIndexName(),
                     modelId
@@ -609,6 +612,19 @@ public class KNNWeight extends Weight {
     public static float normalizeScore(float score) {
         if (score >= 0) return 1 / (1 + score);
         return -score + 1;
+    }
+
+    private VectorDataType getVectorDataType(final FieldInfo fieldInfo, final VectorDataType vectorDataType) {
+        final QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo);
+        if (quantizationParams == null) {
+            return vectorDataType;
+        }
+        if ((quantizationParams.getTypeIdentifier()).equals(
+            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.EIGHT_BIT)
+        )) {
+            return VectorDataType.BYTE;
+        }
+        return VectorDataType.BINARY;
     }
 
     private boolean isFilteredExactSearchPreferred(final int filterIdsCount) {

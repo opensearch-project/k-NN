@@ -21,6 +21,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 
 /**
@@ -339,6 +341,11 @@ public class MethodComponent {
             || compressionLevel == CompressionLevel.x16
             || compressionLevel == CompressionLevel.x8);
 
+        // Check if the mode is not ON_DISK, the compression level is x4 and the SQ encoder mapping is of type int8.
+        // This determines whether to use faiss byte quantization-specific values for parameters like ef_search and ef_construction.
+        boolean isByteQuantizationWithFaiss = isByteQuantizationWithFaiss(knnMethodConfigContext, userProvidedParametersMap);
+        // && indexCreationVersion.onOrAfter(Version.V_2_19_0);
+
         for (Parameter<?> parameter : methodComponent.getParameters().values()) {
             if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
                 parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));
@@ -346,7 +353,7 @@ public class MethodComponent {
                 // Picking the right values for the parameters whose values are different based on different index
                 // created version.
                 if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_SEARCH)) {
-                    if (isOnDiskWithBinaryQuantization) {
+                    if (isOnDiskWithBinaryQuantization || isByteQuantizationWithFaiss) {
                         parametersWithDefaultsMap.put(parameter.getName(), IndexHyperParametersUtil.getBinaryQuantizationEFSearchValue());
                     } else {
                         parametersWithDefaultsMap.put(
@@ -355,7 +362,7 @@ public class MethodComponent {
                         );
                     }
                 } else if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
-                    if (isOnDiskWithBinaryQuantization) {
+                    if (isOnDiskWithBinaryQuantization || isByteQuantizationWithFaiss) {
                         parametersWithDefaultsMap.put(
                             parameter.getName(),
                             IndexHyperParametersUtil.getBinaryQuantizationEFConstructionValue()
@@ -378,5 +385,25 @@ public class MethodComponent {
         }
 
         return parametersWithDefaultsMap;
+    }
+
+    private static boolean isByteQuantizationWithFaiss(KNNMethodConfigContext knnMethodConfigContext, Map<String, Object> parametersMap) {
+        if (knnMethodConfigContext.getCompressionLevel() != CompressionLevel.x4 || knnMethodConfigContext.getMode() == Mode.ON_DISK) {
+            return false;
+        }
+
+        if (!parametersMap.containsKey(METHOD_ENCODER_PARAMETER)) {
+            return false;
+        }
+        MethodComponentContext encoderContext = (MethodComponentContext) parametersMap.get(METHOD_ENCODER_PARAMETER);
+        if (!KNNConstants.ENCODER_SQ.equals(encoderContext.getName())) {
+            return false;
+        }
+        Map<String, Object> sqEncoderParams = encoderContext.getParameters();
+        if (sqEncoderParams.isEmpty() || !sqEncoderParams.containsKey(TYPE)) {
+            return false;
+        }
+
+        return KNNConstants.FAISS_SQ_ENCODER_INT8.equals(sqEncoderParams.get(TYPE));
     }
 }

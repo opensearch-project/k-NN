@@ -198,6 +198,49 @@ void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     indexService->writeIndex(&writer, index_ptr);
 }
 
+jlong knn_jni::faiss_wrapper::InitIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong numDocs, jint dimJ,
+                                         jobject parametersJ, jbyteArray templateIndexJ, IndexService* indexService) {
+
+    if(dimJ <= 0) {
+        throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
+    }
+
+    if (parametersJ == nullptr) {
+        throw std::runtime_error("Parameters cannot be null");
+    }
+
+    if (templateIndexJ == nullptr) {
+            throw std::runtime_error("Template index cannot be null");
+    }
+
+    // parametersJ is a Java Map<String, Object>. ConvertJavaMapToCppMap converts it to a c++ map<string, jobject>
+    // so that it is easier to access.
+    auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
+
+    // Thread count
+    int threadCount = 0;
+    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+         threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+    }
+    jniUtil->DeleteLocalRef(env, parametersJ);
+
+
+    // Dimension
+    int dim = (int)dimJ;
+
+    // Number of docs
+    int docs = (int)numDocs;
+    // end parameters to pass
+
+    // Create index
+    return indexService->initIndexFromTemplate(jniUtil,
+                                   env,
+                                   dim,
+                                   docs,
+                                   threadCount,
+                                   templateIndexJ);
+}
+
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                                      jlong vectorsAddressJ, jint dimJ, jobject output,
                                                      jbyteArray templateIndexJ, jobject parametersJ) {

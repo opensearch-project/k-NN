@@ -58,6 +58,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_INT8;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
@@ -610,53 +611,18 @@ public class FaissIT extends KNNRestTestCase {
     public void testHNSWSQFP16_whenIndexedAndQueried_thenSucceed() {
         String indexName = "test-index-hnsw-sqfp16";
         String fieldName = "test-field-hnsw-sqfp16";
-        SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
-        Random random = new Random();
-        SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
-
-        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
-        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
-        List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
-
         int dimension = 128;
         int numDocs = 100;
+        validateHNSWSQIndexingAndQuerying(indexName, fieldName, dimension, numDocs, FAISS_SQ_ENCODER_FP16);
+    }
 
-        // Create an index
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(fieldName)
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNN_METHOD)
-            .field(NAME, METHOD_HNSW)
-            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
-            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
-            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQ)
-            .startObject(PARAMETERS)
-            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-
-        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = builder.toString();
-
-        createKnnIndex(indexName, mapping);
-        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
-        indexTestData(indexName, fieldName, dimension, numDocs);
-        queryTestData(indexName, fieldName, dimension, numDocs);
-        deleteKNNIndex(indexName);
-        validateGraphEviction();
+    @SneakyThrows
+    public void testHNSWSQINT8_whenIndexedAndQueried_thenSucceed() {
+        String indexName = "test-index-hnsw-sqint8";
+        String fieldName = "test-field-hnsw-sqint8";
+        int dimension = 128;
+        int numDocs = 100;
+        validateHNSWSQIndexingAndQuerying(indexName, fieldName, dimension, numDocs, FAISS_SQ_ENCODER_INT8);
     }
 
     @SneakyThrows
@@ -2429,6 +2395,54 @@ public class FaissIT extends KNNRestTestCase {
                 );
             }
         }
+    }
+
+    @SneakyThrows
+    private void validateHNSWSQIndexingAndQuerying(String indexName, String fieldName, int dimension, int numDocs, String encoder) {
+        SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
+        Random random = new Random();
+        SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, encoder)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(indexName, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        indexTestData(indexName, fieldName, dimension, numDocs);
+        queryTestData(indexName, fieldName, dimension, numDocs);
+        deleteKNNIndex(indexName);
+        validateGraphEviction();
     }
 
 }

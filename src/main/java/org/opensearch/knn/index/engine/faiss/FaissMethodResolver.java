@@ -21,12 +21,14 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_INT8;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -39,6 +41,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
     private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(
         CompressionLevel.x1,
         CompressionLevel.x2,
+        CompressionLevel.x4,
         CompressionLevel.x8,
         CompressionLevel.x16,
         CompressionLevel.x32
@@ -80,6 +83,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
 
         // Validate that resolved compression doesnt have any conflicts
         validateCompressionConflicts(knnMethodConfigContext.getCompressionLevel(), resolvedCompressionLevel);
+        validateMethodWithCompression(method, resolvedCompressionLevel);
         knnMethodConfigContext.setCompressionLevel(resolvedCompressionLevel);
         resolveMethodParams(resolvedKNNMethodContext.getMethodComponentContext(), knnMethodConfigContext, method);
 
@@ -109,6 +113,13 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
             encoder = encoderMap.get(ENCODER_SQ);
             encoderComponentContext.getParameters().put(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16);
+        }
+
+        // TODO: Verify this with mode in_memory
+        if (CompressionLevel.x4 == resolvedCompressionLevel) {
+            encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
+            encoder = encoderMap.get(ENCODER_SQ);
+            encoderComponentContext.getParameters().put(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_INT8);
         }
 
         if (CompressionLevel.x8 == resolvedCompressionLevel) {
@@ -187,5 +198,15 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             return CompressionLevel.x32;
         }
         return CompressionLevel.x1;
+    }
+
+    private void validateMethodWithCompression(MethodComponent method, CompressionLevel compressionLevel) {
+        if (method == IVF_COMPONENT && compressionLevel == CompressionLevel.x4) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(
+                String.format(Locale.ROOT, "sq \"%s\" encoder does not support \"%s\" method", FAISS_SQ_ENCODER_INT8, METHOD_IVF)
+            );
+            throw validationException;
+        }
     }
 }

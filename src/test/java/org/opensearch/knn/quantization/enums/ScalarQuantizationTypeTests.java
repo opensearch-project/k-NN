@@ -15,7 +15,8 @@ public class ScalarQuantizationTypeTests extends KNNTestCase {
         ScalarQuantizationType[] expectedValues = {
             ScalarQuantizationType.ONE_BIT,
             ScalarQuantizationType.TWO_BIT,
-            ScalarQuantizationType.FOUR_BIT };
+            ScalarQuantizationType.FOUR_BIT,
+            ScalarQuantizationType.EIGHT_BIT };
         assertArrayEquals(expectedValues, ScalarQuantizationType.values());
     }
 
@@ -23,6 +24,7 @@ public class ScalarQuantizationTypeTests extends KNNTestCase {
         assertEquals(ScalarQuantizationType.ONE_BIT, ScalarQuantizationType.valueOf("ONE_BIT"));
         assertEquals(ScalarQuantizationType.TWO_BIT, ScalarQuantizationType.valueOf("TWO_BIT"));
         assertEquals(ScalarQuantizationType.FOUR_BIT, ScalarQuantizationType.valueOf("FOUR_BIT"));
+        assertEquals(ScalarQuantizationType.EIGHT_BIT, ScalarQuantizationType.valueOf("EIGHT_BIT"));
     }
 
     public void testUniqueSQTypeValues() {
