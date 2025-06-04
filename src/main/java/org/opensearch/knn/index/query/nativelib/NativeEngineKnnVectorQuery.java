@@ -226,10 +226,13 @@ public class NativeEngineKnnVectorQuery extends Query {
         final Bits liveDocs = ctx.reader().getLiveDocs();
         if (liveDocs != null) {
 
-            ScoreDoc[] filteredScoreDoc = Arrays.stream(perLeafResult.getResult().scoreDocs)
-                .filter(scoreDoc -> liveDocs.get(scoreDoc.doc))
-                .toArray(ScoreDoc[]::new);
-            ;
+            List<ScoreDoc> list = new ArrayList<>();
+            for (ScoreDoc scoreDoc : perLeafResult.getResult().scoreDocs) {
+                if (liveDocs.get(scoreDoc.doc)) {
+                    list.add(scoreDoc);
+                }
+            }
+            ScoreDoc[] filteredScoreDoc = list.toArray(new ScoreDoc[0]);
             TotalHits totalHits = new TotalHits(filteredScoreDoc.length, TotalHits.Relation.EQUAL_TO);
             return new PerLeafResult(perLeafResult.getFilterBits(), new TopDocs(totalHits, filteredScoreDoc));
         }

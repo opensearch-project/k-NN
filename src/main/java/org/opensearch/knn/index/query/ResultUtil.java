@@ -13,7 +13,6 @@ import org.apache.lucene.util.DocIdSetBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -55,10 +54,13 @@ public final class ResultUtil {
         // Reduce the results based on min competitive score
         float minScore = topKMinQueue.peek() == null ? -Float.MAX_VALUE : topKMinQueue.peek();
         perLeafResults.forEach(results -> {
-            ScoreDoc[] filteredScoreDoc = Arrays.stream(results.getResult().scoreDocs)
-                .filter(scoreDoc -> scoreDoc.score >= minScore)
-                .toArray(ScoreDoc[]::new);
-            ;
+            List<ScoreDoc> filteredScoreDocList = new ArrayList<>();
+            for (ScoreDoc scoreDoc : results.getResult().scoreDocs) {
+                if (scoreDoc.score >= minScore) {
+                    filteredScoreDocList.add(scoreDoc);
+                }
+            }
+            ScoreDoc[] filteredScoreDoc = filteredScoreDocList.toArray(new ScoreDoc[0]);
             TotalHits totalHits = new TotalHits(filteredScoreDoc.length, TotalHits.Relation.EQUAL_TO);
             results.setResult(new TopDocs(totalHits, filteredScoreDoc));
         });
