@@ -21,6 +21,7 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.OpenSearchException;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
@@ -511,7 +512,12 @@ public class KNNWeight extends Weight {
         FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
-        indexAllocation.incRef();
+        try {
+            indexAllocation.incRef();
+        } catch (IllegalStateException e) {
+            indexAllocation.readUnlock();
+            throw new OpenSearchException("failed to create knn search when clear cache");
+        }
         try {
             if (indexAllocation.isClosed()) {
                 throw new RuntimeException("Index has already been closed");
