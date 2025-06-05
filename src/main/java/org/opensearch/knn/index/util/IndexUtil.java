@@ -7,6 +7,7 @@ package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -21,6 +22,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.request.MethodParameter;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -268,7 +271,8 @@ public class IndexUtil {
         SpaceType spaceType,
         KNNEngine knnEngine,
         String indexName,
-        VectorDataType vectorDataType
+        VectorDataType vectorDataType,
+        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
     ) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue()));
 
@@ -278,6 +282,14 @@ public class IndexUtil {
             loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
         }
         loadParameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            loadParameters.put("adc_enabled", true);
+            String quantization_level = segmentLevelQuantizationInfo.getQuantizationParams().getTypeIdentifier();
+
+            loadParameters.put("quantization_level", quantization_level);
+            loadParameters.put("space_type", spaceType.getValue());
+        }
 
         return Collections.unmodifiableMap(loadParameters);
     }
@@ -324,6 +336,10 @@ public class IndexUtil {
         return KNNEngine.FAISS == knnEngine
             && parameters.get(VECTOR_DATA_TYPE_FIELD) != null
             && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BINARY.getValue());
+    }
+
+    public static boolean isADCEnabled(KNNEngine knnEngine, Map<String, Object> parameters) {
+        return KNNEngine.FAISS == knnEngine && parameters.get("adc_enabled") != null && (boolean) parameters.get("adc_enabled");
     }
 
     /**

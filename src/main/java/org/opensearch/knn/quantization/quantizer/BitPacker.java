@@ -26,7 +26,7 @@ import lombok.experimental.UtilityClass;
 class BitPacker {
 
     /**
-     * Quantizes a given floating-point vector and packs the resulting quantized bits into a provided byte array.
+    * Quantizes a given floating-point vector and packs the resulting quantized bits into a provided byte array.
      * This method operates by comparing each element of the input vector against corresponding thresholds
      * and encoding the results into a compact binary format using the specified number of bits per coordinate.
      *
@@ -96,7 +96,10 @@ class BitPacker {
      */
     void quantizeAndPackBits(final float[] vector, final float[][] thresholds, final int bitsPerCoordinate, byte[] packedBits) {
         int vectorLength = vector.length;
-
+        // for 2+ bits, first writes the first bit of each dimension.
+        // so for 768 dimension vector quantized to 2 bit, would write
+        // (first bit of each of 768 dimensions)(2nd bit of each of 768 dimensions)
+        // this probably isn't desirable from a spatial locality perspective.
         for (int i = 0; i < bitsPerCoordinate; i++) {
             for (int j = 0; j < vectorLength; j++) {
                 if (vector[j] > thresholds[i][j]) {

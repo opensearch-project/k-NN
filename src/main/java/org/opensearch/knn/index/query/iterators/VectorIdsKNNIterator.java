@@ -12,6 +12,8 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
+import lombok.extern.log4j.Log4j2;
+
 import java.io.IOException;
 
 /**
@@ -20,6 +22,7 @@ import java.io.IOException;
  *
  * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
+@Log4j2
 public class VectorIdsKNNIterator implements KNNIterator {
     protected final DocIdSetIterator filterIdsIterator;
     protected final float[] queryVector;
@@ -88,6 +91,19 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
+
+        /*
+        * do some more investigation for rescoring...
+        rescore on -> computeScore called, should hit else block.
+            * add
+            * filter and for exact search (threshold is low, doesn't build graph strucutre), we do exact search on the index.
+            efficient filtering -- serach idx w filter, if hnsw level is super sparse then do an exact search.
+
+            faiss will return hamming distance codes, for SEGMENT CONSISTENCY we need to use exact search on HAMMING
+        */
+        // quantizedQueryVector is null in the case of ADC (see ExactSearcher::getKNNIterator).
+        // In the ADC case the query vector is kept in full precision and is not transformed (a vector copy is transformed).
+        // Therefore, we can rescore ADC query vectors as normal float vectors.
         if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
             byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
             return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);

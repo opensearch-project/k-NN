@@ -98,6 +98,13 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
             public float[] getVectorAtThePosition(int position) {
                 return ArrayUtils.toPrimitive((Float[]) vectors.get(position));
             }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op since getVectorAtThePosition does not change the state of a member iterator for this
+                // TrainingRequest<float[]>.
+            }
+
         };
         QuantizationState quantizationState = quantizer.train(trainingRequest);
         BinaryQuantizationOutput binaryQuantizationOutput = new BinaryQuantizationOutput(quantizationConfig.getQuantizationType().getId());
