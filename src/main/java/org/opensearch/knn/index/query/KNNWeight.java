@@ -515,7 +515,7 @@ public class KNNWeight extends Weight {
             indexAllocation.incRef();
         } catch (IllegalStateException e) {
             indexAllocation.readUnlock();
-            throw new RuntimeException(e.getMessage() + " this is usually caused by clear cache");
+            throw new SearchException(shardTarget, "failed to create knn search when clear cache");
         }
         try {
             if (indexAllocation.isClosed()) {
