@@ -44,6 +44,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.search.SearchException;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -515,7 +516,7 @@ public class KNNWeight extends Weight {
             indexAllocation.incRef();
         } catch (IllegalStateException e) {
             indexAllocation.readUnlock();
-            throw new SearchException(shardTarget, "failed to create knn search when clear cache");
+            throw new OpenSearchParseException("failed to create knn search when clear cache");
         }
         try {
             if (indexAllocation.isClosed()) {
