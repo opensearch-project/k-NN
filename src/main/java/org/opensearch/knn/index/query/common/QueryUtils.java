@@ -36,7 +36,15 @@ import java.util.concurrent.Callable;
  * This class contains utility methods that help customize the search results
  */
 public class QueryUtils {
-    public static QueryUtils INSTANCE = new QueryUtils();
+    // Private constructor to prevent instantiation
+    private QueryUtils() {}
+
+    private static final QueryUtils INSTANCE = new QueryUtils();
+
+    // Public method to get the singleton instance
+    public static QueryUtils getInstance() {
+        return INSTANCE;
+    }
 
     /**
      * Returns a query that represents the specified TopDocs
