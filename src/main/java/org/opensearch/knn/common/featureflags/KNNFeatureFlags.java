@@ -26,7 +26,6 @@ public class KNNFeatureFlags {
 
     // Feature flags
     private static final String KNN_FORCE_EVICT_CACHE_ENABLED = "knn.feature.cache.force_evict.enabled";
-    private static final String KNN_REMOTE_VECTOR_BUILD = "knn.feature.remote_index_build.enabled";
 
     @VisibleForTesting
     public static final Setting<Boolean> KNN_FORCE_EVICT_CACHE_ENABLED_SETTING = Setting.boolSetting(
@@ -36,18 +35,8 @@ public class KNNFeatureFlags {
         Dynamic
     );
 
-    /**
-     * Feature flag to control remote index build at the cluster level
-     */
-    public static final Setting<Boolean> KNN_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
-        KNN_REMOTE_VECTOR_BUILD,
-        false,
-        NodeScope,
-        Dynamic
-    );
-
     public static List<Setting<?>> getFeatureFlags() {
-        return ImmutableList.of(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING, KNN_REMOTE_VECTOR_BUILD_SETTING);
+        return ImmutableList.of(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING);
     }
 
     /**
@@ -56,12 +45,5 @@ public class KNNFeatureFlags {
      */
     public static boolean isForceEvictCacheEnabled() {
         return Booleans.parseBoolean(KNNSettings.state().getSettingValue(KNN_FORCE_EVICT_CACHE_ENABLED).toString(), false);
-    }
-
-    /**
-     * @return true if remote vector index build feature flag is enabled
-     */
-    public static boolean isKNNRemoteVectorBuildEnabled() {
-        return Booleans.parseBooleanStrict(KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_BUILD).toString(), false);
     }
 }

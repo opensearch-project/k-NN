@@ -8,7 +8,6 @@ package org.opensearch.knn.plugin.transport;
 import org.opensearch.action.support.nodes.BaseNodesRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.IOException;
@@ -101,9 +100,6 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
      */
     private Set<String> getValidStats() {
         Set<String> stats = StatNames.getNames();
-        if (!KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
-            stats.remove(StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName());
-        }
         return stats;
     }
 

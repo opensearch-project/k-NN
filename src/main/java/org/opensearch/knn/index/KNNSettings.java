@@ -5,16 +5,14 @@
 
 package org.opensearch.knn.index;
 
-import lombok.Setter;
 import lombok.NonNull;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
-import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
-import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
@@ -27,12 +25,14 @@ import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
+import org.opensearch.transport.client.Client;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -99,14 +99,18 @@ public class KNNSettings {
     public static final String KNN_FAISS_AVX512_SPR_DISABLED = "knn.faiss.avx512_spr.disabled";
     public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
     public static final String KNN_DERIVED_SOURCE_ENABLED = "index.knn.derived_source.enabled";
+    // Remote index build index settings
     public static final String KNN_INDEX_REMOTE_VECTOR_BUILD = "index.knn.remote_index_build.enabled";
-    public static final String KNN_REMOTE_VECTOR_REPO = "knn.remote_index_build.vector_repo";
-    public static final String KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD = "index.knn.remote_index_build.size_threshold";
-    public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_index_build.client.endpoint";
-    public static final String KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL = "knn.remote_index_build.client.poll_interval";
+    public static final String KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN = "index.knn.remote_index_build.size.min";
+    // Remote index build cluster settings
+    public static final String KNN_REMOTE_VECTOR_BUILD = "knn.remote_index_build.enabled";
+    public static final String KNN_REMOTE_REPOSITORY = "knn.remote_index_build.repository";
+    public static final String KNN_REMOTE_VECTOR_BUILD_SIZE_MAX = "knn.remote_index_build.size.max";
+    public static final String KNN_REMOTE_BUILD_SERVICE_ENDPOINT = "knn.remote_index_build.service.endpoint";
+    public static final String KNN_REMOTE_BUILD_POLL_INTERVAL = "knn.remote_index_build.poll.interval";
     public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT = "knn.remote_index_build.client.timeout";
-    public static final String KNN_REMOTE_BUILD_CLIENT_USERNAME = "knn.remote_index_build.client.username";
-    public static final String KNN_REMOTE_BUILD_CLIENT_PASSWORD = "knn.remote_index_build.client.password";
+    public static final String KNN_REMOTE_BUILD_SERVICE_USERNAME = "knn.remote_index_build.service.username";
+    public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_index_build.service.password";
 
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
@@ -143,6 +147,7 @@ public class KNNSettings {
     // 10% of the JVM heap
     public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = 60;
     public static final boolean KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE = false;
+    public static final ByteSizeValue KNN_REMOTE_VECTOR_BUILD_SIZE_LIMIT_DEFAULT_VALUE = new ByteSizeValue(0, ByteSizeUnit.MB);
     // TODO: Tune this default value based on benchmarking
     public static final ByteSizeValue KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE = new ByteSizeValue(50, ByteSizeUnit.MB);
 
@@ -393,6 +398,16 @@ public class KNNSettings {
     );
 
     /**
+     * Cluster level setting to control whether remote index build is enabled or not.
+     */
+    public static final Setting<Boolean> KNN_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
+        KNN_REMOTE_VECTOR_BUILD,
+        false,
+        NodeScope,
+        Dynamic
+    );
+
+    /**
      * Index level setting to control whether remote index build is enabled or not.
      */
     public static final Setting<Boolean> KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
@@ -405,17 +420,35 @@ public class KNNSettings {
     /**
      * Cluster level setting which indicates the repository that the remote index build should write to.
      */
-    public static final Setting<String> KNN_REMOTE_VECTOR_REPO_SETTING = Setting.simpleString(KNN_REMOTE_VECTOR_REPO, Dynamic, NodeScope);
+    public static final Setting<String> KNN_REMOTE_VECTOR_REPOSITORY_SETTING = Setting.simpleString(
+        KNN_REMOTE_REPOSITORY,
+        Dynamic,
+        NodeScope
+    );
 
     /**
      * Index level setting which indicates the size threshold above which remote vector builds will be enabled.
      */
-    public static final Setting<ByteSizeValue> KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING = Setting.byteSizeSetting(
-        KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD,
+    public static final Setting<ByteSizeValue> KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING = Setting.byteSizeSetting(
+        KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN,
         KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE,
         Dynamic,
         IndexScope
     );
+
+    /**
+     * Cluster level setting which sets an upper bound on the remote vector build segment size.
+     * This is the upper bound to {@link KNNSettings#KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING}.
+     *
+     * Defaults to 0, which means no upper bound, and can be set by users according to their remote vector index build service implementation.
+     */
+    public static final Setting<ByteSizeValue> KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING = Setting.byteSizeSetting(
+        KNN_REMOTE_VECTOR_BUILD_SIZE_MAX,
+        KNN_REMOTE_VECTOR_BUILD_SIZE_LIMIT_DEFAULT_VALUE,
+        Dynamic,
+        NodeScope
+    );
+
     /**
      * Remote build service endpoint to be used for remote index build.
      */
@@ -438,8 +471,8 @@ public class KNNSettings {
     /**
      * Setting to control how often the remote build service client polls the build service for the status of the job.
      */
-    public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING = Setting.timeSetting(
-        KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL,
+    public static final Setting<TimeValue> KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING = Setting.timeSetting(
+        KNN_REMOTE_BUILD_POLL_INTERVAL,
         TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
         NodeScope,
         Dynamic
@@ -448,12 +481,12 @@ public class KNNSettings {
     /**
      * Keystore settings for build service HTTP authorization
      */
-    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING = SecureSetting.secureString(
-        KNN_REMOTE_BUILD_CLIENT_USERNAME,
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_SERVICE_USERNAME,
         null
     );
-    public static final Setting<SecureString> KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING = SecureSetting.secureString(
-        KNN_REMOTE_BUILD_CLIENT_PASSWORD,
+    public static final Setting<SecureString> KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING = SecureSetting.secureString(
+        KNN_REMOTE_BUILD_SERVICE_PASSWORD,
         null
     );
 
@@ -631,16 +664,24 @@ public class KNNSettings {
             return KNN_DERIVED_SOURCE_ENABLED_SETTING;
         }
 
+        if (KNN_REMOTE_VECTOR_BUILD.equals(key)) {
+            return KNN_REMOTE_VECTOR_BUILD_SETTING;
+        }
+
         if (KNN_INDEX_REMOTE_VECTOR_BUILD.equals(key)) {
             return KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
         }
 
-        if (KNN_REMOTE_VECTOR_REPO.equals(key)) {
-            return KNN_REMOTE_VECTOR_REPO_SETTING;
+        if (KNN_REMOTE_REPOSITORY.equals(key)) {
+            return KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
         }
 
-        if (KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD.equals(key)) {
-            return KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
+        if (KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN.equals(key)) {
+            return KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING;
+        }
+
+        if (KNN_REMOTE_VECTOR_BUILD_SIZE_MAX.equals(key)) {
+            return KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING;
         }
 
         if (KNN_REMOTE_BUILD_SERVICE_ENDPOINT.equals(key)) {
@@ -651,16 +692,16 @@ public class KNNSettings {
             return KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL.equals(key)) {
-            return KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING;
+        if (KNN_REMOTE_BUILD_POLL_INTERVAL.equals(key)) {
+            return KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_CLIENT_USERNAME.equals(key)) {
-            return KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING;
+        if (KNN_REMOTE_BUILD_SERVICE_USERNAME.equals(key)) {
+            return KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING;
         }
 
-        if (KNN_REMOTE_BUILD_CLIENT_PASSWORD.equals(key)) {
-            return KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING;
+        if (KNN_REMOTE_BUILD_SERVICE_PASSWORD.equals(key)) {
+            return KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING;
         }
 
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
@@ -686,15 +727,19 @@ public class KNNSettings {
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
             KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
             KNN_DERIVED_SOURCE_ENABLED_SETTING,
+            MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING,
+            // Index level remote vector build settings
             KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
-            KNN_REMOTE_VECTOR_REPO_SETTING,
-            KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING,
+            KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING,
+            // Cluster level remote vector build settings
+            KNN_REMOTE_VECTOR_BUILD_SETTING,
+            KNN_REMOTE_VECTOR_REPOSITORY_SETTING,
+            KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING,
             KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
+            KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING,
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
-            KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SETTING,
-            KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING,
-            KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING,
-            MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING
+            KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
+            KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -811,6 +856,13 @@ public class KNNSettings {
     }
 
     /**
+     * @return true if remote vector index build cluster is enabled
+     */
+    public static boolean isKNNRemoteVectorBuildEnabled() {
+        return Booleans.parseBooleanStrict(KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_BUILD).toString(), false);
+    }
+
+    /**
      * Gets the remote build service endpoint.
      * @return String representation of the remote build service endpoint URL
      */
@@ -829,7 +881,7 @@ public class KNNSettings {
      * Gets the interval at which a RemoteIndexPoller will poll for remote build status.
      */
     public static TimeValue getRemoteBuildClientPollInterval() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL);
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_POLL_INTERVAL);
     }
 
     public static boolean isFaissAVX2Disabled() {
