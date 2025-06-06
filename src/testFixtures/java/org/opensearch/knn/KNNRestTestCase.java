@@ -42,7 +42,6 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -120,7 +119,8 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
@@ -189,17 +189,17 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public void setupRemoteIndexBuildSettings() throws Exception {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
-            updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
+            updateClusterSettings(KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
+            updateClusterSettings(KNNSettings.KNN_REMOTE_REPOSITORY, "integ-test-repo");
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT, "http://0.0.0.0:80");
-            updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_CLIENT_POLL_INTERVAL, TimeValue.timeValueSeconds(0));
+            updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_POLL_INTERVAL, TimeValue.timeValueSeconds(0));
             setupRepository("integ-test-repo");
             BEFORE_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
         } else if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
             // Set up cluster settings for remote index build feature. We do this for all tests to ensure the fallback mechanisms are
             // working correctly.
-            updateClusterSettings(KNNFeatureFlags.KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
-            updateClusterSettings(KNNSettings.KNN_REMOTE_VECTOR_REPO, "integ-test-repo");
+            updateClusterSettings(KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
+            updateClusterSettings(KNNSettings.KNN_REMOTE_REPOSITORY, "integ-test-repo");
         }
     }
 
@@ -312,7 +312,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN, "0kb");
         }
         createIndex(index, builder.build());
         putMappingRequest(index, mapping);
@@ -1065,7 +1065,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN, "0kb");
         }
         return builder.build();
     }
@@ -1081,10 +1081,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         // Randomly enable remote index build feature to test fallbacks
         if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN, "0kb");
         } else if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD, true);
-            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD, "0kb");
+            builder.put(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN, "0kb");
         }
         return builder.build();
     }
@@ -2448,7 +2448,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             versionString = versionString.substring(0, versionString.length() - 9);
         }
         final Version version = Version.fromString(versionString);
-        return version.onOrAfter(Version.V_3_0_0);
+        return version.onOrAfter(Version.V_3_1_0);
     }
 
     /**

@@ -50,7 +50,7 @@ import java.util.function.Supplier;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BUCKET;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.S3;
 
@@ -161,7 +161,7 @@ abstract class RemoteIndexBuildTests extends KNNTestCase {
     public void setUp() throws Exception {
         super.setUp();
         ClusterSettings clusterSettings = mock(ClusterSettings.class);
-        when(clusterSettings.get(KNN_REMOTE_VECTOR_REPO_SETTING)).thenReturn("test-repo-name");
+        when(clusterSettings.get(KNN_REMOTE_VECTOR_REPOSITORY_SETTING)).thenReturn("test-repo-name");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
     }
