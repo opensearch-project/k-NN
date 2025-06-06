@@ -21,7 +21,6 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -58,7 +57,7 @@ public class ExactSearcherTests extends KNNTestCase {
         final KNNQuery query = KNNQuery.builder().field(FIELD_NAME).queryVector(queryVector).k(10).indexName(INDEX_NAME).build();
 
         final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
-            ExactSearcher.ExactSearcherContext.builder().knnQuery(query);
+            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).floatQueryVector(queryVector);
 
         ExactSearcher exactSearcher = new ExactSearcher(null);
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -88,7 +87,7 @@ public class ExactSearcherTests extends KNNTestCase {
             .build();
 
         final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
-            ExactSearcher.ExactSearcherContext.builder().knnQuery(query);
+            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).floatQueryVector(queryVector);
 
         ExactSearcher exactSearcher = new ExactSearcher(null);
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -126,21 +125,15 @@ public class ExactSearcherTests extends KNNTestCase {
             when(context.getMaxResultWindow()).thenReturn(maxResults);
             KNNWeight.initialize(null);
 
-            final KNNQuery query = KNNQuery.builder()
-                .field(FIELD_NAME)
-                .queryVector(queryVector)
-                .radius(radius)
-                .indexName(INDEX_NAME)
-                .vectorDataType(VectorDataType.FLOAT)
-                .context(context)
-                .build();
-
             final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
                 ExactSearcher.ExactSearcherContext.builder()
                     // setting to true, so that if quantization details are present we want to do search on the quantized
                     // vectors as this flow is used in first pass of search.
                     .useQuantizedVectorsForSearch(false)
-                    .knnQuery(query);
+                    .floatQueryVector(queryVector)
+                    .radius(radius)
+                    .maxResultWindow(maxResults)
+                    .field(FIELD_NAME);
 
             ExactSearcher exactSearcher = new ExactSearcher(null);
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);

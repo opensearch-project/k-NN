@@ -42,7 +42,7 @@ public class QueryUtilsTests extends TestCase {
     public void setUp() throws Exception {
         executor = Executors.newSingleThreadExecutor();
         taskExecutor = new TaskExecutor(executor);
-        queryUtils = QueryUtils.INSTANCE;
+        queryUtils = QueryUtils.getInstance();
     }
 
     @SneakyThrows

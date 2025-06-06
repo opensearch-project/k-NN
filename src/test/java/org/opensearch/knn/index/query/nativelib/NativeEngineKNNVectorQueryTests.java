@@ -86,7 +86,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
     public void setUp() throws Exception {
         super.setUp();
         openMocks(this);
-        objectUnderTest = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.INSTANCE, false);
+        objectUnderTest = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false);
         reader = createTestIndexReader();
         indexReaderContext = reader.getContext();
         when(searcher.getIndexReader()).thenReturn(reader);
@@ -183,7 +183,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
         // Then
-        Query expected = QueryUtils.INSTANCE.createDocAndScoreQuery(reader, expectedTopDocs);
+        Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
         assertEquals(expected, actual.getQuery());
     }
 
@@ -214,7 +214,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
         // Then
-        Query expected = QueryUtils.INSTANCE.createDocAndScoreQuery(reader, expectedTopDocs);
+        Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
         assertEquals(expected, actual.getQuery());
         for (ScoreDoc scoreDoc : expectedTopDocs.scoreDocs) {
             int docId = scoreDoc.doc;
@@ -324,7 +324,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         Weight actual = objectUnderTest.createWeight(searcher, scoreMode, boost);
 
         // Then
-        Query expected = QueryUtils.INSTANCE.createDocAndScoreQuery(reader, expectedTopDocs);
+        Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
         assertEquals(expected, actual.getQuery());
     }
 
@@ -420,7 +420,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             // Verify
             TopDocs[] topDocs = { topDocs1, topDocs2 };
             TopDocs expectedTopDocs = TopDocs.merge(k, topDocs);
-            Query expected = QueryUtils.INSTANCE.createDocAndScoreQuery(reader, expectedTopDocs);
+            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
             assertEquals(expected, actual.getQuery());
         }
     }

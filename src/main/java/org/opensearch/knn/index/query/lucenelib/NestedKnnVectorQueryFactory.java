@@ -40,7 +40,7 @@ public class NestedKnnVectorQueryFactory {
         if (expandNestedDocs) {
             return new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
                 new InternalNestedKnnByteVectoryQuery(fieldName, vector, filterQuery, k, parentFilter)
-            ).queryUtils(QueryUtils.INSTANCE).build();
+            ).queryUtils(QueryUtils.getInstance()).build();
         }
         return new DiversifyingChildrenByteKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
     }
@@ -70,7 +70,7 @@ public class NestedKnnVectorQueryFactory {
         if (expandNestedDocs) {
             return new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
                 new InternalNestedKnnFloatVectoryQuery(fieldName, vector, filterQuery, k, parentFilter)
-            ).queryUtils(QueryUtils.INSTANCE).build();
+            ).queryUtils(QueryUtils.getInstance()).build();
         }
         return new DiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
     }
