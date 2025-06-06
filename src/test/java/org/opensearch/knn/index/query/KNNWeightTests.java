@@ -85,6 +85,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 
 public class KNNWeightTests extends KNNWeightTestCase {
     @SneakyThrows
@@ -197,7 +198,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.attributes()).thenReturn(Map.of());
         when(fieldInfo.getAttribute(eq(MODEL_ID))).thenReturn(modelId);
 
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
@@ -409,7 +410,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.attributes()).thenReturn(attributesMap);
 
         // When
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
         // Then
         assertNotNull(knnScorer);
@@ -525,7 +526,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                     .thenReturn(quantizedVector);
 
                 // When: Call the scorer method
-                final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+                final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
                 // Then: Ensure scorer is not null
                 assertNotNull(knnScorer);
@@ -641,7 +642,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.attributes()).thenReturn(attributesMap);
 
         // When
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
         // Then
         assertNotNull(knnScorer);
@@ -739,7 +740,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.attributes()).thenReturn(attributesMap);
 
         // When
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
         // Then
         assertNotNull(knnScorer);
@@ -858,7 +859,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 Mockito.when(floatVectorValues.getVector()).thenReturn(vector);
             }
 
-            final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+            final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
             assertNotNull(knnScorer);
             final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
             assertNotNull(docIdSetIterator);
@@ -940,8 +941,8 @@ public class KNNWeightTests extends KNNWeightTestCase {
             .useQuantizedVectorsForSearch(true)
             .knnQuery(query)
             .build();
-        when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         final List<Integer> actualDocIds = new ArrayList<>();
@@ -1001,7 +1002,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
 
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
@@ -1071,7 +1072,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
 
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
@@ -1152,7 +1153,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             when(knnBinaryVectorValues.advance(0)).thenReturn(0);
             when(knnBinaryVectorValues.getVector()).thenReturn(vector);
 
-            final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+            final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
             assertNotNull(knnScorer);
             final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
             assertNotNull(docIdSetIterator);
@@ -1233,7 +1234,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
 
         // Execute
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
         // Verify
         final List<Float> expectedScores = vectors.stream()
@@ -1259,30 +1260,30 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         // Prepare query and weight
         when(bitSetProducer.getBitSet(leafReaderContext)).thenReturn(bitset);
-
-        final KNNQuery query = KNNQuery.builder()
-            .field(FIELD_NAME)
-            .queryVector(QUERY_VECTOR)
-            .k(1)
-            .indexName(INDEX_NAME)
-            .methodParameters(HNSW_METHOD_PARAMETERS)
-            .parentsFilter(bitSetProducer)
-            .build();
-
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
-
+        KNNQueryResult[] knnQueryResults = getKNNQueryResults();
         jniServiceMockedStatic.when(
             () -> JNIService.queryIndex(
                 anyLong(),
                 eq(QUERY_VECTOR),
-                eq(1),
+                eq(knnQueryResults.length),
                 eq(HNSW_METHOD_PARAMETERS),
                 any(),
                 any(),
                 anyInt(),
                 eq(parentsFilter)
             )
-        ).thenReturn(getKNNQueryResults());
+        ).thenReturn(knnQueryResults);
+
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(knnQueryResults.length)
+            .indexName(INDEX_NAME)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .parentsFilter(bitSetProducer)
+            .build();
+
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         // Execute
         Scorer knnScorer = knnWeight.scorer(leafReaderContext);
@@ -1292,7 +1293,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             () -> JNIService.queryIndex(
                 anyLong(),
                 eq(QUERY_VECTOR),
-                eq(1),
+                eq(knnQueryResults.length),
                 eq(HNSW_METHOD_PARAMETERS),
                 any(),
                 any(),
@@ -1379,7 +1380,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             )
         );
 
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         jniServiceMockedStatic.verify(
             () -> JNIService.radiusQueryIndex(
@@ -1518,7 +1519,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
         assertEquals(engineFiles.get(0), expectIndexPath);
 
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
@@ -1669,7 +1670,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
                 when(fieldInfo.attributes()).thenReturn(attributesMap);
 
-                KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+                Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
                 assertNotNull(knnScorer);
                 jniServiceMockedStatic.verify(

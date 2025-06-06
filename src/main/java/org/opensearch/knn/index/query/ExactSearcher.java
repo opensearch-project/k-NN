@@ -17,6 +17,9 @@ import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopDocsCollector;
+import org.apache.lucene.search.TotalHits;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
@@ -37,10 +40,10 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.Predicate;
 
 @Log4j2
@@ -54,15 +57,15 @@ public class ExactSearcher {
      *
      * @param leafReaderContext {@link LeafReaderContext}
      * @param exactSearcherContext {@link ExactSearcherContext}
-     * @return Map of re-scored results
+     * @return TopDocs containing the results of the search
      * @throws IOException exception during execution of exact search
      */
-    public Map<Integer, Float> searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
+    public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext exactSearcherContext)
         throws IOException {
         final KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext);
-        // because of any reason if we are not able to get KNNIterator, return an empty map
+        // because of any reason if we are not able to get KNNIterator, return empty top docss
         if (iterator == null) {
-            return Collections.emptyMap();
+            return TopDocsCollector.EMPTY_TOPDOCS;
         }
         if (exactSearcherContext.getKnnQuery().getRadius() != null) {
             return doRadialSearch(leafReaderContext, exactSearcherContext, iterator);
@@ -81,19 +84,16 @@ public class ExactSearcher {
      * @param leafReaderContext {@link LeafReaderContext}
      * @param exactSearcherContext {@link ExactSearcherContext}
      * @param iterator {@link KNNIterator}
-     * @return Map of docId and score
+     * @return TopDocs containing the results of the search
      * @throws IOException exception raised by iterator during traversal
      */
-    private Map<Integer, Float> doRadialSearch(
-        LeafReaderContext leafReaderContext,
-        ExactSearcherContext exactSearcherContext,
-        KNNIterator iterator
-    ) throws IOException {
+    private TopDocs doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext, KNNIterator iterator)
+        throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
         if (fieldInfo == null) {
-            return Collections.emptyMap();
+            return TopDocsCollector.EMPTY_TOPDOCS;
         }
         final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
         if (KNNEngine.FAISS != engine) {
@@ -104,21 +104,20 @@ public class ExactSearcher {
         return filterDocsByMinScore(exactSearcherContext, iterator, minScore);
     }
 
-    private Map<Integer, Float> scoreAllDocs(KNNIterator iterator) throws IOException {
-        final Map<Integer, Float> docToScore = new HashMap<>();
+    private TopDocs scoreAllDocs(KNNIterator iterator) throws IOException {
+        final List<ScoreDoc> scoreDocList = new ArrayList<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-            docToScore.put(docId, iterator.score());
+            scoreDocList.add(new ScoreDoc(docId, iterator.score()));
         }
-        return docToScore;
+        scoreDocList.sort(Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));
+        return new TopDocs(new TotalHits(scoreDocList.size(), TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
     }
 
-    private Map<Integer, Float> searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore)
-        throws IOException {
+    private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
-        final Map<Integer, Float> docToScore = new HashMap<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
             final float currentScore = iterator.score();
@@ -133,20 +132,21 @@ public class ExactSearcher {
 
         // If scores are negative we will remove them.
         // This is done, because there can be negative values in the Heap as we init the heap with Score as -INF.
-        // If filterIds < k, the some values in heap can have a negative score.
+        // If filterIds < k, some values in heap can have a negative score.
         while (queue.size() > 0 && queue.top().score < 0) {
             queue.pop();
         }
 
-        while (queue.size() > 0) {
-            final ScoreDoc doc = queue.pop();
-            docToScore.put(doc.doc, doc.score);
+        ScoreDoc[] topScoreDocs = new ScoreDoc[queue.size()];
+        for (int i = topScoreDocs.length - 1; i >= 0; i--) {
+            topScoreDocs[i] = queue.pop();
         }
-        return docToScore;
+
+        TotalHits totalHits = new TotalHits(topScoreDocs.length, TotalHits.Relation.EQUAL_TO);
+        return new TopDocs(totalHits, topScoreDocs);
     }
 
-    private Map<Integer, Float> filterDocsByMinScore(ExactSearcherContext context, KNNIterator iterator, float minScore)
-        throws IOException {
+    private TopDocs filterDocsByMinScore(ExactSearcherContext context, KNNIterator iterator, float minScore) throws IOException {
         int maxResultWindow = context.getKnnQuery().getContext().getMaxResultWindow();
         Predicate<Float> scoreGreaterThanOrEqualToMinScore = score -> score >= minScore;
         return searchTopCandidates(iterator, maxResultWindow, scoreGreaterThanOrEqualToMinScore);

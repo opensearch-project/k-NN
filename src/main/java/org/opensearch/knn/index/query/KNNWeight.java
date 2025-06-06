@@ -16,6 +16,8 @@ import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
@@ -47,12 +49,9 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
@@ -127,7 +126,7 @@ public class KNNWeight extends Weight {
     public Explanation explain(LeafReaderContext context, int doc, float score) {
         knnQuery.setExplain(true);
         try {
-            final KNNScorer knnScorer = getOrCreateKnnScorer(context);
+            final Scorer knnScorer = getOrCreateKnnScorer(context);
             // calculate score only when its 0 as for disk-based search,
             // score will be passed from the caller and there is no need to re-compute the score
             if (score == 0) {
@@ -241,20 +240,20 @@ public class KNNWeight extends Weight {
         return sb.toString();
     }
 
-    private KNNScorer getOrCreateKnnScorer(LeafReaderContext context) throws IOException {
+    private Scorer getOrCreateKnnScorer(LeafReaderContext context) throws IOException {
         // First try to get the cached scorer
-        KNNScorer scorer = knnExplanation.getKnnScorer(context);
+        Scorer scorer = knnExplanation.getKnnScorer(context);
 
         // If no cached scorer exists, create and cache a new one
         if (scorer == null) {
-            scorer = (KNNScorer) scorer(context);
+            scorer = scorer(context);
             knnExplanation.addKnnScorer(context, scorer);
         }
 
         return scorer;
     }
 
-    private float getKnnScore(KNNScorer knnScorer, int doc) throws IOException {
+    private float getKnnScore(Scorer knnScorer, int doc) throws IOException {
         return (knnScorer.iterator().advance(doc) == doc) ? knnScorer.score() : 0;
     }
 
@@ -265,13 +264,12 @@ public class KNNWeight extends Weight {
 
             @Override
             public Scorer get(long leadCost) throws IOException {
-                final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
-                cost = docIdToScoreMap.size();
-                if (docIdToScoreMap.isEmpty()) {
+                final TopDocs topDocs = searchLeaf(context, knnQuery.getK()).getResult();
+                cost = topDocs.scoreDocs.length;
+                if (cost == 0) {
                     return KNNScorer.emptyScorer();
                 }
-                final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-                return new KNNScorer(ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+                return new KNNScorer(topDocs, boost);
             }
 
             @Override
@@ -315,7 +313,7 @@ public class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -326,20 +324,20 @@ public class KNNWeight extends Weight {
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
 
         StopWatch annStopWatch = startStopWatch();
-        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
+        final TopDocs topDocs = doANNSearch(reader, context, annFilter, cardinality, k);
         stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
         if (knnQuery.isExplain()) {
-            knnExplanation.addLeafResult(context.id(), docIdsToScoreMap.size());
+            knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
         }
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
-        if (isExactSearchRequire(context, cardinality, docIdsToScoreMap.size())) {
+        if (isExactSearchRequire(context, cardinality, topDocs.scoreDocs.length)) {
             final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            Map<Integer, Float> result = doExactSearch(context, docs, cardinality, k);
+            TopDocs result = doExactSearch(context, docs, cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
-        return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);
+        return new PerLeafResult(filterWeight == null ? null : filterBitSet, topDocs);
     }
 
     private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage, String segmentName) {
@@ -402,7 +400,7 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private Map<Integer, Float> doExactSearch(
+    private TopDocs doExactSearch(
         final LeafReaderContext context,
         final DocIdSetIterator acceptedDocs,
         final long numberOfAcceptedDocs,
@@ -420,7 +418,7 @@ public class KNNWeight extends Weight {
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
-    private Map<Integer, Float> doANNSearch(
+    private TopDocs doANNSearch(
         final SegmentReader reader,
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
@@ -431,7 +429,7 @@ public class KNNWeight extends Weight {
 
         if (fieldInfo == null) {
             log.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
-            return Collections.emptyMap();
+            return TopDocsCollector.EMPTY_TOPDOCS;
         }
 
         KNNEngine knnEngine;
@@ -471,7 +469,7 @@ public class KNNWeight extends Weight {
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
         if (engineFiles.isEmpty()) {
             log.debug("[KNN] No native engine files found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
-            return Collections.emptyMap();
+            return TopDocsCollector.EMPTY_TOPDOCS;
         }
 
         final String vectorIndexFileName = engineFiles.get(0);
@@ -565,7 +563,7 @@ public class KNNWeight extends Weight {
         }
         if (results.length == 0) {
             log.debug("[KNN] Query yielded 0 results");
-            return Collections.emptyMap();
+            return TopDocsCollector.EMPTY_TOPDOCS;
         }
         if (knnQuery.isExplain()) {
             Arrays.stream(results).forEach(result -> {
@@ -577,25 +575,27 @@ public class KNNWeight extends Weight {
             });
         }
 
-        if (quantizedVector != null) {
-            return Arrays.stream(results)
-                .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), SpaceType.HAMMING)));
+        TopApproxKnnCollector collector = new TopApproxKnnCollector(
+            k > 0 ? k : knnQuery.getContext().getMaxResultWindow(),
+            knnEngine,
+            quantizedVector != null ? SpaceType.HAMMING : spaceType
+        );
+        for (KNNQueryResult knnQueryResult : results) {
+            collector.collect(knnQueryResult.getId(), knnQueryResult.getScore());
         }
-        return Arrays.stream(results)
-            .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
+        return collector.topDocs();
+
     }
 
     /**
-     * Execute exact search for the given matched doc ids and return the results as a map of docId to score.
-     * @return Map of docId to score for the exact search results.
+     * Execute exact search for the given matched doc ids and return the results as {@link TopDocs}.
+     * @return TopDocs containing the search results.
      * @throws IOException If an error occurs during the search.
      */
-    public Map<Integer, Float> exactSearch(
-        final LeafReaderContext leafReaderContext,
-        final ExactSearcher.ExactSearcherContext exactSearcherContext
-    ) throws IOException {
+    public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
+        throws IOException {
         StopWatch stopWatch = startStopWatch();
-        Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        TopDocs exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
         return exactSearchResults;
