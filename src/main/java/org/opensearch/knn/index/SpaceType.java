@@ -38,6 +38,12 @@ public enum SpaceType {
         }
 
         @Override
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            // not supported
+            return null;
+        }
+
+        @Override
         public void validateVectorDataType(VectorDataType vectorDataType) {
             throw new IllegalStateException("Unsupported method");
         }
@@ -51,11 +57,6 @@ public enum SpaceType {
         @Override
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.EUCLIDEAN;
-        }
-
-        @Override
-        public boolean supportsVectorSimilarityFunction() {
-            return true;
         }
 
         @Override
@@ -90,11 +91,6 @@ public enum SpaceType {
         }
 
         @Override
-        public boolean supportsVectorSimilarityFunction() {
-            return true;
-        }
-
-        @Override
         public void validateVector(byte[] vector) {
             if (isZeroVector(vector)) {
                 throw new IllegalArgumentException(
@@ -117,11 +113,22 @@ public enum SpaceType {
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
         }
+
+        @Override
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            // not supported
+            return null;
+        }
     },
     LINF("linf", SpaceType.GENERIC_SCORE_TRANSLATION) {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
+        }
+
+        @Override
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            return null;
         }
     },
     INNER_PRODUCT("innerproduct") {
@@ -150,11 +157,6 @@ public enum SpaceType {
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
-
-        @Override
-        public boolean supportsVectorSimilarityFunction() {
-            return true;
-        }
     },
     HAMMING("hamming", SpaceType.GENERIC_SCORE_TRANSLATION) {
         @Override
@@ -181,10 +183,6 @@ public enum SpaceType {
             return KNNVectorSimilarityFunction.HAMMING;
         }
 
-        @Override
-        public boolean supportsVectorSimilarityFunction() {
-            return true;
-        }
     };
 
     public static SpaceType DEFAULT = L2;
@@ -224,18 +222,7 @@ public enum SpaceType {
      *
      * @return KNNVectorSimilarityFunction
      */
-    public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
-        throw new UnsupportedOperationException(String.format("Space [%s] does not have a knn vector similarity function", getValue()));
-    }
-
-    /**
-     * Returns true if this space type supports vector similarity function
-     *
-     * @return {@code true} if this space type supports vector similarity function;
-     */
-    public boolean supportsVectorSimilarityFunction() {
-        return false;
-    }
+    public abstract KNNVectorSimilarityFunction getKnnVectorSimilarityFunction();
 
     /**
      * Validate if the given byte vector is supported by this space type
@@ -299,8 +286,8 @@ public enum SpaceType {
 
     public static SpaceType getSpace(VectorSimilarityFunction similarityFunction) {
         for (SpaceType currentSpaceType : SpaceType.values()) {
-            if (currentSpaceType.supportsVectorSimilarityFunction()
-                && currentSpaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction() == similarityFunction) {
+            KNNVectorSimilarityFunction knnSimilarityFunction = currentSpaceType.getKnnVectorSimilarityFunction();
+            if (knnSimilarityFunction != null && knnSimilarityFunction.getVectorSimilarityFunction() == similarityFunction) {
                 return currentSpaceType;
             }
         }
