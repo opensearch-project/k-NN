@@ -106,14 +106,12 @@ public class ExactSearcher {
 
     private TopDocs scoreAllDocs(KNNIterator iterator) throws IOException {
         final List<ScoreDoc> scoreDocList = new ArrayList<>();
-        int index = 0;
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
             scoreDocList.add(new ScoreDoc(docId, iterator.score()));
-            index++;
         }
         scoreDocList.sort(Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));
-        return new TopDocs(new TotalHits(index, TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
+        return new TopDocs(new TotalHits(scoreDocList.size(), TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
     }
 
     private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {

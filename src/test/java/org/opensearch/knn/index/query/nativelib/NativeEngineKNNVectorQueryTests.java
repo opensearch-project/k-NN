@@ -53,6 +53,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.openMocks;
+import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
+import static org.opensearch.knn.utils.TopDocsTestUtils.convertTopDocsToMap;
 
 public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
@@ -539,24 +541,6 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         writer.addDocument(new Document());
         writer.close();
         return DirectoryReader.open(directory);
-    }
-
-    private TopDocs buildTopDocs(Map<Integer, Float> result) {
-        ScoreDoc[] allScoreDocs = result.entrySet()
-            .stream()
-            .map(entry -> new ScoreDoc(entry.getKey(), entry.getValue()))
-            .toArray(ScoreDoc[]::new);
-
-        return new TopDocs(new TotalHits(allScoreDocs.length, TotalHits.Relation.EQUAL_TO), allScoreDocs);
-    }
-
-    protected Map<Integer, Float> convertTopDocsToMap(TopDocs topDocs) {
-
-        Map<Integer, Float> resultMap = new HashMap<>();
-        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-            resultMap.put(scoreDoc.doc, scoreDoc.score);
-        }
-        return resultMap;
     }
 }
 

@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
+import static org.opensearch.knn.utils.TopDocsTestUtils.convertTopDocsToMap;
 
 public class ResultUtilTests extends KNNTestCase {
 

@@ -85,6 +85,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 
 public class KNNWeightTests extends KNNWeightTestCase {
     @SneakyThrows

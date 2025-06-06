@@ -59,6 +59,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.RADIAL_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 
 public class ExplainTests extends KNNWeightTestCase {
 
