@@ -71,24 +71,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.Version.CURRENT;
-import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -126,7 +109,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null, SpaceType.UNDEFINED.getValue())
         );
 
-        assertEquals(10, builder.getParameters().size());
+        assertEquals(11, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
         List<String> expectedParams = Arrays.asList(
             "store",
@@ -138,7 +121,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             MODEL_ID,
             MODE_PARAMETER,
             COMPRESSION_LEVEL_PARAMETER,
-            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE
+            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE,
+            TOP_LEVEL_PARAMETER_ENGINE
         );
         assertEquals(expectedParams, actualParams);
     }
@@ -472,6 +456,85 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             );
             assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
         }
+    }
+
+    public void testDifferentEngineCombinations_thenSuccess() throws IOException {
+        // Setup settings
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // engine provided in method but not at the top-level
+        XContentBuilder xContentBuilder = createXContentForFieldMapping_Engine(KNNEngine.LUCENE, null, null, null, TEST_DIMENSION);
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                "test-field-name-1",
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext("test", settings)
+        );
+
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals(KNNEngine.LUCENE, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+
+        // engine provided at top level but not in the method
+        xContentBuilder = createXContentForFieldMapping_Engine(null, KNNEngine.LUCENE, null, null, TEST_DIMENSION);
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                "test-field-name-1",
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext("test", settings)
+        );
+
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals(KNNEngine.LUCENE, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+
+
+        // not setting any engine
+        xContentBuilder = createXContentForFieldMapping_Engine(null, null, SpaceType.DEFAULT, null, TEST_DIMENSION);
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                "test-field-name-1",
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext("test", settings)
+        );
+
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals(KNNEngine.DEFAULT, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+
+        // if engines are same
+        xContentBuilder = createXContentForFieldMapping_Engine(KNNEngine.LUCENE, KNNEngine.LUCENE, null, null, TEST_DIMENSION);
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                "test-field-name-1",
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext("test", settings)
+        );
+
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals(KNNEngine.LUCENE, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+
+        // if engines are not same; should throw exception
+        xContentBuilder = createXContentForFieldMapping_Engine(KNNEngine.LUCENE, KNNEngine.FAISS, null, null, TEST_DIMENSION);
+        XContentBuilder finalXContentBuilder_diff = xContentBuilder;
+        Assert.assertThrows(
+                MapperParsingException.class,
+                () -> typeParser.parse("test-field-name-1", xContentBuilderToMap(finalXContentBuilder_diff), buildParserContext("test", settings))
+        );
     }
 
     public void testTypeParser_withSpaceTypeAndMode_thenSuccess() throws IOException {
@@ -2426,6 +2489,35 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         }
         if (methodSpaceType != null && methodSpaceType != SpaceType.UNDEFINED) {
             xContentBuilder.field(METHOD_PARAMETER_SPACE_TYPE, methodSpaceType.getValue());
+        }
+        xContentBuilder.endObject().endObject();
+        return xContentBuilder;
+    }
+
+    private XContentBuilder createXContentForFieldMapping_Engine(
+            KNNEngine methodKNNEngine,
+            KNNEngine topLevelKNNEngine,
+            SpaceType spaceType,
+            VectorDataType vectorDataType,
+            int dimension
+    ) throws IOException {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, dimension);
+
+        if (topLevelKNNEngine != null && topLevelKNNEngine != KNNEngine.UNDEFINED) {
+            xContentBuilder.field(TOP_LEVEL_PARAMETER_ENGINE, topLevelKNNEngine.getName());
+        }
+        if (vectorDataType != null) {
+            xContentBuilder.field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+        }
+        xContentBuilder.startObject(KNN_METHOD).field(NAME, METHOD_HNSW);
+        if (spaceType != null && spaceType != SpaceType.UNDEFINED) {
+            xContentBuilder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
+        }
+        if (methodKNNEngine != null && methodKNNEngine != KNNEngine.UNDEFINED) {
+            xContentBuilder.field(KNN_ENGINE, methodKNNEngine.getName());
         }
         xContentBuilder.endObject().endObject();
         return xContentBuilder;
