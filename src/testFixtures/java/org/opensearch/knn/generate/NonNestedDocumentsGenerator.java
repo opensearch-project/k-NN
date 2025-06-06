@@ -53,6 +53,10 @@ public class NonNestedDocumentsGenerator extends DocumentsGenerator {
                     );
                     vectors.add(SearchTestHelper.convertToFloatArray(vector));
                     builder.field(KNN_FIELD_NAME, SearchTestHelper.convertToIntArray(vector));
+                } else if (dataType == VectorDataType.BINARY) {
+                    final byte[] binaryVector = SearchTestHelper.generateOneSingleBinaryVector(DIMENSIONS);
+                    vectors.add(SearchTestHelper.convertToFloatArray(binaryVector));
+                    builder.field(KNN_FIELD_NAME, SearchTestHelper.convertToIntArray(binaryVector));
                 } else {
                     throw new AssertionError();
                 }

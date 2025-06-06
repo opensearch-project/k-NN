@@ -7,7 +7,7 @@ package org.opensearch.knn.generate;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.apache.lucene.index.VectorSimilarityFunction;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.util.ArrayList;
@@ -46,8 +46,8 @@ public class Documents {
     private boolean doFiltering;
 
     public float prepareAnswerSet(
-        final float[] queryVector,
-        final VectorSimilarityFunction similarityFunction,
+        final Object queryVector,
+        final KNNVectorSimilarityFunction similarityFunction,
         final boolean doFiltering,
         final boolean isRadial
     ) {
@@ -74,7 +74,14 @@ public class Documents {
             // Find the best child
             float bestSimilarity = Float.MIN_VALUE;
             for (float[] vector : vectors.get(i)) {
-                final float score = similarityFunction.compare(queryVector, vector);
+                final float score;
+                if (queryVector instanceof float[]) {
+                    score = similarityFunction.compare((float[]) queryVector, vector);
+                } else if (queryVector instanceof byte[]) {
+                    score = similarityFunction.compare((byte[]) queryVector, SearchTestHelper.convertToByteArray(vector));
+                } else {
+                    throw new AssertionError();
+                }
                 bestSimilarity = Math.max(bestSimilarity, score);
             }
             similarities.add(bestSimilarity);
@@ -112,11 +119,12 @@ public class Documents {
     public float prepareAnswerSet(
         final VectorDataType dataType,
         final byte[] vector,
-        final VectorSimilarityFunction similarityFunction,
+        final KNNVectorSimilarityFunction similarityFunction,
         final boolean doFiltering,
         final boolean isRadial
     ) {
-        return prepareAnswerSet(SearchTestHelper.convertToFloatArray(vector), similarityFunction, doFiltering, isRadial);
+        assert (dataType == VectorDataType.BYTE || dataType == VectorDataType.BINARY);
+        return prepareAnswerSet(vector, similarityFunction, doFiltering, isRadial);
     }
 
     public void validateResponse(final List<Result> results) {

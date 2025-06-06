@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
@@ -13,7 +12,6 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
-import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
@@ -29,6 +27,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.generate.IndexingType;
 import org.opensearch.knn.generate.SearchTestHelper;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
@@ -37,6 +36,7 @@ import org.opensearch.knn.index.codec.nativeindex.MemoryOptimizedSearchIndexingS
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.FilterIdsSelector;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
@@ -47,6 +47,9 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -64,6 +67,9 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -73,6 +79,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.generate.SearchTestHelper.generateOneSingleByteVector;
 import static org.opensearch.knn.generate.SearchTestHelper.generateOneSingleFloatVector;
@@ -82,15 +89,99 @@ import static org.opensearch.knn.generate.SearchTestHelper.getKnnAnswerSetForVec
 public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final String TARGET_FIELD = "target_field";
     private static final String FLOAT_HNSW_INDEX_DESCRIPTION = "HNSW16,Flat";
+    private static final Map<String, Object> FLOAT32_ENCODER_PARAMETERS = Map.of(NAME, ENCODER_FLAT);
     private static final String BYTE_HNSW_INDEX_DESCRIPTION = "HNSW16,SQ8_direct_signed";
-    private static final String FLOAT16_HNSW_INDEX_DESCRIPTION = "HNSW8,SQfp16";
+    private static final String FLOAT16_HNSW_INDEX_DESCRIPTION = "HNSW16,SQfp16";
+    private static final Map<String, Object> FLOAT16_ENCODER_PARAMETERS = Map.of(
+        NAME,
+        ENCODER_SQ,
+        PARAMETERS,
+        Map.of(TYPE, FAISS_SQ_ENCODER_FP16, FAISS_SQ_CLIP, false)
+    );
+    private static final String BINARY_HSNW_INDEX_DESCRIPTION = "BHNSW16,Flat";
+    private static final Map<String, Object> EMTPY_ENCODER_PARAMETERS = Map.of();
     private static final int DIMENSIONS = 128;
     private static final int TOTAL_NUM_DOCS_IN_SEGMENT = 300;
     private static final int TOP_K = 30;
     private static final float NO_FILTERING = Float.NaN;
 
+    public void test32xQuantizedBinaryIndexType() {
+        final TestingSpec testingSpec = new TestingSpec(
+            VectorDataType.BINARY,
+            BINARY_HSNW_INDEX_DESCRIPTION,
+            -1000000,
+            1000000,
+            FLOAT32_ENCODER_PARAMETERS
+        );
+        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+
+        // Test a dense case where all docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE);
+
+        // Test a sparse case where some docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE);
+
+        // Test a sparse nested case where some parent docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE_NESTED);
+
+        // Test a dense nested case where ALL parent docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE_NESTED);
+    }
+
+    public void test16xQuantizedBinaryIndexType() {
+        final TestingSpec testingSpec = new TestingSpec(
+            VectorDataType.BINARY,
+            BINARY_HSNW_INDEX_DESCRIPTION,
+            -1000000,
+            1000000,
+            FLOAT32_ENCODER_PARAMETERS
+        );
+        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+
+        // Test a dense case where all docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE);
+
+        // Test a sparse case where some docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE);
+
+        // Test a sparse nested case where some parent docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE_NESTED);
+
+        // Test a dense nested case where ALL parent docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE_NESTED);
+    }
+
+    public void test8xQuantizedBinaryIndexType() {
+        final TestingSpec testingSpec = new TestingSpec(
+            VectorDataType.BINARY,
+            BINARY_HSNW_INDEX_DESCRIPTION,
+            -1000000,
+            1000000,
+            FLOAT32_ENCODER_PARAMETERS
+        );
+        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+
+        // Test a dense case where all docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE);
+
+        // Test a sparse case where some docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE);
+
+        // Test a sparse nested case where some parent docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE_NESTED);
+
+        // Test a dense nested case where ALL parent docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE_NESTED);
+    }
+
     public void testFloatIndexType() {
-        final TestingSpec testingSpec = new TestingSpec(VectorDataType.FLOAT, FLOAT_HNSW_INDEX_DESCRIPTION, -1000000, 1000000);
+        final TestingSpec testingSpec = new TestingSpec(
+            VectorDataType.FLOAT,
+            FLOAT_HNSW_INDEX_DESCRIPTION,
+            -1000000,
+            1000000,
+            FLOAT32_ENCODER_PARAMETERS
+        );
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -106,12 +197,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     public void testByteIndexType() {
-        final TestingSpec testingSpec = new TestingSpec(VectorDataType.BYTE, BYTE_HNSW_INDEX_DESCRIPTION, -128, 127) {
-            @Override
-            public float trimValue(float value) {
-                return (byte) value;
-            }
-        };
+        final TestingSpec testingSpec = new TestingSpec(
+            VectorDataType.BYTE,
+            BYTE_HNSW_INDEX_DESCRIPTION,
+            -128,
+            127,
+            EMTPY_ENCODER_PARAMETERS
+        );
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -127,7 +219,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     public void testFloat16IndexType() {
-        final TestingSpec testingSpec = new TestingSpec(VectorDataType.FLOAT, FLOAT16_HNSW_INDEX_DESCRIPTION, -65504, 65504);
+        final TestingSpec testingSpec = new TestingSpec(
+            VectorDataType.FLOAT,
+            FLOAT16_HNSW_INDEX_DESCRIPTION,
+            -65504,
+            65504,
+            FLOAT16_ENCODER_PARAMETERS
+        );
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -144,7 +242,14 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
     @SneakyThrows
     private void doSearchTest(final TestingSpec testingSpec, final IndexingType indexingType) {
-        for (final SpaceType spaceType : Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT)) {
+        final List<SpaceType> spaceTypes;
+        if (testingSpec.dataType != VectorDataType.BINARY) {
+            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT);
+        } else {
+            spaceTypes = Arrays.asList(SpaceType.HAMMING);
+        }
+
+        for (final SpaceType spaceType : spaceTypes) {
             doSearchTest(testingSpec, indexingType, spaceType, false, NO_FILTERING);
             doSearchTest(testingSpec, indexingType, spaceType, false, 0.8f);
 
@@ -198,28 +303,56 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k = TOP_K;
 
         // Start search via JNI
-        final Object queryForVectorReader;
-        final float[] query;
-        final byte[] byteQuery;
-        if (testingSpec.dataType == VectorDataType.FLOAT) {
-            queryForVectorReader = query = generateOneSingleFloatVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
-        } else if (testingSpec.dataType == VectorDataType.BYTE) {
-            queryForVectorReader = byteQuery = generateOneSingleByteVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
-            query = SearchTestHelper.convertToFloatArray(byteQuery);
+        Object queryForVectorReader = null;
+        Object query = null;
+        byte[] byteQuery;
+        final KNNQueryResult[] resultsFromFaiss;
+
+        if (testingSpec.dataType == VectorDataType.FLOAT || testingSpec.dataType == VectorDataType.BYTE) {
+            if (testingSpec.dataType == VectorDataType.FLOAT) {
+                queryForVectorReader = query = generateOneSingleFloatVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
+            } else if (testingSpec.dataType == VectorDataType.BYTE) {
+                queryForVectorReader = byteQuery = generateOneSingleByteVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
+                query = SearchTestHelper.convertToFloatArray(byteQuery);
+            }
+
+            resultsFromFaiss = JNIService.queryIndex(
+                indexPointer,
+                (float[]) query,
+                k,
+                buildInfo.parameters,
+                KNNEngine.FAISS,
+                filteredIds,
+                FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
+                parentIds
+            );
+        } else if (testingSpec.dataType == VectorDataType.BINARY) {
+            if (testingSpec.quantizationParams != null) {
+                float[] floatQuery = generateOneSingleFloatVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
+                query = queryForVectorReader = (byte[]) QuantizationService.getInstance()
+                    .quantize(
+                        testingSpec.quantizationState,
+                        floatQuery,
+                        QuantizationService.getInstance().createQuantizationOutput(testingSpec.quantizationParams)
+                    );
+            } else {
+                queryForVectorReader = generateOneSingleByteVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
+                query = queryForVectorReader;
+            }
+
+            resultsFromFaiss = JNIService.queryBinaryIndex(
+                indexPointer,
+                (byte[]) query,
+                k,
+                buildInfo.parameters,
+                KNNEngine.FAISS,
+                filteredIds,
+                FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
+                parentIds
+            );
         } else {
             throw new AssertionError();
         }
-
-        final KNNQueryResult[] resultsFromFaiss = JNIService.queryIndex(
-            indexPointer,
-            query,
-            k,
-            buildInfo.parameters,
-            KNNEngine.FAISS,
-            filteredIds,
-            FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
-            parentIds
-        );
 
         JNIService.free(indexPointer, KNNEngine.FAISS);
 
@@ -241,7 +374,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             filteredIds,
             resultsFromFaiss,
             resultsFromVectorReader,
-            spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
+            spaceType.getKnnVectorSimilarityFunction(),
             TOP_K
         );
     }
@@ -293,7 +426,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             ) {
                 if (vectorDataType == VectorDataType.FLOAT) {
                     vectorsReader.search(TARGET_FIELD, (float[]) query, knnCollector, acceptDocs);
-                } else if (vectorDataType == VectorDataType.BYTE) {
+                } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
                     vectorsReader.search(TARGET_FIELD, (byte[]) query, knnCollector, acceptDocs);
                 } else {
                     throw new AssertionError();
@@ -343,7 +476,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 parameters.put(PARAMETERS, methodParameters);
                 methodParameters.put(METHOD_PARAMETER_EF_SEARCH, numberOfTotalDocsInSegment - 1);
                 methodParameters.put(METHOD_PARAMETER_EF_CONSTRUCTION, numberOfTotalDocsInSegment);
-                methodParameters.put(METHOD_ENCODER_PARAMETER, Map.of(NAME, ENCODER_FLAT));
+                methodParameters.put(METHOD_ENCODER_PARAMETER, testingSpec.encoderParameters);
                 builder.parameters(parameters);
 
                 // Set up vectors
@@ -371,6 +504,44 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                     buildInfo.vectors = new SearchTestHelper.Vectors(floatVectors);
                     final KNNFloatVectorValues floatVectorValues = createKNNFloatVectorValues(documentIds, floatVectors);
                     builder.knnVectorValuesSupplier(() -> floatVectorValues);
+                } else if (testingSpec.dataType == VectorDataType.BINARY) {
+                    // Get random float vectors
+                    final List<float[]> floatVectors = SearchTestHelper.generateRandomFloatVectors(
+                        buildInfo.documentIds,
+                        DIMENSIONS,
+                        testingSpec.minValue,
+                        testingSpec.maxValue
+                    );
+                    assert (testingSpec.quantizationParams != null);
+
+                    // Get quantization state
+                    final KNNVectorValues floatVectorValues = createKNNFloatVectorValues(documentIds, floatVectors);
+                    final QuantizationState quantizationState = QuantizationService.getInstance()
+                        .train(testingSpec.quantizationParams, floatVectorValues, documentIds.size());
+                    testingSpec.quantizationState = quantizationState;
+                    builder.quantizationState(quantizationState);
+
+                    // Set quantized vectors
+                    final List<byte[]> quantizedVectors = floatVectors.stream().map(v -> {
+                        if (v != null) {
+                            return (byte[]) QuantizationService.getInstance()
+                                .quantize(
+                                    testingSpec.quantizationState,
+                                    v,
+                                    QuantizationService.getInstance().createQuantizationOutput(testingSpec.quantizationParams)
+                                );
+                        }
+
+                        // For sparse case, it can have null value indicating not having a vector.
+                        // Ex: [[..], [..], null, null, [..], ..], in which 2 and 3 docs don't have vectors.
+                        return null;
+                    }).toList();
+                    buildInfo.vectors = new SearchTestHelper.Vectors(VectorDataType.BINARY, quantizedVectors);
+
+                    // Set values supplier
+                    // floatVectorValues is already exhausted, need to create a new one.
+                    final KNNVectorValues floatVectorValuesForValidation = createKNNFloatVectorValues(documentIds, floatVectors);
+                    builder.knnVectorValuesSupplier(() -> floatVectorValuesForValidation);
                 } else {
                     throw new AssertionError();
                 }
@@ -387,11 +558,11 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     public static void validateResults(
         final List<Integer> documentIds,
         final SearchTestHelper.Vectors vectors,
-        final float[] query,
+        final Object query,
         final long[] filteredIds,
         KNNQueryResult[] resultsFromFaiss,
         KNNQueryResult[] resultsFromVectorReader,
-        VectorSimilarityFunction similarityFunction,
+        KNNVectorSimilarityFunction similarityFunction,
         final int topK
     ) {
         final Set<Integer> answerDocIds = getKnnAnswerSetForVectors(documentIds, vectors, query, filteredIds, similarityFunction, topK);
@@ -544,15 +715,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     @RequiredArgsConstructor
-    @AllArgsConstructor
     private static class TestingSpec {
         public final VectorDataType dataType;
         public final String indexDescription;
-        public float minValue;
-        public float maxValue;
-
-        public float trimValue(final float value) {
-            return value;
-        }
+        public final float minValue;
+        public final float maxValue;
+        public final Map<String, Object> encoderParameters;
+        public ScalarQuantizationParams quantizationParams;
+        public QuantizationState quantizationState;
     }
 }
