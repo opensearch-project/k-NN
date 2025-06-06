@@ -51,9 +51,8 @@ import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.indices.ModelDao;
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimension;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createKNNMethodContextFromLegacy;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
@@ -193,6 +192,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             SpaceType.UNDEFINED.getValue()
         ).setValidator(SpaceType::getSpace);
 
+        // A top level engine field.
+        protected final Parameter<String> topLevelEngine = Parameter.stringParam(
+            KNNConstants.TOP_LEVEL_PARAMETER_ENGINE,
+            false,
+            m -> toType(m).originalMappingParameters.getTopLevelEngine(),
+            KNNEngine.UNDEFINED.getName()
+        ).setValidator(KNNEngine::getEngine)
+        .alwaysSerialize();
+
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
         protected ModelDao modelDao;
@@ -246,7 +254,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 modelId,
                 mode,
                 compressionLevel,
-                topLevelSpaceType
+                topLevelSpaceType,
+                topLevelEngine
             );
         }
 
@@ -428,9 +437,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 resolveKNNMethodComponents(builder, parserContext, resolvedSpaceType);
                 // Validate if the KNN engine is allowed for index creation
                 validateBlockedKNNEngine(builder.knnMethodContext.get(), parserContext.indexVersionCreated());
+                validateEngine(builder);
                 validateFromKNNMethod(builder);
             }
-
             return builder;
         }
 
@@ -446,6 +455,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     && knnMethodContextSpaceType != SpaceType.UNDEFINED) {
                     throw new MapperParsingException(
                         "Space type in \"method\" and top level space type should be same or one of them should be defined"
+                    );
+                }
+            }
+        }
+
+        private void validateEngine(KNNVectorFieldMapper.Builder builder) {
+            final KNNMethodContext knnMethodContext = builder.knnMethodContext.get();
+            if (knnMethodContext != null) {
+                KNNEngine knnMethodContextEngine = knnMethodContext.getKnnEngine();
+                KNNEngine topLevelEngine = KNNEngine.getEngine(builder.originalParameters.getTopLevelEngine());
+                if (topLevelEngine != KNNEngine.UNDEFINED
+                        && knnMethodContextEngine != KNNEngine.UNDEFINED
+                        && topLevelEngine != knnMethodContextEngine) {
+                    throw new MapperParsingException(
+                            "Engine in \"method\" and top level engine should be same or one of them should be defined."
                     );
                 }
             }
@@ -563,15 +587,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // Based on config context, if the user does not set the engine, set it
+            // Based on config context, if the user does not set the engine, resolve and set it
             KNNEngine resolvedKNNEngine = EngineResolver.INSTANCE.resolveEngine(
                 builder.knnMethodConfigContext,
                 builder.originalParameters.getResolvedKnnMethodContext(),
+                builder.topLevelEngine.get(),
                 false,
                 builder.indexCreatedVersion
             );
             setEngine(builder.originalParameters.getResolvedKnnMethodContext(), resolvedKNNEngine);
-
+            builder.originalParameters.setTopLevelEngine(resolvedKNNEngine.getName());
             // Create a copy of the KNNMethodContext and fill in the parameters left blank by configuration context context
             ResolvedMethodContext resolvedMethodContext = resolvedKNNEngine.resolveMethod(
                 builder.originalParameters.getResolvedKnnMethodContext(),
