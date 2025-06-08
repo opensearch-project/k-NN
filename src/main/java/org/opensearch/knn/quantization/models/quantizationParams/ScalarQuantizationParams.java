@@ -6,11 +6,15 @@
 package org.opensearch.knn.quantization.models.quantizationParams;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+
 import lombok.NoArgsConstructor;
+import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
@@ -20,11 +24,16 @@ import java.io.IOException;
  * This class implements the QuantizationParams interface and includes the type of scalar quantization.
  */
 @Getter
-@AllArgsConstructor
-@NoArgsConstructor // No-argument constructor for deserialization
 @EqualsAndHashCode
+@AllArgsConstructor
+@NoArgsConstructor(force = true)
+@Builder
 public class ScalarQuantizationParams implements QuantizationParams {
     private ScalarQuantizationType sqType;
+    @Builder.Default
+    private final boolean enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+    @Builder.Default
+    private final boolean enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
 
     /**
      * Static method to generate type identifier based on ScalarQuantizationType.
@@ -34,6 +43,10 @@ public class ScalarQuantizationParams implements QuantizationParams {
      */
     public static String generateTypeIdentifier(ScalarQuantizationType sqType) {
         return generateIdentifier(sqType.getId());
+    }
+
+    public ScalarQuantizationParams(ScalarQuantizationType quantizationType) {
+        this(quantizationType, QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION, QFrameBitEncoder.DEFAULT_ENABLE_ADC);
     }
 
     /**
@@ -57,6 +70,8 @@ public class ScalarQuantizationParams implements QuantizationParams {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeVInt(sqType.getId());
+        out.writeBoolean(enableRandomRotation);
+        out.writeBoolean(enableADC);
     }
 
     /**
@@ -69,6 +84,13 @@ public class ScalarQuantizationParams implements QuantizationParams {
     public ScalarQuantizationParams(StreamInput in, int version) throws IOException {
         int typeId = in.readVInt();
         this.sqType = ScalarQuantizationType.fromId(typeId);
+        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+            enableRandomRotation = in.readBoolean();
+            enableADC = in.readBoolean();
+        } else {
+            enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+            enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
+        }
     }
 
     /**

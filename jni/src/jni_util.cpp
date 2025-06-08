@@ -16,7 +16,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-
+#include <iostream>
 
 void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     // Followed recommendation from this SO post: https://stackoverflow.com/a/13940735
@@ -170,7 +170,6 @@ std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMa
 
         valueJ = env->CallObjectMethod(entryJ, getValueMethodJ);
         this->HasExceptionInStack(env, R"(Could not call "getValue" method")");
-
         parametersCpp[keyCpp] = valueJ;
 
         env->DeleteLocalRef(entryJ);
@@ -202,6 +201,35 @@ std::string knn_jni::JNIUtil::ConvertJavaStringToCppString(JNIEnv * env, jstring
     env->ReleaseStringUTFChars(javaString, cString);
     return cppString;
 }
+
+knn_jni::QuantizationLevel knn_jni::JNIUtil::ConvertJavaStringToQuantizationLevel(JNIEnv * env, jobject javaString) {
+    if (javaString == nullptr) {
+        throw std::runtime_error("String cannot be null");
+    }
+
+    const char *cString = env->GetStringUTFChars((jstring) javaString, nullptr);
+    if (cString == nullptr) {
+        this->HasExceptionInStack(env, "Unable to convert java string to cpp string");
+
+        // Will only reach here if there is no exception in the stack, but the call failed
+        throw std::runtime_error("Unable to convert java string to cpp string");
+    }
+    std::string cppString(cString);
+    env->ReleaseStringUTFChars((jstring) javaString, cString);
+
+    if (cppString == "ScalarQuantizationParams_1") {
+        return QuantizationLevel::ONE_BIT;
+    } else if (cppString == "ScalarQuantizationParams_2") {
+        return QuantizationLevel::TWO_BIT;
+    } else if (cppString == "ScalarQuantizationParams_4") {
+        return QuantizationLevel::FOUR_BIT;
+    } else {
+        this->HasExceptionInStack(env, "Unable to convert java string to quantization level");
+
+        throw std::runtime_error("Unable to convert java string to quantization level");
+    }
+}
+
 
 int knn_jni::JNIUtil::ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) {
 

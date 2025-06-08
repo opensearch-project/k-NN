@@ -14,6 +14,7 @@
 #include "faiss_util.h"
 #include "faiss_index_service.h"
 #include "faiss_stream_support.h"
+#include "FaissIndexBQ.h"
 
 #include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
@@ -460,6 +461,80 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
                         | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
 
     return (jlong) indexReader;
+}
+jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(faiss::IOReader* ioReader, knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject methodParamsJ) {
+    auto methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
+
+    // KNNConstants.QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER
+    auto quantization_level_it = methodParams.find("quantization_level");
+    knn_jni::QuantizationLevel quantLevel = knn_jni::QuantizationLevel::NONE;
+    if (quantization_level_it != methodParams.end()) {
+        quantLevel = jniUtil->ConvertJavaStringToQuantizationLevel(env, quantization_level_it->second);
+    } else {
+        throw std::runtime_error("Quantization level not specified in params");
+    }
+
+    // KNNConstants.SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER
+    auto space_type_it = methodParams.find("space_type");
+    faiss::MetricType metricType; // L2 by default.
+    if (space_type_it!= methodParams.end()) {
+        std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, space_type_it->second));
+        metricType = knn_jni::faiss_wrapper::TranslateSpaceToMetric(spaceTypeCpp);
+    } else {
+        throw std::runtime_error("space type not specified in params");
+    }
+
+    if (quantLevel == knn_jni::QuantizationLevel::ONE_BIT) {
+        return knn_jni::faiss_wrapper::LoadIndexWithStreamADC(ioReader, metricType);
+    } else if (
+        quantLevel == knn_jni::QuantizationLevel::TWO_BIT || quantLevel == knn_jni::QuantizationLevel::FOUR_BIT
+    ) {
+        throw std::runtime_error("ADC not supported for 2 or 4 bit.");
+    }
+    else {
+        jniUtil->HasExceptionInStack(env, "load adc stream called without a quantization level");
+        throw std::runtime_error("load adc stream called without a quantization level");
+    }
+}
+
+jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, faiss::MetricType metricType) {
+    if (ioReader == nullptr)  {
+        throw std::runtime_error("IOReader cannot be null");
+    }
+
+    // Extract the relevant info from the binary index
+    faiss::IndexBinary* indexReader = (faiss::IndexBinary*) LoadBinaryIndexWithStream(ioReader);
+
+    if (!indexReader) throw std::runtime_error("ERROR: indexReader IS NULL!!!\n");
+
+    faiss::IndexBinaryIDMap * binaryIdMap = (faiss::IndexBinaryIDMap *) indexReader;
+
+    if (!binaryIdMap->index) throw std::runtime_error("ERROR: hnswBinary IS NULL!!!\n");
+
+    // hnsw index sits on top
+    faiss::IndexBinaryHNSW * hnswBinary = (faiss::IndexBinaryHNSW *)(binaryIdMap->index);
+
+    if (!hnswBinary->storage) throw std::runtime_error("ERROR: hnswBinary->Storage is NULL!!");
+
+    // since binary storage is binary flat codes
+    faiss::IndexBinaryFlat * codesIndex = (faiss::IndexBinaryFlat *) hnswBinary->storage;
+
+    // The codesIndex storage will be associated with the lifetime of this index, so the below call is safe from NPE.
+    std::vector<uint8_t> * codes_ptr = &(codesIndex->xb);
+
+    // altered storage containing the distance computer override.
+    knn_jni::faiss_wrapper::FaissIndexBQ * alteredStorage = new knn_jni::faiss_wrapper::FaissIndexBQ(
+        indexReader->d, codes_ptr, metricType
+    );
+
+    // alteredIndexHNSW is effectively a placeholder before we pass the preexisting HNSW structure.
+    // Therefore, the M value doesn't matter and no new vectors are ingested.
+    faiss::IndexHNSW * alteredIndexHNSW = new faiss::IndexHNSW(alteredStorage, 32);
+    alteredIndexHNSW->hnsw = hnswBinary->hnsw;
+    faiss::IndexIDMap * alteredIdMap = new faiss::IndexIDMap(alteredIndexHNSW);
+    alteredStorage->init(alteredIndexHNSW, alteredIdMap);
+    alteredIdMap->id_map = binaryIdMap->id_map;
+    return (jlong) alteredIdMap;
 }
 
 jlong knn_jni::faiss_wrapper::LoadBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ) {
@@ -1005,7 +1080,7 @@ jbyteArray knn_jni::faiss_wrapper::TrainByteIndex(knn_jni::JNIUtilInterface * jn
 }
 
 
-faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType) {
+faiss::MetricType knn_jni::faiss_wrapper::TranslateSpaceToMetric(const std::string& spaceType) {
     if (spaceType == knn_jni::L2) {
         return faiss::METRIC_L2;
     }
@@ -1019,7 +1094,7 @@ faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType) {
         return faiss::METRIC_L2;
     }
 
-    throw std::runtime_error("Invalid spaceType");
+    throw std::runtime_error("Invalid spaceType: " + spaceType);
 }
 
 void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
