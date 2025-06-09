@@ -36,6 +36,7 @@ testClusters {
 }
 
    def versionsBelow2_3 = ["1.", "2.0.", "2.1.", "2.2."]
+   def versionOnOrAfter2_17 = ["2.17", "2.18", "2.19", "2.20", "3."]
 // Task to run BWC tests against the old cluster
     task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
         dependsOn "zipBwcPlugin"
@@ -150,6 +151,12 @@ testClusters {
                 knn_bwc_version.startsWith("2.19.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
+            }
+        }
+
+        if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
             }
         }
 
@@ -279,6 +286,12 @@ testClusters {
                 knn_bwc_version.startsWith("2.19.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
+            }
+        }
+
+        if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
             }
         }
 

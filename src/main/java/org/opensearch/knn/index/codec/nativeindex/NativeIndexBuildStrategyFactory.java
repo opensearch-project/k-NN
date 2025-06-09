@@ -8,7 +8,6 @@ package org.opensearch.knn.index.codec.nativeindex;
 import lombok.Setter;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -21,6 +20,7 @@ import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.index.KNNSettings.isKNNRemoteVectorBuildEnabled;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
 /**
@@ -68,7 +68,7 @@ public final class NativeIndexBuildStrategyFactory {
         initializeVectorValues(knnVectorValues);
         long vectorBlobLength = ((long) knnVectorValues.bytesPerVector()) * totalLiveDocs;
 
-        if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()
+        if (isKNNRemoteVectorBuildEnabled()
             && repositoriesServiceSupplier != null
             && indexSettings != null
             && knnEngine.supportsRemoteIndexBuild(knnLibraryIndexingContext)

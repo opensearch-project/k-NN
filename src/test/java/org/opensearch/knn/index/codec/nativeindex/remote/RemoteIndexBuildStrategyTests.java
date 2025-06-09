@@ -40,8 +40,9 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
 import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME;
@@ -106,22 +107,24 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(indexSettings.getIndex()).thenReturn(index);
         when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING)).thenReturn(true);
         clusterSettings = mock(ClusterSettings.class);
-        when(clusterSettings.get(KNN_REMOTE_VECTOR_REPO_SETTING)).thenReturn("");
+        when(clusterSettings.get(KNN_REMOTE_VECTOR_REPOSITORY_SETTING)).thenReturn("");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
         assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, 0));
 
         // Check size threshold
         int BYTE_SIZE = randomIntBetween(50, 1000);
-        when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING)).thenReturn(new ByteSizeValue(BYTE_SIZE));
+        when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING)).thenReturn(new ByteSizeValue(BYTE_SIZE));
         assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomInt(BYTE_SIZE - 1)));
 
         // Check happy path
         clusterSettings = mock(ClusterSettings.class);
-        when(clusterSettings.get(KNN_REMOTE_VECTOR_REPO_SETTING)).thenReturn("test-vector-repo");
+        when(clusterSettings.get(KNN_REMOTE_VECTOR_REPOSITORY_SETTING)).thenReturn("test-vector-repo");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
+        when(clusterSettings.get(KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING)).thenReturn(new ByteSizeValue(BYTE_SIZE * 3L));
         assertTrue(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2)));
+        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE * 3 + 1, BYTE_SIZE * 4)));
     }
 
     public void testFilePathConstruction() {

@@ -32,7 +32,6 @@ import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
-import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
@@ -423,10 +422,8 @@ public class KNNPlugin extends Plugin
      */
     @Override
     public void reload(Settings settings) {
-        if (KNNFeatureFlags.isKNNRemoteVectorBuildEnabled()) {
-            SecureString username = KNNSettings.KNN_REMOTE_BUILD_CLIENT_USERNAME_SETTING.get(settings);
-            SecureString password = KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.get(settings);
-            RemoteIndexHTTPClient.reloadAuthHeader(username, password);
-        }
+        SecureString username = KNNSettings.KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING.get(settings);
+        SecureString password = KNNSettings.KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING.get(settings);
+        RemoteIndexHTTPClient.reloadAuthHeader(username, password);
     }
 }
