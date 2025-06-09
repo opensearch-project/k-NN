@@ -515,7 +515,7 @@ public class KNNWeight extends Weight {
             indexAllocation.incRef();
         } catch (IllegalStateException e) {
             indexAllocation.readUnlock();
-            log.error("[KNN] Exception when allocation getting evicted: " + e);
+            log.error("[KNN] Exception when allocation getting evicted: ", e);
             throw new RuntimeException("Failed to do kNN search when vector data structures getting evicted ");
         }
         try {
