@@ -21,7 +21,6 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
-import org.opensearch.OpenSearchException;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
@@ -516,7 +515,8 @@ public class KNNWeight extends Weight {
             indexAllocation.incRef();
         } catch (IllegalStateException e) {
             indexAllocation.readUnlock();
-            throw new OpenSearchException("failed to create knn search when clear cache");
+            log.error("[KNN] Exception when allocation getting evicted: " + e);
+            throw new RuntimeException("Failed to do kNN search when vector data structures getting evicted ");
         }
         try {
             if (indexAllocation.isClosed()) {
