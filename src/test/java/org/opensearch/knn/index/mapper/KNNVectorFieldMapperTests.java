@@ -2090,7 +2090,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             true
         );
 
-        // For 4x compression on disk, use Lucene
+        // For 4x compression on disk, use Faiss
         xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
@@ -2106,7 +2106,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
         validateBuilderAfterParsing(
             builder,
-            KNNEngine.LUCENE,
+            KNNEngine.FAISS,
             SpaceType.L2,
             VectorDataType.FLOAT,
             CompressionLevel.x4,
@@ -2115,7 +2115,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             false
         );
 
-        // For 4x compression in memory, use Lucene
+        // For 4x compression in memory, use Faiss
         xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
@@ -2131,7 +2131,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
         validateBuilderAfterParsing(
             builder,
-            KNNEngine.LUCENE,
+            KNNEngine.FAISS,
             SpaceType.L2,
             VectorDataType.FLOAT,
             CompressionLevel.x4,
@@ -2230,7 +2230,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.FAISS)
+            .field(KNN_ENGINE, KNNEngine.NMSLIB)
             .endObject()
             .endObject();
 

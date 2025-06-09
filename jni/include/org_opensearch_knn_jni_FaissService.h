@@ -94,6 +94,32 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeByteIndex(J
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    initIndexFromTemplate
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initIndexFromTemplate(JNIEnv * env, jclass cls,
+                                                                           jlong numDocs, jint dimJ,
+                                                                           jobject parametersJ, jbyteArray templateIndexJ);
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    initBinaryIndexFromTemplate
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initBinaryIndexFromTemplate(JNIEnv * env, jclass cls,
+                                                                                 jlong numDocs, jint dimJ,
+                                                                                 jobject parametersJ, jbyteArray templateIndexJ);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    initByteIndexFromTemplate
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initByteIndexFromTemplate(JNIEnv * env, jclass cls,
+                                                                               jlong numDocs, jint dimJ,
+                                                                               jobject parametersJ, jbyteArray templateIndexJ);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
  * Method:    createIndexFromTemplate
  * Signature: ([IJILorg/opensearch/knn/index/store/IndexOutputWithBuffer;[BLjava/util/Map;)V
  */

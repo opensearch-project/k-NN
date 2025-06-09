@@ -68,6 +68,25 @@ void IndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVector
     }
 }
 
+jlong IndexService::initAndAllocateIndex(std::unique_ptr<faiss::Index> &index, size_t threadCount, size_t dim, size_t numVectors) {
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if (threadCount != 0) {
+        omp_set_num_threads(threadCount);
+    }
+
+    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(index.get()));
+    //Makes sure the index is deleted when the destructor is called, this cannot be passed in the constructor
+    idMap->own_fields = true;
+
+    // TODO: allocIndex for IVF
+    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
+
+    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
+    //in insert and write operations
+    index.release();
+    return reinterpret_cast<jlong>(idMap.release());
+}
+
 jlong IndexService::initIndex(
         knn_jni::JNIUtilInterface * jniUtil,
         JNIEnv * env,
@@ -81,11 +100,6 @@ jlong IndexService::initIndex(
     // Create index using Faiss factory method
     std::unique_ptr<faiss::Index> index(faissMethods->indexFactory(dim, indexDescription.c_str(), metric));
 
-    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
-    if (threadCount != 0) {
-        omp_set_num_threads(threadCount);
-    }
-
     // Add extra parameters that cant be configured with the index factory
     SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, index.get());
 
@@ -94,16 +108,7 @@ jlong IndexService::initIndex(
         throw std::runtime_error("Index is not trained");
     }
 
-    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(index.get()));
-    //Makes sure the index is deleted when the destructor is called, this cannot be passed in the constructor
-    idMap->own_fields = true;
-
-    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
-
-    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
-    //in insert and write operations
-    index.release();
-    return reinterpret_cast<jlong>(idMap.release());
+    return initAndAllocateIndex(index, threadCount, dim, numVectors);
 }
 
 void IndexService::insertToIndex(
@@ -155,6 +160,32 @@ void IndexService::writeIndex(
     }
 }
 
+jlong IndexService::initIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        int dim,
+        int numVectors,
+        int threadCount,
+        jbyteArray templateIndexJ
+    ) {
+
+    // Get vector of bytes from jbytearray
+    int indexBytesCount = jniUtil->GetJavaBytesArrayLength(env, templateIndexJ);
+    jbyte * indexBytesJ = jniUtil->GetByteArrayElements(env, templateIndexJ, nullptr);
+
+    faiss::VectorIOReader vectorIoReader;
+    for (int i = 0; i < indexBytesCount; i++) {
+        vectorIoReader.data.push_back((uint8_t) indexBytesJ[i]);
+    }
+    jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
+
+    // Create faiss index
+    std::unique_ptr<faiss::Index> index;
+    index.reset(faiss::read_index(&vectorIoReader, 0));
+
+    return initAndAllocateIndex(index, threadCount, dim, numVectors);
+}
+
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> _faissMethods)
   : IndexService(std::move(_faissMethods)) {
 }
@@ -164,6 +195,25 @@ void BinaryIndexService::allocIndex(faiss::Index * index, size_t dim, size_t num
         auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(indexBinaryHNSW->storage);
         indexBinaryFlat->xb.reserve(dim * numVectors / 8);
     }
+}
+
+jlong BinaryIndexService::initAndAllocateIndex(std::unique_ptr<faiss::IndexBinary> &index, size_t threadCount, size_t dim, size_t numVectors) {
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if (threadCount != 0) {
+        omp_set_num_threads(threadCount);
+    }
+
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(index.get()));
+    //Makes sure the index is deleted when the destructor is called, this cannot be passed in the constructor
+    idMap->own_fields = true;
+
+    // TODO: allocIndex for IVF
+    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
+
+    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
+    //in insert and write operations
+    index.release();
+    return reinterpret_cast<jlong>(idMap.release());
 }
 
 jlong BinaryIndexService::initIndex(
@@ -178,10 +228,6 @@ jlong BinaryIndexService::initIndex(
     ) {
     // Create index using Faiss factory method
     std::unique_ptr<faiss::IndexBinary> index(faissMethods->indexBinaryFactory(dim, indexDescription.c_str()));
-    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
-    if (threadCount != 0) {
-       omp_set_num_threads(threadCount);
-    }
 
     // Add extra parameters that cant be configured with the index factory
     SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, index.get());
@@ -191,16 +237,7 @@ jlong BinaryIndexService::initIndex(
         throw std::runtime_error("Index is not trained");
     }
 
-    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(index.get()));
-    //Makes sure the index is deleted when the destructor is called
-    idMap->own_fields = true;
-
-    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
-
-    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
-    //in insert and write operations
-    index.release();
-    return reinterpret_cast<jlong>(idMap.release());
+    return initAndAllocateIndex(index, threadCount, dim, numVectors);
 }
 
 void BinaryIndexService::insertToIndex(
@@ -252,6 +289,35 @@ void BinaryIndexService::writeIndex(
     }
 }
 
+jlong BinaryIndexService::initIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        int dim,
+        int numVectors,
+        int threadCount,
+        jbyteArray templateIndexJ
+    ) {
+    if (dim % 8 != 0) {
+        throw std::runtime_error("Dimensions should be multiple of 8");
+    }
+
+    // Get vector of bytes from jbytearray
+    int indexBytesCount = jniUtil->GetJavaBytesArrayLength(env, templateIndexJ);
+    jbyte * indexBytesJ = jniUtil->GetByteArrayElements(env, templateIndexJ, nullptr);
+
+    faiss::VectorIOReader vectorIoReader;
+    for (int i = 0; i < indexBytesCount; i++) {
+        vectorIoReader.data.push_back((uint8_t) indexBytesJ[i]);
+    }
+    jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
+
+    // Create faiss index
+    std::unique_ptr<faiss::IndexBinary> index;
+    index.reset(faiss::read_index_binary(&vectorIoReader, 0));
+
+    return initAndAllocateIndex(index, threadCount, dim, numVectors);
+}
+
 ByteIndexService::ByteIndexService(std::unique_ptr<FaissMethods> _faissMethods)
   : IndexService(std::move(_faissMethods)) {
 }
@@ -262,6 +328,25 @@ void ByteIndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVe
             indexScalarQuantizer->codes.reserve(indexScalarQuantizer->code_size * numVectors);
         }
     }
+}
+
+jlong ByteIndexService::initAndAllocateIndex(std::unique_ptr<faiss::Index> &index, size_t threadCount, size_t dim, size_t numVectors) {
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if (threadCount != 0) {
+        omp_set_num_threads(threadCount);
+    }
+
+    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(index.get()));
+    //Makes sure the index is deleted when the destructor is called, this cannot be passed in the constructor
+    idMap->own_fields = true;
+
+    // TODO: allocIndex for IVF
+    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
+
+    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
+    //in insert and write operations
+    index.release();
+    return reinterpret_cast<jlong>(idMap.release());
 }
 
 jlong ByteIndexService::initIndex(
@@ -277,11 +362,6 @@ jlong ByteIndexService::initIndex(
     // Create index using Faiss factory method
     std::unique_ptr<faiss::Index> index(faissMethods->indexFactory(dim, indexDescription.c_str(), metric));
 
-    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
-    if (threadCount != 0) {
-        omp_set_num_threads(threadCount);
-    }
-
     // Add extra parameters that cant be configured with the index factory
     SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, index.get());
 
@@ -290,16 +370,7 @@ jlong ByteIndexService::initIndex(
         throw std::runtime_error("Index is not trained");
     }
 
-    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(index.get()));
-    //Makes sure the index is deleted when the destructor is called, this cannot be passed in the constructor
-    idMap->own_fields = true;
-
-    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
-
-    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
-    //in insert and write operations
-    index.release();
-    return reinterpret_cast<jlong>(idMap.release());
+    return initAndAllocateIndex(index, threadCount, dim, numVectors);
 }
 
 void ByteIndexService::insertToIndex(
@@ -367,6 +438,32 @@ void ByteIndexService::writeIndex(
     } catch(std::exception &e) {
         throw std::runtime_error("Failed to write index to disk");
     }
+}
+
+jlong ByteIndexService::initIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        int dim,
+        int numVectors,
+        int threadCount,
+        jbyteArray templateIndexJ
+    ) {
+
+    // Get vector of bytes from jbytearray
+    int indexBytesCount = jniUtil->GetJavaBytesArrayLength(env, templateIndexJ);
+    jbyte * indexBytesJ = jniUtil->GetByteArrayElements(env, templateIndexJ, nullptr);
+
+    faiss::VectorIOReader vectorIoReader;
+    for (int i = 0; i < indexBytesCount; i++) {
+        vectorIoReader.data.push_back((uint8_t) indexBytesJ[i]);
+    }
+    jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
+
+    // Create faiss index
+    std::unique_ptr<faiss::Index> index;
+    index.reset(faiss::read_index(&vectorIoReader, 0));
+
+    return initAndAllocateIndex(index, threadCount, dim, numVectors);
 }
 } // namespace faiss_wrapper
 } // namesapce knn_jni

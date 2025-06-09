@@ -21,6 +21,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
+import org.opensearch.knn.quantization.models.quantizationState.ByteScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.test.OpenSearchTestCase;
 
@@ -243,6 +244,111 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             for (Object vector : vectorTransferCapture.getAllValues()) {
                 // Assert that the vector is in byte[] format due to quantization
                 assertTrue(vector instanceof byte[]);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_withByteScalarQuantization() {
+        // Given
+        ArgumentCaptor<Long> vectorAddressCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<Object> vectorTransferCapture = ArgumentCaptor.forClass(Object.class);
+
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            );
+            MockedStatic<QuantizationService> mockedQuantizationIntegration = Mockito.mockStatic(QuantizationService.class)
+        ) {
+            byte[] indexTemplate = new byte[] { 1 };
+
+            // Limits transfer to 2 vectors
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            QuantizationService quantizationService = mock(QuantizationService.class);
+            mockedQuantizationIntegration.when(QuantizationService::getInstance).thenReturn(quantizationService);
+
+            ByteScalarQuantizationState quantizationState = mock(ByteScalarQuantizationState.class);
+            BuildIndexParams indexInfo = mock(BuildIndexParams.class);
+            when(indexInfo.getQuantizationState()).thenReturn(quantizationState);
+            when(quantizationState.getIndexTemplate()).thenReturn(indexTemplate);
+
+            mockedJNIService.when(() -> JNIService.initIndexFromTemplate(3, 2, Map.of("index", "param"), KNNEngine.FAISS, indexTemplate))
+                .thenReturn(100L);
+
+            when(offHeapVectorTransfer.transfer(vectorTransferCapture.capture(), eq(false))).thenReturn(false)
+                .thenReturn(true)
+                .thenReturn(false);
+            when(offHeapVectorTransfer.flush(false)).thenReturn(true);
+            when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .parameters(Map.of("index", "param"))
+                .quantizationState(quantizationState)
+                .vectorValues(knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
+
+            // Then
+            mockedJNIService.verify(
+                () -> JNIService.initIndexFromTemplate(
+                    eq(knnVectorValues.totalLiveDocs()),
+                    eq(knnVectorValues.dimension()),
+                    eq(Map.of("index", "param")),
+                    eq(KNNEngine.FAISS),
+                    eq(indexTemplate)
+                )
+            );
+
+            mockedJNIService.verify(
+                () -> JNIService.insertToIndex(
+                    eq(new int[] { 0, 1 }),
+                    vectorAddressCaptor.capture(),
+                    eq(knnVectorValues.dimension()),
+                    eq(Map.of("index", "param")),
+                    eq(100L),
+                    eq(KNNEngine.FAISS)
+                )
+            );
+
+            // For the flush
+            mockedJNIService.verify(
+                () -> JNIService.insertToIndex(
+                    eq(new int[] { 2 }),
+                    vectorAddressCaptor.capture(),
+                    eq(knnVectorValues.dimension()),
+                    eq(Map.of("index", "param")),
+                    eq(100L),
+                    eq(KNNEngine.FAISS)
+                )
+            );
+
+            mockedJNIService.verify(
+                () -> JNIService.writeIndex(eq(indexOutputWithBuffer), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
+            );
+            assertEquals(200L, vectorAddressCaptor.getValue().longValue());
+            assertEquals(vectorAddressCaptor.getValue().longValue(), vectorAddressCaptor.getAllValues().get(0).longValue());
+            verify(offHeapVectorTransfer, times(0)).reset();
+
+            for (Object vector : vectorTransferCapture.getAllValues()) {
+                assertTrue(vector instanceof float[]);
             }
         }
     }

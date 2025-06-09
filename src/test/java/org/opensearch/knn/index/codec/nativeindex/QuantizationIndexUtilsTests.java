@@ -16,6 +16,7 @@ import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.ByteScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
@@ -78,6 +79,17 @@ public class QuantizationIndexUtilsTests extends KNNTestCase {
         knnVectorValues.getVector();
         IndexBuildSetup setup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, buildIndexParams);
         assertNull(setup.getQuantizationState());
+        assertEquals(knnVectorValues.bytesPerVector(), setup.getBytesPerVector());
+        assertEquals(knnVectorValues.dimension(), setup.getDimensions());
+    }
+
+    public void testPrepareIndexBuild_withByteScalarQuantization_success() throws IOException {
+        QuantizationState quantizationState = mock(ByteScalarQuantizationState.class);
+        when(buildIndexParams.getQuantizationState()).thenReturn(quantizationState);
+        knnVectorValues.nextDoc();
+        knnVectorValues.getVector();
+        IndexBuildSetup setup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, buildIndexParams);
+        assertNotNull(setup.getQuantizationState());
         assertEquals(knnVectorValues.bytesPerVector(), setup.getBytesPerVector());
         assertEquals(knnVectorValues.dimension(), setup.getDimensions());
     }

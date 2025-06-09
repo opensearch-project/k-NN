@@ -11,12 +11,14 @@ import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.factory.QuantizerFactory;
 import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
+import org.opensearch.knn.quantization.quantizer.ByteScalarQuantizer;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 import java.io.IOException;
 
@@ -60,7 +62,8 @@ public final class QuantizationService<T, R> {
     public QuantizationState train(
         final QuantizationParams quantizationParams,
         final KNNVectorValues<T> knnVectorValues,
-        final long liveDocs
+        final long liveDocs,
+        final FieldInfo fieldInfo
     ) throws IOException {
         Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
 
@@ -68,6 +71,9 @@ public final class QuantizationService<T, R> {
         KNNVectorQuantizationTrainingRequest<T> trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValues, liveDocs);
 
         // Train the quantizer and return the quantization state
+        if (quantizer instanceof ByteScalarQuantizer) {
+            return quantizer.train(trainingRequest, fieldInfo);
+        }
         return quantizer.train(trainingRequest);
     }
 
@@ -107,6 +113,10 @@ public final class QuantizationService<T, R> {
      */
     public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo) {
         QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+        if (quantizationConfig != QuantizationConfig.EMPTY
+            && quantizationConfig.getQuantizationType() == ScalarQuantizationType.EIGHT_BIT) {
+            return VectorDataType.FLOAT;
+        }
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return VectorDataType.BINARY;
         }

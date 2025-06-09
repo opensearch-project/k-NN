@@ -29,7 +29,9 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -232,10 +234,10 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         final QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
         QuantizationState quantizationState = null;
         if (quantizationParams != null && totalLiveDocs > 0) {
-            initQuantizationStateWriterIfNecessary();
             KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
-            quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs);
-            quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
+
+            quantizationState = quantizationService.train(quantizationParams, knnVectorValues, totalLiveDocs, fieldInfo);
+            writeQuantizationState(quantizationParams, quantizationState, fieldInfo.getFieldNumber());
         }
 
         return quantizationState;
@@ -256,11 +258,24 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         return liveDocs;
     }
 
-    private void initQuantizationStateWriterIfNecessary() throws IOException {
+    private void writeQuantizationState(QuantizationParams quantizationParams, QuantizationState quantizationState, int fieldNumber)
+        throws IOException {
+
+        // We will not write quantization state for 8 bits into a segment file because the query vectors will not be quantized and
+        // the template index is stored in the quantization state after training to use it later in the index build strategy during
+        // data ingestion.
+        if ((quantizationParams.getTypeIdentifier()).equals(
+            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.EIGHT_BIT)
+        )) {
+            return;
+        }
+
+        // Initialize quantization state writer if required
         if (quantizationStateWriter == null) {
             quantizationStateWriter = new KNN990QuantizationStateWriter(segmentWriteState);
             quantizationStateWriter.writeHeader(segmentWriteState);
         }
+        quantizationStateWriter.writeState(fieldNumber, quantizationState);
     }
 
     private boolean shouldSkipBuildingVectorDataStructure(final long docCount) {

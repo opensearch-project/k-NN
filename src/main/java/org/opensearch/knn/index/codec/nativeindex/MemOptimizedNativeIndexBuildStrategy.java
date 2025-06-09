@@ -12,6 +12,7 @@ import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.quantization.models.quantizationState.ByteScalarQuantizationState;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -57,16 +58,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
         KNNEngine engine = indexInfo.getKnnEngine();
         Map<String, Object> indexParameters = indexInfo.getParameters();
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
-
-        // Initialize the index
-        long indexMemoryAddress = AccessController.doPrivileged(
-            (PrivilegedAction<Long>) () -> JNIService.initIndex(
-                indexInfo.getTotalLiveDocs(),
-                indexBuildSetup.getDimensions(),
-                indexParameters,
-                engine
-            )
-        );
+        long indexMemoryAddress = initializeIndex(indexInfo, indexBuildSetup, indexParameters, engine);
 
         try (
             final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(
@@ -132,5 +124,44 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                 exception
             );
         }
+    }
+
+    private long initializeIndex(
+        BuildIndexParams indexInfo,
+        IndexBuildSetup indexBuildSetup,
+        Map<String, Object> indexParameters,
+        KNNEngine engine
+    ) {
+        if (isTemplate(indexInfo)) {
+            // Initialize the index from Template
+            return AccessController.doPrivileged(
+                (PrivilegedAction<Long>) () -> JNIService.initIndexFromTemplate(
+                    indexInfo.getTotalLiveDocs(),
+                    indexBuildSetup.getDimensions(),
+                    indexParameters,
+                    engine,
+                    getIndexTemplate(indexInfo)
+                )
+            );
+
+        }
+        // Initialize the index
+        return AccessController.doPrivileged(
+            (PrivilegedAction<Long>) () -> JNIService.initIndex(
+                indexInfo.getTotalLiveDocs(),
+                indexBuildSetup.getDimensions(),
+                indexParameters,
+                engine
+            )
+        );
+    }
+
+    private static boolean isTemplate(final BuildIndexParams indexInfo) {
+        return (indexInfo.getQuantizationState() instanceof ByteScalarQuantizationState);
+    }
+
+    private byte[] getIndexTemplate(BuildIndexParams indexInfo) {
+        ByteScalarQuantizationState byteSQState = (ByteScalarQuantizationState) indexInfo.getQuantizationState();
+        return byteSQState.getIndexTemplate();
     }
 }

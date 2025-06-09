@@ -91,18 +91,49 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
-    public void testResolveEngine_whenCompressionIs4x_thenEngineIsLucene() {
+    public void testResolveEngine_whenCompressionIs4x_VersionIsBefore2_19_thenEngineIsLucene() {
         assertEquals(
             KNNEngine.LUCENE,
             ENGINE_RESOLVER.resolveEngine(
-                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x4).build(),
+                KNNMethodConfigContext.builder()
+                    .mode(Mode.ON_DISK)
+                    .compressionLevel(CompressionLevel.x4)
+                    .versionCreated(Version.V_2_18_0)
+                    .build(),
                 null,
                 false
             )
         );
         assertEquals(
             KNNEngine.LUCENE,
-            ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).build(), null, false)
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).versionCreated(Version.V_2_17_0).build(),
+                null,
+                false
+            )
+        );
+    }
+
+    public void testResolveEngine_whenCompressionIs4x_VersionIsOnOrAfter2_19_thenEngineIsFaiss() {
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder()
+                    .mode(Mode.ON_DISK)
+                    .compressionLevel(CompressionLevel.x4)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                null,
+                false
+            )
+        );
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).versionCreated(Version.CURRENT).build(),
+                null,
+                false
+            )
         );
     }
 
