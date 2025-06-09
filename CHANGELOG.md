@@ -20,5 +20,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * [BUGFIX] Block derived source enable if index.knn is false [#2702](https://github.com/opensearch-project/k-NN/pull/2702)
 * Block mode and compression for indices created before version 2.17.0 [#2722](https://github.com/opensearch-project/k-NN/pull/2722)
 * [BUGFIX] Avoid opening of graph file if graph is already loaded in memory [#2719](https://github.com/opensearch-project/k-NN/pull/2719)
-* [BUGFIX] FIX nested vector query at efficient filter scenarios [#2641](https://github.com/opensearch-project/k-NN/pull/2641)
 * [BUGFIX] [Remote Vector Index Build] End remote build metrics before falling back to CPU, exception logging [#2693](https://github.com/opensearch-project/k-NN/pull/2693)
+* [BUGFIX] Fix RefCount and ClearCache in some race conditions [#2728](https://github.com/opensearch-project/k-NN/pull/2728)
+* [BUGFIX] FIX nested vector query at efficient filter scenarios [#2641](https://github.com/opensearch-project/k-NN/pull/2641)
