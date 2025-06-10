@@ -165,8 +165,10 @@ public class NativeEngineKnnVectorQuery extends Query {
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
                     .useQuantizedVectorsForSearch(useQuantizedVectors)
                     .k((int) allSiblings.cost())
-                    .isParentHits(false)
-                    .knnQuery(knnQuery)
+                    .field(knnQuery.getField())
+                    .radius(knnQuery.getRadius())
+                    .floatQueryVector(knnQuery.getQueryVector())
+                    .byteQueryVector(knnQuery.getByteQueryVector())
                     .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafResult.getFilterBits(), rescoreResult);
@@ -211,8 +213,10 @@ public class NativeEngineKnnVectorQuery extends Query {
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
                     .useQuantizedVectorsForSearch(false)
                     .k(k)
-                    .isParentHits(false)
-                    .knnQuery(knnQuery)
+                    .radius(knnQuery.getRadius())
+                    .field(knnQuery.getField())
+                    .floatQueryVector(knnQuery.getQueryVector())
+                    .byteQueryVector(knnQuery.getByteQueryVector())
                     .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafeResult.getFilterBits(), rescoreResult);
