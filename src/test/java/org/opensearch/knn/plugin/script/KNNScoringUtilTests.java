@@ -30,6 +30,8 @@ import java.util.function.BiFunction;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.plugin.script.KNNScoringUtil.innerProductADC;
+import static org.opensearch.knn.plugin.script.KNNScoringUtil.l2SquaredADC;
 
 public class KNNScoringUtilTests extends KNNTestCase {
 
@@ -270,6 +272,63 @@ public class KNNScoringUtilTests extends KNNTestCase {
             exception.getMessage()
         );
         dataset.close();
+    }
+
+    public void testL2SquaredADC() {
+        // Test 1: Basic test with a mix of 0s and 1s
+        float[] queryVector1 = { 0.5f, 1.0f, -0.5f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+        byte[] inputVector1 = { (byte) 0b10100000 }; // Bits: 1,0,1,0...
+        // Expected: (1-0.5)² + (0-1.0)² + (1-(-0.5))² + (0-2.0)²
+        float expected1 = 0.25f + 1.0f + 2.25f + 4.0f; // = 7.5f
+        assertEquals(expected1, l2SquaredADC(queryVector1, inputVector1), 0.0001f);
+
+        // Test 2: All bits are 0
+        byte[] inputVector2 = { 0 };
+        // Expected: (0-0.5)² + (0-1.0)² + (0-(-0.5))² + (0-2.0)²
+        float expected2 = 0.25f + 1.0f + 0.25f + 4.0f; // = 5.5f
+        assertEquals(expected2, l2SquaredADC(queryVector1, inputVector2), 0.0001f);
+
+        // Test 3: All bits are 1 in the relevant positions
+        byte[] inputVector3 = { (byte) 0b11110000 };
+        // Expected: (1-0.5)² + (1-1.0)² + (1-(-0.5))² + (1-2.0)²
+        float expected3 = 0.25f + 0.0f + 2.25f + 1.0f; // = 3.5f
+        assertEquals(expected3, l2SquaredADC(queryVector1, inputVector3), 0.0001f);
+
+        // Test 4: Multi-byte test
+        float[] queryVector4 = { 0.5f, 1.0f, -0.5f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.5f, 1.5f, 2.5f, 0.0f, 0.0f, 0.0f, 0.0f };
+        byte[] inputVector4 = { (byte) 0b10100000, (byte) 0b10000000 };
+        // The bits extracted will be: [1,0,1,0,0,0,0,0,1,...]
+        float expected4 = 0.25f + 1.0f + 2.25f + 4.0f + 4.0f + 0.25f + 2.25f + 6.25f; // = 20.25f
+        assertEquals(expected4, l2SquaredADC(queryVector4, inputVector4), 0.0001f);
+    }
+
+    public void testInnerProductADC() {
+        // Test 1: Basic test with a mix of 0s and 1s
+        float[] queryVector1 = { 0.5f, 1.0f, -0.5f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+        byte[] inputVector1 = { (byte) 0b10100000 }; // Bits: 1,0,1,0,0,0,0,0
+        // Expected: 1*0.5 + 0*1.0 + 1*(-0.5) + 0*2.0 + 0*0.0 + 0*0.0 + 0*0.0 + 0*0.0
+        float expected1 = 0.5f - 0.5f; // = 0.0f
+        assertEquals(expected1, innerProductADC(queryVector1, inputVector1), 0.0001f);
+
+        // Test 2: All bits are 0
+        byte[] inputVector2 = { 0 };
+        // Expected: 0*0.5 + 0*1.0 + 0*(-0.5) + 0*2.0 + 0*0.0 + 0*0.0 + 0*0.0 + 0*0.0
+        float expected2 = 0.0f;
+        assertEquals(expected2, innerProductADC(queryVector1, inputVector2), 0.0001f);
+
+        // Test 3: All bits are 1 in the relevant positions
+        byte[] inputVector3 = { (byte) 0b11110000 };
+        // Expected: 1*0.5 + 1*1.0 + 1*(-0.5) + 1*2.0 + 0*0.0 + 0*0.0 + 0*0.0 + 0*0.0
+        float expected3 = 0.5f + 1.0f - 0.5f + 2.0f; // = 3.0f
+        assertEquals(expected3, innerProductADC(queryVector1, inputVector3), 0.0001f);
+
+        // Test 4: Multi-byte test
+        float[] queryVector4 = { 0.5f, 1.0f, -0.5f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.5f, 1.5f, 2.5f, 0.0f, 0.0f, 0.0f, 0.0f };
+        byte[] inputVector4 = { (byte) 0b10100000, (byte) 0b10000000 };
+        // The bits extracted will be: [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0]
+        float expected4 = 0.5f * 1 + 1.0f * 0 + (-0.5f) * 1 + 2.0f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0 + (-1.0f) * 1 + 0.5f * 0
+            + 1.5f * 0 + 2.5f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0; // = 0.5 - 0.5 - 1.0 = -1.0f
+        assertEquals(expected4, innerProductADC(queryVector4, inputVector4), 0.0001f);
     }
 
     public void testCalculateHammingBit_whenByte_thenSuccess() {

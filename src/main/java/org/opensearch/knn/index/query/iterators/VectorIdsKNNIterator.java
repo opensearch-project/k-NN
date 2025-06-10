@@ -94,7 +94,6 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
-
         if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
             byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
             return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
@@ -134,9 +133,9 @@ public class VectorIdsKNNIterator implements KNNIterator {
         SpaceType spaceType
     ) {
         if (spaceType.equals(SpaceType.L2)) {
-            return KNNScoringUtil.l2SquaredADC(queryVector, documentVector);
+            return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(queryVector, documentVector));
         } else if (spaceType.equals(SpaceType.INNER_PRODUCT) || spaceType.equals(SpaceType.COSINESIMIL)) {
-            return KNNScoringUtil.innerProductADC(queryVector, documentVector);
+            return SpaceType.INNER_PRODUCT.scoreTranslation((-1 * KNNScoringUtil.innerProductADC(queryVector, documentVector)));
         }
         throw new UnsupportedOperationException("Space type " + spaceType.getValue() + " is not supported for ADC");
     }
