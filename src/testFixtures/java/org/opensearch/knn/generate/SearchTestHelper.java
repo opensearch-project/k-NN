@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.generate;
 
-import org.apache.lucene.index.VectorSimilarityFunction;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.util.ArrayList;
@@ -37,9 +37,9 @@ public class SearchTestHelper {
 
         public static Vectors create(final VectorDataType dataType) {
             if (dataType == VectorDataType.FLOAT) {
-                return new SearchTestHelper.Vectors(new ArrayList<>());
+                return new Vectors(new ArrayList<>());
             } else if (dataType == VectorDataType.BYTE) {
-                return new SearchTestHelper.Vectors(dataType, new ArrayList<>());
+                return new Vectors(dataType, new ArrayList<>());
             } else {
                 throw new AssertionError();
             }
@@ -137,11 +137,25 @@ public class SearchTestHelper {
     }
 
     /**
+     * Util method to convert float[] to byte[]
+     *
+     * @param vector Float vectors
+     * @return Byte vectors in byte[]
+     */
+    public static byte[] convertToByteArray(float[] vector) {
+        byte[] bytes = new byte[vector.length];
+        for (int i = 0; i < vector.length; i++) {
+            bytes[i] = (byte) vector[i]; // cast float to byte
+        }
+        return bytes;
+    }
+
+    /**
      * Get document ids list that is expected to be obtained with an exact search.
      *
      * @param givenDocumentIds Entire document ids.
      * @param vectors Entire vectors
-     * @param query Query vector
+     * @param query Query vector. float[] or byte[]
      * @param filteredIds Filtered document ids.
      * @param similarityFunction Similarity function.
      * @param topK Top-k value of result.
@@ -150,9 +164,9 @@ public class SearchTestHelper {
     public static Set<Integer> getKnnAnswerSetForVectors(
         final List<Integer> givenDocumentIds,
         final Vectors vectors,
-        final float[] query,
+        final Object query,
         final long[] filteredIds,
-        final VectorSimilarityFunction similarityFunction,
+        final KNNVectorSimilarityFunction similarityFunction,
         final int topK
     ) {
         List<Integer> documentIds = givenDocumentIds;
@@ -168,19 +182,29 @@ public class SearchTestHelper {
         documentIds = new ArrayList<>(documentIds);
 
         // Sort indices by similarity
-        List<float[]> floatVectors = vectors.floatVectors;
-        if (vectors.dataType != VectorDataType.FLOAT) {
-            assert vectors.byteVectors != null;
-            floatVectors = convertToFloatList(vectors.byteVectors);
-        }
+        if (similarityFunction != KNNVectorSimilarityFunction.HAMMING) {
+            List<float[]> floatVectors = vectors.floatVectors;
+            if (vectors.dataType != VectorDataType.FLOAT) {
+                assert vectors.byteVectors != null;
+                floatVectors = convertToFloatList(vectors.byteVectors);
+            }
 
-        final List<float[]> finalFloats = floatVectors;
-        documentIds.sort(
-            (docId1, docId2) -> -Float.compare(
-                similarityFunction.compare(finalFloats.get(docId1), query),
-                similarityFunction.compare(finalFloats.get(docId2), query)
-            )
-        );
+            final List<float[]> finalFloats = floatVectors;
+            documentIds.sort(
+                (docId1, docId2) -> -Float.compare(
+                    similarityFunction.compare(finalFloats.get(docId1), (float[]) query),
+                    similarityFunction.compare(finalFloats.get(docId2), (float[]) query)
+                )
+            );
+        } else {
+            assert (query instanceof byte[]);
+            documentIds.sort(
+                (docId1, docId2) -> -Float.compare(
+                    similarityFunction.compare(vectors.byteVectors.get(docId1), (byte[]) query),
+                    similarityFunction.compare(vectors.byteVectors.get(docId2), (byte[]) query)
+                )
+            );
+        }
 
         // Apply filtering and collect top K
         final Set<Integer> answerSet = new HashSet<>();
@@ -274,6 +298,21 @@ public class SearchTestHelper {
         final byte[] vector = new byte[dimension];
         for (int k = 0; k < dimension; k++) {
             vector[k] = (byte) (minValue + ThreadLocalRandom.current().nextInt((int) (maxValue - minValue + 1)));
+        }
+        return vector;
+    }
+
+    public static byte[] generateOneSingleBinaryVector(final int dimension) {
+        assert dimension % 8 == 0;
+
+        // Making a binary vector
+        // Ex: Dimension = 16, then it will require 16 bits, 2 bytes.
+        // [48, 77] -> [0b00110000, 0b01001101] -> a binary vector [0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1]
+
+        final int numBytes = dimension / 8;
+        final byte[] vector = new byte[numBytes];
+        for (int k = 0; k < numBytes; k++) {
+            vector[k] = (byte) (ThreadLocalRandom.current().nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE));
         }
         return vector;
     }

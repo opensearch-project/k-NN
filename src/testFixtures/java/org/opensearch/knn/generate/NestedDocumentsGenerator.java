@@ -71,6 +71,10 @@ public class NestedDocumentsGenerator extends DocumentsGenerator {
             );
             vectors.add(SearchTestHelper.convertToFloatArray(vector));
             builder.startObject().field(KNN_FIELD_NAME, SearchTestHelper.convertToIntArray(vector)).endObject();
+        } else if (dataType == VectorDataType.BINARY) {
+            final byte[] vector = SearchTestHelper.generateOneSingleBinaryVector(DIMENSIONS);
+            vectors.add(SearchTestHelper.convertToFloatArray(vector));
+            builder.startObject().field(KNN_FIELD_NAME, SearchTestHelper.convertToIntArray(vector)).endObject();
         } else {
             throw new AssertionError();
         }

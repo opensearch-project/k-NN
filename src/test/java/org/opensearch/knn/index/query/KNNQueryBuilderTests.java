@@ -8,8 +8,6 @@ package org.opensearch.knn.index.query;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.lucene.search.FloatVectorSimilarityQuery;
-import org.apache.lucene.search.KnnByteVectorQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.junit.Before;
@@ -653,21 +651,38 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testDoToQuery_whenMemoryOptimizedSearchIsEnabled() {
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.FLOAT);
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.BYTE);
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.FLOAT);
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.BYTE);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.FLOAT, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.FLOAT, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.BYTE, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.BYTE, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.FLOAT, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.FLOAT, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.BYTE, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.BYTE, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.BINARY, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, true, VectorDataType.BINARY, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.BINARY, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(true, false, VectorDataType.BINARY, false);
 
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.FLOAT);
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.BYTE);
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.FLOAT);
-        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.BYTE);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.FLOAT, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.FLOAT, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.BYTE, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.BYTE, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.FLOAT, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.FLOAT, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.BYTE, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.BYTE, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.BINARY, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, false, VectorDataType.BINARY, false);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.BINARY, true);
+        do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(false, true, VectorDataType.BINARY, false);
     }
 
     private void do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(
-        boolean memoryOptimizedSearchEnabled,
-        boolean memoryOptimizedSearchSupportedInField,
-        VectorDataType vectorDataType
+        final boolean memoryOptimizedSearchEnabled,
+        final boolean memoryOptimizedSearchSupportedInField,
+        VectorDataType vectorDataType,
+        final boolean doRescore
     ) {
 
         try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
@@ -676,7 +691,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 .thenReturn(memoryOptimizedSearchEnabled);
 
             // Query vector
-            float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+            final float[] queryVector;
+            final int dimension = 8;
+            if (vectorDataType == VectorDataType.BINARY) {
+                // Binary vector, e.g. 77 = 0b1001101, [0, 1, 0, 0, 1, 1, 0, 1]
+                queryVector = new float[] { 77f };
+            } else {
+                queryVector = new float[] { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            }
             KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
 
             // Query shard context
@@ -689,6 +711,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
             when(mockKNNVectorField.isMemoryOptimizedSearchSupported()).thenReturn(memoryOptimizedSearchSupportedInField);
             when(mockKNNVectorField.getVectorDataType()).thenReturn(vectorDataType);
+            if (doRescore) {
+                when(mockKNNVectorField.resolveRescoreContext(any())).thenReturn(mock(RescoreContext.class));
+            }
 
             // Method context
             MethodComponentContext methodComponentContext = new MethodComponentContext(
@@ -698,28 +723,29 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
 
             // KNN mapping config
-            when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
+            when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, dimension));
 
             // Execute `doToQuery`
             final Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
-            final boolean isEnabled = memoryOptimizedSearchEnabled && memoryOptimizedSearchSupportedInField;
-            if (isEnabled) {
-                // If memory optimized search is on then, use Lucene query
-                assertFalse(query instanceof NativeEngineKnnVectorQuery);
-                assertTrue(query instanceof LuceneEngineKnnVectorQuery);
-                final LuceneEngineKnnVectorQuery luceneQuery = (LuceneEngineKnnVectorQuery) query;
-
-                if (vectorDataType == VectorDataType.FLOAT) {
-                    assert (luceneQuery.getLuceneQuery() instanceof KnnFloatVectorQuery);
-                    assertEquals(queryVector.length, ((KnnFloatVectorQuery) luceneQuery.getLuceneQuery()).getTargetCopy().length);
-                } else if (vectorDataType == VectorDataType.BYTE) {
-                    assert (luceneQuery.getLuceneQuery() instanceof KnnByteVectorQuery);
-                    assertEquals(queryVector.length, ((KnnByteVectorQuery) luceneQuery.getLuceneQuery()).getTargetCopy().length);
-                }
+            // If memory optimized search is on then, use Lucene query
+            final KNNQuery knnQuery;
+            if (doRescore) {
+                assertTrue(query instanceof NativeEngineKnnVectorQuery);
+                knnQuery = ((NativeEngineKnnVectorQuery) query).getKnnQuery();
             } else {
-                // If memory optimized search is turned off then, use Native query
-                assertTrue(query instanceof KNNQuery);
-                assertFalse(query instanceof LuceneEngineKnnVectorQuery);
+                assertFalse(query instanceof NativeEngineKnnVectorQuery);
+                knnQuery = (KNNQuery) query;
+            }
+
+            final boolean memoryOptimizedEnabled = memoryOptimizedSearchEnabled && memoryOptimizedSearchSupportedInField;
+            if (memoryOptimizedEnabled) {
+                if (vectorDataType == VectorDataType.FLOAT) {
+                    assertEquals(queryVector.length, knnQuery.getQueryVector().length);
+                } else if (vectorDataType == VectorDataType.BYTE) {
+                    assertEquals(queryVector.length, knnQuery.getByteQueryVector().length);
+                } else if (vectorDataType == VectorDataType.BINARY) {
+                    assertEquals(queryVector.length, knnQuery.getByteQueryVector().length);
+                }
             }
         }
     }
