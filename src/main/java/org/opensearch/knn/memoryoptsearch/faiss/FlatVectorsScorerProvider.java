@@ -23,6 +23,10 @@ public class FlatVectorsScorerProvider {
     private static final FlatVectorsScorer HAMMING_VECTOR_SCORER = new HammingFlatVectorsScorer();
 
     public static FlatVectorsScorer getFlatVectorsScorer(final KNNVectorSimilarityFunction similarityFunction) {
+        // TODO here if ADC, return a different scorer
+        // think about how to get ADC here, (pass via boolean from entrypoint that has access to segmentlevelquantizationinfo...
+        // override getRandomVectorScorer to pass in float[] target and see vs the byte[] byteVectorValues.
+        // cpp distance calculation logic? not doable in this iteration.
         if (similarityFunction == KNNVectorSimilarityFunction.HAMMING) {
             return HAMMING_VECTOR_SCORER;
         }

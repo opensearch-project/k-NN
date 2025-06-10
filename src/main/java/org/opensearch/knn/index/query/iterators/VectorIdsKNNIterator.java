@@ -13,6 +13,9 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 
 import java.io.IOException;
 
@@ -92,24 +95,13 @@ public class VectorIdsKNNIterator implements KNNIterator {
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
 
-        /*
-        * do some more investigation for rescoring...
-        rescore on -> computeScore called, should hit else block.
-            * add
-            * filter and for exact search (threshold is low, doesn't build graph strucutre), we do exact search on the index.
-            efficient filtering -- serach idx w filter, if hnsw level is super sparse then do an exact search.
-
-            faiss will return hamming distance codes, for SEGMENT CONSISTENCY we need to use exact search on HAMMING
-        */
-        // quantizedQueryVector is null in the case of ADC (see ExactSearcher::getKNNIterator).
-        // In the ADC case the query vector is kept in full precision and is not transformed (a vector copy is transformed).
-        // Therefore, we can rescore ADC query vectors as normal float vectors.
         if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
             byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
             return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
+        } else if (segmentLevelQuantizationInfo != null && shouldScoreWithADC(segmentLevelQuantizationInfo.getQuantizationParams())) {
+            byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
+            return scoreWithADC(segmentLevelQuantizationInfo, queryVector, quantizedVector, spaceType);
         } else {
-            // Calculates a similarity score between the two vectors with a specified function. Higher similarity
-            // scores correspond to closer vectors.
             return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
         }
     }
@@ -124,5 +116,28 @@ public class VectorIdsKNNIterator implements KNNIterator {
             knnFloatVectorValues.advance(nextDocID);
         }
         return nextDocID;
+    }
+
+    // protected for testing
+    protected boolean shouldScoreWithADC(QuantizationParams quantizationParams) {
+        if (quantizationParams instanceof ScalarQuantizationParams scalarQuantizationParams) {
+            return scalarQuantizationParams.isEnableADC();
+        }
+        return false;
+    }
+
+    // protected for testing
+    protected float scoreWithADC(
+        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
+        float[] queryVector,
+        byte[] documentVector,
+        SpaceType spaceType
+    ) {
+        if (spaceType.equals(SpaceType.L2)) {
+            return KNNScoringUtil.l2SquaredADC(queryVector, documentVector);
+        } else if (spaceType.equals(SpaceType.INNER_PRODUCT) || spaceType.equals(SpaceType.COSINESIMIL)) {
+            return KNNScoringUtil.innerProductADC(queryVector, documentVector);
+        }
+        throw new UnsupportedOperationException("Space type " + spaceType.getValue() + " is not supported for ADC");
     }
 }

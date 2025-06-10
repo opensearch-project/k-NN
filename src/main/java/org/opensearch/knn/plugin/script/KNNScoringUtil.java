@@ -111,6 +111,37 @@ public class KNNScoringUtil {
         return VectorUtil.squareDistance(queryVector, inputVector);
     }
 
+    public static float l2SquaredADC(float[] queryVector, byte[] inputVector) {
+        // we cannot defer to VectorUtil as it does not support ADC.
+        float score = 0;
+
+        for (int i = 0; i < queryVector.length; ++i) {
+            int byteIndex = i / 8;
+            int bitOffset = 7 - (i % 8);
+            int bitValue = (inputVector[byteIndex] & (1 << bitOffset)) != 0 ? 1 : 0;
+
+            // Calculate squared difference
+            float diff = bitValue - queryVector[i];
+            score += diff * diff;
+        }
+        return score;
+    }
+
+    public static float innerProductADC(float[] queryVector, byte[] inputVector) {
+        float score = 0;
+
+        for (int i = 0; i < queryVector.length; ++i) {
+            // Extract the bit for this dimension
+            int byteIndex = i / 8;
+            int bitOffset = 7 - (i % 8);
+            int bitValue = (inputVector[byteIndex] & (1 << bitOffset)) != 0 ? 1 : 0;
+
+            // Calculate product and accumulate
+            score += bitValue * queryVector[i];
+        }
+        return score;
+    }
+
     private static float[] toFloat(final List<Number> inputVector, final VectorDataType vectorDataType) {
         Objects.requireNonNull(inputVector);
         float[] value = new float[inputVector.size()];
