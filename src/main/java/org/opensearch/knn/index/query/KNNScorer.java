@@ -7,9 +7,8 @@ package org.opensearch.knn.index.query;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Scorer;
-
-import java.util.Collections;
-import java.util.Map;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopDocsCollector;
 
 /**
  * <p>
@@ -22,15 +21,13 @@ import java.util.Map;
  */
 public class KNNScorer extends Scorer {
 
-    private final DocIdSetIterator docIdsIter;
-    private final Map<Integer, Float> scores;
     private final float boost;
+    private final TopDocsDISI docIdsIter;
 
-    public KNNScorer(DocIdSetIterator docIdsIter, Map<Integer, Float> scores, float boost) {
+    public KNNScorer(TopDocs topDocs, final float boost) {
         super();
-        this.docIdsIter = docIdsIter;
-        this.scores = scores;
         this.boost = boost;
+        this.docIdsIter = new TopDocsDISI(topDocs);
     }
 
     @Override
@@ -46,9 +43,7 @@ public class KNNScorer extends Scorer {
     @Override
     public float score() {
         assert docID() != DocIdSetIterator.NO_MORE_DOCS;
-        Float score = scores.get(docID());
-        if (score == null) throw new RuntimeException("Null score for the docID: " + docID());
-        return score * boost;
+        return docIdsIter.score() * boost;
     }
 
     @Override
@@ -57,12 +52,11 @@ public class KNNScorer extends Scorer {
     }
 
     /**
-     * Returns an Empty Scorer. We use this scorer to short circuit the actual search when it is not
-     * required. Since the underlying DocIdSetIterator.empty() is stateful and not thread-safe we must create a new
-     * scorer instance each time to avoid race conditions.
+     * Returns the Empty Scorer implementation. We use this scorer to short circuit the actual search when it is not
+     * required.
      * @return {@link KNNScorer}
      */
-    public static KNNScorer emptyScorer() {
-        return new KNNScorer(DocIdSetIterator.empty(), Collections.emptyMap(), 0);
+    public static Scorer emptyScorer() {
+        return new KNNScorer(TopDocsCollector.EMPTY_TOPDOCS, 0);
     }
 }

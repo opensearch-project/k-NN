@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -22,11 +23,8 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import org.apache.lucene.util.BitSet;
 
@@ -47,7 +45,7 @@ public class DefaultKNNWeight extends KNNWeight {
     }
 
     @Override
-    protected Map<Integer, Float> doANNSearch(
+    protected TopDocs doANNSearch(
         final LeafReaderContext context,
         final SegmentReader reader,
         final FieldInfo fieldInfo,
@@ -159,14 +157,17 @@ public class DefaultKNNWeight extends KNNWeight {
             indexAllocation.decRef();
         }
 
-        addExplainIfRequired(results, knnEngine, spaceType);
-
-        if (quantizedVector != null) {
-            return Arrays.stream(results)
-                .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), SpaceType.HAMMING)));
+        TopApproxKnnCollector collector = new TopApproxKnnCollector(
+            k > 0 ? k : knnQuery.getContext().getMaxResultWindow(),
+            knnEngine,
+            quantizedVector != null ? SpaceType.HAMMING : spaceType
+        );
+        for (KNNQueryResult knnQueryResult : results) {
+            collector.incVisitedCount(1);
+            collector.collect(knnQueryResult.getId(), knnQueryResult.getScore());
         }
-
-        return Arrays.stream(results)
-            .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
+        TopDocs topDocs = collector.topDocs();
+        addExplainIfRequired(results, knnEngine, spaceType);
+        return topDocs;
     }
 }

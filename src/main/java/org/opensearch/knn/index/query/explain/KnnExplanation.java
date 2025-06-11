@@ -7,7 +7,7 @@ package org.opensearch.knn.index.query.explain;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.opensearch.knn.index.query.KNNScorer;
+import org.apache.lucene.search.Scorer;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,7 +22,7 @@ public class KnnExplanation {
 
     private final Map<Integer, Float> rawScores;
 
-    private final Map<Object, KNNScorer> knnScorerPerLeaf;
+    private final Map<Object, Scorer> knnScorerPerLeaf;
 
     @Setter
     @Getter
@@ -43,7 +43,7 @@ public class KnnExplanation {
         this.rawScores.put(docId, rawScore);
     }
 
-    public void addKnnScorer(Object leafId, KNNScorer knnScorer) {
+    public void addKnnScorer(Object leafId, Scorer knnScorer) {
         this.knnScorerPerLeaf.put(leafId, knnScorer);
     }
 
@@ -55,7 +55,7 @@ public class KnnExplanation {
         return this.rawScores.get(docId);
     }
 
-    public KNNScorer getKnnScorer(Object leafId) {
+    public Scorer getKnnScorer(Object leafId) {
         return this.knnScorerPerLeaf.get(leafId);
     }
 }

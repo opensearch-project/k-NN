@@ -29,19 +29,19 @@ public final class ResultUtil {
      * @param perLeafResults Results from the list
      * @param k the number of results across all leaf results to return
      */
-    public static void reduceToTopK(List<PerLeafResult> perLeafResults, int k) {
+    public static void reduceToTopK(final List<PerLeafResult> perLeafResults, final int k) {
         // Iterate over all scores to get min competitive score
         PriorityQueue<Float> topKMinQueue = new PriorityQueue<>(k);
 
         int count = 0;
         for (PerLeafResult perLeafResult : perLeafResults) {
-            count += perLeafResult.getResult().size();
-            for (Float score : perLeafResult.getResult().values()) {
+            count += perLeafResult.getResult().scoreDocs.length;
+            for (ScoreDoc scoreDoc : perLeafResult.getResult().scoreDocs) {
                 if (topKMinQueue.size() < k) {
-                    topKMinQueue.add(score);
-                } else if (topKMinQueue.peek() != null && score > topKMinQueue.peek()) {
+                    topKMinQueue.add(scoreDoc.score);
+                } else if (topKMinQueue.peek() != null && scoreDoc.score > topKMinQueue.peek()) {
                     topKMinQueue.poll();
-                    topKMinQueue.add(score);
+                    topKMinQueue.add(scoreDoc.score);
                 }
             }
         }
@@ -53,7 +53,17 @@ public final class ResultUtil {
 
         // Reduce the results based on min competitive score
         float minScore = topKMinQueue.peek() == null ? -Float.MAX_VALUE : topKMinQueue.peek();
-        perLeafResults.forEach(results -> results.getResult().entrySet().removeIf(entry -> entry.getValue() < minScore));
+        perLeafResults.forEach(results -> {
+            List<ScoreDoc> filteredScoreDocList = new ArrayList<>();
+            for (ScoreDoc scoreDoc : results.getResult().scoreDocs) {
+                if (scoreDoc.score >= minScore) {
+                    filteredScoreDocList.add(scoreDoc);
+                }
+            }
+            ScoreDoc[] filteredScoreDoc = filteredScoreDocList.toArray(new ScoreDoc[0]);
+            TotalHits totalHits = new TotalHits(filteredScoreDoc.length, TotalHits.Relation.EQUAL_TO);
+            results.setResult(new TopDocs(totalHits, filteredScoreDoc));
+        });
     }
 
     /**

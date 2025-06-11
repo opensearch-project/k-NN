@@ -85,6 +85,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 
 public class KNNWeightTests extends KNNWeightTestCase {
     @SneakyThrows
@@ -940,7 +941,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             .useQuantizedVectorsForSearch(true)
             .knnQuery(query)
             .build();
-        when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(DOC_ID_TO_SCORES);
+        when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
@@ -1260,30 +1261,29 @@ public class KNNWeightTests extends KNNWeightTestCase {
         // Prepare query and weight
         when(bitSetProducer.getBitSet(leafReaderContext)).thenReturn(bitset);
 
-        final KNNQuery query = KNNQuery.builder()
-            .field(FIELD_NAME)
-            .queryVector(QUERY_VECTOR)
-            .k(1)
-            .indexName(INDEX_NAME)
-            .methodParameters(HNSW_METHOD_PARAMETERS)
-            .parentsFilter(bitSetProducer)
-            .build();
-
-        final KNNWeight knnWeight = new DefaultKNNWeight(query, 0.0f, null);
+        KNNQueryResult[] knnQueryResults = getKNNQueryResults();
 
         jniServiceMockedStatic.when(
             () -> JNIService.queryIndex(
                 anyLong(),
                 eq(QUERY_VECTOR),
-                eq(1),
+                eq(knnQueryResults.length),
                 eq(HNSW_METHOD_PARAMETERS),
                 any(),
                 any(),
                 anyInt(),
                 eq(parentsFilter)
             )
-        ).thenReturn(getKNNQueryResults());
-
+        ).thenReturn(knnQueryResults);
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(knnQueryResults.length)
+            .indexName(INDEX_NAME)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .parentsFilter(bitSetProducer)
+            .build();
+        final KNNWeight knnWeight = new DefaultKNNWeight(query, 0.0f, null);
         // Execute
         Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
@@ -1292,7 +1292,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             () -> JNIService.queryIndex(
                 anyLong(),
                 eq(QUERY_VECTOR),
-                eq(1),
+                eq(knnQueryResults.length),
                 eq(HNSW_METHOD_PARAMETERS),
                 any(),
                 any(),

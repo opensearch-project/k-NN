@@ -11,7 +11,6 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnCollector;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorManager;
@@ -23,14 +22,9 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
-import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.query.KNNWeight;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
@@ -68,7 +62,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
     }
 
     @Override
-    protected Map<Integer, Float> doANNSearch(
+    protected TopDocs doANNSearch(
         final LeafReaderContext context,
         final SegmentReader reader,
         final FieldInfo fieldInfo,
@@ -153,7 +147,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
     }
 
-    private Map<Integer, Float> queryIndex(
+    private TopDocs queryIndex(
         final Object targetVector,
         final int cardinality,
         final int visitLimitWhenFilterExists,
@@ -186,25 +180,11 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
         // Make results to return
         final TopDocs topDocs = knnCollector.topDocs();
-        return makeResults(topDocs, knnEngine, spaceType);
-    }
-
-    private Map<Integer, Float> makeResults(final TopDocs topDocs, KNNEngine knnEngine, SpaceType spaceType) {
-        if (topDocs != null && topDocs.scoreDocs != null && topDocs.scoreDocs.length > 0) {
-            // Add explanations if required, then return results
-            final KNNQueryResult[] results = new KNNQueryResult[topDocs.scoreDocs.length];
-            int i = 0;
-            for (final ScoreDoc scoreDoc : topDocs.scoreDocs) {
-                results[i] = new KNNQueryResult(scoreDoc.doc, scoreDoc.score);
-                ++i;
-            }
-
-            addExplainIfRequired(results, knnEngine, spaceType);
-
-            return Arrays.stream(results).collect(Collectors.toMap(KNNQueryResult::getId, KNNQueryResult::getScore));
+        if (topDocs.scoreDocs.length == 0) {
+            log.debug("[KNN] Query yielded 0 results");
+            return EMPTY_TOPDOCS;
         }
-
-        log.debug("[KNN] Query yielded 0 results");
-        return Collections.emptyMap();
+        addExplainIfRequired(topDocs, knnEngine, spaceType);
+        return topDocs;
     }
 }
