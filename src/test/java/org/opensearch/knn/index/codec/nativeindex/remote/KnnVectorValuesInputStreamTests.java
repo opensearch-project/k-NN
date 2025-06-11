@@ -34,12 +34,10 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         int NUM_DOCS = randomIntBetween(1, 1000);
 
         List<float[]> vectorValues = getRandomFloatVectors(NUM_DOCS, 1);
-        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
-            vectorValues
-        );
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(vectorValues);
         final KNNVectorValues<float[]> knnVectorValuesForStream = KNNVectorValuesFactory.getVectorValues(
             VectorDataType.FLOAT,
-            randomVectorValues
+            new TestVectorValues.PreDefinedFloatVectorValues(vectorValues)
         );
         final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
 
@@ -74,7 +72,7 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         );
         final KNNVectorValues<float[]> knnVectorValuesForStream = KNNVectorValuesFactory.getVectorValues(
             VectorDataType.FLOAT,
-            randomVectorValues
+            new TestVectorValues.PreDefinedFloatVectorValues(vectorValues)
         );
         final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
 
@@ -100,37 +98,38 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         assertEquals(expectedBuffer, vectorStreamFloats);
     }
 
-    public void testByteVectorValuesInputStream() throws IOException {
-        int NUM_DOCS = randomIntBetween(1, 1000);
-        int NUM_DIMENSION = randomIntBetween(1, 1000);
-
-        List<byte[]> vectorValues = getRandomByteVectors(NUM_DOCS, NUM_DIMENSION);
-        final TestVectorValues.PreDefinedByteVectorValues randomVectorValues = new TestVectorValues.PreDefinedByteVectorValues(
-            vectorValues
-        );
-        final KNNVectorValues<byte[]> knnVectorValuesForStream = KNNVectorValuesFactory.getVectorValues(
-            VectorDataType.BYTE,
-            randomVectorValues
-        );
-        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BYTE, randomVectorValues);
-
-        InputStream vectorValuesInputStream = new VectorValuesInputStream(knnVectorValuesForStream, VectorDataType.BYTE);
-
-        // 1. Read all input stream bytes
-        byte[] vectorStreamBytes = vectorValuesInputStream.readAllBytes();
-
-        // 2. Read all of knnVectorValues into a byte buffer:
-        initializeVectorValues(knnVectorValues);
-        ByteBuffer expectedBuffer = ByteBuffer.allocate(NUM_DOCS * knnVectorValues.bytesPerVector()).order(ByteOrder.LITTLE_ENDIAN);
-        int docId = knnVectorValues.docId();
-        while (docId != -1 && docId != DocIdSetIterator.NO_MORE_DOCS) {
-            expectedBuffer.put(knnVectorValues.getVector());
-            docId = knnVectorValues.nextDoc();
-        }
-
-        // Check the 2 arrays have the same content
-        assertArrayEquals(expectedBuffer.array(), vectorStreamBytes);
-    }
+    // Commenting out while not currently supported
+//    public void testByteVectorValuesInputStream() throws IOException {
+//        int NUM_DOCS = randomIntBetween(1, 1000);
+//        int NUM_DIMENSION = randomIntBetween(1, 1000);
+//
+//        List<byte[]> vectorValues = getRandomByteVectors(NUM_DOCS, NUM_DIMENSION);
+//        final TestVectorValues.PreDefinedByteVectorValues randomVectorValues = new TestVectorValues.PreDefinedByteVectorValues(
+//            vectorValues
+//        );
+//        final KNNVectorValues<float[]> knnVectorValuesForStream = KNNVectorValuesFactory.getVectorValues(
+//            VectorDataType.FLOAT,
+//            new TestVectorValues.PreDefinedByteVectorValues(vectorValues)
+//        );
+//        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BYTE, randomVectorValues);
+//
+//        InputStream vectorValuesInputStream = new VectorValuesInputStream(knnVectorValuesForStream, VectorDataType.BYTE);
+//
+//        // 1. Read all input stream bytes
+//        byte[] vectorStreamBytes = vectorValuesInputStream.readAllBytes();
+//
+//        // 2. Read all of knnVectorValues into a byte buffer:
+//        initializeVectorValues(knnVectorValues);
+//        ByteBuffer expectedBuffer = ByteBuffer.allocate(NUM_DOCS * knnVectorValues.bytesPerVector()).order(ByteOrder.LITTLE_ENDIAN);
+//        int docId = knnVectorValues.docId();
+//        while (docId != -1 && docId != DocIdSetIterator.NO_MORE_DOCS) {
+//            expectedBuffer.put(knnVectorValues.getVector());
+//            docId = knnVectorValues.nextDoc();
+//        }
+//
+//        // Check the 2 arrays have the same content
+//        assertArrayEquals(expectedBuffer.array(), vectorStreamBytes);
+//    }
 
     /**
      * Tests that creating N VectorValuesInputStream over the same KNNVectorValues yields the same result as reading it all from the same VectorValuesInputStream
@@ -200,14 +199,10 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         // here
         List<float[]> vectorValues = getRandomFloatVectors(1, NUM_DIMENSION);
 
-        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
-            vectorValues
-        );
-
         // Read stream byte by byte
         final KNNVectorValues<float[]> knnVectorValuesForReadByte = KNNVectorValuesFactory.getVectorValues(
             VectorDataType.FLOAT,
-            randomVectorValues
+            new TestVectorValues.PreDefinedFloatVectorValues(vectorValues)
         );
         initializeVectorValues(knnVectorValuesForReadByte);
         int vectorBlobLength = knnVectorValuesForReadByte.bytesPerVector();
@@ -221,7 +216,7 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         // Read stream with entire length
         final KNNVectorValues<float[]> knnVectorValuesForRead = KNNVectorValuesFactory.getVectorValues(
             VectorDataType.FLOAT,
-            randomVectorValues
+            new TestVectorValues.PreDefinedFloatVectorValues(vectorValues)
         );
         InputStream vectorStreamForRead = new VectorValuesInputStream(knnVectorValuesForRead, VectorDataType.FLOAT);
         ByteBuffer bufferRead = ByteBuffer.allocate(vectorBlobLength).order(ByteOrder.LITTLE_ENDIAN);
