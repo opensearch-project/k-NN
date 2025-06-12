@@ -16,9 +16,9 @@ are always welcome to attend the next meeting or to follow up on the issue post 
 
 ### How do I join the Backlog & Triage meeting?
 
-Meetings are hosted regularly at 5 PM Pacific Time on Tuesdays bi-weekly and can be joined via the links posted on the 
+Meetings are hosted regularly at 10 AM Pacific Time on Tuesdays bi-weekly and can be joined via the links posted on the 
 [OpenSearch Meetup Group](https://www.meetup.com/opensearch/events/) list of events. The event will be titled 
-`Development Backlog & Triage Meeting - k-NN/neural-search`.
+`Development Backlog & Triage Meeting - k-NN`.
 
 After joining the Chime meeting, you can enable your video / voice to join the discussion.  If you do not have a webcam 
 or microphone available, you can still join in via the text chat.
