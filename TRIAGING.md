@@ -1,9 +1,9 @@
 <img src="https://opensearch.org/assets/img/opensearch-logo-themed.svg" height="64px">
 
-The maintainers of the k-NN/neural-search Repo's seek to promote an inclusive and engaged community of contributors. In 
-order to facilitate this, bi-weekly triage meetings are open-to-all and attendance is encouraged for anyone who hopes to 
-contribute, discuss an issue, or learn more about the project. To learn more about contributing to the 
-k-NN/neural-search Repo visit the [Contributing](./CONTRIBUTING.md) documentation.
+The maintainers of the k-NN Repo's seek to promote an inclusive and engaged community of contributors. In
+order to facilitate this, bi-weekly triage meetings are open-to-all and attendance is encouraged for anyone who hopes to
+contribute, discuss an issue, or learn more about the project. To learn more about contributing to the
+k-NN Repo visit the [Contributing](./CONTRIBUTING.md) documentation.
 
 ### Do I need to attend for my issue to be addressed/triaged?
 
@@ -11,19 +11,19 @@ Attendance is not required for your issue to be triaged or addressed. All new is
 
 ### What happens if my issue does not get covered this time?
 
-Each meeting we seek to  address all new issues. However, should we run out of time before your issue is discussed, you 
+Each meeting we seek to  address all new issues. However, should we run out of time before your issue is discussed, you
 are always welcome to attend the next meeting or to follow up on the issue post itself.
 
 ### How do I join the Backlog & Triage meeting?
 
-Meetings are hosted regularly at 5 PM Pacific Time on Tuesdays bi-weekly and can be joined via the links posted on the 
-[OpenSearch Meetup Group](https://www.meetup.com/opensearch/events/) list of events. The event will be titled 
-`Development Backlog & Triage Meeting - k-NN/neural-search`.
+Meetings are hosted regularly at 10 AM Pacific Time on Tuesdays bi-weekly and can be joined via the links posted on the
+[OpenSearch Meetup Group](https://www.meetup.com/opensearch/events/) list of events. The event will be titled
+`Development Backlog & Triage Meeting - k-NN`.
 
-After joining the Chime meeting, you can enable your video / voice to join the discussion.  If you do not have a webcam 
+After joining the Chime meeting, you can enable your video / voice to join the discussion.  If you do not have a webcam
 or microphone available, you can still join in via the text chat.
 
-If you have an issue you'd like to bring forth please consider getting a link to the issue so it can be presented to 
+If you have an issue you'd like to bring forth please consider getting a link to the issue so it can be presented to
 everyone in the meeting.
 
 ### Is there an agenda for each week?
@@ -32,9 +32,9 @@ Meetings are 60 minutes and structured as follows:
 
 1. Initial Gathering: As we gather, feel free to turn on video and engage in informal and open-to-all conversation.  After a bit a volunteer will share their screen and proceed with the agenda.
 2. Announcements: If there are any announcements to be made they will happen at the start of the meeting.
-3. Review of New Issues: The meetings always start with reviewing all untriaged/recent issues for the k-NN and neural-search repositories.
+3. Review of New Issues: The meetings always start with reviewing all untriaged/recent issues for the k-NN repository.
 4. Member Requests: Opportunity for any meeting member to ask for consideration of an issue or pull request.
-5. Pull Request Discussion: Then, we review the status of outstanding pull requests from the k-NN and neural-search repositories.
+5. Pull Request Discussion: Then, we review the status of outstanding pull requests from the k-NN repositories.
 6. Open Discussion: Allow for members of the meeting to surface any topics without issues filed or pull request created.
 
 
@@ -48,16 +48,16 @@ No, all are welcome and encouraged to attend. Attending the Backlog & Triage mee
 
 ### What if I have an issue that is almost a duplicate, should I open a new one to be triaged?
 
-You can always open an issue including one that you think may be a duplicate. However, in cases where you believe there 
-is an important distinction to be made between an existing issue and your newly created one, you are encouraged to 
+You can always open an issue including one that you think may be a duplicate. However, in cases where you believe there
+is an important distinction to be made between an existing issue and your newly created one, you are encouraged to
 attend the triaging meeting to explain.
 
 ### What if I have follow-up questions on an issue?
 
-If you have an existing issue you would like to discuss, you can always comment on the issue itself. Alternatively, you 
+If you have an existing issue you would like to discuss, you can always comment on the issue itself. Alternatively, you
 are welcome to come to the triage meeting to discuss.
 
-### Is this meeting a good place to get help setting up k-NN/neural-search features on my OpenSearch instance?
+### Is this meeting a good place to get help setting up k-NN features on my OpenSearch instance?
 
 While we are always happy to help the community, the best resource for implementation questions is [the OpenSearch forum](https://forum.opensearch.org/c/plugins/k-nn/48).
 
@@ -78,7 +78,7 @@ Yes, there are several labels that are used to identify the 'state' of issues fi
 
 ### What if my issue is critical to OpenSearch operations, do I have to wait for the bi-weekly meeting for it to be addressed?
 
-All new issues for the [k-NN](https://github.com/opensearch-project/k-NN/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged) repo and [neural-search](https://github.com/opensearch-project/neural-search/issues?q=is%3Aissue+is%3Aopen+-label%3Atriaged) repo are reviewed daily to check for critical issues which require immediate triaging. If an issue relates to a severe concern for OpenSearch operation, it will be triaged by a maintainer mid-week. You can still come to discuss an issue at the following meeting even if it has already been triaged during the week.
+All new issues for the [k-NN](https://github.com/opensearch-project/k-NN/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged) repo are reviewed daily to check for critical issues which require immediate triaging. If an issue relates to a severe concern for OpenSearch operation, it will be triaged by a maintainer mid-week. You can still come to discuss an issue at the following meeting even if it has already been triaged during the week.
 
 ### Is this where I should bring up potential security vulnerabilities?
 
