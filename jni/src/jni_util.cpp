@@ -202,7 +202,7 @@ std::string knn_jni::JNIUtil::ConvertJavaStringToCppString(JNIEnv * env, jstring
     return cppString;
 }
 
-knn_jni::QuantizationLevel knn_jni::JNIUtil::ConvertJavaStringToQuantizationLevel(JNIEnv * env, jobject javaString) {
+knn_jni::BQQuantizationLevel knn_jni::JNIUtil::ConvertJavaStringToQuantizationLevel(JNIEnv * env, jobject javaString) {
     if (javaString == nullptr) {
         throw std::runtime_error("String cannot be null");
     }
@@ -214,20 +214,25 @@ knn_jni::QuantizationLevel knn_jni::JNIUtil::ConvertJavaStringToQuantizationLeve
         // Will only reach here if there is no exception in the stack, but the call failed
         throw std::runtime_error("Unable to convert java string to cpp string");
     }
-    std::string cppString(cString);
-    env->ReleaseStringUTFChars((jstring) javaString, cString);
+
+    // Use string_view to avoid allocation, since we only need to compare the string
+    std::string_view cppString(cString);
+    knn_jni::BQQuantizationLevel result;
 
     if (cppString == "ScalarQuantizationParams_1") {
-        return QuantizationLevel::ONE_BIT;
+        result = BQQuantizationLevel::ONE_BIT;
     } else if (cppString == "ScalarQuantizationParams_2") {
-        return QuantizationLevel::TWO_BIT;
+        result = BQQuantizationLevel::TWO_BIT;
     } else if (cppString == "ScalarQuantizationParams_4") {
-        return QuantizationLevel::FOUR_BIT;
+        result = BQQuantizationLevel::FOUR_BIT;
     } else {
         this->HasExceptionInStack(env, "Unable to convert java string to quantization level");
-
+        env->ReleaseStringUTFChars((jstring) javaString, cString);
         throw std::runtime_error("Unable to convert java string to quantization level");
     }
+
+    env->ReleaseStringUTFChars((jstring) javaString, cString);
+    return result;
 }
 
 

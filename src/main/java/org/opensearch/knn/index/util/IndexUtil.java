@@ -288,7 +288,7 @@ public class IndexUtil {
 
         if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
             loadParameters.put(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER, true);
-            String quantizationLevel = segmentLevelQuantizationInfo.getQuantizationParams().getTypeIdentifier();
+            final String quantizationLevel = segmentLevelQuantizationInfo.getQuantizationParams().getTypeIdentifier();
 
             loadParameters.put(QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER, quantizationLevel);
             loadParameters.put(SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER, spaceType.getValue());

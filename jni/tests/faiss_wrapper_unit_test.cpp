@@ -500,7 +500,7 @@ namespace load_index_with_stream_adc_params_test {
         std::string description;
         bool includeQuantLevel;
         bool includeSpaceType;
-        knn_jni::QuantizationLevel quantLevel;
+        knn_jni::BQQuantizationLevel quantLevel;
         std::string spaceType;
         std::string expectedError;
     };
@@ -520,7 +520,7 @@ namespace load_index_with_stream_adc_params_test {
 
             // KNNConstants.QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER
             auto quantization_level_it = methodParams.find("quantization_level");
-            knn_jni::QuantizationLevel quantLevel = knn_jni::QuantizationLevel::NONE;
+            knn_jni::BQQuantizationLevel quantLevel = knn_jni::BQQuantizationLevel::NONE;
             if (quantization_level_it != methodParams.end()) {
                 quantLevel = jniUtil->ConvertJavaStringToQuantizationLevel(env, quantization_level_it->second);
             } else {
@@ -537,11 +537,11 @@ namespace load_index_with_stream_adc_params_test {
                 throw std::runtime_error("space type not specified in params");
             }
 
-            if (quantLevel == knn_jni::QuantizationLevel::ONE_BIT) {
+            if (quantLevel == knn_jni::BQQuantizationLevel::ONE_BIT) {
                 // Instead of calling real LoadIndexWithStreamADC, return a dummy value
                 return 12345;
             } else if (
-                quantLevel == knn_jni::QuantizationLevel::TWO_BIT || quantLevel == knn_jni::QuantizationLevel::FOUR_BIT
+                quantLevel == knn_jni::BQQuantizationLevel::TWO_BIT || quantLevel == knn_jni::BQQuantizationLevel::FOUR_BIT
             ) {
                 throw std::runtime_error("ADC not supported for 2 or 4 bit.");
             }
@@ -585,7 +585,7 @@ namespace load_index_with_stream_adc_params_test {
                     .WillOnce(testing::Return(input.spaceType));
 
                 // HasExceptionInStack only called for NONE quantization level after space type check
-                if (input.quantLevel == knn_jni::QuantizationLevel::NONE) {
+                if (input.quantLevel == knn_jni::BQQuantizationLevel::NONE) {
                     EXPECT_CALL(mockJNIUtil, HasExceptionInStack(&jniEnv, testing::_))
                         .Times(1);
                 }
@@ -624,7 +624,7 @@ namespace load_index_with_stream_adc_params_test {
                 "Valid ONE_BIT L2",
                 true,
                 true,
-                knn_jni::QuantizationLevel::ONE_BIT,
+                knn_jni::BQQuantizationLevel::ONE_BIT,
                 knn_jni::L2,
                 ""
             },
@@ -632,7 +632,7 @@ namespace load_index_with_stream_adc_params_test {
                 "Valid ONE_BIT INNER_PRODUCT",
                 true,
                 true,
-                knn_jni::QuantizationLevel::ONE_BIT,
+                knn_jni::BQQuantizationLevel::ONE_BIT,
                 knn_jni::INNER_PRODUCT,
                 ""
             },
@@ -641,7 +641,7 @@ namespace load_index_with_stream_adc_params_test {
                 "Missing quantization_level",
                 false,
                 true,
-                knn_jni::QuantizationLevel::NONE,
+                knn_jni::BQQuantizationLevel::NONE,
                 knn_jni::L2,
                 "Quantization level not specified in params"
             },
@@ -649,7 +649,7 @@ namespace load_index_with_stream_adc_params_test {
                 "Missing space_type",
                 true,
                 false,
-                knn_jni::QuantizationLevel::ONE_BIT,
+                knn_jni::BQQuantizationLevel::ONE_BIT,
                 "",
                 "space type not specified in params"
             },
@@ -658,7 +658,7 @@ namespace load_index_with_stream_adc_params_test {
                 "TWO_BIT not supported",
                 true,
                 true,
-                knn_jni::QuantizationLevel::TWO_BIT,
+                knn_jni::BQQuantizationLevel::TWO_BIT,
                 knn_jni::L2,
                 "ADC not supported for 2 or 4 bit."
             },
@@ -666,7 +666,7 @@ namespace load_index_with_stream_adc_params_test {
                 "FOUR_BIT not supported",
                 true,
                 true,
-                knn_jni::QuantizationLevel::FOUR_BIT,
+                knn_jni::BQQuantizationLevel::FOUR_BIT,
                 knn_jni::L2,
                 "ADC not supported for 2 or 4 bit."
             },
@@ -674,7 +674,7 @@ namespace load_index_with_stream_adc_params_test {
                 "NONE quantization level",
                 true,
                 true,
-                knn_jni::QuantizationLevel::NONE,
+                knn_jni::BQQuantizationLevel::NONE,
                 knn_jni::L2,
                 "load adc stream called without a quantization level"
             }

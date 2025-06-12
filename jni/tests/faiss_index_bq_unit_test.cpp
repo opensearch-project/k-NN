@@ -175,7 +175,7 @@ protected:
         codes_ = std::vector<uint8_t>(dimension_ / 8 * 3); // 3 vectors
         std::iota(codes_.begin(), codes_.end(), 1); // Fill with 1, 2, 3...
 
-        index_ = std::make_unique<FaissIndexBQ>(dimension_, &codes_, metricType_);
+        index_ = std::make_unique<FaissIndexBQ>(dimension_, codes_, metricType_);
     }
 
     int dimension_;
@@ -470,7 +470,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationL2AllPositive
 
     // Create FaissIndexBQ following the actual usage pattern
     std::vector<uint8_t> codes = packedCode; // Copy to simulate the codes storage
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_L2);
 
     // Get distance computer from the index
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
@@ -495,7 +495,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationL2AllNegative
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -516,7 +516,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationL2Alternating
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -537,7 +537,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationL2MixedTest) 
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -558,7 +558,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationInnerProductA
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_INNER_PRODUCT);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_INNER_PRODUCT);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -579,7 +579,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationInnerProductM
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_INNER_PRODUCT);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_INNER_PRODUCT);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -600,7 +600,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationInnerProductA
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_INNER_PRODUCT);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_INNER_PRODUCT);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -621,7 +621,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationSmallDimensio
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -642,7 +642,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationSmallDimensio
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_INNER_PRODUCT);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_INNER_PRODUCT);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -663,7 +663,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationLargeDimensio
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -684,7 +684,7 @@ TEST_F(ADCFlatCodesDistanceComputerTestFixture, DistanceComputationLargeDimensio
     std::vector<uint8_t> packedCode = TestHelpers::packBits(codeVector);
 
     std::vector<uint8_t> codes = packedCode;
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_INNER_PRODUCT);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_INNER_PRODUCT);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -703,7 +703,7 @@ TEST(ADCFlatCodesDistanceComputerTest, DistanceComputationBitPatternTest) {
     std::vector<uint8_t> codes = {0b10101010}; // Alternating bit pattern
     std::vector<float> query = {0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f};
 
-    FaissIndexBQ index(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, codes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -733,7 +733,7 @@ TEST(ADCFlatCodesDistanceComputerTest, DistanceComputationEdgePatternsTest) {
 
     // Test all zeros
     std::vector<uint8_t> allZeros(dimension / 8, 0);
-    FaissIndexBQ indexZeros(dimension, &allZeros, faiss::METRIC_L2);
+    FaissIndexBQ indexZeros(dimension, allZeros, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computerZeros(
         indexZeros.get_FlatCodesDistanceComputer());
@@ -745,7 +745,7 @@ TEST(ADCFlatCodesDistanceComputerTest, DistanceComputationEdgePatternsTest) {
 
     // Test all ones
     std::vector<uint8_t> allOnes(dimension / 8, 0xFF);
-    FaissIndexBQ indexOnes(dimension, &allOnes, faiss::METRIC_L2);
+    FaissIndexBQ indexOnes(dimension, allOnes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computerOnes(
         indexOnes.get_FlatCodesDistanceComputer());
@@ -776,7 +776,7 @@ TEST(ADCFlatCodesDistanceComputerTest, MultipleVectorsTest) {
     std::vector<float> query = TestHelpers::generateRandomVector(dimension);
 
     // Create FaissIndexBQ with all codes
-    FaissIndexBQ index(dimension, &allCodes, faiss::METRIC_L2);
+    FaissIndexBQ index(dimension, allCodes, faiss::METRIC_L2);
 
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(
         index.get_FlatCodesDistanceComputer());
@@ -814,7 +814,7 @@ TEST(ADCFlatCodesDistanceComputerTest, RealWorldWorkflowTest) {
     }
 
     // Create FaissIndexBQ (simulating the alteredStorage in LoadIndexWithStreamADC)
-    FaissIndexBQ* alteredStorage = new FaissIndexBQ(dimension, &codes, faiss::METRIC_L2);
+    FaissIndexBQ* alteredStorage = new FaissIndexBQ(dimension, codes, faiss::METRIC_L2);
 
     // Get distance computer (this is what would be used during search)
     std::unique_ptr<faiss::FlatCodesDistanceComputer> computer(

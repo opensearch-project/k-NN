@@ -467,7 +467,7 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(faiss::IOReader* ioRe
 
     // KNNConstants.QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER
     auto quantization_level_it = methodParams.find("quantization_level");
-    knn_jni::QuantizationLevel quantLevel = knn_jni::QuantizationLevel::NONE;
+    knn_jni::BQQuantizationLevel quantLevel = knn_jni::BQQuantizationLevel::NONE;
     if (quantization_level_it != methodParams.end()) {
         quantLevel = jniUtil->ConvertJavaStringToQuantizationLevel(env, quantization_level_it->second);
     } else {
@@ -484,10 +484,10 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(faiss::IOReader* ioRe
         throw std::runtime_error("space type not specified in params");
     }
 
-    if (quantLevel == knn_jni::QuantizationLevel::ONE_BIT) {
+    if (quantLevel == knn_jni::BQQuantizationLevel::ONE_BIT) {
         return knn_jni::faiss_wrapper::LoadIndexWithStreamADC(ioReader, metricType);
     } else if (
-        quantLevel == knn_jni::QuantizationLevel::TWO_BIT || quantLevel == knn_jni::QuantizationLevel::FOUR_BIT
+        quantLevel == knn_jni::BQQuantizationLevel::TWO_BIT || quantLevel == knn_jni::BQQuantizationLevel::FOUR_BIT
     ) {
         throw std::runtime_error("ADC not supported for 2 or 4 bit.");
     }
@@ -505,35 +505,37 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, 
     // Extract the relevant info from the binary index
     faiss::IndexBinary* indexReader = (faiss::IndexBinary*) LoadBinaryIndexWithStream(ioReader);
 
-    if (!indexReader) throw std::runtime_error("ERROR: indexReader IS NULL!!!\n");
-
+    if (!indexReader) throw std::runtime_error("failed to load binary index with given stream in LoadIndexWithStreamADC");
     faiss::IndexBinaryIDMap * binaryIdMap = (faiss::IndexBinaryIDMap *) indexReader;
 
-    if (!binaryIdMap->index) throw std::runtime_error("ERROR: hnswBinary IS NULL!!!\n");
+    if (!binaryIdMap->index) throw std::runtime_error("Loaded index in LoadIndexWithStreamADC is not type faiss::IndexBinaryIDMap");
 
     // hnsw index sits on top
     faiss::IndexBinaryHNSW * hnswBinary = (faiss::IndexBinaryHNSW *)(binaryIdMap->index);
 
-    if (!hnswBinary->storage) throw std::runtime_error("ERROR: hnswBinary->Storage is NULL!!");
-
+    if (!hnswBinary->storage) throw std::runtime_error("Loaded index does not contain faiss::IndexBinaryHNSW");
     // since binary storage is binary flat codes
     faiss::IndexBinaryFlat * codesIndex = (faiss::IndexBinaryFlat *) hnswBinary->storage;
 
-    // The codesIndex storage will be associated with the lifetime of this index, so the below call is safe from NPE.
-    std::vector<uint8_t> * codes_ptr = &(codesIndex->xb);
-
     // altered storage containing the distance computer override.
     knn_jni::faiss_wrapper::FaissIndexBQ * alteredStorage = new knn_jni::faiss_wrapper::FaissIndexBQ(
-        indexReader->d, codes_ptr, metricType
+        indexReader->d, codesIndex->xb, metricType
     );
 
     // alteredIndexHNSW is effectively a placeholder before we pass the preexisting HNSW structure.
+    // since Lucene segments are immutable once we flush a faiss index for searching, we are guaranteed never to ingest new indices into it.
     // Therefore, the M value doesn't matter and no new vectors are ingested.
     faiss::IndexHNSW * alteredIndexHNSW = new faiss::IndexHNSW(alteredStorage, 32);
     alteredIndexHNSW->hnsw = hnswBinary->hnsw;
     faiss::IndexIDMap * alteredIdMap = new faiss::IndexIDMap(alteredIndexHNSW);
     alteredStorage->init(alteredIndexHNSW, alteredIdMap);
     alteredIdMap->id_map = binaryIdMap->id_map;
+    alteredIdMap->own_fields = true; // to delete index correctly
+    alteredIndexHNSW->own_fields = true;  // to delete index correctly
+
+    // delete the preexisting binary index so as not to leak memory. Since binaryIdMap has own_fields=true, the delete cascades to its member indices.
+    delete binaryIdMap;
+
     return (jlong) alteredIdMap;
 }
 
