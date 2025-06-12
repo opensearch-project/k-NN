@@ -92,8 +92,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             return false;
         }
 
-        // If setting is not enabled, return false
-        if (!indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING)) {
+        // Only evaluate index setting if explicitly set
+        if (!indexSettings.getSettings().getAsBoolean(KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING.getKey(), true)) {
             log.debug("Remote index build is disabled for index: [{}]", indexSettings.getIndex().getName());
             return false;
         }

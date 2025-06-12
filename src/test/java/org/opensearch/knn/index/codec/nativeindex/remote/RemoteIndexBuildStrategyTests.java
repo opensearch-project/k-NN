@@ -5,11 +5,15 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStore;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.IndexScopedSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
@@ -23,11 +27,14 @@ import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.Version.CURRENT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -39,7 +46,9 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
@@ -97,15 +106,29 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(null, 0));
 
         // Check index setting disabled
-        indexSettings = mock(IndexSettings.class);
-        when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING)).thenReturn(false);
-        when(indexSettings.getIndex()).thenReturn(index);
+        Settings settings = Settings.builder()
+            .put(settings(CURRENT).build())
+            .put(KNN_INDEX, true)
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD, false)
+            .build();
+        IndexMetadata metadata = IndexMetadata.builder("test-index")
+            .settings(settings)
+            .numberOfShards(1)
+            .numberOfReplicas(0)
+            .version(7)
+            .mappingVersion(0)
+            .settingsVersion(0)
+            .aliasesVersion(0)
+            .creationDate(0)
+            .build();
+        indexSettings = new IndexSettings(
+            metadata,
+            Settings.EMPTY,
+            new IndexScopedSettings(Settings.EMPTY, new HashSet<>(IndexScopedSettings.BUILT_IN_INDEX_SETTINGS))
+        );
         assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, 0));
 
         // Check repo not configured
-        indexSettings = mock(IndexSettings.class);
-        when(indexSettings.getIndex()).thenReturn(index);
-        when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING)).thenReturn(true);
         clusterSettings = mock(ClusterSettings.class);
         when(clusterSettings.get(KNN_REMOTE_VECTOR_REPOSITORY_SETTING)).thenReturn("");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
@@ -114,10 +137,45 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
 
         // Check size threshold
         int BYTE_SIZE = randomIntBetween(50, 1000);
-        when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING)).thenReturn(new ByteSizeValue(BYTE_SIZE));
+        settings = Settings.builder()
+            .put(settings(CURRENT).build())
+            .put(KNN_INDEX, true)
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD, false)
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN, BYTE_SIZE)
+            .build();
+        metadata = IndexMetadata.builder("test-index")
+            .settings(settings)
+            .numberOfShards(1)
+            .numberOfReplicas(0)
+            .version(7)
+            .mappingVersion(0)
+            .settingsVersion(0)
+            .aliasesVersion(0)
+            .creationDate(0)
+            .build();
+        indexSettings.updateIndexMetadata(metadata);
         assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomInt(BYTE_SIZE - 1)));
 
         // Check happy path
+        settings = Settings.builder()
+            .put(settings(CURRENT).build())
+            .put(KNN_INDEX, true)
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD, true)
+            .put(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN, new ByteSizeValue(BYTE_SIZE))
+            .build();
+        metadata = IndexMetadata.builder("test-index")
+            .settings(settings)
+            .numberOfShards(1)
+            .numberOfReplicas(0)
+            .version(7)
+            .mappingVersion(0)
+            .settingsVersion(0)
+            .aliasesVersion(0)
+            .creationDate(0)
+            .build();
+        Set<Setting<?>> indexScopedSettings = new HashSet<>(IndexScopedSettings.BUILT_IN_INDEX_SETTINGS);
+        indexScopedSettings.add(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING);
+        indexSettings = new IndexSettings(metadata, settings, new IndexScopedSettings(settings, indexScopedSettings));
         clusterSettings = mock(ClusterSettings.class);
         when(clusterSettings.get(KNN_REMOTE_VECTOR_REPOSITORY_SETTING)).thenReturn("test-vector-repo");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
@@ -125,6 +183,21 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(clusterSettings.get(KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING)).thenReturn(new ByteSizeValue(BYTE_SIZE * 3L));
         assertTrue(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2)));
         assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE * 3 + 1, BYTE_SIZE * 4)));
+
+        // Check index setting not set resolves to enabled
+        settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        metadata = IndexMetadata.builder("test-index")
+            .settings(settings)
+            .numberOfShards(1)
+            .numberOfReplicas(0)
+            .version(7)
+            .mappingVersion(0)
+            .settingsVersion(0)
+            .aliasesVersion(0)
+            .creationDate(0)
+            .build();
+        indexSettings.updateIndexMetadata(metadata);
+        assertTrue(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2)));
     }
 
     public void testFilePathConstruction() {
