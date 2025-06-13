@@ -12,6 +12,7 @@ Compatible with OpenSearch 3.1.0.0
 * [Remote Vector Index Build] Add tuned repository upload/download configurations per benchmarking results [#2662](https://github.com/opensearch-project/k-NN/pull/2662)
 * [Remote Vector Index Build] Add segment size upper bound setting and prepare other settings for GA [#2734](https://github.com/opensearch-project/k-NN/pull/2734)
 * [Remote Vector Index Build] Make `index.knn.remote_index_build.enabled` default to true [#2743](https://github.com/opensearch-project/k-NN/pull/2743)
+* Update rescore context for 4X Compression [#2750](https://github.com/opensearch-project/k-NN/pull/2750)
 
 ### Bug Fixes
 * [BUGFIX] Fix KNN Quantization state cache have an invalid weight threshold [#2666](https://github.com/opensearch-project/k-NN/pull/2666)
