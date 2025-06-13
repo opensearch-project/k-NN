@@ -108,14 +108,14 @@ public enum CompressionLevel {
      *                  is invalid.
      */
     public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version) {
-        //TODO move this to separate class called resolver to resolve rescore context
+        // TODO move this to separate class called resolver to resolve rescore context
         if (modesForRescore.contains(mode)) {
-            if( this == x4 && version.before(Version.V_3_1_0)){
+            if (this == x4 && version.before(Version.V_3_1_0)) {
                 // For index created before 3.1, context was always null and mode is empty
                 return null;
             }
-            // Adjust RescoreContext based on dimension
-            if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
+            // Adjust RescoreContext based on dimension except for 4x compression
+            if (this != x4 && dimension <= RescoreContext.DIMENSION_THRESHOLD) {
                 // For dimensions <= 1000, return a RescoreContext with 5.0f oversample factor
                 return RescoreContext.builder()
                     .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
@@ -128,7 +128,7 @@ public enum CompressionLevel {
     }
 
     @VisibleForTesting
-    RescoreContext getDefaultRescoreContext(Mode mode, int dimension){
+    RescoreContext getDefaultRescoreContext(Mode mode, int dimension) {
         return getDefaultRescoreContext(mode, dimension, Version.CURRENT);
     }
 
