@@ -74,7 +74,6 @@ namespace knn_jni {
              * The compiler hints direct aggressive optimization of floating point operations
              */
 
-            FAISS_PRAGMA_IMPRECISE_FUNCTION_BEGIN
             float distance_to_code_batched_unrolled(const uint8_t * code) {
                 float dist0 = 0.0f, dist1 = 0.0f, dist2 = 0.0f, dist3 = 0.0f;
                 int i = 0;
@@ -96,7 +95,6 @@ namespace knn_jni {
                 // Combine all accumulators and apply correction
                 return dist0 + dist1 + dist2 + dist3 + correction_amount;
             }
-            FAISS_PRAGMA_IMPRECISE_FUNCTION_END
 
             /**
              * Compute per-dimension distance contributions based on the query vector
@@ -125,7 +123,6 @@ namespace knn_jni {
              * This simplifies to: bit_contribution = (1 - 2*query[i])*bit + query[i] ** 2
              * We store (1 - 2*query[i]) as the coefficient and accumulate query[i] ** 2 as correction
              */
-            FAISS_PRAGMA_IMPRECISE_FUNCTION_BEGIN
             void compute_cord_scores_l2() {
                 assert(query != nullptr);
                 FAISS_PRAGMA_IMPRECISE_LOOP
@@ -135,7 +132,6 @@ namespace knn_jni {
                     correction_amount += x * x;
                 }
             }
-            FAISS_PRAGMA_IMPRECISE_FUNCTION_END
 
             /**
              * Compute per-dimension contributions for inner product distance

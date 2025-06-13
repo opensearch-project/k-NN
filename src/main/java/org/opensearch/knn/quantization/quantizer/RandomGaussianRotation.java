@@ -6,6 +6,7 @@
 package org.opensearch.knn.quantization.quantizer;
 
 import lombok.experimental.UtilityClass;
+import org.apache.lucene.util.VectorUtil;
 
 import java.util.Random;
 
@@ -13,7 +14,6 @@ import static org.opensearch.knn.common.KNNConstants.QUANTIZATION_RANDOM_ROTATIO
 
 @UtilityClass
 public class RandomGaussianRotation {
-
     /**
      * Generates a random rotation matrix. Each entry is sampled from a standard Gaussian distribution.
      * Then Gram-Schmidt is used to make the random matrix orthonormal (so it represents
@@ -80,6 +80,7 @@ public class RandomGaussianRotation {
 
     /**
      * Applies a rotation to a vector using the provided rotation matrix.
+     * Uses Panama Vector API for SIMD acceleration.
      *
      * @param vector The input vector to be rotated. The input vector is not modified.
      * @param rotationMatrix The rotation matrix.
@@ -90,10 +91,7 @@ public class RandomGaussianRotation {
         float[] rotatedVector = new float[dimensions];
 
         for (int i = 0; i < dimensions; i++) {
-            rotatedVector[i] = 0f;
-            for (int j = 0; j < dimensions; j++) {
-                rotatedVector[i] += rotationMatrix[i][j] * vector[j];
-            }
+            rotatedVector[i] = VectorUtil.dotProduct(rotationMatrix[i], vector);
         }
 
         return rotatedVector;
