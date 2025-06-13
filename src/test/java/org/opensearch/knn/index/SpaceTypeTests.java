@@ -23,12 +23,19 @@ import java.util.Set;
 
 public class SpaceTypeTests extends KNNTestCase {
 
-    public void testGetVectorSimilarityFunction_l2() {
+    public void testGetVectorSimilarityFunction_isValid() {
         assertEquals(VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getKnnVectorSimilarityFunction().getVectorSimilarityFunction());
+        assertEquals(VectorSimilarityFunction.COSINE, SpaceType.COSINESIMIL.getKnnVectorSimilarityFunction().getVectorSimilarityFunction());
+        assertEquals(
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            SpaceType.INNER_PRODUCT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+        );
     }
 
-    public void testGetVectorSimilarityFunction_invalid() {
-        expectThrows(UnsupportedOperationException.class, SpaceType.L1::getKnnVectorSimilarityFunction);
+    public void testGetVectorSimilarityFunction_isNull() {
+        assertNull(SpaceType.L1.getKnnVectorSimilarityFunction());
+        assertNull(SpaceType.LINF.getKnnVectorSimilarityFunction());
+        assertNull(SpaceType.UNDEFINED.getKnnVectorSimilarityFunction());
     }
 
     public void testGetVectorSimilarityFunction_whenInnerproduct_thenConsistentWithScoreTranslation() {
