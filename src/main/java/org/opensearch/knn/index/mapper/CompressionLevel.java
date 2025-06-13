@@ -108,9 +108,9 @@ public enum CompressionLevel {
      *                  is invalid.
      */
     public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version) {
-        //TODO move this to separate class called resolver to resolve rescore context
+        // TODO move this to separate class called resolver to resolve rescore context
         if (modesForRescore.contains(mode)) {
-            if( this == x4 && version.before(Version.V_3_1_0)){
+            if (this == x4 && version.before(Version.V_3_1_0)) {
                 // For index created before 3.1, context was always null and mode is empty
                 return null;
             }
@@ -128,7 +128,7 @@ public enum CompressionLevel {
     }
 
     @VisibleForTesting
-    RescoreContext getDefaultRescoreContext(Mode mode, int dimension){
+    RescoreContext getDefaultRescoreContext(Mode mode, int dimension) {
         return getDefaultRescoreContext(mode, dimension, Version.CURRENT);
     }
 

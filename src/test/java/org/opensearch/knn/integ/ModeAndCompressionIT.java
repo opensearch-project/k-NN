@@ -650,7 +650,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
         List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
         assertEquals(NUM_DOCS, exactSearchKnnResults.size());
-        if(Mode.ON_DISK.getName().equals(mode)){
+        if (Mode.ON_DISK.getName().equals(mode)) {
             Assert.assertEquals(exactSearchKnnResults, knnResults);
         }
 
