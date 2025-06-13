@@ -4,6 +4,7 @@ Compatible with OpenSearch 3.1.0.0
 
 ### Features
 * Introduce memory optimized search for Faiss binary index types [#2735](https://github.com/opensearch-project/k-NN/pull/2735)
+* Create RescoreKnnVectorQuery to support rescore after executing inner vector search query [#2709](https://github.com/opensearch-project/k-NN/pull/2709)
 
 ### Enhancements
 * Removing redundant type conversions for script scoring for hamming space with binary vectors [#2351](https://github.com/opensearch-project/k-NN/pull/2351)
