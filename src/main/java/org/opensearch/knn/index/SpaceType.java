@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.lucene.index.VectorSimilarityFunction;
+
 import java.util.Arrays;
 import java.util.Locale;
 
@@ -33,6 +35,12 @@ public enum SpaceType {
         @Override
         public float scoreTranslation(final float rawScore) {
             throw new IllegalStateException("Unsupported method");
+        }
+
+        @Override
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            // not supported
+            return null;
         }
 
         @Override
@@ -105,11 +113,22 @@ public enum SpaceType {
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
         }
+
+        @Override
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            // not supported
+            return null;
+        }
     },
     LINF("linf", SpaceType.GENERIC_SCORE_TRANSLATION) {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
+        }
+
+        @Override
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            return null;
         }
     },
     INNER_PRODUCT("innerproduct") {
@@ -163,6 +182,7 @@ public enum SpaceType {
         public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
             return KNNVectorSimilarityFunction.HAMMING;
         }
+
     };
 
     public static SpaceType DEFAULT = L2;
@@ -202,9 +222,7 @@ public enum SpaceType {
      *
      * @return KNNVectorSimilarityFunction
      */
-    public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
-        throw new UnsupportedOperationException(String.format("Space [%s] does not have a knn vector similarity function", getValue()));
-    }
+    public abstract KNNVectorSimilarityFunction getKnnVectorSimilarityFunction();
 
     /**
      * Validate if the given byte vector is supported by this space type
@@ -263,6 +281,23 @@ public enum SpaceType {
         }
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "Unable to find space: %s . Valid values are: %s", spaceTypeName, Arrays.toString(VALID_VALUES))
+        );
+    }
+
+    public static SpaceType getSpace(VectorSimilarityFunction similarityFunction) {
+        for (SpaceType currentSpaceType : SpaceType.values()) {
+            KNNVectorSimilarityFunction knnSimilarityFunction = currentSpaceType.getKnnVectorSimilarityFunction();
+            if (knnSimilarityFunction != null && knnSimilarityFunction.getVectorSimilarityFunction() == similarityFunction) {
+                return currentSpaceType;
+            }
+        }
+        throw new IllegalArgumentException(
+            String.format(
+                Locale.ROOT,
+                "Unable to find space type for similarity function : %s . Valid values are: %s",
+                similarityFunction,
+                Arrays.toString(KNNVectorSimilarityFunction.values())
+            )
         );
     }
 
