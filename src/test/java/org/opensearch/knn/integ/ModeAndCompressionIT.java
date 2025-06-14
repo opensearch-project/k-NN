@@ -650,8 +650,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
         List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
         assertEquals(NUM_DOCS, exactSearchKnnResults.size());
-
-        if (CompressionLevel.x4.getName().equals(compressionLevelString) == false && Mode.ON_DISK.getName().equals(mode)) {
+        if (Mode.ON_DISK.getName().equals(mode)) {
             Assert.assertEquals(exactSearchKnnResults, knnResults);
         }
 
@@ -681,7 +680,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         responseBody = EntityUtils.toString(response.getEntity());
         knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
         assertEquals(K, knnResults.size());
-        if (CompressionLevel.x4.getName().equals(compressionLevelString) == false && Mode.ON_DISK.getName().equals(mode)) {
+        if (Mode.ON_DISK.getName().equals(mode)) {
             Assert.assertEquals(exactSearchKnnResults, knnResults);
         }
     }
