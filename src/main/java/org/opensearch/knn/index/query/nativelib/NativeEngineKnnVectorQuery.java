@@ -169,6 +169,7 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .radius(knnQuery.getRadius())
                     .floatQueryVector(knnQuery.getQueryVector())
                     .byteQueryVector(knnQuery.getByteQueryVector())
+                    .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
                     .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafResult.getFilterBits(), rescoreResult);
@@ -217,6 +218,7 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .field(knnQuery.getField())
                     .floatQueryVector(knnQuery.getQueryVector())
                     .byteQueryVector(knnQuery.getByteQueryVector())
+                    .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
                     .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafeResult.getFilterBits(), rescoreResult);

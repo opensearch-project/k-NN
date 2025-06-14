@@ -89,6 +89,9 @@ public class ExactSearcher {
      */
     private TopDocs doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext context, KNNIterator iterator)
         throws IOException {
+        // Ensure `isMemoryOptimizedSearchEnabled` is set. This is necessary to determine whether distance to score conversion is required.
+        assert (context.isMemoryOptimizedSearchEnabled != null);
+
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
         if (fieldInfo == null) {
@@ -99,7 +102,13 @@ public class ExactSearcher {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
-        final float minScore = spaceType.scoreTranslation(context.getRadius());
+        // We need to use the given radius when memory optimized search is enabled. Since it relies on Lucene's scoring framework, the given
+        // max distance is already converted min score then saved in `radius`. Thus, we don't need a score translation which does not make
+        // sense as it is treating min score as a max distance otherwise.
+        final float minScore = context.isMemoryOptimizedSearchEnabled
+            ? context.getRadius()
+            : spaceType.scoreTranslation(context.getRadius());
+
         return filterDocsByMinScore(context, iterator, minScore);
     }
 
@@ -268,5 +277,6 @@ public class ExactSearcher {
         String field;
         Integer maxResultWindow;
         VectorSimilarityFunction similarityFunction;
+        Boolean isMemoryOptimizedSearchEnabled;
     }
 }

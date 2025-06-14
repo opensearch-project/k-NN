@@ -34,8 +34,7 @@ public class MOSFaissFloatIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
     }
 
     public void testWhenNoIndexBuilt() {
-        // TODO : Fix this
-        // doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, true, SpaceType.L2, NO_BUILD_HNSW);
-        // doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, false, SpaceType.L2, NO_BUILD_HNSW);
+        doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, true, SpaceType.L2, NO_BUILD_HNSW);
+        doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, false, SpaceType.L2, NO_BUILD_HNSW);
     }
 }
