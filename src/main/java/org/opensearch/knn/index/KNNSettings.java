@@ -412,7 +412,7 @@ public class KNNSettings {
      */
     public static final Setting<Boolean> KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
         KNN_INDEX_REMOTE_VECTOR_BUILD,
-        false,
+        true,
         Dynamic,
         IndexScope
     );
