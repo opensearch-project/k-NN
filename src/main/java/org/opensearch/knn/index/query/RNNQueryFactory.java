@@ -71,7 +71,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
-        final boolean memoryOptimizedSearchSupported = createQueryRequest.isMemoryOptimizedSearchSupported();
+        final boolean memoryOptimizedSearchEnabled = createQueryRequest.isMemoryOptimizedSearchEnabled();
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             BitSetProducer parentFilter = null;
@@ -92,7 +92,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 .vectorDataType(vectorDataType)
                 .methodParameters(methodParameters)
                 .context(knnQueryContext)
-                .isMemoryOptimizedSearch(memoryOptimizedSearchSupported)
+                .isMemoryOptimizedSearch(memoryOptimizedSearchEnabled)
                 .filterQuery(filterQuery)
                 .build();
         }
