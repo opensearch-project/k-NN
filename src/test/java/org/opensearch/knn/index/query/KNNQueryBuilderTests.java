@@ -680,7 +680,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     private void do_testDoToQuery_whenMemoryOptimizedSearchIsEnabled(
         final boolean memoryOptimizedSearchEnabled,
-        final boolean memoryOptimizedSearchSupportedInField,
+        final boolean memoryOptimizedSearchEnabledInField,
         VectorDataType vectorDataType,
         final boolean doRescore
     ) {
@@ -709,7 +709,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             // Field type
             KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-            when(mockKNNVectorField.isMemoryOptimizedSearchSupported()).thenReturn(memoryOptimizedSearchSupportedInField);
+            when(mockKNNVectorField.isMemoryOptimizedSearchAvailable()).thenReturn(memoryOptimizedSearchEnabledInField);
             when(mockKNNVectorField.getVectorDataType()).thenReturn(vectorDataType);
             if (doRescore) {
                 when(mockKNNVectorField.resolveRescoreContext(any())).thenReturn(mock(RescoreContext.class));
@@ -737,7 +737,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 knnQuery = (KNNQuery) query;
             }
 
-            final boolean memoryOptimizedEnabled = memoryOptimizedSearchEnabled && memoryOptimizedSearchSupportedInField;
+            final boolean memoryOptimizedEnabled = memoryOptimizedSearchEnabled && memoryOptimizedSearchEnabledInField;
             if (memoryOptimizedEnabled) {
                 if (vectorDataType == VectorDataType.FLOAT) {
                     assertEquals(queryVector.length, knnQuery.getQueryVector().length);

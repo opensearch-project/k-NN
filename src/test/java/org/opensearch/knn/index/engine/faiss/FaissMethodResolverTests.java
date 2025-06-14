@@ -225,22 +225,6 @@ public class FaissMethodResolverTests extends KNNTestCase {
             )
         );
 
-        // Invalid spec ondisk and compression is 1
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                null,
-                KNNMethodConfigContext.builder()
-                    .vectorDataType(VectorDataType.FLOAT)
-                    .mode(Mode.ON_DISK)
-                    .compressionLevel(CompressionLevel.x1)
-                    .versionCreated(Version.CURRENT)
-                    .build(),
-                false,
-                SpaceType.L2
-            )
-        );
-
         // Invalid compression conflict
         expectThrows(
             ValidationException.class,

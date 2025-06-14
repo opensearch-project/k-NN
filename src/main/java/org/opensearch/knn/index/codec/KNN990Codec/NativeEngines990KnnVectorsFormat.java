@@ -20,18 +20,11 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.index.IndexSettings;
-import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
-import java.util.Optional;
-
-import static org.opensearch.knn.index.KNNSettings.DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
-import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
 /**
  * This is a Vector format that will be used for Native engines like Faiss and Nmslib for reading and writing vector
@@ -44,7 +37,6 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     private static final String FORMAT_NAME = "NativeEngines990KnnVectorsFormat";
     private static int approximateThreshold;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
-    private final boolean memoryOptimizedSearchEnabled;
 
     public NativeEngines990KnnVectorsFormat() {
         this(new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer()));
@@ -59,20 +51,18 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     }
 
     public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat, int approximateThreshold) {
-        this(flatVectorsFormat, approximateThreshold, new NativeIndexBuildStrategyFactory(), Optional.empty());
+        this(flatVectorsFormat, approximateThreshold, new NativeIndexBuildStrategyFactory());
     }
 
     public NativeEngines990KnnVectorsFormat(
         final FlatVectorsFormat flatVectorsFormat,
         int approximateThreshold,
-        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
-        final Optional<MapperService> mapperService
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
         super(FORMAT_NAME);
         NativeEngines990KnnVectorsFormat.flatVectorsFormat = flatVectorsFormat;
         NativeEngines990KnnVectorsFormat.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
-        this.memoryOptimizedSearchEnabled = isMemoryOptimizedSearchSupported(mapperService);
     }
 
     /**
@@ -97,7 +87,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public KnnVectorsReader fieldsReader(final SegmentReadState state) throws IOException {
-        return new NativeEngines990KnnVectorsReader(state, flatVectorsFormat.fieldsReader(state), memoryOptimizedSearchEnabled);
+        return new NativeEngines990KnnVectorsReader(state, flatVectorsFormat.fieldsReader(state));
     }
 
     /**
@@ -118,22 +108,5 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
             + ", approximateThreshold="
             + approximateThreshold
             + ")";
-    }
-
-    private static boolean isMemoryOptimizedSearchSupported(final Optional<MapperService> mapperService) {
-        if (mapperService.isPresent()) {
-            final IndexSettings indexSettings = mapperService.get().getIndexSettings();
-            if (indexSettings != null) {
-                final Settings settings = indexSettings.getSettings();
-                if (settings != null) {
-                    try {
-                        return settings.getAsBoolean(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
-                    } catch (Throwable th) {
-                        log.error("Failed to get a bool flag of [{}] from settings.", MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
-                    }
-                }
-            }
-        }
-        return false;
     }
 }

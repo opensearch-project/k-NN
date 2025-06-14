@@ -927,19 +927,14 @@ public class KNNSettings {
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {
-        return KNNSettings.state().clusterService.state()
-            .getMetadata()
-            .index(indexName)
-            .getSettings()
-            .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
+        return getIndexSettings(indexName).getAsInt(
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD,
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE
+        );
     }
 
-    public static boolean isShardLevelRescoringDisabledForDiskBasedVector(String indexName) {
-        return KNNSettings.state().clusterService.state()
-            .getMetadata()
-            .index(indexName)
-            .getSettings()
-            .getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
+    public static boolean isShardLevelRescoringDisabledForDiskBasedVector(final String indexName) {
+        return getIndexSettings(indexName).getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
     }
 
     public void initialize(Client client, ClusterService clusterService) {
@@ -1031,11 +1026,11 @@ public class KNNSettings {
      * @return True if memory optimized search is enabled, otherwise False.
      */
     public static boolean isMemoryOptimizedKnnSearchModeEnabled(@NonNull final String indexName) {
-        return KNNSettings.state().clusterService.state()
-            .getMetadata()
-            .index(indexName)
-            .getSettings()
-            .getAsBoolean(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
+        return getIndexSettings(indexName).getAsBoolean(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
+    }
+
+    public static Settings getIndexSettings(@NonNull final String indexName) {
+        return KNNSettings.state().clusterService.state().getMetadata().index(indexName).getSettings();
     }
 
     public void setClusterService(ClusterService clusterService) {

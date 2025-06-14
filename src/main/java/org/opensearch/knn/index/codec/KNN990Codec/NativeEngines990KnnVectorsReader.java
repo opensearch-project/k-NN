@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
+import lombok.Getter;
+import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
@@ -22,7 +24,6 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
-import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.IOUtils;
@@ -61,26 +62,15 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private Map<String, String> quantizationStateCacheKeyPerField;
     private final SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
-    private volatile Map<String, VectorSearcher> vectorSearchers;
+    private volatile Map<String, VectorSearcherHolder> vectorSearchers;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
-        this(state, flatVectorsReader, false);
-    }
-
-    public NativeEngines990KnnVectorsReader(
-        final SegmentReadState state,
-        final FlatVectorsReader flatVectorsReader,
-        final boolean memoryOptimizedSearchEnabled
-    ) {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
 
         loadCacheKeyMap();
-
-        if (memoryOptimizedSearchEnabled && state.context.context() != IOContext.Context.MERGE) {
-            loadMemoryOptimizedSearcherIfRequired();
-        }
+        fillVectorSearcherTable();
     }
 
     /**
@@ -224,12 +214,14 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         cacheKeys.forEach(nativeMemoryCacheManager::invalidate);
 
         // Close a reader.
-        List<Closeable> closeables = new ArrayList<>();
+        final List<Closeable> closeables = new ArrayList<>();
         closeables.add(flatVectorsReader);
 
         // Close vector searchers if loaded.
         if (vectorSearchers != null) {
-            closeables.addAll(vectorSearchers.values());
+            closeables.addAll(
+                vectorSearchers.values().stream().filter(VectorSearcherHolder::isSet).map(VectorSearcherHolder::getVectorSearcher).toList()
+            );
         }
 
         IOUtils.close(closeables);
@@ -244,16 +236,15 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     }
 
     private boolean trySearchWithMemoryOptimizedSearch(
-        String field,
-        Object target,
-        KnnCollector knnCollector,
-        Bits acceptDocs,
-        boolean isFloatVector
+        final String field,
+        final Object target,
+        final KnnCollector knnCollector,
+        final Bits acceptDocs,
+        final boolean isFloatVector
     ) throws IOException {
-        loadMemoryOptimizedSearcherIfRequired();
-
         // Try with memory optimized searcher
-        final VectorSearcher memoryOptimizedSearcher = vectorSearchers.get(field);
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(field);
+
         if (memoryOptimizedSearcher != null) {
             if (isFloatVector) {
                 memoryOptimizedSearcher.search((float[]) target, knnCollector, acceptDocs);
@@ -273,6 +264,20 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         }
     }
 
+    private void fillVectorSearcherTable() {
+        // We need sufficient memory space for this table as it will be queried for every single search.
+        // Hence, having larger space to approximate a perfect hash here.
+        vectorSearchers = new HashMap<>(RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(), SUFFICIENT_LOAD_FACTOR);
+
+        for (final FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+            final IOSupplier<VectorSearcher> searcherIOSupplier = getVectorSearcherSupplier(fieldInfo);
+            if (searcherIOSupplier != null) {
+                // This field type is supported
+                vectorSearchers.put(fieldInfo.getName(), new VectorSearcherHolder());
+            }
+        }
+    }
+
     private static List<String> getVectorCacheKeysFromSegmentReaderState(SegmentReadState segmentReadState) {
         final List<String> cacheKeys = new ArrayList<>();
 
@@ -288,42 +293,44 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         return cacheKeys;
     }
 
-    private void loadMemoryOptimizedSearcherIfRequired() {
-        if (vectorSearchers != null) {
-            return;
+    private VectorSearcher loadMemoryOptimizedSearcherIfRequired(final String fieldName) {
+        final VectorSearcherHolder searcherHolder = vectorSearchers.get(fieldName);
+        if (searcherHolder == null) {
+            // This is not KNN field or unsupported field.
+            return null;
         }
 
-        synchronized (this) {
-            if (vectorSearchers != null) {
-                return;
+        if (searcherHolder.isSet()) {
+            return searcherHolder.getVectorSearcher();
+        }
+
+        synchronized (searcherHolder) {
+            if (searcherHolder.isSet()) {
+                return searcherHolder.getVectorSearcher();
             }
 
-            // We need sufficient memory space for this table as it will be queried for every single search.
-            // Hence, having larger space to approximate a perfect hash here.
-            final Map<String, VectorSearcher> vectorSearcherPerField = new HashMap<>(
-                RESERVE_TWICE_SPACE * segmentReadState.fieldInfos.size(),
-                SUFFICIENT_LOAD_FACTOR
-            );
+            VectorSearcher searcher = null;
 
             try {
-                for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+                final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(fieldName);
+                if (fieldInfo != null) {
                     final IOSupplier<VectorSearcher> searcherSupplier = getVectorSearcherSupplier(fieldInfo);
                     if (searcherSupplier != null) {
-                        final VectorSearcher searcher = searcherSupplier.get();
+                        searcher = searcherSupplier.get();
                         if (searcher != null) {
                             // It's supported. There can be a case where a certain index type underlying is not yet supported while
                             // KNNEngine
                             // itself supports memory optimized searching.
-                            vectorSearcherPerField.put(fieldInfo.getName(), searcher);
+                            searcherHolder.setVectorSearcher(searcher);
                         }
                     }
                 }
 
-                vectorSearchers = vectorSearcherPerField;
+                return searcher;
             } catch (Exception e) {
                 // Close opened searchers first, then suppress
                 try {
-                    IOUtils.closeWhileHandlingException(vectorSearcherPerField.values());
+                    IOUtils.closeWhileHandlingException(searcher);
                 } catch (Exception closeException) {
                     log.error(closeException.getMessage(), closeException);
                 }
@@ -362,5 +369,32 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
         // Not supported
         return null;
+    }
+
+    /**
+     * A holder for a {@link VectorSearcher} reference.
+     * Initially, the reference is {@code null}. The reference is expected to be set exactly once via the {@code setVectorSearcher} method,
+     * following a proper thread-safety policy (In most cases, `synchronized` will work). Once the reference is set,
+     * it is assumed to remain immutable.
+     */
+    public static class VectorSearcherHolder {
+        @Getter
+        private volatile VectorSearcher vectorSearcher = null;
+
+        /**
+         * Updates the {@link VectorSearcher} reference.
+         * This method should be called with an appropriate thread-safety mechanism.
+         * In most cases, using {@code synchronized} is sufficient.
+         *
+         * @param vectorSearcher the {@link VectorSearcher} instance to assign.
+         */
+        public void setVectorSearcher(@NonNull final VectorSearcher vectorSearcher) {
+            assert (this.vectorSearcher == null);
+            this.vectorSearcher = vectorSearcher;
+        }
+
+        public boolean isSet() {
+            return vectorSearcher != null;
+        }
     }
 }

@@ -5,7 +5,9 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -13,13 +15,20 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.KNNMappingConfig;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -30,9 +39,9 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     private static final Optional<String> NO_MODEL_ID = Optional.empty();
     private static final QuantizationConfig NO_QUANTIZATION = null;
 
-    public void testLuceneEngineIsSupported() {
+    public void testLuceneEngineIsIsSupportedFieldType() {
         // Lucene + any configurations must be supported.
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.INNER_PRODUCT,
@@ -42,7 +51,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 NO_MODEL_ID
             )
         );
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.INNER_PRODUCT,
@@ -52,7 +61,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 NO_MODEL_ID
             )
         );
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.L2,
@@ -62,7 +71,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 NO_MODEL_ID
             )
         );
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.L2,
@@ -74,13 +83,13 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
     }
 
-    public void testFaissSupportedCases() {
+    public void testFaissIsSupportedFieldTypeCases() {
         // HNSW,float, L2|IP, Flat
         // HNSW,float, L2|IP, SQ
         // HNSW,binary, Hamming, binary
         // Note that we do support byte index. And it is VectorDataType.FLOAT for the byte index, not VectorDataType.BYTE.
 
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.L2,
@@ -94,7 +103,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             )
         );
 
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.L2,
@@ -108,7 +117,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             )
         );
 
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.HAMMING,
@@ -122,7 +131,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             )
         );
 
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.HAMMING,
@@ -136,7 +145,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             )
         );
 
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.HAMMING,
@@ -152,7 +161,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     }
 
     public void testFaissQuantizationCases() {
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.HAMMING,
@@ -166,7 +175,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             )
         );
 
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.HAMMING,
@@ -180,7 +189,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             )
         );
 
-        mustSupported(
+        mustIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.HAMMING,
@@ -197,7 +206,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
     public void testFaissUnsupportedCases() {
         // Unsupported encoding
-        mustNotSupported(
+        mustNotIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.L2,
@@ -212,7 +221,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
 
         // Invalid encoder type
-        mustNotSupported(
+        mustNotIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.L2,
@@ -224,9 +233,9 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
     }
 
-    public void testPQNotSupported() {
+    public void testPQNotIsSupportedFieldType() {
         // Non-empty model id
-        mustNotSupported(
+        mustNotIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.FAISS,
                 SpaceType.INNER_PRODUCT,
@@ -241,16 +250,66 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
     }
 
-    private void mustSupported(final TestingSpec testingSpec) {
+    public void testIsSupportedFieldTypeDuringSearch() {
+        // |----------------------|-------------|---------------||-----------|
+        // | field type supported | mem_opt_src | on_disk && 1x || supported |
+        // |----------------------|-------------|---------------||-----------|
+        // | true | true | true || true |
+        // | true | true | false || true |
+        // | true | false | true || true |
+        // | true | false | false || false |
+        // | false | true | true || false |
+        // | false | true | false || false |
+        // | false | false | true || false |
+        // | false | false | false || false |
+        // |----------------------|-------------|---------------||-----------|
+
+        doTestIsSupportedFieldTypeDuringSearch(true, true, true, true);
+        doTestIsSupportedFieldTypeDuringSearch(true, true, false, true);
+        doTestIsSupportedFieldTypeDuringSearch(true, false, true, true);
+        doTestIsSupportedFieldTypeDuringSearch(true, false, false, false);
+        doTestIsSupportedFieldTypeDuringSearch(false, true, true, false);
+        doTestIsSupportedFieldTypeDuringSearch(false, true, false, false);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, true, false);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, false, false);
+    }
+
+    public void doTestIsSupportedFieldTypeDuringSearch(
+        final boolean fieldTypeSupported,
+        final boolean memoryOptSrchSupported,
+        final boolean onDiskWith1x,
+        final boolean expected
+    ) {
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            knnSettingsMockedStatic.when(() -> KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(any())).thenReturn(memoryOptSrchSupported);
+
+            final KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
+            when(fieldType.isMemoryOptimizedSearchAvailable()).thenReturn(fieldTypeSupported);
+
+            final KNNMappingConfig mappingConfig = mock(KNNMappingConfig.class);
+            if (onDiskWith1x) {
+                when(mappingConfig.getMode()).thenReturn(Mode.ON_DISK);
+                when(mappingConfig.getCompressionLevel()).thenReturn(CompressionLevel.x1);
+            } else {
+                when(mappingConfig.getMode()).thenReturn(Mode.NOT_CONFIGURED);
+                when(mappingConfig.getCompressionLevel()).thenReturn(CompressionLevel.NOT_CONFIGURED);
+            }
+            when(fieldType.getKnnMappingConfig()).thenReturn(mappingConfig);
+
+            assertEquals(expected, MemoryOptimizedSearchSupportSpec.isSupportedFieldType(fieldType, "IndexName"));
+        }
+    }
+
+    private void mustIsSupportedFieldType(final TestingSpec testingSpec) {
         doTest(testingSpec, true);
     }
 
-    private void mustNotSupported(final TestingSpec testingSpec) {
+    private void mustNotIsSupportedFieldType(final TestingSpec testingSpec) {
         doTest(testingSpec, false);
     }
 
     private void doTest(final TestingSpec testingSpec, final boolean expected) {
-        final boolean isSupported = MemoryOptimizedSearchSupportSpec.supported(
+        final boolean isSupported = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
             testingSpec.methodComponentContext,
             testingSpec.quantizationConfig,
             testingSpec.modelId

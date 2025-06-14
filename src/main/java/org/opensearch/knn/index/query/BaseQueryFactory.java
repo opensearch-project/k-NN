@@ -61,7 +61,7 @@ public abstract class BaseQueryFactory {
         private QueryShardContext context;
         private RescoreContext rescoreContext;
         private boolean expandNested;
-        private boolean memoryOptimizedSearchSupported;
+        private boolean memoryOptimizedSearchEnabled;
 
         public Optional<QueryBuilder> getFilter() {
             return Optional.ofNullable(filter);
