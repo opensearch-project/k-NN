@@ -41,6 +41,7 @@ import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BASIC
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BUILD_ENDPOINT;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.JOB_ID_FIELD;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.STATUS_ENDPOINT;
+import org.apache.hc.core5.http.HttpEntity;
 
 /**
  * Class to handle all interactions with the remote vector build service.
@@ -87,7 +88,15 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
             String response = AccessController.doPrivileged(
                 (PrivilegedExceptionAction<String>) () -> httpClient.execute(buildRequest, body -> {
                     if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
-                        throw new IOException("Failed to submit build request, got status code: " + body.getCode());
+                        HttpEntity entity = body.getEntity();
+                        String responseBody = entity != null ? EntityUtils.toString(entity) : "";
+                        throw new IOException(
+                            String.format(
+                                "Failed to submit build request, got status code: %d, response body: %s",
+                                body.getCode(),
+                                responseBody
+                            )
+                        );
                     }
                     return EntityUtils.toString(body.getEntity());
                 })
