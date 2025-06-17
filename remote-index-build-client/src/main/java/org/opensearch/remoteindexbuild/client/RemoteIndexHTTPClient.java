@@ -89,7 +89,7 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
                 (PrivilegedExceptionAction<String>) () -> httpClient.execute(buildRequest, body -> {
                     if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
                         HttpEntity entity = body.getEntity();
-                        String responseBody = entity != null ? EntityUtils.toString(entity) : "";
+                        String responseBody = entity != null ? EntityUtils.toString(entity) : StringUtils.EMPTY;
                         throw new IOException(
                             String.format(
                                 "Failed to submit build request, got status code: %d, response body: %s",
