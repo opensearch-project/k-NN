@@ -90,6 +90,10 @@ public class JNIService {
         );
     }
 
+    public static long buildFlatIndexFromVectors(float[] vectors, int numVectors, int dimension, String metricType) {
+        return FaissService.buildFlatIndexFromVectors(vectors, numVectors, dimension, metricType);
+    }
+
     /**
      * Writes a faiss index to disk.
      *

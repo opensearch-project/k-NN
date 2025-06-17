@@ -103,6 +103,8 @@ class FaissService {
      */
     public static native void insertToIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
 
+    public static native long buildFlatIndexFromVectors(float[] vectors, int numVectors, int dimension, String metricType);
+
     /**
      * Inserts to a faiss index. The memory occupied by the vectorsAddress will be freed up during the
      * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer

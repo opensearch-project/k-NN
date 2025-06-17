@@ -30,10 +30,13 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
+import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.io.FileWriter;
 
 import static org.opensearch.knn.common.KNNConstants.BUCKET;
 import static org.opensearch.knn.common.KNNConstants.DOC_ID_FILE_EXTENSION;
@@ -131,6 +134,14 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         return true;
     }
 
+    private static void debugLog(String message) {
+        try (FileWriter fw = new FileWriter("remote_index_debug_java.log", true)) {
+            fw.write(message + "\n");
+        } catch (IOException e) {
+            System.err.println("Debug log write failed: " + e.getMessage());
+        }
+    }
+
     /**
      * Entry point for flush/merge operations. This method orchestrates the following:
      *      1. Writes required data to repository
@@ -155,10 +166,62 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient(KNNSettings.getRemoteBuildServiceEndpoint());
             RemoteBuildResponse remoteBuildResponse = submitBuild(repositoryContext, indexInfo, client);
 
-            // 3. Await vector build completion
+            // 3. Build flat index
+            KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+            int totalDocs = indexInfo.getTotalLiveDocs();
+            Object firstVector = null;
+            int dimension = -1;
+            int idx = 0;
+            float[] vectorData = null;
+            if (knnVectorValues.nextDoc() != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
+                firstVector = knnVectorValues.getVector();
+                if (firstVector instanceof float[] v) {
+                    dimension = v.length;
+                    vectorData = new float[totalDocs * dimension];
+                    System.arraycopy(v, 0, vectorData, idx * dimension, dimension);
+                } else if (firstVector instanceof byte[] v) {
+                    dimension = v.length; // or convert if needed
+                    vectorData = new float[totalDocs * dimension];
+                    for (int i = 0; i < dimension; i++) {
+                        vectorData[idx * dimension + i] = v[i];
+                    }
+                } else {
+                    throw new IllegalArgumentException("Unknown vector type: " + firstVector.getClass());
+                }
+                idx++;
+                // Now continue for the rest:
+                while (knnVectorValues.nextDoc() != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
+                    Object vec = knnVectorValues.getVector();
+                    if (vec instanceof float[] v) {
+                        System.arraycopy(v, 0, vectorData, idx * dimension, dimension);
+                    } else if (vec instanceof byte[] v) {
+                        for (int i = 0; i < dimension; i++) {
+                            vectorData[idx * dimension + i] = v[i];
+                        }
+                    }
+                    idx++;
+                }
+            } else {
+                // No vectors to index; handle as needed for your use case
+                throw new IllegalStateException("No vectors to index");
+            }
+            debugLog("Collected " + idx + " vectors after remote build.");
+
+            String metricType = "L2";
+            Object spaceType = indexInfo.getParameters().get("space_type");
+            if (spaceType != null && spaceType.toString().toUpperCase().contains("IP")) {
+                metricType = "IP";
+            }
+            debugLog("Metric type for FAISS IndexFlat: " + metricType);
+
+            long indexPtr = JNIService.buildFlatIndexFromVectors(vectorData, idx, dimension, metricType);
+            debugLog("Native FAISS IndexFlat pointer returned: " + indexPtr);
+            JNIService.free(indexPtr, KNNEngine.FAISS);
+
+            // 4. Await vector build completion
             RemoteBuildStatusResponse remoteBuildStatusResponse = awaitIndexBuild(remoteBuildResponse, indexInfo, client);
 
-            // 4. Download index file and write to indexOutput
+            // 5. Download index file and write to indexOutput
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
             success = true;
             return;
