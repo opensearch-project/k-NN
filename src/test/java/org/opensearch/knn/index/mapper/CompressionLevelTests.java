@@ -90,12 +90,18 @@ public class CompressionLevelTests extends KNNTestCase {
         assertTrue(rescoreContext.isRescoreEnabled());
         assertFalse(rescoreContext.isUserProvided());
 
-        // x4 with dimension <= 1000 should have an oversample factor of 5.0f (though it doesn't have its own RescoreContext)
+        // x4 with dimension <= 1000 should have an oversample factor of 5.0f
         rescoreContext = CompressionLevel.x4.getDefaultRescoreContext(mode, belowThresholdDimension);
-        assertNull(rescoreContext);
-        // x4 with dimension > 1000 should return null (no RescoreContext is configured for x4)
+        assertNotNull(rescoreContext);
+        assertEquals(1.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
+        // x4 with dimension > 1000 should have an oversample factor of 1.0f
         rescoreContext = CompressionLevel.x4.getDefaultRescoreContext(mode, aboveThresholdDimension);
-        assertNull(rescoreContext);
+        assertNotNull(rescoreContext);
+        assertEquals(1.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertTrue(rescoreContext.isRescoreEnabled());
+        assertFalse(rescoreContext.isUserProvided());
         // Other compression levels should behave similarly with respect to dimension
         rescoreContext = CompressionLevel.x2.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNull(rescoreContext);
