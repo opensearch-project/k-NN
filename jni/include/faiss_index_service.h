@@ -60,10 +60,16 @@ public:
      */
     virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress);
 
-
+    /**
+         * Build a flat (IndexFlat) FAISS index from a set of vectors.
+         *
+         * @param numVectors Number of vectors to add to the index
+         * @param dim Dimension of each vector
+         * @param vectors Vector data as a flat array (size should be numVectors * dim)
+         * @param metricType Metric type for distance calculations (e.g., L2, IP)
+         * @return Memory address of the native IndexFlat object
+         */
     jlong buildFlatIndexFromVectors(int numVectors, int dim, const std::vector<float> &vectors, faiss::MetricType metricType);
-
-
 
     /**
      * Write index to disk

@@ -167,56 +167,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             RemoteBuildResponse remoteBuildResponse = submitBuild(repositoryContext, indexInfo, client);
 
             // 3. Build flat index
-            KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
-            int totalDocs = indexInfo.getTotalLiveDocs();
-            Object firstVector = null;
-            int dimension = -1;
-            int idx = 0;
-            float[] vectorData = null;
-            if (knnVectorValues.nextDoc() != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
-                firstVector = knnVectorValues.getVector();
-                if (firstVector instanceof float[] v) {
-                    dimension = v.length;
-                    vectorData = new float[totalDocs * dimension];
-                    System.arraycopy(v, 0, vectorData, idx * dimension, dimension);
-                } else if (firstVector instanceof byte[] v) {
-                    dimension = v.length; // or convert if needed
-                    vectorData = new float[totalDocs * dimension];
-                    for (int i = 0; i < dimension; i++) {
-                        vectorData[idx * dimension + i] = v[i];
-                    }
-                } else {
-                    throw new IllegalArgumentException("Unknown vector type: " + firstVector.getClass());
-                }
-                idx++;
-                // Now continue for the rest:
-                while (knnVectorValues.nextDoc() != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
-                    Object vec = knnVectorValues.getVector();
-                    if (vec instanceof float[] v) {
-                        System.arraycopy(v, 0, vectorData, idx * dimension, dimension);
-                    } else if (vec instanceof byte[] v) {
-                        for (int i = 0; i < dimension; i++) {
-                            vectorData[idx * dimension + i] = v[i];
-                        }
-                    }
-                    idx++;
-                }
-            } else {
-                // No vectors to index; handle as needed for your use case
-                throw new IllegalStateException("No vectors to index");
-            }
-            debugLog("Collected " + idx + " vectors after remote build.");
-
-            String metricType = "L2";
-            Object spaceType = indexInfo.getParameters().get("space_type");
-            if (spaceType != null && spaceType.toString().toUpperCase().contains("IP")) {
-                metricType = "IP";
-            }
-            debugLog("Metric type for FAISS IndexFlat: " + metricType);
-
-            long indexPtr = JNIService.buildFlatIndexFromVectors(vectorData, idx, dimension, metricType);
-            debugLog("Native FAISS IndexFlat pointer returned: " + indexPtr);
-            JNIService.free(indexPtr, KNNEngine.FAISS);
+            buildFlatIndex(indexInfo);
 
             // 4. Await vector build completion
             RemoteBuildStatusResponse remoteBuildStatusResponse = awaitIndexBuild(remoteBuildResponse, indexInfo, client);
@@ -279,6 +230,62 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } finally {
             metrics.endBuildRequestMetrics(success);
         }
+    }
+
+    private void buildFlatIndex(BuildIndexParams indexInfo) throws IOException {
+        KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+        int totalDocs = indexInfo.getTotalLiveDocs();
+        Object firstVector = null;
+        int dimension;
+        int idx = 0;
+        float[] vectorData;
+
+        if (knnVectorValues.nextDoc() == org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
+            throw new IllegalStateException("No vectors to index");
+        }
+
+        // First vector
+        firstVector = knnVectorValues.getVector();
+        if (firstVector instanceof float[] v) {
+            dimension = v.length;
+            vectorData = new float[totalDocs * dimension];
+            System.arraycopy(v, 0, vectorData, 0, dimension);
+        } else if (firstVector instanceof byte[] v) {
+            dimension = v.length;
+            vectorData = new float[totalDocs * dimension];
+            for (int i = 0; i < dimension; i++) {
+                vectorData[i] = v[i];
+            }
+        } else {
+            throw new IllegalArgumentException("Unknown vector type: " + firstVector.getClass());
+        }
+        idx = 1;
+
+        // Rest of the vectors
+        while (knnVectorValues.nextDoc() != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
+            Object vec = knnVectorValues.getVector();
+            if (vec instanceof float[] v) {
+                System.arraycopy(v, 0, vectorData, idx * dimension, dimension);
+            } else if (vec instanceof byte[] v) {
+                for (int i = 0; i < dimension; i++) {
+                    vectorData[idx * dimension + i] = v[i];
+                }
+            }
+            idx++;
+        }
+
+        debugLog("Collected " + idx + " vectors after remote build.");
+
+        String metricType = "L2";
+        Object spaceType = indexInfo.getParameters().get("space_type");
+        if (spaceType != null && spaceType.toString().toUpperCase().contains("IP")) {
+            metricType = "IP";
+        }
+        debugLog("Metric type for FAISS IndexFlat: " + metricType);
+
+        long indexPtr = JNIService.buildFlatIndexFromVectors(vectorData, idx, dimension, metricType);
+        debugLog("Native FAISS IndexFlat pointer returned: " + indexPtr);
+        JNIService.free(indexPtr, KNNEngine.FAISS);
     }
 
     /**

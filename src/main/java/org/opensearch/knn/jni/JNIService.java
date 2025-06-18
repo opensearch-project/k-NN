@@ -90,6 +90,15 @@ public class JNIService {
         );
     }
 
+    /**
+     * Builds a flat FAISS index from the given float vectors.
+     *
+     * @param vectors     Array of float vectors (size: numVectors * dimension)
+     * @param numVectors  Number of vectors
+     * @param dimension   Dimension of each vector
+     * @param metricType  Metric type for the index ("L2", "IP", etc.)
+     * @return            Native memory address of the created index
+     */
     public static long buildFlatIndexFromVectors(float[] vectors, int numVectors, int dimension, String metricType) {
         return FaissService.buildFlatIndexFromVectors(vectors, numVectors, dimension, metricType);
     }
