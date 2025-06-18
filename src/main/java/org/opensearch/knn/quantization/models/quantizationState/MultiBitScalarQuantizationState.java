@@ -14,7 +14,6 @@ import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 
 import java.io.IOException;
@@ -50,15 +49,9 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
     @NonNull
     private float[][] thresholds;
 
-    @Builder.Default
-    private float[] aboveThresholdMeans = null;
-
-    @Builder.Default
-    private float[] belowThresholdMeans = null;
-
-    @Builder.Default
-    private double averageL2L1Ratio = 0.0;
-
+    /**
+     * Rotation matrix used if random rotation is enabled.
+     */
     @Builder.Default
     private float[][] rotationMatrix = null;
 
@@ -83,10 +76,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             out.writeFloatArray(row); // Write each row as a float array
         }
 
-        if (Version.CURRENT.onOrAfter(Version.V_3_0_0)) {
-            out.writeOptionalArray(belowThresholdMeans != null ? new FloatArrayWrapper[]{new FloatArrayWrapper(belowThresholdMeans)} : null);
-            out.writeOptionalArray(aboveThresholdMeans != null ? new FloatArrayWrapper[]{new FloatArrayWrapper(aboveThresholdMeans)} : null);
-            out.writeOptionalDouble(averageL2L1Ratio);
+        if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
             if (rotationMatrix != null) {
                 out.writeBoolean(true);
                 out.writeVInt(rotationMatrix.length);
@@ -108,24 +98,16 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
      * @throws IOException if an I/O error occurs during deserialization.
      */
     public MultiBitScalarQuantizationState(StreamInput in) throws IOException {
-        int version = in.readVInt();
+        int version = in.readVInt(); // Read the version
         this.quantizationParams = new ScalarQuantizationParams(in, version);
 
-        int rows = in.readVInt();
+        int rows = in.readVInt(); // Read the number of rows
         this.thresholds = new float[rows][];
         for (int i = 0; i < rows; i++) {
-            this.thresholds[i] = in.readFloatArray();
+            this.thresholds[i] = in.readFloatArray(); // Read each row as a float array
         }
 
-        if (Version.fromId(version).onOrAfter(Version.V_3_0_0)) {
-            FloatArrayWrapper[] wrappedBelowMeans = in.readOptionalArray(FloatArrayWrapper::new, FloatArrayWrapper[]::new);
-            this.belowThresholdMeans = wrappedBelowMeans != null ? wrappedBelowMeans[0].getArray() : null;
-
-            FloatArrayWrapper[] wrappedAboveMeans = in.readOptionalArray(FloatArrayWrapper::new, FloatArrayWrapper[]::new);
-            this.aboveThresholdMeans = wrappedAboveMeans != null ? wrappedAboveMeans[0].getArray() : null;
-
-            this.averageL2L1Ratio = in.readOptionalDouble();
-
+        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
             if (in.readBoolean()) {
                 int dims = in.readVInt();
                 this.rotationMatrix = new float[dims][];
@@ -229,12 +211,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
         for (float[] row : thresholds) {
             size += RamUsageEstimator.sizeOf(row); // size of each row in the 2D array
         }
-        if (belowThresholdMeans != null) {
-            size += RamUsageEstimator.sizeOf(belowThresholdMeans);
-        }
-        if (aboveThresholdMeans != null) {
-            size += RamUsageEstimator.sizeOf(aboveThresholdMeans);
-        }
+
         if (rotationMatrix != null) {
             size += RamUsageEstimator.shallowSizeOf(rotationMatrix);
             for (float[] row : rotationMatrix) {
@@ -242,26 +219,5 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             }
         }
         return size;
-    }
-
-    private static class FloatArrayWrapper implements Writeable {
-        private final float[] array;
-
-        public FloatArrayWrapper(float[] array) {
-            this.array = array;
-        }
-
-        public FloatArrayWrapper(StreamInput in) throws IOException {
-            this.array = in.readFloatArray();
-        }
-
-        public float[] getArray() {
-            return array;
-        }
-
-        @Override
-        public void writeTo(StreamOutput out) throws IOException {
-            out.writeFloatArray(array);
-        }
     }
 }

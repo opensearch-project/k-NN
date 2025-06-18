@@ -2,26 +2,31 @@
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
+
 package org.opensearch.knn.index.mapper;
 
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.util.VectorUtil;
+import org.opensearch.knn.quantization.quantizer.RandomGaussianRotation;
 
 /**
  * Normalizes vectors using L2 (Euclidean) normalization, ensuring the vector's
  * magnitude becomes 1 while preserving its directional properties.
  */
 @Log4j2
-public class NormalizeVectorTransformer implements VectorTransformer {
-    public NormalizeVectorTransformer() {
-        log.info("Making normalize vector transformer");
+public class RandomRotationVectorTransformer implements VectorTransformer {
+    float[][] rotationMatrix;
+
+    public RandomRotationVectorTransformer(int dimension) {
+        log.info("making new matrix");
+//        this.rotationMatrix = rotationMatrix;
+        this.rotationMatrix = RandomGaussianRotation.generateRotationMatrix(dimension);
     }
 
     @Override
     public void transform(float[] vector) {
-//        log.info("transform called...");
         validateVector(vector);
-        VectorUtil.l2normalize(vector);
+        float[] rotatedVector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
+        System.arraycopy(rotatedVector, 0, vector, 0, vector.length);
     }
 
     /**

@@ -265,6 +265,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (useFullFieldNameValidation(indexCreatedVersion)) {
                 validateFullFieldName(context);
             }
+            // TODO: here's where we might defer to the mdoelFieldMapper.
 
             final MultiFields multiFieldsBuilder = this.multiFieldsBuilder.build(this, context);
             final CopyTo copyToBuilder = copyTo.build();
@@ -645,6 +646,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         OriginalMappingParameters originalMappingParameters
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo);
+        log.info("KNNVectorFieldMapper constructor called");
         this.ignoreMalformed = ignoreMalformed;
         this.stored = stored;
         this.hasDocValues = hasDocValues;
@@ -653,6 +655,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.indexCreatedVersion = indexCreatedVersion;
         this.originalMappingParameters = originalMappingParameters;
         this.isDerivedSourceEnabled = null;
+//        this.mappedFieldType.knnMappingConfig
+//        this.maybeMatrix = mappedFieldType.getKnnMappingConfig().getQuantizationConfig().isEnableRandomRotation();
     }
 
     public KNNVectorFieldMapper clone() {
@@ -760,7 +764,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();
-
+        // if we store the rotation matrix i KNNVectorFieldMapper then we can passto this.
         if (VectorDataType.BINARY == vectorDataType || VectorDataType.BYTE == vectorDataType) {
             Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension, vectorDataType);
             if (bytesArrayOptional.isEmpty()) {

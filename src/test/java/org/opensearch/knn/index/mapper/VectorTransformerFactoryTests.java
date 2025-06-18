@@ -13,14 +13,14 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
 
     public void testAllSpaceTypes_withFaiss() {
         for (SpaceType spaceType : SpaceType.values()) {
-            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType);
+            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType, false, 8);
             validateTransformer(spaceType, KNNEngine.FAISS, transformer);
         }
     }
 
     public void testAllEngines_withCosine() {
         for (KNNEngine engine : KNNEngine.values()) {
-            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(engine, SpaceType.COSINESIMIL);
+            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(engine, SpaceType.COSINESIMIL, false, 8);
             validateTransformer(SpaceType.COSINESIMIL, engine, transformer);
         }
     }

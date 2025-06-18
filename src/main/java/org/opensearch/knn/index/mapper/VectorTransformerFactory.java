@@ -7,6 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -14,6 +15,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
  * Factory class responsible for creating appropriate vector transformers.
  * This factory determines whether vectors need transformation based on the engine type and space type.
  */
+@Log4j2
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class VectorTransformerFactory {
 
@@ -33,8 +35,18 @@ public final class VectorTransformerFactory {
      * @param spaceType The space type
      * @return VectorTransformer An appropriate vector transformer instance
      */
-    public static VectorTransformer getVectorTransformer(final KNNEngine knnEngine, final SpaceType spaceType) {
-        return shouldNormalizeVector(knnEngine, spaceType) ? new NormalizeVectorTransformer() : NOOP_VECTOR_TRANSFORMER;
+    public static VectorTransformer getVectorTransformer(
+        final KNNEngine knnEngine,
+        final SpaceType spaceType,
+        boolean isRandomRotation,
+        int dimension
+    ) {
+        log.info("in factory method");
+        boolean shouldNormalizeVector = shouldNormalizeVector(knnEngine, spaceType);
+        if (shouldNormalizeVector && isRandomRotation) return new RandomRotationNormalizeVectorTransformer(dimension);
+        if (shouldNormalizeVector) return new NormalizeVectorTransformer();
+        if (isRandomRotation) return new RandomRotationVectorTransformer(dimension);
+        return NOOP_VECTOR_TRANSFORMER;
     }
 
     private static boolean shouldNormalizeVector(final KNNEngine knnEngine, final SpaceType spaceType) {

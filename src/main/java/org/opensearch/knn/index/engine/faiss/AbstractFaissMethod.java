@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -23,6 +24,7 @@ import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DES
 import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.isFaissSQClipToFP16RangeEnabled;
 import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.isFaissSQfp16;
 
+@Log4j2
 public abstract class AbstractFaissMethod extends AbstractKNNMethod {
 
     /**
@@ -168,7 +170,9 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
     }
 
     @Override
-    protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
-        return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType);
+    protected VectorTransformer getVectorTransformer(SpaceType spaceType, boolean isRandomRotation, int dimension) {
+        log.info("in abstract faiss method");
+
+        return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType, isRandomRotation, dimension);
     }
 }

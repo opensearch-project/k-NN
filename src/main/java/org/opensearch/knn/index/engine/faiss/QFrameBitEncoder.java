@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
@@ -28,11 +29,14 @@ import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER
 /**
  * Quantization framework binary encoder,
  */
+@Log4j2
 public class QFrameBitEncoder implements Encoder {
 
     public static final String NAME = "binary";
     public static final String BITCOUNT_PARAM = "bits";
     private static final int DEFAULT_BITS = 1;
+    public static final String ENABLE_RANDOM_ROTATION_PARAM = "random_rotation";
+    public static final Boolean DEFAULT_ENABLE_RANDOM_ROTATION = false;
     private static final Set<Integer> validBitCounts = ImmutableSet.of(1, 2, 4);
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
@@ -41,7 +45,8 @@ public class QFrameBitEncoder implements Encoder {
      *   "encoder": {
      *     "name": "binary",
      *     "parameters": {
-     *       "bits": 2
+     *       "bits": 2,
+     *       "random_rotation": true,
      *     }
      *   }
      * }
@@ -52,18 +57,31 @@ public class QFrameBitEncoder implements Encoder {
             BITCOUNT_PARAM,
             new Parameter.IntegerParameter(BITCOUNT_PARAM, DEFAULT_BITS, (v, context) -> validBitCounts.contains(v))
         )
+
+        .addParameter(
+            ENABLE_RANDOM_ROTATION_PARAM,
+            new Parameter.BooleanParameter(ENABLE_RANDOM_ROTATION_PARAM, DEFAULT_ENABLE_RANDOM_ROTATION, (v, context) -> {
+                return true; // all booleans are valid for this toggleable setting.
+            })
+        )
         .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
-            QuantizationConfig quantizationConfig;
+
+            QuantizationConfig.QuantizationConfigBuilder quantizationConfigBuilder = QuantizationConfig.builder();
+
             int bitCount = (int) methodComponentContext.getParameters().getOrDefault(BITCOUNT_PARAM, DEFAULT_BITS);
-            if (bitCount == 1) {
-                quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
-            } else if (bitCount == 2) {
-                quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build();
-            } else if (bitCount == 4) {
-                quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build();
-            } else {
-                throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid bit count: %d", bitCount));
-            }
+            boolean enableRandomRotation = (boolean) methodComponentContext.getParameters()
+                .getOrDefault(ENABLE_RANDOM_ROTATION_PARAM, DEFAULT_ENABLE_RANDOM_ROTATION);
+
+            ScalarQuantizationType quantizationType = switch (bitCount) {
+                case 1 -> ScalarQuantizationType.ONE_BIT;
+                case 2 -> ScalarQuantizationType.TWO_BIT;
+                case 4 -> ScalarQuantizationType.FOUR_BIT;
+                default -> throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid bit count: %d", bitCount));
+            };
+
+            QuantizationConfig quantizationConfig = quantizationConfigBuilder.quantizationType(quantizationType)
+                .enableRandomRotation(enableRandomRotation)
+                .build();
 
             // We use the flat description because we are doing the quantization
             return KNNLibraryIndexingContextImpl.builder().quantizationConfig(quantizationConfig).parameters(new HashMap<>() {

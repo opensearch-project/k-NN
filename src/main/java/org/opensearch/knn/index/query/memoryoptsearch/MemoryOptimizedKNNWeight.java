@@ -18,6 +18,7 @@ import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -77,10 +78,11 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
     ) {
         try {
             if (k > 0) {
+                Version luceneVersion = reader.getSegmentInfo().info.getVersion();
                 // KNN search
                 if (quantizedTargetVector != null) {
                     // Quantization case
-                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
+                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo, luceneVersion) == VectorDataType.BINARY) {
                         return queryIndex(
                             quantizedTargetVector,
                             cardinality,
@@ -96,7 +98,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     // Should never occur, safety if ever any other quantization is added
                     throw new IllegalStateException(
                         "VectorDataType for transfer acquired ["
-                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo)
+                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo, luceneVersion)
                             + "] while it is expected to get ["
                             + VectorDataType.BINARY
                             + "]"

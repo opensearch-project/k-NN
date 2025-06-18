@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
@@ -25,12 +26,15 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
+import org.opensearch.knn.quantization.quantizer.RandomGaussianRotation;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
+import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -45,14 +49,16 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createSto
 /**
  *  Field mapper for all supported engines.
  */
+@Log4j2
 public class EngineFieldMapper extends KNNVectorFieldMapper {
 
     private final FieldType vectorFieldType;
     private final PerDimensionProcessor perDimensionProcessor;
     private final PerDimensionValidator perDimensionValidator;
     private final VectorValidator vectorValidator;
-    private final VectorTransformer vectorTransformer;
+    private VectorTransformer vectorTransformer;
     private final boolean isLuceneEngine;
+    public float[][] maybeRotationMatrix;
 
     public static EngineFieldMapper createFieldMapper(
         String fullname,
@@ -115,6 +121,9 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             }
         );
 
+        // when we create the EngineFieldMapper we should generate a random rotation matrix if that's necessary.
+        log.info("engine field mapper create called");
+
         return new EngineFieldMapper(
             simpleName,
             mappedFieldType,
@@ -160,6 +169,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
 
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = resolvedKnnMethodContext.getSpaceType()
             .getKnnVectorSimilarityFunction();
+        // here we would generate the matrix....
         KNNLibraryIndexingContext knnLibraryIndexingContext = resolvedKnnMethodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(resolvedKnnMethodContext, knnMethodConfigContext);
 
@@ -214,6 +224,11 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             }
 
             this.fieldType.freeze();
+             this.vectorTransformer = getVectorTransformer();
+//            this.vectorTransformerSupplier = knnLibraryIndexingContext::getVectorTransformer;
+//            this.maybeRotationMatrix = maybeCreateRotationMatrix(quantizationConfig, knnMappingConfig.getDimension());
+//            this.vectorTransformer = getVectorTransformer();
+            // this.vectorTransformer = getVectorTransformer() ;
             this.vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
         }
 
@@ -221,6 +236,13 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
         this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
+    }
+
+    private float[][] maybeCreateRotationMatrix(QuantizationConfig quantizationConfig, int dimension) {
+        if (quantizationConfig != null && quantizationConfig.isEnableRandomRotation()) {
+            return RandomGaussianRotation.generateRotationMatrix(dimension);
+        }
+        return null;
     }
 
     private VectorSimilarityFunction findBestMatchingVectorSimilarityFunction(final SpaceType spaceType) {
@@ -292,7 +314,41 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         if (isLuceneEngine) {
             return super.getVectorTransformer();
         }
+//        initVectorTransformer();
         return vectorTransformer;
+    }
+
+    /**
+     * Initializes the vector transformer for the engine field if not already initialized.
+     * This method handles the vector transformation configuration based on the KNN method context.
+     * The goal of this method is to avoid generating the rotation matrix multiple times.
+     * @throws IllegalStateException if model metadata cannot be retrieved
+     */
+    private void initVectorTransformer() {
+//        log.info("in engine init vector transformer");
+        if (vectorTransformer != null) {
+            return;
+        }
+        log.info("after the init");
+
+//        this.vectorTransformer = vectorTransformerSupplier.get();
+        log.info("vector Transformer from engine: {}", vectorTransformer);
+
+        // KNNMethodContext knnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
+
+        // KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.
+        // get the vector transformer based on the method context.
+
+        // knnLibraryIndexingContext
+
+        // KNNMethodConfigContext knnMethodConfigContext = originalMappingParameters.getResolvedKnnMethodContext().
+        // KNNMethodContext knnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
+        // // here somehow we need to get the model config context.
+        // KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+        // .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        // knnLibraryIndexingContext.
+        // here somehow we have to get the config con
+        // vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
     }
 
     @Override

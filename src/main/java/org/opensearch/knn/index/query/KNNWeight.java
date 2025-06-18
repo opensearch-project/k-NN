@@ -33,6 +33,11 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
+import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder;
@@ -40,16 +45,24 @@ import org.opensearch.knn.index.query.explain.KnnExplanation;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
+import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
  * {@link KNNWeight} serves as a template for implementing approximate nearest neighbor (ANN)
@@ -450,7 +463,8 @@ public abstract class KNNWeight extends Weight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,
-            knnQuery.getField()
+            knnQuery.getField(),
+            reader.getSegmentInfo().info.getVersion()
         );
 
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
@@ -590,6 +604,22 @@ public abstract class KNNWeight extends Weight {
          * is cheaper than computation cost for non binary vector
          */
         return isMDCGreaterThanFilterIdCnt(filterIdsCount);
+    }
+
+    /**
+     * Returns the length of query vector based on the query vector data type
+     * @return length of query vector
+     */
+    private int getQueryVectorLength() {
+        if (knnQuery.getVectorDataType() == VectorDataType.FLOAT || knnQuery.getVectorDataType() == VectorDataType.BYTE) {
+            return knnQuery.getQueryVector().length;
+        }
+        if (knnQuery.getVectorDataType() == VectorDataType.BINARY) {
+            return knnQuery.getByteQueryVector().length;
+        }
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "[%s] datatype is not supported for k-NN query vector", knnQuery.getVectorDataType().getValue())
+        );
     }
 
     private boolean isMDCGreaterThanFilterIdCnt(int filterIdsCount) {

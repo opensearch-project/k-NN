@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
@@ -28,6 +29,7 @@ import java.util.function.Function;
  * Abstract class for KNN methods. This class provides the common functionality for all KNN methods.
  * It defines the common attributes and methods that all KNN methods should implement.
  */
+@Log4j2
 @AllArgsConstructor
 public abstract class AbstractKNNMethod implements KNNMethod {
 
@@ -116,7 +118,8 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         };
     }
 
-    protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
+    protected VectorTransformer getVectorTransformer(SpaceType spaceType, boolean isRandomRotation, int dimension) {
+        log.info("in protected getvectortransformer");
         return VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
     }
 
@@ -129,6 +132,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             knnMethodContext.getMethodComponentContext(),
             knnMethodConfigContext
         );
+        log.info("in get knn library indexing context for vector transformer, context: {}, configContext: {}", knnMethodContext, knnMethodConfigContext);
         Map<String, Object> parameterMap = knnLibraryIndexingContext.getLibraryParameters();
         parameterMap.put(KNNConstants.SPACE_TYPE, convertUserToMethodSpaceType(knnMethodContext.getSpaceType()).getValue());
         parameterMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, knnMethodConfigContext.getVectorDataType().getValue());
@@ -138,7 +142,14 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .vectorValidator(doGetVectorValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
-            .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType()))
+            .vectorTransformer(
+                getVectorTransformer(
+                    knnMethodContext.getSpaceType(),
+                    knnLibraryIndexingContext.getQuantizationConfig().isEnableRandomRotation(),
+                    knnMethodConfigContext.getDimension() // here also need to pass a reference to the rotationmatrix.
+                        //
+                )
+            )
             .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())
             .build();
     }

@@ -96,6 +96,9 @@ public class RandomGaussianRotationTests extends KNNTestCase {
     }
 
     public void testRotationMatrixCorrectness() {
+
+        // here also use the default seed to get the first and second entry in the matrix.
+
         float[] vector = { 3.0f, 4.0f };
         int dimensions = vector.length;
 

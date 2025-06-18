@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Predicate;
 
 @Log4j2
@@ -217,7 +218,7 @@ public class ExactSearcher {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
         if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
             // Build Segment Level Quantization info.
-            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, exactSearcherContext.getField());
+            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, exactSearcherContext.getField(), reader.getSegmentInfo().info.getVersion());
             // Quantize the Query Vector Once.
             quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
                 exactSearcherContext.getFloatQueryVector(),
@@ -266,6 +267,7 @@ public class ExactSearcher {
         Float radius;
         DocIdSetIterator matchedDocsIterator;
         long numberOfMatchedDocs;
+        KNNQuery knnQuery;
         /**
          * whether the matchedDocs contains parent ids or child ids. This is relevant in the case of
          * filtered nested search where the matchedDocs contain the parent ids and {@link NestedVectorIdsKNNIterator}

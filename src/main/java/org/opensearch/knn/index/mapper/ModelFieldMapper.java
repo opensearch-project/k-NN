@@ -212,9 +212,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
      */
 
     private void initVectorTransformer() {
+        log.info("in training init vector transformer");
         if (vectorTransformer != null) {
             return;
         }
+        log.info("after return statment");
         ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
 
         KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
@@ -230,6 +232,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
         vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
+        log.info("vector Transformer from train: {}", vectorTransformer);
     }
 
     private void initVectorValidator() {

@@ -18,6 +18,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
@@ -34,6 +35,7 @@ import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.EngineFieldMapper;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -425,7 +427,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     @Override
     protected Query doToQuery(QueryShardContext context) {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
-
+        // context.mapperService.mapper.fieldMappers.getMapper(this.fieldName).maybeRotationMatrix
+//        Mapper maybeMapper = context.getMapperService().documentMapper().mappers().getMapper(this.fieldName);
+//        float[][] maybeRotationMatrix = null;
+//        if (maybeMapper instanceof EngineFieldMapper engineFieldMapper) {
+////            log.info("engineFieldMapper: {}, is rotate matrix:{} ", engineFieldMapper, engineFieldMapper.maybeRotationMatrix);
+//            maybeRotationMatrix = engineFieldMapper.maybeRotationMatrix;
+//        }
+        // go through field type instead of field mapper.
         if (mappedFieldType == null && ignoreUnmapped) {
             return new MatchNoDocsQuery();
         }
@@ -441,9 +450,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         MethodComponentContext methodComponentContext = queryConfigFromMapping.getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
+        // TODO: KNNVectorFieldTYpe needs to also have a query transformer....
+//        log.info("quant config {}", knnVectorFieldType.getKnnMappingConfig().getQuantizationConfig());
         RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
+//        knnMappingConfig.maybeRandomRotationVector(); // here we'd have it from the MethodFieldMapper.
+        log.info("vector before: {}",vector);
         knnVectorFieldType.transformQueryVector(vector);
-
+        log.info("vector after: {}",vector);
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         final String indexName = context.index().getName();
         final boolean memoryOptimizedSearchEnabled = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnVectorFieldType, indexName);

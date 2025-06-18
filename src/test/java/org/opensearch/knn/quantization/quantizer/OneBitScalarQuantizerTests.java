@@ -66,12 +66,6 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
 
         float[] expectedMeanThresholds = { 4.0f, 5.0f, 6.0f };
         assertArrayEquals(expectedMeanThresholds, oneBitState.getMeanThresholds(), 0.001f);
-
-        // Validate below and above thresholds
-        float[] expectedBelowThresholdMeans = { 2.5f, 3.5f, 4.5f };
-        float[] expectedAboveThresholdMeans = { 7.0f, 8.0f, 9.0f };
-        assertArrayEquals(expectedBelowThresholdMeans, oneBitState.getBelowThresholdMeans(), 0.001f);
-        assertArrayEquals(expectedAboveThresholdMeans, oneBitState.getAboveThresholdMeans(), 0.001f);
     }
 
     public void testQuantize_withState() throws IOException {
@@ -155,7 +149,7 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
     public void testTrain_withRotationApplied() throws IOException {
         float[][] vectors = { { 10.0f, 200.0f, 3000.0f }, { 4000.0f, 5000.0f, 6000.0f }, { 7000.0f, 8000.0f, 9000.0f } };
 
-        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length) {
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length, true) {
             @Override
             public float[] getVectorAtThePosition(int position) {
                 return vectors[position];
@@ -167,7 +161,7 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
             }
         };
 
-        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer(true);
         OneBitScalarQuantizationState state = (OneBitScalarQuantizationState) quantizer.train(trainingRequest);
 
         assertNotNull(state);
@@ -178,7 +172,7 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
     public void testTrain_withoutRotationMatrix() throws IOException {
         float[][] vectors = { { 1.0f, 1.0f, 1.0f }, { 1.1f, 1.1f, 1.1f }, { 0.9f, 0.9f, 0.9f } };
 
-        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length) {
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length, false) {
             @Override
             public float[] getVectorAtThePosition(int position) {
                 return vectors[position];

@@ -21,6 +21,8 @@ public interface KNNLibrarySearchContext {
      * @param ctx QueryContext
      * @return parameters supported by the library
      */
+
+    /// TODO: insert the matrix here
     Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx);
 
     KNNLibrarySearchContext EMPTY = ctx -> Collections.emptyMap();

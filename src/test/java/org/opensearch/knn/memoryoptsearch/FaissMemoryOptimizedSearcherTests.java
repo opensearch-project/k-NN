@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.mock;
@@ -516,8 +517,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
                     // Get quantization state
                     final KNNVectorValues floatVectorValues = createKNNFloatVectorValues(documentIds, floatVectors);
+                    final Supplier<KNNVectorValues<Object>> floatVectorValuesSupplier = () -> floatVectorValues;
                     final QuantizationState quantizationState = QuantizationService.getInstance()
-                        .train(testingSpec.quantizationParams, floatVectorValues, documentIds.size());
+                        .train(testingSpec.quantizationParams, floatVectorValuesSupplier, documentIds.size());
                     testingSpec.quantizationState = quantizationState;
                     builder.quantizationState(quantizationState);
 

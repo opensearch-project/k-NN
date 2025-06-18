@@ -2,26 +2,32 @@
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
+
 package org.opensearch.knn.index.mapper;
 
-import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.util.VectorUtil;
+import org.opensearch.knn.quantization.quantizer.RandomGaussianRotation;
 
 /**
  * Normalizes vectors using L2 (Euclidean) normalization, ensuring the vector's
  * magnitude becomes 1 while preserving its directional properties.
  */
-@Log4j2
-public class NormalizeVectorTransformer implements VectorTransformer {
-    public NormalizeVectorTransformer() {
-        log.info("Making normalize vector transformer");
+public class RandomRotationNormalizeVectorTransformer implements VectorTransformer {
+    float[][] rotationMatrix;
+
+    // which comes first, normalization or rotation?
+    // TODO: review w a few other people around transformer state/matrix state. (Jack, Vijay, Tejas).
+    public RandomRotationNormalizeVectorTransformer(int dimension) {
+//        this.rotationMatrix = rotationMatrix;
+        rotationMatrix = RandomGaussianRotation.generateRotationMatrix(dimension);
     }
 
     @Override
     public void transform(float[] vector) {
-//        log.info("transform called...");
         validateVector(vector);
         VectorUtil.l2normalize(vector);
+        float[] rotatedVector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
+        System.arraycopy(vector, 0, rotatedVector, 0, vector.length);
     }
 
     /**
@@ -33,7 +39,7 @@ public class NormalizeVectorTransformer implements VectorTransformer {
      */
     @Override
     public void transform(byte[] vector) {
-        throw new UnsupportedOperationException("Byte array normalization is not supported");
+        throw new UnsupportedOperationException("Byte array rotation is not supported");
     }
 
     private void validateVector(float[] vector) {

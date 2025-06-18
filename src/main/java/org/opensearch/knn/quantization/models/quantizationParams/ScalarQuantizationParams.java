@@ -5,12 +5,13 @@
 
 package org.opensearch.knn.quantization.models.quantizationParams;
 
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
+
+import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
@@ -20,11 +21,10 @@ import java.io.IOException;
  * This class implements the QuantizationParams interface and includes the type of scalar quantization.
  */
 @Getter
-@AllArgsConstructor
-@NoArgsConstructor // No-argument constructor for deserialization
 @EqualsAndHashCode
 public class ScalarQuantizationParams implements QuantizationParams {
     private ScalarQuantizationType sqType;
+    private final boolean enableRandomRotation;
 
     /**
      * Static method to generate type identifier based on ScalarQuantizationType.
@@ -34,6 +34,22 @@ public class ScalarQuantizationParams implements QuantizationParams {
      */
     public static String generateTypeIdentifier(ScalarQuantizationType sqType) {
         return generateIdentifier(sqType.getId());
+    }
+
+    public ScalarQuantizationParams(ScalarQuantizationType quantizationType) {
+        sqType = quantizationType;
+        this.enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+    }
+
+    public ScalarQuantizationParams(ScalarQuantizationType quantizationType, boolean enableRandomRotation) {
+        sqType = quantizationType;
+        this.enableRandomRotation = enableRandomRotation;
+    }
+
+    // no-argument constructor for deserialization
+    public ScalarQuantizationParams() {
+        sqType = null;
+        this.enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
     }
 
     /**
@@ -57,6 +73,7 @@ public class ScalarQuantizationParams implements QuantizationParams {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeVInt(sqType.getId());
+        out.writeBoolean(enableRandomRotation);
     }
 
     /**
@@ -69,6 +86,12 @@ public class ScalarQuantizationParams implements QuantizationParams {
     public ScalarQuantizationParams(StreamInput in, int version) throws IOException {
         int typeId = in.readVInt();
         this.sqType = ScalarQuantizationType.fromId(typeId);
+        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+            boolean isEnabledRandomRotation = in.readBoolean();
+            enableRandomRotation = isEnabledRandomRotation;
+        } else {
+            enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+        }
     }
 
     /**

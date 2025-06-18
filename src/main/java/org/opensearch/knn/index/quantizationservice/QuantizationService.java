@@ -8,6 +8,7 @@ package org.opensearch.knn.index.quantizationservice;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -64,12 +65,17 @@ public final class QuantizationService<T, R> {
         final long liveDocs
     ) throws IOException {
         Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
-
+        KNNVectorQuantizationTrainingRequest<T> trainingRequest;
+        if (quantizationParams instanceof ScalarQuantizationParams scalarQuantizationParams) {
+            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(
+                knnVectorValuesSupplier,
+                liveDocs,
+                scalarQuantizationParams.isEnableRandomRotation()
+            );
+        } else {
+            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValuesSupplier, liveDocs);
+        }
         // Create the training request using the supplier
-        KNNVectorQuantizationTrainingRequest<T> trainingRequest = new KNNVectorQuantizationTrainingRequest<>(
-            knnVectorValuesSupplier,
-            liveDocs
-        );
 
         // Train the quantizer and return the quantization state
         return quantizer.train(trainingRequest);
@@ -93,10 +99,10 @@ public final class QuantizationService<T, R> {
     /**
      * Retrieves quantization parameters from the FieldInfo.
      */
-    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
-            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType());
+            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType(), quantizationConfig.isEnableRandomRotation());
         }
         return null;
     }
@@ -109,8 +115,8 @@ public final class QuantizationService<T, R> {
      *                  is being determined.
      * @return The {@link VectorDataType} to be used during the vector transfer process
      */
-    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo, Version luceneVersion) {
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return VectorDataType.BINARY;
         }

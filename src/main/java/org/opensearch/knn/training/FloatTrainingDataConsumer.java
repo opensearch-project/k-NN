@@ -101,7 +101,8 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
 
             @Override
             public void resetVectorValues() {
-                // No-op
+                // No-op since getVectorAtThePosition does not change the state of a member iterator for this
+                // TrainingRequest<float[]>.
             }
 
         };

@@ -46,9 +46,9 @@ import java.util.stream.StreamSupport;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
-import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
@@ -70,6 +70,15 @@ public class KNNIndexShard {
     public KNNIndexShard(IndexShard indexShard) {
         this.indexShard = indexShard;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+    }
+
+    /**
+     * Return the underlying IndexShard
+     *
+     * @return IndexShard
+     */
+    public IndexShard getIndexShard() {
+        return indexShard;
     }
 
     /**
@@ -254,18 +263,20 @@ public class KNNIndexShard {
                 final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                 final String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
                 engineFiles.addAll(
-                    getEngineFileContexts(
-                        reader.getSegmentInfo(),
-                        fieldInfo.name,
-                        fileExtension,
-                        spaceType,
-                        modelId,
-                        FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
-                            ? VectorDataType.get(
-                                fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-                            )
-                            : VectorDataType.BINARY
-                    )
+                        getEngineFileContexts(
+                                reader.getSegmentInfo(),
+                                fieldInfo.name,
+                                fileExtension,
+                                spaceType,
+                                modelId,
+                                FieldInfoExtractor.extractQuantizationConfig(fieldInfo,
+                                        reader.getSegmentInfo().info.getVersion()
+                                ) == QuantizationConfig.EMPTY
+                                        ? VectorDataType.get(
+                                        fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+                                )
+                                        : VectorDataType.BINARY
+                        )
                 );
             }
         }
