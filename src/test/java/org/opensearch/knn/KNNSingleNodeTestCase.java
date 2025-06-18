@@ -65,6 +65,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
 @ThreadLeakFilters(defaultFilters = true, filters = { KNNSingleNodeTestCase.ForkJoinFilter.class })
 public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
@@ -113,6 +114,13 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      */
     protected IndexService createKNNIndex(String indexName) {
         return createIndex(indexName, getKNNDefaultIndexSettingsBuildsGraphAlways());
+    }
+
+    protected IndexService createMemoryOptimizedSearchEnabledKNNIndex(final String indexName) {
+        Settings settings = getKNNDefaultIndexSettingsBuildsGraphAlways();
+        final Settings.Builder builder = Settings.builder().put(settings);
+        builder.put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true);
+        return createIndex(indexName, builder.build());
     }
 
     /**

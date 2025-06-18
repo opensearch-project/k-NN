@@ -106,7 +106,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         assertEquals(2, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
     }
 
-    public void testGetAllEngineFileContexts() throws IOException, ExecutionException, InterruptedException {
+    public void testGetAllEngineFileContexts() {
         IndexService indexService = createKNNIndex(testIndexName);
         assertThrows(
             IllegalArgumentException.class,
@@ -201,5 +201,25 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
         knnIndexShard.clearCache();
         assertNull(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName));
+    }
+
+    @SneakyThrows
+    public void testOnlyCacheNonMemoryOptimizedFields() {
+        // Create an index while mem_opt_srch = true
+        IndexService indexService = createMemoryOptimizedSearchEnabledKNNIndex(testIndexName);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+
+        // Add some docs
+        addKnnDoc(testIndexName, String.valueOf(randomInt()), testFieldName, new Float[] { randomFloat(), randomFloat() });
+
+        // Get index shard
+        IndexShard indexShard = indexService.iterator().next();
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+
+        // Trigger warm up
+        knnIndexShard.warmup();
+
+        // Since mem_opt_src is enabled, expected that no cache is loaded. (e.g. no off-heap index is loaded)
+        assertTrue(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().isEmpty());
     }
 }
