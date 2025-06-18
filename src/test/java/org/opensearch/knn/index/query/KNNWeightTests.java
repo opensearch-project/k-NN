@@ -80,11 +80,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 
 public class KNNWeightTests extends KNNWeightTestCase {
@@ -830,6 +826,8 @@ public class KNNWeightTests extends KNNWeightTestCase {
             final Map<String, String> attributesMap = ImmutableMap.of(
                 KNN_ENGINE,
                 KNNEngine.FAISS.getName(),
+                VECTOR_DATA_TYPE_FIELD,
+                isBinary ? VectorDataType.BINARY.getValue() : VectorDataType.FLOAT.getValue(),
                 SPACE_TYPE,
                 isBinary ? SpaceType.HAMMING.getValue() : SpaceType.L2.getValue()
             );
@@ -840,6 +838,9 @@ public class KNNWeightTests extends KNNWeightTestCase {
             when(reader.getFieldInfos()).thenReturn(fieldInfos);
             when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
             when(fieldInfo.attributes()).thenReturn(attributesMap);
+            when(fieldInfo.getAttribute(VECTOR_DATA_TYPE_FIELD)).thenReturn(
+                isBinary ? VectorDataType.BINARY.getValue() : VectorDataType.FLOAT.getValue()
+            );
             if (isBinary) {
                 when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
             } else {
@@ -935,11 +936,12 @@ public class KNNWeightTests extends KNNWeightTestCase {
             )
         );
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            .isParentHits(true)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .knnQuery(query)
+            .floatQueryVector(queryVector)
+            .field(FIELD_NAME)
+            .isMemoryOptimizedSearchEnabled(false)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -1144,6 +1146,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
             when(fieldInfo.attributes()).thenReturn(attributesMap);
             when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
+            when(fieldInfo.getAttribute(VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.BINARY.getValue());
             when(fieldInfo.getName()).thenReturn(FIELD_NAME);
 
             KNNBinaryVectorValues knnBinaryVectorValues = mock(KNNBinaryVectorValues.class);

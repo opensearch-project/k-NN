@@ -23,7 +23,6 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.WithFieldName;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
@@ -31,6 +30,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -446,8 +446,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         final String indexName = context.index().getName();
-        final boolean memoryOptimizedSearchSupported = knnVectorFieldType.isMemoryOptimizedSearchSupported()
-            && KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(indexName);
+        final boolean memoryOptimizedSearchEnabled = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnVectorFieldType, indexName);
         updateQueryStats(vectorQueryType);
 
         // This could be null in the case of when a model did not have serialized methodComponent information
@@ -498,7 +497,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                     String.format("[" + NAME + "] requires distance to be non-negative for space type: %s", spaceType)
                 );
             }
-            if (memoryOptimizedSearchSupported) {
+            if (memoryOptimizedSearchEnabled) {
                 radius = KNNEngine.LUCENE.distanceToRadialThreshold(this.maxDistance, spaceType);
             } else {
                 radius = knnEngine.distanceToRadialThreshold(this.maxDistance, spaceType);
@@ -511,7 +510,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                     String.format("[" + NAME + "] requires score to be in the range [0, 1] for space type: %s", spaceType)
                 );
             }
-            if (memoryOptimizedSearchSupported) {
+            if (memoryOptimizedSearchEnabled) {
                 radius = KNNEngine.LUCENE.scoreToRadialThreshold(this.minScore, spaceType);
             } else {
                 radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
@@ -540,7 +539,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 spaceType.validateVector(byteVector);
                 break;
             case BYTE:
-                if (isUsingLuceneQuery(knnEngine, memoryOptimizedSearchSupported)) {
+                if (isUsingLuceneQuery(knnEngine, memoryOptimizedSearchEnabled)) {
                     byteVector = new byte[vector.length];
                     for (int i = 0; i < vector.length; i++) {
                         validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
@@ -570,7 +569,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .indexName(indexName)
                 .fieldName(this.fieldName)
                 .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine))
-                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchSupported))
+                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
@@ -578,7 +577,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .context(context)
                 .rescoreContext(processedRescoreContext)
                 .expandNested(expandNested == null ? false : expandNested)
-                .memoryOptimizedSearchSupported(memoryOptimizedSearchSupported)
+                .memoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }
@@ -594,7 +593,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .methodParameters(this.methodParameters)
                 .filter(this.filter)
                 .context(context)
-                .memoryOptimizedSearchSupported(memoryOptimizedSearchSupported)
+                .memoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                 .build();
             return RNNQueryFactory.create(createQueryRequest);
         }
@@ -632,11 +631,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
      * on FAISS index. Hence, if it is true, then we need to use Lucene query.
      *
      * @param engine Engine type
-     * @param memoryOptimizedSearchSupported A bool flag whether memory optimized search is enabled.
+     * @param memoryOptimizedSearchEnabled A bool flag whether memory optimized search is enabled.
      * @return True when it should use Lucene query False otherwise.
      */
-    private static boolean isUsingLuceneQuery(final KNNEngine engine, final boolean memoryOptimizedSearchSupported) {
-        return memoryOptimizedSearchSupported || engine == KNNEngine.LUCENE;
+    private static boolean isUsingLuceneQuery(final KNNEngine engine, final boolean memoryOptimizedSearchEnabled) {
+        return memoryOptimizedSearchEnabled || engine == KNNEngine.LUCENE;
     }
 
     private ModelMetadata getModelMetadataForField(String modelId) {
@@ -690,11 +689,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         VectorDataType vectorDataType,
         KNNEngine knnEngine,
         byte[] byteVector,
-        boolean memoryOptimizedSearchSupported
+        boolean memoryOptimizedSearchEnabled
     ) {
 
         if (VectorDataType.BINARY == vectorDataType
-            || (VectorDataType.BYTE == vectorDataType && isUsingLuceneQuery(knnEngine, memoryOptimizedSearchSupported))) {
+            || (VectorDataType.BYTE == vectorDataType && isUsingLuceneQuery(knnEngine, memoryOptimizedSearchEnabled))) {
             return byteVector;
         }
         return null;

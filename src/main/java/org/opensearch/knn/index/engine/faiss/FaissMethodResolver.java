@@ -147,7 +147,6 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             KNNEngine.FAISS,
             null
         );
-        validationException = validateCompressionNotx1WhenOnDisk(knnMethodConfigContext, validationException);
         if (validationException != null) {
             throw validationException;
         }
