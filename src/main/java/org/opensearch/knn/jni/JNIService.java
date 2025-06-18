@@ -465,4 +465,17 @@ public class JNIService {
         }
         throw new IllegalArgumentException(String.format(Locale.ROOT, "RadiusQueryIndex not supported for provided engine"));
     }
+
+    public static void setMergeInterruptCallback(KNNEngine knnEngine) {
+
+        if (KNNEngine.FAISS == knnEngine) {
+            FaissService.setMergeInterruptCallback();
+        }
+    }
+
+    public static void unsetMergeInterruptCallback(KNNEngine knnEngine) {
+        if (KNNEngine.FAISS == knnEngine) {
+            FaissService.unsetMergeInterruptCallback();
+        }
+    }
 }

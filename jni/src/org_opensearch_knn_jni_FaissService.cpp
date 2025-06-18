@@ -495,3 +495,23 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_rangeSea
     }
     return nullptr;
 }
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterruptCallback(JNIEnv * env, jclass cls)
+{
+    try {
+        faiss::InterruptCallback::instance.reset(
+            new knn_jni::faiss_wrapper::OpenSearchMergeInterruptCallback(&jniUtil, env)
+        );
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_unsetMergeInterruptCallback(JNIEnv * env, jclass cls)
+{
+    try {
+        faiss::InterruptCallback::instance.get()->clear_instance();
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}

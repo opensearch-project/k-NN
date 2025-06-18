@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "faiss/impl/FaissException.h"
 
 void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     // Followed recommendation from this SO post: https://stackoverflow.com/a/13940735
@@ -64,6 +65,11 @@ void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     this->cachedClasses["org/opensearch/knn/index/query/KNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
     this->cachedMethods["org/opensearch/knn/index/query/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
     env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("org/apache/lucene/index/KNNMergeHelper");
+    this->cachedClasses["org/apache/lucene/index/KNNMergeHelper"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["org/apache/lucene/index/KNNMergeHelper:isMergeAborted"] = env->GetStaticMethodID(tempLocalClassRef, "isMergeAborted", "()Z");
+    env->DeleteLocalRef(tempLocalClassRef);
 }
 
 void knn_jni::JNIUtil::Uninitialize(JNIEnv* env) {
@@ -107,6 +113,17 @@ void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
     }
     catch (const std::exception& e) {
         this->ThrowJavaException(env, "java/lang/Exception", e.what());
+    }
+    catch (const faiss::FaissException& e) {
+        std::string& errormsg = e.msg;
+        std::size_t found = str.find("computation interrupted");
+        if (found != std::string::npos) {
+            this->ThrowJavaException(env,
+                "org/apache/lucene/index/MergePolicy/MergeAbortedException",
+                "Faiss abort build");
+        } else {
+            this->ThrowJavaException(env, "java/lang/Exception", e.what());
+        }
     }
     catch (...) {
         this->ThrowJavaException(env, "java/lang/Exception", "Unknown exception occurred");
