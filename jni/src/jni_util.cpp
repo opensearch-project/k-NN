@@ -16,7 +16,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include "faiss/impl/FaissException.h"
 
 void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     // Followed recommendation from this SO post: https://stackoverflow.com/a/13940735
@@ -100,6 +99,12 @@ void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env, const char* message) {
     }
 }
 
+void knn_jni::JNIUtil::CatchAbortExceptionAndThrowJava(JNIEnv* env)
+{
+    this->ThrowJavaException(env,
+        "org/apache/lucene/index/MergePolicy/MergeAbortedException",
+        "Faiss Abort Build");
+}
 void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
 {
     try {
@@ -113,17 +118,6 @@ void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
     }
     catch (const std::exception& e) {
         this->ThrowJavaException(env, "java/lang/Exception", e.what());
-    }
-    catch (const faiss::FaissException& e) {
-        std::string& errormsg = e.msg;
-        std::size_t found = str.find("computation interrupted");
-        if (found != std::string::npos) {
-            this->ThrowJavaException(env,
-                "org/apache/lucene/index/MergePolicy/MergeAbortedException",
-                "Faiss abort build");
-        } else {
-            this->ThrowJavaException(env, "java/lang/Exception", e.what());
-        }
     }
     catch (...) {
         this->ThrowJavaException(env, "java/lang/Exception", "Unknown exception occurred");

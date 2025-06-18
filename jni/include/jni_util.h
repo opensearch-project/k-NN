@@ -170,6 +170,7 @@ namespace knn_jni {
         void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "") final;
         void HasExceptionInStack(JNIEnv* env) final;
         void HasExceptionInStack(JNIEnv* env, const char* message) final;
+        void CatchAbortExceptionAndThrowJava(JNIEnv* env) final;
         void CatchCppExceptionAndThrowJava(JNIEnv* env) final;
         jclass FindClass(JNIEnv * env, const std::string& className) final;
         jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName) final;
