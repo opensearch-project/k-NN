@@ -93,10 +93,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
         knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &indexService);
     }
     catch (const faiss::FaissException& e) {
-        std::string& errormsg = e.msg;
+        std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchAbortExceptionAndThrowJava(env);
         }
         throw std::runtime_error(errormsg);
     }
@@ -116,10 +116,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
         knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &binaryIndexService);
     }
     catch (const faiss::FaissException& e) {
-        std::string& errormsg = e.msg;
+        std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchAbortExceptionAndThrowJava(env);
         }
         throw std::runtime_error(errormsg);
     }
@@ -139,10 +139,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToByteInde
         knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &byteIndexService);
     }
     catch (const faiss::FaissException& e) {
-        std::string& errormsg = e.msg;
+        std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchAbortExceptionAndThrowJava(env);
         }
         throw std::runtime_error(errormsg);
     }
@@ -214,10 +214,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
                                                         parametersJ);
     }
     catch (const faiss::FaissException& e) {
-        std::string& errormsg = e.msg;
+        std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchAbortExceptionAndThrowJava(env);
         }
         throw std::runtime_error(errormsg);
     }
@@ -246,10 +246,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createBinaryInde
                                                               parametersJ);
     }
     catch (const faiss::FaissException& e) {
-        std::string& errormsg = e.msg;
+        std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchAbortExceptionAndThrowJava(env);
         }
         throw std::runtime_error(errormsg);
     }
@@ -278,10 +278,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createByteIndexF
                                                             parametersJ);
     }
     catch (const faiss::FaissException& e) {
-        std::string& errormsg = e.msg;
+        std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchAbortExceptionAndThrowJava(env);
         }
         throw std::runtime_error(errormsg);
     }
