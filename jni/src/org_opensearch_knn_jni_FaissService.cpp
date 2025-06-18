@@ -19,10 +19,6 @@
 #include "jni_util.h"
 #include "faiss_stream_support.h"
 
-#include <fstream>
-#include <iomanip>
-#include <string>
-#include "faiss/IndexFlat.h"
 
 
 static knn_jni::JNIUtil jniUtil;
@@ -102,58 +98,18 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
     }
 }
 
-
-
-
-
-void logIndexFlatFull(const faiss::IndexFlat* index, const std::string& prefix = "") {
-    std::ofstream log("remote_index_debug_cpp.log", std::ios::app);
-    log << prefix << "IndexFlat: dim=" << index->d
-        << ", ntotal=" << index->ntotal
-        << ", metric_type=" << (index->metric_type == faiss::METRIC_L2 ? "L2" : "IP") << std::endl;
-    std::vector<float> vec(index->d);
-    for (faiss::idx_t i = 0; i < index->ntotal; ++i) {
-        index->reconstruct(i, vec.data());
-        log << prefix << "  vector[" << i << "]: [";
-        for (int j = 0; j < index->d; ++j) {
-            log << std::setprecision(6) << vec[j];
-            if (j < index->d - 1) log << ", ";
-        }
-        log << "]" << std::endl;
-    }
-}
-
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_buildFlatIndexFromVectors(
-    JNIEnv* env, jclass, jfloatArray vectorsJ, jint numVectors, jint dimension, jstring metricTypeJ) {
-
-    const char* metricTypeC = env->GetStringUTFChars(metricTypeJ, nullptr);
-    jfloat* vectors = env->GetFloatArrayElements(vectorsJ, nullptr);
-
-    faiss::MetricType metric = (strcmp(metricTypeC, "IP") == 0) ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
-
-    faiss::IndexFlat* index = nullptr;
-    if (metric == faiss::METRIC_L2) {
-        index = new faiss::IndexFlatL2(dimension);
-    } else {
-        index = new faiss::IndexFlatIP(dimension);
+    JNIEnv *env, jclass cls, jfloatArray vectorsJ, jint numVectors, jint dimJ, jstring metricTypeJ) {
+    try {
+        std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
+        knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+        return knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(&jniUtil, env, vectorsJ, numVectors, dimJ, metricTypeJ, &indexService);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 
-    index->add(numVectors, vectors);
-
-    // Debug: dump
-    logIndexFlatFull(index, "After add: ");
-
-    env->ReleaseFloatArrayElements(vectorsJ, vectors, JNI_ABORT);
-    env->ReleaseStringUTFChars(metricTypeJ, metricTypeC);
-
-    return reinterpret_cast<jlong>(index);
+    return -1;
 }
-
-
-
-
-
-
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIndex(JNIEnv * env, jclass cls, jintArray idsJ,
                                                                                     jlong vectorsAddressJ, jint dimJ,

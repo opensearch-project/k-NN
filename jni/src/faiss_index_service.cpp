@@ -16,11 +16,15 @@
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexFlat.h"
 
 #include <string>
 #include <vector>
 #include <memory>
 #include <type_traits>
+
+#include <fstream>
+#include <iomanip>
 
 namespace knn_jni {
 namespace faiss_wrapper {
@@ -136,6 +140,53 @@ void IndexService::insertToIndex(
 
     // Add vectors
     idMap->add_with_ids(numVectors, inputVectors->data(), ids.data());
+}
+
+void logIndexFlatFull(const faiss::IndexFlat* index, const std::string& prefix = "") {
+    std::ofstream log("remote_index_debug_cpp.log", std::ios::app);
+    log << prefix << "IndexFlat: dim=" << index->d
+        << ", ntotal=" << index->ntotal
+        << ", metric_type=" << (index->metric_type == faiss::METRIC_L2 ? "L2" : "IP") << std::endl;
+    std::vector<float> vec(index->d);
+    for (faiss::idx_t i = 0; i < index->ntotal; ++i) {
+        index->reconstruct(i, vec.data());
+        log << prefix << "  vector[" << i << "]: [";
+        for (int j = 0; j < index->d; ++j) {
+            log << std::setprecision(6) << vec[j];
+            if (j < index->d - 1) log << ", ";
+        }
+        log << "]" << std::endl;
+    }
+}
+
+jlong IndexService::buildFlatIndexFromVectors(
+    int numVectors,
+    int dim,
+    const std::vector<float> &vectors,
+    faiss::MetricType metricType) {
+
+    if (vectors.empty()) {
+        throw std::runtime_error("Input vectors cannot be empty");
+    }
+
+    if ((int)vectors.size() != numVectors * dim) {
+        throw std::runtime_error("Mismatch between vector count/dimension and actual data length");
+    }
+
+    faiss::IndexFlat *index = nullptr;
+
+    if (metricType == faiss::METRIC_INNER_PRODUCT) {
+        index = new faiss::IndexFlatIP(dim);
+    } else {
+        index = new faiss::IndexFlatL2(dim);
+    }
+
+    index->add(numVectors, vectors.data());
+
+    // Debug: dump
+    logIndexFlatFull(index, "After add: ");
+
+    return reinterpret_cast<jlong>(index);
 }
 
 void IndexService::writeIndex(

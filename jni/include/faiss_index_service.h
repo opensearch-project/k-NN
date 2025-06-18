@@ -61,6 +61,7 @@ public:
     virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress);
 
 
+    jlong buildFlatIndexFromVectors(int numVectors, int dim, const std::vector<float> &vectors, faiss::MetricType metricType);
 
 
 
