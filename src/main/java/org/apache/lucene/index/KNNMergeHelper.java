@@ -18,10 +18,10 @@ public class KNNMergeHelper {
             // return ((ConcurrentMergeScheduler.MergeThread) mergeThread).merge.isAborted();
             try {
                 Object mergeObject = LucenePackagePrivateCaller.callPrivateFieldWithMethod(
-                        ConcurrentMergeScheduler.MergeThread.class,
-                        "merge",
-                        "isAborted",
-                        mergeThread
+                    ConcurrentMergeScheduler.MergeThread.class,
+                    "merge",
+                    "isAborted",
+                    mergeThread
                 );
                 return ((Boolean) mergeObject).booleanValue();
             } catch (RuntimeException e) {
