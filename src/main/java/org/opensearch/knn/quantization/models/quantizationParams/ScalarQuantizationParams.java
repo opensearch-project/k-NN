@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-
 import lombok.NoArgsConstructor;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -32,6 +31,8 @@ public class ScalarQuantizationParams implements QuantizationParams {
     private ScalarQuantizationType sqType;
     @Builder.Default
     private final boolean enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+    @Builder.Default
+    private final boolean enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
 
     /**
      * Static method to generate type identifier based on ScalarQuantizationType.
@@ -65,6 +66,7 @@ public class ScalarQuantizationParams implements QuantizationParams {
     public void writeTo(StreamOutput out) throws IOException {
         out.writeVInt(sqType.getId());
         out.writeBoolean(enableRandomRotation);
+        out.writeBoolean(enableADC);
     }
 
     /**
@@ -79,8 +81,10 @@ public class ScalarQuantizationParams implements QuantizationParams {
         this.sqType = ScalarQuantizationType.fromId(typeId);
         if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
             this.enableRandomRotation = in.readBoolean();
+            this.enableADC = in.readBoolean();
         } else {
             this.enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+            this.enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
         }
     }
 

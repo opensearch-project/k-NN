@@ -6,6 +6,7 @@
 package org.opensearch.knn.quantization.quantizer;
 
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
@@ -17,6 +18,8 @@ import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
 import java.io.IOException;
+
+import static org.opensearch.knn.common.KNNConstants.ADC_CORRECTION_FACTOR;
 
 /**
  * OneBitScalarQuantizer is responsible for quantizing vectors using a single bit per dimension.
@@ -108,6 +111,53 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         }
         output.prepareQuantizedVector(vectorLength);
         BitPacker.quantizeAndPackBits(vector, thresholds, output.getQuantizedVector());
+    }
+
+    /**
+     * Transform vector with ADC. ADC allows us to score full-precision query vectors against binary document vectors.
+     * The transformation formula is:
+     * q_d = (q_d - x_d) / (y_d - x_d) where x_d is the mean of all document entries quantized to 0 (the below threshold mean)
+     * and y_d is the mean of all document entries quantized to 1 (the above threshold mean).
+     * @param vector array of floats, modified in-place.
+     * @param state The {@link QuantizationState} containing the state of the trained quantizer.
+     * @param spaceType spaceType (l2 or innerproduct). Used to identify whether an additional correction term should be applied.
+     */
+    @Override
+    public void transformWithADC(float[] vector, final QuantizationState state, final SpaceType spaceType) {
+        validateState(state);
+        OneBitScalarQuantizationState binaryState = (OneBitScalarQuantizationState) state;
+
+        if (shouldDoADCCorrection(spaceType)) {
+            transformVectorWithADCCorrection(vector, binaryState);
+        } else {
+            transformVectorWithADCNoCorrection(vector, binaryState);
+        }
+    }
+
+    private boolean shouldDoADCCorrection(SpaceType spaceType) {
+        // Note that correction will not work for cosine similarity since these vectors are normalized and correction will break
+        // normalization.
+        // A normalization-aware correction term may be added in the future so we can support inner product spaces.
+        return SpaceType.L2.equals(spaceType);
+    }
+
+    private void transformVectorWithADCNoCorrection(float[] vector, final OneBitScalarQuantizationState binaryState) {
+        for (int i = 0; i < vector.length; ++i) {
+            float aboveThreshold = binaryState.getAboveThresholdMeans()[i];
+            float belowThreshold = binaryState.getBelowThresholdMeans()[i];
+
+            vector[i] = (vector[i] - belowThreshold) / (aboveThreshold - belowThreshold);
+        }
+    }
+
+    private void transformVectorWithADCCorrection(float[] vector, final OneBitScalarQuantizationState binaryState) {
+        for (int i = 0; i < vector.length; i++) {
+            float aboveThreshold = binaryState.getAboveThresholdMeans()[i];
+            float belowThreshold = binaryState.getBelowThresholdMeans()[i];
+            double correction = Math.pow(aboveThreshold - belowThreshold, ADC_CORRECTION_FACTOR);
+            vector[i] = (vector[i] - belowThreshold) / (aboveThreshold - belowThreshold);
+            vector[i] = (float) correction * (vector[i] - 0.5f) + 0.5f;
+        }
     }
 
     @Override

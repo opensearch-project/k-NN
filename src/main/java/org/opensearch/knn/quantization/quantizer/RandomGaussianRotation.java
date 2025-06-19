@@ -83,7 +83,7 @@ public class RandomGaussianRotation {
      * @param rotationMatrix The rotation matrix.
      * @return The copy of the original vector but rotated.
      */
-    public float[] applyRotation(float[] vector, float[][] rotationMatrix) {
+    public float[] applyRotation(final float[] vector, float[][] rotationMatrix) {
         int dimensions = vector.length;
         float[] rotatedVector = new float[dimensions];
 

@@ -117,6 +117,11 @@ namespace test_util {
         MOCK_METHOD(void *, GetPrimitiveArrayCritical, (JNIEnv * env, jarray array, jboolean *isCopy));
         MOCK_METHOD(void, ReleasePrimitiveArrayCritical, (JNIEnv * env, jarray array, void *carray, jint mode));
         MOCK_METHOD(void, CallNonvirtualVoidMethodA, (JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args));
+        MOCK_METHOD(knn_jni::BQQuantizationLevel,
+                ConvertJavaStringToQuantizationLevel,
+                (JNIEnv *env, jobject javaString),
+                (override));
+
     };
 
 // For our unit tests, we want to ensure that each test tests one function in
@@ -192,6 +197,32 @@ namespace test_util {
     size_t bits2words(uint64_t numBits);
 
     void setBitSet(uint64_t value, jlong* array, size_t size);
+    // Generate vectors with specific mean and distribution for ADC testing
+    std::vector<int8_t> GenerateVectorWithMean(int dim, float targetMean, float variance);
+
+    // Compute means for dimensions based on quantization
+    struct DimensionStats {
+        std::vector<float> zero_means;  // mean of values quantized to 0
+        std::vector<float> one_means;   // mean of values quantized to 1
+        std::vector<int> zero_counts;   // count of values quantized to 0
+        std::vector<int> one_counts;    // count of values quantized to 1
+    };
+
+    // Compute dimension statistics for ADC
+    DimensionStats ComputeDimensionStats(const std::vector<int8_t>& vectors, 
+                                        const std::vector<uint8_t>& codes,
+                                        int dim,
+                                        int numVectors);
+
+    // Transform query vector using ADC interpolation
+    std::vector<float> TransformQueryADC(const std::vector<float>& query,
+        const DimensionStats& stats);
+    
+    std::vector<uint8_t> QuantizeVectors(const std::vector<int8_t>& vectors,
+        int dim,
+        int numVectors,
+        int bits_per_component = 1);
+
 // -------------------------------------------------------------------------------
 }  // namespace test_util
 

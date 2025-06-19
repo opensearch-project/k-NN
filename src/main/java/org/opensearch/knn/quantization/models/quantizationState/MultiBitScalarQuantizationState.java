@@ -25,7 +25,7 @@ import java.io.IOException;
 @Getter
 @Builder
 @AllArgsConstructor
-@NoArgsConstructor(force = true)
+@NoArgsConstructor(force = true) // No-argument constructor for deserialization
 public final class MultiBitScalarQuantizationState implements QuantizationState {
 
     @NonNull

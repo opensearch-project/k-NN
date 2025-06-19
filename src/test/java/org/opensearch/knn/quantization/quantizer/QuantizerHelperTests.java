@@ -38,6 +38,8 @@ public class QuantizerHelperTests extends KNNTestCase {
         OneBitScalarQuantizationState state = QuantizerHelper.calculateQuantizationState(request, sampledIndices, params);
 
         assertNotNull(state.getMeanThresholds());
+        assertNotNull(state.getAboveThresholdMeans());
+        assertNotNull(state.getBelowThresholdMeans());
     }
 
     public void testCalculateMultiBitQuantizationState_basicFlow() throws IOException {

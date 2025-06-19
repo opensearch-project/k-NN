@@ -298,25 +298,18 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndex
 
     return NULL;
 }
-
-JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexWithStreamADC
-        (JNIEnv * env, jclass cls, jobject readStream)
-{
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexWithStreamADCParams
+(JNIEnv * env, jclass cls, jobject readStreamJ, jobject parametersJ) {
     try {
-        // Create a mediator locally.
-        // Note that `indexInput` is `IndexInputWithBuffer` type.
-        knn_jni::stream::NativeEngineIndexInputMediator mediator {&jniUtil, env, readStream};
+        knn_jni::stream::NativeEngineIndexInputMediator mediator {&jniUtil, env, readStreamJ};
 
         // Wrap the mediator with a glue code inheriting IOReader.
         knn_jni::stream::FaissOpenSearchIOReader faissOpenSearchIOReader {&mediator};
 
-        // Pass IOReader to Faiss for loading vector index.
-        return knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
-                &faissOpenSearchIOReader);
+        return knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(&faissOpenSearchIOReader, &jniUtil, env, parametersJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
-
     return NULL;
 }
 

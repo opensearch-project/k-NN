@@ -134,6 +134,24 @@ public class QuantizationStateCache implements Closeable {
     }
 
     /**
+    * Retrieves the quantization state associated with a given field name.
+    * @param fieldName The name of the field.
+    * @return The associated QuantizationState, or null if not present.
+    */
+    QuantizationState getQuantizationState(String fieldName) {
+        return cache.getIfPresent(fieldName);
+    }
+
+    /**
+     * Adds or updates a quantization state in the cache.
+     * @param fieldName The name of the field.
+     * @param quantizationState The quantization state to store.
+     */
+    void addQuantizationState(String fieldName, QuantizationState quantizationState) {
+        cache.put(fieldName, quantizationState);
+    }
+
+    /**
      * Removes the quantization state associated with a given field name.
      * @param fieldName The name of the field.
      */

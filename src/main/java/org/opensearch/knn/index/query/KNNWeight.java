@@ -33,11 +33,6 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
-import org.opensearch.knn.index.memory.NativeMemoryAllocation;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
-import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder;
@@ -45,24 +40,16 @@ import org.opensearch.knn.index.query.explain.KnnExplanation;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
-import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
-import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
  * {@link KNNWeight} serves as a template for implementing approximate nearest neighbor (ANN)
@@ -475,8 +462,10 @@ public abstract class KNNWeight extends Weight {
 
         // TODO: Change type of vector once more quantization methods are supported
         byte[] quantizedVector = null;
+        float[] transformedVector = null;
         if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
-            SegmentLevelQuantizationUtil.transformVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+            transformedVector = knnQuery.getQueryVector().clone();
+            SegmentLevelQuantizationUtil.transformVectorWithADC(transformedVector, segmentLevelQuantizationInfo, spaceType);
         } else {
             quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
         }
@@ -490,6 +479,7 @@ public abstract class KNNWeight extends Weight {
             knnEngine,
             vectorDataType,
             quantizedVector,
+            transformedVector,
             modelId,
             filterIdsBitSet,
             cardinality,
@@ -529,6 +519,7 @@ public abstract class KNNWeight extends Weight {
         final KNNEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedVector,
+        final float[] transformedVector,
         final String modelId,
         final BitSet filterIdsBitSet,
         final int cardinality,

@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
-import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
@@ -29,15 +28,17 @@ import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER
 /**
  * Quantization framework binary encoder,
  */
-@Log4j2
 public class QFrameBitEncoder implements Encoder {
 
     public static final String NAME = "binary";
     public static final String BITCOUNT_PARAM = "bits";
     private static final int DEFAULT_BITS = 1;
+    public static final String ENABLE_ADC_PARAM = "enable_adc";
+    public static final Boolean DEFAULT_ENABLE_ADC = false;
     public static final String ENABLE_RANDOM_ROTATION_PARAM = "random_rotation";
     public static final Boolean DEFAULT_ENABLE_RANDOM_ROTATION = false;
     private static final Set<Integer> validBitCounts = ImmutableSet.of(1, 2, 4);
+    private static final Set<Integer> supportedBitCountsForADC = ImmutableSet.of(1);
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
     /**
@@ -47,6 +48,7 @@ public class QFrameBitEncoder implements Encoder {
      *     "parameters": {
      *       "bits": 2,
      *       "random_rotation": true,
+     *       "enable_adc": false
      *     }
      *   }
      * }
@@ -64,6 +66,11 @@ public class QFrameBitEncoder implements Encoder {
                 return true; // all booleans are valid for this toggleable setting.
             })
         )
+        .addParameter(ENABLE_ADC_PARAM, new Parameter.BooleanParameter(ENABLE_ADC_PARAM, DEFAULT_ENABLE_ADC, (v, context) -> {
+            // all booleans are valid for this toggleable setting. However, ADC is only supported for certain bit counts.
+            // That validation is handled as part of the knnLibraryIndexingContextGenerator builder logic below.
+            return true;
+        }))
         .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
 
             QuantizationConfig.QuantizationConfigBuilder quantizationConfigBuilder = QuantizationConfig.builder();
@@ -71,6 +78,14 @@ public class QFrameBitEncoder implements Encoder {
             int bitCount = (int) methodComponentContext.getParameters().getOrDefault(BITCOUNT_PARAM, DEFAULT_BITS);
             boolean enableRandomRotation = (boolean) methodComponentContext.getParameters()
                 .getOrDefault(ENABLE_RANDOM_ROTATION_PARAM, DEFAULT_ENABLE_RANDOM_ROTATION);
+
+            boolean enableADC = (boolean) methodComponentContext.getParameters().getOrDefault(ENABLE_ADC_PARAM, DEFAULT_ENABLE_ADC);
+
+            if (enableADC && !supportedBitCountsForADC.contains(bitCount)) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Validation Failed: ADC is not supported for bit count: %d", bitCount)
+                );
+            }
 
             ScalarQuantizationType quantizationType = switch (bitCount) {
                 case 1 -> ScalarQuantizationType.ONE_BIT;
@@ -80,7 +95,8 @@ public class QFrameBitEncoder implements Encoder {
             };
 
             QuantizationConfig quantizationConfig = quantizationConfigBuilder.quantizationType(quantizationType)
-                .enableRandomRotation(enableRandomRotation)
+                    .enableRandomRotation(enableRandomRotation)
+                    .enableADC(enableADC)
                 .build();
 
             // We use the flat description because we are doing the quantization

@@ -58,7 +58,13 @@ namespace knn_jni {
         // float index.
         //
         // Returns a pointer of the loaded index
-        jlong LoadIndexWithStreamADC(faiss::IOReader* ioReader);
+        jlong LoadIndexWithStreamADCParams(faiss::IOReader* ioReader, knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject methodParamsJ);
+
+        // Loads a one-bit ADC index from the binary index read with IOReader. The index is altered to support scoring full precision query vectors
+        // against document codes.
+        //
+        // Returns a pointer of the loaded index
+        jlong LoadIndexWithStreamADC(faiss::IOReader* ioReader, faiss::MetricType metricType);
 
         // Load a binary index from indexPathJ into memory.
         //
@@ -172,6 +178,15 @@ namespace knn_jni {
          */
         jobjectArray RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
                                  jfloat radiusJ, jobject methodParamsJ, jint maxResultWindowJ, jintArray parentIdsJ);
+
+        /**
+         * Translates a space type string to a Faiss metric type
+         *
+         * @param spaceType The k-NN space type string to translate
+         * @return The corresponding Faiss metric type
+         * @throws std::runtime_error if the space type is invalid
+         */
+        faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
     }
 }
 

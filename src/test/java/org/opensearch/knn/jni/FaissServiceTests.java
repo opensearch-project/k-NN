@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
@@ -51,54 +53,58 @@ public class FaissServiceTests extends KNNTestCase {
 
     @SneakyThrows
     public void testLoadIndexWithStreamADC() {
-        Path tempDirPath = createTempDir();
-        String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
-        try (Directory directory = newFSDirectory(tempDirPath)) {
-            // Create an index with binary data
-            long memoryAddr = testData.loadBinaryDataToMemoryAddress();
-            TestUtils.createIndex(
-                testData.indexData.docs,
-                memoryAddr,
-                testData.indexData.getDimension(),
-                directory,
-                indexFileName1,
-                ImmutableMap.of(
-                    INDEX_DESCRIPTION_PARAMETER,
-                    faissBinaryMethod,
-                    KNNConstants.SPACE_TYPE,
-                    SpaceType.HAMMING.getValue(),
-                    KNNConstants.VECTOR_DATA_TYPE_FIELD,
-                    VectorDataType.BINARY.getValue()
-                ),
-                KNNEngine.FAISS
-            );
-            assertTrue(directory.fileLength(indexFileName1) > 0);
+        SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
 
-            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
-                long indexAddr = FaissService.loadIndexWithStreamADC(new IndexInputWithBuffer(indexInput));
-                // Load the index for ADC, effectively converting it from a binary HNSW index to a regular HNSW index
-                for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(
-                        indexAddr,
-                        query,
-                        10,
-                        Collections.emptyMap(),
-                        KNNEngine.FAISS,
-                        null,
-                        0,
-                        null
-                    );
-                    // logQuery(results);
-                    assertEquals(10, results.length);
+        for (SpaceType spaceType : spaceTypes) {
+            Path tempDirPath = createTempDir();
+            String indexFileName = "test_" + spaceType.getValue() + "_" + UUID.randomUUID() + ".tmp";
+
+            try (Directory directory = newFSDirectory(tempDirPath)) {
+                // Create an index with binary data
+                long memoryAddr = testData.loadBinaryDataToMemoryAddress();
+                TestUtils.createIndex(
+                    testData.indexData.docs,
+                    memoryAddr,
+                    testData.indexData.getDimension(),
+                    directory,
+                    indexFileName,
+                    ImmutableMap.of(
+                        INDEX_DESCRIPTION_PARAMETER,
+                        faissBinaryMethod,
+                        KNNConstants.SPACE_TYPE,
+                        SpaceType.HAMMING.getValue(),
+                        KNNConstants.VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BINARY.getValue()
+                    ),
+                    KNNEngine.FAISS
+                );
+                assertTrue(directory.fileLength(indexFileName) > 0);
+
+                try (IndexInput indexInput = directory.openInput(indexFileName, IOContext.DEFAULT)) {
+                    // Set up parameters for ADC loading
+                    Map<String, Object> parameters = new HashMap<>();
+                    parameters.put("space_type", spaceType.getValue());
+                    // Use the exact string format expected by JNI util
+                    parameters.put("quantization_level", "ScalarQuantizationParams_1");
+
+                    long indexAddr = FaissService.loadIndexWithStreamADCParams(new IndexInputWithBuffer(indexInput), parameters);
+
+                    // Test queries
+                    for (float[] query : testData.queries) {
+                        KNNQueryResult[] results = JNIService.queryIndex(
+                            indexAddr,
+                            query,
+                            10,
+                            Collections.emptyMap(),
+                            KNNEngine.FAISS,
+                            null,
+                            0,
+                            null
+                        );
+                        assertEquals(10, results.length);
+                    }
                 }
             }
-        }
-    }
-
-    private void logQuery(KNNQueryResult[] results) {
-        logger.info("Query results");
-        for (KNNQueryResult result : results) {
-            logger.info(result.getId() + ": " + result.getScore());
         }
     }
 }

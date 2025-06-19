@@ -21,7 +21,12 @@
 #include <functional>
 
 namespace knn_jni {
-
+    enum class BQQuantizationLevel {
+        ONE_BIT,
+        TWO_BIT,
+        FOUR_BIT,
+        NONE
+    };
     // Interface for making calls to JNI
     struct JNIUtilInterface {
         // -------------------------- EXCEPTION HANDLING ----------------------------
@@ -62,6 +67,8 @@ namespace knn_jni {
 
         // Convert a java object to cpp string, if applicable
         virtual std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ) = 0;
+
+        virtual knn_jni::BQQuantizationLevel ConvertJavaStringToQuantizationLevel(JNIEnv *env, jobject javaString) = 0;
 
         // Convert a java object to a cpp integer, if applicable
         virtual int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) = 0;
@@ -169,6 +176,7 @@ namespace knn_jni {
         std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString) final;
         std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) final;
         std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ) final;
+        knn_jni::BQQuantizationLevel ConvertJavaStringToQuantizationLevel(JNIEnv *env, jobject javaString) final;
         int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) final;
         std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim) final;
         std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) final;
@@ -265,7 +273,6 @@ namespace knn_jni {
     extern const std::string EF_CONSTRUCTION;
     extern const std::string EF_CONSTRUCTION_NMSLIB;
     extern const std::string EF_SEARCH;
-
     // --------------------------------------------------------------------------
 }
 

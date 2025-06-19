@@ -32,7 +32,6 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 
 import java.io.IOException;
@@ -51,7 +50,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
-import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
@@ -268,10 +267,18 @@ public class KNNIndexShard {
                 final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                 final String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
                 final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
-                        reader,
-                        fieldInfo,
-                        fieldInfo.name
+                    reader,
+                    fieldInfo,
+                    fieldInfo.name,
+                    reader.getSegmentInfo().info.getVersion()
                 );
+                // obtain correct VectorDataType for this field based on the quantization state and if ADC is enabled.
+                VectorDataType vectorDataType = determineVectorDataType(
+                    fieldInfo,
+                    segmentLevelQuantizationInfo,
+                    reader.getSegmentInfo().info.getVersion()
+                );
+
                 engineFiles.addAll(
                     getEngineFileContexts(
                         reader.getSegmentInfo(),
@@ -280,14 +287,7 @@ public class KNNIndexShard {
                         fileExtension,
                         spaceType,
                         modelId,
-                        FieldInfoExtractor.extractQuantizationConfig(
-                            fieldInfo,
-                            reader.getSegmentInfo().info.getVersion()
-                        ) == QuantizationConfig.EMPTY
-                            ? VectorDataType.get(
-                                fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-                            )
-                            : VectorDataType.BINARY
+                        vectorDataType
                     )
                 );
             }
@@ -314,8 +314,39 @@ public class KNNIndexShard {
             .stream()
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
-            .map(vectorFileName -> new EngineFileContext(fieldName, spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info, segmentLevelQuantizationInfo))
+            .map(
+                vectorFileName -> new EngineFileContext(
+                    fieldName,
+                    spaceType,
+                    modelId,
+                    vectorFileName,
+                    vectorDataType,
+                    segmentCommitInfo.info,
+                    segmentLevelQuantizationInfo
+                )
+            )
             .collect(Collectors.toList());
+    }
+
+    @VisibleForTesting
+    VectorDataType determineVectorDataType(
+        FieldInfo fieldInfo,
+        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
+        org.apache.lucene.util.Version segmentVersion
+    ) {
+
+        // First check if quantization config is empty
+        if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo, segmentVersion) == QuantizationConfig.EMPTY) {
+            // If empty, get from attributes with default FLOAT
+            return VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()));
+        }
+
+        // For non-empty quantization config
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            return VectorDataType.FLOAT;
+        } else {
+            return VectorDataType.BINARY;
+        }
     }
 
     @AllArgsConstructor

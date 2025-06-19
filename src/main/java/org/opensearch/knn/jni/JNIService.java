@@ -200,7 +200,7 @@ public class JNIService {
             }
 
             if (IndexUtil.isADCEnabled(knnEngine, parameters)) {
-                return FaissService.loadIndexWithStreamADC(readStream);
+                return FaissService.loadIndexWithStreamADCParams(readStream, parameters);
             }
 
             return FaissService.loadIndexWithStream(readStream);
