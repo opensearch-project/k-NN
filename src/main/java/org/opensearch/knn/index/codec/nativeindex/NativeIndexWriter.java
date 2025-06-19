@@ -130,7 +130,8 @@ public class NativeIndexWriter {
             startMergeStats(totalLiveDocs, bytesPerVector);
             buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs, false);
             endMergeStats(totalLiveDocs, bytesPerVector);
-        } catch (MergePolicy.MergeAbortedException ex) {
+        } catch (IOException | RuntimeException ex) {
+            log.debug("Merge Aborted", ex.getMessage());
             throw new MergePolicy.MergeAbortedException("KNN Merge aborted.");
         } catch (Exception ex) {
             log.debug("Merge exception {}", ex.getMessage());

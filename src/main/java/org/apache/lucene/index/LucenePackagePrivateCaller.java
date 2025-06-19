@@ -23,6 +23,7 @@ public class LucenePackagePrivateCaller {
             }
         });
     }
+
     public static Object callMethod(Class<?> clz, String methodName, Class<?>[] argTypes, Object called, Object[] args) {
         return AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
             try {
