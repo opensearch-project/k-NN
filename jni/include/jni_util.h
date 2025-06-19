@@ -36,6 +36,9 @@ namespace knn_jni {
         // HasExceptionInStack with ability to specify message
         virtual void HasExceptionInStack(JNIEnv* env, const char *message) = 0;
 
+        // Catches a Faiss abort exception and throws the MergeAbortedException exception to the JVM
+        virtual void CatchAbortExceptionAndThrowJava(JNIEnv* env) = 0;
+
         // Catches a C++ exception and throws the corresponding exception to the JVM
         virtual void CatchCppExceptionAndThrowJava(JNIEnv* env) = 0;
         // --------------------------------------------------------------------------
@@ -163,6 +166,7 @@ namespace knn_jni {
         void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "") final;
         void HasExceptionInStack(JNIEnv* env) final;
         void HasExceptionInStack(JNIEnv* env, const char* message) final;
+        void CatchAbortExceptionAndThrowJava(JNIEnv* env) final;
         void CatchCppExceptionAndThrowJava(JNIEnv* env) final;
         jclass FindClass(JNIEnv * env, const std::string& className) final;
         jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName) final;
