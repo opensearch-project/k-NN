@@ -199,10 +199,23 @@ public:
 struct OpenSearchMergeInterruptCallback : faiss::InterruptCallback {
 
     OpenSearchMergeInterruptCallback(JNIUtil *jniUtil, JNIEnv *env) {
+        jenv = env;
         mergeHelperClass = jniUtil->FindClass(env,"org/apache/lucene/index/KNNMergeHelper");
         isAbortedMethod = jniUtil->FindMethod(env, "org/apache/lucene/index/KNNMergeHelper", "isMergeAborted");
     }
     bool want_interrupt () override {
+        if (jenv == nullptr) {
+            std::cerr << "JNIEnv Not Find\n";
+            return false;
+        }
+        if (mergeHelperClass == nullptr) {
+            std::cerr << "KNNMergeHelper Not Find\n";
+            return false;
+        }
+        if (isAbortedMethod == nullptr) {
+            std::cerr << "is MergeAborted Not Find\n";
+            return false;
+        }
         return (bool) jenv->CallStaticBooleanMethod(mergeHelperClass, isAbortedMethod);
     }
     JNIEnv *jenv;
