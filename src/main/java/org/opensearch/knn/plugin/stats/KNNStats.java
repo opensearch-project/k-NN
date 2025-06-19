@@ -283,6 +283,8 @@ public class KNNStats {
         remoteIndexBuildStatsMap.put(StatNames.CLIENT_STATS.getName(), clientStatsMap);
         remoteIndexBuildStatsMap.put(StatNames.REPOSITORY_STATS.getName(), repoStatsMap);
         return remoteIndexBuildStatsMap;
+    }
+
     private static <T> KNNStat<T> createNodeStat(Supplier<T> supplier) {
         return new KNNStat<>(false, supplier);
     }
