@@ -64,7 +64,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getMappingConfigForMethodMapping(knnMethodContext, 3),
+            null
         );
         KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
         float[] processedFloatQuery = (float[]) l2.getProcessedQuery(arrayListQueryObject, fieldType);
@@ -91,7 +92,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getMappingConfigForMethodMapping(knnMethodContext, 3),
+            null
         );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
         float[] processedFloatQuery = (float[]) cosineSimilarity.getProcessedQuery(arrayListQueryObject, fieldType);
@@ -119,7 +121,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getMappingConfigForMethodMapping(knnMethodContext, 3),
+            null
         );
 
         final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
@@ -150,7 +153,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getMappingConfigForMethodMapping(knnMethodContext, 3),
+            null
         );
         KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
 
@@ -244,7 +248,8 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.BINARY,
-            getMappingConfigForMethodMapping(knnMethodContext, 8 * arrayListQueryObject.size())
+            getMappingConfigForMethodMapping(knnMethodContext, 8 * arrayListQueryObject.size()),
+            null
         );
 
         KNNScoringSpace.Hamming hamming = new KNNScoringSpace.Hamming(arrayListQueryObject, fieldType);

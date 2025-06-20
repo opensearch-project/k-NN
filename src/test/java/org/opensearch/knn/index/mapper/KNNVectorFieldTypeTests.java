@@ -25,7 +25,8 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
             FIELD_NAME,
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getMappingConfigForMethodMapping(knnMethodContext, 3),
+            null
         );
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         ValueFetcher valueFetcher = knnVectorFieldType.valueFetcher(mockQueryShardContext, null, null);
