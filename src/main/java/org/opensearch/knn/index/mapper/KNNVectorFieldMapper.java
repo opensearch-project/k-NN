@@ -195,6 +195,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
+        // search mode field (exact or ann)
+        protected final Parameter<String> searchMode = Parameter.stringParam(
+                KNNConstants.SEARCH_MODE,
+                false,
+                m -> toType(m).originalMappingParameters.getSearchMode(),
+                null
+        );
+
         protected ModelDao modelDao;
         protected Version indexCreatedVersion;
         @Setter
@@ -246,7 +254,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 modelId,
                 mode,
                 compressionLevel,
-                topLevelSpaceType
+                topLevelSpaceType,
+                searchMode
             );
         }
 
@@ -291,7 +300,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
             // EngineFieldMapper to maintain backwards compatibility
-            if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
+            // adding check to see if exact search is enabled (only supported for indices created on or after 3.0.0)
+            if ((originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0))
+                || (indexCreatedVersion.onOrAfter(Version.V_3_0_0) && originalParameters.getSearchMode() == KNNConstants.EXACT_SEARCH_KEY)) {
                 // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
                 // hasDocValues to be true to maintain proper functionality for vector search operations.
                 // For indices created on or after 3.0.0, we automatically set hasDocValues to true if not
@@ -399,8 +410,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // Check for flat configuration and validate only if index is created after 2.17
-            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
+            // Check for flat configuration and validate only if index is created after 2.17 or if search mode is exact and index is created after 3.0
+            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)
+            || (builder.searchMode.name.equals(KNNConstants.EXACT_SEARCH_KEY) && parserContext.indexVersionCreated().onOrAfter(Version.V_3_0_0))) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
@@ -423,6 +435,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // we must wrap it and pick up the default when it is UNDEFINED.
                 setSpaceType(builder.originalParameters.getKnnMethodContext(), resolvedSpaceType);
                 validateSpaceType(builder);
+                validateSearchMode(builder);
 
                 // Resolve method component. For the legacy case where space type can be configured at index level,
                 // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
@@ -433,6 +446,26 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             return builder;
+        }
+
+        private void validateSearchMode(KNNVectorFieldMapper.Builder builder) {
+            String searchModeParam = builder.originalParameters.getSearchMode();
+            // ignoring searchMode if index before 3.0.0 (but searchMode will still be the value it was set to)
+            if (searchModeParam != null && !builder.indexCreatedVersion.onOrAfter(Version.V_3_0_0)) {
+                return;
+            }
+            if (searchModeParam == null) return;
+            if (
+                !(searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY))
+                && !(searchModeParam.equals(KNNConstants.ANN_SEARCH_KEY))
+            ) {
+                throw new IllegalArgumentException("Search mode must be either 'exact' or 'ann'");
+            }
+            final KNNMethodContext knnMethodContext = builder.knnMethodContext.get();
+            if (searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY)
+                && knnMethodContext != null) {
+                throw new IllegalArgumentException("Method and exact search mode cannot both be specified in the mapping");
+            }
         }
 
         private void validateSpaceType(KNNVectorFieldMapper.Builder builder) {

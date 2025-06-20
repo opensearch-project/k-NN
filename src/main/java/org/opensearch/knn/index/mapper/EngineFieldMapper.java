@@ -32,12 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
-import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
@@ -112,7 +107,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 public KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
                     return libraryContext;
                 }
-            }
+            },
+            originalMappingParameters.getSearchMode()
         );
 
         return new EngineFieldMapper(
@@ -182,6 +178,9 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
             this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMappingConfig.getDimension()));
             this.fieldType.putAttribute(SPACE_TYPE, resolvedKnnMethodContext.getSpaceType().getValue());
+            if (originalMappingParameters.getSearchMode() != null) {
+                this.fieldType.putAttribute(SEARCH_MODE, originalMappingParameters.getSearchMode());
+            }
             // Conditionally add quantization config
             if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
                 this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
