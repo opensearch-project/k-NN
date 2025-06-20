@@ -519,7 +519,7 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, 
 
     // altered storage containing the distance computer override.
     knn_jni::faiss_wrapper::FaissIndexBQ * alteredStorage = new knn_jni::faiss_wrapper::FaissIndexBQ(
-        indexReader->d, codesIndex->xb, metricType
+        indexReader->d, std::move(codesIndex->xb), metricType
     );
 
     // alteredIndexHNSW is effectively a placeholder before we pass the preexisting HNSW structure.
@@ -529,7 +529,7 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, 
     alteredIndexHNSW->hnsw = hnswBinary->hnsw;
     faiss::IndexIDMap * alteredIdMap = new faiss::IndexIDMap(alteredIndexHNSW);
     alteredStorage->init(alteredIndexHNSW, alteredIdMap);
-    alteredIdMap->id_map = binaryIdMap->id_map;
+    alteredIdMap->id_map = std::move(binaryIdMap->id_map);
     alteredIdMap->own_fields = true; // to delete index correctly
     alteredIndexHNSW->own_fields = true;  // to delete index correctly
 

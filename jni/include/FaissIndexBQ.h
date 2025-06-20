@@ -63,17 +63,47 @@ namespace knn_jni {
                 return distance_to_code_batched_unrolled(code);
             };
 
+            virtual void distances_batch_4(
+                const id_t idx0,
+                const id_t idx1,
+                const id_t idx2,
+                const id_t idx3,
+                float& result_dis0,
+                float& result_dis1,
+                float& result_dis2,
+                float& result_dis3) final {
+                const auto code0 = this->codes + idx0 * code_size;
+                const auto code1 = this->codes + idx1 * code_size;
+                const auto code2 = this->codes + idx2 * code_size;
+                const auto code3 = this->codes + idx3 * code_size;
+
+                float dist0 = 0.0f;
+                float dist1 = 0.0f;
+                float dist2 = 0.0f;
+                float dist3 = 0.0f;
+                for (int i = 0 ; i < dimension / 8; ++i) {
+                    dist0 += ADC_FLAT_LOOKUP_BATCH(this->lookup_table, i, *(code0 + i));
+                    dist1 += ADC_FLAT_LOOKUP_BATCH(this->lookup_table, i, *(code1 + i));
+                    dist2 += ADC_FLAT_LOOKUP_BATCH(this->lookup_table, i, *(code2 + i));
+                    dist3 += ADC_FLAT_LOOKUP_BATCH(this->lookup_table, i, *(code3 + i));
+                }
+
+                result_dis0 = dist0;
+                result_dis1 = dist1;
+                result_dis2 = dist2;
+                result_dis3 = dist3;
+            }
+
             /**
              * Fast distance computation using loop unrolling and batched lookups
-             * 
+             *
              * This method:
              * 1. Processes 4 bytes at a time for better instruction pipelining
              * 2. For each byte, looks up precomputed distance contribution from the table
              * 3. Accumulates partial distances and applies the distance correction
-             * 
+             *
              * The compiler hints direct aggressive optimization of floating point operations
              */
-
             float distance_to_code_batched_unrolled(const uint8_t * code) {
                 float dist0 = 0.0f, dist1 = 0.0f, dist2 = 0.0f, dist3 = 0.0f;
                 int i = 0;
@@ -115,11 +145,11 @@ namespace knn_jni {
 
             /**
              * Compute per-dimension contributions for L2 distance
-             * 
+             *
              * For L2 distance with 1-bit quantization, each bit contributes:
              * - If bit=0: query[i] ** 2
              * - If bit=1: (1-query[i]) ** 2
-             * 
+             *
              * This simplifies to: bit_contribution = (1 - 2*query[i])*bit + query[i] ** 2
              * We store (1 - 2*query[i]) as the coefficient and accumulate query[i] ** 2 as correction
              */
@@ -135,8 +165,8 @@ namespace knn_jni {
 
             /**
              * Compute per-dimension contributions for inner product distance
-             * 
-             * For inner product with 1-bit quantization, each bit directly 
+             *
+             * For inner product with 1-bit quantization, each bit directly
              * contributes the query value when the bit is set
              */
             void compute_cord_scores_inner_product() {
@@ -169,15 +199,15 @@ namespace knn_jni {
                         for (unsigned int suffix = 0; suffix < bit_masked; ++suffix) {
                             // DP to build batch values one-by-one using previously computed values.
                             // for each batch_idx: batch[bit_masked | suffix] = batch[suffix] + bit_value;
-                            ADC_FLAT_LOOKUP_BATCH(this->lookup_table, batch_idx, bit_masked | suffix) = 
+                            ADC_FLAT_LOOKUP_BATCH(this->lookup_table, batch_idx, bit_masked | suffix) =
                                 ADC_FLAT_LOOKUP_BATCH(this->lookup_table, batch_idx, suffix) + bit_value;
                         }
-                    } 
+                    }
                 }
             }
             /**
              * ADCFlatCodesDistanceComputer1Bit::symmetric_dis is not implemented.
-             * The FlatCodesDistanceComputer::symmetric_dis function is used for index building. However the k-NN plugin 
+             * The FlatCodesDistanceComputer::symmetric_dis function is used for index building. However the k-NN plugin
              * only loads an altered index with this distance computer for search.
              */
             virtual float symmetric_dis(faiss::idx_t i, faiss::idx_t j) override {
@@ -200,8 +230,7 @@ namespace knn_jni {
              * @param metric Distance metric type (L2 or inner product)
              */
             FaissIndexBQ(faiss::idx_t d, std::vector<uint8_t> codes_vector, faiss::MetricType metric=faiss::METRIC_L2)
-            : IndexFlatCodes(d/8, d, metric), codes_vector(codes_vector) {
-            }
+            : IndexFlatCodes(d/8, d, metric), codes_vector(std::move(codes_vector)) {}
 
             /**
              * Initialize the index and sync total vector count with parent indexes
