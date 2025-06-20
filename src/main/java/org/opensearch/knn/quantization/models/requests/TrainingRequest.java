@@ -30,4 +30,11 @@ public abstract class TrainingRequest<T> {
      * @return the vector corresponding to the specified document ID.
      */
     public abstract T getVectorAtThePosition(int position) throws IOException;
+
+    /**
+     * Resets the KNNVectorValues in implementation to enable a fresh iteration by calling the supplier again.
+     * If the implementation does not use KNNVectorValues and getVectorAtThePosition is stateless then
+     * resetVectorValues is a no-op.
+     */
+    public abstract void resetVectorValues();
 }

@@ -450,7 +450,8 @@ public abstract class KNNWeight extends Weight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,
-            knnQuery.getField()
+            knnQuery.getField(),
+            reader.getSegmentInfo().info.getVersion()
         );
 
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
@@ -460,7 +461,14 @@ public abstract class KNNWeight extends Weight {
         }
 
         // TODO: Change type of vector once more quantization methods are supported
-        final byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+        byte[] quantizedVector = null;
+        float[] transformedVector = null;
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            transformedVector = knnQuery.getQueryVector().clone();
+            SegmentLevelQuantizationUtil.transformVectorWithADC(transformedVector, segmentLevelQuantizationInfo, spaceType);
+        } else {
+            quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+        }
 
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
         final TopDocs results = doANNSearch(
@@ -471,6 +479,7 @@ public abstract class KNNWeight extends Weight {
             knnEngine,
             vectorDataType,
             quantizedVector,
+            transformedVector,
             modelId,
             filterIdsBitSet,
             cardinality,
@@ -510,6 +519,7 @@ public abstract class KNNWeight extends Weight {
         final KNNEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedVector,
+        final float[] transformedVector,
         final String modelId,
         final BitSet filterIdsBitSet,
         final int cardinality,

@@ -515,9 +515,12 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                     assert (testingSpec.quantizationParams != null);
 
                     // Get quantization state
-                    final KNNVectorValues floatVectorValues = createKNNFloatVectorValues(documentIds, floatVectors);
                     final QuantizationState quantizationState = QuantizationService.getInstance()
-                        .train(testingSpec.quantizationParams, floatVectorValues, documentIds.size());
+                        .train(
+                            testingSpec.quantizationParams,
+                            () -> (KNNVectorValues) createKNNFloatVectorValues(documentIds, floatVectors),
+                            documentIds.size()
+                        );
                     testingSpec.quantizationState = quantizationState;
                     builder.quantizationState(quantizationState);
 

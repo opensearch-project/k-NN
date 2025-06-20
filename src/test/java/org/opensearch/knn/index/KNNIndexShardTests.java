@@ -165,6 +165,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, -1, 0, 0, null);
         List<KNNIndexShard.EngineFileContext> included = knnIndexShard.getEngineFileContexts(
             segmentCommitInfo,
+            null,
             fieldName,
             fileExt,
             spaceType,

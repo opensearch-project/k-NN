@@ -298,6 +298,20 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndex
 
     return NULL;
 }
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexWithStreamADCParams
+(JNIEnv * env, jclass cls, jobject readStreamJ, jobject parametersJ) {
+    try {
+        knn_jni::stream::NativeEngineIndexInputMediator mediator {&jniUtil, env, readStreamJ};
+
+        // Wrap the mediator with a glue code inheriting IOReader.
+        knn_jni::stream::FaissOpenSearchIOReader faissOpenSearchIOReader {&mediator};
+
+        return knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(&faissOpenSearchIOReader, &jniUtil, env, parametersJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return NULL;
+}
 
 JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_FaissService_isSharedIndexStateRequired(JNIEnv * env,
                                                                                                jclass cls,

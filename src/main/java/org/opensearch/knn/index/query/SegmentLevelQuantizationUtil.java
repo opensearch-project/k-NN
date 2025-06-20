@@ -7,8 +7,10 @@ package org.opensearch.knn.index.query;
 
 import lombok.experimental.UtilityClass;
 import org.apache.lucene.index.LeafReader;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -21,6 +23,16 @@ import java.util.Locale;
  */
 @UtilityClass
 public class SegmentLevelQuantizationUtil {
+
+    public static boolean isAdcEnabled(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
+        if (segmentLevelQuantizationInfo == null) return false;
+
+        if (segmentLevelQuantizationInfo.getQuantizationParams() instanceof ScalarQuantizationParams scalarQuantizationParams) {
+            return scalarQuantizationParams.isEnableADC();
+        } else {
+            return false;
+        }
+    }
 
     /**
      * A simple function to convert a vector to a quantized vector for a segment.
@@ -40,6 +52,27 @@ public class SegmentLevelQuantizationUtil {
             vector,
             quantizationService.createQuantizationOutput(segmentLevelQuantizationInfo.getQuantizationParams())
         );
+    }
+
+    /**
+     * Transform vector with ADC. ADC allows us to score full-precision query vectors against binary document vectors.
+     * The transformation formula is:
+     * q_d = (q_d - x_d) / (y_d - x_d) where x_d is the mean of all document entries quantized to 0 (the below threshold mean)
+     * and y_d is the mean of all document entries quantized to 1 (the above threshold mean).
+     * @param vector array of floats, modified in-place.
+     * @param segmentLevelQuantizationInfo quantization state including below and above threshold means to perform the transformation.
+     * @param spaceType spaceType (l2 or innerproduct). Used to identify whether an additional correction term should be applied.
+     */
+    public static void transformVectorWithADC(
+        float[] vector,
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
+        SpaceType spaceType
+    ) {
+        if (segmentLevelQuantizationInfo == null) {
+            return;
+        }
+        final QuantizationService quantizationService = QuantizationService.getInstance();
+        quantizationService.transformWithADC(segmentLevelQuantizationInfo.getQuantizationState(), vector, spaceType);
     }
 
     /**

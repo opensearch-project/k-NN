@@ -31,6 +31,11 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
             public float[] getVectorAtThePosition(int position) {
                 return vectors[position];
             }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
         };
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         QuantizationState state = quantizer.train(originalRequest);
@@ -40,13 +45,42 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, meanThresholds, 0.001f);
     }
 
+    public void testTrain_withBelowAboveThresholdMeans() throws IOException {
+        float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f } };
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<>(vectors.length) {
+            @Override
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
+            }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
+        };
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        QuantizationState state = quantizer.train(trainingRequest);
+
+        assertTrue(state instanceof OneBitScalarQuantizationState);
+        OneBitScalarQuantizationState oneBitState = (OneBitScalarQuantizationState) state;
+
+        float[] expectedMeanThresholds = { 4.0f, 5.0f, 6.0f };
+        assertArrayEquals(expectedMeanThresholds, oneBitState.getMeanThresholds(), 0.001f);
+
+        // Validate below and above thresholds
+        float[] expectedBelowThresholdMeans = { 2.5f, 3.5f, 4.5f };
+        float[] expectedAboveThresholdMeans = { 7.0f, 8.0f, 9.0f };
+        assertArrayEquals(expectedBelowThresholdMeans, oneBitState.getBelowThresholdMeans(), 0.001f);
+        assertArrayEquals(expectedAboveThresholdMeans, oneBitState.getAboveThresholdMeans(), 0.001f);
+    }
+
     public void testQuantize_withState() throws IOException {
         float[] vector = { 3.0f, 6.0f, 9.0f };
         float[] thresholds = { 4.0f, 5.0f, 6.0f };
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
-            thresholds
-        );
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(thresholds)
+            .build();
 
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         BinaryQuantizationOutput output = new BinaryQuantizationOutput(1);
@@ -60,10 +94,10 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
 
     public void testQuantize_withNullVector() throws IOException {
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
-            new float[] { 0.0f }
-        );
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(new float[] { 0.0f })
+            .build();
         BinaryQuantizationOutput output = new BinaryQuantizationOutput(1);
         expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(null, state, output));
     }
@@ -110,10 +144,10 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         float[] vector = { 1.0f, 2.0f, 3.0f };
         float[] thresholds = { 4.0f, 5.0f };
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
-            thresholds
-        );
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(thresholds)
+            .build();
         QuantizationOutput<byte[]> output = new BinaryQuantizationOutput(1);
         expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(vector, state, output));
     }
@@ -127,12 +161,21 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
             public float[] getVectorAtThePosition(int position) {
                 return vectors[position];
             }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
         };
 
         Sampler sampler = SamplingFactory.getSampler(SamplerType.RESERVOIR);
         int[] sampledIndices = sampler.sample(vectors.length, 3);
-        float[] meanThresholds = QuantizerHelper.calculateMeanThresholds(samplingRequest, sampledIndices);
-        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, meanThresholds, 0.001f);
+        OneBitScalarQuantizationState oneBitScalarQuantizationState = QuantizerHelper.calculateQuantizationState(
+            samplingRequest,
+            sampledIndices,
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT)
+        );
+        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, oneBitScalarQuantizationState.getMeanThresholds(), 0.001f);
     }
 
     public void testCalculateMean_withNullVector() {
@@ -144,20 +187,29 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
             public float[] getVectorAtThePosition(int position) {
                 return vectors[position];
             }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
         };
 
         Sampler sampler = SamplingFactory.getSampler(SamplerType.RESERVOIR);
         int[] sampledIndices = sampler.sample(vectors.length, 3);
-        expectThrows(IllegalArgumentException.class, () -> QuantizerHelper.calculateMeanThresholds(samplingRequest, sampledIndices));
+        ScalarQuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> QuantizerHelper.calculateQuantizationState(samplingRequest, sampledIndices, quantizationParams)
+        );
     }
 
     public void testQuantize_withState_multiple_times() throws IOException {
         float[] vector = { 3.0f, 6.0f, 9.0f };
         float[] thresholds = { 4.0f, 5.0f, 6.0f };
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
-            thresholds
-        );
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(thresholds)
+            .build();
 
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         BinaryQuantizationOutput output = new BinaryQuantizationOutput(1);
@@ -174,7 +226,10 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         // Modify vector and thresholds for a second quantization call
         vector = new float[] { 7.0f, 8.0f, 9.0f };
         thresholds = new float[] { 6.0f, 7.0f, 8.0f };
-        state = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT), thresholds);
+        state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(thresholds)
+            .build();
 
         // Second quantization
         output.prepareQuantizedVector(vector.length);  // Ensure it is prepared for the new vector
@@ -191,10 +246,10 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
     public void testQuantize_ReuseByteArray() throws IOException {
         float[] vector = { 3.0f, 6.0f, 9.0f };
         float[] thresholds = { 4.0f, 5.0f, 6.0f };
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
-            thresholds
-        );
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(thresholds)
+            .build();
 
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         BinaryQuantizationOutput output = new BinaryQuantizationOutput(1);
@@ -226,7 +281,10 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         float[] thresholds = { 1.5f, 2.5f, 3.5f, 4.5f };
 
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(params, thresholds);
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .meanThresholds(thresholds)
+            .build();
 
         BinaryQuantizationOutput output = new BinaryQuantizationOutput(1);
 
