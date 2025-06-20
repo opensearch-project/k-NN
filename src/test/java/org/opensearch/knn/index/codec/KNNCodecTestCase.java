@@ -22,6 +22,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -74,6 +75,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.atLeastOnce;
@@ -350,13 +352,15 @@ public class KNNCodecTestCase extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+            getMappingConfigForMethodMapping(knnMethodContext, 3),
+            null
         );
         final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 2)
+            getMappingConfigForMethodMapping(knnMethodContext, 2),
+            null
         );
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
@@ -441,4 +445,113 @@ public class KNNCodecTestCase extends KNNTestCase {
         dir.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
+
+    public void testKnnVectorIndexWithSearchMode(
+            final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
+            final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
+    ) throws Exception {
+        final MapperService mapperService = mock(MapperService.class);
+
+        // ann method context
+        final KNNMethodContext annMethodContext = new KNNMethodContext(
+                KNNEngine.LUCENE,
+                SpaceType.L2,
+                new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
+        );
+
+        // exact method context
+        final KNNMethodContext exactMethodContext = getDefaultKNNMethodContext();
+
+        // ann field type
+        final KNNVectorFieldType annMappedFieldType = new KNNVectorFieldType(
+                "test",
+                Collections.emptyMap(),
+                VectorDataType.FLOAT,
+                getMappingConfigForMethodMapping(annMethodContext, 3),
+                "ann"
+        );
+        //exact field type
+        final KNNVectorFieldType exactMappedFieldType = new KNNVectorFieldType(
+                "test",
+                Collections.emptyMap(),
+                VectorDataType.FLOAT,
+                getMappingConfigForMethodMapping(exactMethodContext, 2),
+                "exact"
+        );
+
+        assertEquals("ann", annMappedFieldType.getSearchMode());
+        assertEquals("exact", exactMappedFieldType.getSearchMode());
+
+        when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(annMappedFieldType);
+        when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(exactMappedFieldType);
+
+        var perFieldKnnVectorsFormatSpy = spy(perFieldKnnVectorsFormatProvider.apply(mapperService));
+        final Codec codec = codecProvider.apply(perFieldKnnVectorsFormatSpy);
+
+        setUpMockClusterService();
+        Directory dir = newFSDirectory(createTempDir());
+        IndexWriterConfig iwc = newIndexWriterConfig();
+        iwc.setMergeScheduler(new SerialMergeScheduler());
+        iwc.setCodec(codec);
+
+        /**
+         * Add doc with field "test_vector_one"
+         */
+        final FieldType luceneFieldType = KnnFloatVectorField.createFieldType(3, VectorSimilarityFunction.EUCLIDEAN);
+        float[] array = { 1.0f, 3.0f, 4.0f };
+        KnnFloatVectorField vectorField = new KnnFloatVectorField(FIELD_NAME_ONE, array, luceneFieldType);
+        RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
+        Document doc = new Document();
+        doc.add(vectorField);
+        writer.addDocument(doc);
+        writer.commit();
+        IndexReader reader = writer.getReader();
+        writer.close();
+
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_ONE));
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getMaxDimensions(eq(FIELD_NAME_ONE));
+
+        IndexSearcher searcher = new IndexSearcher(reader);
+
+        Query query = KNNQueryFactory.create(
+                BaseQueryFactory.CreateQueryRequest.builder()
+                        .knnEngine(KNNEngine.LUCENE)
+                        .indexName("dummy")
+                        .fieldName(FIELD_NAME_ONE)
+                        .vector(new float[] { 1.0f, 0.0f, 0.0f })
+                        .k(1)
+                        .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                        .build()
+        );
+
+        assertEquals(1, searcher.count(query));
+
+        reader.close();
+
+        /**
+         * Add doc with field "test_vector_two"
+         */
+        IndexWriterConfig iwc1 = newIndexWriterConfig();
+        iwc1.setMergeScheduler(new SerialMergeScheduler());
+        iwc1.setCodec(codec);
+        writer = new RandomIndexWriter(random(), dir, iwc1);
+        final FieldType luceneFieldType1 = KnnFloatVectorField.createFieldType(2, VectorSimilarityFunction.EUCLIDEAN);
+        float[] array1 = { 6.0f, 14.0f };
+        KnnFloatVectorField vectorField1 = new KnnFloatVectorField(FIELD_NAME_TWO, array1, luceneFieldType1);
+        Document doc1 = new Document();
+        doc1.add(vectorField1);
+        writer.addDocument(doc1);
+        IndexReader reader1 = writer.getReader();
+        writer.close();
+
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_TWO));
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getMaxDimensions(eq(FIELD_NAME_TWO));
+
+        // NOTE: cannot currently do exact search through knn query yet
+
+        reader1.close();
+        dir.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+    }
+
 }

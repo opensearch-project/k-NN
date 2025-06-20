@@ -63,6 +63,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -89,6 +90,10 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODE;
+import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_KEY;
+import static org.opensearch.knn.common.KNNConstants.ANN_SEARCH_KEY;
+import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -123,10 +128,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             modelDao,
             CURRENT,
             null,
-            new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null, SpaceType.UNDEFINED.getValue())
+            new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null, SpaceType.UNDEFINED.getValue(), null)
         );
 
-        assertEquals(10, builder.getParameters().size());
+        assertEquals(11, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
         List<String> expectedParams = Arrays.asList(
             "store",
@@ -138,7 +143,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             MODEL_ID,
             MODE_PARAMETER,
             COMPRESSION_LEVEL_PARAMETER,
-            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE
+            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE,
+            SEARCH_MODE
         );
         assertEquals(expectedParams, actualParams);
     }
@@ -1328,7 +1334,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 Mode.NOT_CONFIGURED.getName(),
                 CompressionLevel.NOT_CONFIGURED.getName(),
                 null,
-                SpaceType.UNDEFINED.getValue()
+                SpaceType.UNDEFINED.getValue(),
+                null
             );
             originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
             EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1396,7 +1403,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     Mode.NOT_CONFIGURED.getName(),
                     CompressionLevel.NOT_CONFIGURED.getName(),
                     null,
-                    SpaceType.UNDEFINED.getValue()
+                    SpaceType.UNDEFINED.getValue(),
+                    null
                 );
                 originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
                 EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1511,7 +1519,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     Mode.NOT_CONFIGURED.getName(),
                     CompressionLevel.NOT_CONFIGURED.getName(),
                     MODEL_ID,
-                    SpaceType.UNDEFINED.getValue()
+                    SpaceType.UNDEFINED.getValue(),
+                    null
                 );
 
                 ModelFieldMapper modelFieldMapper = ModelFieldMapper.createFieldMapper(
@@ -1613,7 +1622,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
-            SpaceType.UNDEFINED.getValue()
+            SpaceType.UNDEFINED.getValue(),
+            null
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
@@ -1675,7 +1685,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
-            SpaceType.UNDEFINED.getValue()
+            SpaceType.UNDEFINED.getValue(),
+            null
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
         luceneFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1722,7 +1733,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
-            SpaceType.UNDEFINED.getValue()
+            SpaceType.UNDEFINED.getValue(),
+            null
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
@@ -2344,6 +2356,240 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
 
         assertTrue(exception.getMessage().contains("name needs to be set"));
+    }
+
+    // search mode tests
+    public void testExactSearchMode_withMethod_ThrowsException() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, 2)
+                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+                .startObject(KNN_METHOD)
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, "faiss")
+                .endObject()
+                .endObject();
+
+        IllegalArgumentException exception = expectThrows(
+                IllegalArgumentException.class,
+                () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
+        );
+
+        assertTrue(exception.getMessage().contains("Method and exact search mode cannot both be specified in the mapping"));
+    }
+
+    public void testSearchMode_IncorrectName_ThrowsException() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, 2)
+                .field(SEARCH_MODE, "exactsearch")
+                .startObject(KNN_METHOD)
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, "faiss")
+                .endObject()
+                .endObject();
+
+        IllegalArgumentException exception = expectThrows(
+                IllegalArgumentException.class,
+                () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
+        );
+
+        assertTrue(exception.getMessage().contains("Search mode must be either 'exact' or 'ann'"));
+    }
+
+    public void testSearchMode_notDefined_DefaultToNull() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, 2)
+                .endObject();
+
+        final KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext(indexName, settings)
+        );
+
+        assertNull(builder.getOriginalParameters().getSearchMode());
+    }
+
+    public void testSearchMode_MultipleVectorFields_LuceneAndExact() throws IOException {
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                    .startObject("my_vector1")
+                        .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                        .field(DIMENSION_FIELD_NAME, 2)
+                        .startObject(KNN_METHOD)
+                            .field(NAME, "hnsw")
+                            .field(KNN_ENGINE, "lucene")
+                        .endObject()
+                    .endObject()
+                    .startObject("my_vector2")
+                        .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                        .field(DIMENSION_FIELD_NAME, 2)
+                        .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+                    .endObject()
+                .endObject()
+                .endObject();
+
+        Map<String, Object> params = xContentBuilderToMap(xContentBuilder);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) params.get("properties");
+
+        assertTrue(properties.containsKey("my_vector1"));
+        assertTrue(properties.containsKey("my_vector2"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Mapping = (Map<String, Object>) properties.get("my_vector1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Method = (Map<String, Object>) vector1Mapping.get(KNN_METHOD);
+
+        assertNull(vector1Mapping.get(SEARCH_MODE));
+        assertEquals("lucene", vector1Method.get(KNN_ENGINE));
+        assertEquals(KNN_VECTOR_TYPE, vector1Mapping.get(TYPE_FIELD_NAME));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector2Mapping = (Map<String, Object>) properties.get("my_vector2");
+        assertEquals("exact", vector2Mapping.get(SEARCH_MODE));
+        assertEquals(KNN_VECTOR_TYPE, vector2Mapping.get(TYPE_FIELD_NAME));
+
+        // checking for 2 vector fields in index
+        assertEquals(2, properties.size());
+    }
+
+    public void testSearchMode_MultipleVectorFields_FaissAndExact() throws IOException {
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject("my_vector1")
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, 2)
+                .field(SEARCH_MODE, ANN_SEARCH_KEY)
+                .startObject(KNN_METHOD)
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, "faiss")
+                .endObject()
+                .endObject()
+                .startObject("my_vector2")
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, 2)
+                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+                .endObject()
+                .endObject()
+                .endObject();
+
+        Map<String, Object> params = xContentBuilderToMap(xContentBuilder);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) params.get("properties");
+
+        assertTrue(properties.containsKey("my_vector1"));
+        assertTrue(properties.containsKey("my_vector2"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Mapping = (Map<String, Object>) properties.get("my_vector1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Method = (Map<String, Object>) vector1Mapping.get(KNN_METHOD);
+
+        assertEquals("ann", vector1Mapping.get(SEARCH_MODE));
+        assertEquals("faiss", vector1Method.get(KNN_ENGINE));
+        assertEquals(KNN_VECTOR_TYPE, vector1Mapping.get(TYPE_FIELD_NAME));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector2Mapping = (Map<String, Object>) properties.get("my_vector2");
+        assertEquals("exact", vector2Mapping.get(SEARCH_MODE));
+        assertEquals(KNN_VECTOR_TYPE, vector2Mapping.get(TYPE_FIELD_NAME));
+
+        // checking for 2 vector fields in index
+        assertEquals(2, properties.size());
+    }
+
+    public void testSearchMode_IndexVersionBefore3_0_0_ValidButSearchModeIgnored_EngineFieldMapperUsed() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, 4)
+                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+                .endObject();
+
+        Settings settings = Settings.builder().put(settings(Version.V_2_15_0).build()).put(KNN_INDEX, true).build();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilder),
+                buildLegacyParserContext(indexName, settings, Version.V_2_15_0)
+        );
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+
+        assertTrue(knnVectorFieldMapper instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+    }
+
+    public void testSearchMode_NotKnnIndex_SearchModeDefined() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, false).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD_NAME, 2)
+                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+                .endObject();
+
+        final KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext(indexName, settings)
+        );
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+
+        assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
+        assertEquals("exact", builder.getOriginalParameters().getSearchMode());
     }
 
     private void validateBuilderAfterParsing(

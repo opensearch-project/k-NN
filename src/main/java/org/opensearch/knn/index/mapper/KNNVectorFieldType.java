@@ -47,6 +47,7 @@ public class KNNVectorFieldType extends MappedFieldType {
     VectorDataType vectorDataType;
     // Whether this field type can be benefit from memory optimized search?
     boolean memoryOptimizedSearchAvailable;
+    String searchMode;
 
     /**
      * Constructor for KNNVectorFieldType.
@@ -55,8 +56,9 @@ public class KNNVectorFieldType extends MappedFieldType {
      * @param metadata metadata of the field
      * @param vectorDataType data type of the vector
      * @param annConfig configuration context for the ANN index
+     * @param searchMode search mode of the field
      */
-    public KNNVectorFieldType(String name, Map<String, String> metadata, VectorDataType vectorDataType, KNNMappingConfig annConfig) {
+    public KNNVectorFieldType(String name, Map<String, String> metadata, VectorDataType vectorDataType, KNNMappingConfig annConfig, String searchMode) {
         super(name, false, false, true, TextSearchInfo.NONE, metadata);
         this.vectorDataType = vectorDataType;
         this.knnMappingConfig = annConfig;
@@ -65,6 +67,7 @@ public class KNNVectorFieldType extends MappedFieldType {
             annConfig.getQuantizationConfig(),
             annConfig.getModelId()
         );
+        this.searchMode = searchMode;
     }
 
     @Override

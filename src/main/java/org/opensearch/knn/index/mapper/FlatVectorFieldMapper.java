@@ -14,6 +14,8 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODE;
+
 /**
  * Mapper used when you dont want to build an underlying KNN struct - you just want to
  * store vectors as doc values
@@ -38,7 +40,8 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             fullname,
             metaValue,
             knnMethodConfigContext.getVectorDataType(),
-            knnMethodConfigContext::getDimension
+            knnMethodConfigContext::getDimension,
+            originalMappingParameters.getSearchMode()
         );
         return new FlatVectorFieldMapper(
             simpleName,
@@ -80,6 +83,9 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         this.perDimensionValidator = selectPerDimensionValidator(vectorDataType);
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.setDocValuesType(DocValuesType.BINARY);
+        if (originalMappingParameters.getSearchMode() != null) {
+            this.fieldType.putAttribute(SEARCH_MODE, originalMappingParameters.getSearchMode());
+        }
         this.fieldType.freeze();
     }
 
