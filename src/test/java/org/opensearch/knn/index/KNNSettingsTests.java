@@ -265,7 +265,7 @@ public class KNNSettingsTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testIndexThreadQty_whenNoValueProvidedByUser_thenDefaultBasedOnAvailableProcessors() {
+    public void testIndexThreadQty_thenUseDefaultValue() {
         // Create a mock node with no user-defined settings
         Node mockNode = createMockNode(Collections.emptyMap());
         mockNode.start();
@@ -274,8 +274,8 @@ public class KNNSettingsTests extends KNNTestCase {
         KNNSettings.state().setClusterService(clusterService);
 
         int availableProcessors = Runtime.getRuntime().availableProcessors();
-        int expectedThreadQty = Math.min(Math.max(1, availableProcessors / 2), 32);
-        int actualThreadQty = KNNSettings.getHardwareDefaultIndexThreadQty();
+        int expectedThreadQty = (availableProcessors < 32) ? 1 : 4;
+        int actualThreadQty = KNNSettings.getHardwareDefaultIndexThreadQty(Settings.EMPTY);
 
         assertEquals(expectedThreadQty, actualThreadQty);
 
@@ -283,38 +283,33 @@ public class KNNSettingsTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testIndexThreadQty_whenNoValueProvidedByUser_thenDefaultIsWithinValidRange() {
-        Node mockNode = createMockNode(Collections.emptyMap());
+    public void testIndexThreadQty_thenUseUserValue() {
+        int userDefinedThreadQty = 12;
+        Node mockNode = createMockNode(Map.of(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY, Integer.toString(userDefinedThreadQty)));
         mockNode.start();
-
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
-
         int actualThreadQty = KNNSettings.getIndexThreadQty();
-
-        assertTrue("Thread quantity should be at least 1", actualThreadQty >= 1);
-        assertTrue("Thread quantity should not exceed 32", actualThreadQty <= 32);
-
+        assertEquals(userDefinedThreadQty, actualThreadQty);
         mockNode.close();
     }
 
-    @SneakyThrows
-    public void testIndexThreadQty_whenValueProvidedByUser_thenUserValueIsUsed() {
-        int userDefinedThreadQty = 4;
+    public void testGetHardwareDefaultIndexThreadQty_ProcessorLimits() {
+        // Test with settings that limit processors
+        Settings settingsWithLimit = Settings.builder().put("processors", 16).build();
+        int threadQtyWithLimit = KNNSettings.getHardwareDefaultIndexThreadQty(settingsWithLimit);
+        assertEquals(1, threadQtyWithLimit); // 16 < 32, should return 1
 
-        Node mockNode = createMockNode(Map.of(
-                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY,
-                Integer.toString(userDefinedThreadQty)
-        ));
-        mockNode.start();
+        // Test with settings that have high processor count
+        Settings settingsWithHighLimit = Settings.builder().put("processors", 64).build();
+        int threadQtyWithHighLimit = KNNSettings.getHardwareDefaultIndexThreadQty(settingsWithHighLimit);
+        assertEquals(4, threadQtyWithHighLimit); // 64 >= 32, should return 4
 
-        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        KNNSettings.state().setClusterService(clusterService);
-
-        int actualThreadQty = KNNSettings.getIndexThreadQty();
-
-        assertEquals(userDefinedThreadQty, actualThreadQty);
-
-        mockNode.close();
+        // Test with empty settings (should use system default)
+        Settings emptySettings = Settings.EMPTY;
+        int threadQtyWithEmpty = KNNSettings.getHardwareDefaultIndexThreadQty(emptySettings);
+        int availableProcessors = Runtime.getRuntime().availableProcessors();
+        int expected = (availableProcessors >= 32) ? 4 : 1;
+        assertEquals(expected, threadQtyWithEmpty);
     }
 }

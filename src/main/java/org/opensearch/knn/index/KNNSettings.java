@@ -173,19 +173,19 @@ public class KNNSettings {
      * @see Setting#boolSetting(String, boolean, Setting.Property...)
      */
     public static final Setting<Boolean> KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING = Setting.boolSetting(
-            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED,
-            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE,
-            IndexScope,
-            Dynamic
+        KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED,
+        KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE,
+        IndexScope,
+        Dynamic
     );
 
     // This setting controls how much memory should be used to transfer vectors from Java to JNI Layer. The default
     // 1% of the JVM heap
     public static final Setting<ByteSizeValue> KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING = Setting.memorySizeSetting(
-            KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB,
-            KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT,
-            Setting.Property.Dynamic,
-            Setting.Property.NodeScope
+        KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB,
+        KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
     );
 
     /**
@@ -195,12 +195,12 @@ public class KNNSettings {
      * be Integer.MAX_VALUE - 1, this setting will allow threshold to be up to 1 less than max number of documents in a segment
      */
     public static final Setting<Integer> INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING = Setting.intSetting(
-            INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD,
-            INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
-            INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN,
-            INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX,
-            IndexScope,
-            Dynamic
+        INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD,
+        INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
+        INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN,
+        INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX,
+        IndexScope,
+        Dynamic
     );
 
     /**
@@ -209,82 +209,82 @@ public class KNNSettings {
      *  The value ef can be anything between k and the size of the dataset.
      */
     public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING = Setting.intSetting(
-            KNN_ALGO_PARAM_EF_SEARCH,
-            INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
-            2,
-            IndexScope,
-            Dynamic
+        KNN_ALGO_PARAM_EF_SEARCH,
+        INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+        2,
+        IndexScope,
+        Dynamic
     );
 
     public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_SHARDS_SETTING = Setting.intSetting(
-            MODEL_INDEX_NUMBER_OF_SHARDS,
-            1,
-            1,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
+        MODEL_INDEX_NUMBER_OF_SHARDS,
+        1,
+        1,
+        Setting.Property.NodeScope,
+        Setting.Property.Dynamic
     );
 
     public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING = Setting.intSetting(
-            MODEL_INDEX_NUMBER_OF_REPLICAS,
-            1,
-            0,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
+        MODEL_INDEX_NUMBER_OF_REPLICAS,
+        1,
+        0,
+        Setting.Property.NodeScope,
+        Setting.Property.Dynamic
     );
 
     public static final Setting<Integer> ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING = Setting.intSetting(
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE,
-            IndexScope,
-            Setting.Property.Dynamic
+        ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD,
+        ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE,
+        IndexScope,
+        Setting.Property.Dynamic
     );
 
     public static final Setting<ByteSizeValue> MODEL_CACHE_SIZE_LIMIT_SETTING = new Setting<>(
-            MODEL_CACHE_SIZE_LIMIT,
-            percentageAsString(KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE),
-            (s) -> {
-                ByteSizeValue userDefinedLimit = parseBytesSizeValueOrHeapRatio(s, MODEL_CACHE_SIZE_LIMIT);
+        MODEL_CACHE_SIZE_LIMIT,
+        percentageAsString(KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE),
+        (s) -> {
+            ByteSizeValue userDefinedLimit = parseBytesSizeValueOrHeapRatio(s, MODEL_CACHE_SIZE_LIMIT);
 
-                // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
-                // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
-                // some additional validation here before returning
-                ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
-                if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(
-                        KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE
-                )) {
-                    throw new OpenSearchParseException(
-                            "{} ({} KB) cannot exceed {}% of the heap ({} KB).",
-                            MODEL_CACHE_SIZE_LIMIT,
-                            userDefinedLimit.getKb(),
-                            KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE,
-                            jvmHeapSize.getKb()
-                    );
-                }
+            // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
+            // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
+            // some additional validation here before returning
+            ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
+            if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(
+                KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE
+            )) {
+                throw new OpenSearchParseException(
+                    "{} ({} KB) cannot exceed {}% of the heap ({} KB).",
+                    MODEL_CACHE_SIZE_LIMIT,
+                    userDefinedLimit.getKb(),
+                    KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE,
+                    jvmHeapSize.getKb()
+                );
+            }
 
-                return userDefinedLimit;
-            },
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
+            return userDefinedLimit;
+        },
+        Setting.Property.NodeScope,
+        Setting.Property.Dynamic
     );
 
     /**
      * This setting identifies KNN index.
      */
     public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(
-            KNN_INDEX,
-            false,
-            IndexScope,
-            Final,
-            UnmodifiableOnRestore
+        KNN_INDEX,
+        false,
+        IndexScope,
+        Final,
+        UnmodifiableOnRestore
     );
 
     public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = new Setting<>(
-            KNN_DERIVED_SOURCE_ENABLED,
-            (s) -> Boolean.toString(false),
-            (b) -> Booleans.parseBooleanStrict(b, false),
-            IndexScope,
-            Final,
-            UnmodifiableOnRestore
+        KNN_DERIVED_SOURCE_ENABLED,
+        (s) -> Boolean.toString(false),
+        (b) -> Booleans.parseBooleanStrict(b, false),
+        IndexScope,
+        Final,
+        UnmodifiableOnRestore
     ) {
         @Override
         public Set<SettingDependency> getSettingsDependencies(String key) {
@@ -305,9 +305,9 @@ public class KNNSettings {
     };
 
     public static final Setting<Boolean> MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING = Setting.boolSetting(
-            MEMORY_OPTIMIZED_KNN_SEARCH_MODE,
-            false,
-            IndexScope
+        MEMORY_OPTIMIZED_KNN_SEARCH_MODE,
+        false,
+        IndexScope
     );
 
     /**
@@ -332,85 +332,85 @@ public class KNNSettings {
     );
 
     public static final Setting<Boolean> KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING = Setting.boolSetting(
-            KNN_CIRCUIT_BREAKER_TRIGGERED,
-            false,
-            NodeScope,
-            Dynamic
+        KNN_CIRCUIT_BREAKER_TRIGGERED,
+        false,
+        NodeScope,
+        Dynamic
     );
 
     public static final Setting<Double> KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING = Setting.doubleSetting(
-            KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
-            KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
-            0,
-            100,
-            NodeScope,
-            Dynamic
+        KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
+        KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
+        0,
+        100,
+        NodeScope,
+        Dynamic
     );
 
     public static final Setting<Boolean> KNN_FAISS_AVX2_DISABLED_SETTING = Setting.boolSetting(
-            KNN_FAISS_AVX2_DISABLED,
-            KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
-            NodeScope
+        KNN_FAISS_AVX2_DISABLED,
+        KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+        NodeScope
     );
 
     /*
      * Quantization state cache settings
      */
     public static final Setting<ByteSizeValue> QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING = new Setting<ByteSizeValue>(
-            QUANTIZATION_STATE_CACHE_SIZE_LIMIT,
-            percentageAsString(KNN_DEFAULT_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE),
-            (s) -> {
-                ByteSizeValue userDefinedLimit = parseBytesSizeValueOrHeapRatio(s, QUANTIZATION_STATE_CACHE_SIZE_LIMIT);
+        QUANTIZATION_STATE_CACHE_SIZE_LIMIT,
+        percentageAsString(KNN_DEFAULT_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE),
+        (s) -> {
+            ByteSizeValue userDefinedLimit = parseBytesSizeValueOrHeapRatio(s, QUANTIZATION_STATE_CACHE_SIZE_LIMIT);
 
-                // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
-                // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
-                // some additional validation here before returning
-                ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
-                if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(
-                        KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE
-                )) {
-                    throw new OpenSearchParseException(
-                            "{} ({} KB) cannot exceed {}% of the heap ({} KB).",
-                            QUANTIZATION_STATE_CACHE_SIZE_LIMIT,
-                            userDefinedLimit.getKb(),
-                            KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE,
-                            jvmHeapSize.getKb()
-                    );
-                }
+            // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
+            // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
+            // some additional validation here before returning
+            ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
+            if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(
+                KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE
+            )) {
+                throw new OpenSearchParseException(
+                    "{} ({} KB) cannot exceed {}% of the heap ({} KB).",
+                    QUANTIZATION_STATE_CACHE_SIZE_LIMIT,
+                    userDefinedLimit.getKb(),
+                    KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE,
+                    jvmHeapSize.getKb()
+                );
+            }
 
-                return userDefinedLimit;
-            },
-            NodeScope,
-            Dynamic
+            return userDefinedLimit;
+        },
+        NodeScope,
+        Dynamic
     );
 
     public static final Setting<TimeValue> QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING = Setting.positiveTimeSetting(
-            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES,
-            TimeValue.timeValueMinutes(KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES),
-            NodeScope,
-            Dynamic
+        QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES,
+        TimeValue.timeValueMinutes(KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES),
+        NodeScope,
+        Dynamic
     );
 
     public static final Setting<Boolean> KNN_FAISS_AVX512_DISABLED_SETTING = Setting.boolSetting(
-            KNN_FAISS_AVX512_DISABLED,
-            KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
-            NodeScope
+        KNN_FAISS_AVX512_DISABLED,
+        KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
+        NodeScope
     );
 
     public static final Setting<Boolean> KNN_FAISS_AVX512_SPR_DISABLED_SETTING = Setting.boolSetting(
-            KNN_FAISS_AVX512_SPR_DISABLED,
-            KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE,
-            NodeScope
+        KNN_FAISS_AVX512_SPR_DISABLED,
+        KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE,
+        NodeScope
     );
 
     /**
      * Cluster level setting to control whether remote index build is enabled or not.
      */
     public static final Setting<Boolean> KNN_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
-            KNN_REMOTE_VECTOR_BUILD,
-            false,
-            NodeScope,
-            Dynamic
+        KNN_REMOTE_VECTOR_BUILD,
+        false,
+        NodeScope,
+        Dynamic
     );
 
     /**
@@ -427,19 +427,19 @@ public class KNNSettings {
      * Cluster level setting which indicates the repository that the remote index build should write to.
      */
     public static final Setting<String> KNN_REMOTE_VECTOR_REPOSITORY_SETTING = Setting.simpleString(
-            KNN_REMOTE_REPOSITORY,
-            Dynamic,
-            NodeScope
+        KNN_REMOTE_REPOSITORY,
+        Dynamic,
+        NodeScope
     );
 
     /**
      * Index level setting which indicates the size threshold above which remote vector builds will be enabled.
      */
     public static final Setting<ByteSizeValue> KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING = Setting.byteSizeSetting(
-            KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN,
-            KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE,
-            Dynamic,
-            IndexScope
+        KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN,
+        KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE,
+        Dynamic,
+        IndexScope
     );
 
     /**
@@ -449,51 +449,51 @@ public class KNNSettings {
      * Defaults to 0, which means no upper bound, and can be set by users according to their remote vector index build service implementation.
      */
     public static final Setting<ByteSizeValue> KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING = Setting.byteSizeSetting(
-            KNN_REMOTE_VECTOR_BUILD_SIZE_MAX,
-            KNN_REMOTE_VECTOR_BUILD_SIZE_LIMIT_DEFAULT_VALUE,
-            Dynamic,
-            NodeScope
+        KNN_REMOTE_VECTOR_BUILD_SIZE_MAX,
+        KNN_REMOTE_VECTOR_BUILD_SIZE_LIMIT_DEFAULT_VALUE,
+        Dynamic,
+        NodeScope
     );
 
     /**
      * Remote build service endpoint to be used for remote index build.
      */
     public static final Setting<String> KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING = Setting.simpleString(
-            KNN_REMOTE_BUILD_SERVICE_ENDPOINT,
-            NodeScope,
-            Dynamic
+        KNN_REMOTE_BUILD_SERVICE_ENDPOINT,
+        NodeScope,
+        Dynamic
     );
 
     /**
      * Time the remote build service client will wait before falling back to CPU index build.
      */
     public static final Setting<TimeValue> KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING = Setting.timeSetting(
-            KNN_REMOTE_BUILD_CLIENT_TIMEOUT,
-            TimeValue.timeValueMinutes(KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES),
-            NodeScope,
-            Dynamic
+        KNN_REMOTE_BUILD_CLIENT_TIMEOUT,
+        TimeValue.timeValueMinutes(KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES),
+        NodeScope,
+        Dynamic
     );
 
     /**
      * Setting to control how often the remote build service client polls the build service for the status of the job.
      */
     public static final Setting<TimeValue> KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING = Setting.timeSetting(
-            KNN_REMOTE_BUILD_POLL_INTERVAL,
-            TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
-            NodeScope,
-            Dynamic
+        KNN_REMOTE_BUILD_POLL_INTERVAL,
+        TimeValue.timeValueSeconds(KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS),
+        NodeScope,
+        Dynamic
     );
 
     /**
      * Keystore settings for build service HTTP authorization
      */
     public static final Setting<SecureString> KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING = SecureSetting.secureString(
-            KNN_REMOTE_BUILD_SERVICE_USERNAME,
-            null
+        KNN_REMOTE_BUILD_SERVICE_USERNAME,
+        null
     );
     public static final Setting<SecureString> KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING = SecureSetting.secureString(
-            KNN_REMOTE_BUILD_SERVICE_PASSWORD,
-            null
+        KNN_REMOTE_BUILD_SERVICE_PASSWORD,
+        null
     );
 
     /**
@@ -512,16 +512,16 @@ public class KNNSettings {
              * Validation of limit occurs before the setting is retrieved.
              */
             put(
-                    KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX,
-                    Setting.groupSetting(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX, settings -> {
-                        settings.keySet()
-                                .forEach(
-                                        (limit) -> parseknnMemoryCircuitBreakerValue(
-                                                settings.get(limit),
-                                                KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
-                                        )
-                                );
-                    }, NodeScope, Dynamic)
+                KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX,
+                Setting.groupSetting(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_PREFIX, settings -> {
+                    settings.keySet()
+                        .forEach(
+                            (limit) -> parseknnMemoryCircuitBreakerValue(
+                                settings.get(limit),
+                                KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
+                            )
+                        );
+                }, NodeScope, Dynamic)
             );
 
             /**
@@ -532,28 +532,28 @@ public class KNNSettings {
              * Default value: {@value KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT}
              */
             put(
-                    KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT,
-                    new Setting<>(
-                            KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT,
-                            KNNSettings.KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT,
-                            (s) -> parseknnMemoryCircuitBreakerValue(s, KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT),
-                            NodeScope,
-                            Dynamic
-                    )
+                KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT,
+                new Setting<>(
+                    KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT,
+                    KNNSettings.KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT,
+                    (s) -> parseknnMemoryCircuitBreakerValue(s, KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT),
+                    NodeScope,
+                    Dynamic
+                )
             );
             /**
              * Cache expiry time settings
              */
             put(KNN_CACHE_ITEM_EXPIRY_ENABLED, Setting.boolSetting(KNN_CACHE_ITEM_EXPIRY_ENABLED, false, NodeScope, Dynamic));
             put(
-                    KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
-                    Setting.positiveTimeSetting(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, TimeValue.timeValueHours(3), NodeScope, Dynamic)
+                KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
+                Setting.positiveTimeSetting(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, TimeValue.timeValueHours(3), NodeScope, Dynamic)
             );
         }
     };
 
     private final static Map<String, Setting<?>> FEATURE_FLAGS = getFeatureFlags().stream()
-            .collect(toUnmodifiableMap(Setting::getKey, Function.identity()));
+        .collect(toUnmodifiableMap(Setting::getKey, Function.identity()));
 
     private ClusterService clusterService;
     private Client client;
@@ -576,19 +576,19 @@ public class KNNSettings {
             NativeMemoryCacheManagerDto.NativeMemoryCacheManagerDtoBuilder builder = NativeMemoryCacheManagerDto.builder();
 
             builder.isWeightLimited(
-                    updatedSettings.getAsBoolean(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                updatedSettings.getAsBoolean(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
             );
 
             // Recompute cache weight
             builder.maxWeight(getUpdatedCircuitBreakerLimit(updatedSettings).getKb());
 
             builder.isExpirationLimited(
-                    updatedSettings.getAsBoolean(KNN_CACHE_ITEM_EXPIRY_ENABLED, getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
+                updatedSettings.getAsBoolean(KNN_CACHE_ITEM_EXPIRY_ENABLED, getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
             );
 
             builder.expiryTimeInMin(
-                    updatedSettings.getAsTime(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
-                            .getMinutes()
+                updatedSettings.getAsTime(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
+                    .getMinutes()
             );
 
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
@@ -715,40 +715,40 @@ public class KNNSettings {
 
     public List<Setting<?>> getSettings() {
         List<Setting<?>> settings = Arrays.asList(
-                INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING,
-                INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
-                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
-                KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
-                KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
-                IS_KNN_INDEX_SETTING,
-                MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
-                MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
-                MODEL_CACHE_SIZE_LIMIT_SETTING,
-                ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
-                KNN_FAISS_AVX2_DISABLED_SETTING,
-                KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
-                KNN_FAISS_AVX512_DISABLED_SETTING,
-                KNN_FAISS_AVX512_SPR_DISABLED_SETTING,
-                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
-                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
-                KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
-                KNN_DERIVED_SOURCE_ENABLED_SETTING,
-                MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING,
-                // Index level remote vector build settings
-                KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
-                KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING,
-                // Cluster level remote vector build settings
-                KNN_REMOTE_VECTOR_BUILD_SETTING,
-                KNN_REMOTE_VECTOR_REPOSITORY_SETTING,
-                KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING,
-                KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
-                KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING,
-                KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
-                KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
-                KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING
+            INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING,
+            INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
+            KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
+            KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
+            KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
+            IS_KNN_INDEX_SETTING,
+            MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
+            MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
+            MODEL_CACHE_SIZE_LIMIT_SETTING,
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
+            KNN_FAISS_AVX2_DISABLED_SETTING,
+            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
+            KNN_FAISS_AVX512_DISABLED_SETTING,
+            KNN_FAISS_AVX512_SPR_DISABLED_SETTING,
+            QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
+            KNN_DERIVED_SOURCE_ENABLED_SETTING,
+            MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING,
+            // Index level remote vector build settings
+            KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
+            KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING,
+            // Cluster level remote vector build settings
+            KNN_REMOTE_VECTOR_BUILD_SETTING,
+            KNN_REMOTE_VECTOR_REPOSITORY_SETTING,
+            KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING,
+            KNN_REMOTE_BUILD_SERVICE_ENDPOINT_SETTING,
+            KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING,
+            KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
+            KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
+            KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
-                .collect(Collectors.toList());
+            .collect(Collectors.toList());
     }
 
     public static boolean isCircuitBreakerTriggered() {
@@ -824,9 +824,9 @@ public class KNNSettings {
     private ByteSizeValue getUpdatedCircuitBreakerLimit(Settings updatedCbLimits) {
         // Parse any updates, using appropriate fallback if no node-specific limit update exists
         return parseknnMemoryCircuitBreakerValue(
-                getNodeCbLimit(updatedCbLimits),
-                getFallbackCbLimitValue(updatedCbLimits),
-                KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
+            getNodeCbLimit(updatedCbLimits),
+            getFallbackCbLimitValue(updatedCbLimits),
+            KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT
         );
     }
 
@@ -897,10 +897,10 @@ public class KNNSettings {
             // In some UTs we identified that cluster setting is not set properly an leads to NPE. This check will avoid
             // those cases and will still return the default value.
             log.warn(
-                    "Unable to get setting value {} from cluster settings. Using default value as {}",
-                    KNN_FAISS_AVX2_DISABLED,
-                    KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
-                    e
+                "Unable to get setting value {} from cluster settings. Using default value as {}",
+                KNN_FAISS_AVX2_DISABLED,
+                KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+                e
             );
             return KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE;
         }
@@ -916,19 +916,19 @@ public class KNNSettings {
 
     public static boolean isFaissAVX512Disabled() {
         return parseBoolean(
-                Objects.requireNonNullElse(
-                        KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED),
-                        KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE
-                ).toString()
+            Objects.requireNonNullElse(
+                KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED),
+                KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE
+            ).toString()
         );
     }
 
     public static boolean isFaissAVX512SPRDisabled() {
         return parseBoolean(
-                Objects.requireNonNullElse(
-                        KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED),
-                        KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
-                ).toString()
+            Objects.requireNonNullElse(
+                KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED),
+                KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
+            ).toString()
         );
     }
 
@@ -990,18 +990,18 @@ public class KNNSettings {
             @Override
             public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
                 logger.debug(
-                        "Cluster setting {}, acknowledged: {} ",
-                        clusterUpdateSettingsRequest.persistentSettings(),
-                        clusterUpdateSettingsResponse.isAcknowledged()
+                    "Cluster setting {}, acknowledged: {} ",
+                    clusterUpdateSettingsRequest.persistentSettings(),
+                    clusterUpdateSettingsResponse.isAcknowledged()
                 );
             }
 
             @Override
             public void onFailure(Exception e) {
                 logger.info(
-                        "Exception while updating circuit breaker setting {} to {}",
-                        clusterUpdateSettingsRequest.persistentSettings(),
-                        e.getMessage()
+                    "Exception while updating circuit breaker setting {} to {}",
+                    clusterUpdateSettingsRequest.persistentSettings(),
+                    e.getMessage()
                 );
             }
         });
@@ -1019,10 +1019,10 @@ public class KNNSettings {
     public static int getEfSearchParam(String index) {
         final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
         return indexMetadata.getSettings()
-                .getAsInt(
-                        KNNSettings.KNN_ALGO_PARAM_EF_SEARCH,
-                        IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion())
-                );
+            .getAsInt(
+                KNNSettings.KNN_ALGO_PARAM_EF_SEARCH,
+                IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion())
+            );
     }
 
     /**
