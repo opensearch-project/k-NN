@@ -21,6 +21,7 @@
 #include "faiss/IndexIVFPQ.h"
 #include "mocks/faiss_index_service_mock.h"
 #include "native_stream_support_util.h"
+#include "faiss/IndexFlat.h"
 
 using ::test_util::JavaFileIndexOutputMock;
 using ::test_util::MockJNIUtil;
@@ -1336,4 +1337,110 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
             delete it;
         }
     }
+}
+
+
+
+// Helper: Simulate float array as jfloatArray for JNI-style tests
+static jfloatArray ToJFloatArray(std::vector<float>& data) {
+    return reinterpret_cast<jfloatArray>(data.data());
+}
+
+// Helper: Simulate std::string as jstring for JNI-style tests
+static jstring ToJString(std::string& str) {
+    return reinterpret_cast<jstring>(&str);
+}
+
+
+TEST(FaissBuildFlatIndexFromVectorsTest, ThrowsIfVectorsNull) {
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+    jfloatArray vectorsJ = nullptr;
+    jint numVectors = 2;
+    jint dim = 2;
+    std::string metricType = "L2";
+    jstring metricTypeJ = ToJString(metricType);
+
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+            &mockJNIUtil, &jniEnv, vectorsJ, numVectors, dim, metricTypeJ, &indexService),
+        std::runtime_error
+    );
+}
+
+TEST(FaissBuildFlatIndexFromVectorsTest, ThrowsIfInvalidDimsOrNumVectors) {
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+    std::vector<float> data(4, 1.0f);
+    jfloatArray vectorsJ = ToJFloatArray(data);
+    std::string metricType = "L2";
+    jstring metricTypeJ = ToJString(metricType);
+
+    // Zero dim
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+            &mockJNIUtil, &jniEnv, vectorsJ, 2, 0, metricTypeJ, &indexService),
+        std::runtime_error
+    );
+    // Negative numVectors
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+            &mockJNIUtil, &jniEnv, vectorsJ, -1, 2, metricTypeJ, &indexService),
+        std::runtime_error
+    );
+}
+
+TEST(FaissBuildFlatIndexFromVectorsTest, ThrowsIfDataLengthMismatch) {
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+    std::vector<float> data(3, 1.0f); // Should be 2*2=4, but only 3 provided
+    jfloatArray vectorsJ = ToJFloatArray(data);
+    std::string metricType = "L2";
+    jstring metricTypeJ = ToJString(metricType);
+
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+            &mockJNIUtil, &jniEnv, vectorsJ, 2, 2, metricTypeJ, &indexService),
+        std::runtime_error
+    );
+}
+
+TEST(FaissBuildFlatIndexFromVectorsTest, BuildsAndRetrievesFiveVectorsInOrder) {
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+    // 5 vectors, dim=2
+    std::vector<float> data = {
+        1.0f, 2.0f,
+        3.0f, 4.0f,
+        5.0f, 6.0f,
+        7.0f, 8.0f,
+        9.0f, 10.0f
+    };
+    jfloatArray vectorsJ = ToJFloatArray(data);
+    jint numVectors = 5;
+    jint dim = 2;
+    std::string metricType = "L2";
+    jstring metricTypeJ = ToJString(metricType);
+
+    jlong indexPtr = knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+        &mockJNIUtil, &jniEnv, vectorsJ, numVectors, dim, metricTypeJ, &indexService);
+
+    auto* index = reinterpret_cast<faiss::Index*>(indexPtr);
+    ASSERT_NE(index, nullptr);
+    ASSERT_EQ(index->ntotal, numVectors);
+
+    std::vector<float> retrieved(numVectors * dim, 0.0f);
+    index->reconstruct_n(0, numVectors, retrieved.data());
+    for (size_t i = 0; i < data.size(); ++i) {
+        ASSERT_FLOAT_EQ(data[i], retrieved[i]);
+    }
+    delete index;
 }
