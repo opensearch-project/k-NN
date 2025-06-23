@@ -22,6 +22,7 @@ public class FlatVectorsScorerProvider {
     private static final FlatVectorsScorer DELEGATE_VECTOR_SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
     private static final FlatVectorsScorer HAMMING_VECTOR_SCORER = new HammingFlatVectorsScorer();
 
+    // add adc as a scorer in LOF
     public static FlatVectorsScorer getFlatVectorsScorer(final KNNVectorSimilarityFunction similarityFunction) {
         if (similarityFunction == KNNVectorSimilarityFunction.HAMMING) {
             return HAMMING_VECTOR_SCORER;

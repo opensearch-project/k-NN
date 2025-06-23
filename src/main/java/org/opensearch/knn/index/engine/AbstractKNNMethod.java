@@ -146,8 +146,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
                 getVectorTransformer(
                     knnMethodContext.getSpaceType(),
                     knnLibraryIndexingContext.getQuantizationConfig().isEnableRandomRotation(),
-                    knnMethodConfigContext.getDimension() // here also need to pass a reference to the rotationmatrix.
-                        //
+                    knnMethodConfigContext.getDimension()
                 )
             )
             .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())

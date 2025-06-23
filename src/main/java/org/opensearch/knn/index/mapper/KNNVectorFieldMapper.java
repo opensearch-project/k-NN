@@ -265,7 +265,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (useFullFieldNameValidation(indexCreatedVersion)) {
                 validateFullFieldName(context);
             }
-            // TODO: here's where we might defer to the mdoelFieldMapper.
 
             final MultiFields multiFieldsBuilder = this.multiFieldsBuilder.build(this, context);
             final CopyTo copyToBuilder = copyTo.build();

@@ -451,9 +451,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
         // TODO: KNNVectorFieldTYpe needs to also have a query transformer....
-//        log.info("quant config {}", knnVectorFieldType.getKnnMappingConfig().getQuantizationConfig());
+
         RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
-//        knnMappingConfig.maybeRandomRotationVector(); // here we'd have it from the MethodFieldMapper.
         log.info("vector before: {}",vector);
         knnVectorFieldType.transformQueryVector(vector);
         log.info("vector after: {}",vector);

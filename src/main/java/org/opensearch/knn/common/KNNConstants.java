@@ -84,7 +84,7 @@ public class KNNConstants {
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final String MODEL_VERSION = "model_version";
     public static final String QUANTIZATION_STATE_FILE_SUFFIX = "osknnqstate";
-    public static final int QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED = 1212121212; // used to seed the RNG for reproducability in unit
+    public static final int RANDOM_ROTATION_DEFAULT_SEED = 1212121212; // used to seed the RNG for reproducability in unit
                                                                                     // tests and benchmark results of the random gaussian
                                                                                     // rotation
 

@@ -11,7 +11,7 @@ import org.apache.lucene.util.VectorUtil;
 
 import java.util.Random;
 
-import static org.opensearch.knn.common.KNNConstants.QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED;
+import static org.opensearch.knn.common.KNNConstants.RANDOM_ROTATION_DEFAULT_SEED;
 @Log4j2
 @UtilityClass
 public class RandomGaussianRotation {
@@ -26,7 +26,7 @@ public class RandomGaussianRotation {
      * data so each dimension has roughly equal variance in our vector population. To see this, note that
      * Var[(Mx)_i] = (1/d) sum_j Var[x_j] for each i due to each entry in the random matrix being independent.
      *
-     * The RNG is seeded with QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED to achieve reproducible rotations across
+     * The RNG is seeded with RANDOM_ROTATION_DEFAULT_SEED to achieve reproducible rotations across
      * different indexing runs.
      *
      * @param dimensions The number of dimensions for the rotation matrix.
@@ -34,7 +34,7 @@ public class RandomGaussianRotation {
      */
     public float[][] generateRotationMatrix(int dimensions) {
         log.info("generate rot matrix called");
-        Random random = new Random(QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED);
+        Random random = new Random(RANDOM_ROTATION_DEFAULT_SEED);
         float[][] rotationMatrix = new float[dimensions][dimensions];
 
         // Step 1: Generate random Gaussian values

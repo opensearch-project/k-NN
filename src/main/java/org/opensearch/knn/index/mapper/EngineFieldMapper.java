@@ -224,11 +224,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             }
 
             this.fieldType.freeze();
-             this.vectorTransformer = getVectorTransformer();
-//            this.vectorTransformerSupplier = knnLibraryIndexingContext::getVectorTransformer;
-//            this.maybeRotationMatrix = maybeCreateRotationMatrix(quantizationConfig, knnMappingConfig.getDimension());
-//            this.vectorTransformer = getVectorTransformer();
-            // this.vectorTransformer = getVectorTransformer() ;
+
             this.vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
         }
 
@@ -238,12 +234,6 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
     }
 
-    private float[][] maybeCreateRotationMatrix(QuantizationConfig quantizationConfig, int dimension) {
-        if (quantizationConfig != null && quantizationConfig.isEnableRandomRotation()) {
-            return RandomGaussianRotation.generateRotationMatrix(dimension);
-        }
-        return null;
-    }
 
     private VectorSimilarityFunction findBestMatchingVectorSimilarityFunction(final SpaceType spaceType) {
         if (indexCreatedVersion.onOrAfter(Version.V_3_0_0)) {
@@ -314,41 +304,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         if (isLuceneEngine) {
             return super.getVectorTransformer();
         }
-//        initVectorTransformer();
+
         return vectorTransformer;
-    }
-
-    /**
-     * Initializes the vector transformer for the engine field if not already initialized.
-     * This method handles the vector transformation configuration based on the KNN method context.
-     * The goal of this method is to avoid generating the rotation matrix multiple times.
-     * @throws IllegalStateException if model metadata cannot be retrieved
-     */
-    private void initVectorTransformer() {
-//        log.info("in engine init vector transformer");
-        if (vectorTransformer != null) {
-            return;
-        }
-        log.info("after the init");
-
-//        this.vectorTransformer = vectorTransformerSupplier.get();
-        log.info("vector Transformer from engine: {}", vectorTransformer);
-
-        // KNNMethodContext knnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
-
-        // KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodConfigContext.
-        // get the vector transformer based on the method context.
-
-        // knnLibraryIndexingContext
-
-        // KNNMethodConfigContext knnMethodConfigContext = originalMappingParameters.getResolvedKnnMethodContext().
-        // KNNMethodContext knnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
-        // // here somehow we need to get the model config context.
-        // KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-        // .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
-        // knnLibraryIndexingContext.
-        // here somehow we have to get the config con
-        // vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
     }
 
     @Override
