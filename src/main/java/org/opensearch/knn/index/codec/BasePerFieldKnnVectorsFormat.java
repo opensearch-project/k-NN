@@ -14,7 +14,6 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.KNN990Codec.KNN990FlatVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
@@ -100,10 +99,11 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         ).fieldType(field);
 
         // check if exact search is enabled
-        String searchMode = mappedFieldType.getSearchMode();
+        String searchMode = mappedFieldType.getKnnMappingConfig().getSearchMode();
         if (searchMode != null && searchMode.equals(EXACT_SEARCH_KEY)) {
-            return new KNN990FlatVectorsFormat(
-                    new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer())
+            return new NativeEngines990KnnVectorsFormat(
+                    new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
+                    EXACT_SEARCH_KEY
             );
         }
 

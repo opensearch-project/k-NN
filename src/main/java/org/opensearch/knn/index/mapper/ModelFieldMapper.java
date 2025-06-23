@@ -123,8 +123,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
                 mode = modelMetadata.getMode();
                 compressionLevel = modelMetadata.getCompressionLevel();
             }
-        },
-        originalMappingParameters.getSearchMode());
+        });
         return new ModelFieldMapper(
             simpleName,
             mappedFieldType,

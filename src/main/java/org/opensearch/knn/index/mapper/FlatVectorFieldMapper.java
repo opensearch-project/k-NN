@@ -40,8 +40,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             fullname,
             metaValue,
             knnMethodConfigContext.getVectorDataType(),
-            knnMethodConfigContext::getDimension,
-            originalMappingParameters.getSearchMode()
+            knnMethodConfigContext::getDimension
         );
         return new FlatVectorFieldMapper(
             simpleName,

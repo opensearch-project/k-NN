@@ -32,7 +32,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODE;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
@@ -107,8 +113,12 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 public KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
                     return libraryContext;
                 }
-            },
-            originalMappingParameters.getSearchMode()
+
+                @Override
+                public String getSearchMode() {
+                    return originalMappingParameters.getSearchMode();
+                }
+            }
         );
 
         return new EngineFieldMapper(

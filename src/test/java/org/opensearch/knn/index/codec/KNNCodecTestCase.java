@@ -15,6 +15,7 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.apache.lucene.tests.store.BaseDirectoryWrapper;
 import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.common.settings.ClusterSettings;
@@ -22,7 +23,6 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -65,17 +65,11 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.atLeastOnce;
@@ -352,15 +346,13 @@ public class KNNCodecTestCase extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3),
-            null
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 2),
-            null
+            getMappingConfigForMethodMapping(knnMethodContext, 2)
         );
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
@@ -467,20 +459,18 @@ public class KNNCodecTestCase extends KNNTestCase {
                 "test",
                 Collections.emptyMap(),
                 VectorDataType.FLOAT,
-                getMappingConfigForMethodMapping(annMethodContext, 3),
-                "ann"
+                getMappingConfigForMethodMapping(annMethodContext, 3, "ann")
         );
         //exact field type
         final KNNVectorFieldType exactMappedFieldType = new KNNVectorFieldType(
                 "test",
                 Collections.emptyMap(),
                 VectorDataType.FLOAT,
-                getMappingConfigForMethodMapping(exactMethodContext, 2),
-                "exact"
+                getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
         );
 
-        assertEquals("ann", annMappedFieldType.getSearchMode());
-        assertEquals("exact", exactMappedFieldType.getSearchMode());
+        assertEquals("ann", annMappedFieldType.getKnnMappingConfig().getSearchMode());
+        assertEquals("exact", exactMappedFieldType.getKnnMappingConfig().getSearchMode());
 
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(annMappedFieldType);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(exactMappedFieldType);
@@ -490,6 +480,10 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
+        // on the mock directory Lucene goes ahead and does a search on different fields. We want to avoid that as of
+        // now. Given we have not implemented search for the native engine format using codec, the dir.close fails
+        // with exception. Hence, marking this as false.
+        ((BaseDirectoryWrapper) dir).setCheckIndexOnClose(false);
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
@@ -554,4 +548,61 @@ public class KNNCodecTestCase extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
+    public void testNoGraphFilesCreated_ExactSearchMode(
+            final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
+            final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
+    ) throws Exception {
+        final MapperService mapperService = mock(MapperService.class);
+
+        // exact method context
+        final KNNMethodContext exactMethodContext = getDefaultKNNMethodContext();
+
+        //exact field type
+        final KNNVectorFieldType exactMappedFieldType = new KNNVectorFieldType(
+                "test",
+                Collections.emptyMap(),
+                VectorDataType.FLOAT,
+                getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
+        );
+
+        when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(exactMappedFieldType);
+
+        var perFieldKnnVectorsFormatSpy = spy(perFieldKnnVectorsFormatProvider.apply(mapperService));
+        final Codec codec = codecProvider.apply(perFieldKnnVectorsFormatSpy);
+
+        setUpMockClusterService();
+        Directory dir = newFSDirectory(createTempDir());
+        // on the mock directory Lucene goes ahead and does a search on different fields. We want to avoid that as of
+        // now. Given we have not implemented search for the native engine format using codec, the dir.close fails
+        // with exception. Hence, marking this as false.
+        ((BaseDirectoryWrapper) dir).setCheckIndexOnClose(false);
+        IndexWriterConfig iwc = newIndexWriterConfig();
+        iwc.setMergeScheduler(new SerialMergeScheduler());
+        iwc.setCodec(codec);
+
+        RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
+        final FieldType luceneFieldType = KnnFloatVectorField.createFieldType(2, VectorSimilarityFunction.EUCLIDEAN);
+        float[] array1 = { 6.0f, 14.0f };
+        KnnFloatVectorField vectorField = new KnnFloatVectorField(FIELD_NAME_ONE, array1, luceneFieldType);
+        Document doc1 = new Document();
+        doc1.add(vectorField);
+        writer.addDocument(doc1);
+        IndexReader reader1 = writer.getReader();
+        writer.flush();
+        writer.forceMerge(1);
+        writer.commit();
+        writer.close();
+
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_ONE));
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getMaxDimensions(eq(FIELD_NAME_ONE));
+
+        final List<String> graphFiles = Arrays.stream(dir.listAll()).filter(x -> x.contains(".faiss")).collect(Collectors.toList());
+        assertEquals(0, graphFiles.size());
+        final List<String> vectorFiles = Arrays.stream(dir.listAll()).filter(x -> x.contains(".vec")).collect(Collectors.toList());
+        assertEquals(1, vectorFiles.size());
+
+        reader1.close();
+        dir.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+    }
 }
