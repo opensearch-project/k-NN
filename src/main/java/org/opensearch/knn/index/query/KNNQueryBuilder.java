@@ -450,8 +450,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         final boolean memoryOptimizedSearchEnabled = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnVectorFieldType, indexName);
         updateQueryStats(vectorQueryType);
 
-        if (knnVectorFieldType.getSearchMode() != null &&
-            knnVectorFieldType.getSearchMode().equals(EXACT_SEARCH_KEY) && methodComponentContext != null) {
+        if (knnMappingConfig.getSearchMode() != null &&
+            knnMappingConfig.getSearchMode().equals(EXACT_SEARCH_KEY) && methodComponentContext != null) {
             throw new IllegalArgumentException("ANN search cannot be performed on exact search indices");
         }
 

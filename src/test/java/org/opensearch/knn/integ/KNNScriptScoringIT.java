@@ -819,8 +819,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 Collections.emptyMap(),
                 vectorDataType,
-                getMappingConfigForFlatMapping(vectorDataType == VectorDataType.BINARY ? queryVector.length * 8 : queryVector.length),
-                null
+                getMappingConfigForFlatMapping(vectorDataType == VectorDataType.BINARY ? queryVector.length * 8 : queryVector.length)
             )
         );
         switch (spaceType) {

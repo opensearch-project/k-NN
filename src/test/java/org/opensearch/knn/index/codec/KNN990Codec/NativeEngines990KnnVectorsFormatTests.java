@@ -81,6 +81,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 @Log4j2
 public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     private static final Codec TESTING_CODEC = new UnitTestCodec(() -> new NativeEngines990KnnVectorsFormat(0));
+    private static final Codec SEARCH_MODE_TESTING_CODEC = new UnitTestCodec(() -> new NativeEngines990KnnVectorsFormat(
+            new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()), "exact"));
     private static final String FLAT_VECTOR_FILE_EXT = ".vec";
     private static final String FAISS_ENGINE_FILE_EXT = ".faiss";
     private static final String FLOAT_VECTOR_FIELD = "float_field";
@@ -310,6 +312,56 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         );
     }
 
+    @SneakyThrows
+    public void testNativeEngineVectorFormat_whenSearchModeExact() {
+        setupSearchMode();
+        float[] floatVector = { 1.0f, 3.0f, 4.0f };
+        byte[] byteVector = { 6, 14 };
+
+        FieldType fieldTypeForFloat = createVectorField(3, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldTypeForFloat.freeze();
+        addFieldToIndex(new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, fieldTypeForFloat), indexWriter);
+        FieldType fieldTypeForByte = createVectorField(2, VectorEncoding.BYTE, VectorDataType.BINARY);
+        fieldTypeForByte.freeze();
+        addFieldToIndex(new KnnByteVectorField(BYTE_VECTOR_FIELD, byteVector, fieldTypeForByte), indexWriter);
+
+        final IndexReader indexReader = indexWriter.getReader();
+        // ensuring segments are created
+        indexWriter.flush();
+        indexWriter.commit();
+        indexWriter.close();
+
+        // Validate to see if correct values are returned, assumption here is only 1 segment is getting created
+        IndexSearcher searcher = new IndexSearcher(indexReader);
+        final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
+        SegmentReader segmentReader = Lucene.segmentReader(leafReader);
+
+        // making sure graph files not created
+        final List<String> hnswfiles = getFilesFromSegment(dir, FAISS_ENGINE_FILE_EXT);
+        assertEquals(0, hnswfiles.size());
+
+        // making sure vector files are created
+        if (segmentReader.getSegmentInfo().info.getUseCompoundFile() == false) {
+            final List<String> vecfiles = getFilesFromSegment(dir, FLAT_VECTOR_FILE_EXT);
+            assertEquals(2, vecfiles.size());
+        }
+
+        final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD);
+        floatVectorValues.iterator().nextDoc();
+        assertArrayEquals(floatVector, floatVectorValues.vectorValue(floatVectorValues.iterator().index()), 0.0f);
+        assertEquals(1, floatVectorValues.size());
+        assertEquals(3, floatVectorValues.dimension());
+
+        final ByteVectorValues byteVectorValues = leafReader.getByteVectorValues(BYTE_VECTOR_FIELD);
+        byteVectorValues.iterator().nextDoc();
+        assertArrayEquals(byteVector, byteVectorValues.vectorValue(byteVectorValues.iterator().index()));
+        assertEquals(1, byteVectorValues.size());
+        assertEquals(2, byteVectorValues.dimension());
+
+        // do it at the end so that all search is completed
+        indexReader.close();
+    }
+
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {
         return Arrays.stream(dir.listAll()).filter(x -> x.contains(fileFormat)).collect(Collectors.toList());
     }
@@ -325,12 +377,27 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         // now. Given we have not implemented search for the native engine format using codec, the dir.close fails
         // with exception. Hence, marking this as false.
         ((BaseDirectoryWrapper) dir).setCheckIndexOnClose(false);
-        indexWriter = createIndexWriter(dir);
+        indexWriter = createIndexWriter(dir, null);
     }
 
-    private RandomIndexWriter createIndexWriter(final Directory dir) throws IOException {
+    private void setupSearchMode() throws IOException {
+        dir = newFSDirectory(createTempDir());
+        // on the mock directory Lucene goes ahead and does a search on different fields. We want to avoid that as of
+        // now. Given we have not implemented search for the native engine format using codec, the dir.close fails
+        // with exception. Hence, marking this as false.
+        ((BaseDirectoryWrapper) dir).setCheckIndexOnClose(false);
+        indexWriter = createIndexWriter(dir, "exact");
+    }
+
+    private RandomIndexWriter createIndexWriter(final Directory dir, String searchMode) throws IOException {
         final IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
+        if (searchMode != null) {
+            iwc.setCodec(SEARCH_MODE_TESTING_CODEC);
+            iwc.setUseCompoundFile(false);
+            iwc.setMergePolicy(NoMergePolicy.INSTANCE);
+            return new RandomIndexWriter(random(), dir, iwc);
+        }
         iwc.setCodec(TESTING_CODEC);
         iwc.setUseCompoundFile(false);
         // Set merge policy to no merges so that we create a predictable number of segments.

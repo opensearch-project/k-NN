@@ -73,6 +73,13 @@ public interface KNNMappingConfig {
         return Version.CURRENT;
     }
 
+    /**
+     * Return the searchMode to be used for this field (default is ann)
+     *
+     * @return String searchMode
+     */
+    default String getSearchMode() { return "ann"; }
+
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
         return null;
     }
