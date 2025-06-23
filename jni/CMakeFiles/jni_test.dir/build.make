@@ -239,7 +239,7 @@ bin/jni_test: CMakeFiles/jni_test.dir/build.make
 bin/jni_test: lib/libgtest_main.a
 bin/jni_test: lib/libgmock_main.a
 bin/jni_test: external/faiss/faiss/libfaiss.a
-bin/jni_test: external/nmslib/similarity_search/release/libNonMetricSpaceLib.a
+bin/jni_test: external/nmslib/similarity_search/debug/libNonMetricSpaceLib.a
 bin/jni_test: release/libopensearchknn_faiss_avx512.so
 bin/jni_test: release/libopensearchknn_nmslib.so
 bin/jni_test: release/libopensearchknn_common.so
@@ -250,7 +250,7 @@ bin/jni_test: external/faiss/faiss/libfaiss_avx512.a
 bin/jni_test: /usr/lib/gcc/x86_64-amazon-linux/11/libgomp.so
 bin/jni_test: /usr/lib64/libpthread.a
 bin/jni_test: /usr/lib64/libopenblas.so
-bin/jni_test: external/nmslib/similarity_search/release/libNonMetricSpaceLib.a
+bin/jni_test: external/nmslib/similarity_search/debug/libNonMetricSpaceLib.a
 bin/jni_test: CMakeFiles/jni_test.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ec2-user/k-NN/jni/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking CXX executable bin/jni_test"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/jni_test.dir/link.txt --verbose=$(VERBOSE)

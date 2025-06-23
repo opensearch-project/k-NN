@@ -108,7 +108,7 @@ opensearchknn_nmslib_EXTERNAL_OBJECTS =
 release/libopensearchknn_nmslib.so: CMakeFiles/opensearchknn_nmslib.dir/src/org_opensearch_knn_jni_NmslibService.cpp.o
 release/libopensearchknn_nmslib.so: CMakeFiles/opensearchknn_nmslib.dir/src/nmslib_wrapper.cpp.o
 release/libopensearchknn_nmslib.so: CMakeFiles/opensearchknn_nmslib.dir/build.make
-release/libopensearchknn_nmslib.so: external/nmslib/similarity_search/release/libNonMetricSpaceLib.a
+release/libopensearchknn_nmslib.so: external/nmslib/similarity_search/debug/libNonMetricSpaceLib.a
 release/libopensearchknn_nmslib.so: release/libopensearchknn_util.so
 release/libopensearchknn_nmslib.so: CMakeFiles/opensearchknn_nmslib.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ec2-user/k-NN/jni/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX shared library release/libopensearchknn_nmslib.so"

@@ -17,8 +17,8 @@ CMakeFiles/jni_test.dir/tests/nmslib_wrapper_unit_test.cpp.o: \
  /usr/include/bits/types/FILE.h /usr/include/bits/types/struct_FILE.h \
  /usr/include/bits/types/cookie_io_functions_t.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/floatn.h \
- /usr/include/bits/floatn-common.h /usr/include/bits/stdio.h \
- /usr/include/c++/11/stdlib.h /usr/include/c++/11/cstdlib \
+ /usr/include/bits/floatn-common.h /usr/include/c++/11/stdlib.h \
+ /usr/include/c++/11/cstdlib \
  /usr/include/c++/11/x86_64-amazon-linux/bits/c++config.h \
  /usr/include/c++/11/x86_64-amazon-linux/bits/os_defines.h \
  /usr/include/c++/11/x86_64-amazon-linux/bits/cpu_defines.h \
@@ -38,8 +38,7 @@ CMakeFiles/jni_test.dir/tests/nmslib_wrapper_unit_test.cpp.o: \
  /usr/include/bits/pthreadtypes.h /usr/include/bits/thread-shared-types.h \
  /usr/include/bits/pthreadtypes-arch.h /usr/include/bits/struct_mutex.h \
  /usr/include/bits/struct_rwlock.h /usr/include/alloca.h \
- /usr/include/bits/stdlib-bsearch.h /usr/include/bits/stdlib-float.h \
- /usr/include/c++/11/bits/std_abs.h \
+ /usr/include/bits/stdlib-float.h /usr/include/c++/11/bits/std_abs.h \
  /home/ec2-user/k-NN/jni/external/nmslib/similarity_search/include/knnquery.h \
  /home/ec2-user/k-NN/jni/external/nmslib/similarity_search/include/object.h \
  /usr/include/c++/11/cstring /usr/include/string.h /usr/include/strings.h \

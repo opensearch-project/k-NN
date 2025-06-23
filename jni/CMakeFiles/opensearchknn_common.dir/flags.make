@@ -6,5 +6,5 @@ CXX_DEFINES = -Dopensearchknn_common_EXPORTS
 
 CXX_INCLUDES = -I/home/ec2-user/k-NN/jni/include -I/home/ec2-user/.sdkman/candidates/java/current/include -I/home/ec2-user/.sdkman/candidates/java/current/include/linux
 
-CXX_FLAGS = -O3 -DNDEBUG -fPIC -std=gnu++17
+CXX_FLAGS = -g -fPIC -std=gnu++17
 

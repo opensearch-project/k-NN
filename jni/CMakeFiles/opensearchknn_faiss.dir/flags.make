@@ -6,5 +6,5 @@ CXX_DEFINES = -Dopensearchknn_faiss_EXPORTS
 
 CXX_INCLUDES = -I/home/ec2-user/k-NN/jni/include -I/home/ec2-user/.sdkman/candidates/java/current/include -I/home/ec2-user/.sdkman/candidates/java/current/include/linux -I/home/ec2-user/k-NN/jni/external/faiss
 
-CXX_FLAGS = -O3 -DNDEBUG -fPIC -fopenmp -std=gnu++17
+CXX_FLAGS = -g -fPIC -fopenmp -std=gnu++17
 
