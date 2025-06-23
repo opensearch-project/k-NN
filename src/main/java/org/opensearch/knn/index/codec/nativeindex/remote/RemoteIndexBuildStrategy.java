@@ -246,16 +246,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
         // First vector
         firstVector = knnVectorValues.getVector();
-        if (firstVector instanceof float[] v) {
-            dimension = v.length;
+        if (firstVector instanceof float[] floatVector) {
+            dimension = floatVector.length;
             vectorData = new float[totalDocs * dimension];
-            System.arraycopy(v, 0, vectorData, 0, dimension);
-        } else if (firstVector instanceof byte[] v) {
-            dimension = v.length;
-            vectorData = new float[totalDocs * dimension];
-            for (int i = 0; i < dimension; i++) {
-                vectorData[i] = v[i];
-            }
+            System.arraycopy(floatVector, 0, vectorData, 0, dimension);
         } else {
             throw new IllegalArgumentException("Unknown vector type: " + firstVector.getClass());
         }
@@ -264,12 +258,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         // Rest of the vectors
         while (knnVectorValues.nextDoc() != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
             Object vec = knnVectorValues.getVector();
-            if (vec instanceof float[] v) {
-                System.arraycopy(v, 0, vectorData, idx * dimension, dimension);
-            } else if (vec instanceof byte[] v) {
-                for (int i = 0; i < dimension; i++) {
-                    vectorData[idx * dimension + i] = v[i];
-                }
+            if (vec instanceof float[] floatVec) {
+                System.arraycopy(floatVec, 0, vectorData, idx * dimension, dimension);
+            } else {
+                throw new IllegalArgumentException("Unknown vector type: " + vec.getClass());
             }
             idx++;
         }
