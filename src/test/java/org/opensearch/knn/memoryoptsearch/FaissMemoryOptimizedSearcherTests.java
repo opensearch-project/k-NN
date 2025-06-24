@@ -101,6 +101,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final String BINARY_HSNW_INDEX_DESCRIPTION = "BHNSW16,Flat";
     private static final Map<String, Object> EMTPY_ENCODER_PARAMETERS = Map.of();
     private static final int DIMENSIONS = 128;
+    private static final int BINARY_DIMENSIONS = DIMENSIONS / 8; // For binary quantization
     private static final int TOTAL_NUM_DOCS_IN_SEGMENT = 300;
     private static final int TOP_K = 30;
     private static final float NO_FILTERING = Float.NaN;
@@ -238,6 +239,28 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
         // Test a dense nested case where ALL parent docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE_NESTED);
+    }
+
+    public void testADCWithBinaryQuantization() {
+        final TestingSpec adcEnabledSpec = new TestingSpec(
+            VectorDataType.FLOAT,
+            FLOAT_HNSW_INDEX_DESCRIPTION,
+            -1000000,
+            1000000,
+            FLOAT32_ENCODER_PARAMETERS
+        );
+        adcEnabledSpec.isAdcEnabled = true;
+
+        final TestingSpec adcDisabledSpec = new TestingSpec(
+            VectorDataType.FLOAT,
+            FLOAT_HNSW_INDEX_DESCRIPTION,
+            -1000000,
+            1000000,
+            FLOAT32_ENCODER_PARAMETERS
+        );
+        adcDisabledSpec.isAdcEnabled = false;
+
+        doAdcComparisonTest(adcEnabledSpec, adcDisabledSpec, IndexingType.DENSE);
     }
 
     @SneakyThrows
@@ -389,10 +412,18 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final boolean exhaustiveSearch
     ) {
         // Make KNN vector field info
-        FieldInfo vectorField = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
+        KNNCodecTestUtil.FieldInfoBuilder fieldInfoBuilder = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
             .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .build();
+            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
+
+        // Add space type from build parameters
+        if (buildInfo.parameters.containsKey(SPACE_TYPE)) {
+            fieldInfoBuilder.addAttribute(KNNConstants.SPACE_TYPE, (String) buildInfo.parameters.get(SPACE_TYPE));
+        }
+
+        // This test uses float indices, so no special quantization config needed
+
+        FieldInfo vectorField = fieldInfoBuilder.build();
         final FieldInfo[] vectorFieldArr = new FieldInfo[] { vectorField };
         final FieldInfos fieldInfos = new FieldInfos(vectorFieldArr);
 
@@ -401,6 +432,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         when(segmentInfo.getUseCompoundFile()).thenReturn(false);
         when(segmentInfo.files()).thenReturn(Set.of(buildInfo.faissIndexFile));
         when(segmentInfo.getId()).thenReturn("LuceneOnFaiss".getBytes());
+        when(segmentInfo.getVersion()).thenReturn(org.apache.lucene.util.Version.LATEST);
 
         // Prepare collector and bits
         // buildInfo.documentIds.size() + 1 -> Will force it to do exhaustive search.
@@ -476,7 +508,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 parameters.put(PARAMETERS, methodParameters);
                 methodParameters.put(METHOD_PARAMETER_EF_SEARCH, numberOfTotalDocsInSegment - 1);
                 methodParameters.put(METHOD_PARAMETER_EF_CONSTRUCTION, numberOfTotalDocsInSegment);
+
                 methodParameters.put(METHOD_ENCODER_PARAMETER, testingSpec.encoderParameters);
+
                 builder.parameters(parameters);
 
                 // Set up vectors
@@ -556,6 +590,53 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         }
 
         return buildInfo;
+    }
+
+    @SneakyThrows
+    private void doAdcComparisonTest(final TestingSpec adcEnabledSpec, final TestingSpec adcDisabledSpec, final IndexingType indexingType) {
+        final SpaceType spaceType = SpaceType.L2;
+        final int k = TOP_K;
+
+        // Build indices with same vectors but different ADC settings
+        final BuildInfo adcEnabledBuildInfo = buildFaissIndex(adcEnabledSpec, TOTAL_NUM_DOCS_IN_SEGMENT, indexingType, spaceType);
+        final BuildInfo adcDisabledBuildInfo = buildFaissIndex(adcDisabledSpec, TOTAL_NUM_DOCS_IN_SEGMENT, indexingType, spaceType);
+
+        // Generate full precision float32 query vector for ADC
+        final float[] query = generateOneSingleFloatVector(DIMENSIONS, adcEnabledSpec.minValue, adcEnabledSpec.maxValue);
+
+        // Search ADC enabled index with float query
+        final KNNQueryResult[] adcEnabledResults = doSearchViaVectorReader(
+            adcEnabledBuildInfo,
+            query,
+            VectorDataType.FLOAT,
+            null,
+            k,
+            false
+        );
+
+        // Search ADC disabled index with float query
+        final KNNQueryResult[] adcDisabledResults = doSearchViaVectorReader(
+            adcDisabledBuildInfo,
+            query,
+            VectorDataType.FLOAT,
+            null,
+            k,
+            false
+        );
+
+        // Assert that scores are different between ADC and non-ADC indices
+        assertTrue("ADC and non-ADC results should have different scores", adcEnabledResults.length > 0);
+        assertTrue("ADC and non-ADC results should have different scores", adcDisabledResults.length > 0);
+
+        boolean scoresAreDifferent = false;
+        for (int i = 0; i < Math.min(adcEnabledResults.length, adcDisabledResults.length); i++) {
+            if (Float.compare(adcEnabledResults[i].getScore(), adcDisabledResults[i].getScore()) != 0) {
+                scoresAreDifferent = true;
+                break;
+            }
+        }
+
+        assertTrue("Scores should be different for ADC and non-ADC indices with the same documents and queries", scoresAreDifferent);
     }
 
     public static void validateResults(
@@ -726,5 +807,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         public final Map<String, Object> encoderParameters;
         public ScalarQuantizationParams quantizationParams;
         public QuantizationState quantizationState;
+        public boolean isAdcEnabled = false;
     }
 }

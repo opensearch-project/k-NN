@@ -61,7 +61,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
 
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
-        throw new UnsupportedOperationException(FaissBinaryHnswIndex.class.getSimpleName() + " doees not support FloatVectorValues.");
+        throw new UnsupportedOperationException(FaissBinaryHnswIndex.class.getSimpleName() + " does not support FloatVectorValues.");
     }
 
     @Override
