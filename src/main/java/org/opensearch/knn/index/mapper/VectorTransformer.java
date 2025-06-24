@@ -34,4 +34,28 @@ public interface VectorTransformer {
             throw new IllegalArgumentException("Input vector cannot be null");
         }
     }
+
+    /**
+     * Reverses the transformation applied to a float vector in place.
+     *
+     * @param vector The input vector to undo transform (must not be null)
+     * @throws IllegalArgumentException if the input vector is null
+     */
+    default void undoTransform(final float[] vector) {
+        if (vector == null) {
+            throw new IllegalArgumentException("Input vector cannot be null");
+        }
+    }
+
+    /**
+     * Reverses the transformation applied to a byte vector in place.
+     *
+     * @param vector The input vector to undo transform (must not be null)
+     * @throws IllegalArgumentException if the input vector is null
+     */
+    default void undoTransform(final byte[] vector) {
+        if (vector == null) {
+            throw new IllegalArgumentException("Input vector cannot be null");
+        }
+    }
 }

@@ -11,10 +11,17 @@ import org.opensearch.common.CheckedSupplier;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
+import org.opensearch.knn.index.mapper.VectorTransformer;
 
 import java.io.IOException;
 
 public abstract class AbstractPerFieldDerivedVectorTransformer implements PerFieldDerivedVectorTransformer {
+    protected final VectorTransformer vectorTransformer;
+
+    protected AbstractPerFieldDerivedVectorTransformer(VectorTransformer vectorTransformer) {
+        this.vectorTransformer = vectorTransformer;
+    }
+
     /**
      * Utility method for formatting the vector values based on the vector data type.
      *
@@ -30,12 +37,25 @@ public abstract class AbstractPerFieldDerivedVectorTransformer implements PerFie
         CheckedSupplier<Object, IOException> vectorCloneSupplier
     ) throws IOException {
         Object vectorValue = vectorSupplier.get();
+        Object result;
         // If the vector value is a byte[], we must deserialize
         if (vectorValue instanceof byte[]) {
             BytesRef vectorBytesRef = new BytesRef((byte[]) vectorValue);
             VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-            return KNNVectorFieldMapperUtil.deserializeStoredVector(vectorBytesRef, vectorDataType);
+            result = KNNVectorFieldMapperUtil.deserializeStoredVector(vectorBytesRef, vectorDataType);
+        } else {
+            result = vectorCloneSupplier.get();
         }
-        return vectorCloneSupplier.get();
+        
+        // Apply undoTransform if vectorTransformer is available
+        if (vectorTransformer != null && result != null) {
+            if (result instanceof float[]) {
+                vectorTransformer.undoTransform((float[]) result);
+            } else if (result instanceof byte[]) {
+                vectorTransformer.undoTransform((byte[]) result);
+            }
+        }
+        
+        return result;
     }
 }

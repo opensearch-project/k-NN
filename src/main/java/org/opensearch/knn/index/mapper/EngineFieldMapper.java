@@ -300,7 +300,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected VectorTransformer getVectorTransformer() {
+    public VectorTransformer getVectorTransformer() {
         if (isLuceneEngine) {
             return super.getVectorTransformer();
         }

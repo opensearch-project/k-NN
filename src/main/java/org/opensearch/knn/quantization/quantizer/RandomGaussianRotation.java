@@ -98,4 +98,26 @@ public class RandomGaussianRotation {
 
         return rotatedVector;
     }
+
+    /**
+     * Applies the transpose of a rotation matrix to undo the rotation.
+     * Since the rotation matrix is orthonormal, its transpose is its inverse.
+     *
+     * @param vector The input vector to be un-rotated. The input vector is not modified.
+     * @param rotationMatrix The original rotation matrix.
+     * @return The copy of the original vector but un-rotated.
+     */
+    public float[] applyTranspose(float[] vector, float[][] rotationMatrix) {
+        int dimensions = vector.length;
+        float[] unrotatedVector = new float[dimensions];
+
+        // Apply transpose by using columns of the original matrix as rows
+        for (int i = 0; i < dimensions; i++) {
+            for (int j = 0; j < dimensions; j++) {
+                unrotatedVector[i] += rotationMatrix[j][i] * vector[j];
+            }
+        }
+
+        return unrotatedVector;
+    }
 }

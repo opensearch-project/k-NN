@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.index.FieldInfo;
+import org.opensearch.knn.index.mapper.VectorTransformer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
@@ -21,8 +22,10 @@ public class NestedPerFieldDerivedVectorTransformer extends AbstractPerFieldDeri
      *
      * @param childFieldInfo FieldInfo of the child field
      * @param derivedSourceReaders Readers for access segment info
+     * @param vectorTransformer VectorTransformer for undoing transformations
      */
-    public NestedPerFieldDerivedVectorTransformer(FieldInfo childFieldInfo, DerivedSourceReaders derivedSourceReaders) {
+    public NestedPerFieldDerivedVectorTransformer(FieldInfo childFieldInfo, DerivedSourceReaders derivedSourceReaders, VectorTransformer vectorTransformer) {
+        super(vectorTransformer);
         this.childFieldInfo = childFieldInfo;
         this.derivedSourceReaders = derivedSourceReaders;
     }

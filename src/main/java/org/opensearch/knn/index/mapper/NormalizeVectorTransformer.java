@@ -36,6 +36,12 @@ public class NormalizeVectorTransformer implements VectorTransformer {
         throw new UnsupportedOperationException("Byte array normalization is not supported");
     }
 
+    @Override
+    public void undoTransform(float[] vector) {
+        // Normalization is not reversible - this is a no-op
+        validateVector(vector);
+    }
+
     private void validateVector(float[] vector) {
         if (vector == null || vector.length == 0) {
             throw new IllegalArgumentException("Vector cannot be null or empty");

@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.common.CheckedSupplier;
+import org.opensearch.knn.index.mapper.VectorTransformer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
@@ -23,8 +24,10 @@ public class RootPerFieldDerivedVectorTransformer extends AbstractPerFieldDerive
      *
      * @param fieldInfo FieldInfo for the field to create the injector for
      * @param derivedSourceReaders {@link DerivedSourceReaders} instance
+     * @param vectorTransformer VectorTransformer for undoing transformations
      */
-    public RootPerFieldDerivedVectorTransformer(FieldInfo fieldInfo, DerivedSourceReaders derivedSourceReaders) {
+    public RootPerFieldDerivedVectorTransformer(FieldInfo fieldInfo, DerivedSourceReaders derivedSourceReaders, VectorTransformer vectorTransformer) {
+        super(vectorTransformer);
         this.fieldInfo = fieldInfo;
         this.vectorValuesSupplier = () -> KNNVectorValuesFactory.getVectorValues(
             fieldInfo,

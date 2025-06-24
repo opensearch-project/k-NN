@@ -41,6 +41,14 @@ public class RandomRotationVectorTransformer implements VectorTransformer {
         throw new UnsupportedOperationException("Byte array normalization is not supported");
     }
 
+    @Override
+    public void undoTransform(float[] vector) {
+        validateVector(vector);
+        // Undo rotation by applying transpose of rotation matrix
+        float[] undoRotatedVector = RandomGaussianRotation.applyTranspose(vector, rotationMatrix);
+        System.arraycopy(undoRotatedVector, 0, vector, 0, vector.length);
+    }
+
     private void validateVector(float[] vector) {
         if (vector == null || vector.length == 0) {
             throw new IllegalArgumentException("Vector cannot be null or empty");

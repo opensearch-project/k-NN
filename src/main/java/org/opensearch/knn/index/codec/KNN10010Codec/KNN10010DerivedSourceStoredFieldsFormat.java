@@ -15,9 +15,12 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.opensearch.common.Nullable;
+import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.derivedsource.DerivedFieldInfo;
+import org.opensearch.knn.index.mapper.EngineFieldMapper;
+import org.opensearch.knn.index.mapper.VectorTransformer;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReaders;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
@@ -41,15 +44,16 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
+        // TODO: here is where we filter on isNested...
         List<DerivedFieldInfo> derivedVectorFields = Stream.concat(
             DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false)
                 .stream()
                 .filter(field -> fieldInfos.fieldInfo(field) != null)
-                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), false)),
+                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), false, getVectorTransformerForField(field))),
             DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, true)
                 .stream()
                 .filter(field -> fieldInfos.fieldInfo(field) != null)
-                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), true))
+                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), true, getVectorTransformerForField(field)))
         ).toList();
 
         // If no fields have it enabled, we can just short-circuit and return the delegate's fieldReader
@@ -101,5 +105,28 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
             DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, nestedVectorFieldTypes, true);
         }
         return new KNN10010DerivedSourceStoredFieldsWriter(delegateWriter, vectorFieldTypes);
+    }
+
+    /**
+     * Get VectorTransformer for a specific field from MapperService
+     *
+     * @param fieldName name of the field
+     * @return VectorTransformer or null if not available
+     */
+    private VectorTransformer getVectorTransformerForField(String fieldName) {
+        if (mapperService == null) {
+            return null;
+        }
+        
+        try {
+            FieldMapper fieldMapper = (FieldMapper) mapperService.documentMapper().mappers().getMapper(fieldName);
+            if (fieldMapper instanceof EngineFieldMapper) {
+                return ((EngineFieldMapper) fieldMapper).getVectorTransformer();
+            }
+        } catch (Exception e) {
+            // Silently handle cases where mapper is not available
+        }
+        
+        return null;
     }
 }

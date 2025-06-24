@@ -16,6 +16,7 @@ import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.index.mapper.VectorTransformer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -49,10 +50,12 @@ public class DerivedSourceVectorTransformer {
         Map<String, Function<Object, Object>> perFieldDerivedVectorTransformersFunctionValues = new HashMap<>();
         for (DerivedFieldInfo derivedFieldInfo : fieldsToInjectVector) {
             isNested = derivedFieldInfo.isNested() || isNested;
+            
             PerFieldDerivedVectorTransformer perFieldDerivedVectorTransformer = PerFieldDerivedVectorTransformerFactory.create(
                 derivedFieldInfo.fieldInfo(),
                 derivedFieldInfo.isNested(),
-                derivedSourceReaders
+                derivedSourceReaders,
+                derivedFieldInfo.vectorTransformer()
             );
             perFieldDerivedVectorTransformers.put(derivedFieldInfo.name(), perFieldDerivedVectorTransformer);
             perFieldDerivedVectorTransformersFunctionValues.put(derivedFieldInfo.name(), perFieldDerivedVectorTransformer);
