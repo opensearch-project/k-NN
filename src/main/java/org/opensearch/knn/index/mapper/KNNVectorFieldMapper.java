@@ -197,10 +197,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         // search mode field (exact or ann)
         protected final Parameter<String> searchMode = Parameter.stringParam(
-                KNNConstants.SEARCH_MODE,
-                false,
-                m -> toType(m).originalMappingParameters.getSearchMode(),
-                null
+            KNNConstants.SEARCH_MODE,
+            false,
+            m -> toType(m).originalMappingParameters.getSearchMode(),
+            null
         );
 
         protected ModelDao modelDao;
@@ -408,9 +408,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // Check for flat configuration and validate only if index is created after 2.17 or if search mode is exact and index is created after 3.0
+            // Check for flat configuration and validate only if index is created after 2.17 or if search mode is exact and index is created
+            // after 3.0
             if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)
-            || (builder.searchMode.name.equals(KNNConstants.EXACT_SEARCH_KEY) && parserContext.indexVersionCreated().onOrAfter(Version.V_3_0_0))) {
+                || (builder.searchMode.name.equals(KNNConstants.EXACT_SEARCH_KEY)
+                    && parserContext.indexVersionCreated().onOrAfter(Version.V_3_0_0))) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
@@ -453,15 +455,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 return;
             }
             if (searchModeParam == null) return;
-            if (
-                !(searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY))
-                && !(searchModeParam.equals(KNNConstants.ANN_SEARCH_KEY))
-            ) {
+            if (!(searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY)) && !(searchModeParam.equals(KNNConstants.ANN_SEARCH_KEY))) {
                 throw new IllegalArgumentException("Search mode must be either 'exact' or 'ann'");
             }
             final KNNMethodContext knnMethodContext = builder.knnMethodContext.get();
-            if (searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY)
-                && knnMethodContext != null) {
+            if (searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY) && knnMethodContext != null) {
                 throw new IllegalArgumentException("Method and exact search mode cannot both be specified in the mapping");
             }
         }

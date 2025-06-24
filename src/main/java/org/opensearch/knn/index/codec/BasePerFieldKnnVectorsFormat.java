@@ -102,8 +102,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         String searchMode = mappedFieldType.getKnnMappingConfig().getSearchMode();
         if (searchMode != null && searchMode.equals(EXACT_SEARCH_KEY)) {
             return new NativeEngines990KnnVectorsFormat(
-                    new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
-                    EXACT_SEARCH_KEY
+                new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
+                EXACT_SEARCH_KEY
             );
         }
 

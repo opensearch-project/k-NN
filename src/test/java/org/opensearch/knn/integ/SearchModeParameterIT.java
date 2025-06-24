@@ -38,10 +38,7 @@ public class SearchModeParameterIT extends KNNRestTestCase {
         // exact search mode (testing both ann and exact search queries)
         createTestIndexWithSearchMode("exact");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
-        ResponseException ex = expectThrows(
-                ResponseException.class,
-                () -> validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K)
-        );
+        ResponseException ex = expectThrows(ResponseException.class, () -> validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K));
         String expMessage = "ANN search cannot be performed on exact search indices";
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
 
@@ -86,23 +83,23 @@ public class SearchModeParameterIT extends KNNRestTestCase {
     @SneakyThrows
     public void testSearchMode_ExactAndLucene() throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES)
-                .startObject("my_vector1")
-                .field("type", "knn_vector")
-                .field("dimension", DIMENSION)
-                .startObject(KNN_METHOD)
-                .field(NAME, "hnsw")
-                .field(KNN_ENGINE, "lucene")
-                .endObject()
-                .endObject()
-                .startObject("my_vector2")
-                .field("type", "knn_vector")
-                .field("dimension", DIMENSION)
-                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject("my_vector1")
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "lucene")
+            .endObject()
+            .endObject()
+            .startObject("my_vector2")
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+            .endObject()
+            .endObject()
+            .endObject();
 
         createKnnIndex(INDEX_NAME, builder.toString());
 
@@ -115,10 +112,7 @@ public class SearchModeParameterIT extends KNNRestTestCase {
         validateKNNScriptScoreSearch(INDEX_NAME, "my_vector1", DIMENSION, 1, K, TEST_SPACE_TYPE_L2);
 
         // exact field
-        ResponseException ex = expectThrows(
-                ResponseException.class,
-                () -> validateKNNSearch(INDEX_NAME, "my_vector2", DIMENSION, 1, K)
-        );
+        ResponseException ex = expectThrows(ResponseException.class, () -> validateKNNSearch(INDEX_NAME, "my_vector2", DIMENSION, 1, K));
         String expMessage = "ANN search cannot be performed on exact search indices";
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
         validateKNNScriptScoreSearch(INDEX_NAME, "my_vector2", DIMENSION, 1, K, TEST_SPACE_TYPE_L2);
@@ -129,23 +123,23 @@ public class SearchModeParameterIT extends KNNRestTestCase {
     @SneakyThrows
     public void testSearchMode_ExactAndFaiss() throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES)
-                .startObject("my_vector1")
-                .field("type", "knn_vector")
-                .field("dimension", DIMENSION)
-                .startObject(KNN_METHOD)
-                .field(NAME, "hnsw")
-                .field(KNN_ENGINE, "faiss")
-                .endObject()
-                .endObject()
-                .startObject("my_vector2")
-                .field("type", "knn_vector")
-                .field("dimension", DIMENSION)
-                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject("my_vector1")
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "faiss")
+            .endObject()
+            .endObject()
+            .startObject("my_vector2")
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+            .endObject()
+            .endObject()
+            .endObject();
 
         createKnnIndex(INDEX_NAME, builder.toString());
 
@@ -158,10 +152,7 @@ public class SearchModeParameterIT extends KNNRestTestCase {
         validateKNNScriptScoreSearch(INDEX_NAME, "my_vector1", DIMENSION, 1, K, TEST_SPACE_TYPE_L2);
 
         // exact field
-        ResponseException ex = expectThrows(
-                ResponseException.class,
-                () -> validateKNNSearch(INDEX_NAME, "my_vector2", DIMENSION, 1, K)
-        );
+        ResponseException ex = expectThrows(ResponseException.class, () -> validateKNNSearch(INDEX_NAME, "my_vector2", DIMENSION, 1, K));
         String expMessage = "ANN search cannot be performed on exact search indices";
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
         validateKNNScriptScoreSearch(INDEX_NAME, "my_vector2", DIMENSION, 1, K, TEST_SPACE_TYPE_L2);
@@ -171,10 +162,7 @@ public class SearchModeParameterIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testInvalidSearchModeIndexCreation() throws Exception {
-        ResponseException ex = expectThrows(
-                ResponseException.class,
-                () -> createTestIndexWithSearchMode("exactsearch")
-        );
+        ResponseException ex = expectThrows(ResponseException.class, () -> createTestIndexWithSearchMode("exactsearch"));
         String expMessage = "Search mode must be either 'exact' or 'ann'";
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
     }
@@ -184,34 +172,18 @@ public class SearchModeParameterIT extends KNNRestTestCase {
 
         if (searchMode == null) {
             XContentBuilder builder = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject("properties")
-                    .startObject(FIELD_NAME)
-                    .field("type", "knn_vector")
-                    .field("dimension", DIMENSION)
-                    .endObject()
-                    .endObject()
-                    .endObject();
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .endObject()
+                .endObject()
+                .endObject();
             String mapping = builder.toString();
             createKnnIndex(INDEX_NAME, settings, mapping);
         } else {
             XContentBuilder builder = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject("properties")
-                    .startObject(FIELD_NAME)
-                    .field("type", "knn_vector")
-                    .field("dimension", DIMENSION)
-                    .field(KNNConstants.SEARCH_MODE, searchMode)
-                    .endObject()
-                    .endObject()
-                    .endObject();
-            String mapping = builder.toString();
-            createKnnIndex(INDEX_NAME, settings, mapping);
-        }
-    }
-
-    private void createTestIndexWithSearchMode(String searchMode) throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
                 .startObject(FIELD_NAME)
@@ -221,6 +193,22 @@ public class SearchModeParameterIT extends KNNRestTestCase {
                 .endObject()
                 .endObject()
                 .endObject();
+            String mapping = builder.toString();
+            createKnnIndex(INDEX_NAME, settings, mapping);
+        }
+    }
+
+    private void createTestIndexWithSearchMode(String searchMode) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(KNNConstants.SEARCH_MODE, searchMode)
+            .endObject()
+            .endObject()
+            .endObject();
 
         String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
@@ -228,19 +216,17 @@ public class SearchModeParameterIT extends KNNRestTestCase {
 
     private void createTestIndexWithNoSearchMode() throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(FIELD_NAME)
-                .field("type", "knn_vector")
-                .field("dimension", DIMENSION)
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .endObject()
+            .endObject()
+            .endObject();
 
         String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
     }
-
-
 
 }

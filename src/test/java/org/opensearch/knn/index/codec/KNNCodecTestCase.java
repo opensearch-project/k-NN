@@ -439,16 +439,16 @@ public class KNNCodecTestCase extends KNNTestCase {
     }
 
     public void testKnnVectorIndexWithSearchMode(
-            final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
-            final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
+        final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
+        final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
     ) throws Exception {
         final MapperService mapperService = mock(MapperService.class);
 
         // ann method context
         final KNNMethodContext annMethodContext = new KNNMethodContext(
-                KNNEngine.LUCENE,
-                SpaceType.L2,
-                new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
 
         // exact method context
@@ -456,17 +456,17 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         // ann field type
         final KNNVectorFieldType annMappedFieldType = new KNNVectorFieldType(
-                "test",
-                Collections.emptyMap(),
-                VectorDataType.FLOAT,
-                getMappingConfigForMethodMapping(annMethodContext, 3, "ann")
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(annMethodContext, 3, "ann")
         );
-        //exact field type
+        // exact field type
         final KNNVectorFieldType exactMappedFieldType = new KNNVectorFieldType(
-                "test",
-                Collections.emptyMap(),
-                VectorDataType.FLOAT,
-                getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
         );
 
         assertEquals("ann", annMappedFieldType.getKnnMappingConfig().getSearchMode());
@@ -508,14 +508,14 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexSearcher searcher = new IndexSearcher(reader);
 
         Query query = KNNQueryFactory.create(
-                BaseQueryFactory.CreateQueryRequest.builder()
-                        .knnEngine(KNNEngine.LUCENE)
-                        .indexName("dummy")
-                        .fieldName(FIELD_NAME_ONE)
-                        .vector(new float[] { 1.0f, 0.0f, 0.0f })
-                        .k(1)
-                        .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
-                        .build()
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .indexName("dummy")
+                .fieldName(FIELD_NAME_ONE)
+                .vector(new float[] { 1.0f, 0.0f, 0.0f })
+                .k(1)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .build()
         );
 
         assertEquals(1, searcher.count(query));
@@ -549,20 +549,20 @@ public class KNNCodecTestCase extends KNNTestCase {
     }
 
     public void testNoGraphFilesCreated_ExactSearchMode(
-            final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
-            final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
+        final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
+        final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
     ) throws Exception {
         final MapperService mapperService = mock(MapperService.class);
 
         // exact method context
         final KNNMethodContext exactMethodContext = getDefaultKNNMethodContext();
 
-        //exact field type
+        // exact field type
         final KNNVectorFieldType exactMappedFieldType = new KNNVectorFieldType(
-                "test",
-                Collections.emptyMap(),
-                VectorDataType.FLOAT,
-                getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
         );
 
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(exactMappedFieldType);
