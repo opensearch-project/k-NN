@@ -128,7 +128,16 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             modelDao,
             CURRENT,
             null,
-            new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null, SpaceType.UNDEFINED.getValue(), null)
+            new OriginalMappingParameters(
+                VectorDataType.DEFAULT,
+                TEST_DIMENSION,
+                null,
+                null,
+                null,
+                null,
+                SpaceType.UNDEFINED.getValue(),
+                null
+            )
         );
 
         assertEquals(11, builder.getParameters().size());
@@ -2368,19 +2377,19 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 2)
-                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
-                .startObject(KNN_METHOD)
-                .field(NAME, "hnsw")
-                .field(KNN_ENGINE, "faiss")
-                .endObject()
-                .endObject();
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "faiss")
+            .endObject()
+            .endObject();
 
         IllegalArgumentException exception = expectThrows(
-                IllegalArgumentException.class,
-                () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
+            IllegalArgumentException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
         );
 
         assertTrue(exception.getMessage().contains("Method and exact search mode cannot both be specified in the mapping"));
@@ -2395,19 +2404,19 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 2)
-                .field(SEARCH_MODE, "exactsearch")
-                .startObject(KNN_METHOD)
-                .field(NAME, "hnsw")
-                .field(KNN_ENGINE, "faiss")
-                .endObject()
-                .endObject();
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(SEARCH_MODE, "exactsearch")
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "faiss")
+            .endObject()
+            .endObject();
 
         IllegalArgumentException exception = expectThrows(
-                IllegalArgumentException.class,
-                () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
+            IllegalArgumentException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
         );
 
         assertTrue(exception.getMessage().contains("Search mode must be either 'exact' or 'ann'"));
@@ -2422,15 +2431,15 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 2)
-                .endObject();
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .endObject();
 
         final KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
-                fieldName,
-                xContentBuilderToMap(xContentBuilder),
-                buildParserContext(indexName, settings)
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
         );
 
         assertNull(builder.getOriginalParameters().getSearchMode());
@@ -2443,23 +2452,23 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES)
-                    .startObject("my_vector1")
-                        .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                        .field(DIMENSION_FIELD_NAME, 2)
-                        .startObject(KNN_METHOD)
-                            .field(NAME, "hnsw")
-                            .field(KNN_ENGINE, "lucene")
-                        .endObject()
-                    .endObject()
-                    .startObject("my_vector2")
-                        .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                        .field(DIMENSION_FIELD_NAME, 2)
-                        .field(SEARCH_MODE, EXACT_SEARCH_KEY)
-                    .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject("my_vector1")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "lucene")
+            .endObject()
+            .endObject()
+            .startObject("my_vector2")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+            .endObject()
+            .endObject()
+            .endObject();
 
         Map<String, Object> params = xContentBuilderToMap(xContentBuilder);
         @SuppressWarnings("unchecked")
@@ -2493,24 +2502,24 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES)
-                .startObject("my_vector1")
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 2)
-                .field(SEARCH_MODE, ANN_SEARCH_KEY)
-                .startObject(KNN_METHOD)
-                .field(NAME, "hnsw")
-                .field(KNN_ENGINE, "faiss")
-                .endObject()
-                .endObject()
-                .startObject("my_vector2")
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 2)
-                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject("my_vector1")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(SEARCH_MODE, ANN_SEARCH_KEY)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "faiss")
+            .endObject()
+            .endObject()
+            .startObject("my_vector2")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+            .endObject()
+            .endObject()
+            .endObject();
 
         Map<String, Object> params = xContentBuilderToMap(xContentBuilder);
         @SuppressWarnings("unchecked")
@@ -2544,18 +2553,18 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 4)
-                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
-                .endObject();
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 4)
+            .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+            .endObject();
 
         Settings settings = Settings.builder().put(settings(Version.V_2_15_0).build()).put(KNN_INDEX, true).build();
 
         KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
-                fieldName,
-                xContentBuilderToMap(xContentBuilder),
-                buildLegacyParserContext(indexName, settings, Version.V_2_15_0)
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildLegacyParserContext(indexName, settings, Version.V_2_15_0)
         );
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
@@ -2574,16 +2583,16 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 2)
-                .field(SEARCH_MODE, EXACT_SEARCH_KEY)
-                .endObject();
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(SEARCH_MODE, EXACT_SEARCH_KEY)
+            .endObject();
 
         final KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
-                fieldName,
-                xContentBuilderToMap(xContentBuilder),
-                buildParserContext(indexName, settings)
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
         );
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);

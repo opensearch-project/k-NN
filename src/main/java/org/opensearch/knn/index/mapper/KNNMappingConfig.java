@@ -78,7 +78,9 @@ public interface KNNMappingConfig {
      *
      * @return String searchMode
      */
-    default String getSearchMode() { return "ann"; }
+    default String getSearchMode() {
+        return "ann";
+    }
 
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
         return null;

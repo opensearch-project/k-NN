@@ -152,7 +152,9 @@ public class KNNTestCase extends OpenSearchTestCase {
             }
 
             @Override
-            public String getSearchMode() {return searchMode; }
+            public String getSearchMode() {
+                return searchMode;
+            }
         };
     }
 

@@ -52,12 +52,12 @@ public class KNN10010CodecTests extends KNNCodecTestCase {
     @SneakyThrows
     public void testSearchModeOnCodec() {
         Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
-                mapperService) -> new KNN9120PerFieldKnnVectorsFormat(Optional.of(mapperService));
+            mapperService) -> new KNN9120PerFieldKnnVectorsFormat(Optional.of(mapperService));
 
         Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN10010Codec.builder()
-                .delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE)
-                .knnVectorsFormat(knnVectorFormat)
-                .build();
+            .delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE)
+            .knnVectorsFormat(knnVectorFormat)
+            .build();
 
         testKnnVectorIndexWithSearchMode(knnCodecProvider, perFieldKnnVectorsFormatProvider);
     }
@@ -65,12 +65,12 @@ public class KNN10010CodecTests extends KNNCodecTestCase {
     @SneakyThrows
     public void testNoGraphFileCreationOnCodec() {
         Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
-                mapperService) -> new KNN9120PerFieldKnnVectorsFormat(Optional.of(mapperService));
+            mapperService) -> new KNN9120PerFieldKnnVectorsFormat(Optional.of(mapperService));
 
         Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN10010Codec.builder()
-                .delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE)
-                .knnVectorsFormat(knnVectorFormat)
-                .build();
+            .delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE)
+            .knnVectorsFormat(knnVectorFormat)
+            .build();
 
         testNoGraphFilesCreated_ExactSearchMode(knnCodecProvider, perFieldKnnVectorsFormatProvider);
     }
