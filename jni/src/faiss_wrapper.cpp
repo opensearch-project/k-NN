@@ -14,7 +14,7 @@
 #include "faiss_util.h"
 #include "faiss_index_service.h"
 #include "faiss_stream_support.h"
-#include "FaissIndexBQ.h"
+#include "faiss_index_bq.h"
 
 #include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
