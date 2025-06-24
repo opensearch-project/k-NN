@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-#include "FaissIndexBQ.h"
+#include "faiss_index_bq.h"
 
 #include <vector>
 #include <cmath>
