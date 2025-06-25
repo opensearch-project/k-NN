@@ -16,7 +16,7 @@
 #include "faiss/Index.h"
 #include "faiss/impl/DistanceComputer.h"
 #include "faiss/utils/hamming_distance/hamdis-inl.h"
-//#include "faiss/c_api/faiss_c.h"
+#include "faiss/impl/HNSW.h"
 #include <vector>
 #include <iostream>
 #include <cassert>
@@ -65,10 +65,10 @@ namespace knn_jni {
             };
 
             virtual void distances_batch_4(
-                const faiss::idx_t idx0,
-                const faiss::idx_t idx1,
-                const faiss::idx_t idx2,
-                const faiss::idx_t idx3,
+                const faiss::HNSW::storage_idx_t idx0,
+                const faiss::HNSW::storage_idx_t idx1,
+                const faiss::HNSW::storage_idx_t idx2,
+                const faiss::HNSW::storage_idx_t idx3,
                 float& result_dis0,
                 float& result_dis1,
                 float& result_dis2,
