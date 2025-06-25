@@ -93,7 +93,7 @@ public class VectorIdsKNNIteratorUnitTests extends TestCase {
             knnScoringUtilMock.when(() -> KNNScoringUtil.innerProductADC(queryVector, documentVector)).thenReturn(15.0f);
 
             float result = iterator.scoreWithADC(queryVector, documentVector, SpaceType.COSINESIMIL);
-            assertEquals(SpaceType.INNER_PRODUCT.scoreTranslation(-15.0f), result);
+            assertEquals(SpaceType.COSINESIMIL.scoreTranslation(1 - 15.0f), result);
         }
 
         // Test case 4: Unsupported space type - using a different existing enum value

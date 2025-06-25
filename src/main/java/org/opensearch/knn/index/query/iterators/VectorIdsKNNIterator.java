@@ -135,11 +135,15 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     // protected for testing. scoreWithADC is used in exact searcher.
     protected float scoreWithADC(float[] queryVector, byte[] documentVector, SpaceType spaceType) {
+        // NOTE: the prescore translations come from Faiss.java::SCORE_TRANSLATIONS.
         if (spaceType.equals(SpaceType.L2)) {
             return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(queryVector, documentVector));
-        } else if (spaceType.equals(SpaceType.INNER_PRODUCT) || spaceType.equals(SpaceType.COSINESIMIL)) {
+        } else if (spaceType.equals(SpaceType.INNER_PRODUCT)) {
             return SpaceType.INNER_PRODUCT.scoreTranslation((-1 * KNNScoringUtil.innerProductADC(queryVector, documentVector)));
+        } else if (spaceType.equals(SpaceType.COSINESIMIL)) {
+            return SpaceType.COSINESIMIL.scoreTranslation(1 - KNNScoringUtil.innerProductADC(queryVector, documentVector));
         }
+
         throw new UnsupportedOperationException("Space type " + spaceType.getValue() + " is not supported for ADC");
     }
 }

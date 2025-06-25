@@ -1104,6 +1104,11 @@ faiss::MetricType knn_jni::faiss_wrapper::TranslateSpaceToMetric(const std::stri
         return faiss::METRIC_INNER_PRODUCT;
     }
 
+    // This case occurs when the space type is passed in to an ADC transformed index. The vectors are guaranteed to be normalized during indexing, so cosine is equivalent to inner product.
+    if (spaceType == knn_jni::COSINESIMIL) {
+        return faiss::METRIC_INNER_PRODUCT;
+    }
+
     // Space type is not used for binary index. Use L2 just to avoid an error.
     if (spaceType == knn_jni::HAMMING) {
         return faiss::METRIC_L2;
