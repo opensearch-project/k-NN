@@ -65,60 +65,6 @@ public class ADCIT extends KNNRestTestCase {
         createKnnIndex(indexName, builder.toString());
     }
 
-    private String makeQBitIndexADC(String indexName, String name, SpaceType spaceType, boolean isUnderTest) throws Exception {
-        Integer bits = 1;
-        int dimension = 8;
-
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(PROPERTIES_FIELD)
-            .startObject(TEST_FIELD_NAME)
-            .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .startObject(KNN_METHOD)
-            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
-            .field(NAME, METHOD_HNSW)
-            .startObject(PARAMETERS)
-            .startObject("encoder")
-            .field(NAME, "binary")
-            .startObject("parameters")
-            .field("bits", bits)
-            .field(name, isUnderTest)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        createKnnIndex(indexName, builder.toString());
-
-        Float[] vector_1 = { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-        Float[] vector_2 = { 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-        Float[] vector_3 = { -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-        float[] query = { 0.1f, 0.32f, 3.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-
-        addKnnDoc(indexName, "1", ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vector_1));
-        addKnnDoc(indexName, "2", ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vector_2));
-        addKnnDoc(indexName, "3", ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vector_3));
-        forceMergeKnnIndex(indexName);
-
-        XContentBuilder queryBuilder = XContentFactory.jsonBuilder();
-        queryBuilder.startObject();
-        queryBuilder.startObject("query");
-        queryBuilder.startObject("knn");
-        queryBuilder.startObject(TEST_FIELD_NAME);
-        queryBuilder.field("vector", query);
-        queryBuilder.field("k", 3);
-        queryBuilder.endObject();
-        queryBuilder.endObject();
-        queryBuilder.endObject();
-        queryBuilder.endObject();
-        final String responseBody = EntityUtils.toString(searchKNNIndex(indexName, queryBuilder, 3).getEntity());
-        return responseBody;
-    }
-
     @Test
     public void testADCWithL2() {
         adcTestSpaceType(SpaceType.L2);
@@ -136,19 +82,73 @@ public class ADCIT extends KNNRestTestCase {
 
     @SneakyThrows
     private void adcTestSpaceType(SpaceType spaceType) {
+        int dimension = 8;
+        int bits = 1;
+        int k = 10;
+
+        // Generate 10 random vectors that we'll reuse
+        List<Float[]> vectors = new ArrayList<>();
+        Random random = new Random(42);
+        for (int i = 0; i < 10; i++) {
+            Float[] vector = new Float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = random.nextFloat();
+            }
+            vectors.add(vector);
+        }
+
+        // Create control index (with ADC disabled)
         String controlIndexName = "adc-it-control-index-" + spaceType.toString().toLowerCase();
+        makeOnlyQBitIndex(controlIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, false, spaceType);
+
+        // Index documents
+        for (int i = 0; i < 10; i++) {
+            addKnnDoc(controlIndexName, String.valueOf(i + 1), ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vectors.get(i)));
+        }
+        forceMergeKnnIndex(controlIndexName);
+
+        // Create test index (with ADC enabled)
         String testIndexName = "adc-it-test-index-" + spaceType.toString().toLowerCase();
+        makeOnlyQBitIndex(testIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, true, spaceType);
 
-        String responseControl = makeQBitIndexADC(controlIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, spaceType, false);
-        String responseUnderTest = makeQBitIndexADC(testIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, spaceType, true);
+        // Index same vectors
+        for (int i = 0; i < 10; i++) {
+            addKnnDoc(testIndexName, String.valueOf(i + 1), ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vectors.get(i)));
+        }
+        forceMergeKnnIndex(testIndexName);
 
-        List<Object> controlHits = parseSearchResponseHits(responseControl);
-        List<Object> testHits = parseSearchResponseHits(responseUnderTest);
+        // Query builder for both control and test searches
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(TEST_FIELD_NAME)
+                .array("vector", vectors.get(0))
+                .field("k", k)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
 
-        Double controlFirstHitScore = ((Double) (((java.util.HashMap<String, Object>) controlHits.get(0)).get("_score")));
-        Double testFirstScore = ((Double) (((java.util.HashMap<String, Object>) testHits.get(0)).get("_score")));
+        // Search control index
+        String controlResponse = EntityUtils.toString(searchKNNIndex(controlIndexName, queryBuilder, k).getEntity());
+        List<Object> controlHits = parseSearchResponseHits(controlResponse);
 
+        // Search test index
+        String testResponse = EntityUtils.toString(searchKNNIndex(testIndexName, queryBuilder, k).getEntity());
+        List<Object> testHits = parseSearchResponseHits(testResponse);
+
+        assertEquals(10, controlHits.size());
+
+        // Extract scores
+        Double controlFirstHitScore = ((Double) (((Map<String, Object>) controlHits.get(0)).get("_score")));
+        Double testFirstScore = ((Double) (((Map<String, Object>) testHits.get(0)).get("_score")));
+
+        // For ADC test, scores should be different
         assertNotEquals(controlFirstHitScore, testFirstScore);
+
+        deleteKNNIndex(controlIndexName);
+        deleteKNNIndex(testIndexName);
     }
 
     @SneakyThrows
@@ -243,17 +243,18 @@ public class ADCIT extends KNNRestTestCase {
         List<String> testIds = testHits.stream().map(hit -> (String) ((Map<String, Object>) hit).get("_id")).collect(Collectors.toList());
 
         assertEquals("Document IDs should be in the same order", controlIds, testIds);
+        deleteKNNIndex(controlIndexName);
+        deleteKNNIndex(testIndexName);
     }
 
     @SneakyThrows
     public void testFilterADC() {
         /*
-
         0. for each of control, test:
         1. create index. ingest 10 documents. force merge index.
         2. run with match all filter query and k = 10
-        3. Create index. ingest the same 10 vectors, but with different document ids (11 to 20).
-        4. assert that the scores of the results are the same in both searches.
+        3. Create (adc) index. ingest the same 10 vectors, but with different document ids (11 to 20).
+        4. assert that the scores of the results are the same in both searches.src/test/java/org/opensearch/knn/index/ADCIT.java
          */
         for (SpaceType spaceType : new SpaceType[] { SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL }) {
             adcFilterTestSpaceType(spaceType);
