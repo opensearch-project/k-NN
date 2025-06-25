@@ -129,7 +129,7 @@ public class QuantizationStateTests extends KNNTestCase {
 
         long manualEstimatedRamBytesUsed = 0L;
         manualEstimatedRamBytesUsed += alignSize(16L); // object overhead
-        manualEstimatedRamBytesUsed += alignSize(48L); // param object (sqType + isRandomRotation + enableADC)
+        manualEstimatedRamBytesUsed += alignSize(48L); // param object (sqType + isRandomRotation + isEnableADC)
         manualEstimatedRamBytesUsed += alignSize(16L + 4L * thresholds.length);
         for (float[] row : thresholds) {
             manualEstimatedRamBytesUsed += alignSize(16L + 4L * row.length);
@@ -165,9 +165,9 @@ public class QuantizationStateTests extends KNNTestCase {
         float[][] thresholds = { { 0.1f, 0.2f, 0.3f }, { 1.1f, 1.2f, 1.3f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .thresholds(thresholds)
-                .build();
+            .quantizationParams(params)
+            .thresholds(thresholds)
+            .build();
 
         // Case 1: 3 thresholds, each with 2 dimensions
         float[][] thresholds1 = { { 0.5f, 1.5f }, { 1.0f, 2.0f }, { 1.5f, 2.5f } };

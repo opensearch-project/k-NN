@@ -344,9 +344,9 @@ public class KNNIndexShard {
         // For non-empty quantization config
         if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
             return VectorDataType.FLOAT;
-        } else {
-            return VectorDataType.BINARY;
         }
+
+        return VectorDataType.BINARY;
     }
 
     @AllArgsConstructor

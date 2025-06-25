@@ -25,10 +25,10 @@ import java.io.IOException;
 @Getter
 @EqualsAndHashCode
 @AllArgsConstructor
-@NoArgsConstructor
+@NoArgsConstructor(force = true)
 @Builder
 public class ScalarQuantizationParams implements QuantizationParams {
-    private ScalarQuantizationType sqType;
+    private final ScalarQuantizationType sqType;
     @Builder.Default
     private final boolean enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
     @Builder.Default
@@ -76,6 +76,7 @@ public class ScalarQuantizationParams implements QuantizationParams {
      * @param in the input stream to read the object from.
      * @throws IOException if an I/O error occurs.
      */
+    // Constructor for deserialization
     public ScalarQuantizationParams(StreamInput in, int version) throws IOException {
         int typeId = in.readVInt();
         this.sqType = ScalarQuantizationType.fromId(typeId);

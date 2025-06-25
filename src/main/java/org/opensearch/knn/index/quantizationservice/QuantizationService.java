@@ -97,7 +97,6 @@ public final class QuantizationService<T, R> {
         return quantizationOutput.getQuantizedVector();
     }
 
-    // TODO: assert we need both methods...
     /**
      * Transform vector with ADC. ADC allows us to score full-precision query vectors against binary document vectors.
      * The transformation formula is:
@@ -112,18 +111,6 @@ public final class QuantizationService<T, R> {
         quantizer.transformWithADC(vector, quantizationState, spaceType);
     }
 
-
-    /**
-     * Applies transformation to the given vector using the specified {@link QuantizationState}.
-     *
-     * @param quantizationState The {@link QuantizationState} containing the state of the trained quantizer.
-     * @param vector The vector to be transformed.
-     */
-    public void transform(final QuantizationState quantizationState, final T vector) {
-        Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationState.getQuantizationParams());
-        quantizer.transform(vector, quantizationState);
-    }
-
     /**
      * Retrieves quantization parameters from the FieldInfo.
      * @param fieldInfo The {@link FieldInfo} object containing metadata about the field for which the quantization parameters
@@ -134,8 +121,11 @@ public final class QuantizationService<T, R> {
     public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {
         QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
-            // TODO: SQparams to builder pattern.  quantizationConfig.isEnableRandomRotation()
-            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType(), quantizationConfig.isEnableADC());
+            return ScalarQuantizationParams.builder()
+                .sqType(quantizationConfig.getQuantizationType())
+                .enableRandomRotation(quantizationConfig.isEnableRandomRotation())
+                .enableADC(quantizationConfig.isEnableADC())
+                .build();
         }
         return null;
     }
