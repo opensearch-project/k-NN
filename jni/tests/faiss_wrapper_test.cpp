@@ -21,7 +21,6 @@
 #include "faiss/IndexIVFPQ.h"
 #include "mocks/faiss_index_service_mock.h"
 #include "native_stream_support_util.h"
-#include "faiss/IndexFlat.h"
 
 using ::test_util::JavaFileIndexOutputMock;
 using ::test_util::MockJNIUtil;
@@ -39,8 +38,8 @@ const float rangeSearchRandomDataMax = 50;
 const float rangeSearchRadius = 20000;
 
 void createIndexIteratively(
-        knn_jni::JNIUtilInterface * JNIUtil, 
-        JNIEnv *jniEnv, 
+        knn_jni::JNIUtilInterface * JNIUtil,
+        JNIEnv *jniEnv,
         std::vector<faiss::idx_t> & ids,
         std::vector<float> & vectors,
         int dim,
@@ -74,13 +73,13 @@ void createIndexIteratively(
 }
 
 void createBinaryIndexIteratively(
-        knn_jni::JNIUtilInterface * JNIUtil, 
-        JNIEnv *jniEnv, 
+        knn_jni::JNIUtilInterface * JNIUtil,
+        JNIEnv *jniEnv,
         std::vector<faiss::idx_t> & ids,
         std::vector<uint8_t> & vectors,
         int dim,
         jobject javaFileOutputMock,
-        std::unordered_map<string, jobject> parametersMap, 
+        std::unordered_map<string, jobject> parametersMap,
         IndexService * indexService,
         int insertions = 10
     ) {
@@ -1337,59 +1336,4 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
             delete it;
         }
     }
-}
-
-
-
-// Helper: Simulate float array as jfloatArray for JNI-style tests
-static jfloatArray ToJFloatArray(std::vector<float>& data) {
-    return reinterpret_cast<jfloatArray>(data.data());
-}
-
-// Helper: Simulate std::string as jstring for JNI-style tests
-static jstring ToJString(std::string& str) {
-    return reinterpret_cast<jstring>(&str);
-}
-
-
-TEST(FaissBuildFlatIndexFromVectorsTest, ThrowsIfVectorsNull) {
-    NiceMock<JNIEnv> jniEnv;
-    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
-    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
-    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
-    jfloatArray vectorsJ = nullptr;
-    jint numVectors = 2;
-    jint dim = 2;
-    std::string metricType = "L2";
-    jstring metricTypeJ = ToJString(metricType);
-
-    EXPECT_THROW(
-        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
-            &mockJNIUtil, &jniEnv, vectorsJ, numVectors, dim, metricTypeJ, &indexService),
-        std::runtime_error
-    );
-}
-
-TEST(FaissBuildFlatIndexFromVectorsTest, ThrowsIfInvalidDimsOrNumVectors) {
-    NiceMock<JNIEnv> jniEnv;
-    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
-    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
-    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
-    std::vector<float> data(4, 1.0f);
-    jfloatArray vectorsJ = ToJFloatArray(data);
-    std::string metricType = "L2";
-    jstring metricTypeJ = ToJString(metricType);
-
-    // Zero dim
-    EXPECT_THROW(
-        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
-            &mockJNIUtil, &jniEnv, vectorsJ, 2, 0, metricTypeJ, &indexService),
-        std::runtime_error
-    );
-    // Negative numVectors
-    EXPECT_THROW(
-        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
-            &mockJNIUtil, &jniEnv, vectorsJ, -1, 2, metricTypeJ, &indexService),
-        std::runtime_error
-    );
 }

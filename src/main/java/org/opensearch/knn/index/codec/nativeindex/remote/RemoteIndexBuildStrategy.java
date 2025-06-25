@@ -167,7 +167,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             RemoteBuildResponse remoteBuildResponse = submitBuild(repositoryContext, indexInfo, client);
 
             // 3. Build flat index
-            buildFlatIndex(indexInfo);
+            buildFlatIndex(indexInfo); // this will return a pointer to send to readFromRepository in complete implementation, but closed
+                                       // off for now
 
             // 4. Await vector build completion
             RemoteBuildStatusResponse remoteBuildStatusResponse = awaitIndexBuild(remoteBuildResponse, indexInfo, client);
@@ -244,7 +245,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             throw new IllegalStateException("No vectors to index");
         }
 
-        // First vector
+        // First vector, need to access first before getting values needed for loop
         firstVector = knnVectorValues.getVector();
         if (firstVector instanceof float[] floatVector) {
             dimension = floatVector.length;
