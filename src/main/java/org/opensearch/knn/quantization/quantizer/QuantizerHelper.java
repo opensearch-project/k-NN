@@ -157,7 +157,8 @@ class QuantizerHelper {
      * @throws IOException if vector access fails.
      */
     public static Pair<float[], float[]> calculateMeanAndStdDev(TrainingRequest<float[]> request, int[] sampledIndices) throws IOException {
-        float[] mean = null, sumSq = null;
+        // First pass: Calculate mean
+        float[] mean = null;
         request.resetVectorValues();
         for (int docId : sampledIndices) {
             float[] vector = request.getVectorAtThePosition(docId);
@@ -168,12 +169,10 @@ class QuantizerHelper {
 
             if (mean == null) {
                 mean = new float[vector.length];
-                sumSq = new float[vector.length];
             }
 
             for (int i = 0; i < vector.length; i++) {
                 mean[i] += vector[i];
-                sumSq[i] += vector[i] * vector[i];
             }
         }
 
@@ -184,8 +183,23 @@ class QuantizerHelper {
         int n = sampledIndices.length;
         for (int i = 0; i < mean.length; i++) {
             mean[i] /= n;
-            // equivalent to standard deviation via algebra
-            sumSq[i] = (float) Math.sqrt((sumSq[i] / n) - (mean[i] * mean[i]));
+        }
+
+        // Second pass: Calculate sum of squared differences from the mean
+        float[] sumSq = new float[mean.length];
+        request.resetVectorValues();
+        for (int docId : sampledIndices) {
+            float[] vector = request.getVectorAtThePosition(docId);
+
+            for (int i = 0; i < vector.length; i++) {
+                float diff = vector[i] - mean[i];
+                sumSq[i] += diff * diff;
+            }
+        }
+
+        // Calculate the standard deviation
+        for (int i = 0; i < sumSq.length; i++) {
+            sumSq[i] = (float) Math.sqrt(sumSq[i] / n);
         }
 
         return new Pair<>(mean, sumSq);

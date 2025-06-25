@@ -20,7 +20,7 @@ import java.io.IOException;
 
 /**
  * MultiBitScalarQuantizer is responsible for quantizing vectors into multi-bit representations per dimension.
- * Unlike the OneBitScalarQuantizer, which uses a single bit ramBytesUsedper dimension to represent whether a value is above
+ * Unlike the OneBitScalarQuantizer, which uses a single bit per dimension to represent whether a value is above
  * or below a mean threshold, the MultiBitScalarQuantizer allows for multiple bits per dimension, enabling more
  * granular and precise quantization.
  *
@@ -110,9 +110,9 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) throws IOException {
         int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
 
-        ScalarQuantizationParams params = (bitsPerCoordinate == 2)
-            ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
-            : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder()
+            .sqType(bitsPerCoordinate == 2 ? ScalarQuantizationType.TWO_BIT : ScalarQuantizationType.FOUR_BIT)
+            .build();
 
         return QuantizerHelper.calculateQuantizationState(trainingRequest, sampledIndices, params, bitsPerCoordinate);
     }

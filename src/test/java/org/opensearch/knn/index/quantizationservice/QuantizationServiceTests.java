@@ -46,7 +46,7 @@ public class QuantizationServiceTests extends KNNTestCase {
     }
 
     public void testTrain_oneBitQuantizer_success() throws IOException {
-        ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams oneBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         QuantizationState quantizationState = quantizationService.train(
             oneBitParams,
             knnVectorValues,
@@ -66,7 +66,7 @@ public class QuantizationServiceTests extends KNNTestCase {
     }
 
     public void testTrain_twoBitQuantizer_success() throws IOException {
-        ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams twoBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         QuantizationState quantizationState = quantizationService.train(
             twoBitParams,
             knnVectorValues,
@@ -93,7 +93,7 @@ public class QuantizationServiceTests extends KNNTestCase {
     }
 
     public void testTrain_fourBitQuantizer_success() throws IOException {
-        ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        ScalarQuantizationParams fourBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
         QuantizationState quantizationState = quantizationService.train(
             fourBitParams,
             knnVectorValues,
@@ -122,7 +122,7 @@ public class QuantizationServiceTests extends KNNTestCase {
     }
 
     public void testQuantize_oneBitQuantizer_success() throws IOException {
-        ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams oneBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         QuantizationState quantizationState = quantizationService.train(
             oneBitParams,
             knnVectorValues,
@@ -141,7 +141,7 @@ public class QuantizationServiceTests extends KNNTestCase {
     }
 
     public void testQuantize_twoBitQuantizer_success() throws IOException {
-        ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams twoBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         QuantizationState quantizationState = quantizationService.train(
             twoBitParams,
             knnVectorValues,
@@ -158,7 +158,7 @@ public class QuantizationServiceTests extends KNNTestCase {
     }
 
     public void testQuantize_fourBitQuantizer_success() throws IOException {
-        ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        ScalarQuantizationParams fourBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
         QuantizationState quantizationState = quantizationService.train(
             fourBitParams,
             knnVectorValues,
@@ -176,7 +176,7 @@ public class QuantizationServiceTests extends KNNTestCase {
     }
 
     public void testQuantize_whenInvalidInput_thenThrows() throws IOException {
-        ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams oneBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         QuantizationState quantizationState = quantizationService.train(
             oneBitParams,
             knnVectorValues,

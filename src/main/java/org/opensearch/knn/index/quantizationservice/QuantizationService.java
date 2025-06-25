@@ -116,7 +116,10 @@ public final class QuantizationService<T, R> {
     public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {
         QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
-            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType(), quantizationConfig.isEnableADC());
+            return ScalarQuantizationParams.builder()
+                .sqType(quantizationConfig.getQuantizationType())
+                .enableADC(quantizationConfig.isEnableADC())
+                .build();
         }
         return null;
     }

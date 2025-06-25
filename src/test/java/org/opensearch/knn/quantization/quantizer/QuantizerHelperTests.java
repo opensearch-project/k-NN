@@ -19,7 +19,7 @@ public class QuantizerHelperTests extends KNNTestCase {
 
     public void testCalculateMeanAndStdDev() throws IOException {
         float[][] vectors = { { 1f, 2f }, { 3f, 4f }, { 5f, 6f } };
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         TrainingRequest<float[]> request = new MockTrainingRequest(params, vectors);
         int[] sampledIndices = { 0, 1, 2 };
 
@@ -31,7 +31,7 @@ public class QuantizerHelperTests extends KNNTestCase {
 
     public void testCalculateOneBitQuantizationState_basicFlow() throws IOException {
         float[][] vectors = { { 1f, 2f }, { 2f, 4f }, { 3f, 6f } };
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         TrainingRequest<float[]> request = new MockTrainingRequest(params, vectors);
         int[] sampledIndices = { 0, 1, 2 };
 
@@ -44,7 +44,7 @@ public class QuantizerHelperTests extends KNNTestCase {
 
     public void testCalculateMultiBitQuantizationState_basicFlow() throws IOException {
         float[][] vectors = { { 1f, 2f }, { 2f, 4f }, { 3f, 6f } };
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         TrainingRequest<float[]> request = new MockTrainingRequest(params, vectors);
         int[] sampledIndices = { 0, 1, 2 };
 
@@ -64,7 +64,7 @@ public class QuantizerHelperTests extends KNNTestCase {
     }
 
     public void testThrowsOnEmptySampleIndices() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         TrainingRequest<float[]> request = new MockTrainingRequest(params, new float[][] {});
         int[] empty = new int[0];
 

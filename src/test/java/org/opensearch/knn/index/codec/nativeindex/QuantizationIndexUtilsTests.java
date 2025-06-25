@@ -57,7 +57,7 @@ public class QuantizationIndexUtilsTests extends KNNTestCase {
         QuantizationState quantizationState = mock(OneBitScalarQuantizationState.class);
         QuantizationOutput quantizationOutput = mock(QuantizationOutput.class);
 
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         when(quantizationOutput.getQuantizedVector()).thenReturn(new byte[] { 0x01 });
         when(quantizationState.getDimensions()).thenReturn(2);
         when(quantizationState.getBytesPerVector()).thenReturn(8);
@@ -94,7 +94,7 @@ public class QuantizationIndexUtilsTests extends KNNTestCase {
 
     public void testProcessAndReturnVector_withQuantization_success() throws IOException {
         // Set up quantization state and output
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         float[] mean = { 1.0f, 2.0f, 3.0f };
         knnVectorValues.nextDoc();
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()

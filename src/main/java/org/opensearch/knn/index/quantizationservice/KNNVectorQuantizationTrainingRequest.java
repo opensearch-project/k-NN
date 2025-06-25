@@ -33,7 +33,6 @@ final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
         super((int) liveDocs);
         this.knnVectorValuesSupplier = knnVectorValuesSupplier;
         resetVectorValues(); // Initialize the first instance
-        this.lastIndex = 0;
     }
 
     /**

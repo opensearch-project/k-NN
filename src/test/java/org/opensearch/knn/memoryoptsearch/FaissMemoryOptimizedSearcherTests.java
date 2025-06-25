@@ -113,7 +113,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
-        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -136,7 +136,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
-        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -159,7 +159,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
-        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);

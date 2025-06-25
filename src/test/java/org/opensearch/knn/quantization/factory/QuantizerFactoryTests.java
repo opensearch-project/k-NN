@@ -16,9 +16,9 @@ public class QuantizerFactoryTests extends KNNTestCase {
 
     public void test_Lazy_Registration() {
         try {
-            ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-            ScalarQuantizationParams paramsTwoBit = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-            ScalarQuantizationParams paramsFourBit = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+            ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+            ScalarQuantizationParams paramsTwoBit = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
+            ScalarQuantizationParams paramsFourBit = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
             Quantizer<Float[], Byte[]> oneBitQuantizer = QuantizerFactory.getQuantizer(params);
             Quantizer<Float[], Byte[]> quantizerTwoBit = QuantizerFactory.getQuantizer(paramsTwoBit);
             Quantizer<Float[], Byte[]> quantizerFourBit = QuantizerFactory.getQuantizer(paramsFourBit);

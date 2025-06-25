@@ -29,7 +29,7 @@ import java.io.IOException;
 @NoArgsConstructor(force = true)
 @Builder
 public class ScalarQuantizationParams implements QuantizationParams {
-    private ScalarQuantizationType sqType;
+    private final ScalarQuantizationType sqType;
     @Builder.Default
     private final boolean enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
 
@@ -41,10 +41,6 @@ public class ScalarQuantizationParams implements QuantizationParams {
      */
     public static String generateTypeIdentifier(ScalarQuantizationType sqType) {
         return generateIdentifier(sqType.getId());
-    }
-
-    public ScalarQuantizationParams(ScalarQuantizationType quantizationType) {
-        this(quantizationType, QFrameBitEncoder.DEFAULT_ENABLE_ADC);
     }
 
     /**
@@ -78,13 +74,14 @@ public class ScalarQuantizationParams implements QuantizationParams {
      * @param in the input stream to read the object from.
      * @throws IOException if an I/O error occurs.
      */
+    // Constructor for deserialization
     public ScalarQuantizationParams(StreamInput in, int version) throws IOException {
         int typeId = in.readVInt();
         this.sqType = ScalarQuantizationType.fromId(typeId);
-        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
-            enableADC = in.readBoolean();
+        if (Version.fromId(version).onOrAfter(Version.V_3_2_0)) {
+            this.enableADC = in.readBoolean();
         } else {
-            enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
+            this.enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
         }
     }
 
