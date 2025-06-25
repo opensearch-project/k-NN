@@ -273,6 +273,9 @@ namespace knn_jni {
     extern const std::string EF_CONSTRUCTION;
     extern const std::string EF_CONSTRUCTION_NMSLIB;
     extern const std::string EF_SEARCH;
+
+    extern const std::string SPACE_TYPE_FAISS_INDEX_JAVA_KNN_CONSTANTS;
+    extern const std::string QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER_JAVA_KNN_CONSTANTS;
     // --------------------------------------------------------------------------
 }
 

@@ -66,13 +66,12 @@ public final class QuantizationService<T, R> {
         final long liveDocs
     ) throws IOException {
         Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
-        KNNVectorQuantizationTrainingRequest<T> trainingRequest;
-        if (quantizationParams instanceof ScalarQuantizationParams scalarQuantizationParams) {
-            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValuesSupplier, liveDocs);
-        } else {
-            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValuesSupplier, liveDocs);
-        }
+
         // Create the training request using the supplier
+        KNNVectorQuantizationTrainingRequest<T> trainingRequest = new KNNVectorQuantizationTrainingRequest<>(
+            knnVectorValuesSupplier,
+            liveDocs
+        );
 
         // Train the quantizer and return the quantization state
         return quantizer.train(trainingRequest);

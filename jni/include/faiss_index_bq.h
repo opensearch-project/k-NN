@@ -9,8 +9,8 @@
  * GitHub history for details.
  */
 
-#ifndef KNNPLUGIN_JNI_FAISSINDEXBQ_H
-#define KNNPLUGIN_JNI_FAISSINDEXBQ_H
+#ifndef KNNPLUGIN_JNI_FAISS_INDEX_BQ_H
+#define KNNPLUGIN_JNI_FAISS_INDEX_BQ_H
 
 #include "faiss/IndexFlatCodes.h"
 #include "faiss/Index.h"
@@ -18,7 +18,6 @@
 #include "faiss/utils/hamming_distance/hamdis-inl.h"
 #include "faiss/impl/HNSW.h"
 #include <vector>
-#include <iostream>
 #include <cassert>
 
 // Define macro for more readable table lookups. 
@@ -64,6 +63,10 @@ namespace knn_jni {
                 return distance_to_code_batched_unrolled(code);
             };
 
+            /**
+             * Computes the distance between the query vector and 4 binary-quantized codes
+             * by using the precomputed lookup table. Has better performance than single distance_to_code method.
+             */
             virtual void distances_batch_4(
                 const faiss::HNSW::storage_idx_t idx0,
                 const faiss::HNSW::storage_idx_t idx1,
@@ -256,4 +259,4 @@ namespace knn_jni {
         };
     }
 }
-#endif //KNNPLUGIN_JNI_FAISSINDEXBQ_H
+#endif //KNNPLUGIN_JNI_FAISS_INDEX_BQ_H

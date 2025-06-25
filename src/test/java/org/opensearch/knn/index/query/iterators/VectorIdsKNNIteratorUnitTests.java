@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query.iterators;
 import junit.framework.TestCase;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.junit.Before;
-import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -44,24 +43,31 @@ public class VectorIdsKNNIteratorUnitTests extends TestCase {
         iterator = new VectorIdsKNNIterator(mockFilterIdsIterator, queryVector, mockKnnFloatVectorValues, spaceType);
     }
 
-    @Test
     public void testShouldScoreWithADC() {
-        // Test case 1: ScalarQuantizationParams with ADC enabled
+        // Test case 1: null segmentLevelQuantizationInfo
+        assertFalse(iterator.shouldScoreWithADC(null));
+
+        // Test case 2: ScalarQuantizationParams with ADC enabled
+        SegmentLevelQuantizationInfo segmentInfoEnabled = Mockito.mock(SegmentLevelQuantizationInfo.class);
         ScalarQuantizationParams scalarParamsEnabled = Mockito.mock(ScalarQuantizationParams.class);
+        Mockito.when(segmentInfoEnabled.getQuantizationParams()).thenReturn(scalarParamsEnabled);
         Mockito.when(scalarParamsEnabled.isEnableADC()).thenReturn(true);
-        assertTrue(iterator.shouldScoreWithADC(scalarParamsEnabled));
+        assertTrue(iterator.shouldScoreWithADC(segmentInfoEnabled));
 
-        // Test case 2: ScalarQuantizationParams with ADC disabled
+        // Test case 3: ScalarQuantizationParams with ADC disabled
+        SegmentLevelQuantizationInfo segmentInfoDisabled = Mockito.mock(SegmentLevelQuantizationInfo.class);
         ScalarQuantizationParams scalarParamsDisabled = Mockito.mock(ScalarQuantizationParams.class);
+        Mockito.when(segmentInfoDisabled.getQuantizationParams()).thenReturn(scalarParamsDisabled);
         Mockito.when(scalarParamsDisabled.isEnableADC()).thenReturn(false);
-        assertFalse(iterator.shouldScoreWithADC(scalarParamsDisabled));
+        assertFalse(iterator.shouldScoreWithADC(segmentInfoDisabled));
 
-        // Test case 3: Non-ScalarQuantizationParams
+        // Test case 4: Non-ScalarQuantizationParams
+        SegmentLevelQuantizationInfo segmentInfoNonScalar = Mockito.mock(SegmentLevelQuantizationInfo.class);
         QuantizationParams nonScalarParams = Mockito.mock(QuantizationParams.class);
-        assertFalse(iterator.shouldScoreWithADC(nonScalarParams));
+        Mockito.when(segmentInfoNonScalar.getQuantizationParams()).thenReturn(nonScalarParams);
+        assertFalse(iterator.shouldScoreWithADC(segmentInfoNonScalar));
     }
 
-    @Test
     public void testScoreWithADC() {
         SegmentLevelQuantizationInfo mockInfo = Mockito.mock(SegmentLevelQuantizationInfo.class);
         byte[] documentVector = new byte[] { 0 };
@@ -70,7 +76,7 @@ public class VectorIdsKNNIteratorUnitTests extends TestCase {
         try (MockedStatic<KNNScoringUtil> knnScoringUtilMock = Mockito.mockStatic(KNNScoringUtil.class)) {
             knnScoringUtilMock.when(() -> KNNScoringUtil.l2SquaredADC(queryVector, documentVector)).thenReturn(5.0f);
 
-            float result = iterator.scoreWithADC(mockInfo, queryVector, documentVector, SpaceType.L2);
+            float result = iterator.scoreWithADC(queryVector, documentVector, SpaceType.L2);
             assertEquals(SpaceType.L2.scoreTranslation(5.0f), result);
         }
 
@@ -78,7 +84,7 @@ public class VectorIdsKNNIteratorUnitTests extends TestCase {
         try (MockedStatic<KNNScoringUtil> knnScoringUtilMock = Mockito.mockStatic(KNNScoringUtil.class)) {
             knnScoringUtilMock.when(() -> KNNScoringUtil.innerProductADC(queryVector, documentVector)).thenReturn(10.0f);
 
-            float result = iterator.scoreWithADC(mockInfo, queryVector, documentVector, SpaceType.INNER_PRODUCT);
+            float result = iterator.scoreWithADC(queryVector, documentVector, SpaceType.INNER_PRODUCT);
             assertEquals(SpaceType.INNER_PRODUCT.scoreTranslation(-10.0f), result);
         }
 
@@ -86,7 +92,7 @@ public class VectorIdsKNNIteratorUnitTests extends TestCase {
         try (MockedStatic<KNNScoringUtil> knnScoringUtilMock = Mockito.mockStatic(KNNScoringUtil.class)) {
             knnScoringUtilMock.when(() -> KNNScoringUtil.innerProductADC(queryVector, documentVector)).thenReturn(15.0f);
 
-            float result = iterator.scoreWithADC(mockInfo, queryVector, documentVector, SpaceType.COSINESIMIL);
+            float result = iterator.scoreWithADC(queryVector, documentVector, SpaceType.COSINESIMIL);
             assertEquals(SpaceType.INNER_PRODUCT.scoreTranslation(-15.0f), result);
         }
 
@@ -94,7 +100,7 @@ public class VectorIdsKNNIteratorUnitTests extends TestCase {
         // that isn't handled in the method
         UnsupportedOperationException exception = assertThrows(
             UnsupportedOperationException.class,
-            () -> iterator.scoreWithADC(mockInfo, queryVector, documentVector, SpaceType.HAMMING)
+            () -> iterator.scoreWithADC(queryVector, documentVector, SpaceType.HAMMING)
         );
         assertEquals("Space type " + SpaceType.HAMMING.getValue() + " is not supported for ADC", exception.getMessage());
     }

@@ -45,7 +45,7 @@ public class QFrameBitEncoder implements Encoder {
      *     "name": "binary",
      *     "parameters": {
      *       "bits": 2,
-     *       "random_rotation": true,
+     *       "enable_adc": true,
      *     }
      *   }
      * }

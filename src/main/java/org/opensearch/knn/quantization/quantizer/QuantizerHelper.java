@@ -25,7 +25,7 @@ import java.io.IOException;
  */
 @UtilityClass
 class QuantizerHelper {
-    private static final int ONE_BIT_BITS_PER_COORDINATE = 1;
+    private static final int ONE_BIT_NUMBER_OF_BITS_PER_COORDINATE = 1;
 
     /**
      * Calculate quantization state for a {@link OneBitScalarQuantizationState}.
@@ -44,7 +44,7 @@ class QuantizerHelper {
         QuantizerHelperResult quantizerHelperResult = calculateQuantizationStateHelper(
             trainingRequest,
             sampledIndices,
-            ONE_BIT_BITS_PER_COORDINATE
+            ONE_BIT_NUMBER_OF_BITS_PER_COORDINATE
         );
 
         return OneBitScalarQuantizationState.builder()

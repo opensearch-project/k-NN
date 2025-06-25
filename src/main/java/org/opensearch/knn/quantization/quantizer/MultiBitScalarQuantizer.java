@@ -126,7 +126,7 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @param output the QuantizationOutput object to store the quantized representation of the vector.
      */
     @Override
-    public void quantize(float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
+    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
         if (vector == null) {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }
@@ -137,7 +137,6 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds[0].length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-
         output.prepareQuantizedVector(vectorLength);
         BitPacker.quantizeAndPackBits(vector, thresholds, bitsPerCoordinate, output.getQuantizedVector());
     }

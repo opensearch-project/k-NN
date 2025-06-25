@@ -16,7 +16,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <iostream>
 
 void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     // Followed recommendation from this SO post: https://stackoverflow.com/a/13940735
@@ -654,3 +653,6 @@ const std::string knn_jni::M_NMSLIB = "M";
 const std::string knn_jni::EF_CONSTRUCTION = "ef_construction";
 const std::string knn_jni::EF_CONSTRUCTION_NMSLIB = "efConstruction";
 const std::string knn_jni::EF_SEARCH = "ef_search";
+
+const std::string knn_jni::SPACE_TYPE_FAISS_INDEX_JAVA_KNN_CONSTANTS = "space_type";
+const std::string knn_jni::QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER_JAVA_KNN_CONSTANTS = "quantization_level";
