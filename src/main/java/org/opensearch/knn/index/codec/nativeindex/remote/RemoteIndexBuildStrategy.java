@@ -36,7 +36,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.io.IOException;
 import java.util.Map;
 import java.util.function.Supplier;
-import java.io.FileWriter;
 
 import static org.opensearch.knn.common.KNNConstants.BUCKET;
 import static org.opensearch.knn.common.KNNConstants.DOC_ID_FILE_EXTENSION;
@@ -134,14 +133,6 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         return true;
     }
 
-    private static void debugLog(String message) {
-        try (FileWriter fw = new FileWriter("remote_index_debug_java.log", true)) {
-            fw.write(message + "\n");
-        } catch (IOException e) {
-            System.err.println("Debug log write failed: " + e.getMessage());
-        }
-    }
-
     /**
      * Entry point for flush/merge operations. This method orchestrates the following:
      *      1. Writes required data to repository
@@ -167,8 +158,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             RemoteBuildResponse remoteBuildResponse = submitBuild(repositoryContext, indexInfo, client);
 
             // 3. Build flat index
-            buildFlatIndex(indexInfo); // this will return a pointer to send to readFromRepository in complete implementation, but closed
-                                       // off for now
+            buildFlatIndex(indexInfo); // this will return a pointer to send to readFromRepository in complete implementation
 
             // 4. Await vector build completion
             RemoteBuildStatusResponse remoteBuildStatusResponse = awaitIndexBuild(remoteBuildResponse, indexInfo, client);
@@ -267,17 +257,13 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             idx++;
         }
 
-        debugLog("Collected " + idx + " vectors after remote build.");
-
         String metricType = "L2";
         Object spaceType = indexInfo.getParameters().get("space_type");
         if (spaceType != null && spaceType.toString().toUpperCase().contains("IP")) {
             metricType = "IP";
         }
-        debugLog("Metric type for FAISS IndexFlat: " + metricType);
 
         long indexPtr = JNIService.buildFlatIndexFromVectors(vectorData, idx, dimension, metricType);
-        debugLog("Native FAISS IndexFlat pointer returned: " + indexPtr);
         JNIService.free(indexPtr, KNNEngine.FAISS);
     }
 
