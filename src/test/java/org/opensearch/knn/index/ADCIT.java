@@ -119,16 +119,16 @@ public class ADCIT extends KNNRestTestCase {
 
         // Query builder for both control and test searches
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("query")
-                .startObject("knn")
-                .startObject(TEST_FIELD_NAME)
-                .array("vector", vectors.get(0))
-                .field("k", k)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(TEST_FIELD_NAME)
+            .array("vector", vectors.get(0))
+            .field("k", k)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         // Search control index
         String controlResponse = EntityUtils.toString(searchKNNIndex(controlIndexName, queryBuilder, k).getEntity());
