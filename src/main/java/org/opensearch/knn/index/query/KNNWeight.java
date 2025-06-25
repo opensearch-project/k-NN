@@ -461,14 +461,8 @@ public abstract class KNNWeight extends Weight {
         }
 
         // TODO: Change type of vector once more quantization methods are supported
-        byte[] quantizedVector = null;
-        float[] transformedVector = null;
-        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
-            transformedVector = knnQuery.getQueryVector().clone();
-            SegmentLevelQuantizationUtil.transformVectorWithADC(transformedVector, segmentLevelQuantizationInfo, spaceType);
-        } else {
-            quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
-        }
+        byte[] quantizedVector = maybeQuantizeVector(segmentLevelQuantizationInfo);
+        float[] transformedVector = maybeTransformVector(segmentLevelQuantizationInfo, spaceType);
 
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
         final TopDocs results = doANNSearch(
@@ -504,6 +498,7 @@ public abstract class KNNWeight extends Weight {
      * @param knnEngine Engine type configured for the target field.
      * @param vectorDataType Vector data type configured for the target field.
      * @param quantizedVector Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null.
+     * @param transformedVector Transformed query vector if ADC is enabled for the target field. It is null when ADC is disabled.
      * @param modelId Model id. It can be null if the index for searching was not derived from a trained index.
      * @param filterIdsBitSet Bit set for filtering a valid document for collecting.
      * @param cardinality Cardinality of filtering bit set. It will be the total number of documents if no filtering presents.
@@ -690,6 +685,36 @@ public abstract class KNNWeight extends Weight {
             return null;
         }
         return bitSetToIntArray(knnQuery.getParentsFilter().getBitSet(context));
+    }
+
+    /**
+     * If segmentLevelQuantizationInfo exists then we need to quantize the query vector.
+     * @param segmentLevelQuantizationInfo {@link SegmentLevelQuantizationInfo}
+     * @return quantized query vector if segmentLevelQuantizationInfo is non-null and ADC is disabled, otherwise null
+     */
+    private byte[] maybeQuantizeVector(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            return null;
+        }
+
+        // will return null if segmentLevelQuantizationInfo is null.
+        return SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+    }
+
+    /**
+     * If ADC is enabled from the segment level, then we need to transform the query vector for ADC.
+     * @param segmentLevelQuantizationInfo {@link SegmentLevelQuantizationInfo}
+     * @param spaceType {@link SpaceType}
+     * @return transformed query vector if ADC is enabled, otherwise null
+     */
+    private float[] maybeTransformVector(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo, SpaceType spaceType) {
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            float[] transformedVector = knnQuery.getQueryVector().clone();
+            SegmentLevelQuantizationUtil.transformVectorWithADC(transformedVector, segmentLevelQuantizationInfo, spaceType);
+            return transformedVector;
+        }
+
+        return null;
     }
 
     private static int[] bitSetToIntArray(final BitSet bitSet) {

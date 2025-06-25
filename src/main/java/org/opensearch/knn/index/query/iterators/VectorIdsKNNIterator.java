@@ -13,7 +13,6 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
-import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 
 import java.io.IOException;
@@ -92,15 +91,16 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
-        if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
-            byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
-            return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
-        } else if (segmentLevelQuantizationInfo != null && shouldScoreWithADC(segmentLevelQuantizationInfo.getQuantizationParams())) {
-            byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
-            return scoreWithADC(segmentLevelQuantizationInfo, queryVector, quantizedVector, spaceType);
-        } else {
+        if (segmentLevelQuantizationInfo == null) {
             return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
         }
+
+        byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
+        if (quantizedQueryVector == null) {
+            // in ExactSearcher::getKnnIterator we don't set quantizedQueryVector if adc is enabled. So at this point adc is enabled.
+            return scoreWithADC(queryVector, quantizedVector, spaceType);
+        }
+        return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
     }
 
     protected int getNextDocId() throws IOException {
@@ -115,21 +115,26 @@ public class VectorIdsKNNIterator implements KNNIterator {
         return nextDocID;
     }
 
-    // protected for testing
-    protected boolean shouldScoreWithADC(QuantizationParams quantizationParams) {
-        if (quantizationParams instanceof ScalarQuantizationParams scalarQuantizationParams) {
+    /*
+        protected for testing.
+        Logic:
+        - segmentLevelQuantizationInfo is null -> should not score with ADC
+        - quantizationParams is not ScalarQuantizationParams -> should not score with ADC
+        - quantizationParams is ScalarQuantizationParams -> defer to isEnableADC() to determine if should score with ADC.
+     */
+    protected boolean shouldScoreWithADC(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
+        if (segmentLevelQuantizationInfo == null) {
+            return false;
+        }
+
+        if (segmentLevelQuantizationInfo.getQuantizationParams() instanceof ScalarQuantizationParams scalarQuantizationParams) {
             return scalarQuantizationParams.isEnableADC();
         }
         return false;
     }
 
-    // protected for testing
-    protected float scoreWithADC(
-        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
-        float[] queryVector,
-        byte[] documentVector,
-        SpaceType spaceType
-    ) {
+    // protected for testing. scoreWithADC is used in exact searcher.
+    protected float scoreWithADC(float[] queryVector, byte[] documentVector, SpaceType spaceType) {
         if (spaceType.equals(SpaceType.L2)) {
             return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(queryVector, documentVector));
         } else if (spaceType.equals(SpaceType.INNER_PRODUCT) || spaceType.equals(SpaceType.COSINESIMIL)) {

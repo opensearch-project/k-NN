@@ -465,38 +465,49 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
 jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(faiss::IOReader* ioReader, knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject methodParamsJ) {
     auto methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
 
-    // KNNConstants.QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER
-    auto quantization_level_it = methodParams.find("quantization_level");
+    auto quantization_level_it = methodParams.find(knn_jni::QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER_JAVA_KNN_CONSTANTS);
     knn_jni::BQQuantizationLevel quantLevel = knn_jni::BQQuantizationLevel::NONE;
-    if (quantization_level_it != methodParams.end()) {
-        quantLevel = jniUtil->ConvertJavaStringToQuantizationLevel(env, quantization_level_it->second);
-    } else {
+    if (quantization_level_it == methodParams.end()) {
         throw std::runtime_error("Quantization level not specified in params");
     }
+    quantLevel = jniUtil->ConvertJavaStringToQuantizationLevel(env, quantization_level_it->second);
 
-    // KNNConstants.SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER
-    auto space_type_it = methodParams.find("space_type");
+    auto space_type_it = methodParams.find(knn_jni::SPACE_TYPE_FAISS_INDEX_JAVA_KNN_CONSTANTS);
     faiss::MetricType metricType; // L2 by default.
-    if (space_type_it!= methodParams.end()) {
-        std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, space_type_it->second));
-        metricType = knn_jni::faiss_wrapper::TranslateSpaceToMetric(spaceTypeCpp);
-    } else {
+    if (space_type_it == methodParams.end()) {
         throw std::runtime_error("space type not specified in params");
     }
 
+    std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, space_type_it->second));
+    metricType = knn_jni::faiss_wrapper::TranslateSpaceToMetric(spaceTypeCpp);
+
     if (quantLevel == knn_jni::BQQuantizationLevel::ONE_BIT) {
         return knn_jni::faiss_wrapper::LoadIndexWithStreamADC(ioReader, metricType);
-    } else if (
-        quantLevel == knn_jni::BQQuantizationLevel::TWO_BIT || quantLevel == knn_jni::BQQuantizationLevel::FOUR_BIT
-    ) {
+    }
+
+    // 2 and 4 bit ADC not supported.
+    if (quantLevel == knn_jni::BQQuantizationLevel::TWO_BIT || quantLevel == knn_jni::BQQuantizationLevel::FOUR_BIT) {
+        jniUtil->HasExceptionInStack(env, "ADC not supported for 2 or 4 bit");
         throw std::runtime_error("ADC not supported for 2 or 4 bit.");
     }
-    else {
-        jniUtil->HasExceptionInStack(env, "load adc stream called without a quantization level");
-        throw std::runtime_error("load adc stream called without a quantization level");
-    }
+
+    jniUtil->HasExceptionInStack(env, "load adc stream called without a quantization level");
+    throw std::runtime_error("load adc stream called without a quantization level");
 }
 
+/*
+The process for the LoadIndexWithStreamADC method is:
+- Load the preexisting binary index from the provided ioReader. This index contains the documents to search against,
+the hnsw structure, and the id map.
+- extract a pointer to the hnsw index from the loaded index.
+- extract a pointer to the binary storage from the hnsw index.
+- create a new altered storage that contains the distance computer override. Move the codes vector containing the binary
+document from the loaded binary index to the new storage.
+- create a new altered (float) index that contains the altered storage and the binary hnsw index.
+- create a new altered id map that contains the altered index.
+- delete the loaded binary index.
+- return the altered id map as a jlong.
+*/
 jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, faiss::MetricType metricType) {
     if (ioReader == nullptr)  {
         throw std::runtime_error("IOReader cannot be null");
@@ -536,6 +547,8 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, 
     // delete the preexisting binary index so as not to leak memory. Since binaryIdMap has own_fields=true, the delete cascades to its member indices.
     delete binaryIdMap;
 
+    // when this alteredIdMap is freed, we will pass isBinaryIndexJ = false to the free method.
+    // This guarantees that the correct destructors are called for the (float) IndexHNSW and (float) IndexIDMap and FaissIndexBQ.
     return (jlong) alteredIdMap;
 }
 

@@ -116,8 +116,9 @@ public class KNNScoringUtil {
      * This method implements a specialized version of L2 distance calculation where one vector is in binary format (compressed)
      * and the other is in float format (uncompressed).
      *
-     * TODO: For now this will be very inefficient. We can in the future optimize by looking into the VectorUtils class
-     * to use Panama API for simd if supported.
+     * TODO: For now this will be very inefficient. We can in the future optimize through the following:
+     * Use FloatVector.SPECIES_PREFERRED for SIMD processing in chunks with reduceLanes(),
+     * Configure build.gradle with --add-modules jdk.incubator.vector --enable-preview flags into the VectorUtils class.
      *
      * @param queryVector The uncompressed query vector in float format
      * @param inputVector The compressed document vector in binary format, where each bit represents a dimension
@@ -148,8 +149,9 @@ public class KNNScoringUtil {
      * The inner product is calculated by summing the products of corresponding elements, where the binary vector's
      * elements are interpreted as 0 or 1.
      *
-     * TODO: For now this will be very inefficient. We can in the future optimize by looking into the VectorUtils class
-     * to use Panama API for simd if supported.
+     * TODO: For now this will be very inefficient. We can in the future optimize through the following:
+     * Use FloatVector.SPECIES_PREFERRED for SIMD processing in chunks with reduceLanes(),
+     * Configure build.gradle with --add-modules jdk.incubator.vector --enable-preview flags into the VectorUtils class.
      *
      * @param queryVector The uncompressed query vector in float format
      * @param inputVector The compressed document vector in binary format, where each bit represents a dimension
