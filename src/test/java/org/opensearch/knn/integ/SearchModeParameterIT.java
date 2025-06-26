@@ -31,6 +31,7 @@ public class SearchModeParameterIT extends KNNRestTestCase {
     private final static int DIMENSION = 2;
     private final static int K = 1;
     private static final String INDEX_NAME = "search-mode-index";
+    private static final String FIELD_NAME = "test_field";
     private static final SpaceType TEST_SPACE_TYPE_L2 = SpaceType.L2;
 
     @SneakyThrows
@@ -101,7 +102,10 @@ public class SearchModeParameterIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        createKnnIndex(INDEX_NAME, builder.toString());
+        Settings.Builder settingsbuilder = Settings.builder().put("index.use_compound_file", false);
+        settingsbuilder.put(buildKNNIndexSettings(0));
+        Settings settings = settingsbuilder.build();
+        createKnnIndex(INDEX_NAME, settings, builder.toString());
 
         Float[] vector1 = { 1.0f, 2.0f };
         Float[] vector2 = { 3.0f, 6.0f };
@@ -199,6 +203,17 @@ public class SearchModeParameterIT extends KNNRestTestCase {
     }
 
     private void createTestIndexWithSearchMode(String searchMode) throws IOException {
+        Settings settings;
+        if (searchMode.equals("exact")) {
+            // setting this in order to be able to see what files are created
+            Settings.Builder builder = Settings.builder().put("index.use_compound_file", false);
+            builder.put(buildKNNIndexSettings(-1));
+            settings = builder.build();
+        } else {
+            Settings.Builder builder = Settings.builder().put("index.use_compound_file", false);
+            builder.put(buildKNNIndexSettings(0));
+            settings = builder.build();
+        }
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -211,7 +226,7 @@ public class SearchModeParameterIT extends KNNRestTestCase {
             .endObject();
 
         String mapping = builder.toString();
-        createKnnIndex(INDEX_NAME, mapping);
+        createKnnIndex(INDEX_NAME, settings, mapping);
     }
 
     private void createTestIndexWithNoSearchMode() throws IOException {

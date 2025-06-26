@@ -100,10 +100,11 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
 
         // check if exact search is enabled
         String searchMode = mappedFieldType.getKnnMappingConfig().getSearchMode();
+        // setting approximateThreshold to -1 so graphs don't get built
         if (searchMode != null && searchMode.equals(EXACT_SEARCH_KEY)) {
             return new NativeEngines990KnnVectorsFormat(
                 new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
-                EXACT_SEARCH_KEY
+                -1
             );
         }
 

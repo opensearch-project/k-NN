@@ -23,7 +23,6 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
-import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_KEY;
 
 import java.io.IOException;
 
@@ -64,17 +63,6 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
         NativeEngines990KnnVectorsFormat.flatVectorsFormat = flatVectorsFormat;
         NativeEngines990KnnVectorsFormat.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
-    }
-
-    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat, String searchMode) {
-        // setting approximateThreshold to < 0 to ensure vector data structures don't get built
-        super(FORMAT_NAME);
-        this.nativeIndexBuildStrategyFactory = new NativeIndexBuildStrategyFactory();
-        // double-checking that searchMode is exact
-        if (searchMode.equals(EXACT_SEARCH_KEY)) {
-            NativeEngines990KnnVectorsFormat.flatVectorsFormat = flatVectorsFormat;
-            NativeEngines990KnnVectorsFormat.approximateThreshold = -1;
-        }
     }
 
     /**
