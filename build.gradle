@@ -541,7 +541,6 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
 
 testClusters.integTest {
     commonIntegTestClusters(it, _numNodes)
-    configureS3Plugin(testClusters.integTest)
 }
 
 testClusters.integTestRemoteIndexBuild {
