@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -g -shared -Wl,-soname,libopensearchknn_common.so -o release/libopensearchknn_common.so CMakeFiles/opensearchknn_common.dir/src/org_opensearch_knn_jni_JNICommons.cpp.o  -Wl,-rpath,/home/ec2-user/k-NN/jni/release release/libopensearchknn_util.so 
