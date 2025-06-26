@@ -2450,6 +2450,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
         ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -2493,6 +2494,30 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         // checking for 2 vector fields in index
         assertEquals(2, properties.size());
+
+        KNNVectorFieldMapper.Builder builder1 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector1",
+            vector1Mapping,
+            buildParserContext(indexName, settings)
+        );
+        KNNVectorFieldMapper.Builder builder2 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector2",
+            vector2Mapping,
+            buildParserContext(indexName, settings)
+        );
+        Mapper.BuilderContext builderContext1 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper1 = builder1.build(builderContext1);
+        Mapper.BuilderContext builderContext2 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper2 = builder2.build(builderContext2);
+
+        assertTrue(knnVectorFieldMapper1 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper2 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals(
+            "lucene",
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine().getName()
+        );
+        assertEquals("exact", knnVectorFieldMapper2.fieldType().getKnnMappingConfig().getSearchMode());
     }
 
     public void testSearchMode_MultipleVectorFields_FaissAndExact() throws IOException {
@@ -2500,6 +2525,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
         ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -2544,6 +2570,27 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         // checking for 2 vector fields in index
         assertEquals(2, properties.size());
+
+        KNNVectorFieldMapper.Builder builder1 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector1",
+            vector1Mapping,
+            buildParserContext(indexName, settings)
+        );
+        KNNVectorFieldMapper.Builder builder2 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector2",
+            vector2Mapping,
+            buildParserContext(indexName, settings)
+        );
+        Mapper.BuilderContext builderContext1 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper1 = builder1.build(builderContext1);
+        Mapper.BuilderContext builderContext2 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper2 = builder2.build(builderContext2);
+
+        assertTrue(knnVectorFieldMapper1 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper2 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals("faiss", knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine().getName());
+        assertEquals("exact", knnVectorFieldMapper2.fieldType().getKnnMappingConfig().getSearchMode());
     }
 
     public void testSearchMode_IndexVersionBefore3_0_0_ValidButSearchModeIgnored_EngineFieldMapperUsed() throws IOException {

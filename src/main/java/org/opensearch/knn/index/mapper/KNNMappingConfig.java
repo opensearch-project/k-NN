@@ -74,12 +74,12 @@ public interface KNNMappingConfig {
     }
 
     /**
-     * Return the searchMode to be used for this field (default is ann)
+     * Return the searchMode to be used for this field (default is null)
      *
      * @return String searchMode
      */
     default String getSearchMode() {
-        return "ann";
+        return null;
     }
 
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {

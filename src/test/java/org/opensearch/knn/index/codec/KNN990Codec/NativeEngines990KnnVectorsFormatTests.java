@@ -81,12 +81,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 @Log4j2
 public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     private static final Codec TESTING_CODEC = new UnitTestCodec(() -> new NativeEngines990KnnVectorsFormat(0));
-    private static final Codec SEARCH_MODE_TESTING_CODEC = new UnitTestCodec(
-        () -> new NativeEngines990KnnVectorsFormat(
-            new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
-            "exact"
-        )
-    );
+    private static final Codec SEARCH_MODE_TESTING_CODEC = new UnitTestCodec(() -> new NativeEngines990KnnVectorsFormat(-1));
     private static final String FLAT_VECTOR_FILE_EXT = ".vec";
     private static final String FAISS_ENGINE_FILE_EXT = ".faiss";
     private static final String FLOAT_VECTOR_FIELD = "float_field";

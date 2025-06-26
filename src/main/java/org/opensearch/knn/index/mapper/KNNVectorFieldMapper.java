@@ -408,11 +408,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // Check for flat configuration and validate only if index is created after 2.17 or if search mode is exact and index is created
-            // after 3.0
-            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)
-                || (builder.searchMode.name.equals(KNNConstants.EXACT_SEARCH_KEY)
-                    && parserContext.indexVersionCreated().onOrAfter(Version.V_3_0_0))) {
+            // Check for flat configuration and validate only if index is created after 2.17
+            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
