@@ -1,3 +1,0 @@
-/home/ec2-user/k-NN/jni/googletest-download/CMakeFiles/googletest.dir
-/home/ec2-user/k-NN/jni/googletest-download/CMakeFiles/edit_cache.dir
-/home/ec2-user/k-NN/jni/googletest-download/CMakeFiles/rebuild_cache.dir
