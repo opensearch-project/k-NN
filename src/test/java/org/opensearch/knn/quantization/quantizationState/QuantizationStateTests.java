@@ -18,7 +18,7 @@ import java.io.IOException;
 public class QuantizationStateTests extends KNNTestCase {
 
     public void testOneBitScalarQuantizationStateSerialization() throws IOException {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         float[] mean = { 1.0f, 2.0f, 3.0f };
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
@@ -40,7 +40,7 @@ public class QuantizationStateTests extends KNNTestCase {
 
     // Test serialization and deserialization with optional fields
     public void testOneBitScalarQuantizationState_WithOptionalFields() throws IOException {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         float[] mean = { 1.0f, 2.0f, 3.0f };
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
@@ -62,7 +62,7 @@ public class QuantizationStateTests extends KNNTestCase {
 
     // Test handling of null arrays in RAM usage
     public void testOneBitScalarQuantizationState_RamBytesUsedWithNulls() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         float[] mean = { 1.0f, 2.0f, 3.0f };
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
@@ -79,7 +79,7 @@ public class QuantizationStateTests extends KNNTestCase {
 
     // Test handling of all fields in RAM usage
     public void testOneBitScalarQuantizationState_RamBytesUsedWithAllFields() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         float[] mean = { 1.0f, 2.0f, 3.0f };
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
@@ -95,7 +95,7 @@ public class QuantizationStateTests extends KNNTestCase {
     }
 
     public void testMultiBitScalarQuantizationStateSerialization() throws IOException {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         float[][] thresholds = { { 0.5f, 1.5f, 2.5f }, { 1.0f, 2.0f, 3.0f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
@@ -117,7 +117,7 @@ public class QuantizationStateTests extends KNNTestCase {
     }
 
     public void testMultiBitScalarQuantizationStateRamBytesUsedManualCalculation() throws IOException {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         float[][] thresholds = { { 0.5f, 1.5f, 2.5f }, { 1.0f, 2.0f, 3.0f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
@@ -146,7 +146,7 @@ public class QuantizationStateTests extends KNNTestCase {
     }
 
     public void testMultiBitScalarQuantizationStateGetDimensions_withAlignedThresholds() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         float[][] thresholds = { { 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f }, { 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
@@ -159,7 +159,7 @@ public class QuantizationStateTests extends KNNTestCase {
     }
 
     public void testMultiBitScalarQuantizationStateGetDimensions_withUnalignedThresholds() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         float[][] thresholds = { { 0.1f, 0.2f, 0.3f }, { 1.1f, 1.2f, 1.3f } };
 
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
@@ -172,7 +172,7 @@ public class QuantizationStateTests extends KNNTestCase {
     }
 
     public void testOneBitScalarQuantizationStateGetDimensions_withDimensionNotMultipleOf8_thenSuccess() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
 
         // Case 1: 5 dimensions (should align to 8)
         float[] thresholds1 = { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f };

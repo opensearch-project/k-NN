@@ -75,7 +75,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         return QuantizerHelper.calculateQuantizationState(
             trainingRequest,
             sampledDocIds,
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT)
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).enableRandomRotation(this.shouldUseRandomRotation).build()
         );
     }
 

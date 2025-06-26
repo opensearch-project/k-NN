@@ -37,43 +37,43 @@ public class QuantizerRegistryTests extends KNNTestCase {
 
     public void testRegisterAndGetQuantizer() {
         // Test for OneBitScalarQuantizer
-        ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams oneBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         Quantizer<Float[], Byte[]> oneBitQuantizer = QuantizerRegistry.getQuantizer(oneBitParams);
         assertEquals(oneBitQuantizer.getClass(), OneBitScalarQuantizer.class);
 
         // Test for MultiBitScalarQuantizer (2-bit)
-        ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams twoBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         Quantizer<Float[], Byte[]> twoBitQuantizer = QuantizerRegistry.getQuantizer(twoBitParams);
         assertEquals(twoBitQuantizer.getClass(), MultiBitScalarQuantizer.class);
 
         // Test for MultiBitScalarQuantizer (4-bit)
-        ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        ScalarQuantizationParams fourBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
         Quantizer<Float[], Byte[]> fourBitQuantizer = QuantizerRegistry.getQuantizer(fourBitParams);
         assertEquals(fourBitQuantizer.getClass(), MultiBitScalarQuantizer.class);
     }
 
     public void testQuantizerRegistryIsSingleton() {
         // Ensure the same instance is returned for the same type identifier
-        ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams oneBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         Quantizer<Float[], Byte[]> firstOneBitQuantizer = QuantizerRegistry.getQuantizer(oneBitParams);
         Quantizer<Float[], Byte[]> secondOneBitQuantizer = QuantizerRegistry.getQuantizer(oneBitParams);
         assertSame(firstOneBitQuantizer, secondOneBitQuantizer);
 
         // Ensure the same instance is returned for the same type identifier (2-bit)
-        ScalarQuantizationParams twoBitParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams twoBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         Quantizer<Float[], Byte[]> firstTwoBitQuantizer = QuantizerRegistry.getQuantizer(twoBitParams);
         Quantizer<Float[], Byte[]> secondTwoBitQuantizer = QuantizerRegistry.getQuantizer(twoBitParams);
         assertSame(firstTwoBitQuantizer, secondTwoBitQuantizer);
 
         // Ensure the same instance is returned for the same type identifier (4-bit)
-        ScalarQuantizationParams fourBitParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        ScalarQuantizationParams fourBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
         Quantizer<Float[], Byte[]> firstFourBitQuantizer = QuantizerRegistry.getQuantizer(fourBitParams);
         Quantizer<Float[], Byte[]> secondFourBitQuantizer = QuantizerRegistry.getQuantizer(fourBitParams);
         assertSame(firstFourBitQuantizer, secondFourBitQuantizer);
     }
 
     public void testRegisterQuantizerThrowsExceptionWhenAlreadyRegistered() {
-        ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams oneBitParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
 
         // Attempt to register the same quantizer again should throw an exception
         assertThrows(IllegalArgumentException.class, () -> {

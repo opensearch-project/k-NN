@@ -121,7 +121,7 @@ public class KNN990QuantizationStateWriterTests extends KNNTestCase {
 
         int fieldNumber = 0;
         QuantizationState quantizationState = OneBitScalarQuantizationState.builder()
-            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
             .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f, 4.5f })
             .build();
         quantizationStateWriter.writeState(fieldNumber, quantizationState);
@@ -165,11 +165,11 @@ public class KNN990QuantizationStateWriterTests extends KNNTestCase {
         int fieldNumber1 = 1;
         int fieldNumber2 = 2;
         QuantizationState quantizationState1 = OneBitScalarQuantizationState.builder()
-            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
             .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f, 4.5f })
             .build();
         QuantizationState quantizationState2 = OneBitScalarQuantizationState.builder()
-            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
             .meanThresholds(new float[] { 2.3f, 3.4f, 4.5f, 5.6f })
             .build();
         quantizationStateWriter.writeState(fieldNumber1, quantizationState1);

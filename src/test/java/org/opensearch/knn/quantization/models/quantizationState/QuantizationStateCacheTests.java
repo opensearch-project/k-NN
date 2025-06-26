@@ -63,7 +63,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         final String fieldName = "multiThreadField";
 
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
-            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
             .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
             .build();
 
@@ -101,7 +101,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
                     final QuantizationState acquired = cache.getQuantizationState(
                         fieldName,
                         () -> new OneBitScalarQuantizationState(
-                            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+                            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
                             new float[] { 1.2f, 2.3f, 3.4f }
                         )
                     );
@@ -122,7 +122,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare state
         String fieldName = "singleThreadField";
         QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             new float[] { 1.2f, 2.3f, 3.4f }
         );
 
@@ -164,7 +164,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare quantization state
         final String fieldName = "multiThreadField";
         final QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             new float[] { 1.2f, 2.3f, 3.4f }
         );
 
@@ -223,7 +223,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare quantization state
         String fieldName = "multiThreadEvictField";
         QuantizationState state = OneBitScalarQuantizationState.builder()
-            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
             .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
             .build();
         String cacheSize = "10%";
@@ -280,7 +280,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare quantization state
         final String fieldName = "concurrentAddEvictField";
         QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             new float[] { 1.2f, 2.3f, 3.4f }
         );
 
@@ -346,7 +346,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare quantization state
         final String fieldName = "multiThreadField";
         QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             new float[] { 1.2f, 2.3f, 3.4f }
         );
 
@@ -403,7 +403,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare quantization state
         String fieldName = "rebuildField";
         QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             new float[] { 1.2f, 2.3f, 3.4f }
         );
 
@@ -459,7 +459,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare quantization state
         String fieldName = "rebuildField";
         QuantizationState state = OneBitScalarQuantizationState.builder()
-            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
             .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
             .build();
 
@@ -520,7 +520,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Prepare quantization state
         String fieldName = "rebuildField";
         QuantizationState state = OneBitScalarQuantizationState.builder()
-            .quantizationParams(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT))
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
             .meanThresholds(new float[] { 1.2f, 2.3f, 3.4f })
             .build();
 
@@ -601,7 +601,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         // Try to add the first state
         final QuantizationState state = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             meanThresholds1
         );
         QuantizationState retrievedState = cache.getQuantizationState(fieldName, () -> state);
@@ -609,7 +609,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         // Try again
         final QuantizationState state2 = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             meanThresholds1
         );
         retrievedState = cache.getQuantizationState(fieldName, () -> state2);
@@ -633,7 +633,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             meanThresholds1[i] = i;
         }
         QuantizationState state1 = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             meanThresholds1
         );
 
@@ -643,7 +643,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             meanThresholds2[i] = i + 1;
         }
         QuantizationState state2 = new OneBitScalarQuantizationState(
-            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build(),
             meanThresholds2
         );
 

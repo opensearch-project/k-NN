@@ -77,9 +77,9 @@ public class KNN990QuantizationStateReaderTests extends KNNTestCase {
             Mockito.mock(IOContext.class),
             segmentSuffix
         );
-        ScalarQuantizationParams scalarQuantizationParams1 = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        ScalarQuantizationParams scalarQuantizationParams2 = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        ScalarQuantizationParams scalarQuantizationParams4 = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        ScalarQuantizationParams scalarQuantizationParams1 = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+        ScalarQuantizationParams scalarQuantizationParams2 = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
+        ScalarQuantizationParams scalarQuantizationParams4 = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
         QuantizationStateReadConfig quantizationStateReadConfig = Mockito.mock(QuantizationStateReadConfig.class);
         Mockito.when(quantizationStateReadConfig.getSegmentReadState()).thenReturn(segmentReadState);
         Mockito.when(quantizationStateReadConfig.getField()).thenReturn(fieldName);

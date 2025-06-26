@@ -21,7 +21,7 @@ import java.io.IOException;
  */
 @UtilityClass
 class QuantizerHelper {
-    private static final int ONE_BIT_BITS_PER_COORDINATE = 1;
+    private static final int ONE_BIT_NUMBER_OF_BITS_PER_COORDINATE = 1;
 
     /**
      * Calculate quantization state for a {@link OneBitScalarQuantizationState}.
@@ -40,7 +40,7 @@ class QuantizerHelper {
         QuantizerHelperResult quantizerHelperResult = calculateQuantizationStateHelper(
             trainingRequest,
             sampledIndices,
-            ONE_BIT_BITS_PER_COORDINATE
+            ONE_BIT_NUMBER_OF_BITS_PER_COORDINATE
         );
 
         return OneBitScalarQuantizationState.builder()
@@ -151,7 +151,8 @@ class QuantizerHelper {
         int[] sampledIndices,
         float[][] rotationMatrix
     ) throws IOException {
-        float[] mean = null, sumSq = null;
+        // First pass: Calculate mean
+        float[] mean = null;
         request.resetVectorValues();
         for (int docId : sampledIndices) {
             float[] vector = request.getVectorAtThePosition(docId);
@@ -166,12 +167,10 @@ class QuantizerHelper {
 
             if (mean == null) {
                 mean = new float[vector.length];
-                sumSq = new float[vector.length];
             }
 
             for (int i = 0; i < vector.length; i++) {
                 mean[i] += vector[i];
-                sumSq[i] += vector[i] * vector[i];
             }
         }
 
@@ -182,8 +181,23 @@ class QuantizerHelper {
         int n = sampledIndices.length;
         for (int i = 0; i < mean.length; i++) {
             mean[i] /= n;
-            // equivalent to standard deviation via algebra
-            sumSq[i] = (float) Math.sqrt((sumSq[i] / n) - (mean[i] * mean[i]));
+        }
+
+        // Second pass: Calculate sum of squared differences from the mean
+        float[] sumSq = new float[mean.length];
+        request.resetVectorValues();
+        for (int docId : sampledIndices) {
+            float[] vector = request.getVectorAtThePosition(docId);
+
+            for (int i = 0; i < vector.length; i++) {
+                float diff = vector[i] - mean[i];
+                sumSq[i] += diff * diff;
+            }
+        }
+
+        // Calculate the standard deviation
+        for (int i = 0; i < sumSq.length; i++) {
+            sumSq[i] = (float) Math.sqrt(sumSq[i] / n);
         }
 
         return new Pair<>(mean, sumSq);

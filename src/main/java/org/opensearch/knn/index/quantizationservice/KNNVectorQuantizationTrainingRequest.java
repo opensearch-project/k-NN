@@ -31,17 +31,13 @@ final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
      * @param knnVectorValuesSupplier the KNNVectorValues instance containing the vectors.
      */
     KNNVectorQuantizationTrainingRequest(Supplier<KNNVectorValues<T>> knnVectorValuesSupplier, long liveDocs) {
-        super((int) liveDocs, QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION);
-        this.knnVectorValuesSupplier = knnVectorValuesSupplier;
-        resetVectorValues(); // Initialize the first instance
-        this.lastIndex = 0;
+        this(knnVectorValuesSupplier, liveDocs, QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION);
     }
 
     KNNVectorQuantizationTrainingRequest(Supplier<KNNVectorValues<T>> knnVectorValuesSupplier, long liveDocs, boolean doRandomRotation) {
         super((int) liveDocs, doRandomRotation);
         this.knnVectorValuesSupplier = knnVectorValuesSupplier;
         resetVectorValues(); // Initialize the first instance
-        this.lastIndex = 0;
     }
 
     /**

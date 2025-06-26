@@ -6,6 +6,7 @@
 package org.opensearch.knn.quantization.quantizer;
 
 import lombok.experimental.UtilityClass;
+import org.apache.lucene.util.VectorUtil;
 
 import java.util.Random;
 
@@ -44,10 +45,7 @@ public class RandomGaussianRotation {
         // Step 2: Orthogonalize the matrix using the Gram-Schmidt process
         for (int i = 0; i < dimensions; i++) {
             // Normalize the current vector
-            float norm = 0f;
-            for (int j = 0; j < dimensions; j++) {
-                norm += rotationMatrix[i][j] * rotationMatrix[i][j];
-            }
+            float norm = VectorUtil.dotProduct(rotationMatrix[i], rotationMatrix[i]);
             norm = (float) Math.sqrt(norm);
             for (int j = 0; j < dimensions; j++) {
                 rotationMatrix[i][j] /= norm;
@@ -90,10 +88,7 @@ public class RandomGaussianRotation {
         float[] rotatedVector = new float[dimensions];
 
         for (int i = 0; i < dimensions; i++) {
-            rotatedVector[i] = 0f;
-            for (int j = 0; j < dimensions; j++) {
-                rotatedVector[i] += rotationMatrix[i][j] * vector[j];
-            }
+            rotatedVector[i] = VectorUtil.dotProduct(rotationMatrix[i], vector);
         }
 
         return rotatedVector;

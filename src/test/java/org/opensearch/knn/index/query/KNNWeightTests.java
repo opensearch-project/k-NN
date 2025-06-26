@@ -1578,7 +1578,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
             quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
-            QuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+            QuantizationParams quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
             when(quantizationService.getQuantizationParams(any(FieldInfo.class), any(Version.class))).thenReturn(quantizationParams);
 
             // Given
@@ -1638,7 +1638,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
     public void testANNWithQuantizationParams_thenSuccess() {
         try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
-            ScalarQuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+            ScalarQuantizationParams quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
             Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class), any(Version.class)))
                 .thenReturn(quantizationParams);
             quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);

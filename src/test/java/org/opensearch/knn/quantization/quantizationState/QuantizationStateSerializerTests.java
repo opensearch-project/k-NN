@@ -16,7 +16,7 @@ import java.io.IOException;
 public class QuantizationStateSerializerTests extends KNNTestCase {
 
     public void testSerializeAndDeserializeOneBitScalarQuantizationState() throws IOException {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
         float[] mean = new float[] { 0.1f, 0.2f, 0.3f };
         float[][] rotationMatrix = new float[][] { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
 
@@ -35,7 +35,7 @@ public class QuantizationStateSerializerTests extends KNNTestCase {
     }
 
     public void testSerializeAndDeserializeMultiBitScalarQuantizationState() throws IOException {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         float[][] thresholds = new float[][] { { 0.1f, 0.2f, 0.3f }, { 0.4f, 0.5f, 0.6f } };
         float[][] rotationMatrix = new float[][] { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
 
