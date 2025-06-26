@@ -1,7 +1,4 @@
-# K-Nearest Neighbors(
-
-
-KNN) Search Plugin
+# K-Nearest Neighbors(KNN) Search Plugin
 The purpose of this document is to introduce a new Open Distro for Elasticsearch KNN plugin and to request comments from the community (RFC). This RFC covers only the high-level functionality of the KNN plugin and does not cover architecture and implementation details.
 
 ## Problem Statement
