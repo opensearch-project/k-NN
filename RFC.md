@@ -11,13 +11,13 @@ The Open Distro for Elasticsearch KNN plugin enables you to run an Approximate K
 The KNN Plugin uses the Non-Metric Space Library (NMSLIB), a highly efficient implementation of K-ANNS (K Approximate Nearest Neighbor Search), which has consistently out-performed most of the other solutions as per the ANN-Benchmarks published here. In order to integrate this powerful library into Elasticsearch, the KNN Plugin extends an Apache Lucene codec to introduce a separate file format for storing k-NN indices to deliver high efficiency k-NN search operations.
 
 * Essentially, the KNN feature is powered by 4 customizations to Elasticsearch:
-  * [Mapper plugin](https://www.elastic.co/guide/en/elasticsearch/plugins/current/mapper.html) to support new field type, ```knn_vector``` to represent the vector fields in a document.
+    * [Mapper plugin](https://www.elastic.co/guide/en/elasticsearch/plugins/current/mapper.html) to support new field type, ```knn_vector``` to represent the vector fields in a document.
 
-  * [Lucene Codec](https://www.elastic.co/blog/what-is-an-apache-lucene-codec) named ‘KNNCodec’ which adds a new Lucene index file format for storing and retrieving the vectors in nmslib using a JNI layer.
+    * [Lucene Codec](https://www.elastic.co/blog/what-is-an-apache-lucene-codec) named ‘KNNCodec’ which adds a new Lucene index file format for storing and retrieving the vectors in nmslib using a JNI layer.
 
-  * [Search plugin](https://static.javadoc.io/org.elasticsearch/elasticsearch/7.2.0/org/elasticsearch/plugins/SearchPlugin.html) which introduces a query clause called ```knn``` for processing the KNN query elements.
+    * [Search plugin](https://static.javadoc.io/org.elasticsearch/elasticsearch/7.2.0/org/elasticsearch/plugins/SearchPlugin.html) which introduces a query clause called ```knn``` for processing the KNN query elements.
 
-  * [Action plugin](https://static.javadoc.io/org.elasticsearch/elasticsearch/7.2.0/org/elasticsearch/plugins/ActionPlugin.html) to utilize Elasticsearch ResourceWatcher service for effective garbage collection management of hnsw indices.
+    * [Action plugin](https://static.javadoc.io/org.elasticsearch/elasticsearch/7.2.0/org/elasticsearch/plugins/ActionPlugin.html) to utilize Elasticsearch ResourceWatcher service for effective garbage collection management of hnsw indices.
 
 ####Highly scalable
 
