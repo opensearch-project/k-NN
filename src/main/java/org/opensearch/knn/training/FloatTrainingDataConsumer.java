@@ -90,7 +90,9 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
 
     private List<byte[]> quantizeVectors(List<?> vectors) throws IOException {
         List<byte[]> bytes = new ArrayList<>();
-        ScalarQuantizationParams quantizationParams = ScalarQuantizationParams.builder().sqType(quantizationConfig.getQuantizationType()).build();
+        ScalarQuantizationParams quantizationParams = ScalarQuantizationParams.builder()
+            .sqType(quantizationConfig.getQuantizationType())
+            .build();
         Quantizer<float[], byte[]> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
         // Create training request
         TrainingRequest<float[]> trainingRequest = new TrainingRequest<float[]>(vectors.size()) {

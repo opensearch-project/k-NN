@@ -25,7 +25,10 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
             { 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f, 8.5f } };
 
         MultiBitScalarQuantizer quantizer = new MultiBitScalarQuantizer(2);
-        TrainingRequest<float[]> request = new MockTrainingRequest(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build(), vectors);
+        TrainingRequest<float[]> request = new MockTrainingRequest(
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build(),
+            vectors
+        );
         MultiBitScalarQuantizationState state = (MultiBitScalarQuantizationState) quantizer.train(request);
 
         assertEquals(2, state.getThresholds().length);
@@ -37,7 +40,10 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
             Arrays.fill(vectors[i], i);
 
         MultiBitScalarQuantizer quantizer = new MultiBitScalarQuantizer(4);
-        TrainingRequest<float[]> request = new MockTrainingRequest(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build(), vectors);
+        TrainingRequest<float[]> request = new MockTrainingRequest(
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build(),
+            vectors
+        );
         MultiBitScalarQuantizationState state = (MultiBitScalarQuantizationState) quantizer.train(request);
 
         assertEquals(4, state.getThresholds().length);
@@ -132,7 +138,10 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
         float[][] vectors = { { 1f, 2f, 3f, 4f }, { 2f, 3f, 4f, 5f }, { 3f, 4f, 5f, 6f }, { 9f, 9f, 9f, 9f } };
 
         MultiBitScalarQuantizer quantizer = new MultiBitScalarQuantizer(2);
-        TrainingRequest<float[]> request = new MockTrainingRequest(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build(), vectors);
+        TrainingRequest<float[]> request = new MockTrainingRequest(
+            ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build(),
+            vectors
+        );
         MultiBitScalarQuantizationState state = (MultiBitScalarQuantizationState) quantizer.train(request);
     }
 
