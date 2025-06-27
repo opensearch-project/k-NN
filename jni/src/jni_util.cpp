@@ -231,7 +231,6 @@ knn_jni::BQQuantizationLevel knn_jni::JNIUtil::ConvertJavaStringToQuantizationLe
         result = BQQuantizationLevel::FOUR_BIT;
     } else {
         this->HasExceptionInStack(env, "Unable to convert java string to quantization level");
-        env->ReleaseStringUTFChars((jstring) javaString, cString);
         throw std::runtime_error("Unable to convert java string to quantization level");
     }
 
