@@ -38,7 +38,6 @@ namespace knn_jni {
             static constexpr int NUM_POSSIBILITIES_PER_BATCH = 1 << BATCH_SIZE;  // 256 possible values for an 8-bit chunk
             const float* query;                 // Pointer to the query vector
             int dimension;                      // Dimensionality of the vectors
-            size_t code_size;                   // Size of each code in bytes
             faiss::MetricType metric_type;      // Distance metric type (L2 or inner product)
             std::vector<float> lookup_table;    // Precomputed distance contributions for all possible byte values
             std::vector<float> coord_scores;    // Per-dimension distance contributions
@@ -59,7 +58,7 @@ namespace knn_jni {
              * Computes the distance between the query vector and a binary-quantized code
              * by using the precomputed lookup table.
              */
-            virtual float distance_to_code(const uint8_t* code) override final {
+            float distance_to_code(const uint8_t* code) final {
                 return distance_to_code_batched_unrolled(code);
             };
 
@@ -214,7 +213,7 @@ namespace knn_jni {
              * The FlatCodesDistanceComputer::symmetric_dis function is used for index building. However the k-NN plugin
              * only loads an altered index with this distance computer for search.
              */
-            virtual float symmetric_dis(faiss::idx_t i, faiss::idx_t j) override {
+            float symmetric_dis(faiss::idx_t i, faiss::idx_t j) final {
                 throw std::runtime_error("ADC computer is only implemented for search time, not indexing.");
             };
         };
@@ -241,15 +240,17 @@ namespace knn_jni {
              */
             void init(faiss::Index * parent, faiss::Index * grand_parent) {
                 this->ntotal = codes_vector.size() / (this->d / 8);
-                parent->ntotal = this->ntotal;   
-                grand_parent->ntotal = this->ntotal;
+                *parent = *static_cast<Index *>(this);
+                *grand_parent = *static_cast<Index *>(this);
             }
 
             /** Return overridden FlatCodesDistanceComputer with ADC distance_to_code method */
-            faiss::FlatCodesDistanceComputer* get_FlatCodesDistanceComputer() const override {
+            faiss::FlatCodesDistanceComputer* get_FlatCodesDistanceComputer() const final {
                 // dimension must be a multiple of 8.
-                if (this->d % 8 != 0) throw std::runtime_error("ADC distance computer only supports d divisible by 8");
-                                return new knn_jni::faiss_wrapper::ADCFlatCodesDistanceComputer1Bit(
+                if (this->d % 8 != 0)
+                    throw std::runtime_error("ADC distance computer only supports d divisible by 8");
+
+                return new knn_jni::faiss_wrapper::ADCFlatCodesDistanceComputer1Bit(
                     this->codes_vector.data(), 
                     this->d/8, 
                     this->d,
@@ -259,4 +260,5 @@ namespace knn_jni {
         };
     }
 }
+#undef ADC_FLAT_LOOKUP_BATCH
 #endif //KNNPLUGIN_JNI_FAISS_INDEX_BQ_H
