@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.store;
 
 import org.apache.lucene.store.IndexOutput;
+import org.opensearch.knn.common.exception.TerminalIOException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -72,7 +73,11 @@ public class IndexOutputWithBuffer {
             assert bytesRead <= outputBuffer.length;
             // However many bytes we read, write it to the IndexOutput if != -1
             if (bytesRead != -1) {
-                indexOutput.writeBytes(outputBuffer, 0, bytesRead);
+                try {
+                    indexOutput.writeBytes(outputBuffer, 0, bytesRead);
+                } catch (IOException e) {
+                    throw new TerminalIOException("Failed to write to indexOutput", e);
+                }
             }
         }
     }

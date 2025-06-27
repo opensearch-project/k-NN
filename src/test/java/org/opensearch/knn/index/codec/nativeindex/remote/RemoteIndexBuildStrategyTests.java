@@ -14,6 +14,7 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
@@ -26,7 +27,9 @@ import java.io.IOException;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
@@ -86,6 +89,30 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
                 assertEquals(0L, (long) value.getValue());
             }
         }
+    }
+
+    /**
+     * Test that we do not fall back to the fallback BuildStrategy when a terminal exception is thrown
+     * Instead of mocking every step of the process, mock the first method called to immediately throw the exception
+     * and check that the fallback is not called (which would set the SetOnce boolean to True).
+     * {@link RemoteIndexBuildTests.TestIndexBuildStrategy}
+     */
+    public void testRemoteIndexBuildStrategyTerminates() throws IOException {
+        final SetOnce<Boolean> fallback = new SetOnce<>(Boolean.FALSE);
+
+        RemoteIndexBuildStrategy objectUnderTest = spy(
+            new RemoteIndexBuildStrategy(
+                () -> mock(RepositoriesService.class),
+                new TestIndexBuildStrategy(fallback),
+                mock(IndexSettings.class),
+                null
+            )
+        );
+
+        doThrow(new TerminalIOException("Fallback", new Exception())).when(objectUnderTest).getRepositoryContext(any());
+
+        assertThrows(TerminalIOException.class, () -> { objectUnderTest.buildAndWriteIndex(buildIndexParams); });
+        assertFalse(fallback.get());
     }
 
     public void testShouldBuildIndexRemotely() {
