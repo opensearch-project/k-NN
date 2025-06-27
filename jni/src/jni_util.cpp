@@ -214,6 +214,11 @@ knn_jni::BQQuantizationLevel knn_jni::JNIUtil::ConvertJavaStringToQuantizationLe
         throw std::runtime_error("Unable to convert java string to cpp string");
     }
 
+    // Capture lambda to release the string when going out of scope.
+    knn_jni::JNIReleaseElements release_java_string {[=](){
+        env->ReleaseStringUTFChars((jstring) javaString, cString);
+    }};
+
     // Use string_view to avoid allocation, since we only need to compare the string
     std::string_view cppString(cString);
     knn_jni::BQQuantizationLevel result;
@@ -230,7 +235,6 @@ knn_jni::BQQuantizationLevel knn_jni::JNIUtil::ConvertJavaStringToQuantizationLe
         throw std::runtime_error("Unable to convert java string to quantization level");
     }
 
-    env->ReleaseStringUTFChars((jstring) javaString, cString);
     return result;
 }
 
