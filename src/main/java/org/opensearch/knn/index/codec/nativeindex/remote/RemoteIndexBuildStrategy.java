@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
@@ -13,6 +14,7 @@ import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexSettings;
+import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
@@ -137,9 +139,11 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      *      2. Triggers index build
      *      3. Awaits on vector build to complete
      *      4. Downloads index file and writes to indexOutput
+     * In most cases, a failure in this process will trigger a fall back to the designated {@link NativeIndexBuildStrategy}.
+     * However, if a {@link TerminalIOException} is thrown, it will be caught and rethrown to terminate the request.
      *
      * @param indexInfo {@link BuildIndexParams} containing information about the index to be built
-     * @throws IOException if an error occurs during the build process
+     * @throws IOException if a terminal error occurs during the build process
      */
     @Override
     public void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException {
@@ -162,6 +166,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
             success = true;
             return;
+        } catch (TerminalIOException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to build index remotely: " + indexInfo, e);
         } finally {
@@ -251,7 +257,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         BuildIndexParams indexInfo,
         RepositoryContext repositoryContext,
         RemoteBuildStatusResponse remoteBuildStatusResponse
-    ) {
+    ) throws TerminalIOException {
         metrics.startRepositoryReadMetrics();
         boolean success = false;
         try {
@@ -260,6 +266,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexInfo.getIndexOutputWithBuffer()
             );
             success = true;
+        } catch (TerminalIOException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(String.format("Repository read failed for vector field [%s]", indexInfo.getFieldName()), e);
         } finally {
@@ -295,7 +303,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     /**
      * Helper method to get repository context. Generates a unique UUID for the blobName so should only be used once.
      */
-    private RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) {
+    @VisibleForTesting
+    RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) throws IOException {
         BlobStoreRepository repository = getRepository();
         BlobPath blobPath = repository.basePath().add(indexSettings.getUUID() + VECTORS_PATH);
         String blobName = UUIDs.base64UUID() + "_" + indexInfo.getFieldName() + "_" + indexInfo.getSegmentWriteState().segmentInfo.name;

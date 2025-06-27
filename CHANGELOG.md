@@ -7,3 +7,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.2](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Enhancements
 * Asymmetric Distance Computation for binary quantized faiss indices [#2733](https://github.com/opensearch-project/k-NN/pull/2733)
+### Bug Fixes
+* [BUGFIX] [Remote Vector Index Build] Don't fall back to CPU on terminal failures [#2773](https://github.com/opensearch-project/k-NN/pull/2773)
