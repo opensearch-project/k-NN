@@ -16,11 +16,15 @@
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexFlat.h"
 
 #include <string>
 #include <vector>
 #include <memory>
 #include <type_traits>
+
+#include <fstream>
+#include <iomanip>
 
 namespace knn_jni {
 namespace faiss_wrapper {
@@ -136,6 +140,33 @@ void IndexService::insertToIndex(
 
     // Add vectors
     idMap->add_with_ids(numVectors, inputVectors->data(), ids.data());
+}
+
+jlong IndexService::buildFlatIndexFromVectors(
+    int numVectors,
+    int dim,
+    const std::vector<float> &vectors,
+    faiss::MetricType metricType) {
+
+    if (vectors.empty()) {
+        throw std::runtime_error("Input vectors cannot be empty");
+    }
+
+    if ((int)vectors.size() != numVectors * dim) {
+        throw std::runtime_error("Mismatch between vector count/dimension and actual data length");
+    }
+
+    faiss::IndexFlat *index = nullptr;
+
+    if (metricType == faiss::METRIC_INNER_PRODUCT) {
+        index = new faiss::IndexFlatIP(dim);
+    } else {
+        index = new faiss::IndexFlatL2(dim);
+    }
+
+    index->add(numVectors, vectors.data());
+
+    return reinterpret_cast<jlong>(index);
 }
 
 void IndexService::writeIndex(

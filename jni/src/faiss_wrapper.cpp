@@ -183,6 +183,38 @@ void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, 
     indexService->insertToIndex(dim, numIds, threadCount, vectorsAddress, ids, index_ptr);
 }
 
+jlong knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jfloatArray vectorsJ, jint numVectors,
+                                                                            jint dimJ, jstring metricTypeJ, IndexService *indexService) {
+
+    if (vectorsJ == nullptr) {
+            throw std::runtime_error("Vector data cannot be null");
+        }
+
+        if (dimJ <= 0 || numVectors <= 0) {
+            throw std::runtime_error("Invalid dimensions or number of vectors");
+        }
+
+        const char *metricTypeC = env->GetStringUTFChars(metricTypeJ, nullptr);
+        jsize totalLength = env->GetArrayLength(vectorsJ);
+
+        if (totalLength != numVectors * dimJ) {
+            env->ReleaseStringUTFChars(metricTypeJ, metricTypeC);
+            throw std::runtime_error("Vector data length does not match numVectors * dimension");
+        }
+
+        jfloat* vectors = env->GetFloatArrayElements(vectorsJ, nullptr);
+        std::vector<float> cppVectors(vectors, vectors + totalLength);
+
+        faiss::MetricType metric = (strcmp(metricTypeC, "IP") == 0) ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
+
+        jlong indexPtr = indexService->buildFlatIndexFromVectors(numVectors, dimJ, cppVectors, metric);
+
+        env->ReleaseFloatArrayElements(vectorsJ, vectors, JNI_ABORT);
+        env->ReleaseStringUTFChars(metricTypeJ, metricTypeC);
+
+        return indexPtr;
+}
+
 void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env,
                                         jobject output, jlong index_ptr, IndexService* indexService) {
 
@@ -597,7 +629,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         } else {
             auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
             auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
-            
+
             if(ivfReader || ivfFlatReader) {
                 int indexNprobe = ivfReader == nullptr ? ivfFlatReader->nprobe : ivfReader->nprobe;
                 ivfParams.nprobe = commons::getIntegerMethodParameter(env, jniUtil, methodParams, NPROBES, indexNprobe);

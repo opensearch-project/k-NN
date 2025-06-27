@@ -486,3 +486,60 @@ namespace query_index_with_filter_test_ivf {
         )
     );
 }
+
+// Helper: Simulate float array as jfloatArray for JNI-style tests
+static jfloatArray ToJFloatArray(std::vector<float>& data) {
+    return reinterpret_cast<jfloatArray>(data.data());
+}
+
+// Helper: Simulate std::string as jstring for JNI-style tests
+static jstring ToJString(std::string& str) {
+    return reinterpret_cast<jstring>(&str);
+}
+
+TEST(FaissBuildFlatIndexFromVectorsTest, ThrowsIfVectorsNull) {
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(
+        new knn_jni::faiss_wrapper::FaissMethods()
+    );
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+    jfloatArray vectorsJ = nullptr;
+    jint numVectors = 2;
+    jint dim = 2;
+    std::string metricType = "L2";
+    jstring metricTypeJ = ToJString(metricType);
+
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+            &mockJNIUtil, &jniEnv, vectorsJ, numVectors, dim, metricTypeJ, &indexService),
+        std::runtime_error
+    );
+}
+
+TEST(FaissBuildFlatIndexFromVectorsTest, ThrowsIfInvalidDimsOrNumVectors) {
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(
+        new knn_jni::faiss_wrapper::FaissMethods()
+    );
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+    std::vector<float> data(4, 1.0f);
+    jfloatArray vectorsJ = ToJFloatArray(data);
+    std::string metricType = "L2";
+    jstring metricTypeJ = ToJString(metricType);
+
+    // Zero dim
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+            &mockJNIUtil, &jniEnv, vectorsJ, 2, 0, metricTypeJ, &indexService),
+        std::runtime_error
+    );
+
+    // Negative numVectors
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(
+            &mockJNIUtil, &jniEnv, vectorsJ, -1, 2, metricTypeJ, &indexService),
+        std::runtime_error
+    );
+}

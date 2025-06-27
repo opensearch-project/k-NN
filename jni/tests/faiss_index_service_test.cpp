@@ -18,6 +18,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "commons.h"
+#include <faiss/IndexFlat.h>
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -160,4 +161,122 @@ TEST(CreateByteIndexTest, BasicAssertions) {
     long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
     indexService.writeIndex(&fileIOWriter, indexAddress);
+}
+
+//buildFlatIndexFromVectors tests
+
+// Helper: Create dummy data for float vectors
+std::vector<float> makeVectors(int num, int dim, float val = 1.0f) {
+    std::vector<float> v(num * dim, val);
+    return v;
+}
+
+/**
+ * Test that a Flat L2 index is successfully created from vectors.
+ * Checks that the returned pointer is not null and the number of vectors is correct.
+ */
+TEST(BuildFlatIndexFromVectorsTest, BuildsL2Index) {
+    int numVectors = 5, dim = 3;
+    std::vector<float> data = makeVectors(numVectors, dim, 2.0f);
+
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
+
+    jlong indexPtr = indexService.buildFlatIndexFromVectors(numVectors, dim, data, faiss::METRIC_L2);
+
+    ASSERT_NE(indexPtr, 0);
+    auto* index = reinterpret_cast<faiss::IndexFlatL2*>(indexPtr);
+    ASSERT_EQ(index->ntotal, numVectors);
+    delete index;
+}
+
+/**
+ * Test that a Flat Inner Product index is successfully created from vectors.
+ * Checks that the returned pointer is not null and the number of vectors is correct.
+ */
+TEST(BuildFlatIndexFromVectorsTest, BuildsIPIndex) {
+    int numVectors = 4, dim = 2;
+    std::vector<float> data = makeVectors(numVectors, dim, 3.0f);
+
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
+
+    jlong indexPtr = indexService.buildFlatIndexFromVectors(numVectors, dim, data, faiss::METRIC_INNER_PRODUCT);
+
+    ASSERT_NE(indexPtr, 0);
+    auto* index = reinterpret_cast<faiss::IndexFlatIP*>(indexPtr);
+    ASSERT_EQ(index->ntotal, numVectors);
+    delete index;
+}
+
+/**
+ * Test that providing empty vectors throws a runtime_error.
+ */
+TEST(BuildFlatIndexFromVectorsTest, ThrowsOnEmptyVectors) {
+    int numVectors = 10, dim = 4;
+    std::vector<float> empty;
+
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
+
+    EXPECT_THROW(
+        indexService.buildFlatIndexFromVectors(numVectors, dim, empty, faiss::METRIC_L2),
+        std::runtime_error
+    );
+}
+
+/**
+ * Test that providing a vector whose size does not match numVectors * dim throws a runtime_error.
+ */
+TEST(BuildFlatIndexFromVectorsTest, ThrowsOnMismatchedSize) {
+    int numVectors = 3, dim = 5;
+    std::vector<float> badData(7, 1.0f);
+
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
+
+    EXPECT_THROW(
+        indexService.buildFlatIndexFromVectors(numVectors, dim, badData, faiss::METRIC_L2),
+        std::runtime_error
+    );
+}
+
+/**
+ * Test that the vectors inserted into the flat index are preserved in order and value.
+ * This reconstructs each vector from the index and compares to the original input.
+ */
+TEST(BuildFlatIndexFromVectorsTest, IndexContainsInsertedVectorsInOrder) {
+    int numVectors = 5, dim = 3;
+    // Prepare 5 unique vectors
+    std::vector<float> data = {
+        1.0f, 2.0f, 3.0f,    // vector 0
+        4.0f, 5.0f, 6.0f,    // vector 1
+        7.0f, 8.0f, 9.0f,    // vector 2
+        10.0f, 11.0f, 12.0f, // vector 3
+        13.0f, 14.0f, 15.0f  // vector 4
+    };
+
+    // Use L2 metric for this test
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
+
+    jlong indexPtr = indexService.buildFlatIndexFromVectors(numVectors, dim, data, faiss::METRIC_L2);
+
+    ASSERT_NE(indexPtr, 0);
+    auto* index = reinterpret_cast<faiss::IndexFlatL2*>(indexPtr);
+    ASSERT_EQ(index->ntotal, numVectors);
+
+    // Check each vector in the index matches input and order
+    std::vector<float> reconstructed(dim);
+    for (int i = 0; i < numVectors; ++i) {
+        index->reconstruct(i, reconstructed.data());
+        for (int j = 0; j < dim; ++j) {
+            float expected = data[i * dim + j];
+            ASSERT_FLOAT_EQ(reconstructed[j], expected)
+                << "Vector " << i << " element " << j << " mismatch";
+        }
+    }
+
+    // Clean up
+    delete index;
 }

@@ -19,6 +19,8 @@
 #include "jni_util.h"
 #include "faiss_stream_support.h"
 
+
+
 static knn_jni::JNIUtil jniUtil;
 static const jint KNN_FAISS_JNI_VERSION = JNI_VERSION_1_1;
 
@@ -94,6 +96,19 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
         // NOTE: ADDING DELETE STATEMENT HERE CAUSES A CRASH!
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
+}
+
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_buildFlatIndexFromVectors(
+    JNIEnv *env, jclass cls, jfloatArray vectorsJ, jint numVectors, jint dimJ, jstring metricTypeJ) {
+    try {
+        std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
+        knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+        return knn_jni::faiss_wrapper::BuildFlatIndexFromVectors(&jniUtil, env, vectorsJ, numVectors, dimJ, metricTypeJ, &indexService);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+
+    return -1;
 }
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIndex(JNIEnv * env, jclass cls, jintArray idsJ,
