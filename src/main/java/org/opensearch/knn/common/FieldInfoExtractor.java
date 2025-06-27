@@ -10,6 +10,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.util.Version;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -76,12 +77,12 @@ public class FieldInfoExtractor {
      * @param fieldInfo {@link FieldInfo}
      * @return {@link QuantizationConfig}
      */
-    public static QuantizationConfig extractQuantizationConfig(final FieldInfo fieldInfo) {
+    public static QuantizationConfig extractQuantizationConfig(final FieldInfo fieldInfo, Version luceneVersion) {
         String quantizationConfigString = fieldInfo.getAttribute(QFRAMEWORK_CONFIG);
         if (StringUtils.isEmpty(quantizationConfigString)) {
             return QuantizationConfig.EMPTY;
         }
-        return QuantizationConfigParser.fromCsv(quantizationConfigString);
+        return QuantizationConfigParser.fromCsv(quantizationConfigString, luceneVersion);
     }
 
     /**

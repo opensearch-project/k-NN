@@ -8,6 +8,8 @@ package org.opensearch.knn.quantization.models.quantizationState;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Builder;
+import lombok.NonNull;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -21,9 +23,12 @@ import java.io.IOException;
  * including the thresholds used for quantization.
  */
 @Getter
-@NoArgsConstructor // No-argument constructor for deserialization
+@Builder
 @AllArgsConstructor
+@NoArgsConstructor(force = true) // No-argument constructor for deserialization
 public final class MultiBitScalarQuantizationState implements QuantizationState {
+
+    @NonNull
     private ScalarQuantizationParams quantizationParams;
     /**
      * The threshold values for multi-bit quantization, organized as a 2D array
@@ -41,6 +46,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
      *
      * Each column represents the threshold for a specific dimension in the vector space.
      */
+    @NonNull
     private float[][] thresholds;
 
     @Override

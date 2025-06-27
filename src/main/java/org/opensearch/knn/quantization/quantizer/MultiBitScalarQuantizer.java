@@ -15,7 +15,6 @@ import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
-import oshi.util.tuples.Pair;
 
 import java.io.IOException;
 
@@ -110,13 +109,12 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) throws IOException {
         int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
-        // Calculate sum, mean, and standard deviation in one pass
-        Pair<float[], float[]> meanAndStdDev = QuantizerHelper.calculateMeanAndStdDev(trainingRequest, sampledIndices);
-        float[][] thresholds = calculateThresholds(meanAndStdDev.getA(), meanAndStdDev.getB());
-        ScalarQuantizationParams params = (bitsPerCoordinate == 2)
-            ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
-            : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
-        return new MultiBitScalarQuantizationState(params, thresholds);
+
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder()
+            .sqType(bitsPerCoordinate == 2 ? ScalarQuantizationType.TWO_BIT : ScalarQuantizationType.FOUR_BIT)
+            .build();
+
+        return QuantizerHelper.calculateQuantizationState(trainingRequest, sampledIndices, params, bitsPerCoordinate);
     }
 
     /**

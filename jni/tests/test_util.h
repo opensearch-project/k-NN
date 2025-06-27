@@ -117,6 +117,11 @@ namespace test_util {
         MOCK_METHOD(void *, GetPrimitiveArrayCritical, (JNIEnv * env, jarray array, jboolean *isCopy));
         MOCK_METHOD(void, ReleasePrimitiveArrayCritical, (JNIEnv * env, jarray array, void *carray, jint mode));
         MOCK_METHOD(void, CallNonvirtualVoidMethodA, (JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args));
+        MOCK_METHOD(knn_jni::BQQuantizationLevel,
+                ConvertJavaStringToQuantizationLevel,
+                (JNIEnv *env, jobject javaString),
+                (override));
+
     };
 
 // For our unit tests, we want to ensure that each test tests one function in
