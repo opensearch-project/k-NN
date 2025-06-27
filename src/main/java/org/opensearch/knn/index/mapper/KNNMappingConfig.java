@@ -73,6 +73,15 @@ public interface KNNMappingConfig {
         return Version.CURRENT;
     }
 
+    /**
+     * Return the searchMode to be used for this field (default is null)
+     *
+     * @return String searchMode
+     */
+    default String getSearchMode() {
+        return null;
+    }
+
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
         return null;
     }
