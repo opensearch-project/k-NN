@@ -175,7 +175,7 @@ public class NativeIndexWriter {
         final Map<String, Object> parameters;
         VectorDataType vectorDataType;
         if (quantizationState != null) {
-            vectorDataType = QuantizationService.getInstance().getVectorDataTypeForTransfer(fieldInfo);
+            vectorDataType = QuantizationService.getInstance().getVectorDataTypeForTransfer(fieldInfo, state.segmentInfo.getVersion());
         } else {
             vectorDataType = extractVectorDataType(fieldInfo);
         }
@@ -274,7 +274,7 @@ public class NativeIndexWriter {
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.getIndexThreadQty());
         parameters.put(KNNConstants.MODEL_ID, fieldInfo.attributes().get(MODEL_ID));
         parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, model.getModelBlob());
-        if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo) != QuantizationConfig.EMPTY) {
+        if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo, state.segmentInfo.getVersion()) != QuantizationConfig.EMPTY) {
             IndexUtil.updateVectorDataTypeToParameters(parameters, VectorDataType.BINARY);
         } else {
             IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());

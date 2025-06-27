@@ -53,6 +53,7 @@ import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuan
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -838,6 +839,18 @@ public class KNNWeightTests extends KNNWeightTestCase {
             when(reader.getFieldInfos()).thenReturn(fieldInfos);
             when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
             when(fieldInfo.attributes()).thenReturn(attributesMap);
+
+            // mocks to support version-aware quantization parameters
+            final SegmentCommitInfo segmentCommitInfo = mock(SegmentCommitInfo.class);
+            final SegmentInfo segmentInfo = mock(SegmentInfo.class);
+            try {
+                Field infoField = SegmentCommitInfo.class.getDeclaredField("info");
+                infoField.setAccessible(true);
+                infoField.set(segmentCommitInfo, segmentInfo);
+            } catch (Exception ignored) {}
+            when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+            when(segmentInfo.getVersion()).thenReturn(Version.LATEST);
+
             when(fieldInfo.getAttribute(VECTOR_DATA_TYPE_FIELD)).thenReturn(
                 isBinary ? VectorDataType.BINARY.getValue() : VectorDataType.FLOAT.getValue()
             );
@@ -1004,6 +1017,17 @@ public class KNNWeightTests extends KNNWeightTestCase {
         BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
 
+        // mocks to support version-aware quantization parameters
+        final SegmentCommitInfo segmentCommitInfo = mock(SegmentCommitInfo.class);
+        final SegmentInfo segmentInfo = mock(SegmentInfo.class);
+        try {
+            Field infoField = SegmentCommitInfo.class.getDeclaredField("info");
+            infoField.setAccessible(true);
+            infoField.set(segmentCommitInfo, segmentInfo);
+        } catch (Exception ignored) {}
+        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+        when(segmentInfo.getVersion()).thenReturn(Version.LATEST);
+
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
@@ -1070,6 +1094,18 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.name());
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
         when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
+
+        // mocks to support version-aware quantization parameters
+        final SegmentCommitInfo segmentCommitInfo = mock(SegmentCommitInfo.class);
+        final SegmentInfo segmentInfo = mock(SegmentInfo.class);
+        try {
+            Field infoField = SegmentCommitInfo.class.getDeclaredField("info");
+            infoField.setAccessible(true);
+            infoField.set(segmentCommitInfo, segmentInfo);
+        } catch (Exception ignored) {}
+        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+        when(segmentInfo.getVersion()).thenReturn(Version.LATEST);
+
         when(binaryDocValues.advance(0)).thenReturn(0);
         BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
         when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
@@ -1542,8 +1578,8 @@ public class KNNWeightTests extends KNNWeightTestCase {
         try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
             quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
-            QuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-            Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class))).thenReturn(quantizationParams);
+            QuantizationParams quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+            when(quantizationService.getQuantizationParams(any(FieldInfo.class), any(Version.class))).thenReturn(quantizationParams);
 
             // Given
             int k = 3;
@@ -1602,12 +1638,16 @@ public class KNNWeightTests extends KNNWeightTestCase {
     public void testANNWithQuantizationParams_thenSuccess() {
         try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
-            ScalarQuantizationParams quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-            Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class))).thenReturn(quantizationParams);
+            ScalarQuantizationParams quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+            Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class), any(Version.class)))
+                .thenReturn(quantizationParams);
             quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
 
             float[] meanThresholds = new float[] { 1.2f, 2.3f, 3.4f, 4.5f };
-            QuantizationState quantizationState = new OneBitScalarQuantizationState(quantizationParams, meanThresholds);
+            QuantizationState quantizationState = OneBitScalarQuantizationState.builder()
+                .quantizationParams(quantizationParams)
+                .meanThresholds(meanThresholds)
+                .build();
 
             try (
                 MockedConstruction<QuantizationConfigKNNCollector> quantizationCollectorMockedConstruction = Mockito.mockConstruction(

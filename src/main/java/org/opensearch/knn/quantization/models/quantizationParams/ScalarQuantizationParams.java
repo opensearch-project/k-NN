@@ -6,11 +6,15 @@
 package org.opensearch.knn.quantization.models.quantizationParams;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+
 import lombok.NoArgsConstructor;
+import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
@@ -20,11 +24,14 @@ import java.io.IOException;
  * This class implements the QuantizationParams interface and includes the type of scalar quantization.
  */
 @Getter
-@AllArgsConstructor
-@NoArgsConstructor // No-argument constructor for deserialization
 @EqualsAndHashCode
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
 public class ScalarQuantizationParams implements QuantizationParams {
     private ScalarQuantizationType sqType;
+    @Builder.Default
+    private final boolean enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
 
     /**
      * Static method to generate type identifier based on ScalarQuantizationType.
@@ -57,6 +64,7 @@ public class ScalarQuantizationParams implements QuantizationParams {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeVInt(sqType.getId());
+        out.writeBoolean(enableRandomRotation);
     }
 
     /**
@@ -69,6 +77,11 @@ public class ScalarQuantizationParams implements QuantizationParams {
     public ScalarQuantizationParams(StreamInput in, int version) throws IOException {
         int typeId = in.readVInt();
         this.sqType = ScalarQuantizationType.fromId(typeId);
+        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+            this.enableRandomRotation = in.readBoolean();
+        } else {
+            this.enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+        }
     }
 
     /**

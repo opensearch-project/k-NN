@@ -6,12 +6,14 @@
 package org.opensearch.knn.index.quantizationservice;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 
 import java.io.IOException;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+import java.util.function.Supplier;
 
 /**
  * KNNVectorQuantizationTrainingRequest is a concrete implementation of the abstract TrainingRequest class.
@@ -19,19 +21,23 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  */
 @Log4j2
 final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
-
-    private final KNNVectorValues<T> knnVectorValues;
+    private final Supplier<KNNVectorValues<T>> knnVectorValuesSupplier;
+    private KNNVectorValues<T> knnVectorValues;
     private int lastIndex;
 
     /**
      * Constructs a new QuantizationFloatVectorTrainingRequest.
      *
-     * @param knnVectorValues the KNNVectorValues instance containing the vectors.
+     * @param knnVectorValuesSupplier the KNNVectorValues instance containing the vectors.
      */
-    KNNVectorQuantizationTrainingRequest(KNNVectorValues<T> knnVectorValues, long liveDocs) {
-        super((int) liveDocs);
-        this.knnVectorValues = knnVectorValues;
-        this.lastIndex = 0;
+    KNNVectorQuantizationTrainingRequest(Supplier<KNNVectorValues<T>> knnVectorValuesSupplier, long liveDocs) {
+        this(knnVectorValuesSupplier, liveDocs, QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION);
+    }
+
+    KNNVectorQuantizationTrainingRequest(Supplier<KNNVectorValues<T>> knnVectorValuesSupplier, long liveDocs, boolean doRandomRotation) {
+        super((int) liveDocs, doRandomRotation);
+        this.knnVectorValuesSupplier = knnVectorValuesSupplier;
+        resetVectorValues(); // Initialize the first instance
     }
 
     /**
@@ -51,5 +57,14 @@ final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
         }
         // Return the vector
         return knnVectorValues.getVector();
+    }
+
+    /**
+     * Resets the KNNVectorValues to enable a fresh iteration by calling the supplier again.
+     */
+    @Override
+    public void resetVectorValues() {
+        this.knnVectorValues = knnVectorValuesSupplier.get();
+        this.lastIndex = 0;
     }
 }

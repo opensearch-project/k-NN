@@ -106,6 +106,14 @@ testClusters {
             }
         }
 
+        // excludes: 1.any; 2.x where x < 17
+        def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+        if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
+            }
+        }
+
 
         if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
             filter {
@@ -238,6 +246,13 @@ testClusters {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
+            }
+        }
+
+        def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+        if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             }
         }
 
