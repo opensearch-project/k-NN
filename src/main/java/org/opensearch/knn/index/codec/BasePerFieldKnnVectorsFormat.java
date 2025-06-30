@@ -31,6 +31,7 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_KEY;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
@@ -96,6 +97,16 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 String.format("Cannot read field type for field [%s] because mapper service is not available", field)
             )
         ).fieldType(field);
+
+        // check if exact search is enabled
+        String searchMode = mappedFieldType.getKnnMappingConfig().getSearchMode();
+        // setting approximateThreshold to -1 so graphs don't get built
+        if (searchMode != null && searchMode.equals(EXACT_SEARCH_KEY)) {
+            return new NativeEngines990KnnVectorsFormat(
+                new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
+                -1
+            );
+        }
 
         final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         if (knnMappingConfig.getModelId().isPresent()) {
