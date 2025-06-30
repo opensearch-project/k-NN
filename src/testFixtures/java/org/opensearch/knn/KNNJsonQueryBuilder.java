@@ -27,6 +27,7 @@ public class KNNJsonQueryBuilder {
     private String nestedFieldName;
     private String filterFieldName;
     private String filterValue;
+    private String exactSearchSpaceType;
 
     public String getQueryString() throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
@@ -47,6 +48,10 @@ public class KNNJsonQueryBuilder {
         }
         if (minScore != null) {
             builder.field("min_score", minScore);
+        }
+
+        if (exactSearchSpaceType != null) {
+            builder.field("exact_search_space_type", exactSearchSpaceType);
         }
 
         if (filterFieldName != null && filterValue != null) {

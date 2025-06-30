@@ -96,6 +96,11 @@ public class KNNQueryBuilderInvalidParamsTests extends KNNTestCase {
                         .fieldName(FIELD_NAME)
                         .vector(QUERY_VECTOR)
                         .k(1)
+                ),
+                $(
+                    "Invalid exact search space type",
+                    "[knn] requires valid space type for exact search, refer to allowed space types.",
+                    KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(1).exactSearchSpaceType("cosine")
                 )
             )
         );

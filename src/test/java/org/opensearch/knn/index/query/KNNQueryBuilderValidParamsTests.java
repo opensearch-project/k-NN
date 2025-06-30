@@ -30,6 +30,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
     private Float maxDistance;
     private Float minScore;
     private RescoreContext rescoreContext;
+    private String exactSearchSpaceType;
 
     @ParametersFactory(argumentFormatting = "description:%1$s; k:%3$s, efSearch:%4$s, maxDist:%5$s, minScore:%6$s, rescoreContext:%6$s")
     public static Collection<Object[]> validParameters() {
@@ -39,6 +40,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     "valid knn with k",
                     KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(10).build(),
                     10,
+                    null,
                     null,
                     null,
                     null,
@@ -56,6 +58,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     Map.of("ef_search", 12),
                     null,
                     null,
+                    null,
                     null
                 ),
                 $(
@@ -64,6 +67,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     null,
                     null,
                     10.0f,
+                    null,
                     null,
                     null
                 ),
@@ -74,6 +78,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     null,
                     null,
                     10.0f,
+                    null,
                     null
                 ),
                 $(
@@ -88,7 +93,18 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     null,
                     null,
                     10.0f,
-                    RescoreContext.getDefault()
+                    RescoreContext.getDefault(),
+                    null
+                ),
+                $(
+                    "valid knn with exactSearchSpaceType",
+                    KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(2).exactSearchSpaceType("cosinesimil").build(),
+                    2,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "cosinesimil"
                 )
             )
         );
@@ -105,6 +121,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                 .maxDistance(maxDistance)
                 .minScore(minScore)
                 .rescoreContext(rescoreContext)
+                .exactSearchSpaceType(exactSearchSpaceType)
                 .build()
         );
     }

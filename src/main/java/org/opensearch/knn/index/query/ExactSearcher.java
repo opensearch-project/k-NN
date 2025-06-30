@@ -176,7 +176,11 @@ public class ExactSearcher {
             return null;
         }
         final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        SpaceType resolvedSpaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        if (exactSearcherContext.getExactSearchSpaceType() != null) {
+            resolvedSpaceType = SpaceType.getSpace(exactSearcherContext.getExactSearchSpaceType());
+        }
+        final SpaceType spaceType = resolvedSpaceType;
         boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
 
         if (VectorDataType.BINARY == vectorDataType) {
@@ -291,5 +295,6 @@ public class ExactSearcher {
         Integer maxResultWindow;
         VectorSimilarityFunction similarityFunction;
         Boolean isMemoryOptimizedSearchEnabled;
+        String exactSearchSpaceType;
     }
 }

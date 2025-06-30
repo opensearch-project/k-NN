@@ -51,6 +51,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
         final boolean expandNested = createQueryRequest.isExpandNested();
         final boolean memoryOptimizedSearchEnabled = createQueryRequest.isMemoryOptimizedSearchEnabled();
+        final String exactSearchSpaceType = createQueryRequest.getExactSearchSpaceType();
 
         BitSetProducer parentFilter = null;
         int shardId = -1;
@@ -98,6 +99,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .rescoreContext(rescoreContext)
                         .shardId(shardId)
                         .isMemoryOptimizedSearch(memoryOptimizedSearchEnabled)
+                        .exactSearchSpaceType(exactSearchSpaceType)
                         .build();
                     break;
                 default:
@@ -114,6 +116,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .rescoreContext(rescoreContext)
                         .shardId(shardId)
                         .isMemoryOptimizedSearch(memoryOptimizedSearchEnabled)
+                        .exactSearchSpaceType(exactSearchSpaceType)
                         .build();
             }
 
