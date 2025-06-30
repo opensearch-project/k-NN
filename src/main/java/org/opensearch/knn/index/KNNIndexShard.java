@@ -260,7 +260,10 @@ public class KNNIndexShard {
                         fileExtension,
                         spaceType,
                         modelId,
-                        FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY
+                        FieldInfoExtractor.extractQuantizationConfig(
+                            fieldInfo,
+                            reader.getSegmentInfo().info.getVersion()
+                        ) == QuantizationConfig.EMPTY
                             ? VectorDataType.get(
                                 fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
                             )

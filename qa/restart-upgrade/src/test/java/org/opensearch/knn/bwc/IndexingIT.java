@@ -486,4 +486,99 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testRandomRotationBWC() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int k = 4;
+        int dimension = 8;
+
+        if (isRunningAgainstOldCluster()) {
+            // In old cluster (2.20), create index with binary quantization but without random rotation
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimension)
+                .startObject(KNN_METHOD)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .field(KNN_ENGINE, FAISS_NAME)
+                .field(NAME, METHOD_HNSW)
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
+                .field(METHOD_PARAMETER_M, 16)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "binary")
+                .startObject(PARAMETERS)
+                .field("bits", 1)
+                // No random rotation parameter in old version
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            // Add test vectors
+            Float[] vector1 = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector2 = { 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            flush(testIndex, true);
+
+        } else {
+            // In new cluster (3.1), test searching existing index
+            float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(2, results.size());
+
+            // Create new index with random rotation enabled
+            String newIndex = testIndex + "_random_rotation";
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .field(KNN_ENGINE, FAISS_NAME)
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "binary")
+                .startObject(PARAMETERS)
+                .field("bits", 1)
+                .field("random_rotation", true)
+                .endObject()
+                .endObject()
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
+                .field(METHOD_PARAMETER_M, 16)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(newIndex, getKNNDefaultIndexSettings(), mapping);
+
+            // Add vectors to new index
+            Float[] vector1 = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector2 = { 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+            addKnnDoc(newIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(newIndex, "2", TEST_FIELD, vector2);
+
+            // Test search works with random rotation
+            searchResponse = searchKNNIndex(newIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(2, results.size());
+
+            // Clean up
+            deleteKNNIndex(testIndex);
+            deleteKNNIndex(newIndex);
+        }
+    }
 }

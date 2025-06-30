@@ -12,8 +12,10 @@ import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.util.Version;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -33,6 +35,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -75,6 +78,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
     private NativeIndexWriter nativeIndexWriter;
     @Mock
     private NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    @Mock
+    private SegmentInfo segmentInfo;
 
     private FlatFieldVectorsWriter mockedFlatFieldVectorsWriter;
 
@@ -98,6 +103,14 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
         mockedFlatFieldVectorsWriter = Mockito.mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
         Mockito.when(flatVectorsWriter.addField(Mockito.any())).thenReturn(mockedFlatFieldVectorsWriter);
+
+        // mocks to support version-aware quantization parameters
+        try {
+            Field infoField = SegmentWriteState.class.getDeclaredField("segmentInfo");
+            infoField.setAccessible(true);
+            infoField.set(segmentWriteState, segmentInfo);
+        } catch (Exception ignored) {}
+        Mockito.when(segmentInfo.getVersion()).thenReturn(Version.LATEST);
     }
 
     @ParametersFactory
@@ -170,7 +183,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
                     () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
                 ).thenReturn(nativeIndexWriter);
@@ -255,15 +268,10 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(quantizationParams);
                 try {
-                    when(
-                        quantizationService.train(
-                            quantizationParams,
-                            expectedVectorValuesSuppliers.get(i).get(),
-                            vectorsPerField.get(i).size()
-                        )
-                    ).thenReturn(quantizationState);
+                    when(quantizationService.train(quantizationParams, expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size()))
+                        .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -360,7 +368,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSupplier.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
                     () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
                 ).thenReturn(nativeIndexWriter);
@@ -435,7 +443,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
                     () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
                 ).thenReturn(nativeIndexWriter);
@@ -510,7 +518,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
                     () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
                 ).thenReturn(nativeIndexWriter);
@@ -594,7 +602,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
                     () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
                 ).thenReturn(nativeIndexWriter);
@@ -681,15 +689,10 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(quantizationParams);
                 try {
-                    when(
-                        quantizationService.train(
-                            quantizationParams,
-                            expectedVectorValuesSuppliers.get(i).get(),
-                            vectorsPerField.get(i).size()
-                        )
-                    ).thenReturn(quantizationState);
+                    when(quantizationService.train(quantizationParams, expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size()))
+                        .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -786,15 +789,10 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     () -> KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, docsWithFieldSet, vectorsPerField.get(i))
                 ).thenReturn(expectedVectorValuesSuppliers.get(i));
 
-                when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
+                when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(quantizationParams);
                 try {
-                    when(
-                        quantizationService.train(
-                            quantizationParams,
-                            expectedVectorValuesSuppliers.get(i).get(),
-                            vectorsPerField.get(i).size()
-                        )
-                    ).thenReturn(quantizationState);
+                    when(quantizationService.train(quantizationParams, expectedVectorValuesSuppliers.get(i), vectorsPerField.get(i).size()))
+                        .thenReturn(quantizationState);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

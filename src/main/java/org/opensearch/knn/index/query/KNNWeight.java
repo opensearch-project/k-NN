@@ -450,7 +450,8 @@ public abstract class KNNWeight extends Weight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,
-            knnQuery.getField()
+            knnQuery.getField(),
+            reader.getSegmentInfo().info.getVersion()
         );
 
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);

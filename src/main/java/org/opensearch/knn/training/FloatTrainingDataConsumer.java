@@ -90,7 +90,9 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
 
     private List<byte[]> quantizeVectors(List<?> vectors) throws IOException {
         List<byte[]> bytes = new ArrayList<>();
-        ScalarQuantizationParams quantizationParams = new ScalarQuantizationParams(quantizationConfig.getQuantizationType());
+        ScalarQuantizationParams quantizationParams = ScalarQuantizationParams.builder()
+            .sqType(quantizationConfig.getQuantizationType())
+            .build();
         Quantizer<float[], byte[]> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
         // Create training request
         TrainingRequest<float[]> trainingRequest = new TrainingRequest<float[]>(vectors.size()) {
@@ -98,6 +100,13 @@ public class FloatTrainingDataConsumer extends TrainingDataConsumer {
             public float[] getVectorAtThePosition(int position) {
                 return ArrayUtils.toPrimitive((Float[]) vectors.get(position));
             }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op since getVectorAtThePosition does not change the state of a member iterator for this
+                // TrainingRequest<float[]>.
+            }
+
         };
         QuantizationState quantizationState = quantizer.train(trainingRequest);
         BinaryQuantizationOutput binaryQuantizationOutput = new BinaryQuantizationOutput(quantizationConfig.getQuantizationType().getId());
