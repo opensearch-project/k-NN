@@ -94,6 +94,26 @@ public class QuantizationStateTests extends KNNTestCase {
         assertEquals(expectedRamBytesUsed, actualRamBytesUsed);
     }
 
+    public void testOneBitScalarQuantizationState_RamBytesUsedWithAboveBelowThresholds() {
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+        float[] mean = { 1.0f, 2.0f, 3.0f };
+        float[] above = { 1.0f, 2.0f, 3.0f };
+        float[] below = { 1.0f, 2.0f, 3.0f };
+
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(mean)
+            .aboveThresholdMeans(above)
+            .belowThresholdMeans(below)
+            .build();
+
+        long actualRamBytesUsed = state.ramBytesUsed();
+        long expectedRamBytesUsed = RamUsageEstimator.shallowSizeOfInstance(OneBitScalarQuantizationState.class) + RamUsageEstimator
+            .shallowSizeOf(params) + RamUsageEstimator.sizeOf(mean) + RamUsageEstimator.sizeOf(above) + RamUsageEstimator.sizeOf(below);
+
+        assertEquals(expectedRamBytesUsed, actualRamBytesUsed);
+    }
+
     public void testMultiBitScalarQuantizationStateSerialization() throws IOException {
         ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
         float[][] thresholds = { { 0.5f, 1.5f, 2.5f }, { 1.0f, 2.0f, 3.0f } };
@@ -127,7 +147,7 @@ public class QuantizationStateTests extends KNNTestCase {
 
         long manualEstimatedRamBytesUsed = 0L;
         manualEstimatedRamBytesUsed += alignSize(16L); // object overhead
-        manualEstimatedRamBytesUsed += alignSize(32L); // param object (sqType + isEnableRandomRotation)
+        manualEstimatedRamBytesUsed += alignSize(24L); // param object (sqType + isRandomRotation + isEnableADC)
         manualEstimatedRamBytesUsed += alignSize(16L + 4L * thresholds.length);
         for (float[] row : thresholds) {
             manualEstimatedRamBytesUsed += alignSize(16L + 4L * row.length);
@@ -167,7 +187,13 @@ public class QuantizationStateTests extends KNNTestCase {
             .thresholds(thresholds)
             .build();
 
-        int expectedDimensions = 16; // 2 bits × 3 dims = 6 bits, padded to next multiple of 8 = 16
+        // Case 1: 3 thresholds, each with 2 dimensions
+        float[][] thresholds1 = { { 0.5f, 1.5f }, { 1.0f, 2.0f }, { 1.5f, 2.5f } };
+        MultiBitScalarQuantizationState state1 = new MultiBitScalarQuantizationState(params, thresholds1, null);
+        int expectedDimensions1 = 24; // The next multiple of 8 considering all bits
+        assertEquals(expectedDimensions1, state1.getDimensions());
+
+        int expectedDimensions = 16; // 2 bit levels × 8 dims already aligned
         assertEquals(expectedDimensions, state.getDimensions());
     }
 

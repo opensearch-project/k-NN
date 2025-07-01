@@ -1337,3 +1337,172 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
         }
     }
 }
+TEST(FaissLoadIndexWithStreamADCTest, HandlesCorruptedBinaryIndex) {
+    // Create invalid/corrupted data
+    std::vector<uint8_t> corruptedData = {0x00, 0x01, 0x02, 0x03, 0x04};
+
+    // Create VectorIOReader with corrupted data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = corruptedData;
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+
+    // Should throw exception for corrupted data
+    EXPECT_THROW({
+        knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+            &vectorIoReader, metricType);
+    }, std::exception);
+}
+
+TEST(FaissLoadIndexWithStreamADCTest, ValidBinaryIndexTransformation) {
+    // Create a test binary index structure
+    int dim = 128;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<uint8_t> vectors;
+    vectors.reserve(numIds * (dim / 8));
+
+    for (int64_t i = 0; i < numIds; ++i) {
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    // Create binary HNSW index
+    std::string method = "BHNSW32";
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+        test_util::FaissCreateBinaryIndex(dim, method));
+    auto createdIndexWithData =
+        test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
+
+    // Serialize the index
+    auto serializedIndex = test_util::FaissGetSerializedBinaryIndex(&createdIndexWithData);
+
+    // Create VectorIOReader from serialized data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = serializedIndex.data;
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+
+    // Test the transformation
+    jlong resultPtr = 0;
+    EXPECT_NO_THROW({
+        resultPtr = knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+            &vectorIoReader, metricType);
+    });
+
+    ASSERT_NE(0, resultPtr);
+
+    // Verify the result is a valid IndexIDMap
+    auto* resultIndex = reinterpret_cast<faiss::IndexIDMap*>(resultPtr);
+    ASSERT_NE(resultIndex, nullptr);
+    ASSERT_NE(resultIndex->index, nullptr);
+
+    ASSERT_EQ(dim, resultIndex->d);
+    ASSERT_EQ(numIds, resultIndex->ntotal);
+
+    // Verify it's an HNSW index
+    auto* hnswIndex = dynamic_cast<faiss::IndexHNSW*>(resultIndex->index);
+    ASSERT_NE(hnswIndex, nullptr);
+
+    // Clean up
+    knn_jni::faiss_wrapper::Free(resultPtr, JNI_FALSE);
+}
+
+TEST(FaissLoadIndexWithStreamADCTest, ValidInnerProductMetric) {
+    // Create a test binary index structure
+    int dim = 64;
+    faiss::idx_t numIds = 50;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<uint8_t> vectors;
+    vectors.reserve(numIds * (dim / 8));
+
+    for (int64_t i = 0; i < numIds; ++i) {
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    // Create binary HNSW index
+    std::string method = "BHNSW16";
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+        test_util::FaissCreateBinaryIndex(dim, method));
+    auto createdIndexWithData =
+        test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
+
+    // Serialize the index
+    auto serializedIndex = test_util::FaissGetSerializedBinaryIndex(&createdIndexWithData);
+
+    // Create VectorIOReader from serialized data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = serializedIndex.data;
+
+    faiss::MetricType metricType = faiss::METRIC_INNER_PRODUCT;
+
+    // Test with inner product metric
+    jlong resultPtr = 0;
+    EXPECT_NO_THROW({
+        resultPtr = knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+            &vectorIoReader, metricType);
+    });
+
+    ASSERT_NE(0, resultPtr);
+
+    // Verify the result
+    auto* resultIndex = reinterpret_cast<faiss::IndexIDMap*>(resultPtr);
+    ASSERT_NE(resultIndex, nullptr);
+    ASSERT_EQ(dim, resultIndex->d);
+    ASSERT_EQ(numIds, resultIndex->ntotal);
+
+    // Clean up
+    knn_jni::faiss_wrapper::Free(resultPtr, JNI_FALSE);
+}
+
+TEST(FaissLoadIndexWithStreamADCTest, PreservesIdMapping) {
+     // Create a test binary index with specific IDs
+    int dim = 128;
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> customIds;
+    std::vector<uint8_t> vectors;
+    vectors.reserve(numIds * (dim / 8));
+
+    // Use non-sequential IDs to test mapping preservation
+    for (int64_t i = 0; i < numIds; ++i) {
+        customIds.push_back(i * 10 + 100); // IDs: 100, 110, 120, ...
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    // Create binary HNSW index
+    std::string method = "BHNSW32";
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+        test_util::FaissCreateBinaryIndex(dim, method));
+    auto createdIndexWithData =
+        test_util::FaissAddBinaryData(createdIndex.get(), customIds, vectors);
+
+    // Serialize the index
+    auto serializedIndex = test_util::FaissGetSerializedBinaryIndex(&createdIndexWithData);
+
+    // Create VectorIOReader from serialized data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = serializedIndex.data;
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+
+    // Transform the index
+    jlong resultPtr = knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+        &vectorIoReader, metricType);
+
+    auto* resultIndex = reinterpret_cast<faiss::IndexIDMap*>(resultPtr);
+    ASSERT_NE(resultIndex, nullptr);
+
+    // Verify ID mapping is preserved
+    ASSERT_EQ(numIds, resultIndex->id_map.size());
+    for (size_t i = 0; i < customIds.size(); ++i) {
+        ASSERT_EQ(customIds[i], resultIndex->id_map[i]);
+    }
+
+    // Clean up
+    knn_jni::faiss_wrapper::Free(resultPtr, JNI_FALSE);
+}

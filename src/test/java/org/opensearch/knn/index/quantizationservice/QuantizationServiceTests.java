@@ -39,7 +39,6 @@ public class QuantizationServiceTests extends KNNTestCase {
         );
 
         // Use the predefined vectors to create KNNVectorValues
-        // Use the predefined vectors to create KNNVectorValues
         knnVectorValues = () -> KNNVectorValuesFactory.getVectorValues(
             VectorDataType.FLOAT,
             new TestVectorValues.PreDefinedFloatVectorValues(floatVectors)

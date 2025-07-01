@@ -20,7 +20,7 @@ import java.io.IOException;
 
 /**
  * MultiBitScalarQuantizer is responsible for quantizing vectors into multi-bit representations per dimension.
- * Unlike the OneBitScalarQuantizer, which uses a single bit ramBytesUsedper dimension to represent whether a value is above
+ * Unlike the OneBitScalarQuantizer, which uses a single bit per dimension to represent whether a value is above
  * or below a mean threshold, the MultiBitScalarQuantizer allows for multiple bits per dimension, enabling more
  * granular and precise quantization.
  *

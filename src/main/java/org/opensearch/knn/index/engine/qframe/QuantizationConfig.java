@@ -23,5 +23,7 @@ public class QuantizationConfig {
     private ScalarQuantizationType quantizationType = null;
     @Builder.Default
     public boolean enableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+    @Builder.Default
+    public boolean enableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
     public static final QuantizationConfig EMPTY = QuantizationConfig.builder().build();
 }
