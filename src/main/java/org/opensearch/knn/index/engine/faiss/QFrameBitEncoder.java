@@ -95,8 +95,8 @@ public class QFrameBitEncoder implements Encoder {
             };
 
             QuantizationConfig quantizationConfig = quantizationConfigBuilder.quantizationType(quantizationType)
-                    .enableRandomRotation(enableRandomRotation)
-                    .enableADC(enableADC)
+                .enableRandomRotation(enableRandomRotation)
+                .enableADC(enableADC)
                 .build();
 
             // We use the flat description because we are doing the quantization

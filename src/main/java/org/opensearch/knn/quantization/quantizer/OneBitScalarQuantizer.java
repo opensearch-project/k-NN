@@ -127,11 +127,21 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         validateState(state);
         OneBitScalarQuantizationState binaryState = (OneBitScalarQuantizationState) state;
 
-        if (shouldDoADCCorrection(spaceType)) {
-            transformVectorWithADCCorrection(vector, binaryState);
-        } else {
-            transformVectorWithADCNoCorrection(vector, binaryState);
+        float[][] rotationMatrix = binaryState.getRotationMatrix();
+
+        float[] rotatedVector = vector.clone();
+
+        if (rotationMatrix != null) {
+            rotatedVector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
         }
+
+        if (shouldDoADCCorrection(spaceType)) {
+            transformVectorWithADCCorrection(rotatedVector, binaryState);
+        } else {
+            transformVectorWithADCNoCorrection(rotatedVector, binaryState);
+        }
+
+        System.arraycopy(rotatedVector, 0, vector, 0, vector.length);
     }
 
     private boolean shouldDoADCCorrection(SpaceType spaceType) {

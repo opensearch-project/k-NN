@@ -45,8 +45,16 @@ public class QuantizationConfigParser {
             + quantizationConfig.getQuantizationType().getId();
 
         if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
-            result = result + "," + RANDOM_ROTATION_NAME + SEPARATOR + quantizationConfig.isEnableRandomRotation()
-            + "," + ADC_NAME + SEPARATOR + quantizationConfig.isEnableADC();;
+            result = result
+                + ","
+                + RANDOM_ROTATION_NAME
+                + SEPARATOR
+                + quantizationConfig.isEnableRandomRotation()
+                + ","
+                + ADC_NAME
+                + SEPARATOR
+                + quantizationConfig.isEnableADC();
+            ;
         }
 
         return result;
@@ -87,11 +95,15 @@ public class QuantizationConfigParser {
         String isEnableRandomRotationValue = getValueOrThrow(RANDOM_ROTATION_NAME, csvArray[2]);
         boolean isEnableRandomRotation = Boolean.parseBoolean(isEnableRandomRotationValue);
 
-        String isEnableADCValue = getValueOrThrow(ADC_NAME, csvArray[2]);
+        String isEnableADCValue = getValueOrThrow(ADC_NAME, csvArray[3]);
         boolean isEnableADC = Boolean.parseBoolean(isEnableADCValue);
 
         ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
-        return QuantizationConfig.builder().quantizationType(quantizationType).enableRandomRotation(isEnableRandomRotation).enableADC(isEnableADC).build();
+        return QuantizationConfig.builder()
+            .quantizationType(quantizationType)
+            .enableRandomRotation(isEnableRandomRotation)
+            .enableADC(isEnableADC)
+            .build();
     }
 
     private static QuantizationConfig parseLegacyVersion(String csv) {

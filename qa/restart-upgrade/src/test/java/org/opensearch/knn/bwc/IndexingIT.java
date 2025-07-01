@@ -563,6 +563,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(newIndex);
         }
     }
+
     public void testRandomRotationBWC() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;

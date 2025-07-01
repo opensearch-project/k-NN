@@ -14,8 +14,8 @@ import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.util.QuantizationUtils.FloatArrayWrapper;
 
 import java.io.IOException;
 
@@ -225,26 +225,5 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
 
         return size;
     }
-    // TODO: move this to a helper method.
-    private class FloatArrayWrapper implements Writeable {
-        private final float[] array;
 
-        public FloatArrayWrapper(float[] array) {
-            this.array = array;
-        }
-
-        // Constructor that matches Writeable.Reader<T>
-        public FloatArrayWrapper(StreamInput in) throws IOException {
-            this.array = in.readFloatArray();
-        }
-
-        public float[] getArray() {
-            return array;
-        }
-
-        @Override
-        public void writeTo(StreamOutput out) throws IOException {
-            out.writeFloatArray(array);
-        }
-    }
 }

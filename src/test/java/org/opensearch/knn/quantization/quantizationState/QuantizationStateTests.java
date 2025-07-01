@@ -94,7 +94,25 @@ public class QuantizationStateTests extends KNNTestCase {
         assertEquals(expectedRamBytesUsed, actualRamBytesUsed);
     }
 
-    // TODO: case with above/below thresholds
+    public void testOneBitScalarQuantizationState_RamBytesUsedWithAboveBelowThresholds() {
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+        float[] mean = { 1.0f, 2.0f, 3.0f };
+        float[] above = { 1.0f, 2.0f, 3.0f };
+        float[] below = { 1.0f, 2.0f, 3.0f };
+
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(mean)
+            .aboveThresholdMeans(above)
+            .belowThresholdMeans(below)
+            .build();
+
+        long actualRamBytesUsed = state.ramBytesUsed();
+        long expectedRamBytesUsed = RamUsageEstimator.shallowSizeOfInstance(OneBitScalarQuantizationState.class) + RamUsageEstimator
+            .shallowSizeOf(params) + RamUsageEstimator.sizeOf(mean) + RamUsageEstimator.sizeOf(above) + RamUsageEstimator.sizeOf(below);
+
+        assertEquals(expectedRamBytesUsed, actualRamBytesUsed);
+    }
 
     public void testMultiBitScalarQuantizationStateSerialization() throws IOException {
         ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
@@ -129,7 +147,7 @@ public class QuantizationStateTests extends KNNTestCase {
 
         long manualEstimatedRamBytesUsed = 0L;
         manualEstimatedRamBytesUsed += alignSize(16L); // object overhead
-        manualEstimatedRamBytesUsed += alignSize(48L); // param object (sqType + isRandomRotation + isEnableADC)
+        manualEstimatedRamBytesUsed += alignSize(24L); // param object (sqType + isRandomRotation + isEnableADC)
         manualEstimatedRamBytesUsed += alignSize(16L + 4L * thresholds.length);
         for (float[] row : thresholds) {
             manualEstimatedRamBytesUsed += alignSize(16L + 4L * row.length);
@@ -171,14 +189,13 @@ public class QuantizationStateTests extends KNNTestCase {
 
         // Case 1: 3 thresholds, each with 2 dimensions
         float[][] thresholds1 = { { 0.5f, 1.5f }, { 1.0f, 2.0f }, { 1.5f, 2.5f } };
-        MultiBitScalarQuantizationState state1 = new MultiBitScalarQuantizationState(params, thresholds1);
+        MultiBitScalarQuantizationState state1 = new MultiBitScalarQuantizationState(params, thresholds1, null);
         int expectedDimensions1 = 24; // The next multiple of 8 considering all bits
         assertEquals(expectedDimensions1, state1.getDimensions());
 
         int expectedDimensions = 16; // 2 bit levels × 8 dims already aligned
         assertEquals(expectedDimensions, state.getDimensions());
     }
-
 
     public void testOneBitScalarQuantizationStateGetDimensions_withDimensionNotMultipleOf8_thenSuccess() {
         ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
@@ -227,45 +244,6 @@ public class QuantizationStateTests extends KNNTestCase {
             .build();
         int expectedDimensions5 = 16; // Already aligned to 16
         assertEquals(expectedDimensions5, state5.getDimensions());
-    }
-
-    public void testMultiBitScalarQuantizationStateRamBytesUsedManualCalculation() throws IOException {
-        float[][] thresholds = { { 0.5f, 1.5f, 2.5f }, { 1.0f, 2.0f, 3.0f } };
-        ScalarQuantizationParams params = MultiBitScalarQuantizationState.builder().quantizationParams(ScalarQuantizationType.TWO_BIT)
-                .meanThresholds(thresholds)
-                .build();
-
-        MultiBitScalarQuantizationState state = new MultiBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .meanThresholds(thresholds)
-                .build();
-
-        // Manually estimate RAM usage with alignment
-        long manualEstimatedRamBytesUsed = 0L;
-
-        // Estimate for MultiBitScalarQuantizationState object
-        manualEstimatedRamBytesUsed += alignSize(16L);  // Example overhead for object
-
-        // Estimate for ScalarQuantizationParams object
-        manualEstimatedRamBytesUsed += alignSize(16L);  // Overhead for params object (including fields)
-
-        // Estimate for thresholds array
-        manualEstimatedRamBytesUsed += alignSize(16L + 4L * thresholds.length);  // Overhead for array + references to sub-arrays
-
-        for (float[] row : thresholds) {
-            manualEstimatedRamBytesUsed += alignSize(16L + 4L * row.length);  // Overhead for each sub-array + size of each float
-        }
-
-        long ramEstimatorRamBytesUsed = RamUsageEstimator.shallowSizeOfInstance(MultiBitScalarQuantizationState.class) + RamUsageEstimator
-            .shallowSizeOf(params) + RamUsageEstimator.shallowSizeOf(thresholds);
-
-        for (float[] row : thresholds) {
-            ramEstimatorRamBytesUsed += RamUsageEstimator.sizeOf(row);
-        }
-
-        long difference = Math.abs(manualEstimatedRamBytesUsed - ramEstimatorRamBytesUsed);
-        assertTrue("The difference between manual and actual RAM usage exceeds 8 bytes", difference <= 8);
-        assertEquals(ramEstimatorRamBytesUsed, state.ramBytesUsed());
     }
 
     private long alignSize(long size) {

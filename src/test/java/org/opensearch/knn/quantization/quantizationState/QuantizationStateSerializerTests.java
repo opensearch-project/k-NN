@@ -41,12 +41,12 @@ public class QuantizationStateSerializerTests extends KNNTestCase {
         float[] above = new float[] { 0.2f, 0.3f, 0.4f };
         float[] below = new float[] { 0.0f, 0.1f, 0.2f };
         OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
-                .quantizationParams(params)
-                .meanThresholds(mean)
-                .aboveThresholdMeans(above)
-                .belowThresholdMeans(below)
-                .rotationMatrix(rotationMatrix)
-                .build();
+            .quantizationParams(params)
+            .meanThresholds(mean)
+            .aboveThresholdMeans(above)
+            .belowThresholdMeans(below)
+            .rotationMatrix(rotationMatrix)
+            .build();
 
         byte[] serialized = state.toByteArray();
         OneBitScalarQuantizationState deserialized = OneBitScalarQuantizationState.fromByteArray(serialized);
