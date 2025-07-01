@@ -80,7 +80,7 @@ public class ScalarQuantizationParams implements QuantizationParams {
     public ScalarQuantizationParams(StreamInput in, int version) throws IOException {
         int typeId = in.readVInt();
         this.sqType = ScalarQuantizationType.fromId(typeId);
-        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+        if (Version.fromId(version).onOrAfter(Version.V_3_2_0)) {
             this.enableRandomRotation = in.readBoolean();
             this.enableADC = in.readBoolean();
         } else {

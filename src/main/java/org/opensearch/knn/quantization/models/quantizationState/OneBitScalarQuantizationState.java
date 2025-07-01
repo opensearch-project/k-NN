@@ -101,7 +101,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
         int version = in.readVInt(); // Read the version
         this.quantizationParams = new ScalarQuantizationParams(in, version);
         this.meanThresholds = in.readFloatArray();
-        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+        if (Version.fromId(version).onOrAfter(Version.V_3_2_0)) {
             // Read rotation matrix
             if (in.readBoolean()) {
                 int dimensions = in.readVInt();
@@ -112,7 +112,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
             }
         }
 
-        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+        if (Version.fromId(version).onOrAfter(Version.V_3_2_0)) {
             // Deserialize belowThresholdMeans using readOptionalArray
             FloatArrayWrapper[] wrappedBelowThresholdMeans = in.readOptionalArray(FloatArrayWrapper::new, FloatArrayWrapper[]::new);
             this.belowThresholdMeans = wrappedBelowThresholdMeans != null ? wrappedBelowThresholdMeans[0].getArray() : null;

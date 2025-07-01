@@ -44,7 +44,7 @@ public class QuantizationConfigParser {
             + SEPARATOR
             + quantizationConfig.getQuantizationType().getId();
 
-        if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
+        if (Version.CURRENT.onOrAfter(Version.V_3_2_0)) {
             result = result
                 + ","
                 + RANDOM_ROTATION_NAME
@@ -71,7 +71,7 @@ public class QuantizationConfigParser {
             return QuantizationConfig.EMPTY;
         }
 
-        if (luceneVersion.onOrAfter(org.apache.lucene.util.Version.LUCENE_10_2_1)) {
+        if (luceneVersion.onOrAfter(org.apache.lucene.util.Version.LUCENE_10_2_2)) {
             return parseCurrentVersion(csv);
         } else {
             return parseLegacyVersion(csv);
