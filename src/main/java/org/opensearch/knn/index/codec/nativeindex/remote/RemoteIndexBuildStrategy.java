@@ -32,6 +32,8 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
+import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.Map;
@@ -159,10 +161,13 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient(KNNSettings.getRemoteBuildServiceEndpoint());
             RemoteBuildResponse remoteBuildResponse = submitBuild(repositoryContext, indexInfo, client);
 
-            // 3. Await vector build completion
+            // 3. Build flat index
+            buildFlatIndex(indexInfo); // this will return a pointer to send to readFromRepository in complete implementation
+
+            // 4. Await vector build completion
             RemoteBuildStatusResponse remoteBuildStatusResponse = awaitIndexBuild(remoteBuildResponse, indexInfo, client);
 
-            // 4. Download index file and write to indexOutput
+            // 5. Download index file and write to indexOutput
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
             success = true;
             return;
@@ -222,6 +227,50 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } finally {
             metrics.endBuildRequestMetrics(success);
         }
+    }
+
+    private void buildFlatIndex(BuildIndexParams indexInfo) throws IOException {
+        KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+        int totalDocs = indexInfo.getTotalLiveDocs();
+        Object firstVector = null;
+        int dimension;
+        int idx = 0;
+        float[] vectorData;
+
+        if (knnVectorValues.nextDoc() == org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
+            throw new IllegalStateException("No vectors to index");
+        }
+
+        // First vector, need to access first before getting values needed for loop
+        firstVector = knnVectorValues.getVector();
+        if (firstVector instanceof float[] floatVector) {
+            dimension = floatVector.length;
+            vectorData = new float[totalDocs * dimension];
+            System.arraycopy(floatVector, 0, vectorData, 0, dimension);
+        } else {
+            throw new IllegalArgumentException("Unknown vector type: " + firstVector.getClass());
+        }
+        idx = 1;
+
+        // Rest of the vectors
+        while (knnVectorValues.nextDoc() != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS) {
+            Object vec = knnVectorValues.getVector();
+            if (vec instanceof float[] floatVec) {
+                System.arraycopy(floatVec, 0, vectorData, idx * dimension, dimension);
+            } else {
+                throw new IllegalArgumentException("Unknown vector type: " + vec.getClass());
+            }
+            idx++;
+        }
+
+        String metricType = "L2";
+        Object spaceType = indexInfo.getParameters().get("space_type");
+        if (spaceType != null && spaceType.toString().toUpperCase().contains("IP")) {
+            metricType = "IP";
+        }
+
+        long indexPtr = JNIService.buildFlatIndexFromVectors(vectorData, idx, dimension, metricType);
+        JNIService.free(indexPtr, KNNEngine.FAISS);
     }
 
     /**

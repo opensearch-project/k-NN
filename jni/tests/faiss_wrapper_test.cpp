@@ -38,8 +38,8 @@ const float rangeSearchRandomDataMax = 50;
 const float rangeSearchRadius = 20000;
 
 void createIndexIteratively(
-        knn_jni::JNIUtilInterface * JNIUtil, 
-        JNIEnv *jniEnv, 
+        knn_jni::JNIUtilInterface * JNIUtil,
+        JNIEnv *jniEnv,
         std::vector<faiss::idx_t> & ids,
         std::vector<float> & vectors,
         int dim,
@@ -73,13 +73,13 @@ void createIndexIteratively(
 }
 
 void createBinaryIndexIteratively(
-        knn_jni::JNIUtilInterface * JNIUtil, 
-        JNIEnv *jniEnv, 
+        knn_jni::JNIUtilInterface * JNIUtil,
+        JNIEnv *jniEnv,
         std::vector<faiss::idx_t> & ids,
         std::vector<uint8_t> & vectors,
         int dim,
         jobject javaFileOutputMock,
-        std::unordered_map<string, jobject> parametersMap, 
+        std::unordered_map<string, jobject> parametersMap,
         IndexService * indexService,
         int insertions = 10
     ) {
