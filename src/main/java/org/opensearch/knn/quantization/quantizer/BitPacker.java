@@ -96,7 +96,6 @@ class BitPacker {
      */
     void quantizeAndPackBits(final float[] vector, final float[][] thresholds, final int bitsPerCoordinate, byte[] packedBits) {
         int vectorLength = vector.length;
-
         for (int i = 0; i < bitsPerCoordinate; i++) {
             for (int j = 0; j < vectorLength; j++) {
                 if (vector[j] > thresholds[i][j]) {

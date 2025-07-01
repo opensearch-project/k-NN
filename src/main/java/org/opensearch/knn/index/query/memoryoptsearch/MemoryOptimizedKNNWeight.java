@@ -18,6 +18,7 @@ import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -70,20 +71,19 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final KNNEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedTargetVector,
+        final float[] adcTransformedVector,
         final String modelId,
         final BitSet filterIdsBitSet,
         final int cardinality,
         final int k
     ) {
         try {
+            final Version segmentLuceneVersion = reader.getSegmentInfo().info.getVersion();
             if (k > 0) {
                 // KNN search
                 if (quantizedTargetVector != null) {
                     // Quantization case
-                    if (quantizationService.getVectorDataTypeForTransfer(
-                        fieldInfo,
-                        reader.getSegmentInfo().info.getVersion()
-                    ) == VectorDataType.BINARY) {
+                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion) == VectorDataType.BINARY) {
                         return queryIndex(
                             quantizedTargetVector,
                             cardinality,
@@ -99,7 +99,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     // Should never occur, safety if ever any other quantization is added
                     throw new IllegalStateException(
                         "VectorDataType for transfer acquired ["
-                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo, reader.getSegmentInfo().info.getVersion())
+                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion)
                             + "] while it is expected to get ["
                             + VectorDataType.BINARY
                             + "]"

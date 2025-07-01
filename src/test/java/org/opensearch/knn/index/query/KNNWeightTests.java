@@ -81,7 +81,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 
 public class KNNWeightTests extends KNNWeightTestCase {
@@ -854,6 +859,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             when(fieldInfo.getAttribute(VECTOR_DATA_TYPE_FIELD)).thenReturn(
                 isBinary ? VectorDataType.BINARY.getValue() : VectorDataType.FLOAT.getValue()
             );
+
             if (isBinary) {
                 when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
             } else {

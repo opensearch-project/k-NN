@@ -66,7 +66,7 @@ public class IndexUtilTests extends KNNTestCase {
         String indexName = "my-test-index";
         VectorDataType vectorDataType1 = VectorDataType.FLOAT;
 
-        Map<String, Object> loadParameters = getParametersAtLoading(spaceType1, knnEngine1, indexName, vectorDataType1);
+        Map<String, Object> loadParameters = getParametersAtLoading(spaceType1, knnEngine1, indexName, vectorDataType1, null);
         assertEquals(2, loadParameters.size());
         assertEquals(spaceType1.getValue(), loadParameters.get(SPACE_TYPE));
         assertEquals(vectorDataType1.getValue(), loadParameters.get(VECTOR_DATA_TYPE_FIELD));
@@ -94,7 +94,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(clusterService.state()).thenReturn(clusterState);
         KNNSettings.state().setClusterService(clusterService);
 
-        loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName, vectorDataType2);
+        loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName, vectorDataType2, null);
         assertEquals(3, loadParameters.size());
         assertEquals(spaceType2.getValue(), loadParameters.get(SPACE_TYPE));
         assertEquals(efSearchValue, loadParameters.get(HNSW_ALGO_EF_SEARCH));

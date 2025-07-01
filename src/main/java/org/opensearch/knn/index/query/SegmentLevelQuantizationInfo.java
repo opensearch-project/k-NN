@@ -31,6 +31,7 @@ public class SegmentLevelQuantizationInfo {
      * @param leafReader {@link LeafReader}
      * @param fieldInfo {@link FieldInfo}
      * @param fieldName {@link String}
+     * @param luceneVersion {@link Version} lucene version present in the segment, used for BWC.
      * @return {@link SegmentLevelQuantizationInfo}
      * @throws IOException exception while creating the {@link SegmentLevelQuantizationInfo} object.
      */

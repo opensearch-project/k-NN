@@ -5,6 +5,10 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.Value;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
@@ -45,8 +49,10 @@ class QuantizerHelper {
 
         return OneBitScalarQuantizationState.builder()
             .quantizationParams(quantizationParams)
-            .meanThresholds(quantizerHelperResult.thresholds()[0])
-            .rotationMatrix(quantizerHelperResult.rotationMatrix())
+            .meanThresholds(quantizerHelperResult.getThresholds()[0])
+            .rotationMatrix(quantizerHelperResult.getRotationMatrix())
+            .belowThresholdMeans(quantizerHelperResult.getBelow())
+            .aboveThresholdMeans(quantizerHelperResult.getAbove())
             .build();
     }
 
@@ -70,8 +76,8 @@ class QuantizerHelper {
 
         return MultiBitScalarQuantizationState.builder()
             .quantizationParams(quantizationParams)
-            .thresholds(quantizerHelperResult.thresholds())
-            .rotationMatrix(quantizerHelperResult.rotationMatrix())
+            .thresholds(quantizerHelperResult.getThresholds())
+            .rotationMatrix(quantizerHelperResult.getRotationMatrix())
             .build();
     }
 
@@ -94,7 +100,7 @@ class QuantizerHelper {
      * @param bitsPerCoordinate Number of bits per coordinate.
      * @return 2D array of thresholds of shape [bits][dimensions].
      */
-    private static float[][] calculateThresholds(float[] mean, float[] stdDev, int bitsPerCoordinate) {
+    protected static float[][] calculateThresholds(float[] mean, float[] stdDev, int bitsPerCoordinate) {
         int dim = mean.length;
         float[][] thresholds = new float[bitsPerCoordinate][dim];
         float coef = bitsPerCoordinate + 1;
@@ -108,7 +114,18 @@ class QuantizerHelper {
         return thresholds;
     }
 
-    private record QuantizerHelperResult(float[][] rotationMatrix, float[][] thresholds) {
+    @Value
+    @Getter
+    @Builder
+    public class QuantizerHelperResult {
+        @NonNull
+        float[][] thresholds; // note: this is a (1 x dimension) 2D array for one bit quantization
+
+        float[][] rotationMatrix;
+
+        // below and above thresholds means are used for transforming vector for ADC in one bit paradigm.
+        float[] below;
+        float[] above;
     }
 
     private static QuantizerHelperResult calculateQuantizationStateHelper(
@@ -126,12 +143,30 @@ class QuantizerHelper {
 
         float[][] thresholds;
 
+        // note: the vectors are rotated before the mean and stddev are calculated if random rotation is enabled.
         Pair<float[], float[]> meanStd = calculateMeanAndStdDev(trainingRequest, sampledIndices, rotationMatrix);
-        thresholds = calculateThresholds(meanStd.getA(), meanStd.getB(), bitsPerCoordinate);
-        // if bitsPerCoordinate = 1, there should only be one threshold (used to mean center coordinates).
-        assert bitsPerCoordinate != 1 || thresholds.length == 1;
 
-        return new QuantizerHelperResult(rotationMatrix, thresholds);
+        thresholds = calculateThresholds(meanStd.getA(), meanStd.getB(), bitsPerCoordinate);
+
+        // if bitsPerCoordinate = 1, there should only be one threshold (used to mean center coordinates).
+        if (bitsPerCoordinate == 1) {
+            assert thresholds.length == 1;
+            // grab above and below threshold means for ADC
+            Pair<float[], float[]> belowAbove = calculateBelowAboveThresholdMeans(
+                trainingRequest,
+                thresholds[0],
+                sampledIndices,
+                rotationMatrix
+            );
+            return QuantizerHelperResult.builder()
+                .thresholds(thresholds)
+                .rotationMatrix(rotationMatrix)
+                .below(belowAbove.getA())
+                .above(belowAbove.getB())
+                .build();
+        }
+
+        return QuantizerHelperResult.builder().thresholds(thresholds).rotationMatrix(rotationMatrix).build();
     }
 
     public static Pair<float[], float[]> calculateMeanAndStdDev(TrainingRequest<float[]> request, int[] sampledIndices) throws IOException {
@@ -139,7 +174,7 @@ class QuantizerHelper {
     }
 
     /**
-     * Calculates per-dimension mean and standard deviation.
+     * Calculates per-dimension mean and standard deviation using Welford's online algorithm.
      *
      * @param request         Training request.
      * @param sampledIndices  Sampled vector indices.
@@ -151,8 +186,10 @@ class QuantizerHelper {
         int[] sampledIndices,
         float[][] rotationMatrix
     ) throws IOException {
-        // First pass: Calculate mean
         float[] mean = null;
+        float[] m2 = null;
+        int count = 0;
+
         request.resetVectorValues();
         for (int docId : sampledIndices) {
             float[] vector = request.getVectorAtThePosition(docId);
@@ -167,10 +204,15 @@ class QuantizerHelper {
 
             if (mean == null) {
                 mean = new float[vector.length];
+                m2 = new float[vector.length];
             }
 
+            count++;
             for (int i = 0; i < vector.length; i++) {
-                mean[i] += vector[i];
+                float delta = vector[i] - mean[i];
+                mean[i] += delta / count;
+                float delta2 = vector[i] - mean[i];
+                m2[i] += delta * delta2;
             }
         }
 
@@ -178,28 +220,52 @@ class QuantizerHelper {
             throw new IllegalStateException("Mean array should not be null after processing vectors.");
         }
 
-        int n = sampledIndices.length;
-        for (int i = 0; i < mean.length; i++) {
-            mean[i] /= n;
+        float[] stdDev = new float[mean.length];
+        for (int i = 0; i < stdDev.length; i++) {
+            stdDev[i] = (float) Math.sqrt(m2[i] / count);
         }
 
-        // Second pass: Calculate sum of squared differences from the mean
-        float[] sumSq = new float[mean.length];
+        return new Pair<>(mean, stdDev);
+    }
+
+    protected static Pair<float[], float[]> calculateBelowAboveThresholdMeans(
+        TrainingRequest<float[]> request,
+        float[] thresholds,
+        int[] sampledIndices,
+        float[][] rotationMatrix
+    ) throws IOException {
+        int dim = thresholds.length;
+        float[] below = new float[dim], above = new float[dim];
+        int[] belowCount = new int[dim], aboveCount = new int[dim];
         request.resetVectorValues();
         for (int docId : sampledIndices) {
             float[] vector = request.getVectorAtThePosition(docId);
 
-            for (int i = 0; i < vector.length; i++) {
-                float diff = vector[i] - mean[i];
-                sumSq[i] += diff * diff;
+            if (vector == null) {
+                throw new IllegalArgumentException("Vector at sampled index " + docId + " is null.");
+            }
+
+            // we may also need to rotate the vector here.
+            if (rotationMatrix != null) {
+                vector = RandomGaussianRotation.applyRotation(vector, rotationMatrix);
+            }
+
+            for (int d = 0; d < dim; d++) {
+                if (vector[d] <= thresholds[d]) {
+                    below[d] += vector[d];
+                    belowCount[d]++;
+                } else {
+                    above[d] += vector[d];
+                    aboveCount[d]++;
+                }
             }
         }
 
-        // Calculate the standard deviation
-        for (int i = 0; i < sumSq.length; i++) {
-            sumSq[i] = (float) Math.sqrt(sumSq[i] / n);
+        for (int d = 0; d < dim; d++) {
+            if (belowCount[d] > 0) below[d] /= belowCount[d];
+            if (aboveCount[d] > 0) above[d] /= aboveCount[d];
         }
 
-        return new Pair<>(mean, sumSq);
+        return new Pair<>(below, above);
     }
 }

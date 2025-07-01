@@ -11,6 +11,7 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -53,6 +54,7 @@ public class DefaultKNNWeight extends KNNWeight {
         final KNNEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedVector,
+        final float[] transformedVector,
         final String modelId,
         final BitSet filterIdsBitSet,
         final int cardinality,
@@ -65,6 +67,14 @@ public class DefaultKNNWeight extends KNNWeight {
         );
         final String vectorIndexFileName = engineFiles.get(0);
         final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, reader.getSegmentInfo().info);
+
+        final Version segmentLuceneVersion = reader.getSegmentInfo().info.getVersion();
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+            reader,
+            fieldInfo,
+            knnQuery.getField(),
+            segmentLuceneVersion
+        );
 
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
@@ -79,7 +89,8 @@ public class DefaultKNNWeight extends KNNWeight {
                         knnEngine,
                         knnQuery.getIndexName(),
                         // TODO: In the future, more vector data types will be supported with quantization
-                        quantizedVector == null ? vectorDataType : VectorDataType.BINARY
+                        quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
+                        segmentLevelQuantizationInfo
                     ),
                     knnQuery.getIndexName(),
                     modelId
@@ -113,10 +124,7 @@ public class DefaultKNNWeight extends KNNWeight {
             if (k > 0) {
                 if (knnQuery.getVectorDataType() == VectorDataType.BINARY
                     || quantizedVector != null
-                        && quantizationService.getVectorDataTypeForTransfer(
-                            fieldInfo,
-                            reader.getSegmentInfo().info.getVersion()
-                        ) == VectorDataType.BINARY) {
+                        && quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion) == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
                         // TODO: In the future, quantizedVector can have other data types than byte
@@ -131,7 +139,7 @@ public class DefaultKNNWeight extends KNNWeight {
                 } else {
                     results = JNIService.queryIndex(
                         indexAllocation.getMemoryAddress(),
-                        knnQuery.getQueryVector(),
+                        transformedVector == null ? knnQuery.getQueryVector() : transformedVector,
                         k,
                         knnQuery.getMethodParameters(),
                         knnEngine,

@@ -25,7 +25,7 @@ import java.io.IOException;
 @Getter
 @Builder
 @AllArgsConstructor
-@NoArgsConstructor(force = true)
+@NoArgsConstructor(force = true) // No-argument constructor for deserialization
 public final class MultiBitScalarQuantizationState implements QuantizationState {
 
     @NonNull
@@ -76,7 +76,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             out.writeFloatArray(row); // Write each row as a float array
         }
 
-        if (Version.CURRENT.onOrAfter(Version.V_3_1_0)) {
+        if (Version.CURRENT.onOrAfter(Version.V_3_2_0)) {
             if (rotationMatrix != null) {
                 out.writeBoolean(true);
                 out.writeVInt(rotationMatrix.length);
@@ -107,7 +107,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             this.thresholds[i] = in.readFloatArray(); // Read each row as a float array
         }
 
-        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+        if (Version.fromId(version).onOrAfter(Version.V_3_2_0)) {
             if (in.readBoolean()) {
                 int dims = in.readVInt();
                 this.rotationMatrix = new float[dims][];

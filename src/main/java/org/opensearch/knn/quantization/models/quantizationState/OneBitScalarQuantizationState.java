@@ -5,16 +5,17 @@
 
 package org.opensearch.knn.quantization.models.quantizationState;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.util.QuantizationUtils.FloatArrayWrapper;
 
 import java.io.IOException;
 
@@ -23,9 +24,9 @@ import java.io.IOException;
  * including the mean values used for quantization.
  */
 @Getter
-@Builder
 @AllArgsConstructor
-@NoArgsConstructor(force = true)
+@NoArgsConstructor(force = true) // No-argument constructor for deserialization
+@Builder
 public final class OneBitScalarQuantizationState implements QuantizationState {
     @NonNull
     private final ScalarQuantizationParams quantizationParams;
@@ -39,6 +40,18 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
      */
     @NonNull
     private final float[] meanThresholds;
+
+    /**
+     * Represents the mean of all values below the threshold for each dimension.
+     */
+    @Builder.Default
+    private float[] belowThresholdMeans = null;
+
+    /**
+     * Represents the mean of all values above the threshold for each dimension.
+     */
+    @Builder.Default
+    private float[] aboveThresholdMeans = null;
 
     /**
      * Rotation matrix used if random rotation is enabled.
@@ -73,6 +86,9 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
         } else {
             out.writeBoolean(false);
         }
+        out.writeOptionalArray(belowThresholdMeans != null ? new FloatArrayWrapper[] { new FloatArrayWrapper(belowThresholdMeans) } : null);
+        // Serialize aboveThresholdMeans using writeOptionalArray
+        out.writeOptionalArray(aboveThresholdMeans != null ? new FloatArrayWrapper[] { new FloatArrayWrapper(aboveThresholdMeans) } : null);
     }
 
     /**
@@ -85,7 +101,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
         int version = in.readVInt(); // Read the version
         this.quantizationParams = new ScalarQuantizationParams(in, version);
         this.meanThresholds = in.readFloatArray();
-        if (Version.fromId(version).onOrAfter(Version.V_3_1_0)) {
+        if (Version.fromId(version).onOrAfter(Version.V_3_2_0)) {
             // Read rotation matrix
             if (in.readBoolean()) {
                 int dimensions = in.readVInt();
@@ -94,6 +110,15 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
                     this.rotationMatrix[i] = in.readFloatArray();
                 }
             }
+        }
+
+        if (Version.fromId(version).onOrAfter(Version.V_3_2_0)) {
+            // Deserialize belowThresholdMeans using readOptionalArray
+            FloatArrayWrapper[] wrappedBelowThresholdMeans = in.readOptionalArray(FloatArrayWrapper::new, FloatArrayWrapper[]::new);
+            this.belowThresholdMeans = wrappedBelowThresholdMeans != null ? wrappedBelowThresholdMeans[0].getArray() : null;
+            // Deserialize aboveThresholdMeans using readOptionalArray
+            FloatArrayWrapper[] wrappedAboveThresholdMeans = in.readOptionalArray(FloatArrayWrapper::new, FloatArrayWrapper[]::new);
+            this.aboveThresholdMeans = wrappedAboveThresholdMeans != null ? wrappedAboveThresholdMeans[0].getArray() : null;
         }
     }
 
@@ -191,6 +216,14 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
                 size += RamUsageEstimator.sizeOf(row);
             }
         }
+        if (belowThresholdMeans != null) {
+            size += RamUsageEstimator.sizeOf(belowThresholdMeans);
+        }
+        if (aboveThresholdMeans != null) {
+            size += RamUsageEstimator.sizeOf(aboveThresholdMeans);
+        }
+
         return size;
     }
+
 }

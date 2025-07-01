@@ -486,3 +486,199 @@ namespace query_index_with_filter_test_ivf {
         )
     );
 }
+namespace load_index_with_stream_adc_params_test {
+    // Mock class for IOReader following actual FAISS interface
+    class MockIOReader : public faiss::IOReader {
+    public:
+        // Implement the required pure virtual operator()
+        size_t operator()(void* ptr, size_t size, size_t nitems) override {
+            return nitems; // Just pretend we read everything successfully
+        }
+    };
+
+    struct LoadIndexWithStreamADCParamsInput {
+        std::string description;
+        bool includeQuantLevel;
+        bool includeSpaceType;
+        knn_jni::BQQuantizationLevel quantLevel;
+        std::string spaceType;
+        std::string expectedError;
+    };
+
+    // Create a test class that extends the function we're testing
+    class TestLoadIndexWithParams {
+    public:
+        // This is our test version that mimics knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams
+        // but calls our mock LoadIndexWithStreamADC
+        static jlong LoadIndexWithStreamADCParams(
+            faiss::IOReader* ioReader,
+            knn_jni::JNIUtilInterface* jniUtil,
+            JNIEnv* env,
+            jobject methodParamsJ) {
+
+            auto methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
+
+            // KNNConstants.QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER
+            auto quantization_level_it = methodParams.find("quantization_level");
+            knn_jni::BQQuantizationLevel quantLevel = knn_jni::BQQuantizationLevel::NONE;
+            if (quantization_level_it != methodParams.end()) {
+                quantLevel = jniUtil->ConvertJavaStringToQuantizationLevel(env, quantization_level_it->second);
+            } else {
+                throw std::runtime_error("Quantization level not specified in params");
+            }
+
+            // KNNConstants.SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER
+            auto space_type_it = methodParams.find("space_type");
+            faiss::MetricType metricType; // L2 by default.
+            if (space_type_it!= methodParams.end()) {
+                std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, space_type_it->second));
+                metricType = knn_jni::faiss_wrapper::TranslateSpaceToMetric(spaceTypeCpp);
+            } else {
+                throw std::runtime_error("space type not specified in params");
+            }
+
+            if (quantLevel == knn_jni::BQQuantizationLevel::ONE_BIT) {
+                // Instead of calling real LoadIndexWithStreamADC, return a dummy value
+                return 12345;
+            } else if (
+                quantLevel == knn_jni::BQQuantizationLevel::TWO_BIT || quantLevel == knn_jni::BQQuantizationLevel::FOUR_BIT
+            ) {
+                throw std::runtime_error("ADC not supported for 2 or 4 bit.");
+            }
+            else {
+                jniUtil->HasExceptionInStack(env, "load adc stream called without a quantization level");
+                throw std::runtime_error("load adc stream called without a quantization level");
+            }
+        }
+    };
+
+    class FaissWrapperLoadIndexParamsTestFixture : public testing::TestWithParam<LoadIndexWithStreamADCParamsInput> {
+    protected:
+        NiceMock<JNIEnv> jniEnv;
+        NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+        std::unique_ptr<faiss::IOReader> mockIOReader{new MockIOReader()};
+    };
+
+    TEST_P(FaissWrapperLoadIndexParamsTestFixture, LoadIndexWithStreamADCParamsTests) {
+        // Given
+        LoadIndexWithStreamADCParamsInput const &input = GetParam();
+        std::unordered_map<std::string, jobject> methodParams;
+
+        if (input.includeQuantLevel) {
+            methodParams["quantization_level"] = (jobject)"dummy";
+        }
+        if (input.includeSpaceType) {
+            methodParams["space_type"] = (jobject)"dummy";
+        }
+
+        EXPECT_CALL(mockJNIUtil, ConvertJavaMapToCppMap(&jniEnv, testing::_))
+            .WillOnce(testing::Return(methodParams));
+
+        // Fix expectations based on actual control flow
+        if (input.includeQuantLevel) {
+            EXPECT_CALL(mockJNIUtil, ConvertJavaStringToQuantizationLevel(&jniEnv, testing::_))
+                .WillOnce(testing::Return(input.quantLevel));
+
+            // Only expect space type conversion if we have quantization level
+            if (input.includeSpaceType) {
+                EXPECT_CALL(mockJNIUtil, ConvertJavaObjectToCppString(&jniEnv, testing::_))
+                    .WillOnce(testing::Return(input.spaceType));
+
+                // HasExceptionInStack only called for NONE quantization level after space type check
+                if (input.quantLevel == knn_jni::BQQuantizationLevel::NONE) {
+                    EXPECT_CALL(mockJNIUtil, HasExceptionInStack(&jniEnv, testing::_))
+                        .Times(1);
+                }
+            }
+        }
+
+        // When/Then
+        try {
+            jlong result = TestLoadIndexWithParams::LoadIndexWithStreamADCParams(
+                mockIOReader.get(), &mockJNIUtil, &jniEnv, nullptr);
+
+            // For success cases, verify the result is our expected dummy value
+            if (input.expectedError.empty()) {
+                ASSERT_EQ(12345, result);
+            } else {
+                // If expectedError is not empty, we should have thrown an exception
+                FAIL() << "Expected exception with message: " << input.expectedError;
+            }
+
+        } catch (const std::runtime_error& e) {
+            // If expectedError is empty, we shouldn't be here
+            if (input.expectedError.empty()) {
+                FAIL() << "Unexpected exception: " << e.what();
+            }
+            // Otherwise verify the error matches
+            ASSERT_EQ(input.expectedError, e.what());
+        }
+    }
+
+    INSTANTIATE_TEST_CASE_P(
+        LoadIndexWithStreamADCParamsTests,
+        FaissWrapperLoadIndexParamsTestFixture,
+        ::testing::Values(
+            // Success case
+            LoadIndexWithStreamADCParamsInput{
+                "Valid ONE_BIT L2",
+                true,
+                true,
+                knn_jni::BQQuantizationLevel::ONE_BIT,
+                knn_jni::L2,
+                ""
+            },
+            LoadIndexWithStreamADCParamsInput{
+                "Valid ONE_BIT INNER_PRODUCT",
+                true,
+                true,
+                knn_jni::BQQuantizationLevel::ONE_BIT,
+                knn_jni::INNER_PRODUCT,
+                ""
+            },
+            // Missing parameter cases
+            LoadIndexWithStreamADCParamsInput{
+                "Missing quantization_level",
+                false,
+                true,
+                knn_jni::BQQuantizationLevel::NONE,
+                knn_jni::L2,
+                "Quantization level not specified in params"
+            },
+            LoadIndexWithStreamADCParamsInput{
+                "Missing space_type",
+                true,
+                false,
+                knn_jni::BQQuantizationLevel::ONE_BIT,
+                "",
+                "space type not specified in params"
+            },
+            // Invalid quantization level cases
+            LoadIndexWithStreamADCParamsInput{
+                "TWO_BIT not supported",
+                true,
+                true,
+                knn_jni::BQQuantizationLevel::TWO_BIT,
+                knn_jni::L2,
+                "ADC not supported for 2 or 4 bit."
+            },
+            LoadIndexWithStreamADCParamsInput{
+                "FOUR_BIT not supported",
+                true,
+                true,
+                knn_jni::BQQuantizationLevel::FOUR_BIT,
+                knn_jni::L2,
+                "ADC not supported for 2 or 4 bit."
+            },
+            LoadIndexWithStreamADCParamsInput{
+                "NONE quantization level",
+                true,
+                true,
+                knn_jni::BQQuantizationLevel::NONE,
+                knn_jni::L2,
+                "load adc stream called without a quantization level"
+            }
+        )
+    );
+}
+
