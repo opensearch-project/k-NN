@@ -124,9 +124,6 @@ public class MemoryOptimizedSearchSupportSpec {
     private static boolean isSupportedQuantization(final QuantizationConfig quantizationConfig) {
         final ScalarQuantizationType quantizationType = quantizationConfig.getQuantizationType();
 
-        // ADC is not yet supported for memory optimized search.
-        if (quantizationConfig.isEnableADC()) return false;
-
         return quantizationType == ScalarQuantizationType.ONE_BIT
             || quantizationType == ScalarQuantizationType.TWO_BIT
             || quantizationType == ScalarQuantizationType.FOUR_BIT;
