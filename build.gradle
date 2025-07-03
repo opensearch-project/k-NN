@@ -232,18 +232,20 @@ allprojects {
     }
 
     afterEvaluate {
-        project.dependencyLicenses.enabled = false
-        project.thirdPartyAudit.enabled = false
-        project.loggerUsageCheck.enabled = false
-        project.forbiddenApis.ignoreFailures = true
-        project.forbiddenPatterns {
-            setEnabled(false)
+        if (project.name != 'e2e') {
+            project.dependencyLicenses.enabled = false
+            project.thirdPartyAudit.enabled = false
+            project.loggerUsageCheck.enabled = false
+            project.forbiddenApis.ignoreFailures = true
+            project.forbiddenPatterns {
+                setEnabled(false)
+            }
+            project.testingConventions.enabled = false
+            project.validateNebulaPom.enabled = false
+            project.forbiddenApis.ignoreFailures = true
         }
-        project.testingConventions.enabled = false
-        project.validateNebulaPom.enabled = false
         project.licenseFile = rootProject.file('LICENSE.txt')
         project.noticeFile = rootProject.file('NOTICE.txt')
-        project.forbiddenApis.ignoreFailures = true
     }
 }
 
