@@ -19,6 +19,8 @@ import org.opensearch.knn.index.query.lucenelib.NestedKnnVectorQueryFactory;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.index.query.lucenelib.InternalKnnFloatVectorQuery;
+import org.opensearch.knn.index.query.lucenelib.InternalKnnByteVectorQuery;
 
 import java.util.Locale;
 import java.util.Map;
@@ -141,7 +143,17 @@ public class KNNQueryFactory extends BaseQueryFactory {
         int luceneK = requestEfSearch == null ? overSampledK : Math.max(overSampledK, requestEfSearch);
         log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, luceneK);
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
-            getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType)
+            getKnnVectorQuery(
+                fieldName,
+                vector,
+                byteVector,
+                luceneK,
+                filterQuery,
+                parentFilter,
+                expandNested,
+                vectorDataType,
+                exactSearchSpaceType
+            )
         );
         return needsRescore ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 
@@ -177,8 +189,18 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery,
         final BitSetProducer parentFilter,
         final boolean expandNested,
-        @NonNull final VectorDataType vectorDataType
+        @NonNull final VectorDataType vectorDataType,
+        final String exactSearchSpaceType
     ) {
+        if (exactSearchSpaceType != null) {
+            if (vectorDataType == VectorDataType.FLOAT) {
+                InternalKnnFloatVectorQuery.initialize(null);
+                return new InternalKnnFloatVectorQuery(fieldName, floatQueryVector, k, filterQuery, exactSearchSpaceType);
+            } else {
+                InternalKnnByteVectorQuery.initialize(null);
+                return new InternalKnnByteVectorQuery(fieldName, byteQueryVector, k, filterQuery, exactSearchSpaceType);
+            }
+        }
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return vectorDataType == VectorDataType.FLOAT
