@@ -6,14 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.SegmentCommitInfo;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentReader;
-import org.apache.lucene.index.FloatVectorValues;
-import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.*;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
@@ -29,9 +22,11 @@ import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.lucenelib.InternalKnnByteVectorQuery;
 import org.opensearch.knn.index.query.lucenelib.InternalKnnFloatVectorQuery;
+import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -353,6 +348,170 @@ public class ExactSearcherTests extends KNNTestCase {
                 luceneVectorValues
             );
             KNNBinaryVectorValues vectorValues = mock(KNNBinaryVectorValues.class);
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(vectorDataType, luceneVectorValues))
+                .thenReturn(vectorValues);
+
+            when(vectorValues.nextDoc()).thenReturn(0, 1, 2, NO_MORE_DOCS);
+            when(vectorValues.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
+
+            final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+            assertEquals(topDocs.scoreDocs.length, dataVectors.size());
+            List<Float> actualScores = Arrays.stream(topDocs.scoreDocs).map(scoreDoc -> scoreDoc.score).toList();
+            assertEquals(expectedScores, actualScores);
+        }
+    }
+
+    @SneakyThrows
+    public void testExactSearch_whenExactSearchSpaceType_FaissL1_thenSuccess() {
+        try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+            SpaceType spaceType = SpaceType.INNER_PRODUCT;
+            SpaceType exactSearchSpaceType = SpaceType.L1;
+            final List<float[]> dataVectors = Arrays.asList(
+                new float[] { 11.0f, 12.0f, 13.0f },
+                new float[] { 14.0f, 15.0f, 16.0f },
+                new float[] { 17.0f, 18.0f, 19.0f }
+            );
+            final List<Float> expectedScores = dataVectors.stream()
+                .map(vector -> (1 / (1 + KNNScoringUtil.l1Norm(queryVector, vector))))
+                .sorted(Comparator.reverseOrder())
+                .collect(Collectors.toList());
+            final int maxResults = 1000;
+            final KNNQuery.Context context = mock(KNNQuery.Context.class);
+            when(context.getMaxResultWindow()).thenReturn(maxResults);
+            KNNWeight.initialize(null);
+
+            final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
+                ExactSearcher.ExactSearcherContext.builder()
+                    // setting to true, so that if quantization details are present we want to do search on the quantized
+                    // vectors as this flow is used in first pass of search.
+                    .useQuantizedVectorsForSearch(true)
+                    .floatQueryVector(queryVector)
+                    .maxResultWindow(maxResults)
+                    .k(3)
+                    .field(FIELD_NAME)
+                    .exactSearchSpaceType(exactSearchSpaceType.getValue());
+
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final FSDirectory directory = mock(FSDirectory.class);
+            when(reader.directory()).thenReturn(directory);
+            final SegmentInfo segmentInfo = new SegmentInfo(
+                directory,
+                Version.LATEST,
+                Version.LATEST,
+                SEGMENT_NAME,
+                100,
+                false,
+                false,
+                KNNCodecVersion.CURRENT_DEFAULT,
+                Map.of(),
+                new byte[StringHelper.ID_LENGTH],
+                Map.of(),
+                Sort.RELEVANCE
+            );
+            segmentInfo.setFiles(Set.of());
+            final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
+            when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+
+            final Path path = mock(Path.class);
+            when(directory.getDirectory()).thenReturn(path);
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(
+                Map.of(SPACE_TYPE, exactSearchSpaceType.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName())
+            );
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+
+            KNNFloatVectorValues floatVectorValues = mock(KNNFloatVectorValues.class);
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(floatVectorValues);
+            when(floatVectorValues.nextDoc()).thenReturn(0, 1, 2, NO_MORE_DOCS);
+            when(floatVectorValues.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
+
+            final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+            assertEquals(topDocs.scoreDocs.length, dataVectors.size());
+            List<Float> actualScores = Arrays.stream(topDocs.scoreDocs).map(scoreDoc -> scoreDoc.score).toList();
+            assertEquals(expectedScores, actualScores);
+        }
+    }
+
+    @SneakyThrows
+    public void testExactSearch_whenExactSearchSpaceType_LuceneByteLINF_thenSuccess() {
+        try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            final byte[] queryVector = new byte[] { 1, 2, 3 };
+            final float[] floatVector = new float[] { 1.0f, 2.0f, 3.0f };
+            SpaceType spaceType = SpaceType.INNER_PRODUCT;
+            SpaceType exactSearchSpaceType = SpaceType.LINF;
+            final List<byte[]> dataVectors = Arrays.asList(new byte[] { 11, 12, 13 }, new byte[] { 14, 15, 16 }, new byte[] { 17, 18, 19 });
+            final List<Float> expectedScores = dataVectors.stream()
+                .map(vector -> (1 / (1 + KNNScoringUtil.lInfNorm(queryVector, vector))))
+                .sorted(Comparator.reverseOrder())
+                .collect(Collectors.toList());
+            final int maxResults = 1000;
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            InternalKnnByteVectorQuery.initialize(null);
+
+            final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
+                ExactSearcher.ExactSearcherContext.builder()
+                    // setting to true, so that if quantization details are present we want to do search on the quantized
+                    // vectors as this flow is used in first pass of search.
+                    .useQuantizedVectorsForSearch(true)
+                    .byteQueryVector(queryVector)
+                    .floatQueryVector(floatVector)
+                    .maxResultWindow(maxResults)
+                    .k(3)
+                    .field(FIELD_NAME)
+                    .exactSearchSpaceType(exactSearchSpaceType.getValue())
+                    .isLuceneExactSearch(true);
+
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final FSDirectory directory = mock(FSDirectory.class);
+            when(reader.directory()).thenReturn(directory);
+            final SegmentInfo segmentInfo = new SegmentInfo(
+                directory,
+                Version.LATEST,
+                Version.LATEST,
+                SEGMENT_NAME,
+                100,
+                false,
+                false,
+                KNNCodecVersion.CURRENT_DEFAULT,
+                Map.of(),
+                new byte[StringHelper.ID_LENGTH],
+                Map.of(),
+                Sort.RELEVANCE
+            );
+            segmentInfo.setFiles(Set.of());
+            final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
+            when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+
+            final Path path = mock(Path.class);
+            when(directory.getDirectory()).thenReturn(path);
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+            when(fieldInfo.hasVectorValues()).thenReturn(true);
+            when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.BYTE);
+            when(fieldInfo.attributes()).thenReturn(Map.of(PerFieldKnnVectorsFormat.PER_FIELD_FORMAT_KEY, "Lucene99HnswVectorsFormat"));
+
+            VectorDataType vectorDataType = VectorDataType.BYTE;
+            when(fieldInfo.getAttribute(PerFieldKnnVectorsFormat.PER_FIELD_FORMAT_KEY)).thenReturn("Lucene99HnswVectorsFormat");
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+
+            ByteVectorValues luceneVectorValues = mock(ByteVectorValues.class);
+            when(leafReaderContext.reader().getByteVectorValues(exactSearcherContextBuilder.build().getField())).thenReturn(
+                luceneVectorValues
+            );
+            KNNByteVectorValues vectorValues = mock(KNNByteVectorValues.class);
             valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(vectorDataType, luceneVectorValues))
                 .thenReturn(vectorValues);
 

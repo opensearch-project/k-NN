@@ -105,6 +105,46 @@ public class ExactSearchInQueryIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testSearchWithExactSearchSpaceType_FaissByteL1() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field("data_type", "byte")
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), mapping);
+
+        for (int i = 0; i < 5; i++) {
+            addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new int[] { i, i });
+        }
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
+
+        Byte[] queryVector = { 3, 3 };
+
+        String query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(TEST_K)
+            .exactSearchSpaceType("l1")
+            .build()
+            .getQueryString();
+
+        Response response = searchKNNIndex(INDEX_NAME, query, TEST_K);
+        String entity = EntityUtils.toString(response.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(TEST_K, docIds.size());
+        assertEquals(TEST_K, parseTotalSearchHits(entity));
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
     public void testSearchWithExactSearchSpaceType_Lucene() {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -182,6 +222,50 @@ public class ExactSearchInQueryIT extends KNNRestTestCase {
             .vector(queryVector)
             .k(TEST_K)
             .exactSearchSpaceType(TEST_EXACT_SEARCH_SPACE_TYPE)
+            .build()
+            .getQueryString();
+
+        Response response = searchKNNIndex(INDEX_NAME, query, TEST_K);
+        String entity = EntityUtils.toString(response.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(TEST_K, docIds.size());
+        assertEquals(TEST_K, parseTotalSearchHits(entity));
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testSearchWithExactSearchSpaceType_LuceneLINF() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .startObject("method")
+            .field("name", "hnsw")
+            .field("engine", "lucene")
+            .field("space_type", "innerproduct")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), mapping);
+
+        for (int i = 0; i < 5; i++) {
+            addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i });
+        }
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
+
+        Float[] queryVector = { 3f, 3f };
+
+        String query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(TEST_K)
+            .exactSearchSpaceType("linf")
             .build()
             .getQueryString();
 

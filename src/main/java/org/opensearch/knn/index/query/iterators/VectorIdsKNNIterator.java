@@ -95,6 +95,16 @@ public class VectorIdsKNNIterator implements KNNIterator {
             return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
         }
 
+        // adding l1/linf support for exact search in query so scoring script is not needed
+        if (spaceType.getValue().equals("l1") || spaceType.getValue().equals("linf")) {
+            if (spaceType.getValue().equals("l1")) {
+                return (1 / (1 + KNNScoringUtil.l1Norm(queryVector, vector)));
+            }
+            if (spaceType.getValue().equals("linf")) {
+                return (1 / (1 + KNNScoringUtil.lInfNorm(queryVector, vector)));
+            }
+        }
+
         byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
         if (quantizedQueryVector == null) {
             // in ExactSearcher::getKnnIterator we don't set quantizedQueryVector if adc is enabled. So at this point adc is enabled.
