@@ -104,7 +104,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         if (searchMode != null && searchMode.equals(EXACT_SEARCH_KEY)) {
             return new NativeEngines990KnnVectorsFormat(
                 new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
-                -1
+                KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN
             );
         }
 
