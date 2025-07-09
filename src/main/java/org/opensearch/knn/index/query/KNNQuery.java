@@ -24,6 +24,9 @@ import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.Profilers;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -175,6 +178,11 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
+        Profilers profilers = KNNMetrics.getProfilers();
+        ContextualProfileBreakdown profile = null;
+        if (profilers != null) {
+            profile = profilers.getCurrentQueryProfiler().getTopBreakdown();
+        }
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {
             stopWatch = new StopWatch().start();
@@ -193,11 +201,11 @@ public class KNNQuery extends Query {
 
         if (isMemoryOptimizedSearch) {
             // Using memory optimized search logic on index.
-            return new MemoryOptimizedKNNWeight(this, boost, filterWeight, searcher, k);
+            return new MemoryOptimizedKNNWeight(this, boost, filterWeight, searcher, k, profile);
         }
 
         // Using native library to perform search on index.
-        return new DefaultKNNWeight(this, boost, filterWeight);
+        return new DefaultKNNWeight(this, boost, filterWeight, profile);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

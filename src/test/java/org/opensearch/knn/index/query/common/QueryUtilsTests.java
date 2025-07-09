@@ -66,7 +66,7 @@ public class QueryUtilsTests extends TestCase {
         when(weight.scorer(leafReaderContext2)).thenReturn(scorer);
 
         // Run
-        List<Map<Integer, Float>> results = queryUtils.doSearch(indexSearcher, leafReaderContexts, weight);
+        List<Map<Integer, Float>> results = queryUtils.doSearch(indexSearcher, leafReaderContexts, weight, null);
 
         // Verify
         assertEquals(2, results.size());
