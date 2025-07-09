@@ -41,6 +41,12 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.knn.profile.LongMetric;
+import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.AbstractProfileBreakdown;
+import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -85,11 +91,13 @@ public abstract class KNNWeight extends Weight {
     protected final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
 
-    public KNNWeight(KNNQuery query, float boost) {
-        this(query, boost, null);
+    private final ContextualProfileBreakdown profile;
+
+    public KNNWeight(KNNQuery query, float boost, ContextualProfileBreakdown profile) {
+        this(query, boost, null, profile);
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, ContextualProfileBreakdown profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -97,6 +105,7 @@ public abstract class KNNWeight extends Weight {
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
         this.quantizationService = QuantizationService.getInstance();
         this.knnExplanation = new KnnExplanation();
+        this.profile = profile;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -297,11 +306,27 @@ public abstract class KNNWeight extends Weight {
         final String segmentName = reader.getSegmentName();
 
         StopWatch stopWatch = startStopWatch();
-        final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        final BitSet filterBitSet;
+        if (profile != null) {
+            Timer filterTimer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.BITSET_CREATION.toString());
+            filterTimer.start();
+            try {
+                filterBitSet = getFilteredDocsBitSet(context);
+            } finally {
+                filterTimer.stop();
+            }
+        } else {
+            filterBitSet = getFilteredDocsBitSet(context);
+        }
         stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
 
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
+        if (profile != null) {
+            AbstractProfileBreakdown pb = profile.context(context);
+            LongMetric cardMetric = (LongMetric) pb.getMetric(KNNMetrics.CARDINALITY);
+            cardMetric.setValue((long) cardinality);
+        }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
@@ -318,7 +343,18 @@ public abstract class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            TopDocs result;
+            if (profile != null) {
+                Timer timer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.EXACT_SEARCH_AFTER_FILTER.toString());
+                timer.start();
+                try {
+                    result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+                } finally {
+                    timer.stop();
+                }
+            } else {
+                result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            }
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -329,7 +365,18 @@ public abstract class KNNWeight extends Weight {
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
 
         StopWatch annStopWatch = startStopWatch();
-        final TopDocs topDocs = approximateSearch(context, annFilter, cardinality, k);
+        final TopDocs topDocs;
+        if (profile != null) {
+            Timer annTimer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.ANN_SEARCH.toString());
+            annTimer.start();
+            try {
+                topDocs = approximateSearch(context, annFilter, cardinality, k);
+            } finally {
+                annTimer.stop();
+            }
+        } else {
+            topDocs = approximateSearch(context, annFilter, cardinality, k);
+        }
         stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
@@ -339,7 +386,18 @@ public abstract class KNNWeight extends Weight {
         // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, topDocs.scoreDocs.length)) {
             final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            TopDocs result = doExactSearch(context, docs, cardinality, k);
+            TopDocs result;
+            if (profile != null) {
+                Timer timer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.EXACT_SEARCH_AFTER_ANN.toString());
+                timer.start();
+                try {
+                    result = doExactSearch(context, docs, cardinality, k);
+                } finally {
+                    timer.stop();
+                }
+            } else {
+                result = doExactSearch(context, docs, cardinality, k);
+            }
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, topDocs);
@@ -498,7 +556,6 @@ public abstract class KNNWeight extends Weight {
      * @param knnEngine Engine type configured for the target field.
      * @param vectorDataType Vector data type configured for the target field.
      * @param quantizedVector Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null.
-     * @param transformedVector Transformed query vector if ADC is enabled for the target field. It is null when ADC is disabled.
      * @param modelId Model id. It can be null if the index for searching was not derived from a trained index.
      * @param filterIdsBitSet Bit set for filtering a valid document for collecting.
      * @param cardinality Cardinality of filtering bit set. It will be the total number of documents if no filtering presents.
@@ -553,7 +610,18 @@ public abstract class KNNWeight extends Weight {
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
         StopWatch stopWatch = startStopWatch();
-        TopDocs exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        TopDocs exactSearchResults;
+        if (profile != null) {
+            Timer exactTimer = (Timer) profile.context(leafReaderContext).getMetric(KNNQueryTimingType.EXACT_SEARCH.toString());
+            exactTimer.start();
+            try {
+                exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+            } finally {
+                exactTimer.stop();
+            }
+        } else {
+            exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        }
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
         return exactSearchResults;
