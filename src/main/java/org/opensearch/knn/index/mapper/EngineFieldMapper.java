@@ -112,6 +112,11 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 public KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
                     return libraryContext;
                 }
+
+                @Override
+                public String getSearchMode() {
+                    return originalMappingParameters.getSearchMode();
+                }
             }
         );
 
