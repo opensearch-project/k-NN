@@ -83,6 +83,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -105,6 +106,8 @@ import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
+import org.opensearch.search.internal.SearchContext;
+import org.opensearch.search.profile.ProfileMetric;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -182,6 +185,30 @@ public class KNNPlugin extends Plugin
             PlatformUtils.isAVX2SupportedBySystem();
             PlatformUtils.isAVX512SupportedBySystem();
             PlatformUtils.isAVX512SPRSupportedBySystem();
+        });
+    }
+
+    @Override
+    public Optional<ProfileMetricsProvider> getQueryProfileMetricsProvider() {
+        return Optional.of(new ProfileMetricsProvider() {
+            @Override
+            public Collection<Supplier<ProfileMetric>> getProfileMetrics(SearchContext searchContext) {
+                KNNMetrics.setProfilers(searchContext.getProfilers());
+                Collection<Supplier<ProfileMetric>> metrics = KNNMetrics.getKNNQueryMetrics();
+                metrics.addAll(KNNMetrics.getNativeMetrics());
+                metrics.addAll(KNNMetrics.getLuceneMetrics());
+                return metrics;
+            }
+
+            // @Override
+            // public Map<Class<? extends Query>, Collection<Supplier<ProfileMetric>>> getPluginMetrics() {
+            // return Map.of(
+            // KNNQuery.class, KNNMetrics.getKNNQueryMetrics(),
+            // NativeEngineKnnVectorQuery.class, KNNMetrics.getNativeMetrics(),
+            // LuceneEngineKnnVectorQuery.class, KNNMetrics.getLuceneMetrics(),
+            // RescoreKNNVectorQuery.class, KNNMetrics.getLuceneMetrics()
+            // );
+            // }
         });
     }
 

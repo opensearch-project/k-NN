@@ -23,6 +23,11 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
+import org.opensearch.search.profile.AbstractProfileBreakdown;
+import org.opensearch.search.profile.Profilers;
+import org.opensearch.search.profile.Timer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -86,8 +91,21 @@ public class RescoreKNNVectorQuery extends Query {
     private TopDocs[] doRescore(final IndexSearcher indexSearcher, Weight weight) throws IOException {
         List<LeafReaderContext> leafReaderContexts = indexSearcher.getIndexReader().leaves();
         List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
+        Profilers profilers = KNNMetrics.getProfilers();
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            rescoreTasks.add(() -> searchLeaf(exactSearcher, weight, k, leafReaderContext));
+            rescoreTasks.add(() -> {
+                if (profilers != null) {
+                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getTopBreakdown().context(leafReaderContext);
+                    Timer timer = profile.getTimer(LuceneEngineKnnTimingType.RESCORE);
+                    timer.start();
+                    try {
+                        return searchLeaf(exactSearcher, weight, k, leafReaderContext);
+                    } finally {
+                        timer.stop();
+                    }
+                }
+                return searchLeaf(exactSearcher, weight, k, leafReaderContext);
+            });
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks).toArray(TopDocs[]::new);
     }

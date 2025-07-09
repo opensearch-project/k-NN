@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.lucene.util.BitSet;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
@@ -40,8 +41,8 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 public class DefaultKNNWeight extends KNNWeight {
     private final NativeMemoryCacheManager nativeMemoryCacheManager;
 
-    public DefaultKNNWeight(KNNQuery query, float boost, Weight filterWeight) {
-        super(query, boost, filterWeight);
+    public DefaultKNNWeight(KNNQuery query, float boost, Weight filterWeight, ContextualProfileBreakdown profile) {
+        super(query, boost, filterWeight, profile);
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
     }
 

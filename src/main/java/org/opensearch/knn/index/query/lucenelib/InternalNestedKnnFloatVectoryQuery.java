@@ -14,6 +14,10 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
+import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
+import org.opensearch.search.profile.Profilers;
+import org.opensearch.search.profile.Timer;
 
 import java.io.IOException;
 
@@ -52,6 +56,19 @@ public class InternalNestedKnnFloatVectoryQuery extends KnnFloatVectorQuery impl
 
     @Override
     public TopDocs knnExactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
+        Profilers profilers = KNNMetrics.getProfilers();
+        if (profilers != null) {
+            Timer timer = (Timer) profilers.getCurrentQueryProfiler()
+                .getTopBreakdown()
+                .context(context)
+                .getMetric(LuceneEngineKnnTimingType.INTERNAL_EXACT.toString());
+            timer.start();
+            try {
+                return super.exactSearch(context, acceptIterator, null);
+            } finally {
+                timer.stop();
+            }
+        }
         return super.exactSearch(context, acceptIterator, null);
     }
 }
