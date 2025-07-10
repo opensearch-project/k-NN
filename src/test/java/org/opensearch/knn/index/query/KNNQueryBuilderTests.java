@@ -146,6 +146,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         );
     }
 
+    public void testInvalidExactSearchSpaceType() {
+        float[] queryVector = { 1.0f, 1.0f };
+        /**
+         * invalid space type
+         */
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).exactSearchSpaceType("l3").build()
+        );
+    }
+
     public void testEmptyVector() {
         /**
          * null query vector
@@ -922,6 +933,29 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
             exception.getMessage()
         );
+    }
+
+    public void testDoToQuery_ValidExactSearchSpaceType() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(5)
+            .exactSearchSpaceType("l2")
+            .build();
+
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
+
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertEquals(knnQueryBuilder.getExactSearchSpaceType(), query.getExactSearchSpaceType());
     }
 
     public void testSerialization() throws Exception {

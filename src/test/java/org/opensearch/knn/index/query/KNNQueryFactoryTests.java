@@ -57,6 +57,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     private final String testFieldName = "test-field";
     private final int testK = 10;
     private final Map<String, ?> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, 100);
+    private final String testExactSearchSpaceType = "l2";
 
     @Mock
     ClusterSettings clusterSettings;
@@ -447,6 +448,38 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         assertTrue(query instanceof KNNQuery);
         assertNotNull(((KNNQuery) query).getByteQueryVector());
         assertNull(((KNNQuery) query).getQueryVector());
+    }
+
+    public void testCreate_whenExactSearchSpaceType_thenSuccess() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+
+        final KNNQuery expectedQuery = KNNQuery.builder()
+            .indexName(testIndexName)
+            .field(testFieldName)
+            .queryVector(testQueryVector)
+            .k(testK)
+            .exactSearchSpaceType(testExactSearchSpaceType)
+            .build();
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.DEFAULT)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .k(testK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .exactSearchSpaceType(testExactSearchSpaceType)
+            .build();
+        Query query = KNNQueryFactory.create(createQueryRequest);
+        assertTrue(query instanceof KNNQuery);
+        assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
+        assertEquals(testFieldName, ((KNNQuery) query).getField());
+        assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
+        assertEquals(testK, ((KNNQuery) query).getK());
+        assertEquals(testExactSearchSpaceType, ((KNNQuery) query).getExactSearchSpaceType());
+        assertEquals(expectedQuery, query);
     }
 
     public void testCreate_whenRescoreContext() {

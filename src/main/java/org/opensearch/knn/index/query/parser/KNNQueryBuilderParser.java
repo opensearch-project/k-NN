@@ -34,6 +34,7 @@ import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_SPACE_TYPE;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EXPAND_NESTED_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.RESCORE_FIELD;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
@@ -47,6 +48,7 @@ import static org.opensearch.knn.index.query.KNNQueryBuilder.METHOD_PARAMS_FIELD
 import static org.opensearch.knn.index.query.KNNQueryBuilder.MIN_SCORE_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.VECTOR_FIELD;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.EXACT_SEARCH_SPACE_TYPE_FIELD;
 
 /**
  * Helper class responsible for parsing and reverse parsing KNNQueryBuilder's
@@ -106,6 +108,7 @@ public final class KNNQueryBuilderParser {
         }, RESCORE_FIELD, ObjectParser.ValueType.OBJECT_OR_BOOLEAN);
 
         internalParser.declareBoolean(KNNQueryBuilder.Builder::expandNested, EXPAND_NESTED_FIELD);
+        internalParser.declareString(KNNQueryBuilder.Builder::exactSearchSpaceType, EXACT_SEARCH_SPACE_TYPE_FIELD);
 
         // Declare fields that cannot be set at the same time. Right now, rescore and radial is not supported
         internalParser.declareExclusiveFieldSet(RESCORE_FIELD.getPreferredName(), MAX_DISTANCE_FIELD.getPreferredName());
@@ -150,6 +153,10 @@ public final class KNNQueryBuilderParser {
             builder.expandNested(in.readOptionalBoolean());
         }
 
+        if (minClusterVersionCheck.apply(EXACT_SEARCH_SPACE_TYPE)) {
+            builder.exactSearchSpaceType(in.readOptionalString());
+        }
+
         return builder;
     }
 
@@ -184,6 +191,9 @@ public final class KNNQueryBuilderParser {
         }
         if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
             out.writeOptionalBoolean(builder.getExpandNested());
+        }
+        if (minClusterVersionCheck.apply(EXACT_SEARCH_SPACE_TYPE)) {
+            out.writeOptionalString(builder.getExactSearchSpaceType());
         }
     }
 
@@ -261,6 +271,9 @@ public final class KNNQueryBuilderParser {
         }
         if (knnQueryBuilder.getExpandNested() != null) {
             builder.field(EXPAND_NESTED, knnQueryBuilder.getExpandNested());
+        }
+        if (knnQueryBuilder.getExactSearchSpaceType() != null) {
+            builder.field(EXACT_SEARCH_SPACE_TYPE, knnQueryBuilder.getExactSearchSpaceType());
         }
 
         builder.endObject();

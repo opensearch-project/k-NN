@@ -62,6 +62,7 @@ public abstract class BaseQueryFactory {
         private RescoreContext rescoreContext;
         private boolean expandNested;
         private boolean memoryOptimizedSearchEnabled;
+        private String exactSearchSpaceType;
 
         public Optional<QueryBuilder> getFilter() {
             return Optional.ofNullable(filter);

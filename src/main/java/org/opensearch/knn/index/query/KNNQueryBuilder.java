@@ -49,6 +49,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
@@ -56,6 +57,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
+import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
@@ -84,6 +86,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     public static final ParseField METHOD_PARAMS_FIELD = new ParseField(METHOD_PARAMETER);
     public static final ParseField RESCORE_FIELD = new ParseField(RESCORE_PARAMETER);
     public static final ParseField RESCORE_OVERSAMPLE_FIELD = new ParseField(RESCORE_OVERSAMPLE_PARAMETER);
+    public static final ParseField EXACT_SEARCH_SPACE_TYPE_FIELD = new ParseField(EXACT_SEARCH_SPACE_TYPE);
 
     public static final int K_MAX = 10000;
     /**
@@ -111,6 +114,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     private RescoreContext rescoreContext;
     @Getter
     private Boolean expandNested;
+    @Getter
+    private String exactSearchSpaceType;
 
     /**
      * Constructs a new query with the given field name and vector
@@ -153,6 +158,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         private float boost = DEFAULT_BOOST;
         private RescoreContext rescoreContext;
         private Boolean expandNested;
+        private String exactSearchSpaceType;
 
         public Builder() {}
 
@@ -216,6 +222,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             return this;
         }
 
+        public Builder exactSearchSpaceType(String exactSearchSpaceType) {
+            this.exactSearchSpaceType = exactSearchSpaceType;
+            return this;
+        }
+
         public KNNQueryBuilder build() {
             validate();
             int k = this.k == null ? 0 : this.k;
@@ -229,7 +240,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 filter,
                 ignoreUnmapped,
                 rescoreContext,
-                expandNested
+                expandNested,
+                exactSearchSpaceType
             ).boost(boost).queryName(queryName);
         }
 
@@ -283,6 +295,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 if (validationException != null) {
                     throw new IllegalArgumentException(
                         String.format(Locale.ROOT, "[%s] errors in rescore parameter [%s]", NAME, validationException.getMessage())
+                    );
+                }
+            }
+
+            if (exactSearchSpaceType != null) {
+                List<String> allowedSpaceTypes = Arrays.asList("hamming", "hammingbit", "l1", "l2", "linf", "innerproduct", "cosinesimil");
+                if (!allowedSpaceTypes.contains(exactSearchSpaceType)) {
+                    throw new IllegalArgumentException(
+                        String.format(Locale.ROOT, "[%s] requires valid space type for exact search, refer to allowed space types.", NAME)
                     );
                 }
             }
@@ -440,6 +461,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         KNNEngine knnEngine = queryConfigFromMapping.getKnnEngine();
         MethodComponentContext methodComponentContext = queryConfigFromMapping.getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
+        if (exactSearchSpaceType != null) {
+            spaceType = SpaceType.getSpace(exactSearchSpaceType);
+        }
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
         RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
         knnVectorFieldType.transformQueryVector(vector);
@@ -578,6 +602,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .rescoreContext(processedRescoreContext)
                 .expandNested(expandNested == null ? false : expandNested)
                 .memoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
+                .exactSearchSpaceType(exactSearchSpaceType)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }
@@ -710,7 +735,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             && Objects.equals(filter, other.filter)
             && Objects.equals(ignoreUnmapped, other.ignoreUnmapped)
             && Objects.equals(rescoreContext, other.rescoreContext)
-            && Objects.equals(expandNested, other.expandNested);
+            && Objects.equals(expandNested, other.expandNested)
+            && Objects.equals(exactSearchSpaceType, other.exactSearchSpaceType);
     }
 
     @Override
@@ -725,7 +751,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             maxDistance,
             minScore,
             rescoreContext,
-            expandNested
+            expandNested,
+            exactSearchSpaceType
         );
     }
 
@@ -751,6 +778,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                     .ignoreUnmapped(this.ignoreUnmapped)
                     .rescoreContext(this.rescoreContext)
                     .expandNested(this.expandNested)
+                    .exactSearchSpaceType(this.exactSearchSpaceType)
                     .build();
                 return rewrittenQueryBuilder;
             }

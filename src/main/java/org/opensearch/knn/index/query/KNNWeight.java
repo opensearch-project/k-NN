@@ -141,7 +141,11 @@ public abstract class KNNWeight extends Weight {
         if (fieldInfo == null) {
             return Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString()));
         }
-        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        SpaceType resolvedSpaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        if (knnQuery.getExactSearchSpaceType() != null) {
+            resolvedSpaceType = SpaceType.getSpace(knnQuery.getExactSearchSpaceType());
+        }
+        final SpaceType spaceType = resolvedSpaceType;
         leafLevelExplanation.append(", spaceType = ").append(spaceType.getValue());
 
         final Float rawScore = knnExplanation.getRawScore(doc);
@@ -206,6 +210,9 @@ public abstract class KNNWeight extends Weight {
         if (annResult != null && annResult > 0 && !isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
             sb.append(KNNConstants.ANN_SEARCH);
         }
+        if (knnQuery.getExactSearchSpaceType() != null) {
+            sb.append(KNNConstants.EXACT_SEARCH).append(" since exactSearchSpaceType = ").append(knnQuery.getExactSearchSpaceType());
+        }
         sb.append(" with vectorDataType = ").append(knnQuery.getVectorDataType());
         return sb;
     }
@@ -216,6 +223,8 @@ public abstract class KNNWeight extends Weight {
             sb.append(buildDiskBasedSearchExplanation());
         } else if (knnQuery.getRadius() != null) {
             sb.append(KNNConstants.RADIAL_SEARCH).append(" with the radius of ").append(knnQuery.getRadius());
+        } else if (knnQuery.getExactSearchSpaceType() != null) {
+            sb.append(KNNConstants.EXACT_SEARCH).append(" with the exactSearchSpaceType of ").append(knnQuery.getExactSearchSpaceType());
         } else {
             sb.append(KNNConstants.ANN_SEARCH);
         }
@@ -322,6 +331,12 @@ public abstract class KNNWeight extends Weight {
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
+        // if exactSearchSpaceType is not null, then exact search needs to be performed
+        if (knnQuery.getExactSearchSpaceType() != null) {
+            TopDocs result = doExactSearch(context, null, cardinality, k);
+            return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
+        }
+
         /*
          * If filters match all docs in this segment, then null should be passed as filterBitSet
          * so that it will not do a bitset look up in bottom search layer.
@@ -402,7 +417,8 @@ public abstract class KNNWeight extends Weight {
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
-            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch());
+            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+            .exactSearchSpaceType(knnQuery.getExactSearchSpaceType());
 
         if (knnQuery.getContext() != null) {
             exactSearcherContextBuilder.maxResultWindow(knnQuery.getContext().getMaxResultWindow());
