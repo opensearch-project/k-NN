@@ -33,8 +33,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.security.AccessController;
-import java.security.PrivilegedExceptionAction;
+import org.opensearch.secure_sm.AccessController;
 
 import static org.apache.hc.core5.http.HttpStatus.SC_OK;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.BASIC_PREFIX;
@@ -85,22 +84,26 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
     public RemoteBuildResponse submitVectorBuild(RemoteBuildRequest remoteBuildRequest) throws IOException {
         HttpPost buildRequest = getHttpPost(toJson(remoteBuildRequest));
         try {
-            String response = AccessController.doPrivileged(
-                (PrivilegedExceptionAction<String>) () -> httpClient.execute(buildRequest, body -> {
-                    if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
-                        HttpEntity entity = body.getEntity();
-                        String responseBody = entity != null ? EntityUtils.toString(entity) : StringUtils.EMPTY;
-                        throw new IOException(
-                            String.format(
-                                "Failed to submit build request, got status code: %d, response body: %s",
-                                body.getCode(),
-                                responseBody
-                            )
-                        );
-                    }
-                    return EntityUtils.toString(body.getEntity());
-                })
-            );
+            String response = AccessController.doPrivileged(() -> {
+                try {
+                    return httpClient.execute(buildRequest, body -> {
+                        if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
+                            HttpEntity entity = body.getEntity();
+                            String responseBody = entity != null ? EntityUtils.toString(entity) : StringUtils.EMPTY;
+                            throw new IOException(
+                                String.format(
+                                    "Failed to submit build request, got status code: %d, response body: %s",
+                                    body.getCode(),
+                                    responseBody
+                                )
+                            );
+                        }
+                        return EntityUtils.toString(body.getEntity());
+                    });
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
             XContentParser parser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 LoggingDeprecationHandler.INSTANCE,
@@ -143,12 +146,18 @@ public class RemoteIndexHTTPClient implements RemoteIndexClient, Closeable {
             request.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
         }
         try {
-            String response = AccessController.doPrivileged((PrivilegedExceptionAction<String>) () -> httpClient.execute(request, body -> {
-                if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
-                    throw new IOException("Failed to submit status request, got status code: " + body.getCode());
+            String response = AccessController.doPrivileged(() -> {
+                try {
+                    return httpClient.execute(request, body -> {
+                        if (body.getCode() < SC_OK || body.getCode() > HttpStatus.SC_MULTIPLE_CHOICES) {
+                            throw new IOException("Failed to submit status request, got status code: " + body.getCode());
+                        }
+                        return EntityUtils.toString(body.getEntity());
+                    });
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-                return EntityUtils.toString(body.getEntity());
-            }));
+            });
             XContentParser parser = JsonXContent.jsonXContent.createParser(
                 NamedXContentRegistry.EMPTY,
                 LoggingDeprecationHandler.INSTANCE,
