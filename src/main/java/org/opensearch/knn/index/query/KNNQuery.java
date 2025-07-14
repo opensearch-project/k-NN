@@ -25,6 +25,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.Profilers;
 

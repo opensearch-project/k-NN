@@ -10,9 +10,8 @@ import java.util.Locale;
 public enum KNNQueryTimingType {
     ANN_SEARCH,
     EXACT_SEARCH,
-    BITSET_CREATION,
-    EXACT_SEARCH_AFTER_ANN,
-    EXACT_SEARCH_AFTER_FILTER;
+    GRAPH_LOAD,
+    BITSET_CREATION;
 
     @Override
     public String toString() {

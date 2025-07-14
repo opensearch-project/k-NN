@@ -40,8 +40,12 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
+import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
+import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
@@ -106,8 +110,6 @@ import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
-import org.opensearch.search.internal.SearchContext;
-import org.opensearch.search.profile.ProfileMetric;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -190,25 +192,14 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Optional<ProfileMetricsProvider> getQueryProfileMetricsProvider() {
-        return Optional.of(new ProfileMetricsProvider() {
-            @Override
-            public Collection<Supplier<ProfileMetric>> getProfileMetrics(SearchContext searchContext) {
-                KNNMetrics.setProfilers(searchContext.getProfilers());
-                Collection<Supplier<ProfileMetric>> metrics = KNNMetrics.getKNNQueryMetrics();
-                metrics.addAll(KNNMetrics.getNativeMetrics());
-                metrics.addAll(KNNMetrics.getLuceneMetrics());
-                return metrics;
+        return Optional.of((searchContext, query) -> {
+            KNNMetrics.setProfilers(searchContext.getProfilers());
+            if (query instanceof KNNQuery || query instanceof LuceneEngineKnnVectorQuery || query instanceof RescoreKNNVectorQuery) {
+                return KNNMetrics.getKNNQueryMetrics();
+            } else if (query instanceof NativeEngineKnnVectorQuery) {
+                return KNNMetrics.getNativeMetrics();
             }
-
-            // @Override
-            // public Map<Class<? extends Query>, Collection<Supplier<ProfileMetric>>> getPluginMetrics() {
-            // return Map.of(
-            // KNNQuery.class, KNNMetrics.getKNNQueryMetrics(),
-            // NativeEngineKnnVectorQuery.class, KNNMetrics.getNativeMetrics(),
-            // LuceneEngineKnnVectorQuery.class, KNNMetrics.getLuceneMetrics(),
-            // RescoreKNNVectorQuery.class, KNNMetrics.getLuceneMetrics()
-            // );
-            // }
+            return List.of();
         });
     }
 

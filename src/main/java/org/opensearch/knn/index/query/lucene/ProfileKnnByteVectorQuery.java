@@ -11,7 +11,7 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.profile.query.KNNMetrics;
-import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
 
@@ -39,10 +39,7 @@ public class ProfileKnnByteVectorQuery extends KnnByteVectorQuery {
         KnnCollectorManager knnCollectorManager
     ) throws IOException {
         if (profilers != null) {
-            Timer timer = profilers.getCurrentQueryProfiler()
-                .getTopBreakdown()
-                .context(context)
-                .getTimer(LuceneEngineKnnTimingType.ANN_SEARCH);
+            Timer timer = profilers.getCurrentQueryProfiler().getTopBreakdown().context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
             timer.start();
             try {
                 return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
@@ -57,10 +54,7 @@ public class ProfileKnnByteVectorQuery extends KnnByteVectorQuery {
     protected TopDocs exactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator, QueryTimeout queryTimeout)
         throws IOException {
         if (profilers != null) {
-            Timer timer = profilers.getCurrentQueryProfiler()
-                .getTopBreakdown()
-                .context(context)
-                .getTimer(LuceneEngineKnnTimingType.EXACT_SEARCH);
+            Timer timer = profilers.getCurrentQueryProfiler().getTopBreakdown().context(context).getTimer(KNNQueryTimingType.EXACT_SEARCH);
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, queryTimeout);

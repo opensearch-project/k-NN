@@ -15,7 +15,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.opensearch.knn.profile.query.KNNMetrics;
-import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
 
@@ -58,10 +58,10 @@ public class InternalNestedKnnByteVectoryQuery extends KnnByteVectorQuery implem
     public TopDocs knnExactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
         Profilers profilers = KNNMetrics.getProfilers();
         if (profilers != null) {
-            Timer timer = (Timer) profilers.getCurrentQueryProfiler()
+            Timer timer = profilers.getCurrentQueryProfiler()
                 .getTopBreakdown()
                 .context(context)
-                .getMetric(LuceneEngineKnnTimingType.INTERNAL_EXACT.toString());
+                .getTimer(KNNQueryTimingType.EXACT_SEARCH);
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, null);

@@ -91,7 +91,7 @@ public abstract class KNNWeight extends Weight {
     protected final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
 
-    private final ContextualProfileBreakdown profile;
+    protected final ContextualProfileBreakdown profile;
 
     public KNNWeight(KNNQuery query, float boost, ContextualProfileBreakdown profile) {
         this(query, boost, null, profile);
@@ -308,7 +308,7 @@ public abstract class KNNWeight extends Weight {
         StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet;
         if (profile != null) {
-            Timer filterTimer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.BITSET_CREATION.toString());
+            Timer filterTimer = profile.context(context).getTimer(KNNQueryTimingType.BITSET_CREATION);
             filterTimer.start();
             try {
                 filterBitSet = getFilteredDocsBitSet(context);
@@ -343,18 +343,7 @@ public abstract class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            TopDocs result;
-            if (profile != null) {
-                Timer timer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.EXACT_SEARCH_AFTER_FILTER.toString());
-                timer.start();
-                try {
-                    result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
-                } finally {
-                    timer.stop();
-                }
-            } else {
-                result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
-            }
+            TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -386,18 +375,7 @@ public abstract class KNNWeight extends Weight {
         // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, topDocs.scoreDocs.length)) {
             final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            TopDocs result;
-            if (profile != null) {
-                Timer timer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.EXACT_SEARCH_AFTER_ANN.toString());
-                timer.start();
-                try {
-                    result = doExactSearch(context, docs, cardinality, k);
-                } finally {
-                    timer.stop();
-                }
-            } else {
-                result = doExactSearch(context, docs, cardinality, k);
-            }
+            TopDocs result = doExactSearch(context, docs, cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, topDocs);

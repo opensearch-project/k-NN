@@ -38,20 +38,8 @@ public class KNNMetrics {
 
     public static Collection<Supplier<ProfileMetric>> getNativeMetrics() {
         Collection<Supplier<ProfileMetric>> metrics = getKNNQueryMetrics();
-        for (NativeEngineKnnTimingType type : NativeEngineKnnTimingType.values()) {
-            metrics.add(() -> new Timer(type.toString()));
-        }
 
         metrics.add(() -> new LongMetric(NUM_NESTED_DOCS));
-
-        return metrics;
-    }
-
-    public static Collection<Supplier<ProfileMetric>> getLuceneMetrics() {
-        Collection<Supplier<ProfileMetric>> metrics = new ArrayList<>();
-        for (LuceneEngineKnnTimingType type : LuceneEngineKnnTimingType.values()) {
-            metrics.add(() -> new Timer(type.toString()));
-        }
 
         return metrics;
     }
