@@ -1345,7 +1345,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         System.out.println(responseBody);
         List<Long> results = parseProfileMetric(responseBody, QueryTimingType.SCORE.toString(), true);
-        assertEquals(2, results.size());
+        assertEquals(1, results.size());
 
         // Create knn search body, all fields
         builder = XContentFactory.jsonBuilder()
@@ -1684,7 +1684,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         String responseString = EntityUtils.toString(response.getEntity());
         System.out.println(responseString);
         assertEquals(1, parseIds(responseString).size());
-        List<Long> results = parseProfileMetric(responseString, KNNQueryTimingType.EXACT_SEARCH.toString(), false);
+        List<Long> results = parseProfileMetric(responseString, KNNQueryTimingType.EXACT_SEARCH.toString(), true);
         for (Long result : results) {
             assertNotEquals(0L, result.longValue());
         }

@@ -28,6 +28,7 @@ import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.Profilers;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -179,10 +180,10 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
-        Profilers profilers = KNNMetrics.getProfilers();
+        QueryProfiler profiler = ((ContextIndexSearcher) searcher).getProfiler();
         ContextualProfileBreakdown profile = null;
-        if (profilers != null) {
-            profile = profilers.getCurrentQueryProfiler().getTopBreakdown();
+        if (profiler != null) {
+            profile = profiler.getProfileBreakdown(this);
         }
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {

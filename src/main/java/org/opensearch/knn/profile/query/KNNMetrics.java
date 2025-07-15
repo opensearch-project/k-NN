@@ -21,10 +21,6 @@ public class KNNMetrics {
     public static final String NUM_NESTED_DOCS = "num_nested_docs";
     public static final String CARDINALITY = "cardinality";
 
-    @Getter
-    @Setter
-    private static Profilers profilers;
-
     public static Collection<Supplier<ProfileMetric>> getKNNQueryMetrics() {
         Collection<Supplier<ProfileMetric>> metrics = new ArrayList<>();
         for (KNNQueryTimingType type : KNNQueryTimingType.values()) {

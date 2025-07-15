@@ -34,9 +34,11 @@ import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,6 +68,11 @@ public class NativeEngineKnnVectorQuery extends Query {
     @Override
     public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException {
         final IndexReader reader = indexSearcher.getIndexReader();
+        QueryProfiler profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
+        if (profiler != null) {
+            // add a new node to the profile tree
+            profiler.getQueryBreakdown(knnQuery);
+        }
         final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<PerLeafResult> perLeafResults;
@@ -149,11 +156,11 @@ public class NativeEngineKnnVectorQuery extends Query {
         List<Callable<PerLeafResult>> nestedQueryTasks = new ArrayList<>(leafReaderContexts.size());
         for (int i = 0; i < perLeafResults.size(); i++) {
             LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
-            Profilers profilers = KNNMetrics.getProfilers();
+            QueryProfiler profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
             int finalI = i;
             nestedQueryTasks.add(() -> {
-                if (profilers != null) {
-                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getTopBreakdown().context(leafReaderContext);
+                if (profiler != null) {
+                    AbstractProfileBreakdown profile = profiler.getProfileBreakdown(this).context(leafReaderContext);
                     PerLeafResult result = retrieveSingle(leafReaderContext, knnWeight, perLeafResults, useQuantizedVectors, finalI);
                     LongMetric metric = (LongMetric) profile.getMetric(KNNMetrics.NUM_NESTED_DOCS);
                     metric.setValue((long) result.getResult().scoreDocs.length);

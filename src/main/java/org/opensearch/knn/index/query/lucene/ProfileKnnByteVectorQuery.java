@@ -12,22 +12,24 @@ import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
 public class ProfileKnnByteVectorQuery extends KnnByteVectorQuery {
 
-    private final Profilers profilers;
+    private QueryProfiler profiler;
 
     public ProfileKnnByteVectorQuery(String field, byte[] target, int k, Query filter) {
         super(field, target, k, filter);
-        profilers = KNNMetrics.getProfilers();
     }
 
     @Override
     public Query rewrite(IndexSearcher indexSearcher) throws IOException {
+        profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
         return super.rewrite(indexSearcher);
     }
 
@@ -38,8 +40,8 @@ public class ProfileKnnByteVectorQuery extends KnnByteVectorQuery {
         int visitedLimit,
         KnnCollectorManager knnCollectorManager
     ) throws IOException {
-        if (profilers != null) {
-            Timer timer = profilers.getCurrentQueryProfiler().getTopBreakdown().context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
+        if (profiler != null) {
+            Timer timer = profiler.getProfileBreakdown(this).context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
             timer.start();
             try {
                 return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
@@ -53,8 +55,8 @@ public class ProfileKnnByteVectorQuery extends KnnByteVectorQuery {
     @Override
     protected TopDocs exactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator, QueryTimeout queryTimeout)
         throws IOException {
-        if (profilers != null) {
-            Timer timer = profilers.getCurrentQueryProfiler().getTopBreakdown().context(context).getTimer(KNNQueryTimingType.EXACT_SEARCH);
+        if (profiler != null) {
+            Timer timer = profiler.getProfileBreakdown(this).context(context).getTimer(KNNQueryTimingType.EXACT_SEARCH);
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, queryTimeout);

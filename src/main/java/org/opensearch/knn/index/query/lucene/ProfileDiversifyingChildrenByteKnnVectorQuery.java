@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query.lucene;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
@@ -16,14 +17,16 @@ import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
 public class ProfileDiversifyingChildrenByteKnnVectorQuery extends DiversifyingChildrenByteKnnVectorQuery {
 
-    private final Profilers profilers;
+    private QueryProfiler profiler;
 
     public ProfileDiversifyingChildrenByteKnnVectorQuery(
         String field,
@@ -33,7 +36,12 @@ public class ProfileDiversifyingChildrenByteKnnVectorQuery extends DiversifyingC
         BitSetProducer parentsFilter
     ) {
         super(field, target, childFilter, k, parentsFilter);
-        profilers = KNNMetrics.getProfilers();
+    }
+
+    @Override
+    public Query rewrite(IndexSearcher indexSearcher) throws IOException {
+        profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
+        return super.rewrite(indexSearcher);
     }
 
     @Override
@@ -43,8 +51,8 @@ public class ProfileDiversifyingChildrenByteKnnVectorQuery extends DiversifyingC
         int visitedLimit,
         KnnCollectorManager knnCollectorManager
     ) throws IOException {
-        if (profilers != null) {
-            Timer timer = profilers.getCurrentQueryProfiler().getTopBreakdown().context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
+        if (profiler != null) {
+            Timer timer = profiler.getProfileBreakdown(this).context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
             timer.start();
             try {
                 return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
@@ -58,8 +66,8 @@ public class ProfileDiversifyingChildrenByteKnnVectorQuery extends DiversifyingC
     @Override
     protected TopDocs exactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator, QueryTimeout queryTimeout)
         throws IOException {
-        if (profilers != null) {
-            Timer timer = profilers.getCurrentQueryProfiler().getTopBreakdown().context(context).getTimer(KNNQueryTimingType.EXACT_SEARCH);
+        if (profiler != null) {
+            Timer timer = profiler.getProfileBreakdown(this).context(context).getTimer(KNNQueryTimingType.EXACT_SEARCH);
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, queryTimeout);

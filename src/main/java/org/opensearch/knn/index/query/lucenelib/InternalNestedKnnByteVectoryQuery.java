@@ -16,8 +16,10 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
@@ -32,6 +34,8 @@ public class InternalNestedKnnByteVectoryQuery extends KnnByteVectorQuery implem
     private final int k;
     private final BitSetProducer parentFilter;
     private final DiversifyingChildrenByteKnnVectorQuery diversifyingChildrenByteKnnVectorQuery;
+
+    private QueryProfiler profiler;
 
     public InternalNestedKnnByteVectoryQuery(
         final String field,
@@ -51,17 +55,14 @@ public class InternalNestedKnnByteVectoryQuery extends KnnByteVectorQuery implem
 
     @Override
     public Query knnRewrite(final IndexSearcher searcher) throws IOException {
+        profiler = ((ContextIndexSearcher) searcher).getProfiler();
         return diversifyingChildrenByteKnnVectorQuery.rewrite(searcher);
     }
 
     @Override
     public TopDocs knnExactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
-        Profilers profilers = KNNMetrics.getProfilers();
-        if (profilers != null) {
-            Timer timer = profilers.getCurrentQueryProfiler()
-                .getTopBreakdown()
-                .context(context)
-                .getTimer(KNNQueryTimingType.EXACT_SEARCH);
+        if (profiler != null) {
+            Timer timer = profiler.getProfileBreakdown(this).context(context).getTimer(KNNQueryTimingType.EXACT_SEARCH);
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, null);

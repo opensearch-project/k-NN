@@ -25,9 +25,11 @@ import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -91,11 +93,11 @@ public class RescoreKNNVectorQuery extends Query {
     private TopDocs[] doRescore(final IndexSearcher indexSearcher, Weight weight) throws IOException {
         List<LeafReaderContext> leafReaderContexts = indexSearcher.getIndexReader().leaves();
         List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
-        Profilers profilers = KNNMetrics.getProfilers();
+        QueryProfiler profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
             rescoreTasks.add(() -> {
-                if (profilers != null) {
-                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getTopBreakdown().context(leafReaderContext);
+                if (profiler != null) {
+                    AbstractProfileBreakdown profile = profiler.getProfileBreakdown(this).context(leafReaderContext);
                     Timer timer = profile.getTimer(KNNQueryTimingType.EXACT_SEARCH);
                     timer.start();
                     try {

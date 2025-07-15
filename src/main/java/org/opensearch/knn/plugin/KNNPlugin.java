@@ -6,6 +6,7 @@
 package org.opensearch.knn.plugin;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.lucene.search.Query;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -37,6 +38,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceIndexOperationListener;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -44,7 +46,10 @@ import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
-import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
+import org.opensearch.knn.index.query.lucene.*;
+import org.opensearch.knn.index.query.lucenelib.ExpandNestedDocsQuery;
+import org.opensearch.knn.index.query.lucenelib.InternalNestedKnnByteVectoryQuery;
+import org.opensearch.knn.index.query.lucenelib.InternalNestedKnnFloatVectoryQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.util.KNNClusterUtil;
@@ -192,9 +197,19 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Optional<ProfileMetricsProvider> getQueryProfileMetricsProvider() {
+        List<Class<? extends Query>> knnQueryClasses = List.of(
+                KNNQuery.class,
+                RescoreKNNVectorQuery.class,
+                ExpandNestedDocsQuery.class,
+                InternalNestedKnnFloatVectoryQuery.class,
+                InternalNestedKnnByteVectoryQuery.class,
+                ProfileKnnByteVectorQuery.class,
+                ProfileKnnFloatVectorQuery.class,
+                ProfileDiversifyingChildrenFloatKnnVectorQuery.class,
+                ProfileDiversifyingChildrenByteKnnVectorQuery.class
+        );
         return Optional.of((searchContext, query) -> {
-            KNNMetrics.setProfilers(searchContext.getProfilers());
-            if (query instanceof KNNQuery || query instanceof LuceneEngineKnnVectorQuery || query instanceof RescoreKNNVectorQuery) {
+            if (knnQueryClasses.contains(query.getClass())) {
                 return KNNMetrics.getKNNQueryMetrics();
             } else if (query instanceof NativeEngineKnnVectorQuery) {
                 return KNNMetrics.getNativeMetrics();
