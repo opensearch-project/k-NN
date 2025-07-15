@@ -33,11 +33,8 @@ import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
-import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
-import org.opensearch.search.profile.Profilers;
-import org.opensearch.search.profile.Timer;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -238,17 +235,17 @@ public class NativeEngineKnnVectorQuery extends Query {
                 }
                 DocIdSetIterator matchedDocs = new TopDocsDISI(perLeafeResult.getResult());
                 final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-                        .matchedDocsIterator(matchedDocs)
-                        .numberOfMatchedDocs(perLeafResults.get(finalI).getResult().scoreDocs.length)
-                        // setting to false because in re-scoring we want to do exact search on full precision vectors
-                        .useQuantizedVectorsForSearch(false)
-                        .k(k)
-                        .radius(knnQuery.getRadius())
-                        .field(knnQuery.getField())
-                        .floatQueryVector(knnQuery.getQueryVector())
-                        .byteQueryVector(knnQuery.getByteQueryVector())
-                        .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
-                        .build();
+                    .matchedDocsIterator(matchedDocs)
+                    .numberOfMatchedDocs(perLeafResults.get(finalI).getResult().scoreDocs.length)
+                    // setting to false because in re-scoring we want to do exact search on full precision vectors
+                    .useQuantizedVectorsForSearch(false)
+                    .k(k)
+                    .radius(knnQuery.getRadius())
+                    .field(knnQuery.getField())
+                    .floatQueryVector(knnQuery.getQueryVector())
+                    .byteQueryVector(knnQuery.getByteQueryVector())
+                    .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+                    .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafeResult.getFilterBits(), rescoreResult);
             });

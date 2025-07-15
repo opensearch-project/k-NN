@@ -22,12 +22,10 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.common.QueryUtils;
-import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
-import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
 import org.opensearch.search.profile.query.QueryProfiler;
 
@@ -54,7 +52,7 @@ public class ExpandNestedDocsQuery extends Query {
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
         QueryProfiler profiler = ((ContextIndexSearcher) searcher).getProfiler();
-        if(profiler != null) {
+        if (profiler != null) {
             profiler.getQueryBreakdown((Query) internalNestedKnnVectorQuery);
         }
         Query docAndScoreQuery = internalNestedKnnVectorQuery.knnRewrite(searcher);

@@ -48,7 +48,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.opensearch.knn.index.KNNSettings.*;
+import static org.opensearch.knn.index.KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN;
 
 public class OpenSearchIT extends KNNRestTestCase {
 

@@ -15,10 +15,8 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.util.Bits;
-import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
-import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
 import org.opensearch.search.profile.query.QueryProfiler;
 

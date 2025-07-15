@@ -5,11 +5,8 @@
 
 package org.opensearch.knn.profile.query;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.search.profile.ProfileMetric;
-import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
 
 import java.util.ArrayList;

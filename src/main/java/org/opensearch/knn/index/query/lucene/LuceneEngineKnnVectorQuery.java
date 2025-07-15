@@ -43,7 +43,7 @@ public class LuceneEngineKnnVectorQuery extends Query {
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
         QueryProfiler profiler = ((ContextIndexSearcher) searcher).getProfiler();
-        if(profiler != null) {
+        if (profiler != null) {
             profiler.getQueryBreakdown(luceneQuery);
         }
         Query rewrittenQuery = luceneQuery.rewrite(searcher);

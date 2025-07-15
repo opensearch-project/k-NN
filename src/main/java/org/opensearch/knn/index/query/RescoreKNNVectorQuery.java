@@ -23,11 +23,9 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
-import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
 import org.opensearch.search.profile.query.QueryProfiler;
 

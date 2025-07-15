@@ -82,50 +82,49 @@ public class DefaultKNNWeight extends KNNWeight {
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
         try {
-            if(profile != null) {
+            if (profile != null) {
                 Timer timer = profile.context(context).getTimer(KNNQueryTimingType.GRAPH_LOAD);
                 timer.start();
                 try {
                     indexAllocation = nativeMemoryCacheManager.get(
-                            new NativeMemoryEntryContext.IndexEntryContext(
-                                    reader.directory(),
-                                    cacheKey,
-                                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                    getParametersAtLoading(
-                                            spaceType,
-                                            knnEngine,
-                                            knnQuery.getIndexName(),
-                                            // TODO: In the future, more vector data types will be supported with quantization
-                                            quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
-                                            segmentLevelQuantizationInfo
-                                    ),
-                                    knnQuery.getIndexName(),
-                                    modelId
+                        new NativeMemoryEntryContext.IndexEntryContext(
+                            reader.directory(),
+                            cacheKey,
+                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                            getParametersAtLoading(
+                                spaceType,
+                                knnEngine,
+                                knnQuery.getIndexName(),
+                                // TODO: In the future, more vector data types will be supported with quantization
+                                quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
+                                segmentLevelQuantizationInfo
                             ),
-                            true
+                            knnQuery.getIndexName(),
+                            modelId
+                        ),
+                        true
                     );
                 } finally {
                     timer.stop();
                 }
-            }
-            else {
+            } else {
                 indexAllocation = nativeMemoryCacheManager.get(
-                        new NativeMemoryEntryContext.IndexEntryContext(
-                                reader.directory(),
-                                cacheKey,
-                                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                getParametersAtLoading(
-                                        spaceType,
-                                        knnEngine,
-                                        knnQuery.getIndexName(),
-                                        // TODO: In the future, more vector data types will be supported with quantization
-                                        quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
-                                        segmentLevelQuantizationInfo
-                                ),
-                                knnQuery.getIndexName(),
-                                modelId
+                    new NativeMemoryEntryContext.IndexEntryContext(
+                        reader.directory(),
+                        cacheKey,
+                        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                        getParametersAtLoading(
+                            spaceType,
+                            knnEngine,
+                            knnQuery.getIndexName(),
+                            // TODO: In the future, more vector data types will be supported with quantization
+                            quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
+                            segmentLevelQuantizationInfo
                         ),
-                        true
+                        knnQuery.getIndexName(),
+                        modelId
+                    ),
+                    true
                 );
             }
         } catch (ExecutionException e) {
