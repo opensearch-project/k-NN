@@ -16,10 +16,12 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+import org.opensearch.knn.index.codec.params.KNNBBQVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
@@ -28,9 +30,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.*;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
@@ -44,7 +44,9 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier;
-    private Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
+    // TODO: get a sense of what this supplier does, depending on different vectors formats being passed in.
+    private final Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier;
+    private final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private static final String MAX_CONNECTIONS = "max_connections";
     private static final String BEAM_WIDTH = "beam_width";
@@ -56,25 +58,27 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         Supplier<KnnVectorsFormat> defaultFormatSupplier,
         Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier
     ) {
-        this(mapperService, defaultMaxConnections, defaultBeamWidth, defaultFormatSupplier, vectorsFormatSupplier, null);
+        this(mapperService, defaultMaxConnections, defaultBeamWidth, defaultFormatSupplier, vectorsFormatSupplier, null, null);
     }
 
     public BasePerFieldKnnVectorsFormat(
-        Optional<MapperService> mapperService,
-        int defaultMaxConnections,
-        int defaultBeamWidth,
-        Supplier<KnnVectorsFormat> defaultFormatSupplier,
-        Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
-        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier
+            Optional<MapperService> mapperService,
+            int defaultMaxConnections,
+            int defaultBeamWidth,
+            Supplier<KnnVectorsFormat> defaultFormatSupplier,
+            Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
+            Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier,
+            Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier
     ) {
         this(
-            mapperService,
-            defaultMaxConnections,
-            defaultBeamWidth,
-            defaultFormatSupplier,
-            vectorsFormatSupplier,
-            scalarQuantizedVectorsFormatSupplier,
-            new NativeIndexBuildStrategyFactory()
+                mapperService,
+                defaultMaxConnections,
+                defaultBeamWidth,
+                defaultFormatSupplier,
+                vectorsFormatSupplier,
+                bbqVectorsFormatSupplier,
+                scalarQuantizedVectorsFormatSupplier,
+                new NativeIndexBuildStrategyFactory()
         );
     }
 
@@ -110,11 +114,24 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
 
         if (engine == KNNEngine.LUCENE) {
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
+                KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(
+                        params, defaultMaxConnections, defaultBeamWidth
+                );
+                if (bbqParams.validate(params)) {
+                    log.debug(
+                            "Initialize KNN vector format for field [{}] with BBQ encoder [{}] = \"{}\" and [{}] = \"{}\"",
+                            field, MAX_CONNECTIONS, bbqParams.getMaxConnections(), BEAM_WIDTH, bbqParams.getBeamWidth()
+                    );
+                    return bbqVectorsFormatSupplier.apply(bbqParams);
+                }
+
                 KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                     params,
                     defaultMaxConnections,
                     defaultBeamWidth
                 );
+                // TODO: we have an instance of params here, can maybe do some branching log.
+                // note that we're doing an apply pattern
                 if (knnScalarQuantizedVectorsFormatParams.validate(params)) {
                     log.debug(
                         "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
@@ -128,6 +145,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                         LUCENE_SQ_BITS,
                         knnScalarQuantizedVectorsFormatParams.getBits()
                     );
+                    // TODO: here when we call and actually make the vectors format is here.
                     return scalarQuantizedVectorsFormatSupplier.apply(knnScalarQuantizedVectorsFormatParams);
                 }
             }

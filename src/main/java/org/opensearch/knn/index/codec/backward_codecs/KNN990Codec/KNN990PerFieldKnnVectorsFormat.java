@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.backward_codecs.KNN990Codec;
 
+import org.apache.lucene.codecs.lucene102.Lucene102HnswBinaryQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
@@ -29,14 +30,20 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
                 knnVectorsFormatParams.getMaxConnections(),
                 knnVectorsFormatParams.getBeamWidth()
             ),
+            knnBBQVectorsFormatParams -> new Lucene102HnswBinaryQuantizedVectorsFormat(
+                    knnBBQVectorsFormatParams.getMaxConnections(),
+                    knnBBQVectorsFormatParams.getBeamWidth(),
+                    NUM_MERGE_WORKERS,
+                    null
+            ),
             knnScalarQuantizedVectorsFormatParams -> new Lucene99HnswScalarQuantizedVectorsFormat(
-                knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
-                knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
-                NUM_MERGE_WORKERS,
-                knnScalarQuantizedVectorsFormatParams.getBits(),
-                knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
-                knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
-                null
+                    knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
+                    knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
+                    NUM_MERGE_WORKERS,
+                    knnScalarQuantizedVectorsFormatParams.getBits(),
+                    knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
+                    knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
+                    null
             )
         );
     }

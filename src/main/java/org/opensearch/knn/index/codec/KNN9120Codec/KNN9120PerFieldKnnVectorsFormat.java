@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN9120Codec;
 
+import org.apache.lucene.codecs.lucene102.Lucene102HnswBinaryQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.common.collect.Tuple;
@@ -14,10 +15,15 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
  * Class provides per field format implementation for Lucene Knn vector type
@@ -61,19 +67,28 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                         mergeThreadCountAndExecutorService.v2()
                     );
                 }
+            },// TODO: this is the format supplier. may be able to get from mapper service, if it's bbq or not.
+            knnBBQVectorsFormatParams -> {
+                final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
+                return new Lucene102HnswBinaryQuantizedVectorsFormat(
+                        knnBBQVectorsFormatParams.getMaxConnections(),
+                        knnBBQVectorsFormatParams.getBeamWidth(),
+                        mergeThreadCountAndExecutorService.v1(),
+                        mergeThreadCountAndExecutorService.v2()
+                );
             },
             knnScalarQuantizedVectorsFormatParams -> {
                 final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
                 return new Lucene99HnswScalarQuantizedVectorsFormat(
-                    knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
-                    knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
-                    // Number of merge threads
-                    mergeThreadCountAndExecutorService.v1(),
-                    knnScalarQuantizedVectorsFormatParams.getBits(),
-                    knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
-                    knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
-                    // Executor service
-                    mergeThreadCountAndExecutorService.v2()
+                        knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
+                        knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
+                        // Number of merge threads
+                        mergeThreadCountAndExecutorService.v1(),
+                        knnScalarQuantizedVectorsFormatParams.getBits(),
+                        knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
+                        knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
+                        // Executor service
+                        mergeThreadCountAndExecutorService.v2()
                 );
             },
             nativeIndexBuildStrategyFactory
