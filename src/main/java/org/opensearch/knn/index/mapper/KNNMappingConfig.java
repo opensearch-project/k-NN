@@ -74,12 +74,12 @@ public interface KNNMappingConfig {
     }
 
     /**
-     * Return the searchMode to be used for this field (default is null)
+     * Returns if field is indexed or not.
      *
-     * @return String searchMode
+     * @return boolean index
      */
-    default String getSearchMode() {
-        return null;
+    default boolean isIndexed() {
+        return true;
     }
 
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {

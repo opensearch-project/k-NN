@@ -18,11 +18,11 @@ public class OriginalMappingParametersTests extends KNNTestCase {
 
     public void testIsLegacy() {
         assertTrue(
-            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, null, SpaceType.UNDEFINED.getValue(), null)
+            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, null, SpaceType.UNDEFINED.getValue(), true)
                 .isLegacyMapping()
         );
         assertFalse(
-            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, "model-id", SpaceType.UNDEFINED.getValue(), null)
+            new OriginalMappingParameters(VectorDataType.DEFAULT, 123, null, null, null, "model-id", SpaceType.UNDEFINED.getValue(), true)
                 .isLegacyMapping()
         );
         assertFalse(
@@ -34,7 +34,7 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 null,
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                null
+                true
             ).isLegacyMapping()
         );
         assertFalse(
@@ -46,7 +46,7 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 CompressionLevel.x2.getName(),
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                null
+                true
             ).isLegacyMapping()
         );
         assertFalse(
@@ -58,7 +58,7 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 null,
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                null
+                true
             ).isLegacyMapping()
         );
     }

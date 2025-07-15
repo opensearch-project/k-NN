@@ -50,7 +50,7 @@ public class KNN10010CodecTests extends KNNCodecTestCase {
     }
 
     @SneakyThrows
-    public void testSearchModeOnCodec() {
+    public void testIndexParameterOnCodec() {
         Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
             mapperService) -> new KNN9120PerFieldKnnVectorsFormat(Optional.of(mapperService));
 
@@ -59,7 +59,7 @@ public class KNN10010CodecTests extends KNNCodecTestCase {
             .knnVectorsFormat(knnVectorFormat)
             .build();
 
-        testKnnVectorIndexWithSearchMode(knnCodecProvider, perFieldKnnVectorsFormatProvider);
+        testKnnVectorIndexWithIndexParameter(knnCodecProvider, perFieldKnnVectorsFormatProvider);
     }
 
     @SneakyThrows
@@ -72,6 +72,6 @@ public class KNN10010CodecTests extends KNNCodecTestCase {
             .knnVectorsFormat(knnVectorFormat)
             .build();
 
-        testNoGraphFilesCreated_ExactSearchMode(knnCodecProvider, perFieldKnnVectorsFormatProvider);
+        testNoGraphFilesCreated_IndexParameter(knnCodecProvider, perFieldKnnVectorsFormatProvider);
     }
 }

@@ -21,6 +21,7 @@ import org.opensearch.Version;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
@@ -65,7 +66,12 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -438,42 +444,45 @@ public class KNNCodecTestCase extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
-    public void testKnnVectorIndexWithSearchMode(
+    public void testKnnVectorIndexWithIndexParameter(
         final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
         final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
     ) throws Exception {
         final MapperService mapperService = mock(MapperService.class);
 
-        // ann method context
-        final KNNMethodContext annMethodContext = new KNNMethodContext(
+        // index = true context
+        final KNNMethodContext indexTrueMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
 
-        // exact method context
-        final KNNMethodContext exactMethodContext = getDefaultKNNMethodContext();
+        // index = false context
+        final KNNMethodContext indexFalseMethodContext = getDefaultKNNMethodContext();
 
-        // ann field type
-        final KNNVectorFieldType annMappedFieldType = new KNNVectorFieldType(
+        // index = true field type
+        final KNNVectorFieldType indexTrueMappedFieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(annMethodContext, 3, "ann")
+            getMappingConfigForMethodMapping(indexTrueMethodContext, 3, true)
         );
-        // exact field type
-        final KNNVectorFieldType exactMappedFieldType = new KNNVectorFieldType(
+        // index = false field type
+        final KNNVectorFieldType indexFalseMappedFieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
+            getMappingConfigForMethodMapping(indexFalseMethodContext, 2, false)
         );
 
-        assertEquals("ann", annMappedFieldType.getKnnMappingConfig().getSearchMode());
-        assertEquals("exact", exactMappedFieldType.getKnnMappingConfig().getSearchMode());
+        assertTrue(indexTrueMappedFieldType.getKnnMappingConfig().isIndexed());
+        assertFalse(indexFalseMappedFieldType.getKnnMappingConfig().isIndexed());
 
-        when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(annMappedFieldType);
-        when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(exactMappedFieldType);
+        when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(indexTrueMappedFieldType);
+        when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(indexFalseMappedFieldType);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(0);
 
         var perFieldKnnVectorsFormatSpy = spy(perFieldKnnVectorsFormatProvider.apply(mapperService));
         final Codec codec = codecProvider.apply(perFieldKnnVectorsFormatSpy);
@@ -548,24 +557,27 @@ public class KNNCodecTestCase extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
-    public void testNoGraphFilesCreated_ExactSearchMode(
+    public void testNoGraphFilesCreated_IndexParameter(
         final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
         final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
     ) throws Exception {
         final MapperService mapperService = mock(MapperService.class);
 
-        // exact method context
-        final KNNMethodContext exactMethodContext = getDefaultKNNMethodContext();
+        // index = false method context
+        final KNNMethodContext indexFalseMethodContext = getDefaultKNNMethodContext();
 
-        // exact field type
-        final KNNVectorFieldType exactMappedFieldType = new KNNVectorFieldType(
+        // index = false field type
+        final KNNVectorFieldType indexFalseMappedFieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(exactMethodContext, 2, "exact")
+            getMappingConfigForMethodMapping(indexFalseMethodContext, 2, false)
         );
 
-        when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(exactMappedFieldType);
+        when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(indexFalseMappedFieldType);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(0);
 
         var perFieldKnnVectorsFormatSpy = spy(perFieldKnnVectorsFormatProvider.apply(mapperService));
         final Codec codec = codecProvider.apply(perFieldKnnVectorsFormatSpy);
@@ -579,6 +591,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
+        iwc.setUseCompoundFile(false);
 
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         final FieldType luceneFieldType = KnnFloatVectorField.createFieldType(2, VectorSimilarityFunction.EUCLIDEAN);

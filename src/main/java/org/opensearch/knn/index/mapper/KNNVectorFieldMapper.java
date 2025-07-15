@@ -195,13 +195,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
-        // search mode field (exact or ann)
-        protected final Parameter<String> searchMode = Parameter.stringParam(
-            KNNConstants.SEARCH_MODE,
-            false,
-            m -> toType(m).originalMappingParameters.getSearchMode(),
-            null
-        );
+        /**
+         * indexed parameter allows a user to specify whether a field should have graphs built or not. Defaults to true.
+         */
+        protected final Parameter<Boolean> indexed = Parameter.indexParam(m -> toType(m).originalMappingParameters.isIndexed(), true);
 
         protected ModelDao modelDao;
         protected Version indexCreatedVersion;
@@ -255,7 +252,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 mode,
                 compressionLevel,
                 topLevelSpaceType,
-                searchMode
+                indexed
             );
         }
 
@@ -432,7 +429,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // we must wrap it and pick up the default when it is UNDEFINED.
                 setSpaceType(builder.originalParameters.getKnnMethodContext(), resolvedSpaceType);
                 validateSpaceType(builder);
-                validateSearchMode(builder);
+                validateIndexParameter(builder);
 
                 // Resolve method component. For the legacy case where space type can be configured at index level,
                 // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
@@ -445,19 +442,23 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             return builder;
         }
 
-        private void validateSearchMode(KNNVectorFieldMapper.Builder builder) {
-            String searchModeParam = builder.originalParameters.getSearchMode();
-            // ignoring searchMode if index before 3.0.0 (but searchMode will still be the value it was set to)
-            if (searchModeParam != null && !builder.indexCreatedVersion.onOrAfter(Version.V_3_0_0)) {
-                return;
-            }
-            if (searchModeParam == null) return;
-            if (!(searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY)) && !(searchModeParam.equals(KNNConstants.ANN_SEARCH_KEY))) {
-                throw new IllegalArgumentException("Search mode must be either 'exact' or 'ann'");
-            }
-            final KNNMethodContext knnMethodContext = builder.knnMethodContext.get();
-            if (searchModeParam.equals(KNNConstants.EXACT_SEARCH_KEY) && knnMethodContext != null) {
-                throw new IllegalArgumentException("Method and exact search mode cannot both be specified in the mapping");
+        private void validateIndexParameter(KNNVectorFieldMapper.Builder builder) {
+            boolean indexedParam = builder.originalParameters.isIndexed();
+            // ignoring indexedParam if index before 3.0.0 (will always be set to true)
+            if (indexedParam == false && !builder.indexCreatedVersion.onOrAfter(Version.V_3_0_0)) {
+                OriginalMappingParameters originalMappingParameters = builder.originalParameters;
+                builder.setOriginalParameters(
+                    new OriginalMappingParameters(
+                        originalMappingParameters.getVectorDataType(),
+                        originalMappingParameters.getDimension(),
+                        originalMappingParameters.getKnnMethodContext(),
+                        originalMappingParameters.getMode(),
+                        originalMappingParameters.getCompressionLevel(),
+                        originalMappingParameters.getModelId(),
+                        originalMappingParameters.getTopLevelSpaceType(),
+                        true
+                    )
+                );
             }
         }
 

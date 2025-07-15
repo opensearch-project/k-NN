@@ -114,8 +114,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 }
 
                 @Override
-                public String getSearchMode() {
-                    return originalMappingParameters.getSearchMode();
+                public boolean isIndexed() {
+                    return originalMappingParameters.isIndexed();
                 }
             }
         );

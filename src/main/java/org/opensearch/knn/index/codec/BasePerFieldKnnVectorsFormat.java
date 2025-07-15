@@ -14,6 +14,7 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.KNN990Codec.KNN990FlatVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
@@ -31,7 +32,6 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_KEY;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
@@ -98,14 +98,13 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
-        // check if exact search is enabled
-        String searchMode = mappedFieldType.getKnnMappingConfig().getSearchMode();
-        // setting approximateThreshold to -1 so graphs don't get built
-        if (searchMode != null && searchMode.equals(EXACT_SEARCH_KEY)) {
-            return new NativeEngines990KnnVectorsFormat(
-                new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
-                KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN
-            );
+        // check if index field level parameter is set to false and index.knn.approximate.advanced_threshold is equal to 0 (the default)
+        // since precedence
+        // given to that setting if set -> no graphs built
+        boolean indexed = mappedFieldType.getKnnMappingConfig().isIndexed();
+        if (indexed == false
+            && mapperService.get().getIndexSettings().getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING) == 0) {
+            return new KNN990FlatVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
         }
 
         final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
