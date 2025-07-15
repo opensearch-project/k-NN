@@ -12,8 +12,10 @@ import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.lucenelib.NestedKnnVectorQueryFactory;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
@@ -54,10 +56,16 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
         BitSetProducer parentFilter = null;
         int shardId = -1;
+        int approxThreshold = -2;
+        KNNVectorFieldType mappedFieldType = null;
         if (createQueryRequest.getContext().isPresent()) {
             QueryShardContext context = createQueryRequest.getContext().get();
             parentFilter = context.getParentFilter();
             shardId = context.getShardId();
+            approxThreshold = context.getMapperService()
+                .getIndexSettings()
+                .getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
+            mappedFieldType = (KNNVectorFieldType) context.getFieldType(fieldName);
         }
 
         if (parentFilter == null && expandNested) {
@@ -71,7 +79,9 @@ public class KNNQueryFactory extends BaseQueryFactory {
             );
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        // if index = false and graphs are not built, use KNNQuery since engine would not matter
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())
+            || (approxThreshold == 0 && mappedFieldType.getKnnMappingConfig().isIndexed() == false)) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
 
             log.debug(
