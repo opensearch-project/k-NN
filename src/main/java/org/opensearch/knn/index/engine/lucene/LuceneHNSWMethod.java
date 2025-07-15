@@ -45,7 +45,11 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
     );
 
     final static Encoder SQ_ENCODER = new LuceneSQEncoder();
-    final static Map<String, Encoder> SUPPORTED_ENCODERS = Map.of(SQ_ENCODER.getName(), SQ_ENCODER);
+    final static Encoder BBQ_ENCODER = new LuceneBBQEncoder();
+    final static Map<String, Encoder> SUPPORTED_ENCODERS = Map.of(
+        SQ_ENCODER.getName(), SQ_ENCODER,
+        BBQ_ENCODER.getName(), BBQ_ENCODER
+    );
 
     final static MethodComponent HNSW_METHOD_COMPONENT = initMethodComponent();
 
