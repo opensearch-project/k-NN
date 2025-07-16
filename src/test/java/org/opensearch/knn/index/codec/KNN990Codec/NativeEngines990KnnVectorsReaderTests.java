@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
@@ -61,7 +62,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         // Mocking FAISS engine to return a dummy vector searcher
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
-        when(mockFactory.createVectorSearcher(any(), any())).thenReturn(mock(VectorSearcher.class));
+        when(mockFactory.createVectorSearcher(any(), any(), anyBoolean())).thenReturn(mock(VectorSearcher.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
 
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
