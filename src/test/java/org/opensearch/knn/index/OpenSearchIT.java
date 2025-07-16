@@ -1284,7 +1284,6 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         assertEquals(k, parseSearchResponseFieldsCount(responseBody, "vector1"));
         assertEquals(k, parseSearchResponseFieldsCount(responseBody, "vector2"));
 
@@ -1305,7 +1304,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         response = searchKNNIndex(INDEX_NAME, builder, k);
         responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         assertEquals(k, parseSearchResponseFieldsCount(responseBody, "vector1"));
         assertEquals(k, parseSearchResponseFieldsCount(responseBody, "vector2"));
 
@@ -1345,7 +1343,6 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         List<Long> results = parseProfileMetric(responseBody, QueryTimingType.SCORE.toString(), true);
         assertEquals(1, results.size());
 
@@ -1371,7 +1368,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         response = searchKNNIndex(INDEX_NAME, builder, k);
         responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         results = parseProfileMetric(responseBody, KNNQueryTimingType.EXACT_SEARCH.toString(), true);
         for (Long result : results) {
             assertNotEquals(0L, result.longValue());
@@ -1412,7 +1408,6 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         List<Long> results = parseProfileMetric(responseBody, KNNQueryTimingType.EXACT_SEARCH.toString(), true);
         for (Long result : results) {
             assertEquals(0L, result.longValue());
@@ -1484,7 +1479,6 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, 10);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         List<Long> result = parseProfileMetric(responseBody, QueryTimingType.SCORE.toString(), true);
         assertEquals(2, result.size());
         deleteKNNIndex(INDEX_NAME);
@@ -1533,7 +1527,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         List<Long> results = parseProfileMetric(responseBody, KNNQueryTimingType.EXACT_SEARCH.toString(), false);
         for (Long result : results) {
             assertNotEquals(0L, result.longValue());
@@ -1588,7 +1581,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         List<Long> results = parseProfileMetric(responseBody, KNNMetrics.CARDINALITY, false);
         for (Long result : results) {
             assertEquals(7L, result.longValue());
@@ -1636,7 +1628,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         response = searchKNNIndex(INDEX_NAME, builder, k);
         responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         results = parseProfileMetric(responseBody, KNNMetrics.CARDINALITY, false);
         for (Long result : results) {
             assertEquals(7L, result.longValue());
@@ -1684,7 +1675,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
 
         String responseString = EntityUtils.toString(response.getEntity());
-        System.out.println(responseString);
         assertEquals(1, parseIds(responseString).size());
         List<Long> results = parseProfileMetric(responseString, KNNQueryTimingType.EXACT_SEARCH.toString(), true);
         for (Long result : results) {
@@ -1723,7 +1713,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
 
         String responseString = EntityUtils.toString(response.getEntity());
-        System.out.println(responseString);
         assertEquals(2, parseIds(responseString).size());
         List<Long> results = parseProfileMetric(responseString, KNNQueryTimingType.EXACT_SEARCH.toString(), false);
         for (Long result : results) {
@@ -1757,7 +1746,6 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         List<Long> results = parseProfileMetric(responseBody, KNNQueryTimingType.ANN_SEARCH.toString(), false);
         for (Long result : results) {
             assertNotEquals(0L, result.longValue());

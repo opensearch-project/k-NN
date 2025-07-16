@@ -23,10 +23,9 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
-import org.opensearch.search.internal.ContextIndexSearcher;
-import org.opensearch.search.profile.AbstractProfileBreakdown;
-import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -91,26 +90,28 @@ public class RescoreKNNVectorQuery extends Query {
     private TopDocs[] doRescore(final IndexSearcher indexSearcher, Weight weight) throws IOException {
         List<LeafReaderContext> leafReaderContexts = indexSearcher.getIndexReader().leaves();
         List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
-        QueryProfiler profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
+        QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            rescoreTasks.add(() -> {
-                if (profiler != null) {
-                    AbstractProfileBreakdown profile = profiler.getProfileBreakdown(this).context(leafReaderContext);
-                    Timer timer = profile.getTimer(KNNQueryTimingType.EXACT_SEARCH);
-                    timer.start();
-                    try {
-                        return searchLeaf(exactSearcher, weight, k, leafReaderContext);
-                    } finally {
-                        timer.stop();
-                    }
-                }
-                return searchLeaf(exactSearcher, weight, k, leafReaderContext);
-            });
+            rescoreTasks.add(
+                () -> searchLeaf(
+                    exactSearcher,
+                    weight,
+                    k,
+                    leafReaderContext,
+                    (ContextualProfileBreakdown) profiler.getProfileBreakdown(this)
+                )
+            );
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks).toArray(TopDocs[]::new);
     }
 
-    private TopDocs searchLeaf(ExactSearcher searcher, Weight weight, int k, LeafReaderContext leafReaderContext) throws IOException {
+    private TopDocs searchLeaf(
+        ExactSearcher searcher,
+        Weight weight,
+        int k,
+        LeafReaderContext leafReaderContext,
+        ContextualProfileBreakdown profile
+    ) throws IOException {
         Scorer scorer = weight.scorer(leafReaderContext);
         if (scorer == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
@@ -125,7 +126,13 @@ public class RescoreKNNVectorQuery extends Query {
             .field(field)
             .floatQueryVector(queryVector)
             .build();
-        TopDocs results = searcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        TopDocs results = (TopDocs) KNNProfileUtil.profile(profile, leafReaderContext, KNNQueryTimingType.EXACT_SEARCH, () -> {
+            try {
+                return searcher.searchLeaf(leafReaderContext, exactSearcherContext);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
         if (leafReaderContext.docBase > 0) {
             for (ScoreDoc scoreDoc : results.scoreDocs) {
                 scoreDoc.doc += leafReaderContext.docBase;

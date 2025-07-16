@@ -1,0 +1,75 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package org.opensearch.knn.profile;
+
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.Weight;
+import org.apache.lucene.util.BitSet;
+import org.opensearch.knn.index.query.ExactSearcher;
+import org.opensearch.knn.index.query.KNNQuery;
+import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
+import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+
+import java.io.IOException;
+
+public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
+
+    protected final ContextualProfileBreakdown profile;
+
+    public ProfileMemoryOptKNNWeight(
+        KNNQuery query,
+        float boost,
+        final Weight filterWeight,
+        IndexSearcher searcher,
+        int k,
+        ContextualProfileBreakdown profile
+    ) {
+        super(query, boost, filterWeight, searcher, k);
+        this.profile = profile;
+    }
+
+    @Override
+    protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+        BitSet filterBitSet = (BitSet) KNNProfileUtil.profile(profile, ctx, KNNQueryTimingType.BITSET_CREATION, () -> {
+            try {
+                return super.getFilteredDocsBitSet(ctx);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        LongMetric cardMetric = (LongMetric) profile.context(ctx).getMetric(KNNMetrics.CARDINALITY);
+        cardMetric.setValue((long) filterBitSet.cardinality());
+        return filterBitSet;
+    }
+
+    @Override
+    protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
+        throws IOException {
+        return (TopDocs) KNNProfileUtil.profile(profile, context, KNNQueryTimingType.ANN_SEARCH, () -> {
+            try {
+                return super.approximateSearch(context, filterIdsBitSet, cardinality, k);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Override
+    public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
+        throws IOException {
+        return (TopDocs) KNNProfileUtil.profile(profile, leafReaderContext, KNNQueryTimingType.EXACT_SEARCH, () -> {
+            try {
+                return super.exactSearch(leafReaderContext, exactSearcherContext);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+}

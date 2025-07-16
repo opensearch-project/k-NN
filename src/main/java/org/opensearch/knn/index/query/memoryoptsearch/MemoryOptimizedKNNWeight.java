@@ -24,7 +24,6 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 
@@ -44,15 +43,8 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
     private final KnnCollectorManager knnCollectorManager;
 
-    public MemoryOptimizedKNNWeight(
-        KNNQuery query,
-        float boost,
-        final Weight filterWeight,
-        IndexSearcher searcher,
-        int k,
-        ContextualProfileBreakdown profile
-    ) {
-        super(query, boost, filterWeight, profile);
+    public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, int k) {
+        super(query, boost, filterWeight);
 
         if (k > 0) {
             // ANN Search

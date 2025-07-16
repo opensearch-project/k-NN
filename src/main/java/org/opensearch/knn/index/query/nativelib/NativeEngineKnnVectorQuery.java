@@ -31,10 +31,12 @@ import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -65,7 +67,7 @@ public class NativeEngineKnnVectorQuery extends Query {
     @Override
     public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException {
         final IndexReader reader = indexSearcher.getIndexReader();
-        QueryProfiler profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
+        QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
         if (profiler != null) {
             // add a new node to the profile tree
             profiler.getQueryBreakdown(knnQuery);
@@ -157,7 +159,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             int finalI = i;
             nestedQueryTasks.add(() -> {
                 if (profiler != null) {
-                    AbstractProfileBreakdown profile = profiler.getProfileBreakdown(this).context(leafReaderContext);
+                    AbstractProfileBreakdown profile = ((ContextualProfileBreakdown) profiler.getProfileBreakdown(this)).context(
+                        leafReaderContext
+                    );
                     PerLeafResult result = retrieveSingle(leafReaderContext, knnWeight, perLeafResults, useQuantizedVectors, finalI);
                     LongMetric metric = (LongMetric) profile.getMetric(KNNMetrics.NUM_NESTED_DOCS);
                     metric.setValue((long) result.getResult().scoreDocs.length);

@@ -24,7 +24,9 @@ import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.search.internal.ContextIndexSearcher;
+import org.opensearch.knn.profile.KNNProfileUtil;
+import org.opensearch.knn.profile.ProfileDefaultKNNWeight;
+import org.opensearch.knn.profile.ProfileMemoryOptKNNWeight;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
@@ -178,11 +180,6 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
-        QueryProfiler profiler = ((ContextIndexSearcher) searcher).getProfiler();
-        ContextualProfileBreakdown profile = null;
-        if (profiler != null) {
-            profile = profiler.getProfileBreakdown(this);
-        }
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {
             stopWatch = new StopWatch().start();
@@ -199,13 +196,22 @@ public class KNNQuery extends Query {
             );
         }
 
+        QueryProfiler profiler = KNNProfileUtil.getProfiler(searcher);
+        if (profiler != null) {
+            ContextualProfileBreakdown profile = (ContextualProfileBreakdown) profiler.getProfileBreakdown(this);
+            if (isMemoryOptimizedSearch) {
+                return new ProfileMemoryOptKNNWeight(this, boost, filterWeight, searcher, k, profile);
+            }
+            return new ProfileDefaultKNNWeight(this, boost, filterWeight, profile);
+        }
+
         if (isMemoryOptimizedSearch) {
             // Using memory optimized search logic on index.
-            return new MemoryOptimizedKNNWeight(this, boost, filterWeight, searcher, k, profile);
+            return new MemoryOptimizedKNNWeight(this, boost, filterWeight, searcher, k);
         }
 
         // Using native library to perform search on index.
-        return new DefaultKNNWeight(this, boost, filterWeight, profile);
+        return new DefaultKNNWeight(this, boost, filterWeight);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

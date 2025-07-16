@@ -15,9 +15,9 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.util.Bits;
+import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
-import org.opensearch.search.profile.Timer;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -49,30 +49,24 @@ public class ProfileDiversifyingChildrenByteKnnVectorQuery extends DiversifyingC
         int visitedLimit,
         KnnCollectorManager knnCollectorManager
     ) throws IOException {
-        if (profiler != null) {
-            Timer timer = profiler.getProfileBreakdown(this).context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
-            timer.start();
+        return (TopDocs) KNNProfileUtil.profile(profiler, this, context, KNNQueryTimingType.ANN_SEARCH, () -> {
             try {
                 return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
-            } finally {
-                timer.stop();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        }
-        return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
+        });
     }
 
     @Override
     protected TopDocs exactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator, QueryTimeout queryTimeout)
         throws IOException {
-        if (profiler != null) {
-            Timer timer = profiler.getProfileBreakdown(this).context(context).getTimer(KNNQueryTimingType.EXACT_SEARCH);
-            timer.start();
+        return (TopDocs) KNNProfileUtil.profile(profiler, this, context, KNNQueryTimingType.EXACT_SEARCH, () -> {
             try {
                 return super.exactSearch(context, acceptIterator, queryTimeout);
-            } finally {
-                timer.stop();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        }
-        return super.exactSearch(context, acceptIterator, queryTimeout);
+        });
     }
 }
