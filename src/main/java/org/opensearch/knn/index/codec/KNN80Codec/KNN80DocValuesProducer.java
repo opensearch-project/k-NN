@@ -17,12 +17,23 @@ import org.apache.lucene.index.*;
 
 import java.io.IOException;
 
+import org.opensearch.Version;
+import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 @Log4j2
 public class KNN80DocValuesProducer extends DocValuesProducer {
@@ -32,6 +43,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     public KNN80DocValuesProducer(DocValuesProducer delegate, SegmentReadState state) {
         this.delegate = delegate;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
+        warmUpIndices(state);
     }
 
     @Override
@@ -108,5 +120,50 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         }
 
         return cacheKeys;
+    }
+
+    private void warmUpIndices(final SegmentReadState segmentReadState) {
+        final NativeMemoryCacheManager cacheManager = NativeMemoryCacheManager.getInstance();
+
+        for (final FieldInfo field : segmentReadState.fieldInfos) {
+            if (field.getDocValuesType() != DocValuesType.BINARY || field.hasVectorValues()) {
+                continue;
+            }
+
+            final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
+            if (vectorIndexFileName == null) {
+                continue;
+            }
+
+            final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
+
+            try {
+                final Map<String, Object> parameters = new HashMap<>();
+                final String spaceTypeName = field.attributes().getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
+                final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
+                parameters.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
+
+                final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(field);
+                if (KNNEngine.NMSLIB.equals(knnEngine)) {
+                    parameters.put(KNNConstants.HNSW_ALGO_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
+                }
+
+                final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(field);
+                parameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+
+                cacheManager.get(
+                    new NativeMemoryEntryContext.IndexEntryContext(
+                        segmentReadState.directory,
+                        cacheKey,
+                        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                        parameters,
+                        "unknown"
+                    ),
+                    false
+                );
+            } catch (Exception e) {
+                log.debug("[KNN] Failed to warm up index with cache key {}", cacheKey, e);
+            }
+        }
     }
 }
