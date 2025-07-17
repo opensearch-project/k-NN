@@ -8,9 +8,14 @@ package org.opensearch.knn.index.engine;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.util.Strings;
 import org.opensearch.Version;
+import org.opensearch.index.mapper.MapperParsingException;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+
+import java.util.Locale;
 
 import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
 
@@ -25,26 +30,36 @@ public final class EngineResolver {
     private EngineResolver() {}
 
     @VisibleForTesting
-    KNNEngine resolveEngine(KNNMethodConfigContext knnMethodConfigContext, KNNMethodContext knnMethodContext, boolean requiresTraining) {
-        return logAndReturnEngine(resolveKNNEngine(knnMethodConfigContext, knnMethodContext, requiresTraining, Version.CURRENT));
+    KNNEngine resolveEngine(
+        KNNMethodConfigContext knnMethodConfigContext,
+        KNNMethodContext knnMethodContext,
+        String topLevelString,
+        boolean requiresTraining
+    ) {
+        return logAndReturnEngine(
+            resolveKNNEngine(knnMethodConfigContext, knnMethodContext, topLevelString, requiresTraining, Version.CURRENT)
+        );
     }
 
     /**
-     * Based on the provided {@link Mode} and {@link CompressionLevel}, resolve to a {@link KNNEngine}.
+     * Resolves engine from configuration details. It is guaranteed not to return null.
+     * When engine is not in either method and top level, DEFAULT will be returned.
      *
      * @param knnMethodConfigContext configuration context
      * @param knnMethodContext KNNMethodContext
-     * @param requiresTraining whether config requires training
-     * @param version opensearch index version
-     * @return {@link KNNEngine}
+     * @param topLevelEngineString Alternative top-level engine
+     * @return {@link SpaceType} for the method
      */
     public KNNEngine resolveEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
+        String topLevelEngineString,
         boolean requiresTraining,
         Version version
     ) {
-        return logAndReturnEngine(resolveKNNEngine(knnMethodConfigContext, knnMethodContext, requiresTraining, version));
+        return logAndReturnEngine(
+            resolveKNNEngine(knnMethodConfigContext, knnMethodContext, topLevelEngineString, requiresTraining, version)
+        );
     }
 
     /**
@@ -52,6 +67,7 @@ public final class EngineResolver {
      *
      * @param knnMethodConfigContext configuration context
      * @param knnMethodContext KNNMethodContext
+     * @param topLevelEngineString Alternative top-level engine
      * @param requiresTraining whether config requires training
      * @param version opensearch index version
      * @return {@link KNNEngine}
@@ -59,12 +75,36 @@ public final class EngineResolver {
     private KNNEngine resolveKNNEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
+        String topLevelEngineString,
         boolean requiresTraining,
         Version version
     ) {
-        // Check user configuration first
-        if (hasUserConfiguredEngine(knnMethodContext)) {
-            return knnMethodContext.getKnnEngine();
+        KNNEngine methodEngine = getEngineTypeFromMethodContext(knnMethodContext);
+        KNNEngine topLevelEngine = getEngineFromString(topLevelEngineString);
+
+        // user configured method engine
+        if (isEngineConfigured(topLevelEngine) == false && hasUserConfiguredEngine(knnMethodContext)) {
+            return methodEngine;
+        }
+
+        // user configured top level engine
+        if (hasUserConfiguredEngine(knnMethodContext) == false && isEngineConfigured(topLevelEngine) != false) {
+            return topLevelEngine;
+        }
+
+        if (isEngineConfigured(topLevelEngine) && topLevelEngine == methodEngine && hasUserConfiguredEngine(knnMethodContext)) {
+            // both engines are same
+            return topLevelEngine;
+        } else if (isEngineConfigured(topLevelEngine) && topLevelEngine != methodEngine && hasUserConfiguredEngine(knnMethodContext)) {
+            // engines are different
+            throw new MapperParsingException(
+                String.format(
+                    Locale.ROOT,
+                    "Cannot specify conflicting engines: \"[%s]\" \"[%s]\"",
+                    methodEngine.getName(),
+                    topLevelEngine.getName()
+                )
+            );
         }
 
         // Handle training case
@@ -76,11 +116,6 @@ public final class EngineResolver {
         Mode mode = knnMethodConfigContext.getMode();
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
 
-        // If both mode and compression are not specified, we can just default
-        if (Mode.isConfigured(mode) == false && CompressionLevel.isConfigured(compressionLevel) == false) {
-            return KNNEngine.DEFAULT;
-        }
-
         if (compressionLevel == CompressionLevel.x4) {
             // Lucene is only engine that supports 4x - so we have to default to it here.
             return KNNEngine.LUCENE;
@@ -88,6 +123,11 @@ public final class EngineResolver {
         if (CompressionLevel.isConfigured(compressionLevel) == false || compressionLevel == CompressionLevel.x1) {
             // For 1x or no compression, we need to default to faiss if mode is provided and use nmslib otherwise based on version check
             return resolveEngineForX1OrNoCompression(mode, version);
+        }
+
+        // If both mode and compression are not specified, we can just default
+        if (Mode.isConfigured(mode) == false && CompressionLevel.isConfigured(compressionLevel) == false) {
+            return KNNEngine.DEFAULT;
         }
         return KNNEngine.FAISS;
     }
@@ -108,5 +148,25 @@ public final class EngineResolver {
             logger.warn("[Deprecation] {} engine is deprecated and will be removed in a future release.", knnEngine);
         }
         return knnEngine;
+    }
+
+    private boolean isEngineConfigured(final KNNEngine knnEngine) {
+        return knnEngine != null && knnEngine != KNNEngine.UNDEFINED;
+    }
+
+    private KNNEngine getEngineTypeFromMethodContext(final KNNMethodContext knnMethodContext) {
+        if (knnMethodContext == null) {
+            return KNNEngine.UNDEFINED;
+        }
+
+        return knnMethodContext.getKnnEngine();
+    }
+
+    private KNNEngine getEngineFromString(final String knnEngineString) {
+        if (Strings.isEmpty(knnEngineString)) {
+            return KNNEngine.UNDEFINED;
+        }
+
+        return KNNEngine.getEngine(knnEngineString);
     }
 }
