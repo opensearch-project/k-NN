@@ -1434,6 +1434,36 @@ public class OpenSearchIT extends KNNRestTestCase {
         int k = 7;
         // Create knn search, P <= k
         XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", false)
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", query)
+                .field("k", k)
+                .startObject("filter")
+                .startObject("bool")
+                .startArray("must")
+                .startObject()
+                .startObject("range")
+                .startObject("rating")
+                .field("gte", 8)
+                .field("lte", 14)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endArray()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+
+        // Create knn search, P <= k
+         builder = XContentFactory.jsonBuilder()
             .startObject()
             .field("profile", true)
             .startObject("query")
@@ -1460,7 +1490,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+        response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Long> results = parseProfileMetric(responseBody, KNNMetrics.CARDINALITY, false);
         for (Long result : results) {
@@ -1540,6 +1570,22 @@ public class OpenSearchIT extends KNNRestTestCase {
         Arrays.fill(query, 1);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", false)
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", query)
+                .field("k", k)
+                .field("rescore", true)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+
+        builder = XContentFactory.jsonBuilder()
             .startObject()
             .field("profile", true)
             .startObject("query")
@@ -1553,10 +1599,66 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+        response = searchKNNIndex(INDEX_NAME, builder, k);
 
         String responseString = EntityUtils.toString(response.getEntity());
         assertEquals(1, parseIds(responseString).size());
+        List<Long> results = parseProfileMetric(responseString, KNNQueryTimingType.EXACT_SEARCH.toString(), true);
+        for (Long result : results) {
+            assertNotEquals(0L, result.longValue());
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    public void testKNNSearchWithProfilerEnabled_RescoreLucene() throws Exception {
+        int dim = 3;
+        int k = 2;
+        String mapping = createKnnIndexMapping(FIELD_NAME, dim, "hnsw", "lucene", "l2", false);
+        createKnnIndex(INDEX_NAME, mapping);
+        // Add docs with knn_vector fields
+        for (int i = 1; i <= 20; i++) {
+            Float[] vector = { (float) i, (float) (i + 1), (float) (i + 2) };
+            addKnnDocWithNumericField(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector, "rating", i);
+        }
+        float[] query = new float[dim];
+        Arrays.fill(query, 2);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", false)
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", query)
+                .field("k", k)
+                .field("rescore", true)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+
+        String responseString = EntityUtils.toString(response.getEntity());
+
+        builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", true)
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", query)
+                .field("k", k)
+                .field("rescore", true)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+        response = searchKNNIndex(INDEX_NAME, builder, k);
+
+        responseString = EntityUtils.toString(response.getEntity());
+        assertEquals(2, parseIds(responseString).size());
         List<Long> results = parseProfileMetric(responseString, KNNQueryTimingType.EXACT_SEARCH.toString(), true);
         for (Long result : results) {
             assertNotEquals(0L, result.longValue());
@@ -1574,8 +1676,21 @@ public class OpenSearchIT extends KNNRestTestCase {
         }
         int k = 10; // nearest 10 neighbors
 
-        // Create knn search body, all fields
         XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", false)
+                .startObject("query")
+                .startObject("knn")
+                .startObject("vector2")
+                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+                .field("max_distance", 10)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+
+        builder = XContentFactory.jsonBuilder()
             .startObject()
             .field("profile", true)
             .startObject("query")
@@ -1587,7 +1702,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+        response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Long> results = parseProfileMetric(responseBody, KNNQueryTimingType.ANN_SEARCH.toString(), false);
         for (Long result : results) {

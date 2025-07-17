@@ -145,6 +145,16 @@ public class NativeEngineKnnVectorQuery extends Query {
         return sum;
     }
 
+    /**
+     * Gets all leaves from nested fields when expandNestedDocs is true.
+     * @param indexSearcher
+     * @param leafReaderContexts
+     * @param knnWeight
+     * @param perLeafResults
+     * @param useQuantizedVectors
+     * @return List of PerLeafResult
+     * @throws IOException
+     */
     private List<PerLeafResult> retrieveAll(
         final IndexSearcher indexSearcher,
         List<LeafReaderContext> leafReaderContexts,
@@ -158,22 +168,31 @@ public class NativeEngineKnnVectorQuery extends Query {
             QueryProfiler profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
             int finalI = i;
             nestedQueryTasks.add(() -> {
+                PerLeafResult result = retrieveLeafResult(leafReaderContext, knnWeight, perLeafResults, useQuantizedVectors, finalI);
                 if (profiler != null) {
                     AbstractProfileBreakdown profile = ((ContextualProfileBreakdown) profiler.getProfileBreakdown(this)).context(
                         leafReaderContext
                     );
-                    PerLeafResult result = retrieveSingle(leafReaderContext, knnWeight, perLeafResults, useQuantizedVectors, finalI);
                     LongMetric metric = (LongMetric) profile.getMetric(KNNMetrics.NUM_NESTED_DOCS);
                     metric.setValue((long) result.getResult().scoreDocs.length);
-                    return result;
                 }
-                return retrieveSingle(leafReaderContext, knnWeight, perLeafResults, useQuantizedVectors, finalI);
+                return result;
             });
         }
         return indexSearcher.getTaskExecutor().invokeAll(nestedQueryTasks);
     }
 
-    private PerLeafResult retrieveSingle(
+    /**
+     * Gets a single leaf when expandNestedDocs is true.
+     * @param leafReaderContext
+     * @param knnWeight
+     * @param perLeafResults
+     * @param useQuantizedVectors
+     * @param finalI
+     * @return single PerLeafResult
+     * @throws IOException
+     */
+    private PerLeafResult retrieveLeafResult(
         LeafReaderContext leafReaderContext,
         KNNWeight knnWeight,
         List<PerLeafResult> perLeafResults,
