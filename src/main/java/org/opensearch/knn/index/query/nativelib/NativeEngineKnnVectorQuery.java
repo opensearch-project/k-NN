@@ -165,7 +165,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         List<Callable<PerLeafResult>> nestedQueryTasks = new ArrayList<>(leafReaderContexts.size());
         for (int i = 0; i < perLeafResults.size(); i++) {
             LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
-            QueryProfiler profiler = ((ContextIndexSearcher) indexSearcher).getProfiler();
+            QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
             int finalI = i;
             nestedQueryTasks.add(() -> {
                 PerLeafResult result = retrieveLeafResult(leafReaderContext, knnWeight, perLeafResults, useQuantizedVectors, finalI);

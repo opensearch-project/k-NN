@@ -14,10 +14,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
-import org.opensearch.knn.profile.KNNProfileUtil;
-import org.opensearch.knn.profile.query.KNNQueryTimingType;
-import org.opensearch.search.internal.ContextIndexSearcher;
-import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
@@ -32,8 +28,6 @@ public class InternalNestedKnnFloatVectoryQuery extends KnnFloatVectorQuery impl
     private final int k;
     private final BitSetProducer parentFilter;
     private final DiversifyingChildrenFloatKnnVectorQuery diversifyingChildrenFloatKnnVectorQuery;
-
-    private QueryProfiler profiler;
 
     public InternalNestedKnnFloatVectoryQuery(
         final String field,
@@ -53,18 +47,11 @@ public class InternalNestedKnnFloatVectoryQuery extends KnnFloatVectorQuery impl
 
     @Override
     public Query knnRewrite(final IndexSearcher searcher) throws IOException {
-        profiler = ((ContextIndexSearcher) searcher).getProfiler();
         return diversifyingChildrenFloatKnnVectorQuery.rewrite(searcher);
     }
 
     @Override
     public TopDocs knnExactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
-        return (TopDocs) KNNProfileUtil.profile(profiler, this, context, KNNQueryTimingType.EXACT_SEARCH, () -> {
-            try {
-                return super.exactSearch(context, acceptIterator, null);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        return super.exactSearch(context, acceptIterator, null);
     }
 }
