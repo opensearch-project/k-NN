@@ -20,6 +20,9 @@ import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
+import org.opensearch.knn.profile.KNNProfileUtil;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -101,11 +104,18 @@ public class QueryUtils {
     public List<Map<Integer, Float>> doSearch(
         final IndexSearcher indexSearcher,
         final List<LeafReaderContext> leafReaderContexts,
-        final Weight weight
+        final Weight weight,
+        ContextualProfileBreakdown profile
     ) throws IOException {
         List<Callable<Map<Integer, Float>>> tasks = new ArrayList<>(leafReaderContexts.size());
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            tasks.add(() -> searchLeaf(leafReaderContext, weight));
+            tasks.add(() -> (Map<Integer, Float>) KNNProfileUtil.profile(profile, leafReaderContext, KNNQueryTimingType.ANN_SEARCH, () -> {
+                try {
+                    return searchLeaf(leafReaderContext, weight);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }));
         }
         return indexSearcher.getTaskExecutor().invokeAll(tasks);
     }
