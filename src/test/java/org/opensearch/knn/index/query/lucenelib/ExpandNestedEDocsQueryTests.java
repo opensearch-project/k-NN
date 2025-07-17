@@ -121,7 +121,7 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
         when(finalQuery.createWeight(indexSearcher, scoreMode, boost)).thenReturn(expectedWeight);
 
         QueryUtils queryUtils = mock(QueryUtils.class);
-        when(queryUtils.doSearch(indexSearcher, reader.leaves(), queryWeight, null)).thenReturn(perLeafResults);
+        when(queryUtils.doSearch(indexSearcher, reader.leaves(), queryWeight)).thenReturn(perLeafResults);
         when(queryUtils.createBits(any(), any())).thenReturn(queryFilterBits);
         when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(allSiblings);
         when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
