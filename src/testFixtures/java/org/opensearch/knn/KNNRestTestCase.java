@@ -357,7 +357,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Run KNN Search on Index with json string query
      */
     protected Response searchKNNIndex(String index, String query, int resultSize) throws IOException {
-        Request request = new Request("POST", "/" + index + "/_search?pretty=true");
+        Request request = new Request("POST", "/" + index + "/_search");
         request.setJsonEntity(query);
 
         request.addParameter("size", Integer.toString(resultSize));
