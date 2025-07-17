@@ -17,6 +17,9 @@ import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
+/**
+ * Wrapper class used for profiling {@link KnnFloatVectorQuery}
+ */
 public class ProfileKnnFloatVectorQuery extends KnnFloatVectorQuery {
 
     private QueryProfiler profiler;

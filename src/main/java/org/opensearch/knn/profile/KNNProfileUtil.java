@@ -15,7 +15,15 @@ import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.util.function.Supplier;
 
+/**
+ * Utility class for profiling KNN plugin.
+ */
 public class KNNProfileUtil {
+    /**
+     * Gets the query profiler from an index searcher
+     * @param searcher
+     * @return {@link org.opensearch.search.profile.query.QueryProfiler}
+     */
     public static QueryProfiler getProfiler(IndexSearcher searcher) {
         if (searcher instanceof ContextIndexSearcher contextIndexSearcher) {
             if (contextIndexSearcher.getProfiler() != null) {
@@ -25,6 +33,14 @@ public class KNNProfileUtil {
         return null;
     }
 
+    /**
+     * Executes the action provided by the supplier and times it based on the provided timing type.
+     * @param profile
+     * @param leafReaderContext
+     * @param timingType
+     * @param action
+     * @return result of the supplier
+     */
     public static Object profile(
         ContextualProfileBreakdown profile,
         LeafReaderContext leafReaderContext,
@@ -43,6 +59,14 @@ public class KNNProfileUtil {
         return action.get();
     }
 
+    /**
+     * Executes the action provided by the supplier and times it based on the provided timing type.
+     * @param profiler
+     * @param leafReaderContext
+     * @param timingType
+     * @param action
+     * @return result of the supplier
+     */
     public static Object profile(
         QueryProfiler profiler,
         Query query,

@@ -11,6 +11,9 @@ import org.opensearch.search.profile.ProfileMetric;
 
 import java.util.Map;
 
+/**
+ * Sets and returns a long value for profiling.
+ */
 public class LongMetric extends ProfileMetric {
 
     @Getter

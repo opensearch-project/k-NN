@@ -7,10 +7,7 @@ package org.opensearch.knn.index.query.lucene;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.QueryTimeout;
-import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.*;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.apache.lucene.search.knn.KnnCollectorManager;
@@ -22,6 +19,9 @@ import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
+/**
+ * Wrapper class used for profiling {@link DiversifyingChildrenFloatKnnVectorQuery}
+ */
 public class ProfileDiversifyingChildrenFloatKnnVectorQuery extends DiversifyingChildrenFloatKnnVectorQuery {
 
     private QueryProfiler profiler;

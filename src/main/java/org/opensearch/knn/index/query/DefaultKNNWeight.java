@@ -177,6 +177,9 @@ public class DefaultKNNWeight extends KNNWeight {
         return topDocs;
     }
 
+    /**
+     * Loads the graph from native memory.
+     */
     protected NativeMemoryAllocation loadGraph(
         final SegmentReader reader,
         String cacheKey,

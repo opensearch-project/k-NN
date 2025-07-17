@@ -19,6 +19,9 @@ import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 
+/**
+ * Wrapper class used when profiling {@link org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight}
+ */
 public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
 
     protected final ContextualProfileBreakdown profile;

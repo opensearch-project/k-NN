@@ -25,6 +25,9 @@ import org.opensearch.search.profile.ContextualProfileBreakdown;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * Wrapper class used when profiling {@link org.opensearch.knn.index.query.DefaultKNNWeight}
+ */
 public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
 
     protected final ContextualProfileBreakdown profile;

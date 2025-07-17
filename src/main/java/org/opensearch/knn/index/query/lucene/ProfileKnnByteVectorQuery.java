@@ -17,6 +17,9 @@ import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
+/**
+ * Wrapper class used for profiling {@link KnnByteVectorQuery}
+ */
 public class ProfileKnnByteVectorQuery extends KnnByteVectorQuery {
 
     private QueryProfiler profiler;

@@ -13,11 +13,18 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.Supplier;
 
+/**
+ *  Container for {@link org.opensearch.search.profile.ProfileMetric}s based on query type
+ */
 public class KNNMetrics {
 
     public static final String NUM_NESTED_DOCS = "num_nested_docs";
     public static final String CARDINALITY = "cardinality";
 
+    /**
+     *
+     * @return list of {@link org.opensearch.search.profile.ProfileMetric} for KNNQueries
+     */
     public static Collection<Supplier<ProfileMetric>> getKNNQueryMetrics() {
         Collection<Supplier<ProfileMetric>> metrics = new ArrayList<>();
         for (KNNQueryTimingType type : KNNQueryTimingType.values()) {
@@ -29,6 +36,10 @@ public class KNNMetrics {
         return metrics;
     }
 
+    /**
+     *
+     * @return list of {@link org.opensearch.search.profile.ProfileMetric} for NativeEngineQueries
+     */
     public static Collection<Supplier<ProfileMetric>> getNativeMetrics() {
         Collection<Supplier<ProfileMetric>> metrics = getKNNQueryMetrics();
 
