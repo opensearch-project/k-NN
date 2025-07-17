@@ -154,13 +154,13 @@ public class KNNIndexShard {
 
                 // Load off-heap index
                 final List<EngineFileContext> engineFileContexts = getAllEngineFileContexts(loadedFieldNames, leafReaderContext);
-                warmUpOffHeapIndex(engineFileContexts, directory);
+                warmUpOffHeapIndex(engineFileContexts, directory, leafReaderContext);
                 log.info("[KNN] Loaded off-heap indices for fields {}", engineFileContexts.stream().map(ctx -> ctx.fieldName));
             }
         }
     }
 
-    private void warmUpOffHeapIndex(final List<EngineFileContext> engineFileContexts, final Directory directory) {
+    private void warmUpOffHeapIndex(final List<EngineFileContext> engineFileContexts, final Directory directory, final LeafReaderContext leafReaderContext)  throws  IOException {
         for (final EngineFileContext engineFileContext : engineFileContexts) {
             try {
                 // Get cache key for an off-heap index
@@ -184,6 +184,7 @@ public class KNNIndexShard {
 
                         ),
                         getIndexName(),
+                            leafReaderContext.reader().getFloatVectorValues(engineFileContext.fieldName),
                         engineFileContext.getModelId()
                     ),
                     true
