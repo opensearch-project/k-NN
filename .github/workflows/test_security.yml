@@ -38,7 +38,7 @@ jobs:
   integ-test-with-security-linux:
     strategy:
       matrix:
-        java: [21]
+        java: [21, 24]
     env:
        CC: gcc10-gcc
        CXX: gcc10-g++
