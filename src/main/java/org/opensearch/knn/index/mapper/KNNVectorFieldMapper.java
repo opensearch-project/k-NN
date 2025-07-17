@@ -199,8 +199,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             false,
             m -> toType(m).originalMappingParameters.getTopLevelEngine(),
             KNNEngine.UNDEFINED.getName()
-        ).setValidator(KNNEngine::getEngine)
-        .alwaysSerialize();
+        ).setValidator(KNNEngine::getEngine).alwaysSerialize();
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
@@ -433,6 +432,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // we must wrap it and pick up the default when it is UNDEFINED.
                 setSpaceType(builder.originalParameters.getKnnMethodContext(), resolvedSpaceType);
                 validateSpaceType(builder);
+                validateEngine(builder);
 
                 // Resolve method component. For the legacy case where space type can be configured at index level,
                 // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
@@ -468,10 +468,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 KNNEngine knnMethodContextEngine = knnMethodContext.getKnnEngine();
                 KNNEngine topLevelEngine = KNNEngine.getEngine(builder.originalParameters.getTopLevelEngine());
                 if (topLevelEngine != KNNEngine.UNDEFINED
-                        && knnMethodContextEngine != KNNEngine.UNDEFINED
-                        && topLevelEngine != knnMethodContextEngine) {
+                    && knnMethodContextEngine != KNNEngine.UNDEFINED
+                    && topLevelEngine != knnMethodContextEngine) {
                     throw new MapperParsingException(
-                            "Engine in \"method\" and top level engine should be same or one of them should be defined."
+                        "Engine in method and top level engine should be same or one of them should be defined."
                     );
                 }
             }
