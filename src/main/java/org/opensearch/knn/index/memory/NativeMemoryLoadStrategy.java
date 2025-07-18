@@ -90,6 +90,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 throw new IllegalStateException("Index [" + indexEntryContext.getOpenSearchIndexName() + "] is not preloaded");
             }
             try (indexEntryContext) {
+                indexEntryContext.indexInputWithBuffer.setFloatVectorValues(indexEntryContext.getFloatVectorValues());
                 final long indexAddress = JNIService.loadIndex(
                     indexEntryContext.indexInputWithBuffer,
                     indexEntryContext.getParameters(),

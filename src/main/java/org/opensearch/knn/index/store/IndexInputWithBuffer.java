@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.store;
 
 import lombok.NonNull;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
@@ -21,6 +22,8 @@ public class IndexInputWithBuffer {
     private long contentLength;
     // 64K buffer.
     private byte[] buffer = new byte[64 * 1024];
+
+    private FloatVectorValues floatVectorValues;
 
     public IndexInputWithBuffer(@NonNull IndexInput indexInput) {
         this.indexInput = indexInput;
@@ -48,5 +51,17 @@ public class IndexInputWithBuffer {
     @Override
     public String toString() {
         return "{indexInput=" + indexInput + ", len(buffer)=" + buffer.length + "}";
+    }
+
+    public FloatVectorValues getFloatVectorValues() {
+        return floatVectorValues;
+    }
+
+    public void setFloatVectorValues(FloatVectorValues floatVectorValues) {
+        this.floatVectorValues = floatVectorValues;
+    }
+
+    public VectorReader getFullPrecisionVectors() {
+        return new VectorReader(floatVectorValues);
     }
 }
