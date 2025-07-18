@@ -124,13 +124,12 @@ public class RescoreKNNVectorQuery extends Query {
             .field(field)
             .floatQueryVector(queryVector)
             .build();
-        TopDocs results = (TopDocs) KNNProfileUtil.profile(profile, leafReaderContext, KNNQueryTimingType.EXACT_SEARCH, () -> {
-            try {
-                return searcher.searchLeaf(leafReaderContext, exactSearcherContext);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        TopDocs results = (TopDocs) KNNProfileUtil.profile(
+            profile,
+            leafReaderContext,
+            KNNQueryTimingType.EXACT_SEARCH,
+            () -> searcher.searchLeaf(leafReaderContext, exactSearcherContext)
+        );
         if (leafReaderContext.docBase > 0) {
             for (ScoreDoc scoreDoc : results.scoreDocs) {
                 scoreDoc.doc += leafReaderContext.docBase;

@@ -39,13 +39,12 @@ public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
 
     @Override
     protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
-        BitSet filterBitSet = (BitSet) KNNProfileUtil.profile(profile, ctx, KNNQueryTimingType.BITSET_CREATION, () -> {
-            try {
-                return super.getFilteredDocsBitSet(ctx);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        BitSet filterBitSet = (BitSet) KNNProfileUtil.profile(
+            profile,
+            ctx,
+            KNNQueryTimingType.BITSET_CREATION,
+            () -> super.getFilteredDocsBitSet(ctx)
+        );
         LongMetric cardMetric = (LongMetric) profile.context(ctx).getMetric(KNNMetrics.CARDINALITY);
         cardMetric.setValue((long) filterBitSet.cardinality());
         return filterBitSet;
@@ -54,25 +53,23 @@ public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
     @Override
     protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
         throws IOException {
-        return (TopDocs) KNNProfileUtil.profile(profile, context, KNNQueryTimingType.ANN_SEARCH, () -> {
-            try {
-                return super.approximateSearch(context, filterIdsBitSet, cardinality, k);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        return (TopDocs) KNNProfileUtil.profile(
+            profile,
+            context,
+            KNNQueryTimingType.ANN_SEARCH,
+            () -> super.approximateSearch(context, filterIdsBitSet, cardinality, k)
+        );
     }
 
     @Override
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
-        return (TopDocs) KNNProfileUtil.profile(profile, leafReaderContext, KNNQueryTimingType.EXACT_SEARCH, () -> {
-            try {
-                return super.exactSearch(leafReaderContext, exactSearcherContext);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        return (TopDocs) KNNProfileUtil.profile(
+            profile,
+            leafReaderContext,
+            KNNQueryTimingType.EXACT_SEARCH,
+            () -> super.exactSearch(leafReaderContext, exactSearcherContext)
+        );
     }
 
     @Override
@@ -87,7 +84,7 @@ public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
         final String modelId,
         LeafReaderContext context
-    ) throws ExecutionException {
+    ) throws ExecutionException, IOException {
         return (NativeMemoryAllocation) KNNProfileUtil.profile(profile, context, KNNQueryTimingType.GRAPH_LOAD, () -> {
             try {
                 return super.loadGraph(

@@ -191,7 +191,7 @@ public class DefaultKNNWeight extends KNNWeight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
         final String modelId,
         LeafReaderContext context
-    ) throws ExecutionException {
+    ) throws ExecutionException, IOException {
         return nativeMemoryCacheManager.get(
             new NativeMemoryEntryContext.IndexEntryContext(
                 reader.directory(),
