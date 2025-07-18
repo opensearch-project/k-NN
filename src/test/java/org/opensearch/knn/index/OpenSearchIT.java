@@ -1434,36 +1434,36 @@ public class OpenSearchIT extends KNNRestTestCase {
         int k = 7;
         // Create knn search, P <= k
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", false)
-                .startObject("query")
-                .startObject("knn")
-                .startObject(FIELD_NAME)
-                .field("vector", query)
-                .field("k", k)
-                .startObject("filter")
-                .startObject("bool")
-                .startArray("must")
-                .startObject()
-                .startObject("range")
-                .startObject("rating")
-                .field("gte", 8)
-                .field("lte", 14)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endArray()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", false)
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", query)
+            .field("k", k)
+            .startObject("filter")
+            .startObject("bool")
+            .startArray("must")
+            .startObject()
+            .startObject("range")
+            .startObject("rating")
+            .field("gte", 8)
+            .field("lte", 14)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endArray()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
 
         // Create knn search, P <= k
-         builder = XContentFactory.jsonBuilder()
+        builder = XContentFactory.jsonBuilder()
             .startObject()
             .field("profile", true)
             .startObject("query")
@@ -1570,18 +1570,18 @@ public class OpenSearchIT extends KNNRestTestCase {
         Arrays.fill(query, 1);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", false)
-                .startObject("query")
-                .startObject("knn")
-                .startObject(FIELD_NAME)
-                .field("vector", query)
-                .field("k", k)
-                .field("rescore", true)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", false)
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", query)
+            .field("k", k)
+            .field("rescore", true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
 
@@ -1624,36 +1624,36 @@ public class OpenSearchIT extends KNNRestTestCase {
         Arrays.fill(query, 2);
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", false)
-                .startObject("query")
-                .startObject("knn")
-                .startObject(FIELD_NAME)
-                .field("vector", query)
-                .field("k", k)
-                .field("rescore", true)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", false)
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", query)
+            .field("k", k)
+            .field("rescore", true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
 
         String responseString = EntityUtils.toString(response.getEntity());
 
         builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", true)
-                .startObject("query")
-                .startObject("knn")
-                .startObject(FIELD_NAME)
-                .field("vector", query)
-                .field("k", k)
-                .field("rescore", true)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", true)
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", query)
+            .field("k", k)
+            .field("rescore", true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         response = searchKNNIndex(INDEX_NAME, builder, k);
 
@@ -1677,17 +1677,17 @@ public class OpenSearchIT extends KNNRestTestCase {
         int k = 10; // nearest 10 neighbors
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", false)
-                .startObject("query")
-                .startObject("knn")
-                .startObject("vector2")
-                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
-                .field("max_distance", 10)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", false)
+            .startObject("query")
+            .startObject("knn")
+            .startObject("vector2")
+            .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+            .field("max_distance", 10)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
 
         builder = XContentFactory.jsonBuilder()

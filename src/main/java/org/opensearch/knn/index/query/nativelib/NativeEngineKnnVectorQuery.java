@@ -34,7 +34,6 @@ import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
-import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;

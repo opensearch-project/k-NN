@@ -92,21 +92,13 @@ public class RescoreKNNVectorQuery extends Query {
         List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
         QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
         ContextualProfileBreakdown profile;
-        if(profiler != null) {
+        if (profiler != null) {
             profile = (ContextualProfileBreakdown) profiler.getProfileBreakdown(this);
         } else {
             profile = null;
         }
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            rescoreTasks.add(
-                () -> searchLeaf(
-                    exactSearcher,
-                    weight,
-                    k,
-                    leafReaderContext,
-                    profile
-                )
-            );
+            rescoreTasks.add(() -> searchLeaf(exactSearcher, weight, k, leafReaderContext, profile));
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks).toArray(TopDocs[]::new);
     }
