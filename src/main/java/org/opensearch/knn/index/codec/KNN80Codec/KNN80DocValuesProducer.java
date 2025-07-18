@@ -20,6 +20,7 @@ import java.io.IOException;
 import org.opensearch.Version;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -30,10 +31,7 @@ import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Log4j2
 public class KNN80DocValuesProducer extends DocValuesProducer {
@@ -43,7 +41,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     public KNN80DocValuesProducer(DocValuesProducer delegate, SegmentReadState state) {
         this.delegate = delegate;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
-        warmUpIndices(state);
+         warmUpIndices(state);
     }
 
     @Override
@@ -107,9 +105,9 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
             // By default, we don't create BinaryDocValues for knn field anymore. However, users can set doc_values = true
             // to create binary doc values explicitly like any other field. Hence, we only want to include fields
             // where approximate search is possible only by BinaryDocValues.
-            if (field.getDocValuesType() != DocValuesType.BINARY || field.hasVectorValues()) {
-                continue;
-            }
+//            if (field.getDocValuesType() != DocValuesType.BINARY || field.hasVectorValues()) {
+//                continue;
+//            }
 
             final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
             if (vectorIndexFileName == null) {
@@ -124,17 +122,14 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
 
     private void warmUpIndices(final SegmentReadState segmentReadState) {
         final NativeMemoryCacheManager cacheManager = NativeMemoryCacheManager.getInstance();
-
         for (final FieldInfo field : segmentReadState.fieldInfos) {
-            if (field.getDocValuesType() != DocValuesType.BINARY || field.hasVectorValues()) {
-                continue;
-            }
-
+//            if (field.getDocValuesType() != DocValuesType.BINARY || field.hasVectorValues()) {
+//                continue;
+//            }
             final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
             if (vectorIndexFileName == null) {
                 continue;
             }
-
             final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
 
             try {
@@ -151,18 +146,20 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
                 final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(field);
                 parameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
 
-                cacheManager.get(
-                    new NativeMemoryEntryContext.IndexEntryContext(
-                        segmentReadState.directory,
-                        cacheKey,
-                        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                        parameters,
-                        "unknown"
-                    ),
-                    false
-                );
+                if (segmentReadState.segmentInfo.getAttribute("index_name") != null && KNNSettings.isKnnIndexWarmupEnabled(segmentReadState.segmentInfo.getAttribute("index_name"))) {
+                    cacheManager.get(
+                        new NativeMemoryEntryContext.IndexEntryContext(
+                            segmentReadState.segmentInfo.dir,
+                            cacheKey,
+                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                            parameters,
+                            segmentReadState.segmentInfo.getAttribute("index_name")
+                        ),
+                        false
+                    );
+                }
             } catch (Exception e) {
-                log.debug("[KNN] Failed to warm up index with cache key {}", cacheKey, e);
+                log.debug("[KNN] Failed to warm up index with cache key {}", cacheKey);
             }
         }
     }
