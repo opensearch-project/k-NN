@@ -199,7 +199,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             false,
             m -> toType(m).originalMappingParameters.getTopLevelEngine(),
             KNNEngine.UNDEFINED.getName()
-        ).setValidator(KNNEngine::getEngine).alwaysSerialize();
+        ).setValidator(KNNEngine::getEngine);
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
