@@ -45,8 +45,7 @@ public final class OriginalMappingParameters {
     private final String compressionLevel;
     private final String modelId;
     private final String topLevelSpaceType;
-    @Setter
-    private String topLevelEngine;
+    private final String topLevelEngine;
 
     /**
      * Initialize the parameters from the builder
