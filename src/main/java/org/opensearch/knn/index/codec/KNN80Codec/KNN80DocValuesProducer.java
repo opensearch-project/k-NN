@@ -34,8 +34,10 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
+import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 @Log4j2
 public class KNN80DocValuesProducer extends DocValuesProducer {
@@ -45,7 +47,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     public KNN80DocValuesProducer(DocValuesProducer delegate, SegmentReadState state) {
         this.delegate = delegate;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
-         warmUpIndices(state);
+        warmUpIndices(state);
     }
 
     @Override
@@ -157,8 +159,8 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
                         ),
                         false
                     );
-                } catch (Exception e) {
-                    log.debug("[KNN] Failed to warm up index with cache key {}", cacheKey);
+                } catch (ExecutionException e) {
+                    throw new RuntimeException(e);
                 }
             }
         }
