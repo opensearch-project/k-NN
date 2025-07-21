@@ -618,7 +618,14 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, floatVectorValues, "test")
+            new NativeMemoryEntryContext.IndexEntryContext(
+                (Directory) null,
+                "invalid-cache-key",
+                indexLoadStrategy,
+                null,
+                floatVectorValues,
+                "test"
+            )
         );
 
         Directory mockDirectory = mock(Directory.class);
@@ -633,7 +640,14 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, floatVectorValues, "test")
+            new NativeMemoryEntryContext.IndexEntryContext(
+                (Directory) null,
+                "invalid-cache-key",
+                indexLoadStrategy,
+                null,
+                floatVectorValues,
+                "test"
+            )
         );
 
         doReturn(0).when(indexEntryContext).calculateSizeInKB();

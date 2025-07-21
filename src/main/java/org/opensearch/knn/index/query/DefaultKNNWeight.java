@@ -93,7 +93,7 @@ public class DefaultKNNWeight extends KNNWeight {
                         segmentLevelQuantizationInfo
                     ),
                     knnQuery.getIndexName(),
-                        context.reader().getFloatVectorValues(knnQuery.getField()),
+                    context.reader().getFloatVectorValues(knnQuery.getField()),
                     modelId
                 ),
                 true
