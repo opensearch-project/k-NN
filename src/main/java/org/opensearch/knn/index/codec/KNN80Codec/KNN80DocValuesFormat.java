@@ -13,6 +13,7 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
 
@@ -48,7 +49,9 @@ public class KNN80DocValuesFormat extends DocValuesFormat {
     public DocValuesConsumer fieldsConsumer(SegmentWriteState state) throws IOException {
         if (mapperService != null && state.segmentInfo.getAttribute("index_name") == null) {
             SegmentInfo info = state.segmentInfo;
+            String indexName = mapperService.index().getName();
             info.putAttribute("index_name", mapperService.index().getName());
+            info.putAttribute("warmup_enabled", String.valueOf(KNNSettings.isKnnIndexWarmupEnabled(indexName)));
         }
         return new KNN80DocValuesConsumer(delegate.fieldsConsumer(state), state);
     }

@@ -501,7 +501,7 @@ public class KNNSettings {
     public static final Setting<Boolean> KNN_WARMUP_ENABLED_SETTING = Setting.boolSetting(
             KNN_INDEX_WARMUP_ENABLED,
             KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE,
-            Dynamic,
+            Final,
             IndexScope
     );
 

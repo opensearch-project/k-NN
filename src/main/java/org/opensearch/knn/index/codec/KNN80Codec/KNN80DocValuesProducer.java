@@ -126,7 +126,8 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
 
     private void warmUpIndices(final SegmentReadState segmentReadState) {
         String indexName = segmentReadState.segmentInfo.getAttribute("index_name");
-        if (indexName != null && KNNSettings.isKnnIndexWarmupEnabled(indexName)) {
+        String warmupEnabled = segmentReadState.segmentInfo.getAttribute("warmup_enabled");
+        if (indexName != null && warmupEnabled.equals("true")) {
             for (final FieldInfo field : segmentReadState.fieldInfos) {
                 final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
                 if (vectorIndexFileName == null) {
