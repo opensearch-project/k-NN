@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.profile.query;
 
+import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.search.profile.ProfileMetric;
 import org.opensearch.search.profile.Timer;
@@ -22,8 +23,10 @@ public class KNNMetrics {
     public static final String CARDINALITY = "cardinality";
 
     /**
-     *
+     * Contains profile metric information for KNN Queries based on {@link KNNQueryTimingType} timers. Additionally, it
+     * contains a metric for filter cardinality.
      * @return list of {@link org.opensearch.search.profile.ProfileMetric} for KNNQueries
+     *
      */
     public static Collection<Supplier<ProfileMetric>> getKNNQueryMetrics() {
         Collection<Supplier<ProfileMetric>> metrics = new ArrayList<>();
@@ -37,7 +40,8 @@ public class KNNMetrics {
     }
 
     /**
-     *
+     * Contains profile metric information for KNN queries. Additionally, contains a metric on the number
+     * of nested docs for {@link NativeEngineKnnVectorQuery} queries.
      * @return list of {@link org.opensearch.search.profile.ProfileMetric} for NativeEngineQueries
      */
     public static Collection<Supplier<ProfileMetric>> getNativeMetrics() {

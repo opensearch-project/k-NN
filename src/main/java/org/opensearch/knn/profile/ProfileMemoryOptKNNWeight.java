@@ -26,6 +26,16 @@ public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
 
     protected final ContextualProfileBreakdown profile;
 
+    /**
+     * Wrapper constructor around {@link MemoryOptimizedKNNWeight}'s constructor used to
+     * keep track of the {@link KNNQuery}'s profile breakdown
+     * @param query
+     * @param boost
+     * @param filterWeight
+     * @param searcher
+     * @param k
+     * @param profile ContextualProfileBreakdown based on KNNQuery
+     */
     public ProfileMemoryOptKNNWeight(
         KNNQuery query,
         float boost,

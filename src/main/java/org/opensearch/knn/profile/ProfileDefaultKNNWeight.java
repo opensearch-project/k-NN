@@ -32,6 +32,14 @@ public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
 
     protected final ContextualProfileBreakdown profile;
 
+    /**
+     * Wrapper constructor around {@link DefaultKNNWeight}'s constructor used to
+     * keep track of the {@link KNNQuery}'s profile breakdown
+     * @param query
+     * @param boost
+     * @param filterWeight
+     * @param profile ContextualProfileBreakdown based on KNNQuery
+     */
     public ProfileDefaultKNNWeight(KNNQuery query, float boost, Weight filterWeight, ContextualProfileBreakdown profile) {
         super(query, boost, filterWeight);
         this.profile = profile;

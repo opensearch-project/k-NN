@@ -7,6 +7,9 @@ package org.opensearch.knn.profile.query;
 
 import java.util.Locale;
 
+/**
+ * Timers used for profiling KNN queries
+ */
 public enum KNNQueryTimingType {
     ANN_SEARCH,
     EXACT_SEARCH,
