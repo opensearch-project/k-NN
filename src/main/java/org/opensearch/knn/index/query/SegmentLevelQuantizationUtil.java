@@ -10,6 +10,7 @@ import org.apache.lucene.index.LeafReader;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
@@ -26,8 +27,11 @@ public class SegmentLevelQuantizationUtil {
 
     public static boolean isAdcEnabled(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
         if (segmentLevelQuantizationInfo == null) return false;
+        return isAdcEnabled(segmentLevelQuantizationInfo.getQuantizationParams());
+    }
 
-        if (segmentLevelQuantizationInfo.getQuantizationParams() instanceof ScalarQuantizationParams scalarQuantizationParams) {
+    public static boolean isAdcEnabled(QuantizationParams segmentLevelQuantizationParams) {
+        if (segmentLevelQuantizationParams instanceof ScalarQuantizationParams scalarQuantizationParams) {
             return scalarQuantizationParams.isEnableADC();
         } else {
             return false;

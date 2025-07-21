@@ -31,6 +31,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 import java.io.File;
 import java.util.Collections;
@@ -271,11 +272,11 @@ public class IndexUtil {
      * @return load parameters that will be passed to the JNI.
      */
     public static Map<String, Object> getParametersAtLoading(
-        SpaceType spaceType,
-        KNNEngine knnEngine,
-        String indexName,
-        VectorDataType vectorDataType,
-        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
+            SpaceType spaceType,
+            KNNEngine knnEngine,
+            String indexName,
+            VectorDataType vectorDataType,
+            QuantizationParams quantizationParams
     ) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue()));
 
@@ -286,10 +287,9 @@ public class IndexUtil {
         }
         loadParameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
 
-        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationParams)) {
             loadParameters.put(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER, true);
-            final String quantizationLevel = segmentLevelQuantizationInfo.getQuantizationParams().getTypeIdentifier();
-
+            final String quantizationLevel = quantizationParams.getTypeIdentifier();
             loadParameters.put(QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER, quantizationLevel);
             loadParameters.put(SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER, spaceType.getValue());
         }
