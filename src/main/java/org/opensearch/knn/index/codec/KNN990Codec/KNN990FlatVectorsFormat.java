@@ -18,7 +18,9 @@ import org.apache.lucene.index.SegmentWriteState;
 import java.io.IOException;
 
 /**
- * This is a Vector format that will be used only for flat vectors, when a field is set to index = false.
+ * This is a KNN Vector format that will be used only for flat vectors, when a field is set to index = false.
+ * This format is necessary for making sure that graph files are not created when not needed, and is a wrapper around the
+ * Lucene99FlatVectorsFormat since that class is not included in the "org.apache.lucene.codecs.KnnVectorsFormat" resources file.
  */
 @Log4j2
 public class KNN990FlatVectorsFormat extends FlatVectorsFormat {
