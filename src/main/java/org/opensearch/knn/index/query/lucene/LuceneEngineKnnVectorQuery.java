@@ -47,7 +47,11 @@ public class LuceneEngineKnnVectorQuery extends Query {
             profiler.getQueryBreakdown(luceneQuery);
         }
         Query rewrittenQuery = luceneQuery.rewrite(searcher);
-        return rewrittenQuery.createWeight(searcher, scoreMode, boost);
+        final Weight weight = rewrittenQuery.createWeight(searcher, scoreMode, boost);
+        if (profiler != null) {
+            profiler.pollLastElement();
+        }
+        return weight;
     }
 
     @Override

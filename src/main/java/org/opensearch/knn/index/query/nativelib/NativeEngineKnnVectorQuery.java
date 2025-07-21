@@ -67,11 +67,16 @@ public class NativeEngineKnnVectorQuery extends Query {
     public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException {
         final IndexReader reader = indexSearcher.getIndexReader();
         QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
+        final KNNWeight knnWeight;
         if (profiler != null) {
             // add a new node to the profile tree
             profiler.getQueryBreakdown(knnQuery);
+            knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
+            profiler.pollLastElement();
         }
-        final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
+        else {
+            knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
+        }
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<PerLeafResult> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
