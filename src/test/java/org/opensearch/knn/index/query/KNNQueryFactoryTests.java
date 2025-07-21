@@ -140,7 +140,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         );
 
         // efsearch > k
-        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, 100, null));
+        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, 100, null), null);
         assertEquals(expectedQuery1, actualQuery1);
 
         // efsearch < k
@@ -155,7 +155,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .vectorDataType(VectorDataType.FLOAT)
                 .build()
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null));
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null), null);
         assertEquals(expectedQuery1, actualQuery1);
 
         actualQuery1 = KNNQueryFactory.create(
@@ -168,7 +168,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .vectorDataType(VectorDataType.FLOAT)
                 .build()
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null));
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null), null);
         assertEquals(expectedQuery1, actualQuery1);
     }
 
@@ -186,7 +186,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         );
 
         // efsearch > k
-        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, 100, null));
+        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, 100, null), null);
         assertEquals(expectedQuery1, actualQuery1);
 
         // efsearch < k
@@ -201,7 +201,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .vectorDataType(VectorDataType.BYTE)
                 .build()
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null));
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null), null);
         assertEquals(expectedQuery1, actualQuery1);
 
         actualQuery1 = KNNQueryFactory.create(
@@ -214,7 +214,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .vectorDataType(VectorDataType.BYTE)
                 .build()
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null));
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null), null);
         assertEquals(expectedQuery1, actualQuery1);
     }
 
@@ -450,7 +450,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         assertNull(((KNNQuery) query).getQueryVector());
     }
 
-    public void testCreate_whenExactSearchSpaceType_thenSuccess() {
+    public void testCreate_whenExactSearchSpaceType_Faiss_thenSuccess() {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -479,6 +479,35 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
         assertEquals(testK, ((KNNQuery) query).getK());
         assertEquals(testExactSearchSpaceType, ((KNNQuery) query).getExactSearchSpaceType());
+        assertEquals(expectedQuery, query);
+    }
+
+    public void testCreate_whenExactSearchSpaceType_Lucene_thenSuccess() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+
+        final LuceneEngineKnnVectorQuery expectedQuery = new LuceneEngineKnnVectorQuery(
+            new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null),
+            testExactSearchSpaceType
+        );
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.LUCENE)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .k(testK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .exactSearchSpaceType(testExactSearchSpaceType)
+            .build();
+        Query query = KNNQueryFactory.create(createQueryRequest);
+        assertTrue(query instanceof LuceneEngineKnnVectorQuery);
+        LuceneEngineKnnVectorQuery luceneQuery = (LuceneEngineKnnVectorQuery) query;
+        assertEquals(testFieldName, ((KnnFloatVectorQuery) luceneQuery.getLuceneQuery()).getField());
+        assertArrayEquals(testQueryVector, ((KnnFloatVectorQuery) luceneQuery.getLuceneQuery()).getTargetCopy(), 0);
+        assertEquals(testK, ((KnnFloatVectorQuery) luceneQuery.getLuceneQuery()).getK());
+        assertEquals(testExactSearchSpaceType, luceneQuery.getExactSearchSpaceType());
         assertEquals(expectedQuery, query);
     }
 

@@ -153,7 +153,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
          */
         expectThrows(
             IllegalArgumentException.class,
-            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).exactSearchSpaceType("l3").build()
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).k(K).exactSearchSpaceType("l3").build()
         );
     }
 

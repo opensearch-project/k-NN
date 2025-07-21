@@ -6,7 +6,15 @@
 package org.opensearch.knn.index.query;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.index.*;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SegmentCommitInfo;
+import org.apache.lucene.index.SegmentInfo;
+import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
@@ -20,8 +28,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.query.lucenelib.InternalKnnByteVectorQuery;
-import org.opensearch.knn.index.query.lucenelib.InternalKnnFloatVectorQuery;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
@@ -208,8 +214,6 @@ public class ExactSearcherTests extends KNNTestCase {
                 .collect(Collectors.toList());
             final int maxResults = 1000;
             ExactSearcher exactSearcher = new ExactSearcher(null);
-            InternalKnnFloatVectorQuery.initialize(null);
-            InternalKnnByteVectorQuery.initialize(null);
 
             final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
                 ExactSearcher.ExactSearcherContext.builder()
@@ -291,8 +295,6 @@ public class ExactSearcherTests extends KNNTestCase {
                 .collect(Collectors.toList());
             final int maxResults = 1000;
             ExactSearcher exactSearcher = new ExactSearcher(null);
-            InternalKnnFloatVectorQuery.initialize(null);
-            InternalKnnByteVectorQuery.initialize(null);
 
             final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
                 ExactSearcher.ExactSearcherContext.builder()
@@ -454,7 +456,6 @@ public class ExactSearcherTests extends KNNTestCase {
                 .collect(Collectors.toList());
             final int maxResults = 1000;
             ExactSearcher exactSearcher = new ExactSearcher(null);
-            InternalKnnByteVectorQuery.initialize(null);
 
             final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
                 ExactSearcher.ExactSearcherContext.builder()

@@ -43,13 +43,13 @@ import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
+import org.opensearch.knn.plugin.script.KNNScoringSpaceFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
@@ -300,8 +300,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
 
             if (exactSearchSpaceType != null) {
-                List<String> allowedSpaceTypes = Arrays.asList("hamming", "hammingbit", "l1", "l2", "linf", "innerproduct", "cosinesimil");
-                if (!allowedSpaceTypes.contains(exactSearchSpaceType)) {
+                try {
+                    SpaceType.getSpace(exactSearchSpaceType);
+                } catch (IllegalArgumentException e) {
                     throw new IllegalArgumentException(
                         String.format(Locale.ROOT, "[%s] requires valid space type for exact search, refer to allowed space types.", NAME)
                     );
