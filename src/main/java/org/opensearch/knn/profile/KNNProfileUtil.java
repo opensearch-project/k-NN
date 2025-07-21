@@ -42,7 +42,7 @@ public class KNNProfileUtil {
      * @param action
      * @return result of the supplier
      */
-    public static Object profile(
+    public static Object profileBreakdown(
         ContextualProfileBreakdown profile,
         LeafReaderContext leafReaderContext,
         Enum<?> timingType,
@@ -77,7 +77,7 @@ public class KNNProfileUtil {
     ) throws IOException {
         if (profiler != null) {
             ContextualProfileBreakdown profile = (ContextualProfileBreakdown) profiler.getProfileBreakdown(query);
-            return profile(profile, leafReaderContext, timingType, action);
+            return profileBreakdown(profile, leafReaderContext, timingType, action);
         }
         return action.get();
     }

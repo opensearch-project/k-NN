@@ -18,9 +18,8 @@ import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.openMocks;
 
 public class KNNProfileUtilTests extends OpenSearchTestCase {
@@ -72,12 +71,16 @@ public class KNNProfileUtilTests extends OpenSearchTestCase {
         when(mockBreakdown.getTimer(mockTimingType)).thenReturn(mockTimer);
 
         Object result = KNNProfileUtil.profile(mockProfiler, mockQuery, mockLeafContext, mockTimingType, mockAction);
+        verify(mockBreakdown).context(eq(mockLeafContext));
+        verify(mockTimer).start();
+        verify(mockTimer).stop();
         assertEquals("test result", result);
     }
 
     public void testProfileWithQueryProfilerNull() throws IOException {
         Object result = KNNProfileUtil.profile(null, mockQuery, mockLeafContext, mockTimingType, mockAction);
         verify(mockAction).get();
+        verifyNoInteractions(mockLeafContext, mockTimingType, mockQuery);
         assertEquals("test result", result);
     }
 
@@ -88,7 +91,7 @@ public class KNNProfileUtilTests extends OpenSearchTestCase {
         when(mockProfile.context(mockLeafContext)).thenReturn(mockProfile);
         when(mockProfile.getTimer(mockTimingType)).thenReturn(mockTimer);
 
-        Object result = KNNProfileUtil.profile(mockProfile, mockLeafContext, mockTimingType, mockAction);
+        Object result = KNNProfileUtil.profileBreakdown(mockProfile, mockLeafContext, mockTimingType, mockAction);
         verify(mockProfile).context(mockLeafContext);
         verify(mockProfile).getTimer(mockTimingType);
         verify(mockTimer).start();
@@ -98,7 +101,7 @@ public class KNNProfileUtilTests extends OpenSearchTestCase {
     }
 
     public void testProfileWithContextualProfileBreakdownNull() throws IOException {
-        Object result = KNNProfileUtil.profile(null, mockLeafContext, mockTimingType, mockAction);
+        Object result = KNNProfileUtil.profileBreakdown(null, mockLeafContext, mockTimingType, mockAction);
         verify(mockAction).get();
         assertEquals("test result", result);
     }

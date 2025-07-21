@@ -40,7 +40,7 @@ public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
 
     @Override
     protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
-        BitSet filterBitSet = (BitSet) KNNProfileUtil.profile(
+        BitSet filterBitSet = (BitSet) KNNProfileUtil.profileBreakdown(
             profile,
             ctx,
             KNNQueryTimingType.BITSET_CREATION,
@@ -54,7 +54,7 @@ public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
     @Override
     protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
         throws IOException {
-        return (TopDocs) KNNProfileUtil.profile(
+        return (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,
             context,
             KNNQueryTimingType.ANN_SEARCH,
@@ -65,7 +65,7 @@ public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
     @Override
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
-        return (TopDocs) KNNProfileUtil.profile(
+        return (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,
             leafReaderContext,
             KNNQueryTimingType.EXACT_SEARCH,

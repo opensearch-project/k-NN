@@ -1610,6 +1610,60 @@ public class OpenSearchIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
+    public void testKNNSearchWithProfilerEnabled_RescoreComplex() throws Exception {
+        int dim = 3;
+        int k = 2;
+        createOnDiskIndex(INDEX_NAME, dim, SpaceType.L2); // by default uses 32x and FAISS IVF
+
+        float[][] vectors = new float[1][dim];
+        for (int i = 0; i < dim; i++) {
+            vectors[0][i] = 2;
+        }
+        bulkAddKnnDocs(INDEX_NAME, FIELD_NAME, vectors, vectors.length);
+        refreshIndex(INDEX_NAME);
+        float[] query = new float[dim];
+        Arrays.fill(query, 1);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("profile", true)
+            .startObject("query")
+            .startObject("bool")
+            .startArray("should")
+            .startObject()
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", query)
+            .field("k", k)
+            .field("rescore", true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject()
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", query)
+            .field("k", k)
+            .field("rescore", false)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endArray()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+
+        String responseString = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseIds(responseString).size());
+        List<Long> results = parseProfileMetric(responseString, KNNQueryTimingType.EXACT_SEARCH.toString(), true);
+        for (Long result : results) {
+            assertEquals(0L, result.longValue());
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
     public void testKNNSearchWithProfilerEnabled_RescoreLucene() throws Exception {
         int dim = 3;
         int k = 2;

@@ -124,7 +124,7 @@ public class RescoreKNNVectorQuery extends Query {
             .field(field)
             .floatQueryVector(queryVector)
             .build();
-        TopDocs results = (TopDocs) KNNProfileUtil.profile(
+        TopDocs results = (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,
             leafReaderContext,
             KNNQueryTimingType.EXACT_SEARCH,
