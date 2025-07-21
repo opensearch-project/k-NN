@@ -128,19 +128,19 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         String indexName = segmentReadState.segmentInfo.getAttribute("index_name");
         String warmupEnabled = segmentReadState.segmentInfo.getAttribute("warmup_enabled");
         if (indexName != null && warmupEnabled.equals("true")) {
-            for (final FieldInfo field : segmentReadState.fieldInfos) {
-                final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(field, segmentReadState.segmentInfo);
+            for (final FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+                final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
                 if (vectorIndexFileName == null) {
                     continue;
                 }
                 final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
                 final NativeMemoryCacheManager cacheManager = NativeMemoryCacheManager.getInstance();
                 try {
-                    final String spaceTypeName = field.attributes().getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
+                    final String spaceTypeName = fieldInfo.attributes().getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
                     final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
-                    final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(field);
-                    final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(field);
-                    final QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(field, segmentReadState.segmentInfo.getVersion());
+                    final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+                    final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
+                    final QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo, segmentReadState.segmentInfo.getVersion());
                     cacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
                             segmentReadState.segmentInfo.dir,
