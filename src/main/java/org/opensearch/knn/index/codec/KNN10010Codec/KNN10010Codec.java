@@ -61,7 +61,7 @@ public class KNN10010Codec extends FilterCodec {
 
     @Override
     public DocValuesFormat docValuesFormat() {
-        return new KNN80DocValuesFormat(delegate.docValuesFormat());
+        return new KNN80DocValuesFormat(delegate.docValuesFormat(), mapperService);
     }
 
     @Override
