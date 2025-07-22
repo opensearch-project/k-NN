@@ -17,10 +17,8 @@ import org.apache.lucene.index.*;
 
 import java.io.IOException;
 
-import org.opensearch.Version;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -30,13 +28,12 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
-import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
-import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 @Log4j2

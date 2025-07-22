@@ -50,7 +50,7 @@ public class KNN80DocValuesFormat extends DocValuesFormat {
         if (mapperService != null && state.segmentInfo.getAttribute("index_name") == null) {
             SegmentInfo info = state.segmentInfo;
             String indexName = mapperService.index().getName();
-            info.putAttribute("index_name", mapperService.index().getName());
+            info.putAttribute("index_name", indexName);
             info.putAttribute("warmup_enabled", String.valueOf(KNNSettings.isKnnIndexWarmupEnabled(indexName)));
         }
         return new KNN80DocValuesConsumer(delegate.fieldsConsumer(state), state);
