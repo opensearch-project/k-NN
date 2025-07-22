@@ -31,19 +31,19 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
                 knnVectorsFormatParams.getBeamWidth()
             ),
             knnBBQVectorsFormatParams -> new Lucene102HnswBinaryQuantizedVectorsFormat(
-                    knnBBQVectorsFormatParams.getMaxConnections(),
-                    knnBBQVectorsFormatParams.getBeamWidth(),
-                    NUM_MERGE_WORKERS,
-                    null
+                knnBBQVectorsFormatParams.getMaxConnections(),
+                knnBBQVectorsFormatParams.getBeamWidth(),
+                NUM_MERGE_WORKERS,
+                null
             ),
             knnScalarQuantizedVectorsFormatParams -> new Lucene99HnswScalarQuantizedVectorsFormat(
-                    knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
-                    knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
-                    NUM_MERGE_WORKERS,
-                    knnScalarQuantizedVectorsFormatParams.getBits(),
-                    knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
-                    knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
-                    null
+                knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
+                knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
+                NUM_MERGE_WORKERS,
+                knnScalarQuantizedVectorsFormatParams.getBits(),
+                knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
+                knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
+                null
             )
         );
     }
