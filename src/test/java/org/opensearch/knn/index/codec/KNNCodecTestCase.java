@@ -547,10 +547,12 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexReader reader1 = writer.getReader();
         writer.close();
 
+        IndexSearcher searcher1 = new IndexSearcher(reader1);
+
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_TWO));
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getMaxDimensions(eq(FIELD_NAME_TWO));
 
-        // NOTE: cannot currently do exact search through knn query yet
+        assertEquals(1, searcher1.count(query));
 
         reader1.close();
         dir.close();

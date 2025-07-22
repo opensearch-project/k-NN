@@ -98,12 +98,9 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
-        // check if index field level parameter is set to false and index.knn.approximate.advanced_threshold is equal to 0 (the default)
-        // since precedence
-        // given to that setting if set -> no graphs built
+        // check if index field level parameter is set to false -> no graphs built
         boolean indexed = mappedFieldType.getKnnMappingConfig().isIndexed();
-        if (indexed == false
-            && mapperService.get().getIndexSettings().getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING) == 0) {
+        if (indexed == false) {
             return new KNN990FlatVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
         }
 

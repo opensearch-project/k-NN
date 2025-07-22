@@ -51,12 +51,24 @@ public class IndexParameterIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testIndexFalse_ApproxThresholdNegOne_thenGraphsBuilt_NoException_Lucene() {
+    public void testIndexFalse_ApproxThresholdNegOne_thenNoGraphsBuilt_NoException_Lucene() {
         createTestIndexWithIndexParameterWithEngine(false, -1, "lucene");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
 
-        // the following search does not throw an exception because lucene does not pick up index.knn.advanced.approximate_threshold setting
-        // and therefore graphs still get built
+        // the following search does not throw an exception because of KNNWeight's isExactSearchRequire method:
+        // since no native engine files are created, defaults to exact search
+        validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
+        validateKNNScriptScoreSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K, TEST_SPACE_TYPE_L2);
+        deleteIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testIndexTrue_ApproxThresholdNegOne_thenGraphsBuilt_NoException_Lucene() {
+        createTestIndexWithIndexParameterWithEngine(true, -1, "lucene");
+        addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
+
+        // the following search does not throw an exception because since index = true, fall back to approx_threshold
+        // and lucene doesn't pick up that setting so graphs are built
         validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
         validateKNNScriptScoreSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K, TEST_SPACE_TYPE_L2);
         deleteIndex(INDEX_NAME);
@@ -88,7 +100,7 @@ public class IndexParameterIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testIndexFalse_ApproxThresholdAboveZero_DocCountMore_thenGraphsBuilt_Faiss() {
+    public void testIndexFalse_ApproxThresholdAboveZero_DocCountMore_thenNoGraphsBuilt_Faiss() {
         createTestIndexWithIndexParameterWithEngine(false, 1, "faiss");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
 
@@ -98,7 +110,7 @@ public class IndexParameterIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testIndexFalse_ApproxThresholdAboveZero_DocCountLess_thenGraphsBuilt_Lucene() {
+    public void testIndexFalse_ApproxThresholdAboveZero_DocCountLess_thenNoGraphsBuilt_Lucene() {
         createTestIndexWithIndexParameterWithEngine(false, 1, "lucene");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
 
