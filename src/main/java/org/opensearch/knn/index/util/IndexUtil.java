@@ -22,7 +22,6 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.request.MethodParameter;
@@ -272,11 +271,11 @@ public class IndexUtil {
      * @return load parameters that will be passed to the JNI.
      */
     public static Map<String, Object> getParametersAtLoading(
-            SpaceType spaceType,
-            KNNEngine knnEngine,
-            String indexName,
-            VectorDataType vectorDataType,
-            QuantizationParams quantizationParams
+        SpaceType spaceType,
+        KNNEngine knnEngine,
+        String indexName,
+        VectorDataType vectorDataType,
+        QuantizationParams quantizationParams
     ) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue()));
 

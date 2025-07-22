@@ -139,22 +139,17 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
                     final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
                     final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-                    final QuantizationParams quantizationParams = QuantizationService.getInstance().getQuantizationParams(fieldInfo, segmentReadState.segmentInfo.getVersion());
+                    final QuantizationParams quantizationParams = QuantizationService.getInstance()
+                        .getQuantizationParams(fieldInfo, segmentReadState.segmentInfo.getVersion());
                     cacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
                             segmentReadState.segmentInfo.dir,
                             cacheKey,
                             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                            getParametersAtLoading(
-                                spaceType,
-                                knnEngine,
-                                indexName,
-                                vectorDataType,
-                                quantizationParams
-                            ),
+                            getParametersAtLoading(spaceType, knnEngine, indexName, vectorDataType, quantizationParams),
                             indexName
                         ),
-                        false
+                        true
                     );
                 } catch (ExecutionException e) {
                     throw new RuntimeException(e);

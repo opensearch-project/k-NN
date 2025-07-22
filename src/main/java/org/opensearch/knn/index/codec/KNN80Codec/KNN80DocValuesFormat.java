@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
@@ -20,6 +21,7 @@ import java.io.IOException;
 /**
  * Encodes/Decodes per document values
  */
+@Log4j2
 public class KNN80DocValuesFormat extends DocValuesFormat {
     private final DocValuesFormat delegate;
     private final MapperService mapperService;

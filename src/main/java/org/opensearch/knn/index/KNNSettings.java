@@ -499,10 +499,10 @@ public class KNNSettings {
      * When enabled, vector indices will be loaded into memory during node startup.
      */
     public static final Setting<Boolean> KNN_WARMUP_ENABLED_SETTING = Setting.boolSetting(
-            KNN_INDEX_WARMUP_ENABLED,
-            KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE,
-            Final,
-            IndexScope
+        KNN_INDEX_WARMUP_ENABLED,
+        KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE,
+        Final,
+        IndexScope
     );
 
     /**
@@ -954,10 +954,7 @@ public class KNNSettings {
     }
 
     public static boolean isKnnIndexWarmupEnabled(final String indexName) {
-        return getIndexSettings(indexName).getAsBoolean(
-                KNN_INDEX_WARMUP_ENABLED,
-                KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE
-        );
+        return getIndexSettings(indexName).getAsBoolean(KNN_INDEX_WARMUP_ENABLED, KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE);
     }
 
     public static boolean isShardLevelRescoringDisabledForDiskBasedVector(final String indexName) {
