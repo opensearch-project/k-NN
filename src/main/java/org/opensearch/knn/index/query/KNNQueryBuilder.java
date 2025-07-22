@@ -43,7 +43,6 @@ import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
-import org.opensearch.knn.plugin.script.KNNScoringSpaceFactory;
 
 import java.io.IOException;
 import java.util.Arrays;

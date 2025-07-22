@@ -1496,8 +1496,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
-        when(fieldInfo.attributes()).thenReturn(Map.of(SPACE_TYPE, spaceType.getValue(), KNN_ENGINE, KNNEngine.DEFAULT.getName()
-        ));
+        when(fieldInfo.attributes()).thenReturn(Map.of(SPACE_TYPE, spaceType.getValue(), KNN_ENGINE, KNNEngine.DEFAULT.getName()));
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
