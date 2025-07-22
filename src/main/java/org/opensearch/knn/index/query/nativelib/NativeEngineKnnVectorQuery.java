@@ -73,6 +73,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             profiler.getQueryBreakdown(knnQuery);
         }
         final KNNWeight knnWeight = (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
+        if (profiler != null) {
+            profiler.pollLastElement();
+        }
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<PerLeafResult> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();

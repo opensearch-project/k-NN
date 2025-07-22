@@ -56,6 +56,9 @@ public class ExpandNestedDocsQuery extends Query {
         }
         Query docAndScoreQuery = internalNestedKnnVectorQuery.knnRewrite(searcher);
         Weight weight = docAndScoreQuery.createWeight(searcher, scoreMode, boost);
+        if (profiler != null) {
+            profiler.pollLastElement();
+        }
         IndexReader reader = searcher.getIndexReader();
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<Map<Integer, Float>> perLeafResults;
