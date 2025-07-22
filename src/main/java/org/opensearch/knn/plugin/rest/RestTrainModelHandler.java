@@ -263,7 +263,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
     }
 
     private void setEngine(KNNMethodContext knnMethodContext, KNNEngine resolvedEngine) {
-        if (knnMethodContext == null | knnMethodContext.isEngineConfigured()) {
+        if (knnMethodContext == null || knnMethodContext.isEngineConfigured()) {
             return;
         }
         knnMethodContext.setKnnEngine(resolvedEngine);
