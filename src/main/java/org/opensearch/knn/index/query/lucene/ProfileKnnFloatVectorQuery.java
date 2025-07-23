@@ -29,7 +29,7 @@ public class ProfileKnnFloatVectorQuery extends KnnFloatVectorQuery {
 
     @Override
     public Query rewrite(IndexSearcher indexSearcher) throws IOException {
-        profiler = profiler = KNNProfileUtil.getProfiler(indexSearcher);
+        profiler = KNNProfileUtil.getProfiler(indexSearcher);
         return super.rewrite(indexSearcher);
     }
 

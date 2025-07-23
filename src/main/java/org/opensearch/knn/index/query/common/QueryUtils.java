@@ -93,7 +93,7 @@ public class QueryUtils {
     }
 
     /**
-     * Performs the search in parallel.
+     * Performs the search in parallel with profiling.
      *
      * @param indexSearcher the index searcher
      * @param leafReaderContexts the leaf reader contexts
