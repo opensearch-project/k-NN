@@ -22,6 +22,10 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.profile.KNNProfileUtil;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -46,11 +50,24 @@ public class ExpandNestedDocsQuery extends Query {
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
         Query docAndScoreQuery = internalNestedKnnVectorQuery.knnRewrite(searcher);
+        QueryProfiler profiler = KNNProfileUtil.getProfiler(searcher);
+        if (profiler != null) {
+            profiler.getQueryBreakdown(docAndScoreQuery);
+        }
         Weight weight = docAndScoreQuery.createWeight(searcher, scoreMode, boost);
+        if (profiler != null) {
+            profiler.pollLastElement();
+        }
         IndexReader reader = searcher.getIndexReader();
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<Map<Integer, Float>> perLeafResults;
-        perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight);
+        ContextualProfileBreakdown profile = null;
+        if (profiler != null) {
+            profile = (ContextualProfileBreakdown) profiler.getProfileBreakdown(this);
+            perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight, profile);
+        } else {
+            perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight);
+        }
         TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults);
         int sum = 0;
         for (TopDocs topDoc : topDocs) {
@@ -71,11 +88,24 @@ public class ExpandNestedDocsQuery extends Query {
         // Construct query
         List<Callable<TopDocs>> nestedQueryTasks = new ArrayList<>(leafReaderContexts.size());
         Weight filterWeight = getFilterWeight(indexSearcher);
+        QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
         for (int i = 0; i < perLeafResults.size(); i++) {
             LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
             int finalI = i;
             nestedQueryTasks.add(() -> {
-                Bits queryFilter = queryUtils.createBits(leafReaderContext, filterWeight);
+                Bits queryFilter = (Bits) KNNProfileUtil.profile(
+                    profiler,
+                    this,
+                    leafReaderContext,
+                    KNNQueryTimingType.BITSET_CREATION,
+                    () -> {
+                        try {
+                            return queryUtils.createBits(leafReaderContext, filterWeight);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                );
                 DocIdSetIterator allSiblings = queryUtils.getAllSiblings(
                     leafReaderContext,
                     perLeafResults.get(finalI).keySet(),
