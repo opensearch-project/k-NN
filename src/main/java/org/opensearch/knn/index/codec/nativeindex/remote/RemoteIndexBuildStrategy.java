@@ -16,9 +16,11 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -55,6 +57,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
 @Log4j2
 @ExperimentalApi
 public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
+    private static final String FLOAT16_VECTOR_TYPE_STRING = "half_float";
 
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final NativeIndexBuildStrategy fallbackStrategy;
@@ -188,7 +191,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 repositoryContext.blobName,
                 indexInfo.getTotalLiveDocs(),
                 indexInfo.getVectorDataType(),
-                indexInfo.getKnnVectorValuesSupplier()
+                decorateVectorValuesSupplier(indexInfo)
             );
             success = true;
         } catch (InterruptedException | IOException e) {
@@ -196,6 +199,14 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } finally {
             metrics.endRepositoryWriteMetrics(success);
         }
+    }
+
+    private static Supplier<KNNVectorValues<?>> decorateVectorValuesSupplier(final BuildIndexParams indexInfo) {
+        if (indexInfo.getVectorDataType() == VectorDataType.BINARY && indexInfo.getQuantizationState() != null) {
+            return new QuantizedKNNVectorValuesSupplier(indexInfo);
+        }
+
+        return indexInfo.getKnnVectorValuesSupplier();
     }
 
     /**
@@ -314,6 +325,16 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         return new RepositoryContext(repository, blobPath, vectorRepositoryAccessor, blobName);
     }
 
+    private static String determineVectorDataType(final VectorDataType dataType, final Map<String, Object> parameters) {
+        if (dataType == VectorDataType.FLOAT) {
+            if (FaissHNSWMethod.isFloat16Index(parameters)) {
+                return FLOAT16_VECTOR_TYPE_STRING;
+            }
+        }
+
+        return dataType.getValue();
+    }
+
     /**
      * Constructor for RemoteBuildRequest.
      *
@@ -331,17 +352,18 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         String fullPath,
         Map<String, Object> parameters
     ) throws IOException {
-        String repositoryType = repositoryMetadata.type();
-        String containerName;
+        final String repositoryType = repositoryMetadata.type();
+        final String containerName;
         switch (repositoryType) {
             case S3 -> containerName = repositoryMetadata.settings().get(BUCKET);
             default -> throw new IllegalArgumentException(
                 "Repository type " + repositoryType + " is not supported by the remote build service"
             );
         }
-        String vectorDataType = indexInfo.getVectorDataType().getValue();
 
-        KNNVectorValues<?> vectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+        final String vectorDataType = determineVectorDataType(indexInfo.getVectorDataType(), parameters);
+
+        KNNVectorValues<?> vectorValues = decorateVectorValuesSupplier(indexInfo).get();
         initializeVectorValues(vectorValues);
         assert (vectorValues.dimension() > 0);
 

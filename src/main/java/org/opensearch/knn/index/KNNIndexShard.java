@@ -75,15 +75,6 @@ public class KNNIndexShard {
     }
 
     /**
-     * Return the underlying IndexShard
-     *
-     * @return IndexShard
-     */
-    public IndexShard getIndexShard() {
-        return indexShard;
-    }
-
-    /**
      * Return the name of the shards index
      *
      * @return Name of shard's index
@@ -155,8 +146,14 @@ public class KNNIndexShard {
                 // Load off-heap index
                 final List<EngineFileContext> engineFileContexts = getAllEngineFileContexts(loadedFieldNames, leafReaderContext);
                 warmUpOffHeapIndex(engineFileContexts, directory);
-                log.info("[KNN] Loaded off-heap indices for fields {}", engineFileContexts.stream().map(ctx -> ctx.fieldName));
+                log.info(
+                    "[KNN] Loaded off-heap indices for fields {}",
+                    engineFileContexts.stream().map(ctx -> ctx.fieldName).collect(Collectors.toSet())
+                );
             }
+        } catch (Exception e) {
+            log.error("Failed warm-up", e);
+            throw e;
         }
     }
 

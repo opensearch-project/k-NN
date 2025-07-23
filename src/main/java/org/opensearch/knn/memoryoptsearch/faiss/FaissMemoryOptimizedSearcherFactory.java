@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import org.apache.lucene.index.FieldInfo;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -22,6 +23,7 @@ import java.io.IOException;
  * random vector locations, read-ahead does not improve performance. By passing the `RANDOM` context, we explicitly indicate that
  * this searcher will access vectors randomly.
  */
+@Log4j2
 public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactory {
     @Override
     public VectorSearcher createVectorSearcher(final Directory directory, final String fileName, final FieldInfo fieldInfo)
@@ -39,7 +41,8 @@ public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactor
             try {
                 IOUtils.close(indexInput);
             } catch (IOException ioException) {}
-            return null;
+
+            throw e;
         }
     }
 }
