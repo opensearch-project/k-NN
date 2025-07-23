@@ -139,6 +139,25 @@ public class KNNTestCase extends OpenSearchTestCase {
         };
     }
 
+    public static KNNMappingConfig getMappingConfigForMethodMapping(KNNMethodContext knnMethodContext, int dimension, boolean indexed) {
+        return new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(knnMethodContext);
+            }
+
+            @Override
+            public int getDimension() {
+                return dimension;
+            }
+
+            @Override
+            public boolean isIndexed() {
+                return indexed;
+            }
+        };
+    }
+
     public static KNNMappingConfig getMappingConfigForFlatMapping(int dimension) {
         return () -> dimension;
     }

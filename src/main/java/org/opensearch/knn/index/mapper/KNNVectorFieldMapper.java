@@ -195,6 +195,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
+        /**
+         * indexed parameter allows a user to specify whether a field should have graphs built or not. Defaults to true.
+         */
+        protected final Parameter<Boolean> indexed = Parameter.indexParam(m -> toType(m).originalMappingParameters.isIndexed(), true);
+
         protected ModelDao modelDao;
         protected Version indexCreatedVersion;
         @Setter
@@ -246,7 +251,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 modelId,
                 mode,
                 compressionLevel,
-                topLevelSpaceType
+                topLevelSpaceType,
+                indexed
             );
         }
 
@@ -423,6 +429,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // we must wrap it and pick up the default when it is UNDEFINED.
                 setSpaceType(builder.originalParameters.getKnnMethodContext(), resolvedSpaceType);
                 validateSpaceType(builder);
+                validateIndexParameter(builder);
 
                 // Resolve method component. For the legacy case where space type can be configured at index level,
                 // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
@@ -433,6 +440,26 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             return builder;
+        }
+
+        private void validateIndexParameter(KNNVectorFieldMapper.Builder builder) {
+            boolean indexedParam = builder.originalParameters.isIndexed();
+            // ignoring indexedParam if index before 3.0.0 (will always be set to true)
+            if (indexedParam == false && !builder.indexCreatedVersion.onOrAfter(Version.V_3_0_0)) {
+                OriginalMappingParameters originalMappingParameters = builder.originalParameters;
+                builder.setOriginalParameters(
+                    new OriginalMappingParameters(
+                        originalMappingParameters.getVectorDataType(),
+                        originalMappingParameters.getDimension(),
+                        originalMappingParameters.getKnnMethodContext(),
+                        originalMappingParameters.getMode(),
+                        originalMappingParameters.getCompressionLevel(),
+                        originalMappingParameters.getModelId(),
+                        originalMappingParameters.getTopLevelSpaceType(),
+                        true
+                    )
+                );
+            }
         }
 
         private void validateSpaceType(KNNVectorFieldMapper.Builder builder) {
