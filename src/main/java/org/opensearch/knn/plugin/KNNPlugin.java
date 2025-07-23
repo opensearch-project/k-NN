@@ -42,6 +42,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.LuceneKNNWeight;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
@@ -230,6 +231,7 @@ public class KNNPlugin extends Plugin
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
+        LuceneKNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());

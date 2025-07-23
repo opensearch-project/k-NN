@@ -52,6 +52,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
         final boolean expandNested = createQueryRequest.isExpandNested();
         final boolean memoryOptimizedSearchEnabled = createQueryRequest.isMemoryOptimizedSearchEnabled();
+        final String exactSearchSpaceType = createQueryRequest.getExactSearchSpaceType();
 
         BitSetProducer parentFilter = null;
         int shardId = -1;
@@ -103,6 +104,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .rescoreContext(rescoreContext)
                         .shardId(shardId)
                         .isMemoryOptimizedSearch(memoryOptimizedSearchEnabled)
+                        .exactSearchSpaceType(exactSearchSpaceType)
                         .build();
                     break;
                 default:
@@ -119,6 +121,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .rescoreContext(rescoreContext)
                         .shardId(shardId)
                         .isMemoryOptimizedSearch(memoryOptimizedSearchEnabled)
+                        .exactSearchSpaceType(exactSearchSpaceType)
                         .build();
             }
 
@@ -143,7 +146,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
         int luceneK = requestEfSearch == null ? overSampledK : Math.max(overSampledK, requestEfSearch);
         log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, luceneK);
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
-            getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType)
+            getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType),
+            exactSearchSpaceType
         );
         return needsRescore ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 

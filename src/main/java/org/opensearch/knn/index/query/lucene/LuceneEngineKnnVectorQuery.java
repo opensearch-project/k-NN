@@ -13,6 +13,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
+import org.opensearch.knn.index.query.LuceneKNNWeight;
 
 import java.io.IOException;
 
@@ -26,6 +27,8 @@ import java.io.IOException;
 public class LuceneEngineKnnVectorQuery extends Query {
     @Getter
     private final Query luceneQuery;
+    @Getter
+    private final String exactSearchSpaceType;
 
     /*
       Prevents repeated rewrites of the query for the Lucene engine.
@@ -41,6 +44,9 @@ public class LuceneEngineKnnVectorQuery extends Query {
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
         Query rewrittenQuery = luceneQuery.rewrite(searcher);
+        if (exactSearchSpaceType != null) {
+            return new LuceneKNNWeight(this, boost);
+        }
         return rewrittenQuery.createWeight(searcher, scoreMode, boost);
     }
 

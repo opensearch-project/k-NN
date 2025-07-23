@@ -10,9 +10,12 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.KnnByteVectorQuery;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.opensearch.knn.index.query.LuceneKNNWeight;
 import org.opensearch.test.OpenSearchTestCase;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -20,6 +23,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.mock;
 import static org.mockito.MockitoAnnotations.openMocks;
 
 public class LuceneEngineKnnVectorQueryTests extends OpenSearchTestCase {
@@ -73,23 +77,38 @@ public class LuceneEngineKnnVectorQueryTests extends OpenSearchTestCase {
     }
 
     public void testEquals() {
-        LuceneEngineKnnVectorQuery mainQuery = new LuceneEngineKnnVectorQuery(luceneQuery);
-        LuceneEngineKnnVectorQuery otherQuery = new LuceneEngineKnnVectorQuery(luceneQuery);
+        LuceneEngineKnnVectorQuery mainQuery = new LuceneEngineKnnVectorQuery(luceneQuery, null);
+        LuceneEngineKnnVectorQuery otherQuery = new LuceneEngineKnnVectorQuery(luceneQuery, null);
         assertEquals(mainQuery, otherQuery);
         assertEquals(mainQuery, mainQuery);
         assertNotEquals(mainQuery, null);
         assertNotEquals(mainQuery, new Object());
-        LuceneEngineKnnVectorQuery otherQuery2 = new LuceneEngineKnnVectorQuery(null);
+        LuceneEngineKnnVectorQuery otherQuery2 = new LuceneEngineKnnVectorQuery(null, null);
         assertNotEquals(mainQuery, otherQuery2);
     }
 
     public void testHashCode() {
-        LuceneEngineKnnVectorQuery mainQuery = new LuceneEngineKnnVectorQuery(luceneQuery);
+        LuceneEngineKnnVectorQuery mainQuery = new LuceneEngineKnnVectorQuery(luceneQuery, null);
         assertEquals(mainQuery.hashCode(), luceneQuery.hashCode());
     }
 
     public void testToString() {
-        LuceneEngineKnnVectorQuery mainQuery = new LuceneEngineKnnVectorQuery(luceneQuery);
+        LuceneEngineKnnVectorQuery mainQuery = new LuceneEngineKnnVectorQuery(luceneQuery, null);
         assertEquals(mainQuery.toString(), luceneQuery.toString());
+    }
+
+    public void testCreateWeightWithExactSearch() throws Exception {
+        String testExactSearchSpaceType = "l2";
+        KnnFloatVectorQuery floatVectorQuery = mock(KnnFloatVectorQuery.class);
+        KnnByteVectorQuery byteVectorQuery = mock(KnnByteVectorQuery.class);
+        LuceneKNNWeight.initialize(null);
+
+        LuceneEngineKnnVectorQuery testFloatQuery = new LuceneEngineKnnVectorQuery(floatVectorQuery, testExactSearchSpaceType);
+        Weight testWeightFloat = testFloatQuery.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1.0f);
+        assertTrue(testWeightFloat instanceof LuceneKNNWeight);
+
+        LuceneEngineKnnVectorQuery testByteQuery = new LuceneEngineKnnVectorQuery(byteVectorQuery, testExactSearchSpaceType);
+        Weight testWeightByte = testFloatQuery.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1.0f);
+        assertTrue(testWeightByte instanceof LuceneKNNWeight);
     }
 }

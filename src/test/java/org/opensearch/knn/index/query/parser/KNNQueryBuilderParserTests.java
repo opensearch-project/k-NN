@@ -32,6 +32,7 @@ import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.EXACT_SEARCH_SPACE_TYPE_FIELD;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
@@ -437,6 +438,53 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         assertTrue(exception.getMessage(), exception.getMessage().contains("[knn] query doesn't support multiple fields"));
     }
 
+    public void testFromXContent_whenValidExactSearchSpaceType_thenSucceed() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .exactSearchSpaceType("l2")
+            .build();
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
+        builder.field(EXACT_SEARCH_SPACE_TYPE_FIELD.getPreferredName(), "l2");
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilderParser.fromXContent(contentParser);
+        assertEquals(knnQueryBuilder, actualBuilder);
+    }
+
+    public void testFromXContent_whenInvalidExactSearchSpaceType_thenException() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .exactSearchSpaceType("l2")
+            .build();
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
+        builder.field(EXACT_SEARCH_SPACE_TYPE_FIELD.getPreferredName(), "l3");
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        Exception exception = expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilderParser.fromXContent(contentParser));
+        assertTrue(
+            exception.getMessage(),
+            exception.getMessage().contains("[knn] requires valid space type for exact search, refer to allowed space types.")
+        );
+    }
+
     public void testToXContent_whenParamsVectorBoostK_thenSucceed() throws IOException {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         XContentBuilder builder = XContentFactory.jsonBuilder();
@@ -575,6 +623,34 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         KNNQueryBuilderParser.toXContent(testBuilder, EMPTY_PARAMS, knnQueryBuilderFromObject);
         testBuilder.endObject();
         assertEquals(builderFromObject.toString(), testBuilder.toString());
+    }
+
+    public void testToXContent_whenExactSearchSpaceType_thenSucceed() throws IOException {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(NAME);
+        builder.startObject(FIELD_NAME);
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), queryVector);
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builder.field(BOOST_FIELD.getPreferredName(), BOOST);
+        builder.field(EXACT_SEARCH_SPACE_TYPE_FIELD.getPreferredName(), "l2");
+        builder.endObject();
+        builder.endObject();
+        builder.endObject();
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .boost(BOOST)
+            .exactSearchSpaceType("l2")
+            .build();
+        XContentBuilder testBuilder = XContentFactory.jsonBuilder();
+        testBuilder.startObject();
+        KNNQueryBuilderParser.toXContent(testBuilder, EMPTY_PARAMS, knnQueryBuilder);
+        testBuilder.endObject();
+        assertEquals(builder.toString(), testBuilder.toString());
     }
 
     @Override

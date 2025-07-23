@@ -58,6 +58,7 @@ public class KNNQuery extends Query {
     @Getter
     private boolean explain;
     private boolean isMemoryOptimizedSearch;
+    private String exactSearchSpaceType;
 
     // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
@@ -96,6 +97,30 @@ public class KNNQuery extends Query {
         final RescoreContext rescoreContext
     ) {
         this(field, null, byteQueryVector, k, indexName, filterQuery, parentsFilter, vectorDataType, rescoreContext);
+    }
+
+    public KNNQuery(
+        final String field,
+        final float[] queryVector,
+        final byte[] byteQueryVector,
+        final int k,
+        final String indexName,
+        final Query filterQuery,
+        final BitSetProducer parentsFilter,
+        final VectorDataType vectorDataType,
+        final RescoreContext rescoreContext,
+        final String exactSearchSpaceType
+    ) {
+        this.field = field;
+        this.queryVector = queryVector;
+        this.byteQueryVector = byteQueryVector;
+        this.k = k;
+        this.indexName = indexName;
+        this.filterQuery = filterQuery;
+        this.parentsFilter = parentsFilter;
+        this.vectorDataType = vectorDataType;
+        this.rescoreContext = rescoreContext;
+        this.exactSearchSpaceType = exactSearchSpaceType;
     }
 
     private KNNQuery(
@@ -234,7 +259,8 @@ public class KNNQuery extends Query {
             parentsFilter,
             radius,
             methodParameters,
-            rescoreContext
+            rescoreContext,
+            exactSearchSpaceType
         );
     }
 
@@ -255,7 +281,8 @@ public class KNNQuery extends Query {
             && Objects.equals(indexName, other.indexName)
             && Objects.equals(parentsFilter, other.parentsFilter)
             && Objects.equals(filterQuery, other.filterQuery)
-            && Objects.equals(rescoreContext, other.rescoreContext);
+            && Objects.equals(rescoreContext, other.rescoreContext)
+            && Objects.equals(exactSearchSpaceType, other.exactSearchSpaceType);
     }
 
     /**
