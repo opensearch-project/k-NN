@@ -18,6 +18,7 @@ import org.apache.lucene.util.hnsw.HnswGraphSearcher;
 import org.apache.lucene.util.hnsw.OrdinalTranslatedKnnCollector;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
@@ -34,18 +35,29 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final FaissHNSW hnsw;
     private final VectorSimilarityFunction vectorSimilarityFunction;
     private final long fileSize;
+    private boolean isAdc;
+    private final FlatVectorsScorerProvider.ADCFlatVectorsScorer adcScorer;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput) throws IOException {
+    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, boolean isAdc) throws IOException {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
         this.faissIndex = FaissIndex.load(indexInput);
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
-        this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
+
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
             vectorSimilarityFunction = knnVectorSimilarityFunction.getVectorSimilarityFunction();
         } else {
             vectorSimilarityFunction = null;
         }
+        this.isAdc = isAdc;
+        if (isAdc) {
+            this.adcScorer = FlatVectorsScorerProvider.getAdcFlatVectorScorer(knnVectorSimilarityFunction);
+            this.flatVectorsScorer = null;
+        } else {
+            this.adcScorer = null;
+            this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
+        }
+
         this.hnsw = extractFaissHnsw(faissIndex);
     }
 
@@ -55,6 +67,30 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         }
 
         throw new IllegalArgumentException("Faiss index [" + faissIndex.getIndexType() + "] does not have HNSW as an index.");
+    }
+
+    /*
+     * Search with the given target (float) vector and the provided {@link KnnCollector}. The {@link KnnCollector} is expected to
+     * provide the top-k results. Use ADC to score full precision vector against quantized document vectors.
+     *
+     * @param vectorEncoding the vector encoding
+     * @param scorerSupplier the scorer supplier
+     * @param knnCollector the knn collector
+     * @param acceptDocs the accept docs
+     * @throws IOException if an I/O error occurs
+     */
+    public void searchWithAdc(float[] target, KnnCollector knnCollector, Bits acceptDocs, SpaceType spaceType) throws IOException {
+        search(
+            VectorEncoding.FLOAT32,
+            () -> adcScorer.getRandomVectorScorerForAdc(
+                vectorSimilarityFunction,
+                faissIndex.getByteValues(getSlicedIndexInput()),
+                target,
+                spaceType
+            ),
+            knnCollector,
+            acceptDocs
+        );
     }
 
     @Override
@@ -94,13 +130,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final VectorEncoding vectorEncoding,
         final IOSupplier<RandomVectorScorer> scorerSupplier,
         final KnnCollector knnCollector,
-        final Bits acceptDocs
+        final Bits acceptDocs // here need to see if it can be modified in both usages.
     ) throws IOException {
         if (faissIndex.getTotalNumberOfVectors() == 0 || knnCollector.k() == 0) {
             return;
         }
 
-        if (faissIndex.getVectorEncoding() != vectorEncoding) {
+        if (!this.isAdc && faissIndex.getVectorEncoding() != vectorEncoding) {
             throw new IllegalArgumentException(
                 "Search for vector encoding ["
                     + vectorEncoding

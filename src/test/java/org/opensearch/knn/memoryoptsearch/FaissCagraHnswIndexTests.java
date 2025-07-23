@@ -42,7 +42,8 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
     public void doTestKNNSearch(boolean isApproximateSearch) {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input);
+            // TODO: adc placeholder. Note that ADC is not yet supported for cagra since binary hnsw is not supported.
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, false);
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;

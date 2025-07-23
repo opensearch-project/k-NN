@@ -123,6 +123,20 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     );
                 }
 
+                if (adcTransformedVector != null) {
+                    // ADC case
+                    return queryIndex(
+                        adcTransformedVector,
+                        cardinality,
+                        cardinality + 1,
+                        context,
+                        filterIdsBitSet,
+                        reader,
+                        knnEngine,
+                        spaceType
+                    );
+                }
+
                 // fallback to float
                 return queryIndex(
                     knnQuery.getQueryVector(),
