@@ -353,7 +353,7 @@ public abstract class KNNWeight extends Weight {
         }
     }
 
-    private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+    protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
         if (this.filterWeight == null) {
             return new FixedBitSet(0);
         }
@@ -411,7 +411,7 @@ public abstract class KNNWeight extends Weight {
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
-    private TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
+    protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
         throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
