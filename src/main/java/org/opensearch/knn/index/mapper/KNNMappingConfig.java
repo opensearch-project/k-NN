@@ -73,6 +73,15 @@ public interface KNNMappingConfig {
         return Version.CURRENT;
     }
 
+    /**
+     * Returns if field is indexed or not.
+     *
+     * @return boolean index
+     */
+    default boolean isIndexed() {
+        return true;
+    }
+
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
         return null;
     }
