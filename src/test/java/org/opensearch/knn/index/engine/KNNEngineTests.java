@@ -107,6 +107,7 @@ public class KNNEngineTests extends KNNTestCase {
 
     public void testMmapFileExtensions() {
         final List<String> mmapExtensions = Arrays.stream(KNNEngine.values())
+            .filter(engine -> engine != KNNEngine.UNDEFINED)
             .flatMap(engine -> engine.mmapFileExtensions().stream())
             .collect(Collectors.toList());
         assertNotNull(mmapExtensions);
