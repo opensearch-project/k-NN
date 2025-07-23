@@ -1325,22 +1325,22 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         // Create knn search body, all fields
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", true)
-                .startObject("query")
-                .startObject("nested")
-                .field("path", "nested_field")
-                .startObject("query")
-                .startObject("knn")
-                .startObject("nested_field.my_vector")
-                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
-                .field("k", k)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", true)
+            .startObject("query")
+            .startObject("nested")
+            .field("path", "nested_field")
+            .startObject("query")
+            .startObject("knn")
+            .startObject("nested_field.my_vector")
+            .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+            .field("k", k)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Long> results = parseProfileMetric(responseBody, QueryTimingType.SCORE.toString(), true);
@@ -1348,23 +1348,23 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         // Create knn search body, all fields
         builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", true)
-                .startObject("query")
-                .startObject("nested")
-                .field("path", "nested_field")
-                .startObject("query")
-                .startObject("knn")
-                .startObject("nested_field.my_vector")
-                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
-                .field("k", k)
-                .field("expand_nested_docs", true)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", true)
+            .startObject("query")
+            .startObject("nested")
+            .field("path", "nested_field")
+            .startObject("query")
+            .startObject("knn")
+            .startObject("nested_field.my_vector")
+            .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+            .field("k", k)
+            .field("expand_nested_docs", true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         response = searchKNNIndex(INDEX_NAME, builder, k);
         responseBody = EntityUtils.toString(response.getEntity());
@@ -1499,31 +1499,31 @@ public class OpenSearchIT extends KNNRestTestCase {
         int k = 1;
         // Create knn search, P <= k
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("profile", true)
-                .startObject("query")
-                .startObject("knn")
-                .startObject(FIELD_NAME)
-                .field("vector", query)
-                .field("k", k)
-                .startObject("filter")
-                .startObject("bool")
-                .startArray("must")
-                .startObject()
-                .startObject("range")
-                .startObject("rating")
-                .field("gte", 8)
-                .field("lte", 14)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endArray()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field("profile", true)
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", query)
+            .field("k", k)
+            .startObject("filter")
+            .startObject("bool")
+            .startArray("must")
+            .startObject()
+            .startObject("range")
+            .startObject("rating")
+            .field("gte", 8)
+            .field("lte", 14)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endArray()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
@@ -1537,7 +1537,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         }
         deleteKNNIndex(INDEX_NAME);
     }
-
 
     public void testKNNSearchWithProfilerEnabled_FaissFilter() throws Exception {
         int dim = 3;
