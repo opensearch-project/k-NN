@@ -63,6 +63,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -89,6 +90,8 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
+import static org.opensearch.knn.common.KNNConstants.INDEX_PARAMETER_KEY;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -123,10 +126,19 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             modelDao,
             CURRENT,
             null,
-            new OriginalMappingParameters(VectorDataType.DEFAULT, TEST_DIMENSION, null, null, null, null, SpaceType.UNDEFINED.getValue())
+            new OriginalMappingParameters(
+                VectorDataType.DEFAULT,
+                TEST_DIMENSION,
+                null,
+                null,
+                null,
+                null,
+                SpaceType.UNDEFINED.getValue(),
+                true
+            )
         );
 
-        assertEquals(10, builder.getParameters().size());
+        assertEquals(11, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
         List<String> expectedParams = Arrays.asList(
             "store",
@@ -138,7 +150,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             MODEL_ID,
             MODE_PARAMETER,
             COMPRESSION_LEVEL_PARAMETER,
-            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE
+            KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE,
+            INDEX_PARAMETER_KEY
         );
         assertEquals(expectedParams, actualParams);
     }
@@ -1328,7 +1341,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 Mode.NOT_CONFIGURED.getName(),
                 CompressionLevel.NOT_CONFIGURED.getName(),
                 null,
-                SpaceType.UNDEFINED.getValue()
+                SpaceType.UNDEFINED.getValue(),
+                true
             );
             originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
             EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1396,7 +1410,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     Mode.NOT_CONFIGURED.getName(),
                     CompressionLevel.NOT_CONFIGURED.getName(),
                     null,
-                    SpaceType.UNDEFINED.getValue()
+                    SpaceType.UNDEFINED.getValue(),
+                    true
                 );
                 originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
                 EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1511,7 +1526,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     Mode.NOT_CONFIGURED.getName(),
                     CompressionLevel.NOT_CONFIGURED.getName(),
                     MODEL_ID,
-                    SpaceType.UNDEFINED.getValue()
+                    SpaceType.UNDEFINED.getValue(),
+                    true
                 );
 
                 ModelFieldMapper modelFieldMapper = ModelFieldMapper.createFieldMapper(
@@ -1613,7 +1629,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
-            SpaceType.UNDEFINED.getValue()
+            SpaceType.UNDEFINED.getValue(),
+            true
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
@@ -1675,7 +1692,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
-            SpaceType.UNDEFINED.getValue()
+            SpaceType.UNDEFINED.getValue(),
+            true
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
         luceneFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1722,7 +1740,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             Mode.NOT_CONFIGURED.getName(),
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
-            SpaceType.UNDEFINED.getValue()
+            SpaceType.UNDEFINED.getValue(),
+            true
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
@@ -2344,6 +2363,234 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
 
         assertTrue(exception.getMessage().contains("name needs to be set"));
+    }
+
+    // index tests -> disabling graph creation
+    public void testIndexParameter_notDefined_DefaultToTrue() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .endObject();
+
+        final KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
+        );
+
+        assertTrue(builder.getOriginalParameters().isIndexed());
+    }
+
+    public void testIndexParameter_MultipleVectorFields_LuceneAndFalseIndex() throws IOException {
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject("my_vector1")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "lucene")
+            .endObject()
+            .endObject()
+            .startObject("my_vector2")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(INDEX_PARAMETER_KEY, false)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> params = xContentBuilderToMap(xContentBuilder);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) params.get("properties");
+
+        assertTrue(properties.containsKey("my_vector1"));
+        assertTrue(properties.containsKey("my_vector2"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Mapping = (Map<String, Object>) properties.get("my_vector1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Method = (Map<String, Object>) vector1Mapping.get(KNN_METHOD);
+
+        assertNull(vector1Mapping.get(INDEX_PARAMETER_KEY));
+        assertEquals("lucene", vector1Method.get(KNN_ENGINE));
+        assertEquals(KNN_VECTOR_TYPE, vector1Mapping.get(TYPE_FIELD_NAME));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector2Mapping = (Map<String, Object>) properties.get("my_vector2");
+        assertEquals(false, vector2Mapping.get(INDEX_PARAMETER_KEY));
+        assertEquals(KNN_VECTOR_TYPE, vector2Mapping.get(TYPE_FIELD_NAME));
+
+        // checking for 2 vector fields in index
+        assertEquals(2, properties.size());
+
+        KNNVectorFieldMapper.Builder builder1 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector1",
+            vector1Mapping,
+            buildParserContext(indexName, settings)
+        );
+        KNNVectorFieldMapper.Builder builder2 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector2",
+            vector2Mapping,
+            buildParserContext(indexName, settings)
+        );
+        Mapper.BuilderContext builderContext1 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper1 = builder1.build(builderContext1);
+        Mapper.BuilderContext builderContext2 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper2 = builder2.build(builderContext2);
+
+        assertTrue(knnVectorFieldMapper1 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper2 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals(
+            "lucene",
+            knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine().getName()
+        );
+        assertFalse(knnVectorFieldMapper2.fieldType().getKnnMappingConfig().isIndexed());
+    }
+
+    public void testIndexParameter_MultipleVectorFields_FaissAndFalseIndex() throws IOException {
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject("my_vector1")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(INDEX_PARAMETER_KEY, true)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, "faiss")
+            .endObject()
+            .endObject()
+            .startObject("my_vector2")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(INDEX_PARAMETER_KEY, false)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> params = xContentBuilderToMap(xContentBuilder);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) params.get("properties");
+
+        assertTrue(properties.containsKey("my_vector1"));
+        assertTrue(properties.containsKey("my_vector2"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Mapping = (Map<String, Object>) properties.get("my_vector1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector1Method = (Map<String, Object>) vector1Mapping.get(KNN_METHOD);
+
+        assertEquals(true, vector1Mapping.get(INDEX_PARAMETER_KEY));
+        assertEquals("faiss", vector1Method.get(KNN_ENGINE));
+        assertEquals(KNN_VECTOR_TYPE, vector1Mapping.get(TYPE_FIELD_NAME));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vector2Mapping = (Map<String, Object>) properties.get("my_vector2");
+        assertEquals(false, vector2Mapping.get(INDEX_PARAMETER_KEY));
+        assertEquals(KNN_VECTOR_TYPE, vector2Mapping.get(TYPE_FIELD_NAME));
+
+        // checking for 2 vector fields in index
+        assertEquals(2, properties.size());
+
+        KNNVectorFieldMapper.Builder builder1 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector1",
+            vector1Mapping,
+            buildParserContext(indexName, settings)
+        );
+        KNNVectorFieldMapper.Builder builder2 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "my_vector2",
+            vector2Mapping,
+            buildParserContext(indexName, settings)
+        );
+        Mapper.BuilderContext builderContext1 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper1 = builder1.build(builderContext1);
+        Mapper.BuilderContext builderContext2 = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper2 = builder2.build(builderContext2);
+
+        assertTrue(knnVectorFieldMapper1 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper2 instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals("faiss", knnVectorFieldMapper1.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getKnnEngine().getName());
+        assertFalse(knnVectorFieldMapper2.fieldType().getKnnMappingConfig().isIndexed());
+    }
+
+    public void testIndexParameter_IndexVersionBefore3_0_0_ValidButIndexAlwaysTrue() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 4)
+            .field(INDEX_PARAMETER_KEY, false)
+            .endObject();
+
+        Settings settings = Settings.builder().put(settings(Version.V_2_15_0).build()).put(KNN_INDEX, true).build();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildLegacyParserContext(indexName, settings, Version.V_2_15_0)
+        );
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+
+        assertTrue(knnVectorFieldMapper instanceof EngineFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
+        assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().isIndexed());
+    }
+
+    public void testIndexParameter_NotKnnIndex_FalseIndex() throws IOException {
+        String fieldName = TEST_FIELD_NAME;
+        String indexName = TEST_INDEX_NAME;
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, false).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2)
+            .field(INDEX_PARAMETER_KEY, false)
+            .endObject();
+
+        final KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
+        );
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+
+        assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
+        assertFalse(builder.getOriginalParameters().isIndexed());
     }
 
     private void validateBuilderAfterParsing(
