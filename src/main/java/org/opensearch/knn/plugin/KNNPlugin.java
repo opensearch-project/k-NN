@@ -6,6 +6,8 @@
 package org.opensearch.knn.plugin;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.lucene.search.KnnByteVectorQuery;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -44,6 +46,7 @@ import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
+import org.opensearch.knn.index.query.lucenelib.ExpandNestedDocsQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.util.KNNClusterUtil;
@@ -192,7 +195,11 @@ public class KNNPlugin extends Plugin
     @Override
     public Optional<ProfileMetricsProvider> getQueryProfileMetricsProvider() {
         return Optional.of((searchContext, query) -> {
-            if (query instanceof KNNQuery || query instanceof RescoreKNNVectorQuery) {
+            if (query instanceof KnnByteVectorQuery
+                || query instanceof KnnFloatVectorQuery
+                || query instanceof ExpandNestedDocsQuery
+                || query instanceof RescoreKNNVectorQuery
+                || query instanceof KNNQuery) {
                 return KNNMetrics.getKNNQueryMetrics();
             } else if (query instanceof NativeEngineKnnVectorQuery) {
                 return KNNMetrics.getNativeMetrics();

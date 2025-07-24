@@ -8,8 +8,8 @@ package org.opensearch.knn.index.query.lucenelib;
 import junit.framework.TestCase;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
-import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
+import org.opensearch.knn.index.query.lucene.ProfileDiversifyingChildrenByteKnnVectorQuery;
+import org.opensearch.knn.index.query.lucene.ProfileDiversifyingChildrenFloatKnnVectorQuery;
 
 import static org.mockito.Mockito.mock;
 
@@ -50,13 +50,13 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         boolean expandNestedDocs = false;
 
         assertEquals(
-            DiversifyingChildrenByteKnnVectorQuery.class,
+            ProfileDiversifyingChildrenByteKnnVectorQuery.class,
             NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(fieldName, byteVectors, k, queryFilter, parentFilter, expandNestedDocs)
                 .getClass()
         );
 
         assertEquals(
-            DiversifyingChildrenFloatKnnVectorQuery.class,
+            ProfileDiversifyingChildrenFloatKnnVectorQuery.class,
             NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(fieldName, floatVectors, k, queryFilter, parentFilter, expandNestedDocs)
                 .getClass()
         );

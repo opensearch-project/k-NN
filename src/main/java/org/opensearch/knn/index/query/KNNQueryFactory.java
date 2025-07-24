@@ -7,14 +7,14 @@ package org.opensearch.knn.index.query;
 
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.search.KnnByteVectorQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.lucene.ProfileKnnByteVectorQuery;
+import org.opensearch.knn.index.query.lucene.ProfileKnnFloatVectorQuery;
 import org.opensearch.knn.index.query.lucenelib.NestedKnnVectorQueryFactory;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
@@ -179,8 +179,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return vectorDataType == VectorDataType.FLOAT
-                ? new KnnFloatVectorQuery(fieldName, floatQueryVector, k, filterQuery)
-                : new KnnByteVectorQuery(fieldName, byteQueryVector, k, filterQuery);
+                ? new ProfileKnnFloatVectorQuery(fieldName, floatQueryVector, k, filterQuery)
+                : new ProfileKnnByteVectorQuery(fieldName, byteQueryVector, k, filterQuery);
         }
         // If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link
         // NestedKnnVectorQueryFactory}

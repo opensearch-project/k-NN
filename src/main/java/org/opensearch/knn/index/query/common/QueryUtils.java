@@ -20,6 +20,9 @@ import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
+import org.opensearch.knn.profile.KNNProfileUtil;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -87,6 +90,35 @@ public class QueryUtils {
             starts[i] = resultIndex;
         }
         return starts;
+    }
+
+    /**
+     * Performs the search in parallel with profiling.
+     *
+     * @param indexSearcher the index searcher
+     * @param leafReaderContexts the leaf reader contexts
+     * @param weight the search weight
+     * @return a list of maps, each mapping document IDs to their scores
+     * @throws IOException
+     */
+    public List<Map<Integer, Float>> doSearch(
+        final IndexSearcher indexSearcher,
+        final List<LeafReaderContext> leafReaderContexts,
+        final Weight weight,
+        ContextualProfileBreakdown profile
+    ) throws IOException {
+        List<Callable<Map<Integer, Float>>> tasks = new ArrayList<>(leafReaderContexts.size());
+        for (LeafReaderContext leafReaderContext : leafReaderContexts) {
+            tasks.add(
+                () -> (Map<Integer, Float>) KNNProfileUtil.profileBreakdown(
+                    profile,
+                    leafReaderContext,
+                    KNNQueryTimingType.ANN_SEARCH,
+                    () -> searchLeaf(leafReaderContext, weight)
+                )
+            );
+        }
+        return indexSearcher.getTaskExecutor().invokeAll(tasks);
     }
 
     /**
