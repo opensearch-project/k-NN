@@ -13,6 +13,7 @@ package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IndexInput;
 import org.junit.After;
@@ -562,6 +563,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
         Map<String, Map<String, Object>> indicesStats = nativeMemoryCacheManager.getIndicesCacheStats();
         assertTrue(indicesStats.isEmpty());
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
 
         String indexName1 = "test-index-1";
         String testKey1 = "test-1";
@@ -582,6 +584,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
+                knnVectorValues,
                 "test"
             )
         );
@@ -611,10 +614,18 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     @Test(expected = NullPointerException.class)
     public void testGetWithInvalidFile_NullPointerException() {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, "test")
+            new NativeMemoryEntryContext.IndexEntryContext(
+                (Directory) null,
+                "invalid-cache-key",
+                indexLoadStrategy,
+                null,
+                knnVectorValues,
+                "test"
+            )
         );
 
         Directory mockDirectory = mock(Directory.class);
@@ -625,10 +636,18 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     @SneakyThrows
     public void testGetWithInvalidFile_IllegalStateException() {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, "test")
+            new NativeMemoryEntryContext.IndexEntryContext(
+                (Directory) null,
+                "invalid-cache-key",
+                indexLoadStrategy,
+                null,
+                knnVectorValues,
+                "test"
+            )
         );
 
         doReturn(0).when(indexEntryContext).calculateSizeInKB();
@@ -654,6 +673,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         String testKey1 = "test-1";
         String indexName1 = "test-index-1";
         int size1 = 3;
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
 
         NativeMemoryAllocation.IndexAllocation indexAllocation1 = new NativeMemoryAllocation.IndexAllocation(
             null,
@@ -671,6 +691,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
+                knnVectorValues,
                 "test"
             )
         );
@@ -712,6 +733,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch completionLatch = new CountDownLatch(numThreads);
         AtomicInteger openVectorIndexCalls = new AtomicInteger(0);
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
 
         // Create test allocation
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
@@ -731,6 +753,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
+                knnVectorValues,
                 "test"
             )
         );

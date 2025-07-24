@@ -1,0 +1,107 @@
+From fbd6f94060ff954cc20a16316481da96b90635c7 Mon Sep 17 00:00:00 2001
+From: sobhu17 <saurabh.kaushiksde@gmail.com>
+Date: Wed, 23 Jul 2025 22:39:22 -0700
+Subject: [PATCH] create patch
+
+---
+ faiss/impl/index_read.cpp  | 36 ++++++++++++++++++++++++++++++++++--
+ faiss/impl/index_write.cpp |  4 ++--
+ faiss/impl/io.h            |  5 +++++
+ 3 files changed, 41 insertions(+), 4 deletions(-)
+
+diff --git a/faiss/impl/index_read.cpp b/faiss/impl/index_read.cpp
+index c7887a4f5..8ea19bd0b 100644
+--- a/faiss/impl/index_read.cpp
++++ b/faiss/impl/index_read.cpp
+@@ -545,7 +545,19 @@ Index* read_index(IOReader* f, int io_flags) {
+         }
+         read_index_header(idxf, f);
+         idxf->code_size = idxf->d * sizeof(float);
+-        READXBVECTOR(idxf->codes);
++
++        idxf->codes.resize(idxf->ntotal * idxf->code_size);
++
++        if (!idxf->codes.empty()) {
++            float* dataPtr = reinterpret_cast<float*>(idxf->codes.data());
++            size_t dim = idxf->d;
++            for (size_t i = 0; i < idxf->ntotal; i++) {
++                if (!f->copy(dataPtr + i * dim, dim * sizeof(float))) {
++                    throw std::runtime_error("Failed to load flat vectors via IOReader::copy at index " + std::to_string(i));
++                }
++            }
++        }
++
+         FAISS_THROW_IF_NOT(
+                 idxf->codes.size() == idxf->ntotal * idxf->code_size);
+         // leak!
+@@ -789,8 +801,28 @@ Index* read_index(IOReader* f, int io_flags) {
+         IndexScalarQuantizer* idxs = new IndexScalarQuantizer();
+         read_index_header(idxs, f);
+         read_ScalarQuantizer(&idxs->sq, f);
+-        READVECTOR(idxs->codes);
++
+         idxs->code_size = idxs->sq.code_size;
++        idxs->codes.resize(idxs->ntotal * idxs->code_size);
++
++        size_t dim = idxs->d;
++        std::vector<float> floatBuffer(dim);
++
++        for (size_t i = 0; i < idxs->ntotal; ++i) {
++            // Convert byte[] from Java → float[] into floatBuffer
++            if (!f->copy(floatBuffer.data(), sizeof(float) * dim)) {
++                throw std::runtime_error("Failed to load float vector at index " + std::to_string(i));
++            }
++
++            // Quantize with FAISS compute_codes()
++            idxs->sq.compute_codes(
++                floatBuffer.data(),
++                idxs->codes.data() + i * idxs->code_size,
++                1
++            );
++        }
++
++        FAISS_THROW_IF_NOT(idxs->codes.size() == idxs->ntotal * idxs->code_size);
+         idx = idxs;
+     } else if (h == fourcc("IxLa")) {
+         int d, nsq, scale_nbit, r2;
+diff --git a/faiss/impl/index_write.cpp b/faiss/impl/index_write.cpp
+index 0118ef471..17e66c93a 100644
+--- a/faiss/impl/index_write.cpp
++++ b/faiss/impl/index_write.cpp
+@@ -400,7 +400,7 @@ void write_index(const Index* idx, IOWriter* f, int io_flags) {
+                                                                  : "IxFl");
+         WRITE1(h);
+         write_index_header(idx, f);
+-        WRITEXBVECTOR(idxf->codes);
++//        WRITEXBVECTOR(idxf->codes);
+     } else if (const IndexLSH* idxl = dynamic_cast<const IndexLSH*>(idx)) {
+         uint32_t h = fourcc("IxHe");
+         WRITE1(h);
+@@ -600,7 +600,7 @@ void write_index(const Index* idx, IOWriter* f, int io_flags) {
+         WRITE1(h);
+         write_index_header(idx, f);
+         write_ScalarQuantizer(&idxs->sq, f);
+-        WRITEVECTOR(idxs->codes);
++//        WRITEVECTOR(idxs->codes);
+     } else if (
+             const IndexLattice* idxl_2 =
+                     dynamic_cast<const IndexLattice*>(idx)) {
+diff --git a/faiss/impl/io.h b/faiss/impl/io.h
+index 56a074fec..ca0b56e24 100644
+--- a/faiss/impl/io.h
++++ b/faiss/impl/io.h
+@@ -34,6 +34,11 @@ struct IOReader {
+     // return a file number that can be memory-mapped
+     virtual int filedescriptor();
+ 
++    // New method to stream full-precision vectors
++    virtual bool copy(void* dest, int expectedByteSize) {
++        return false; // default fallback
++    }
++
+     virtual ~IOReader() {}
+ };
+ 
+-- 
+2.39.5 (Apple Git-154)
+

@@ -44,6 +44,14 @@ class NativeEngineIndexInputMediator {
         remainingBytesMethod(getRemainingBytesMethod(_jni_interface, _env)) {
   }
 
+  JNIEnv* getEnv() const {
+    return env;
+  }
+
+  jobject getJavaObject() const {
+    return indexInput;
+  }
+
   void copyBytes(int64_t nbytes, uint8_t * RESTRICT destination) {
     auto jclazz = getIndexInputWithBufferClass(jni_interface, env);
 
