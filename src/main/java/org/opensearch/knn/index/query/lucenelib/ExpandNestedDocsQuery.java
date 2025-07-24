@@ -49,14 +49,18 @@ public class ExpandNestedDocsQuery extends Query {
 
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
-        Query docAndScoreQuery = internalNestedKnnVectorQuery.knnRewrite(searcher);
         QueryProfiler profiler = KNNProfileUtil.getProfiler(searcher);
         if (profiler != null) {
+            profiler.getQueryBreakdown((Query) internalNestedKnnVectorQuery);
+        }
+        Query docAndScoreQuery = internalNestedKnnVectorQuery.knnRewrite(searcher);
+        if (profiler != null) {
+            profiler.pollLastElement(); // removes internalNested from the stack
             profiler.getQueryBreakdown(docAndScoreQuery);
         }
         Weight weight = docAndScoreQuery.createWeight(searcher, scoreMode, boost);
         if (profiler != null) {
-            profiler.pollLastElement();
+            profiler.pollLastElement(); // removes docAndScoreQuery from stack
         }
         IndexReader reader = searcher.getIndexReader();
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
