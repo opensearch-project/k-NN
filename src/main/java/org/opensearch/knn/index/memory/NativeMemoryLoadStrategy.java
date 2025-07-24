@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.store.Directory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
@@ -90,7 +91,8 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 throw new IllegalStateException("Index [" + indexEntryContext.getOpenSearchIndexName() + "] is not preloaded");
             }
             try (indexEntryContext) {
-                indexEntryContext.indexInputWithBuffer.setFloatVectorValues(indexEntryContext.getFloatVectorValues());
+                indexEntryContext.indexInputWithBuffer.setKnnVectorValues(indexEntryContext.getKnnVectorValues());
+                indexEntryContext.indexInputWithBuffer.setFloatVector(indexEntryContext.getKnnVectorValues() instanceof FloatVectorValues);
                 final long indexAddress = JNIService.loadIndex(
                     indexEntryContext.indexInputWithBuffer,
                     indexEntryContext.getParameters(),

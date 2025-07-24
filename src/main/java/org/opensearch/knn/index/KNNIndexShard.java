@@ -9,12 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.SegmentCommitInfo;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
@@ -173,6 +168,11 @@ public class KNNIndexShard {
                     engineFileContext.segmentInfo
                 );
 
+                final VectorDataType vectorDataType = engineFileContext.getVectorDataType();
+                final KnnVectorValues knnVectorValues = (vectorDataType == VectorDataType.BYTE)
+                    ? leafReaderContext.reader().getByteVectorValues(engineFileContext.getFieldName())
+                    : leafReaderContext.reader().getFloatVectorValues(engineFileContext.getFieldName());
+
                 // Load an off-heap index
                 nativeMemoryCacheManager.get(
                     new NativeMemoryEntryContext.IndexEntryContext(
@@ -188,7 +188,7 @@ public class KNNIndexShard {
 
                         ),
                         getIndexName(),
-                        leafReaderContext.reader().getFloatVectorValues(engineFileContext.fieldName),
+                        knnVectorValues,
                         engineFileContext.getModelId()
                     ),
                     true

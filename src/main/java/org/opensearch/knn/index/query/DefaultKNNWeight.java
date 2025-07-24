@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.TopDocs;
@@ -76,6 +77,10 @@ public class DefaultKNNWeight extends KNNWeight {
             segmentLuceneVersion
         );
 
+        KnnVectorValues knnVectorValues = (vectorDataType == VectorDataType.BYTE)
+            ? context.reader().getByteVectorValues(knnQuery.getField())
+            : context.reader().getFloatVectorValues(knnQuery.getField());
+
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
         try {
@@ -93,7 +98,7 @@ public class DefaultKNNWeight extends KNNWeight {
                         segmentLevelQuantizationInfo
                     ),
                     knnQuery.getIndexName(),
-                    context.reader().getFloatVectorValues(knnQuery.getField()),
+                    knnVectorValues,
                     modelId
                 ),
                 true

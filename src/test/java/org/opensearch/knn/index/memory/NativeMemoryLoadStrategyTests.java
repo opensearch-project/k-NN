@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.Directory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
@@ -59,7 +59,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
             long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
             TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
-            final FloatVectorValues floatVectorValues = mock(FloatVectorValues.class);
+            final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
 
             // Setup mock resource manager
             NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
@@ -67,7 +67,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
                 TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                 parameters,
-                floatVectorValues,
+                knnVectorValues,
                 "test"
             );
 
@@ -108,7 +108,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             );
             long memoryAddress = JNICommons.storeBinaryVectorData(0, vectors, numVectors);
             TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
-            final FloatVectorValues floatVectorValues = mock(FloatVectorValues.class);
+            final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
 
             // Setup mock resource manager
             NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
@@ -116,7 +116,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
                 TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                 parameters,
-                floatVectorValues,
+                knnVectorValues,
                 "test"
             );
 
