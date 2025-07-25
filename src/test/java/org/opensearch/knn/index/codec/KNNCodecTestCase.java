@@ -99,23 +99,23 @@ public class KNNCodecTestCase extends KNNTestCase {
     private static final FieldType sampleFieldType;
     static {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .versionCreated(CURRENT)
-            .vectorDataType(VectorDataType.DEFAULT)
-            .build();
+                .versionCreated(CURRENT)
+                .vectorDataType(VectorDataType.DEFAULT)
+                .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.NMSLIB,
-            SpaceType.DEFAULT,
-            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+                KNNEngine.NMSLIB,
+                SpaceType.DEFAULT,
+                new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
         String parameterString;
         try {
             parameterString = XContentFactory.jsonBuilder()
-                .map(
-                    knnMethodContext.getKnnEngine()
-                        .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-                        .getLibraryParameters()
-                )
-                .toString();
+                    .map(
+                            knnMethodContext.getKnnEngine()
+                                    .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+                                    .getLibraryParameters()
+                    )
+                    .toString();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -137,11 +137,11 @@ public class KNNCodecTestCase extends KNNTestCase {
         when(clusterService.state().getMetadata().index(Mockito.anyString()).getSettings()).thenReturn(settings);
         Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         defaultClusterSettings.addAll(
-            KNNSettings.state()
-                .getSettings()
-                .stream()
-                .filter(s -> s.getProperties().contains(Setting.Property.NodeScope))
-                .collect(Collectors.toList())
+                KNNSettings.state()
+                        .getSettings()
+                        .stream()
+                        .filter(s -> s.getProperties().contains(Setting.Property.NodeScope))
+                        .collect(Collectors.toList())
         );
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
         KNNSettings.state().setClusterService(clusterService);
@@ -165,7 +165,8 @@ public class KNNCodecTestCase extends KNNTestCase {
              * Add doc with field "test_vector"
              */
             float[] array = { 1.0f, 3.0f, 4.0f };
-            VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
+            // Specify the vector data type explicitly, e.g., VectorDataType.FLOAT
+            VectorField vectorField = new VectorField("test_vector", array, sampleFieldType, VectorDataType.FLOAT);
             RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
             Document doc = new Document();
             doc.add(vectorField);
@@ -177,7 +178,7 @@ public class KNNCodecTestCase extends KNNTestCase {
              * Add doc with field "my_vector"
              */
             float[] array1 = { 6.0f, 14.0f };
-            VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
+            VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType, VectorDataType.FLOAT);
             Document doc1 = new Document();
             doc1.add(vectorField1);
             writer.addDocument(doc1);
@@ -195,20 +196,20 @@ public class KNNCodecTestCase extends KNNTestCase {
             // query to verify distance for each of the field
             IndexSearcher searcher = new IndexSearcher(reader);
             float score = searcher.search(
-                new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null),
-                10
+                    new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null),
+                    10
             ).scoreDocs[0].score;
             float score1 = searcher.search(
-                new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy", (BitSetProducer) null),
-                10
+                    new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy", (BitSetProducer) null),
+                    10
             ).scoreDocs[0].score;
             assertEquals(1.0f / (1 + 25), score, 0.01f);
             assertEquals(1.0f / (1 + 169), score1, 0.01f);
 
             // query to determine the hits
             assertEquals(
-                1,
-                searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null))
+                    1,
+                    searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null))
             );
             assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy", (BitSetProducer) null)));
 
@@ -227,10 +228,10 @@ public class KNNCodecTestCase extends KNNTestCase {
         // "Train" a faiss flat index - this really just creates an empty index that does brute force k-NN
         long vectorsPointer = JNICommons.storeVectorData(0, new float[0][0], 0);
         byte[] modelBlob = JNIService.trainIndex(
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
-            dimension,
-            vectorsPointer,
-            KNNEngine.FAISS
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
+                dimension,
+                vectorsPointer,
+                KNNEngine.FAISS
         );
 
         // Setup model cache
@@ -240,19 +241,19 @@ public class KNNCodecTestCase extends KNNTestCase {
 
             // Set model state to created
             ModelMetadata modelMetadata1 = new ModelMetadata(
-                knnEngine,
-                spaceType,
-                dimension,
-                ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(),
-                "",
-                "",
-                "",
-                MethodComponentContext.EMPTY,
-                VectorDataType.FLOAT,
-                Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED,
-                Version.V_EMPTY
+                    knnEngine,
+                    spaceType,
+                    dimension,
+                    ModelState.CREATED,
+                    ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                    "",
+                    "",
+                    "",
+                    MethodComponentContext.EMPTY,
+                    VectorDataType.FLOAT,
+                    Mode.NOT_CONFIGURED,
+                    CompressionLevel.NOT_CONFIGURED,
+                    Version.V_EMPTY
             );
 
             Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
@@ -287,7 +288,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
             String fieldName = "test_vector";
             for (float[] array : arrays) {
-                VectorField vectorField = new VectorField(fieldName, array, fieldType);
+                // Specify the vector data type explicitly, e.g., VectorDataType.FLOAT
+                VectorField vectorField = new VectorField(fieldName, array, fieldType, VectorDataType.FLOAT);
                 Document doc = new Document();
                 doc.add(vectorField);
                 writer.addDocument(doc);
@@ -324,7 +326,7 @@ public class KNNCodecTestCase extends KNNTestCase {
          * Add doc with field "test_vector", expect it to fail
          */
         float[] array = { 1.0f, 3.0f, 4.0f };
-        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
+        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType, VectorDataType.FLOAT);
         try (RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc)) {
             Document doc = new Document();
             doc.add(vectorField);
@@ -336,27 +338,27 @@ public class KNNCodecTestCase extends KNNTestCase {
     }
 
     public void testKnnVectorIndex(
-        final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
-        final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
+            final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
+            final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
     ) throws Exception {
         final MapperService mapperService = mock(MapperService.class);
         final KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
+                KNNEngine.LUCENE,
+                SpaceType.L2,
+                new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
 
         final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(
-            "test",
-            Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
+                "test",
+                Collections.emptyMap(),
+                VectorDataType.FLOAT,
+                getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(
-            "test",
-            Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 2)
+                "test",
+                Collections.emptyMap(),
+                VectorDataType.FLOAT,
+                getMappingConfigForMethodMapping(knnMethodContext, 2)
         );
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
@@ -390,14 +392,14 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexSearcher searcher = new IndexSearcher(reader);
 
         Query query = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .indexName("dummy")
-                .fieldName(FIELD_NAME_ONE)
-                .vector(new float[] { 1.0f, 0.0f, 0.0f })
-                .k(1)
-                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
-                .build()
+                BaseQueryFactory.CreateQueryRequest.builder()
+                        .knnEngine(KNNEngine.LUCENE)
+                        .indexName("dummy")
+                        .fieldName(FIELD_NAME_ONE)
+                        .vector(new float[] { 1.0f, 0.0f, 0.0f })
+                        .k(1)
+                        .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                        .build()
         );
 
         assertEquals(1, searcher.count(query));
@@ -425,14 +427,14 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         IndexSearcher searcher1 = new IndexSearcher(reader1);
         Query query1 = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .indexName("dummy")
-                .fieldName(FIELD_NAME_TWO)
-                .vector(new float[] { 1.0f, 0.0f })
-                .k(1)
-                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
-                .build()
+                BaseQueryFactory.CreateQueryRequest.builder()
+                        .knnEngine(KNNEngine.LUCENE)
+                        .indexName("dummy")
+                        .fieldName(FIELD_NAME_TWO)
+                        .vector(new float[] { 1.0f, 0.0f })
+                        .k(1)
+                        .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                        .build()
         );
 
         assertEquals(1, searcher1.count(query1));

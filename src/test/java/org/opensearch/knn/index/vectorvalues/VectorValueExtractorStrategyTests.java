@@ -23,6 +23,7 @@ public class VectorValueExtractorStrategyTests extends KNNTestCase {
         final KNNVectorValuesIterator vectorValuesIterator = Mockito.mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         Mockito.when(vectorValuesIterator.getDocIdSetIterator()).thenReturn(new TestVectorValues.NotBinaryDocValues());
         Assert.assertThrows(IllegalArgumentException.class, () -> disiStrategy.extract(VectorDataType.FLOAT, vectorValuesIterator));
+        Assert.assertThrows(IllegalArgumentException.class, () -> disiStrategy.extract(VectorDataType.HALF_FLOAT, vectorValuesIterator));
         Assert.assertThrows(IllegalArgumentException.class, () -> disiStrategy.extract(VectorDataType.BINARY, vectorValuesIterator));
         Assert.assertThrows(IllegalArgumentException.class, () -> disiStrategy.extract(VectorDataType.BYTE, vectorValuesIterator));
     }

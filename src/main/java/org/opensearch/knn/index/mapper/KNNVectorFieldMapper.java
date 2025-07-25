@@ -673,7 +673,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         if (useLuceneBasedVectorField) {
             return new DerivedKnnFloatVectorField(name(), vectorValue, fieldType, isDerivedEnabled);
         }
-        return new VectorField(name(), vectorValue, fieldType);
+        return new VectorField(name(), vectorValue, fieldType, vectorDataType);
     }
 
     private Field createVectorField(byte[] vectorValue, boolean isDerivedEnabled) {
@@ -693,7 +693,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         final List<Field> fields = new ArrayList<>();
         fields.add(createVectorField(array, isDerivedEnabled));
         if (this.stored) {
-            fields.add(createStoredFieldForFloatVector(name(), array));
+            if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                // FP16 not supported for DocValuesFormat as it is on the deprecation path.
+                throw new UnsupportedOperationException(
+                        "HALF_FLOAT vector data type is not supported for DocValuesFormat."
+                );
+            } else {
+                fields.add(createStoredFieldForFloatVector(name(), array));
+            }
         }
         return fields;
     }
@@ -770,7 +777,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             getVectorValidator().validateVector(array);
             getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForByteVector(array, isDerivedEnabled(context)));
-        } else if (VectorDataType.FLOAT == vectorDataType) {
+        } else if (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
             if (floatsArrayOptional.isEmpty()) {

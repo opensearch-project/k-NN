@@ -13,10 +13,24 @@ import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 
 public class VectorField extends Field {
 
-    public VectorField(String name, float[] value, IndexableFieldType type) {
+    /**
+     * @param name FieldType name
+     * @param value an array of float vector values
+     * @param type FieldType to build DocValues
+     * @param dataType VectorDataType (FLOAT)
+     */
+    public VectorField(String name, float[] value, IndexableFieldType type, VectorDataType dataType) {
         super(name, new BytesRef(), type);
         try {
-            final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
+            final KNNVectorSerializer vectorSerializer;
+            if (dataType == VectorDataType.HALF_FLOAT) {
+                // FP16 not supported for DocValuesFormat as it is on the deprecation path.
+                throw new UnsupportedOperationException(
+                    "HALF_FLOAT vector data type is not supported for DocValuesFormat."
+                );
+            } else {
+                vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
+            }
             final byte[] floatToByte = vectorSerializer.floatToByteArray(value);
             this.setBytesValue(floatToByte);
         } catch (Exception e) {

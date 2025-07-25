@@ -679,7 +679,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     }
 
     private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
-        if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
+        if ((VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType)
+            || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
             return this.vector;
         }
         return null;
