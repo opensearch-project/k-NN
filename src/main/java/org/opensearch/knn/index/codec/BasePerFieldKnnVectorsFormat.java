@@ -115,14 +115,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
                 KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
                 if (bbqParams.validate(params)) {
-                    log.debug(
-                        "Initialize KNN vector format for field [{}] with BBQ encoder [{}] = \"{}\" and [{}] = \"{}\"",
-                        field,
-                        MAX_CONNECTIONS,
-                        bbqParams.getMaxConnections(),
-                        BEAM_WIDTH,
-                        bbqParams.getBeamWidth()
-                    );
                     return bbqVectorsFormatSupplier.apply(bbqParams);
                 }
 
@@ -131,7 +123,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                     defaultMaxConnections,
                     defaultBeamWidth
                 );
-                // TODO: we have an instance of params here, can maybe do some branching log.
                 // note that we're doing an apply pattern
                 if (knnScalarQuantizedVectorsFormatParams.validate(params)) {
                     log.debug(
@@ -146,7 +137,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                         LUCENE_SQ_BITS,
                         knnScalarQuantizedVectorsFormatParams.getBits()
                     );
-                    // TODO: here when we call and actually make the vectors format is here.
                     return scalarQuantizedVectorsFormatSupplier.apply(knnScalarQuantizedVectorsFormatParams);
                 }
             }
