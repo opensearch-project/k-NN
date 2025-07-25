@@ -251,9 +251,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             if (hasDocValues && vectorFieldType != null) {
                 if (vectorDataType == VectorDataType.HALF_FLOAT) {
                     // FP16 not supported for DocValuesFormat as it is on the deprecation path.
-                    throw new UnsupportedOperationException(
-                            "HALF_FLOAT vector data type is not supported for DocValuesFormat."
-                    );
+                    throw new UnsupportedOperationException("HALF_FLOAT vector data type is not supported for DocValuesFormat.");
                 } else {
                     fields.add(new VectorField(name(), array, vectorFieldType, VectorDataType.FLOAT));
                 }
@@ -261,9 +259,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             if (stored) {
                 if (vectorDataType == VectorDataType.HALF_FLOAT) {
                     // FP16 not supported for DocValuesFormat as it is on the deprecation path.
-                    throw new UnsupportedOperationException(
-                            "HALF_FLOAT vector data type is not supported for DocValuesFormat."
-                    );
+                    throw new UnsupportedOperationException("HALF_FLOAT vector data type is not supported for DocValuesFormat.");
                 } else {
                     fields.add(createStoredFieldForFloatVector(name(), array));
                 }

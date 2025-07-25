@@ -25,9 +25,7 @@ public class VectorField extends Field {
             final KNNVectorSerializer vectorSerializer;
             if (dataType == VectorDataType.HALF_FLOAT) {
                 // FP16 not supported for DocValuesFormat as it is on the deprecation path.
-                throw new UnsupportedOperationException(
-                    "HALF_FLOAT vector data type is not supported for DocValuesFormat."
-                );
+                throw new UnsupportedOperationException("HALF_FLOAT vector data type is not supported for DocValuesFormat.");
             } else {
                 vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
             }
