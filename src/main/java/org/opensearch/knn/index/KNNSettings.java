@@ -20,7 +20,6 @@ import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
@@ -35,7 +34,9 @@ import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 import org.opensearch.transport.client.Client;
 
+import java.security.AccessController;
 import java.security.InvalidParameterException;
+import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -317,18 +318,13 @@ public class KNNSettings {
      * this could lead to NUM_CORES^2 threads running and could lead to 100% CPU utilization. This setting allows users to
      * configure number of threads for graph construction.
      */
-    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = new Setting<>(
-            KNN_ALGO_PARAM_INDEX_THREAD_QTY,
-            settings -> Integer.toString(getHardwareDefaultIndexThreadQty(settings)),
-            s -> {
-                int value = Integer.parseInt(s);
-                if (value < 1 || value > INDEX_THREAD_QTY_MAX) {
-                    throw new IllegalArgumentException("Value must be between 1 and " + INDEX_THREAD_QTY_MAX);
-                }
-                return value;
-            },
-            NodeScope,
-            Dynamic
+    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = Setting.intSetting(
+        KNN_ALGO_PARAM_INDEX_THREAD_QTY,
+        getHardwareDefaultIndexThreadQty(),
+        1,
+        INDEX_THREAD_QTY_MAX,
+        NodeScope,
+        Dynamic
     );
 
     public static final Setting<Boolean> KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING = Setting.boolSetting(
@@ -418,7 +414,7 @@ public class KNNSettings {
      */
     public static final Setting<Boolean> KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING = Setting.boolSetting(
         KNN_INDEX_REMOTE_VECTOR_BUILD,
-        true,
+        false,
         Dynamic,
         IndexScope
     );
@@ -933,14 +929,19 @@ public class KNNSettings {
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {
-        return getIndexSettings(indexName).getAsInt(
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE
-        );
+        return KNNSettings.state().clusterService.state()
+            .getMetadata()
+            .index(indexName)
+            .getSettings()
+            .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
     }
 
-    public static boolean isShardLevelRescoringDisabledForDiskBasedVector(final String indexName) {
-        return getIndexSettings(indexName).getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
+    public static boolean isShardLevelRescoringDisabledForDiskBasedVector(String indexName) {
+        return KNNSettings.state().clusterService.state()
+            .getMetadata()
+            .index(indexName)
+            .getSettings()
+            .getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
     }
 
     public void initialize(Client client, ClusterService clusterService) {
@@ -1032,11 +1033,11 @@ public class KNNSettings {
      * @return True if memory optimized search is enabled, otherwise False.
      */
     public static boolean isMemoryOptimizedKnnSearchModeEnabled(@NonNull final String indexName) {
-        return getIndexSettings(indexName).getAsBoolean(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
-    }
-
-    public static Settings getIndexSettings(@NonNull final String indexName) {
-        return KNNSettings.state().clusterService.state().getMetadata().index(indexName).getSettings();
+        return KNNSettings.state().clusterService.state()
+            .getMetadata()
+            .index(indexName)
+            .getSettings()
+            .getAsBoolean(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
     }
 
     public void setClusterService(ClusterService clusterService) {
@@ -1067,14 +1068,17 @@ public class KNNSettings {
      *
      * @return suggested number of indexing threads
      */
-    static int getHardwareDefaultIndexThreadQty(final Settings settings) {
+    public static int getHardwareDefaultIndexThreadQty() {
         try {
-            int availableProcessors = OpenSearchExecutors.allocatedProcessors(settings);
-            if (availableProcessors >= 32) {
-                return 4;
-            } else {
-                return 1;
-            }
+            return AccessController.doPrivileged((PrivilegedExceptionAction<Integer>) () -> {
+                int availableProcessors = Runtime.getRuntime().availableProcessors();
+                if(availableProcessors > 32) {
+                    return 4;
+                }
+                else {
+                    return 1;
+                }
+            });
         } catch (Exception e) {
             logger.info("[KNN] Failed to determine available processors. Defaulting to 1. [{}]", e.getMessage(), e);
             return 1;
