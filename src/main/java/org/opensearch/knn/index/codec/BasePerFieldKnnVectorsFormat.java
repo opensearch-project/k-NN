@@ -43,7 +43,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier;
-    // TODO: get a sense of what this supplier does, depending on different vectors formats being passed in.
     private final Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier;
     private final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
@@ -123,7 +122,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                     defaultMaxConnections,
                     defaultBeamWidth
                 );
-                // note that we're doing an apply pattern
                 if (knnScalarQuantizedVectorsFormatParams.validate(params)) {
                     log.debug(
                         "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
