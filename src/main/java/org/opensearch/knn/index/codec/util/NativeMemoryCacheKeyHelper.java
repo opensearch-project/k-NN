@@ -10,6 +10,9 @@ import org.apache.lucene.index.SegmentInfo;
 import java.util.Base64;
 
 public final class NativeMemoryCacheKeyHelper {
+
+    public static final String KEY_DELIMITER = "@";
+
     private NativeMemoryCacheKeyHelper() {}
 
     /**
@@ -22,7 +25,7 @@ public final class NativeMemoryCacheKeyHelper {
      */
     public static String constructCacheKey(final String vectorIndexFileName, final SegmentInfo segmentInfo) {
         final String segmentId = Base64.getEncoder().encodeToString(segmentInfo.getId());
-        final String cacheKey = vectorIndexFileName + "@" + segmentId;
+        final String cacheKey = vectorIndexFileName + KEY_DELIMITER + segmentId;
         return cacheKey;
     }
 
@@ -35,7 +38,7 @@ public final class NativeMemoryCacheKeyHelper {
      * @return : Vector file name, if the given cacheKey was invalid format, returns null.
      */
     public static String extractVectorIndexFileName(final String cacheKey) {
-        final int indexOfDelimiter = cacheKey.indexOf('@');
+        final int indexOfDelimiter = cacheKey.lastIndexOf(KEY_DELIMITER);
         if (indexOfDelimiter != -1) {
             final String vectorFileName = cacheKey.substring(0, indexOfDelimiter);
             return vectorFileName;
