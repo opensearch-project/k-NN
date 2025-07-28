@@ -10,7 +10,6 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.index.mapper.MappedFieldType;
-import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -71,10 +70,7 @@ public class NativeEngineSegmentAttributeParser {
      *
      * @param segmentWriteState {@link SegmentWriteState}
      */
-    public static void addWarmupSegmentInfoAttribute(
-            MapperService mapperService,
-            SegmentWriteState segmentWriteState
-    ) {
+    public static void addWarmupSegmentInfoAttribute(MapperService mapperService, SegmentWriteState segmentWriteState) {
         if (segmentWriteState == null) {
             throw new IllegalArgumentException("SegmentWriteState cannot be null");
         }

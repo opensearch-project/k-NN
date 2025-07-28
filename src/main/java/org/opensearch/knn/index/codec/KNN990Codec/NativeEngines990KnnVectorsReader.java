@@ -395,13 +395,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                     }
                     try {
                         boolean isFloat = VectorDataType.get(dataTypeStr) == VectorDataType.FLOAT;
-                        trySearchWithMemoryOptimizedSearch(
-                            fieldInfo.getName(),
-                            null,
-                            null,
-                            null,
-                            isFloat
-                        );
+                        trySearchWithMemoryOptimizedSearch(fieldInfo.getName(), null, null, null, isFloat);
                     } catch (Exception e) {
                         log.warn("Failed to warm up memory optimized field: {}", fieldInfo.getName());
                     }
