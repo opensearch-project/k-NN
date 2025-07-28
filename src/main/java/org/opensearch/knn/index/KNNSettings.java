@@ -34,9 +34,8 @@ import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 import org.opensearch.transport.client.Client;
 
-import java.security.AccessController;
 import java.security.InvalidParameterException;
-import java.security.PrivilegedExceptionAction;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -1070,14 +1069,12 @@ public class KNNSettings {
      */
     public static int getHardwareDefaultIndexThreadQty() {
         try {
-            return AccessController.doPrivileged((PrivilegedExceptionAction<Integer>) () -> {
-                int availableProcessors = Runtime.getRuntime().availableProcessors();
-                if (availableProcessors >= 32) {
-                    return 4;
-                } else {
-                    return 1;
-                }
-            });
+            int availableProcessors = OpenSearchExecutors.allocatedProcessors(Settings.EMPTY);
+            if (availableProcessors >= 32) {
+                return 4;
+            } else {
+                return 1;
+            }
         } catch (Exception e) {
             logger.info("[KNN] Failed to determine available processors. Defaulting to 1. [{}]", e.getMessage(), e);
             return 1;

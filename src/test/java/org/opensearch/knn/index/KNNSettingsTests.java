@@ -283,6 +283,7 @@ public class KNNSettingsTests extends KNNTestCase {
 
         mockNode.close();
     }
+
     @SneakyThrows
     public void testIndexThreadQty_thenUseHardwareDefault() {
         testDefaultThreadQtyWithMockedProcessors(16, 1);
@@ -292,10 +293,8 @@ public class KNNSettingsTests extends KNNTestCase {
 
     @SneakyThrows
     private void testDefaultThreadQtyWithMockedProcessors(int mockedProcessorCount, int expectedThreadQty) {
-        // Create a mock node with no user-defined thread quantity setting
         Node mockNode = createMockNode(Collections.emptyMap());
 
-        // Mock Runtime.getRuntime().availableProcessors() to return our desired count
         Runtime mockRuntime = mock(Runtime.class);
         when(mockRuntime.availableProcessors()).thenReturn(mockedProcessorCount);
 
