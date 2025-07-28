@@ -19,9 +19,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.opensearch.knn.index.VectorDataType.BINARY;
-import static org.opensearch.knn.index.VectorDataType.BYTE;
-import static org.opensearch.knn.index.VectorDataType.FLOAT;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
 /**
@@ -198,13 +195,13 @@ class VectorValuesInputStream extends InputStream {
      */
     private void reloadBuffer() throws IOException {
         currentBuffer.clear();
-        if (vectorDataType == FLOAT) {
+        if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
             float[] floatVector = ((KNNFloatVectorValues) knnVectorValues).getVector();
             currentBuffer.asFloatBuffer().put(floatVector);
-        } else if (vectorDataType == BYTE) {
+        } else if (vectorDataType == VectorDataType.BYTE) {
             byte[] byteVector = ((KNNByteVectorValues) knnVectorValues).getVector();
             currentBuffer.put(byteVector);
-        } else if (vectorDataType == BINARY) {
+        } else if (vectorDataType == VectorDataType.BINARY) {
             byte[] binaryVector = ((KNNBinaryVectorValues) knnVectorValues).getVector();
             currentBuffer.put(binaryVector);
         } else {

@@ -120,7 +120,7 @@ public class KNNIndexShard {
             try {
                 // Partial load Faiss index by triggering search.
                 final VectorDataType vectorDataType = VectorDataType.get(dataTypeStr);
-                if (vectorDataType == VectorDataType.FLOAT) {
+                if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
                     segmentReader.getVectorReader().search(field.getName(), (float[]) null, null, null);
                 } else {
                     segmentReader.getVectorReader().search(field.getName(), (byte[]) null, null, null);
@@ -278,6 +278,10 @@ public class KNNIndexShard {
                     segmentLevelQuantizationInfo,
                     reader.getSegmentInfo().info.getVersion()
                 );
+
+                if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                    vectorDataType = VectorDataType.FLOAT;
+                }
 
                 engineFiles.addAll(
                     getEngineFileContexts(

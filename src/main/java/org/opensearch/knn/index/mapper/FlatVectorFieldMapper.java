@@ -92,6 +92,10 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             return PerDimensionValidator.DEFAULT_BYTE_VALIDATOR;
         }
 
+        if (VectorDataType.HALF_FLOAT == vectorDataType) {
+            return PerDimensionValidator.DEFAULT_HALF_FLOAT_VALIDATOR;
+        }
+
         return PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
     }
 

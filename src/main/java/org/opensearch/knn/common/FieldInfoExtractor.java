@@ -68,7 +68,14 @@ public class FieldInfoExtractor {
                     : VectorDataType.BYTE.toString();
             }
         }
-        return StringUtils.isNotEmpty(vectorDataTypeString) ? VectorDataType.get(vectorDataTypeString) : VectorDataType.DEFAULT;
+        VectorDataType result = StringUtils.isNotEmpty(vectorDataTypeString)
+            ? VectorDataType.get(vectorDataTypeString)
+            : VectorDataType.DEFAULT;
+        // VectorValues do not yet support HALF_FLOAT
+        if (fieldInfo.hasVectorValues() && result == VectorDataType.HALF_FLOAT) {
+            throw new IllegalArgumentException("VectorValues do not yet support fp16 (HALF_FLOAT) data type");
+        }
+        return result;
     }
 
     /**
