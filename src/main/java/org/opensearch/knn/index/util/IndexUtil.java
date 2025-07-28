@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER;
@@ -472,6 +473,10 @@ public class IndexUtil {
             return false;
         }
         return true;
+    }
+
+    public static boolean isWarmUpEnabledForIndex(Optional<MapperService> mapperService) {
+        return mapperService.filter(ms -> KNNSettings.isKnnIndexWarmupEnabled(ms.getIndexSettings().getSettings())).isPresent();
     }
 
     public static boolean isDerivedEnabledForField(KNNVectorFieldType knnVectorFieldType, MapperService mapperService) {

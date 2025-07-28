@@ -18,31 +18,16 @@ import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.DefaultFlatVectorScorer;
 import org.apache.lucene.codecs.hnsw.FlatVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
-import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
-import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.quantizationservice.QuantizationService;
-import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.index.util.IndexUtil;
 
 import java.io.IOException;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-
-import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 
 /**
  * This is a Vector format that will be used for Native engines like Faiss and Nmslib for reading and writing vector
@@ -93,13 +78,9 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public KnnVectorsWriter fieldsWriter(final SegmentWriteState state) throws IOException {
-        if (mapperService.isPresent()) {
-            SegmentInfo info = state.segmentInfo;
-            String indexName = mapperService.get().index().getName();
-            info.putAttribute("index_name", indexName);
-            info.putAttribute("warmup_enabled", String.valueOf(KNNSettings.isKnnIndexWarmupEnabled(indexName)));
+        if (IndexUtil.isWarmUpEnabledForIndex(mapperService)) {
+            NativeEngineSegmentAttributeParser.addWarmupSegmentInfoAttribute(mapperService.get(), state);
         }
-
         return new NativeEngines990KnnVectorsWriter(
             state,
             flatVectorsFormat.fieldsWriter(state),
@@ -115,39 +96,6 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public KnnVectorsReader fieldsReader(final SegmentReadState state) throws IOException {
-        String indexName = state.segmentInfo.getAttribute("index_name");
-        String warmupEnabled = state.segmentInfo.getAttribute("warmup_enabled");
-        if (indexName != null && warmupEnabled.equals("true")) {
-            for (final FieldInfo fieldInfo : state.fieldInfos) {
-                final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, state.segmentInfo);
-                if (vectorIndexFileName == null) {
-                    continue;
-                }
-                final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, state.segmentInfo);
-                final NativeMemoryCacheManager cacheManager = NativeMemoryCacheManager.getInstance();
-                try {
-                    final String spaceTypeName = fieldInfo.attributes().getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
-                    final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
-                    final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
-                    final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-                    final QuantizationParams quantizationParams = QuantizationService.getInstance()
-                        .getQuantizationParams(fieldInfo, state.segmentInfo.getVersion());
-                    cacheManager.get(
-                        new NativeMemoryEntryContext.IndexEntryContext(
-                            state.segmentInfo.dir,
-                            cacheKey,
-                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                            getParametersAtLoading(spaceType, knnEngine, indexName, vectorDataType, quantizationParams),
-                            indexName
-                        ),
-                        true
-                    );
-                } catch (ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-
         return new NativeEngines990KnnVectorsReader(state, flatVectorsFormat.fieldsReader(state));
     }
 

@@ -112,7 +112,7 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_SERVICE_USERNAME = "knn.remote_index_build.service.username";
     public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_index_build.service.password";
 
-    public static final String KNN_INDEX_WARMUP_ENABLED = "index.knn.warmup.enabled";
+    public static final String KNN_INDEX_ADVANCED_WARMUP_ENABLED = "index.knn.advanced.warmup.enabled";
 
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
@@ -157,7 +157,7 @@ public class KNNSettings {
     public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = 60;
     public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 5;
 
-    public static final boolean KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE = false;
+    public static final boolean KNN_INDEX_ADVANCED_WARMUP_ENABLED_DEFAULT_VALUE = false;
 
     /**
      * Settings Definition
@@ -498,9 +498,9 @@ public class KNNSettings {
      * This setting controls whether k-NN indices should be automatically warmed up when a node starts.
      * When enabled, vector indices will be loaded into memory during node startup.
      */
-    public static final Setting<Boolean> KNN_WARMUP_ENABLED_SETTING = Setting.boolSetting(
-        KNN_INDEX_WARMUP_ENABLED,
-        KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE,
+    public static final Setting<Boolean> KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING = Setting.boolSetting(
+        KNN_INDEX_ADVANCED_WARMUP_ENABLED,
+        KNN_INDEX_ADVANCED_WARMUP_ENABLED_DEFAULT_VALUE,
         Final,
         IndexScope
     );
@@ -695,8 +695,8 @@ public class KNNSettings {
             return KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING;
         }
 
-        if (KNN_INDEX_WARMUP_ENABLED.equals(key)) {
-            return KNN_WARMUP_ENABLED_SETTING;
+        if (KNN_INDEX_ADVANCED_WARMUP_ENABLED.equals(key)) {
+            return KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING;
         }
 
         if (KNN_REMOTE_VECTOR_BUILD_SIZE_MAX.equals(key)) {
@@ -746,7 +746,7 @@ public class KNNSettings {
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
             KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
             KNN_DERIVED_SOURCE_ENABLED_SETTING,
-            KNN_WARMUP_ENABLED_SETTING,
+            KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING,
             MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING,
             // Index level remote vector build settings
             KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING,
@@ -953,8 +953,8 @@ public class KNNSettings {
         );
     }
 
-    public static boolean isKnnIndexWarmupEnabled(final String indexName) {
-        return getIndexSettings(indexName).getAsBoolean(KNN_INDEX_WARMUP_ENABLED, KNN_INDEX_WARMUP_ENABLED_DEFAULT_VALUE);
+    public static boolean isKnnIndexWarmupEnabled(Settings settings) {
+        return KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING.get(settings);
     }
 
     public static boolean isShardLevelRescoringDisabledForDiskBasedVector(final String indexName) {
