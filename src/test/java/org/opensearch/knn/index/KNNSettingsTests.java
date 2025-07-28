@@ -6,6 +6,7 @@
 package org.opensearch.knn.index;
 
 import lombok.SneakyThrows;
+import org.mockito.MockedStatic;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.mockito.Mockito.*;
 import static org.opensearch.test.NodeRoles.dataNode;
 
 public class KNNSettingsTests extends KNNTestCase {
@@ -281,9 +283,38 @@ public class KNNSettingsTests extends KNNTestCase {
 
         mockNode.close();
     }
+    @SneakyThrows
+    public void testIndexThreadQty_thenUseHardwareDefault() {
+        testDefaultThreadQtyWithMockedProcessors(16, 1);
+        testDefaultThreadQtyWithMockedProcessors(32, 4);
+        testDefaultThreadQtyWithMockedProcessors(64, 4);
+    }
 
     @SneakyThrows
-    public void testIndexThreadQty_thenUseUserValue1() {
+    private void testDefaultThreadQtyWithMockedProcessors(int mockedProcessorCount, int expectedThreadQty) {
+        // Create a mock node with no user-defined thread quantity setting
+        Node mockNode = createMockNode(Collections.emptyMap());
+
+        // Mock Runtime.getRuntime().availableProcessors() to return our desired count
+        Runtime mockRuntime = mock(Runtime.class);
+        when(mockRuntime.availableProcessors()).thenReturn(mockedProcessorCount);
+
+        try (MockedStatic<Runtime> mockedRuntimeStatic = mockStatic(Runtime.class)) {
+            mockedRuntimeStatic.when(Runtime::getRuntime).thenReturn(mockRuntime);
+
+            mockNode.start();
+            ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+            KNNSettings.state().setClusterService(clusterService);
+
+            int actualThreadQty = KNNSettings.getIndexThreadQty();
+            assertEquals(expectedThreadQty, actualThreadQty);
+
+            mockNode.close();
+        }
+    }
+
+    @SneakyThrows
+    public void testIndexThreadQty_thenUseUserValue() {
         int userDefinedThreadQty = 12;
         Node mockNode = createMockNode(Map.of(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY, Integer.toString(userDefinedThreadQty)));
         mockNode.start();
