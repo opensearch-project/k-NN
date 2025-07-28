@@ -283,7 +283,7 @@ public class KNNSettingsTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testIndexThreadQty_thenUseUserValue() {
+    public void testIndexThreadQty_thenUseUserValue1() {
         int userDefinedThreadQty = 12;
         Node mockNode = createMockNode(Map.of(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY, Integer.toString(userDefinedThreadQty)));
         mockNode.start();

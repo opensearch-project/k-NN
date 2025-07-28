@@ -1072,10 +1072,9 @@ public class KNNSettings {
         try {
             return AccessController.doPrivileged((PrivilegedExceptionAction<Integer>) () -> {
                 int availableProcessors = Runtime.getRuntime().availableProcessors();
-                if(availableProcessors > 32) {
+                if (availableProcessors > 32) {
                     return 4;
-                }
-                else {
+                } else {
                     return 1;
                 }
             });
