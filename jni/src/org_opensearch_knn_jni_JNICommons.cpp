@@ -103,3 +103,34 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_JNICommons_freeByteVectorData
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
+
+JNIEXPORT void JNICALL
+Java_org_opensearch_knn_jni_JNICommons_convertFP32ToFP16(
+    JNIEnv* env,
+    jclass cls,
+    jfloatArray fp32Array,
+    jbyteArray fp16Array,
+    jint count)
+{
+    try {
+        knn_jni::commons::convertFP32ToFP16(&jniUtil, env, fp32Array, fp16Array, count);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_org_opensearch_knn_jni_JNICommons_convertFP16ToFP32
+  (JNIEnv *env,
+   jclass cls,
+   jbyteArray fp16Array,
+   jfloatArray fp32Array,
+   jint count,
+   jint offset)
+{
+    try {
+        knn_jni::commons::convertFP16ToFP32(&jniUtil, env, fp16Array, fp32Array, count, offset);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
