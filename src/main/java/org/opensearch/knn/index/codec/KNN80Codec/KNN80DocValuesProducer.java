@@ -17,24 +17,12 @@ import org.apache.lucene.index.*;
 
 import java.io.IOException;
 
-import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
-import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.quantizationservice.QuantizationService;
-import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
-
-import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 @Log4j2
 public class KNN80DocValuesProducer extends DocValuesProducer {
@@ -44,7 +32,6 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     public KNN80DocValuesProducer(DocValuesProducer delegate, SegmentReadState state) {
         this.delegate = delegate;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
-        warmUpIndices(state);
     }
 
     @Override
@@ -123,38 +110,4 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         return cacheKeys;
     }
 
-    private void warmUpIndices(final SegmentReadState segmentReadState) {
-        String indexName = segmentReadState.segmentInfo.getAttribute("index_name");
-        String warmupEnabled = segmentReadState.segmentInfo.getAttribute("warmup_enabled");
-        if (indexName != null && warmupEnabled.equals("true")) {
-            for (final FieldInfo fieldInfo : segmentReadState.fieldInfos) {
-                final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
-                if (vectorIndexFileName == null) {
-                    continue;
-                }
-                final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, segmentReadState.segmentInfo);
-                final NativeMemoryCacheManager cacheManager = NativeMemoryCacheManager.getInstance();
-                try {
-                    final String spaceTypeName = fieldInfo.attributes().getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
-                    final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
-                    final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
-                    final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-                    final QuantizationParams quantizationParams = QuantizationService.getInstance()
-                        .getQuantizationParams(fieldInfo, segmentReadState.segmentInfo.getVersion());
-                    cacheManager.get(
-                        new NativeMemoryEntryContext.IndexEntryContext(
-                            segmentReadState.segmentInfo.dir,
-                            cacheKey,
-                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                            getParametersAtLoading(spaceType, knnEngine, indexName, vectorDataType, quantizationParams),
-                            indexName
-                        ),
-                        true
-                    );
-                } catch (ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-    }
 }
