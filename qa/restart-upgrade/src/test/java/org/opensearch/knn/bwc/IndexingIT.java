@@ -674,8 +674,8 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .startObject(TEST_FIELD)
                 .field(VECTOR_TYPE, KNN_VECTOR)
                 .field(DIMENSION, dimension)
-                .startObject(KNN_METHOD)
                 .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .startObject(KNN_METHOD)
                 .field(KNN_ENGINE, LUCENE_NAME)
                 .field(NAME, METHOD_HNSW)
                 .startObject(PARAMETERS)
@@ -699,7 +699,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             flush(testIndex, true);
 
         } else {
-            // In new cluster, test searching existing index (should call lucene102)
+            // In new cluster, test searching existing index
             float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
@@ -713,9 +713,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .startObject(TEST_FIELD)
                 .field(VECTOR_TYPE, KNN_VECTOR)
                 .field(DIMENSION, dimension)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
                 .startObject(KNN_METHOD)
                 .field(NAME, METHOD_HNSW)
-                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
                 .field(KNN_ENGINE, LUCENE_NAME)
                 .startObject(PARAMETERS)
                 .startObject(METHOD_ENCODER_PARAMETER)
