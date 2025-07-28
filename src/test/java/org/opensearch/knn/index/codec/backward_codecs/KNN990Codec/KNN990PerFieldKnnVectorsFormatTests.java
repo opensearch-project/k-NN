@@ -39,19 +39,19 @@ public class KNN990PerFieldKnnVectorsFormatTests extends TestCase {
     public void testBBQVectorsFormatParams_whenCalled_thenReturnValidParams() {
         Map<String, Object> encoderParams = new HashMap<>();
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_BBQ, encoderParams);
-        
+
         Map<String, Object> params = new HashMap<>();
         params.put(METHOD_ENCODER_PARAMETER, encoderContext);
         params.put(METHOD_PARAMETER_M, 16);
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
-        
+
         KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(params, 16, 100);
-        
+
         assertTrue(bbqParams.validate(params));
         assertEquals(16, bbqParams.getMaxConnections());
         assertEquals(100, bbqParams.getBeamWidth());
         assertTrue(bbqParams.isBBQEnabled());
-        
+
         // Test validation with invalid encoder
         MethodComponentContext invalidEncoder = new MethodComponentContext("invalid", encoderParams);
         Map<String, Object> invalidParams = new HashMap<>();

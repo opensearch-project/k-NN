@@ -43,20 +43,20 @@ public class KNN9120PerFieldKnnVectorsFormatTests extends TestCase {
         Map<String, Object> regularParams = new HashMap<>();
         regularParams.put(METHOD_PARAMETER_M, 16);
         regularParams.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
-        
+
         KNNVectorsFormatParams params = new KNNVectorsFormatParams(regularParams, 16, 100);
         assertEquals(16, params.getMaxConnections());
         assertEquals(100, params.getBeamWidth());
-        
+
         // Test scalar quantized format
         Map<String, Object> encoderParams = new HashMap<>();
         MethodComponentContext sqContext = new MethodComponentContext("sq", encoderParams);
-        
+
         Map<String, Object> sqParams = new HashMap<>();
         sqParams.put(METHOD_ENCODER_PARAMETER, sqContext);
         sqParams.put(METHOD_PARAMETER_M, 16);
         sqParams.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
-        
+
         KNNScalarQuantizedVectorsFormatParams sqFormatParams = new KNNScalarQuantizedVectorsFormatParams(sqParams, 16, 100);
         assertEquals(16, sqFormatParams.getMaxConnections());
         assertEquals(100, sqFormatParams.getBeamWidth());
@@ -65,18 +65,18 @@ public class KNN9120PerFieldKnnVectorsFormatTests extends TestCase {
     public void testBBQParameterValidation_whenCalled_thenValidateCorrectly() {
         Map<String, Object> encoderParams = new HashMap<>();
         MethodComponentContext bbqEncoder = new MethodComponentContext(ENCODER_BBQ, encoderParams);
-        
+
         // Valid BBQ parameters
         Map<String, Object> validParams = new HashMap<>();
         validParams.put(METHOD_ENCODER_PARAMETER, bbqEncoder);
         validParams.put(METHOD_PARAMETER_M, 64);
         validParams.put(METHOD_PARAMETER_EF_CONSTRUCTION, 256);
-        
+
         KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(validParams, 16, 100);
         assertTrue(bbqParams.validate(validParams));
         assertEquals(64, bbqParams.getMaxConnections());
         assertEquals(256, bbqParams.getBeamWidth());
-        
+
         // Invalid parameters (SQ encoder instead of BBQ)
         MethodComponentContext sqEncoder = new MethodComponentContext("sq", encoderParams);
         Map<String, Object> invalidParams = new HashMap<>();
