@@ -24,7 +24,6 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -63,6 +62,8 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     private static final int EF_SEARCH = 200;
     private static final int NUM_DOCS = 10;
     private static int QUERY_COUNT = 0;
+
+    private static final String ALGO = "hnsw";
 
     // Default Legacy Field Mapping
     // space_type : "l2", engine : "nmslib", m : 16, ef_construction : 512
@@ -659,4 +660,89 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(newIndex);
         }
     }
+
+    public void testBBQIntegrationBWC() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int k = 4;
+        int dimension = 8;
+
+        if (isRunningAgainstOldCluster()) {
+            // In old cluster, create index with lucene engine and binary encoder
+            String mapping = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(TEST_FIELD)
+                    .field(VECTOR_TYPE, KNN_VECTOR)
+                    .field(DIMENSION, dimension)
+                    .startObject(KNN_METHOD)
+                    .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                    .field(KNN_ENGINE, LUCENE_NAME)
+                    .field(NAME, METHOD_HNSW)
+                    .startObject(PARAMETERS)
+                    .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
+                    .field(METHOD_PARAMETER_M, 16)
+                    .startObject(METHOD_ENCODER_PARAMETER)
+                    .field(NAME, "binary")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            Float[] vector1 = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector2 = { 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            flush(testIndex, true);
+
+        } else {
+            // In new cluster, test searching existing index (should call lucene102)
+            float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(2, results.size());
+
+            // Create new index to verify BBQ integration still works
+            String newIndex = testIndex + "_bbq";
+            String mapping = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(TEST_FIELD)
+                    .field(VECTOR_TYPE, KNN_VECTOR)
+                    .field(DIMENSION, dimension)
+                    .startObject(KNN_METHOD)
+                    .field(NAME, METHOD_HNSW)
+                    .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                    .field(KNN_ENGINE, LUCENE_NAME)
+                    .startObject(PARAMETERS)
+                    .startObject(METHOD_ENCODER_PARAMETER)
+                    .field(NAME, "binary")
+                    .endObject()
+                    .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
+                    .field(METHOD_PARAMETER_M, 16)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .toString();
+            createKnnIndex(newIndex, getKNNDefaultIndexSettings(), mapping);
+
+            Float[] vector1 = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector2 = { 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+            addKnnDoc(newIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(newIndex, "2", TEST_FIELD, vector2);
+
+            searchResponse = searchKNNIndex(newIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(2, results.size());
+
+            deleteKNNIndex(testIndex);
+            deleteKNNIndex(newIndex);
+        }
+    }
+
 }
