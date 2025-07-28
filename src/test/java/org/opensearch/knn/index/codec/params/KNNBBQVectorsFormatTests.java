@@ -95,10 +95,7 @@ public class KNNBBQVectorsFormatTests extends TestCase {
             DEFAULT_BEAM_WIDTH
         );
 
-        Assert.assertThrows(
-            NullPointerException.class,
-            () -> knnBBQVectorsFormatParams.validate(null)
-        );
+        Assert.assertThrows(NullPointerException.class, () -> knnBBQVectorsFormatParams.validate(null));
     }
 
     private Map<String, Object> getDefaultParamsForConstructor() {
