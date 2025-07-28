@@ -101,6 +101,27 @@ namespace knn_jni {
          * Extracts query time efSearch from method parameters
          **/
         int getIntegerMethodParameter(JNIEnv *, knn_jni::JNIUtilInterface *, std::unordered_map<std::string, jobject>, std::string, int);
+
+        /**
+         * Converts an array of FP32 values to FP16 values.
+         * @param fp32Array The input array of FP32 values.
+         * @param fp16Array The output array of FP16 values.
+         * @param count The number of elements in the arrays.
+         */
+        void convertFP32ToFP16(
+            knn_jni::JNIUtilInterface *, JNIEnv *, jfloatArray fp32Array, jbyteArray fp16Array, jint count
+        );
+
+        /**
+         * Converts an array of FP16 values to FP32 values.
+         * @param fp16Array The input array of FP16 values.
+         * @param fp32Array The output array of FP32 values.
+         * @param count The number of elements in the arrays.
+         * @param offset The byte offset for each element in the arrays.
+         */
+        void convertFP16ToFP32(
+            knn_jni::JNIUtilInterface *, JNIEnv *, jbyteArray fp16Array, jfloatArray fp32Array, jint count, jint offset
+        );
     }
 }
 
