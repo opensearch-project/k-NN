@@ -432,7 +432,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // we must wrap it and pick up the default when it is UNDEFINED.
                 setSpaceType(builder.originalParameters.getKnnMethodContext(), resolvedSpaceType);
                 validateSpaceType(builder);
-                validateEngine(builder);
 
                 // Resolve method component. For the legacy case where space type can be configured at index level,
                 // it first tries to use the given one then tries to get it from index setting when the space type is UNDEFINED.
@@ -457,21 +456,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     && knnMethodContextSpaceType != SpaceType.UNDEFINED) {
                     throw new MapperParsingException(
                         "Space type in \"method\" and top level space type should be same or one of them should be defined"
-                    );
-                }
-            }
-        }
-
-        private void validateEngine(KNNVectorFieldMapper.Builder builder) {
-            final KNNMethodContext knnMethodContext = builder.knnMethodContext.get();
-            if (knnMethodContext != null) {
-                KNNEngine knnMethodContextEngine = knnMethodContext.getKnnEngine();
-                KNNEngine topLevelEngine = KNNEngine.getEngine(builder.originalParameters.getTopLevelEngine());
-                if (topLevelEngine != KNNEngine.UNDEFINED
-                    && knnMethodContextEngine != KNNEngine.UNDEFINED
-                    && topLevelEngine != knnMethodContextEngine) {
-                    throw new MapperParsingException(
-                        "Engine in method and top level engine should be same or one of them should be defined."
                     );
                 }
             }

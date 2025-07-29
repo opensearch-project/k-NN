@@ -51,10 +51,7 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
     @SneakyThrows
     public void testDifferentEnginesDefined_ThenException() {
         Exception e = expectThrows(Exception.class, () -> createTestIndexWithDifferentEngines());
-        assertTrue(
-            e.getMessage(),
-            e.getMessage().contains("Engine in method and top level engine should be same or one of them should be defined.")
-        );
+        assertTrue(e.getMessage(), e.getMessage().contains("Cannot specify conflicting engines: [faiss] and [lucene]"));
     }
 
     private void createTestIndexWithTopLevelEngineOnly() throws IOException {

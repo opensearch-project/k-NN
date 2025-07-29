@@ -283,4 +283,30 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
     }
+
+    public void testValidateTopLevelEngine() throws IOException {
+        // only top-level defined; set to faiss with compression 4x
+        expectThrows(
+            MapperParsingException.class,
+            () -> ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).build(),
+                null,
+                "faiss",
+                false,
+                Version.CURRENT
+            )
+        );
+
+        // top-level and method defined to lucene; requires training
+        expectThrows(
+            MapperParsingException.class,
+            () -> ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).build(),
+                new KNNMethodContext(KNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                "lucene",
+                true,
+                Version.CURRENT
+            )
+        );
+    }
 }
