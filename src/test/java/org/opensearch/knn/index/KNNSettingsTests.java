@@ -285,18 +285,10 @@ public class KNNSettingsTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testIndexThreadQty_thenUseHardwareDefault() {
-        testDefaultThreadQtyWithMockedProcessors(16, 1);
-        testDefaultThreadQtyWithMockedProcessors(32, 4);
-        testDefaultThreadQtyWithMockedProcessors(64, 4);
-    }
-
-    @SneakyThrows
-    private void testDefaultThreadQtyWithMockedProcessors(int mockedProcessorCount, int expectedThreadQty) {
+    public void testDefaultThreadQtyWithMockedProcessors16() {
         Node mockNode = createMockNode(Collections.emptyMap());
-
         Runtime mockRuntime = mock(Runtime.class);
-        when(mockRuntime.availableProcessors()).thenReturn(mockedProcessorCount);
+        when(mockRuntime.availableProcessors()).thenReturn(16);
 
         try (MockedStatic<Runtime> mockedRuntimeStatic = mockStatic(Runtime.class)) {
             mockedRuntimeStatic.when(Runtime::getRuntime).thenReturn(mockRuntime);
@@ -306,7 +298,27 @@ public class KNNSettingsTests extends KNNTestCase {
             KNNSettings.state().setClusterService(clusterService);
 
             int actualThreadQty = KNNSettings.getIndexThreadQty();
-            assertEquals(expectedThreadQty, actualThreadQty);
+            assertEquals(1, actualThreadQty);
+
+            mockNode.close();
+        }
+    }
+
+    @SneakyThrows
+    public void testDefaultThreadQtyWithMockedProcessors32() {
+        Node mockNode = createMockNode(Collections.emptyMap());
+        Runtime mockRuntime = mock(Runtime.class);
+        when(mockRuntime.availableProcessors()).thenReturn(32);
+
+        try (MockedStatic<Runtime> mockedRuntimeStatic = mockStatic(Runtime.class)) {
+            mockedRuntimeStatic.when(Runtime::getRuntime).thenReturn(mockRuntime);
+
+            mockNode.start();
+            ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+            KNNSettings.state().setClusterService(clusterService);
+
+            int actualThreadQty = KNNSettings.getIndexThreadQty();
+            assertEquals(4, actualThreadQty);
 
             mockNode.close();
         }
