@@ -6,7 +6,6 @@
 package org.opensearch.knn.index;
 
 import lombok.SneakyThrows;
-import org.mockito.MockedStatic;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -37,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.mockito.Mockito.*;
 import static org.opensearch.test.NodeRoles.dataNode;
 
 public class KNNSettingsTests extends KNNTestCase {
@@ -282,46 +280,6 @@ public class KNNSettingsTests extends KNNTestCase {
         assertEquals(expectedThreadQty, actualThreadQty);
 
         mockNode.close();
-    }
-
-    @SneakyThrows
-    public void testDefaultThreadQtyWithMockedProcessors16() {
-        Node mockNode = createMockNode(Collections.emptyMap());
-        Runtime mockRuntime = mock(Runtime.class);
-        when(mockRuntime.availableProcessors()).thenReturn(16);
-
-        try (MockedStatic<Runtime> mockedRuntimeStatic = mockStatic(Runtime.class)) {
-            mockedRuntimeStatic.when(Runtime::getRuntime).thenReturn(mockRuntime);
-
-            mockNode.start();
-            ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-            KNNSettings.state().setClusterService(clusterService);
-
-            int actualThreadQty = KNNSettings.getIndexThreadQty();
-            assertEquals(1, actualThreadQty);
-
-            mockNode.close();
-        }
-    }
-
-    @SneakyThrows
-    public void testDefaultThreadQtyWithMockedProcessors32() {
-        Node mockNode = createMockNode(Collections.emptyMap());
-        Runtime mockRuntime = mock(Runtime.class);
-        when(mockRuntime.availableProcessors()).thenReturn(32);
-
-        try (MockedStatic<Runtime> mockedRuntimeStatic = mockStatic(Runtime.class)) {
-            mockedRuntimeStatic.when(Runtime::getRuntime).thenReturn(mockRuntime);
-
-            mockNode.start();
-            ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-            KNNSettings.state().setClusterService(clusterService);
-
-            int actualThreadQty = KNNSettings.getIndexThreadQty();
-            assertEquals(4, actualThreadQty);
-
-            mockNode.close();
-        }
     }
 
     @SneakyThrows

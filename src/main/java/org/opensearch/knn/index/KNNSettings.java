@@ -1067,7 +1067,7 @@ public class KNNSettings {
      *
      * @return suggested number of indexing threads
      */
-    public static int getHardwareDefaultIndexThreadQty() {
+    static int getHardwareDefaultIndexThreadQty() {
         try {
             int availableProcessors = OpenSearchExecutors.allocatedProcessors(Settings.EMPTY);
             if (availableProcessors >= 32) {
