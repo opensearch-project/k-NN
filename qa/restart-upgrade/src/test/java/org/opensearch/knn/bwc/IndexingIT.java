@@ -667,7 +667,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         int dimension = 8;
 
         if (isRunningAgainstOldCluster()) {
-            // In old cluster, create index with lucene engine and binary encoder
+            // In old cluster, create index with lucene engine and no binary encoder
             String mapping = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -679,11 +679,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .field(KNN_ENGINE, LUCENE_NAME)
                 .field(NAME, METHOD_HNSW)
                 .startObject(PARAMETERS)
+		//no binary encoder set
                 .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
                 .field(METHOD_PARAMETER_M, 16)
-                .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, "binary")
-                .endObject()
                 .endObject()
                 .endObject()
                 .endObject()
@@ -705,7 +703,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
             assertEquals(2, results.size());
 
-            // Create new index to verify BBQ integration still works
+            // Create new index with BBQ integration 
             String newIndex = testIndex + "_bbq";
             String mapping = XContentFactory.jsonBuilder()
                 .startObject()
