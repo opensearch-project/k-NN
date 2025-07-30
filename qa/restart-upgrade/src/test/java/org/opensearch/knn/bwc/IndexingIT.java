@@ -652,6 +652,12 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         int dimension = 2;
 
         if (isRunningAgainstOldCluster()) {
+            // Skip test if BBQ encoder is not supported in the old cluster version
+            if (!isBBQEncoderSupported(getBWCVersion())) {
+                logger.info("Skipping testKNNIndexLuceneBBQ as BBQ encoder is not supported in version: {}", getBWCVersion());
+                return;
+            }
+            
             String mapping = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -693,6 +699,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
             }
         } else {
+            // Skip test if BBQ encoder is not supported in the old cluster version
+            if (!isBBQEncoderSupported(getBWCVersion())) {
+                logger.info("Skipping testKNNIndexLuceneBBQ validation as BBQ encoder is not supported in version: {}", getBWCVersion());
+                return;
+            }
             float[] queryVector = { -10.5f, 25.48f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
