@@ -17,6 +17,8 @@ public class KNNBBQVectorsFormatParams extends KNNVectorsFormatParams {
 
     public KNNBBQVectorsFormatParams(Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
         super(params, defaultMaxConnections, defaultBeamWidth);
+        MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
+        Map<String, Object> bbqEncoderParams = encoderMethodComponentContext.getParameters();
     }
 
     @Override
