@@ -193,6 +193,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             SpaceType.UNDEFINED.getValue()
         ).setValidator(SpaceType::getSpace);
 
+        // A top level engine field.
+        protected final Parameter<String> topLevelEngine = Parameter.stringParam(
+            KNNConstants.TOP_LEVEL_PARAMETER_ENGINE,
+            false,
+            m -> toType(m).originalMappingParameters.getTopLevelEngine(),
+            KNNEngine.UNDEFINED.getName()
+        ).setValidator(KNNEngine::getEngine);
+
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
         protected ModelDao modelDao;
@@ -246,7 +254,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 modelId,
                 mode,
                 compressionLevel,
-                topLevelSpaceType
+                topLevelSpaceType,
+                topLevelEngine
             );
         }
 
@@ -568,15 +577,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // Based on config context, if the user does not set the engine, set it
+            // Based on config context, if the user does not set the engine, resolve and set it
             KNNEngine resolvedKNNEngine = EngineResolver.INSTANCE.resolveEngine(
                 builder.knnMethodConfigContext,
                 builder.originalParameters.getResolvedKnnMethodContext(),
+                builder.topLevelEngine.get(),
                 false,
                 builder.indexCreatedVersion
             );
             setEngine(builder.originalParameters.getResolvedKnnMethodContext(), resolvedKNNEngine);
-
             // Create a copy of the KNNMethodContext and fill in the parameters left blank by configuration context context
             ResolvedMethodContext resolvedMethodContext = resolvedKNNEngine.resolveMethod(
                 builder.originalParameters.getResolvedKnnMethodContext(),
