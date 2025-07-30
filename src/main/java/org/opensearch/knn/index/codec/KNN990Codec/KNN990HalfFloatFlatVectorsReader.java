@@ -14,6 +14,7 @@ import java.io.UncheckedIOException;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.codecs.lucene95.OffHeapByteVectorValues;
 import org.apache.lucene.codecs.lucene95.OffHeapFloatVectorValues;
 import org.apache.lucene.codecs.lucene95.OrdToDocDISIReaderConfiguration;
 import org.apache.lucene.index.ByteVectorValues;
@@ -173,7 +174,68 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
     @Override
     public ByteVectorValues getByteVectorValues(String field) throws IOException {
-        throw new UnsupportedOperationException("HalfFloatFlatVectorsReader does not support byte[] vector values");
+        final FieldEntry fe = getFieldEntryOrThrow(field);
+
+        OffHeapByteVectorValues base = OffHeapByteVectorValues.load(
+            fe.similarityFunction,
+            vectorScorer,
+            fe.ordToDoc,
+            VectorEncoding.BYTE,
+            fe.dimension,
+            fe.vectorDataOffset,
+            fe.vectorDataLength,
+            vectorData
+        );
+
+        final int dim = fe.dimension;
+        final int byteSize = dim * Short.BYTES;
+
+        return new ByteVectorValues() {
+            private final byte[] bytesBuffer = new byte[byteSize];
+            private final IndexInput slice = base.getSlice();
+
+            @Override
+            public int dimension() {
+                return dim;
+            }
+
+            @Override
+            public int size() {
+                return base.size();
+            }
+
+            @Override
+            public int ordToDoc(int ord) {
+                return base.ordToDoc(ord);
+            }
+
+            @Override
+            public Bits getAcceptOrds(Bits bits) {
+                return base.getAcceptOrds(bits);
+            }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return base.iterator();
+            }
+
+            @Override
+            public byte[] vectorValue(int ord) throws IOException {
+                slice.seek((long) ord * byteSize);
+                slice.readBytes(bytesBuffer, 0, bytesBuffer.length);
+                return bytesBuffer;
+            }
+
+            @Override
+            public ByteVectorValues copy() {
+                return this;
+            }
+
+            @Override
+            public VectorScorer scorer(byte[] query) throws IOException {
+                return base.scorer(query);
+            }
+        };
     }
 
     @Override
@@ -184,7 +246,7 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
             fe.similarityFunction,
             vectorScorer,
             fe.ordToDoc,
-            fe.vectorEncoding,       // still FLOAT32 in the metadata
+            fe.vectorEncoding,
             fe.dimension,
             fe.vectorDataOffset,
             fe.vectorDataLength,
@@ -195,7 +257,7 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
         final int byteSize = dim * Short.BYTES;
 
         return new FloatVectorValues() {
-            private final byte[] bytesBuffer = new byte[dim * 2];
+            private final byte[] bytesBuffer = new byte[byteSize];
             private final float[] floatBuffer = new float[dim];
             private final IndexInput slice = base.getSlice();
 
