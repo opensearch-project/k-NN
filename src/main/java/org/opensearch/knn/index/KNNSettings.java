@@ -112,6 +112,7 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_SERVICE_USERNAME = "knn.remote_index_build.service.username";
     public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_index_build.service.password";
 
+    public static final String KNN_INDEX_ADVANCED_WARMUP_ENABLED = "index.knn.advanced.warmup.enabled";
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
      */
@@ -154,6 +155,8 @@ public class KNNSettings {
     // TODO: Tune these default values based on benchmarking
     public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = 60;
     public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 5;
+
+    public static final boolean KNN_INDEX_ADVANCED_WARMUP_ENABLED_DEFAULT_VALUE = false;
 
     /**
      * Settings Definition
@@ -491,6 +494,17 @@ public class KNNSettings {
     );
 
     /**
+     * This setting controls whether k-NN indices should be automatically warmed up when a node starts.
+     * When enabled, vector indices will be loaded into memory during node startup.
+     */
+    public static final Setting<Boolean> KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING = Setting.boolSetting(
+        KNN_INDEX_ADVANCED_WARMUP_ENABLED,
+        KNN_INDEX_ADVANCED_WARMUP_ENABLED_DEFAULT_VALUE,
+        Final,
+        IndexScope
+    );
+
+    /**
      * Dynamic settings
      */
     public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
@@ -704,6 +718,10 @@ public class KNNSettings {
             return KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING;
         }
 
+        if (KNN_INDEX_ADVANCED_WARMUP_ENABLED.equals(key)) {
+            return KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -739,7 +757,8 @@ public class KNNSettings {
             KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING,
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
             KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
-            KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING
+            KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING,
+            KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -935,6 +954,10 @@ public class KNNSettings {
 
     public static boolean isShardLevelRescoringDisabledForDiskBasedVector(final String indexName) {
         return getIndexSettings(indexName).getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
+    }
+
+    public static boolean isKnnIndexWarmupEnabled(Settings settings) {
+        return KNN_INDEX_ADVANCED_WARMUP_ENABLED_SETTING.get(settings);
     }
 
     public void initialize(Client client, ClusterService clusterService) {

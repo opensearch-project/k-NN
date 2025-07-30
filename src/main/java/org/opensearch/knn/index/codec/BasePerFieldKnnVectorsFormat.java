@@ -160,7 +160,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         return new NativeEngines990KnnVectorsFormat(
             new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
             approximateThreshold,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            mapperService.get()
         );
     }
 

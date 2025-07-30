@@ -180,8 +180,9 @@ public class KNNIndexShard {
                             KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
                             getIndexName(),
                             engineFileContext.getVectorDataType(),
-                            engineFileContext.getSegmentLevelQuantizationInfo()
-
+                            (engineFileContext.getSegmentLevelQuantizationInfo() == null)
+                                ? null
+                                : engineFileContext.getSegmentLevelQuantizationInfo().getQuantizationParams()
                         ),
                         getIndexName(),
                         engineFileContext.getModelId()
