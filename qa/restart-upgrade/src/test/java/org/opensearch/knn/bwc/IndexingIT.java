@@ -657,7 +657,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 logger.info("Skipping testKNNIndexLuceneBBQ as BBQ encoder is not supported in version: {}", getBWCVersion());
                 return;
             }
-            
+
             String mapping = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
