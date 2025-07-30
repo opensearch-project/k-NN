@@ -17,7 +17,8 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class EngineResolverTests extends KNNTestCase {
 
