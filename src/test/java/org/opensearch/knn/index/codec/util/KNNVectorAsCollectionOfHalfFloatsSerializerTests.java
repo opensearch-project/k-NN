@@ -18,19 +18,17 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
 
     public void testVectorAsCollectionOfHalfFloatsSerializer() {
         float[] original = getArrayOfRandomFloats(20);
-        KNNVectorSerializer serializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(original.length);
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
 
-        // Serialize
-        byte[] encoded = serializer.floatToByteArray(original);
-        assertNotNull(encoded);
-        assertEquals(original.length * 2, encoded.length, FP16_TOLERANCE);
+        byte[] encoded = new byte[original.length * 2];
+        float[] decoded = new float[original.length];
 
-        // Deserialize
-        float[] decoded = serializer.byteToFloatArray(new BytesRef(encoded));
-        assertNotNull(decoded);
-        assertEquals(original.length, decoded.length, FP16_TOLERANCE);
+        // serialize
+        serializer.floatToByteArray(original, encoded, original.length);
+        // deserialize
+        serializer.byteToFloatArray(encoded, decoded, original.length, 0);
 
-        // Compare with fp16 precision tolerance
+        // compare with fp16 precision tolerance
         for (int i = 0; i < original.length; i++) {
             float expected = Float.float16ToFloat(Float.floatToFloat16(original[i]));
             assertEquals(expected, decoded[i], FP16_TOLERANCE);
@@ -39,19 +37,18 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
 
     public void testVectorSerializer_whenVectorBytesOffset_thenSuccess() {
         float[] original = getArrayOfRandomFloats(20);
-        KNNVectorSerializer serializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(original.length);
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
 
-        byte[] encoded = serializer.floatToByteArray(original);
+        byte[] encoded = new byte[original.length * 2];
+        serializer.floatToByteArray(original, encoded, original.length);
+
         int offset = randomInt(4);
-
         byte[] padded = new byte[encoded.length + 2 * offset];
-        System.arraycopy(encoded, 0, padded, offset, encoded.length);
+        System.arraycopy(encoded, 0, padded, 2 * offset, encoded.length);
 
-        BytesRef refWithOffset = new BytesRef(padded, offset, encoded.length);
-        float[] decoded = serializer.byteToFloatArray(refWithOffset);
+        float[] decoded = new float[original.length];
+        serializer.byteToFloatArray(padded, decoded, original.length, 2 * offset);
 
-        assertNotNull(decoded);
-        assertEquals(original.length, decoded.length);
         for (int i = 0; i < original.length; i++) {
             float expected = Float.float16ToFloat(Float.floatToFloat16(original[i]));
             assertEquals(expected, decoded[i], FP16_TOLERANCE);
@@ -60,26 +57,35 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
 
     public void testEmptyVector() {
         float[] empty = new float[0];
-        KNNVectorSerializer serializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(0);
-        byte[] encoded = serializer.floatToByteArray(empty);
-        assertEquals(0, encoded.length);
-        float[] decoded = serializer.byteToFloatArray(new BytesRef(encoded));
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+
+        byte[] encoded = new byte[0];
+        float[] decoded = new float[0];
+
+        serializer.floatToByteArray(empty, encoded, empty.length);
+        serializer.byteToFloatArray(encoded, decoded, empty.length, 0);
+
         assertEquals(0, decoded.length);
     }
 
     public void testInvalidByteStream_throwsException() {
-        KNNVectorSerializer serializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(0);
-        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(null));
-        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new BytesRef(new byte[3])));
-        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new BytesRef(new byte[1])));
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        float[] output = new float[1];
+
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(null, output, 1, 0));
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new byte[3], output, 1, 0));
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new byte[1], output, 1, 0));
     }
 
     public void testSpecialFloatValues() {
         float[] specialValues = new float[] { Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, -0.0f, 0.0f };
 
-        KNNVectorSerializer serializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(specialValues.length);
-        byte[] encoded = serializer.floatToByteArray(specialValues);
-        float[] decoded = serializer.byteToFloatArray(new BytesRef(encoded));
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        byte[] encoded = new byte[specialValues.length * 2];
+        float[] decoded = new float[specialValues.length];
+
+        serializer.floatToByteArray(specialValues, encoded, specialValues.length);
+        serializer.byteToFloatArray(encoded, decoded, specialValues.length, 0);
 
         assertEquals(specialValues.length, decoded.length);
         assertTrue(Float.isNaN(decoded[0]));
@@ -97,9 +103,12 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
             -6.103515625e-5f, // Smallest negative normal fp16
         };
 
-        KNNVectorSerializer serializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(boundaryValues.length);
-        byte[] encoded = serializer.floatToByteArray(boundaryValues);
-        float[] decoded = serializer.byteToFloatArray(new BytesRef(encoded));
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        byte[] encoded = new byte[boundaryValues.length * 2];
+        float[] decoded = new float[boundaryValues.length];
+
+        serializer.floatToByteArray(boundaryValues, encoded, boundaryValues.length);
+        serializer.byteToFloatArray(encoded, decoded, boundaryValues.length, 0);
 
         for (int i = 0; i < boundaryValues.length; i++) {
             float expected = Float.float16ToFloat(Float.floatToFloat16(boundaryValues[i]));
@@ -109,13 +118,13 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
 
     public void testLargeVector() {
         float[] large = getArrayOfRandomFloats(10000);
-        KNNVectorSerializer serializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(large.length);
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
 
-        byte[] encoded = serializer.floatToByteArray(large);
-        assertEquals(large.length * 2, encoded.length);
+        byte[] encoded = new byte[large.length * 2];
+        float[] decoded = new float[large.length];
 
-        float[] decoded = serializer.byteToFloatArray(new BytesRef(encoded));
-        assertEquals(large.length, decoded.length);
+        serializer.floatToByteArray(large, encoded, large.length);
+        serializer.byteToFloatArray(encoded, decoded, large.length, 0);
 
         for (int i = 0; i < large.length; i++) {
             float expected = Float.float16ToFloat(Float.floatToFloat16(large[i]));
@@ -125,8 +134,9 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
 
     private float[] getArrayOfRandomFloats(int length) {
         float[] vector = new float[length];
-        // Use fp16 safe range to avoid overflow
-        IntStream.range(0, length).forEach(i -> vector[i] = random.nextFloat() * 200 - 100); // Range: [-100, 100]
+        for (int i = 0; i < length; i++) {
+            vector[i] = random.nextFloat() * 200 - 100; // Range: [-100, 100]
+        }
         return vector;
     }
 }
