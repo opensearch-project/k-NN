@@ -44,6 +44,7 @@ import org.opensearch.knn.index.codec.util.KNNIOUtils;
  */
 public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(KNN990HalfFloatFlatVectorsReader.class);
+    private static final KNNVectorAsCollectionOfHalfFloatsSerializer SERIALIZER = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
 
     private final IntObjectHashMap<FieldEntry> fields = new IntObjectHashMap<>();
     private final IndexInput vectorData;
@@ -192,9 +193,12 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
         final int dim = fe.dimension;
         final int byteSize = dim * Short.BYTES;
-        final KNNVectorAsCollectionOfHalfFloatsSerializer vectorSerializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(dim);
 
         return new FloatVectorValues() {
+            private final byte[] bytesBuffer = new byte[dim * 2];
+            private final float[] floatBuffer = new float[dim];
+            private final IndexInput slice = base.getSlice();
+
             @Override
             public int dimension() {
                 return dim;
@@ -222,11 +226,10 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
             @Override
             public float[] vectorValue(int ord) throws IOException {
-                IndexInput slice = base.getSlice();
                 slice.seek((long) ord * byteSize);
-                byte[] half = new byte[byteSize];
-                slice.readBytes(half, 0, half.length);
-                return vectorSerializer.byteToFloatArray(half);
+                slice.readBytes(bytesBuffer, 0, bytesBuffer.length);
+                SERIALIZER.byteToFloatArray(bytesBuffer, floatBuffer, dim, 0);
+                return floatBuffer;
             }
 
             @Override

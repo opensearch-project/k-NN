@@ -123,8 +123,8 @@ void knn_jni::commons::convertFP32ToFP16(knn_jni::JNIUtilInterface* jniUtil,
                                          jint count) {
     if (count <= 0) return;
 
-    jfloat* src_f32 = reinterpret_cast<jfloat*>(env->GetPrimitiveArrayCritical(fp32Array, nullptr));
-    jbyte* dst_bytes = reinterpret_cast<jbyte*>(env->GetPrimitiveArrayCritical(fp16Array, nullptr));
+    jfloat* src_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
+    jbyte* dst_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
     const float* src = reinterpret_cast<const float*>(src_f32);
     uint16_t* dst = reinterpret_cast<uint16_t*>(dst_bytes);
 
@@ -176,8 +176,8 @@ void knn_jni::commons::convertFP32ToFP16(knn_jni::JNIUtilInterface* jniUtil,
     #error "Only aarch64 or x86_64 supported"
 #endif
 
-    env->ReleasePrimitiveArrayCritical(fp16Array, dst_bytes, 0);
-    env->ReleasePrimitiveArrayCritical(fp32Array, src_f32, JNI_ABORT);
+    jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, dst_bytes, 0);
+    jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, src_f32, JNI_ABORT);
 }
 
 
@@ -190,8 +190,8 @@ void knn_jni::commons::convertFP16ToFP32(knn_jni::JNIUtilInterface* jniUtil,
                                          jint offset) {
     if (count <= 0) return;
 
-    jfloat* dst_f32 = reinterpret_cast<jfloat*>(env->GetPrimitiveArrayCritical(fp32Array, nullptr));
-    jbyte* src_bytes = reinterpret_cast<jbyte*>(env->GetPrimitiveArrayCritical(fp16Array, nullptr));
+    jfloat* dst_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
+    jbyte* src_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
     float* dst = reinterpret_cast<float*>(dst_f32);
     const uint16_t* src = reinterpret_cast<const uint16_t*>(src_bytes + offset);
 
@@ -248,6 +248,6 @@ void knn_jni::commons::convertFP16ToFP32(knn_jni::JNIUtilInterface* jniUtil,
     #error "Only aarch64 or x86_64 supported"
 #endif
 
-    env->ReleasePrimitiveArrayCritical(fp32Array, dst_f32, 0);
-    env->ReleasePrimitiveArrayCritical(fp16Array, src_bytes, JNI_ABORT);
+    jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, dst_f32, 0);
+    jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, src_bytes, JNI_ABORT);
 }

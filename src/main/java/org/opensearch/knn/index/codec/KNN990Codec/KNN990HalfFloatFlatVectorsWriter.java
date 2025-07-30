@@ -19,6 +19,7 @@ import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene95.OrdToDocDISIReaderConfiguration;
+import org.apache.lucene.codecs.lucene95.OffHeapFloatVectorValues;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
@@ -29,14 +30,19 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.hnsw.CloseableRandomVectorScorerSupplier;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.apache.lucene.util.hnsw.UpdateableRandomVectorScorer;
-import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
+import org.apache.lucene.util.Bits;
+import org.apache.lucene.search.VectorScorer;
 import org.opensearch.knn.index.codec.util.KNNIOUtils;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
+import org.opensearch.knn.jni.JNICommons;
 
 /**
  * Writes half float vector values to index segments.
@@ -44,6 +50,7 @@ import org.opensearch.knn.index.codec.util.KNNIOUtils;
 public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
 
     private static final long SHALLOW_RAM_BYTES_USED = RamUsageEstimator.shallowSizeOfInstance(KNN990HalfFloatFlatVectorsWriter.class);
+    private static final KNNVectorAsCollectionOfHalfFloatsSerializer SERIALIZER = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
 
     private final SegmentWriteState segmentWriteState;
     private final IndexOutput meta, vectorData;
@@ -55,15 +62,15 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
         super(scorer);
         this.segmentWriteState = state;
         String metaFileName = IndexFileNames.segmentFileName(
-            state.segmentInfo.name,
-            state.segmentSuffix,
-            KNN990HalfFloatFlatVectorsFormat.META_EXTENSION
+                state.segmentInfo.name,
+                state.segmentSuffix,
+                KNN990HalfFloatFlatVectorsFormat.META_EXTENSION
         );
 
         String vectorDataFileName = IndexFileNames.segmentFileName(
-            state.segmentInfo.name,
-            state.segmentSuffix,
-            KNN990HalfFloatFlatVectorsFormat.VECTOR_DATA_EXTENSION
+                state.segmentInfo.name,
+                state.segmentSuffix,
+                KNN990HalfFloatFlatVectorsFormat.VECTOR_DATA_EXTENSION
         );
 
         try {
@@ -71,18 +78,18 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
             vectorData = state.directory.createOutput(vectorDataFileName, state.context);
 
             CodecUtil.writeIndexHeader(
-                meta,
-                KNN990HalfFloatFlatVectorsFormat.META_CODEC_NAME,
-                KNN990HalfFloatFlatVectorsFormat.VERSION_CURRENT,
-                state.segmentInfo.getId(),
-                state.segmentSuffix
+                    meta,
+                    KNN990HalfFloatFlatVectorsFormat.META_CODEC_NAME,
+                    KNN990HalfFloatFlatVectorsFormat.VERSION_CURRENT,
+                    state.segmentInfo.getId(),
+                    state.segmentSuffix
             );
             CodecUtil.writeIndexHeader(
-                vectorData,
-                KNN990HalfFloatFlatVectorsFormat.VECTOR_DATA_CODEC_NAME,
-                KNN990HalfFloatFlatVectorsFormat.VERSION_CURRENT,
-                state.segmentInfo.getId(),
-                state.segmentSuffix
+                    vectorData,
+                    KNN990HalfFloatFlatVectorsFormat.VECTOR_DATA_CODEC_NAME,
+                    KNN990HalfFloatFlatVectorsFormat.VERSION_CURRENT,
+                    state.segmentInfo.getId(),
+                    state.segmentSuffix
             );
         } catch (Throwable t) {
             KNNIOUtils.closeWhileSuppressingExceptions(t, this);
@@ -137,11 +144,12 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
     private void writeField(FieldWriter<?> fieldData, int maxDoc) throws IOException {
         long vectorDataOffset = vectorData.alignFilePointer(Short.BYTES);
         int dim = fieldData.fieldInfo.getVectorDimension();
-        KNNVectorAsCollectionOfHalfFloatsSerializer vectorSerializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(dim);
+        byte[] bytesBuffer = new byte[dim * 2];  // Allocate once outside the loop
 
         for (Object v : fieldData.vectors) {
-            byte[] vector = vectorSerializer.floatToByteArray((float[]) v);
-            vectorData.writeBytes(vector, vector.length);
+            float[] vector = (float[]) v;
+            SERIALIZER.floatToByteArray(vector, bytesBuffer, dim);
+            vectorData.writeBytes(bytesBuffer, bytesBuffer.length);
         }
         long vectorDataLength = vectorData.getFilePointer() - vectorDataOffset;
         writeMeta(fieldData.fieldInfo, maxDoc, vectorDataOffset, vectorDataLength, fieldData.docsWithField);
@@ -149,21 +157,20 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
 
     private void writeSortingField(FieldWriter<?> fieldData, int maxDoc, Sorter.DocMap sortMap) throws IOException {
         final int[] ordMap = new int[fieldData.docsWithField.cardinality()]; // new ord to old ord
-
         DocsWithFieldSet newDocsWithField = new DocsWithFieldSet();
         mapOldOrdToNewOrd(fieldData.docsWithField, sortMap, null, ordMap, newDocsWithField);
 
         long vectorDataOffset = vectorData.alignFilePointer(Short.BYTES);
         int dim = fieldData.fieldInfo.getVectorDimension();
-        KNNVectorAsCollectionOfHalfFloatsSerializer vectorSerializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(dim);
+        byte[] bytesBuffer = new byte[dim * 2];
 
         for (int ordinal : ordMap) {
-            byte[] vector = vectorSerializer.floatToByteArray((float[]) fieldData.vectors.get(ordinal));
-            vectorData.writeBytes(vector, vector.length);
+            float[] vector = (float[]) fieldData.vectors.get(ordinal);
+            SERIALIZER.floatToByteArray(vector, bytesBuffer, dim);
+            vectorData.writeBytes(bytesBuffer, bytesBuffer.length);
         }
 
         long vectorDataLength = vectorData.getFilePointer() - vectorDataOffset;
-
         writeMeta(fieldData.fieldInfo, maxDoc, vectorDataOffset, vectorDataLength, newDocsWithField);
     }
 
@@ -174,8 +181,8 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
         long vectorDataOffset = vectorData.alignFilePointer(Short.BYTES);
         // No need to use temporary file as we don't have to re-open for reading
         DocsWithFieldSet docsWithField = writeHalfFloatVectorData(
-            vectorData,
-            KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState)
+                vectorData,
+                KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState)
         );
         long vectorDataLength = vectorData.getFilePointer() - vectorDataOffset;
         writeMeta(fieldInfo, segmentWriteState.segmentInfo.maxDoc(), vectorDataOffset, vectorDataLength, docsWithField);
@@ -189,30 +196,130 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
         KnnVectorValues.DocIndexIterator iter = floatVectorValues.iterator();
 
         int dim = floatVectorValues.dimension();
-        KNNVectorAsCollectionOfHalfFloatsSerializer vectorSerializer = new KNNVectorAsCollectionOfHalfFloatsSerializer(dim);
+        byte[] bytesBuffer = new byte[dim * 2];
 
         for (int docV = iter.nextDoc(); docV != NO_MORE_DOCS; docV = iter.nextDoc()) {
             float[] value = floatVectorValues.vectorValue(iter.index());
-            byte[] half = vectorSerializer.floatToByteArray(value);
-            output.writeBytes(half, half.length);
+            SERIALIZER.floatToByteArray(value, bytesBuffer, dim);
+            output.writeBytes(bytesBuffer, bytesBuffer.length);
             docsWithField.add(docV);
         }
+
         return docsWithField;
     }
 
     @Override
     public CloseableRandomVectorScorerSupplier mergeOneFieldToIndex(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
-        throw new UnsupportedOperationException("Lucene ANN not implemented yet");
+        long vectorDataOffset = vectorData.alignFilePointer(Short.BYTES);
+        IndexOutput tempVectorData = segmentWriteState.directory.createTempOutput(vectorData.getName(), "temp", segmentWriteState.context);
+        IndexInput vectorDataInput = null;
+        try {
+            // write the vector data to a temporary file
+            DocsWithFieldSet docsWithField = writeHalfFloatVectorData(
+                    tempVectorData,
+                    KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState)
+            );
+            CodecUtil.writeFooter(tempVectorData);
+            IOUtils.close(tempVectorData);
+            vectorDataInput = segmentWriteState.directory.openInput(tempVectorData.getName(), IOContext.DEFAULT);
+            // copy the temporary file vectors to the actual data file
+            vectorData.copyBytes(vectorDataInput, vectorDataInput.length() - CodecUtil.footerLength());
+            CodecUtil.retrieveChecksum(vectorDataInput);
+            long vectorDataLength = vectorData.getFilePointer() - vectorDataOffset;
+            writeMeta(fieldInfo, segmentWriteState.segmentInfo.maxDoc(), vectorDataOffset, vectorDataLength, docsWithField);
+
+            final IndexInput finalVectorDataInput = vectorDataInput;
+            vectorDataInput = null;
+
+            final int dim = fieldInfo.getVectorDimension();
+            final int byteSize = dim * Short.BYTES;
+            final int count = docsWithField.cardinality();
+
+            OffHeapFloatVectorValues base = new OffHeapFloatVectorValues.DenseOffHeapVectorValues(
+                    dim,
+                    count,
+                    finalVectorDataInput.slice("vector-data", 0, count * byteSize),
+                    byteSize,
+                    vectorsScorer,
+                    fieldInfo.getVectorSimilarityFunction()
+            );
+
+            FloatVectorValues floatVectorValues = new FloatVectorValues() {
+                private final byte[] bytesBuffer = new byte[dim * 2];
+                private final float[] floatBuffer = new float[dim];
+                private final IndexInput slice = base.getSlice();
+
+                @Override
+                public int dimension() {
+                    return dim;
+                }
+
+                @Override
+                public int size() {
+                    return base.size();
+                }
+
+                @Override
+                public int ordToDoc(int ord) {
+                    return base.ordToDoc(ord);
+                }
+
+                @Override
+                public Bits getAcceptOrds(Bits bits) {
+                    return base.getAcceptOrds(bits);
+                }
+
+                @Override
+                public KnnVectorValues.DocIndexIterator iterator() {
+                    return base.iterator();
+                }
+
+                @Override
+                public float[] vectorValue(int ord) throws IOException {
+                    slice.seek((long) ord * byteSize);
+                    slice.readBytes(bytesBuffer, 0, bytesBuffer.length);
+                    SERIALIZER.byteToFloatArray(bytesBuffer, floatBuffer, dim, 0);
+                    return floatBuffer;
+                }
+
+                @Override
+                public FloatVectorValues copy() {
+                    return this;
+                }
+
+                @Override
+                public VectorScorer scorer(float[] query) throws IOException {
+                    return base.scorer(query);
+                }
+            };
+
+            final RandomVectorScorerSupplier randomVectorScorerSupplier = vectorsScorer.getRandomVectorScorerSupplier(
+                    fieldInfo.getVectorSimilarityFunction(),
+                    floatVectorValues
+            );
+
+            return new FlatCloseableRandomVectorScorerSupplier(() -> {
+                IOUtils.close(finalVectorDataInput);
+                segmentWriteState.directory.deleteFile(tempVectorData.getName());
+            }, count, randomVectorScorerSupplier);
+
+        } catch (Throwable t) {
+            KNNIOUtils.closeWhileSuppressingExceptions(t, vectorDataInput, tempVectorData);
+            KNNIOUtils.deleteFilesSuppressingExceptions(t, segmentWriteState.directory, tempVectorData.getName());
+            throw t;
+        }
     }
 
     private void writeMeta(FieldInfo field, int maxDoc, long vectorDataOffset, long vectorDataLength, DocsWithFieldSet docsWithField)
-        throws IOException {
+            throws IOException {
         meta.writeInt(field.number);
         meta.writeInt(VectorEncoding.FLOAT32.ordinal());
         meta.writeInt(field.getVectorSimilarityFunction().ordinal());
         meta.writeVLong(vectorDataOffset);
         meta.writeVLong(vectorDataLength);
         meta.writeVInt(field.getVectorDimension());
+
+        // write docIDs
         int count = docsWithField.cardinality();
         meta.writeInt(count);
         OrdToDocDISIReaderConfiguration.writeStoredMeta(DIRECT_MONOTONIC_BLOCK_SHIFT, meta, vectorData, count, maxDoc, docsWithField);
@@ -258,9 +365,9 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
             }
             if (docID == lastDocID) {
                 throw new IllegalArgumentException(
-                    "VectorValuesField \""
-                        + fieldInfo.name
-                        + "\" appears more than once in this document (only one value is allowed per field)"
+                        "VectorValuesField \""
+                                + fieldInfo.name
+                                + "\" appears more than once in this document (only one value is allowed per field)"
                 );
             }
             assert docID > lastDocID;
@@ -275,7 +382,7 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
             long size = SHALLOW_RAM_BYTES_USED;
             if (vectors.size() == 0) return size;
             return size + docsWithField.ramBytesUsed() + (long) vectors.size() * (RamUsageEstimator.NUM_BYTES_OBJECT_REF
-                + RamUsageEstimator.NUM_BYTES_ARRAY_HEADER) + (long) vectors.size() * fieldInfo.getVectorDimension() * Short.BYTES;
+                    + RamUsageEstimator.NUM_BYTES_ARRAY_HEADER) + (long) vectors.size() * fieldInfo.getVectorDimension() * Short.BYTES;
         }
 
         @Override
