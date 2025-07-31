@@ -70,14 +70,23 @@ endif()
 # Set architecture specific variables
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL aarch64)
     set(MACH_ARCH arm64)
+    set(COMMONS_FLAGS "-O3 -march=armv8.4-a+fp16 -fPIC")
 elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL x86_64)
     set(MACH_ARCH x64)
+    set(COMMONS_FLAGS "-O3 -march=native -mf16c -fPIC")
 endif()
 # ----------------------------------------------------------------------------
 
 # ---------------------------------- UTIL ----------------------------------
 add_library(${TARGET_LIB_UTIL} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp)
 target_include_directories(${TARGET_LIB_UTIL} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
+
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp
+    PROPERTIES
+    COMPILE_FLAGS "${COMMONS_FLAGS}"
+)
+
 opensearch_set_common_properties(${TARGET_LIB_UTIL})
 list(APPEND TARGET_LIBS ${TARGET_LIB_UTIL})
 # ----------------------------------------------------------------------------
