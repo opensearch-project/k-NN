@@ -24,7 +24,6 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.util.IndexUtil;
 
 import java.io.IOException;
 
@@ -77,14 +76,12 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public KnnVectorsWriter fieldsWriter(final SegmentWriteState state) throws IOException {
-        if (IndexUtil.isWarmUpEnabledForIndex(mapperService)) {
-            NativeEngineSegmentAttributeParser.addWarmupSegmentInfoAttribute(mapperService, state);
-        }
         return new NativeEngines990KnnVectorsWriter(
             state,
             flatVectorsFormat.fieldsWriter(state),
             approximateThreshold,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            mapperService
         );
     }
 

@@ -33,7 +33,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
         KNNWarmupTransportAction knnWarmupTransportAction = node().injector().getInstance(KNNWarmupTransportAction.class);
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
-        IndexService indexService = createIndex(testIndex, getKNNDefaultIndexSettingsBuildsGraphAlways());
+        IndexService indexService = createIndex(testIndex, getKNNDefaultIndexSettingsBuildsGraphAlways().build());
         createKnnIndexMapping(testIndex, TEST_FIELD, DIMENSIONS);
         addKnnDoc(testIndex, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
         ShardRouting shardRouting = indexService.iterator().next().routingEntry();
@@ -54,7 +54,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
         ClearCacheTransportAction clearCacheTransportAction = node().injector().getInstance(ClearCacheTransportAction.class);
         ClearCacheRequest clearCacheRequest = new ClearCacheRequest(testIndex);
 
-        createKNNIndex(testIndex);
+        createIndex(testIndex, getKNNDefaultIndexSettingsBuildsGraphAlways().build());
         createKnnIndexMapping(testIndex, TEST_FIELD, DIMENSIONS);
         addKnnDoc(testIndex, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 

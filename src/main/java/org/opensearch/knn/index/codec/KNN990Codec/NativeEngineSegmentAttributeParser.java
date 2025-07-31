@@ -19,7 +19,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.stream.Stream;
 
 public class NativeEngineSegmentAttributeParser {
     static final String WARMUP_ENABLED = "warmup_enabled";
@@ -38,7 +38,7 @@ public class NativeEngineSegmentAttributeParser {
         if (segmentInfo == null) {
             throw new IllegalArgumentException("SegmentInfo cannot be null");
         }
-        return segmentInfo.getAttribute(WARMUP_ENABLED) != null && segmentInfo.getAttribute(INDEX_NAME) != null;
+        return TRUE.equals(segmentInfo.getAttribute(WARMUP_ENABLED)) && segmentInfo.getAttribute(INDEX_NAME) != null;
     }
 
     /**
@@ -70,7 +70,11 @@ public class NativeEngineSegmentAttributeParser {
      *
      * @param segmentWriteState {@link SegmentWriteState}
      */
-    public static void addWarmupSegmentInfoAttribute(MapperService mapperService, SegmentWriteState segmentWriteState) {
+    public static void addWarmupSegmentInfoAttribute(
+        MapperService mapperService,
+        SegmentWriteState segmentWriteState,
+        Stream<FieldInfo> fieldInfoStream
+    ) {
         if (segmentWriteState == null) {
             throw new IllegalArgumentException("SegmentWriteState cannot be null");
         }
@@ -78,19 +82,15 @@ public class NativeEngineSegmentAttributeParser {
         String indexName = mapperService.index().getName();
         segmentInfo.putAttribute(INDEX_NAME, indexName);
         segmentInfo.putAttribute(WARMUP_ENABLED, TRUE);
-        if (segmentWriteState.fieldInfos != null) {
-            final Set<String> fieldsForMemoryOptimizedSearch = StreamSupport.stream(segmentWriteState.fieldInfos.spliterator(), false)
-                .filter(fieldInfo -> fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD))
-                .map(FieldInfo::getName)
-                .filter(name -> {
-                    final MappedFieldType fieldType = mapperService.fieldType(name);
-                    if (fieldType instanceof KNNVectorFieldType knnFieldType) {
-                        return MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, indexName);
-                    }
-                    return false;
-                })
-                .collect(Collectors.toSet());
-            segmentInfo.putAttribute(MEMORY_OPTIMIZED_FIELDS, String.join(DELIMITER, fieldsForMemoryOptimizedSearch));
-        }
+        final Set<String> fieldsForMemoryOptimizedSearch = fieldInfoStream.filter(
+            fieldInfo -> fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
+        ).map(FieldInfo::getName).filter(name -> {
+            final MappedFieldType fieldType = mapperService.fieldType(name);
+            if (fieldType instanceof KNNVectorFieldType knnFieldType) {
+                return MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, indexName);
+            }
+            return false;
+        }).collect(Collectors.toSet());
+        segmentInfo.putAttribute(MEMORY_OPTIMIZED_FIELDS, String.join(DELIMITER, fieldsForMemoryOptimizedSearch));
     }
 }

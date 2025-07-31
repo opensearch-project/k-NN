@@ -23,10 +23,12 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.common.StopWatch;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
@@ -55,17 +57,20 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private boolean finished;
     private final Integer approximateThreshold;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    private final MapperService mapperService;
 
     public NativeEngines990KnnVectorsWriter(
         SegmentWriteState segmentWriteState,
         FlatVectorsWriter flatVectorsWriter,
         Integer approximateThreshold,
-        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        MapperService mapperService
     ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
+        this.mapperService = mapperService;
     }
 
     /**
@@ -181,6 +186,13 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      */
     @Override
     public void finish() throws IOException {
+        if (IndexUtil.isWarmUpEnabledForIndex(mapperService)) {
+            NativeEngineSegmentAttributeParser.addWarmupSegmentInfoAttribute(
+                mapperService,
+                segmentWriteState,
+                fields.stream().map(NativeEngineFieldVectorsWriter::getFieldInfo)
+            );
+        }
         if (finished) {
             throw new IllegalStateException("NativeEnginesKNNVectorsWriter is already finished");
         }

@@ -100,7 +100,8 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             BUILD_GRAPH_ALWAYS_THRESHOLD,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
         mockedFlatFieldVectorsWriter = Mockito.mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
@@ -203,7 +204,8 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             BUILD_GRAPH_NEVER_THRESHOLD,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
@@ -265,7 +267,8 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             mergedVectors.size(),
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
         try (
             MockedStatic<NativeEngineFieldVectorsWriter> fieldWriterMockedStatic = mockStatic(NativeEngineFieldVectorsWriter.class);
