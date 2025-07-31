@@ -37,6 +37,6 @@ public class LuceneBBQEncoder implements Encoder {
         MethodComponentContext methodComponentContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
-        return CompressionLevel.NOT_CONFIGURED;
+        return CompressionLevel.x32;
     }
 }

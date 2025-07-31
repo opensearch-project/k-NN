@@ -29,22 +29,22 @@ public class LuceneBBQEncoderTests extends TestCase {
         assertSame(component1, component2);
     }
 
-    public void testCalculateCompressionLevel_whenCalled_thenReturnNotConfigured() {
+    public void testCalculateCompressionLevel_whenCalled_thenReturnX32() {
         LuceneBBQEncoder encoder = new LuceneBBQEncoder();
 
         // Test with null parameters
-        assertEquals(CompressionLevel.NOT_CONFIGURED, encoder.calculateCompressionLevel(null, null));
+        assertEquals(CompressionLevel.x32, encoder.calculateCompressionLevel(null, null));
 
         // Test with empty context
         MethodComponentContext emptyContext = new MethodComponentContext(ENCODER_BBQ, new HashMap<>());
-        assertEquals(CompressionLevel.NOT_CONFIGURED, encoder.calculateCompressionLevel(emptyContext, null));
+        assertEquals(CompressionLevel.x32, encoder.calculateCompressionLevel(emptyContext, null));
 
         // Test with populated context
         Map<String, Object> params = new HashMap<>();
         params.put("param1", "value1");
         params.put("param2", 42);
         MethodComponentContext populatedContext = new MethodComponentContext(ENCODER_BBQ, params);
-        assertEquals(CompressionLevel.NOT_CONFIGURED, encoder.calculateCompressionLevel(populatedContext, null));
+        assertEquals(CompressionLevel.x32, encoder.calculateCompressionLevel(populatedContext, null));
     }
 
     public void testGetName_whenCalled_thenReturnEncoderBBQ() {
