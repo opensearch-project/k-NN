@@ -712,43 +712,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * Utility to create a Knn Index Mapping with nested field
-     *
-     * @param dimensions dimension of the vector
-     * @param fieldPath  path of the nested field, e.g. "my_nested_field.my_vector"
-     * @return mapping string for the nested field
-     */
-    protected String createKnnIndexNestedMapping(Integer dimensions, String fieldPath, String engine) throws IOException {
-        String[] fieldPathArray = fieldPath.split("\\.");
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
-
-        for (int i = 0; i < fieldPathArray.length; i++) {
-            xContentBuilder.startObject(fieldPathArray[i]);
-            if (i == fieldPathArray.length - 1) {
-                xContentBuilder.field("type", "knn_vector")
-                    .field("dimension", dimensions.toString())
-                    .startObject(KNN_METHOD)
-                    .field(NAME, METHOD_HNSW)
-                    .field(KNN_ENGINE, engine)
-                    .endObject();
-            } else {
-                xContentBuilder.field("type", "nested").startObject("properties");
-            }
-        }
-
-        for (int i = fieldPathArray.length - 1; i >= 0; i--) {
-            if (i != fieldPathArray.length - 1) {
-                xContentBuilder.endObject();
-            }
-            xContentBuilder.endObject();
-        }
-
-        xContentBuilder.endObject().endObject();
-
-        return xContentBuilder.toString();
-    }
-
-    /**
      * Get index mapping as map
      *
      * @param index name of index to fetch
@@ -857,32 +820,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
 
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
-        request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + index + "/_refresh");
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-    }
-
-    /**
-     * Add a single KNN Doc with a numeric field to an index
-     */
-    protected <T> void addKnnDocWithNumericField(
-        String index,
-        String docId,
-        String vectorFieldName,
-        T vector,
-        String numericFieldName,
-        long val
-    ) throws IOException {
-        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
-
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(vectorFieldName, vector)
-            .field(numericFieldName, val)
-            .endObject();
         request.setJsonEntity(builder.toString());
         client().performRequest(request);
 
@@ -1334,23 +1271,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         ).map().get("hits")).get("hits");
 
         return hits.stream().map(hit -> (Double) ((Map<String, Object>) hit).get("_score")).collect(Collectors.toList());
-    }
-
-    protected List<Long> parseProfileMetric(String searchResponseBody, String metric, boolean children) {
-        List<Object> values;
-        if (children) {
-            values = JsonPath.read(
-                searchResponseBody,
-                String.format(Locale.ROOT, "$.profile.shards[*].searches[*].query[*].children[*].breakdown.%s", metric)
-            );
-        } else {
-            values = JsonPath.read(
-                searchResponseBody,
-                String.format(Locale.ROOT, "$.profile.shards[*].searches[*].query[*].breakdown.%s", metric)
-            );
-        }
-        if (values == null) throw new RuntimeException("Could not find metric in profile breakdown");
-        return values.stream().map(value -> ((Number) value).longValue()).collect(Collectors.toList());
     }
 
     /**

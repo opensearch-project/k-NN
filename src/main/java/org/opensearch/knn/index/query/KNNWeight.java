@@ -353,7 +353,7 @@ public abstract class KNNWeight extends Weight {
         }
     }
 
-    protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+    private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
         if (this.filterWeight == null) {
             return new FixedBitSet(0);
         }
@@ -411,7 +411,7 @@ public abstract class KNNWeight extends Weight {
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
-    protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
+    private TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
         throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
@@ -498,6 +498,7 @@ public abstract class KNNWeight extends Weight {
      * @param knnEngine Engine type configured for the target field.
      * @param vectorDataType Vector data type configured for the target field.
      * @param quantizedVector Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null. Quantized query vector if quantization is enabled for the target field. It can be null.
+     * @param transformedVector Transformed query vector if ADC is enabled for the target field. It is null when ADC is disabled.
      * @param modelId Model id. It can be null if the index for searching was not derived from a trained index.
      * @param filterIdsBitSet Bit set for filtering a valid document for collecting.
      * @param cardinality Cardinality of filtering bit set. It will be the total number of documents if no filtering presents.
