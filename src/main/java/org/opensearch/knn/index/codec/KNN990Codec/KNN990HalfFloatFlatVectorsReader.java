@@ -315,7 +315,9 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
     @Override
     public RandomVectorScorer getRandomVectorScorer(String field, byte[] target) throws IOException {
-        throw new UnsupportedOperationException("HalfFloatFlatVectorsReader does not support byte[] targets");
+        ByteVectorValues vals = getByteVectorValues(field);
+        FieldEntry fe = getFieldEntryOrThrow(field);
+        return vectorScorer.getRandomVectorScorer(fe.similarityFunction, vals, target);
     }
 
     @Override
