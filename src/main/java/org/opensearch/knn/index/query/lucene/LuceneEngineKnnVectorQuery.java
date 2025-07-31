@@ -13,8 +13,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
-import org.opensearch.knn.profile.KNNProfileUtil;
-import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
@@ -42,16 +40,8 @@ public class LuceneEngineKnnVectorQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
-        QueryProfiler profiler = KNNProfileUtil.getProfiler(searcher);
-        if (profiler != null) {
-            profiler.getQueryBreakdown(luceneQuery);
-        }
         Query rewrittenQuery = luceneQuery.rewrite(searcher);
-        final Weight weight = rewrittenQuery.createWeight(searcher, scoreMode, boost);
-        if (profiler != null) {
-            profiler.pollLastElement();
-        }
-        return weight;
+        return rewrittenQuery.createWeight(searcher, scoreMode, boost);
     }
 
     @Override
