@@ -46,13 +46,13 @@ public class KNNSettingsTests extends KNNTestCase {
     public void testGetSettingValueFromConfig() {
         long expectedKNNCircuitBreakerLimit = 13;
         Node mockNode = createMockNode(
-                Map.of(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
+            Map.of(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
         );
         mockNode.start();
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-                .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)).getKb();
+            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(expectedKNNCircuitBreakerLimit, actualKNNCircuitBreakerLimit);
     }
@@ -64,12 +64,12 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-                .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)).getKb();
+            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(
-                ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)
-                        .getDefault(Settings.EMPTY)).getKb(),
-                actualKNNCircuitBreakerLimit
+            ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)
+                .getDefault(Settings.EMPTY)).getKb(),
+            actualKNNCircuitBreakerLimit
 
         );
     }
@@ -100,27 +100,27 @@ public class KNNSettingsTests extends KNNTestCase {
         KNNSettings.state().setClusterService(clusterService);
 
         final Settings filteredSearchAdvanceSettings = Settings.builder()
-                .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThreshold)
-                .build();
+            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThreshold)
+            .build();
 
         mockNode.client()
-                .admin()
-                .indices()
-                .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettings, INDEX_NAME))
-                .actionGet();
+            .admin()
+            .indices()
+            .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettings, INDEX_NAME))
+            .actionGet();
 
         int filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
 
         // validate if we are able to set MinValues for the setting
         final Settings filteredSearchAdvanceSettingsWithMinValues = Settings.builder()
-                .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
-                .build();
+            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
+            .build();
 
         mockNode.client()
-                .admin()
-                .indices()
-                .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithMinValues, INDEX_NAME))
-                .actionGet();
+            .admin()
+            .indices()
+            .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithMinValues, INDEX_NAME))
+            .actionGet();
 
         int filteredSearchThresholdMinValue = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
 
@@ -151,9 +151,9 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
         final Settings settings = Settings.builder()
-                .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, userProvidedEfSearch)
-                .put(KNNSettings.KNN_INDEX, true)
-                .build();
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, userProvidedEfSearch)
+            .put(KNNSettings.KNN_INDEX, true)
+            .build();
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME, settings)).actionGet();
         KNNSettings.state().setClusterService(clusterService);
 
@@ -187,8 +187,8 @@ public class KNNSettingsTests extends KNNTestCase {
         KNNSettings.state().setClusterService(clusterService);
 
         final Settings rescoringDisabledSetting = Settings.builder()
-                .put(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, userDefinedRescoringDisabled)
-                .build();
+            .put(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, userDefinedRescoringDisabled)
+            .build();
 
         mockNode.client().admin().indices().updateSettings(new UpdateSettingsRequest(rescoringDisabledSetting, INDEX_NAME)).actionGet();
 
@@ -230,20 +230,20 @@ public class KNNSettingsTests extends KNNTestCase {
         }
         configFileWriter.close();
         Collection<PluginInfo> plugins = basePlugins().stream()
-                .map(
-                        p -> new PluginInfo(
-                                p.getName(),
-                                "classpath plugin",
-                                "NA",
-                                Version.CURRENT,
-                                "1.8",
-                                p.getName(),
-                                null,
-                                Collections.emptyList(),
-                                false
-                        )
+            .map(
+                p -> new PluginInfo(
+                    p.getName(),
+                    "classpath plugin",
+                    "NA",
+                    Version.CURRENT,
+                    "1.8",
+                    p.getName(),
+                    null,
+                    Collections.emptyList(),
+                    false
                 )
-                .collect(Collectors.toList());
+            )
+            .collect(Collectors.toList());
         return new MockNode(baseSettings().build(), plugins, configDir, true);
     }
 
@@ -258,10 +258,10 @@ public class KNNSettingsTests extends KNNTestCase {
     private static Settings.Builder baseSettings() {
         final Path tempDir = createTempDir();
         return Settings.builder()
-                .put(ClusterName.CLUSTER_NAME_SETTING.getKey(), InternalTestCluster.clusterName("single-node-cluster", randomLong()))
-                .put(Environment.PATH_HOME_SETTING.getKey(), tempDir)
-                .put(NetworkModule.TRANSPORT_TYPE_KEY, getTestTransportType())
-                .put(dataNode());
+            .put(ClusterName.CLUSTER_NAME_SETTING.getKey(), InternalTestCluster.clusterName("single-node-cluster", randomLong()))
+            .put(Environment.PATH_HOME_SETTING.getKey(), tempDir)
+            .put(NetworkModule.TRANSPORT_TYPE_KEY, getTestTransportType())
+            .put(dataNode());
     }
 
     @SneakyThrows
