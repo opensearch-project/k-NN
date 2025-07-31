@@ -317,11 +317,16 @@ public class KNNSettings {
      * this could lead to NUM_CORES^2 threads running and could lead to 100% CPU utilization. This setting allows users to
      * configure number of threads for graph construction.
      */
-    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = Setting.intSetting(
+    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = new Setting<>(
         KNN_ALGO_PARAM_INDEX_THREAD_QTY,
-        getHardwareDefaultIndexThreadQty(),
-        1,
-        INDEX_THREAD_QTY_MAX,
+        settings -> Integer.toString(getHardwareDefaultIndexThreadQty(settings)),
+        s -> {
+            int value = Integer.parseInt(s);
+            if (value < 1 || value > INDEX_THREAD_QTY_MAX) {
+                throw new IllegalArgumentException("Value must be between 1 and " + INDEX_THREAD_QTY_MAX);
+            }
+            return value;
+        },
         NodeScope,
         Dynamic
     );
@@ -1067,9 +1072,9 @@ public class KNNSettings {
      *
      * @return suggested number of indexing threads
      */
-    static int getHardwareDefaultIndexThreadQty() {
+    static int getHardwareDefaultIndexThreadQty(final Settings settings) {
         try {
-            int availableProcessors = OpenSearchExecutors.allocatedProcessors(Settings.EMPTY);
+            int availableProcessors = OpenSearchExecutors.allocatedProcessors(settings);
             if (availableProcessors >= 32) {
                 return 4;
             } else {
