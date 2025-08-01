@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Asymmetric Distance Computation for binary quantized faiss indices [#2733](https://github.com/opensearch-project/k-NN/pull/2733)
 * [BUGFIX] [Remote Vector Index Build] Don't fall back to CPU on terminal failures [#2773](https://github.com/opensearch-project/k-NN/pull/2773)
 * Add KNN timing info to core profiler [#2785](https://github.com/opensearch-project/k-NN/pull/2785)
+* Add Mustache scripting support for conditional k-NN queries with function-based syntax [#459](https://github.com/opensearch-project/k-NN/issues/459)
 
 ### Bug Fixes
 * Fix @ collision in NativeMemoryCacheKeyHelper for vector index filenames containing @ characters [#2810](https://github.com/opensearch-project/k-NN/pull/2810)
