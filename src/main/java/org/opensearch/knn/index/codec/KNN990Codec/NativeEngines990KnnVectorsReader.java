@@ -435,10 +435,14 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                     try {
                         final String spaceTypeName = fieldInfo.attributes().getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
                         final SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
-                        final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
-                        final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
+                        final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(vectorIndexFileName);
                         final QuantizationParams quantizationParams = QuantizationService.getInstance()
                             .getQuantizationParams(fieldInfo, segmentInfo.getVersion());
+                        final VectorDataType vectorDataType = FieldInfoExtractor.determineVectorDataType(
+                            fieldInfo,
+                            quantizationParams,
+                            segmentInfo.getVersion()
+                        );
                         cacheManager.get(
                             new NativeMemoryEntryContext.IndexEntryContext(
                                 segmentInfo.dir,
@@ -450,7 +454,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                             true
                         );
                     } catch (Exception e) {
-                        log.warn("Failed to warm up field: {}", fieldInfo.getName());
+                        log.warn("Failed to put file in memory: {}, exception: {}", vectorIndexFileName, e.toString());
                     }
                 }
             }

@@ -15,16 +15,19 @@ import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 import java.util.Locale;
 
@@ -69,6 +72,25 @@ public class FieldInfoExtractor {
             }
         }
         return StringUtils.isNotEmpty(vectorDataTypeString) ? VectorDataType.get(vectorDataTypeString) : VectorDataType.DEFAULT;
+    }
+
+    public static VectorDataType determineVectorDataType(
+        FieldInfo fieldInfo,
+        QuantizationParams quantizationParams,
+        Version segmentVersion
+    ) {
+        // First check if quantization config is empty
+        if (extractQuantizationConfig(fieldInfo, segmentVersion) == QuantizationConfig.EMPTY) {
+            // If empty, get from attributes with default FLOAT
+            return VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()));
+        }
+
+        // For non-empty quantization config
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationParams)) {
+            return VectorDataType.FLOAT;
+        }
+
+        return VectorDataType.BINARY;
     }
 
     /**
