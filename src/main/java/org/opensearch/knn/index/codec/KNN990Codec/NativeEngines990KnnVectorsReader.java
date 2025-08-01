@@ -423,7 +423,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                         boolean isFloat = VectorDataType.get(dataTypeStr) == VectorDataType.FLOAT;
                         trySearchWithMemoryOptimizedSearch(fieldInfo.getName(), null, null, null, isFloat);
                     } catch (Exception e) {
-                        log.warn("Failed to warm up memory optimized field: {}", fieldInfo.getName());
+                        // Ignore
                     }
                 } else {
                     final String vectorIndexFileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentInfo);
