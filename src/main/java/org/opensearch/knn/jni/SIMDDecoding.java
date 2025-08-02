@@ -18,13 +18,6 @@ import java.security.PrivilegedAction;
 
 public class SIMDDecoding {
 
-    static {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);
-            return null;
-        });
-    }
-
     /**
      * Checks if the platform supports SIMD-based FP16 decoding.
      *

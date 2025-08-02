@@ -16,11 +16,23 @@ import org.opensearch.knn.common.KNNConstants;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
+import static org.opensearch.knn.index.KNNSettings.*;
+import static org.opensearch.knn.jni.PlatformUtils.*;
+
 public class SIMDEncoding {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);
+            if (isAVX512SPRSupportedBySystem()) {
+                System.loadLibrary(KNNConstants.SIMD_AVX512_SPR_JNI_LIBRARY_NAME);
+            } else if (isAVX512SupportedBySystem()) {
+                System.loadLibrary(KNNConstants.SIMD_AVX512_JNI_LIBRARY_NAME);
+            } else if (isAVX2SupportedBySystem()) {
+                System.loadLibrary(KNNConstants.SIMD_AVX2_JNI_LIBRARY_NAME);
+            } else {
+                System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);
+            }
+
             return null;
         });
     }
