@@ -1,7 +1,7 @@
 From 38ac6abaa528e5ade42d60155aea7e1ea4e80899 Mon Sep 17 00:00:00 2001
 From: Junqiu Lei <junqiu@amazon.com>
 Date: Fri, 1 Aug 2025 17:20:56 -0700
-Subject: [PATCH] [PATCH] Custom patch to support range search params
+Subject: [PATCH] Custom patch to support range search params
 
 Signed-off-by: Junqiu Lei <junqiu@amazon.com>
 ---

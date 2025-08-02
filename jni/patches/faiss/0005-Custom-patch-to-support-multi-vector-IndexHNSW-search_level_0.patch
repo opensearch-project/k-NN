@@ -1,7 +1,7 @@
 From 379afe61155bac7f46aa332c00e67d31edb256d6 Mon Sep 17 00:00:00 2001
 From: AnnTian Shao <anntians@amazon.com>
 Date: Fri, 1 Aug 2025 18:04:23 -0700
-Subject: [PATCH] [PATCH] Add multi-vector-support faiss patch to
+Subject: [PATCH] Add multi-vector-support faiss patch to
  IndexHNSW::search_level_0
 
 Signed-off-by: AnnTian Shao <anntians@amazon.com>
