@@ -34,12 +34,23 @@ public class KNNScoringScriptEngine implements ScriptEngine {
             KNNCounter.SCRIPT_COMPILATION_ERRORS.increment();
             throw new IllegalArgumentException(getType() + " KNN scoring scripts cannot be used for context [" + context.name + "]");
         }
-        // we use the script "source" as the script identifier
-        if (!SCRIPT_SOURCE.equals(code)) {
+
+        ScoreScript.Factory factory;
+
+        // Support original knn_score, function syntax, and Mustache templates
+        if (SCRIPT_SOURCE.equals(code)) {
+            // Original knn_score syntax (maintain backward compatibility)
+            factory = new KNNScoreScriptFactory();
+        } else if (KNNMustacheScript.isMustacheTemplate(code) || KNNMustacheScript.containsKNNFunctions(code)) {
+            // Enhanced KNNScoreScriptFactory handles both Mustache templates and direct k-NN function calls
+            factory = new KNNScoreScriptFactory(code);
+        } else {
             KNNCounter.SCRIPT_COMPILATION_ERRORS.increment();
-            throw new IllegalArgumentException("Unknown script name " + code);
+            throw new IllegalArgumentException(
+                "Script must be 'knn_score', contain k-NN functions like cosineSimilarity(params.query, doc['field']), or use Mustache templates"
+            );
         }
-        ScoreScript.Factory factory = new KNNScoreScriptFactory();
+
         return context.factoryClazz.cast(factory);
     }
 
