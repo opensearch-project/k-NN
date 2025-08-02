@@ -189,22 +189,4 @@ public class JNICommons {
      * @param memoryAddress address to be freed.
      */
     public static native void freeByteVectorData(long memoryAddress);
-
-    /**
-     * Converts an array of float values to half-precision (fp16) bytes using native code.
-     * @param fp32Array float array containing float32 values
-     * @param fp16Array byte array to fill with the converted half-float values (2 bytes per value)
-     * @param count number of float values to convert
-     */
-    public static native void convertFP32ToFP16(float[] fp32Array, byte[] fp16Array, int count);
-
-    /**
-     * Converts an array of half-precision (fp16) bytes to a float array using native code.
-     *
-     * @param fp16Array byte array containing fp16 values (2 bytes per value)
-     * @param fp32Array float array to fill with the converted float32 values
-     * @param count number of half-float values to convert
-     * @param offset offset in bytes to start reading from the fp16Array
-     */
-    public static native void convertFP16ToFP32(byte[] fp16Array, float[] fp32Array, int count, int offset);
 }

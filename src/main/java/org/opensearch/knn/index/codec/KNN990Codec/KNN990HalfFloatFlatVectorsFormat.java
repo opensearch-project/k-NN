@@ -25,7 +25,7 @@ import org.apache.lucene.index.SegmentWriteState;
  */
 public final class KNN990HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
-    static final String NAME = "KNN990HalfFloatFlatVectorsFormat";
+    static final String NAME = KNN990HalfFloatFlatVectorsFormat.class.getSimpleName();
     static final String META_CODEC_NAME = "Lucene99FlatVectorsFormatMeta";
     static final String VECTOR_DATA_CODEC_NAME = "Lucene99FlatVectorsFormatData";
     static final String META_EXTENSION = "vemf";

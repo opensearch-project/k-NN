@@ -172,6 +172,16 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
         return entry;
     }
 
+    /**
+     * Returns raw bytes for the vectors stored in the given field.
+     * <p>
+     * These are not real byte vectors. Each returned byte array contains
+     * raw data (like float16), not actual {@link ByteVectorValues} as used by Lucene.
+     * </p>
+     *
+     * @param field the name of the vector field
+     * @return raw byte arrays for each vector
+     */
     @Override
     public ByteVectorValues getByteVectorValues(String field) throws IOException {
         final FieldEntry fe = getFieldEntryOrThrow(field);

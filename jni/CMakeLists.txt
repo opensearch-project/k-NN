@@ -8,6 +8,7 @@ cmake_minimum_required(VERSION 3.24.0)
 project(KNNPlugin_JNI)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/macros.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simd-flags.cmake)
 
 # ---------------------------------- SETUP ----------------------------------
 # Target libraries to be compiled
@@ -70,23 +71,14 @@ endif()
 # Set architecture specific variables
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL aarch64)
     set(MACH_ARCH arm64)
-    set(COMMONS_FLAGS "-O3 -march=armv8.4-a+fp16 -fPIC")
 elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL x86_64)
     set(MACH_ARCH x64)
-    set(COMMONS_FLAGS "-O3 -march=native -mf16c -fPIC")
 endif()
 # ----------------------------------------------------------------------------
 
 # ---------------------------------- UTIL ----------------------------------
 add_library(${TARGET_LIB_UTIL} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp)
 target_include_directories(${TARGET_LIB_UTIL} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
-
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp
-    PROPERTIES
-    COMPILE_FLAGS "${COMMONS_FLAGS}"
-)
-
 opensearch_set_common_properties(${TARGET_LIB_UTIL})
 list(APPEND TARGET_LIBS ${TARGET_LIB_UTIL})
 # ----------------------------------------------------------------------------
@@ -136,6 +128,49 @@ endif ()
 
 # ---------------------------------------------------------------------------
 
+# ---------------------------------- SIMD ENCODING/DECODING ----------------------------------
+set(SIMD_ENCODING_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDEncoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDDecoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/default_encoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/default_decoding.cpp
+)
+
+if ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64" AND KNN_HAVE_ARM_FP16)
+    list(APPEND SIMD_ENCODING_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/arm_encoding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/arm_decoding.cpp
+    )
+elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND (KNN_HAVE_F16C OR KNN_HAVE_AVX512))
+    list(APPEND SIMD_ENCODING_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/x86_encoding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/x86_decoding.cpp
+    )
+endif()
+
+add_library(opensearchknn_simd SHARED ${SIMD_ENCODING_SRCS})
+
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/arm_encoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/x86_encoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/arm_decoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/x86_decoding.cpp
+    PROPERTIES
+    COMPILE_FLAGS "${FP16_SIMD_FLAGS} ${SIMD_FLAGS}"
+)
+
+target_include_directories(opensearchknn_simd PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/jni/include
+    $ENV{JAVA_HOME}/include
+    $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
+)
+
+opensearch_set_common_properties(opensearchknn_simd)
+list(APPEND TARGET_LIBS opensearchknn_simd)
+
+# ----------------------------------------------------------------------------
+
 # --------------------------------- TESTS -----------------------------------
 # Windows : Comment the TESTS for now because the tests are failing(failing to build jni_tests.exe) if we are building our target libraries as SHARED libraries.
 # TODO: Fix the failing JNI TESTS on Windows
@@ -173,6 +208,7 @@ if ("${WIN32}" STREQUAL "")
                 jni_test
                 gtest_main
                 gmock_main
+                gfortran
                 faiss
                 NonMetricSpaceLib
                 OpenMP::OpenMP_CXX

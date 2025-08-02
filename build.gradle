@@ -416,7 +416,7 @@ tasks.register('buildJniLib', Exec) {
     args.add("--build")
     args.add("jni/build")
     args.add("--target")
-    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib']
+    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib', 'opensearchknn_faiss']
     if (project.hasProperty('knn_libs')) {
         knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
     }
