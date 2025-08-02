@@ -1,4 +1,4 @@
-From e775a8e65da96232822d5aed77f538592fccffda Mon Sep 17 00:00:00 2001
+From e9e7e9d82a0a7bbeebceaa6bb85213a1164f6acf Mon Sep 17 00:00:00 2001
 From: Heemin Kim <heemin@amazon.com>
 Date: Tue, 30 Jan 2024 14:43:56 -0800
 Subject: [PATCH] Add IDGrouper for HNSW
@@ -17,8 +17,9 @@ Signed-off-by: Heemin Kim <heemin@amazon.com>
  faiss/utils/GroupHeap.h    | 182 ++++++++++++++++++++++++++++
  tests/CMakeLists.txt       |   2 +
  tests/test_group_heap.cpp  |  98 +++++++++++++++
+ tests/test_hamming.cpp     |  10 +-
  tests/test_id_grouper.cpp  | 241 +++++++++++++++++++++++++++++++++++++
- 13 files changed, 889 insertions(+), 4 deletions(-)
+ 14 files changed, 894 insertions(+), 9 deletions(-)
  create mode 100644 faiss/impl/IDGrouper.cpp
  create mode 100644 faiss/impl/IDGrouper.h
  create mode 100644 faiss/utils/GroupHeap.h
@@ -26,10 +27,10 @@ Signed-off-by: Heemin Kim <heemin@amazon.com>
  create mode 100644 tests/test_id_grouper.cpp
 
 diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
-index 2871d974..d0bcec6a 100644
+index 0ad036967..8ee79bd9f 100644
 --- a/faiss/CMakeLists.txt
 +++ b/faiss/CMakeLists.txt
-@@ -55,6 +55,7 @@ set(FAISS_SRC
+@@ -56,6 +56,7 @@ set(FAISS_SRC
    impl/AuxIndexStructures.cpp
    impl/CodePacker.cpp
    impl/IDSelector.cpp
@@ -37,7 +38,7 @@ index 2871d974..d0bcec6a 100644
    impl/FaissException.cpp
    impl/HNSW.cpp
    impl/NSG.cpp
-@@ -151,6 +152,7 @@ set(FAISS_HEADERS
+@@ -156,6 +157,7 @@ set(FAISS_HEADERS
    impl/AuxIndexStructures.h
    impl/CodePacker.h
    impl/IDSelector.h
@@ -45,19 +46,19 @@ index 2871d974..d0bcec6a 100644
    impl/DistanceComputer.h
    impl/FaissAssert.h
    impl/FaissException.h
-@@ -186,6 +188,7 @@ set(FAISS_HEADERS
-   invlists/InvertedListsIOHook.h
+@@ -198,6 +200,7 @@ set(FAISS_HEADERS
+   invlists/OnDiskInvertedLists.h
    utils/AlignedTable.h
    utils/bf16.h
 +  utils/GroupHeap.h
    utils/Heap.h
+   utils/NeuralNet.h
    utils/WorkerThread.h
-   utils/distances.h
 diff --git a/faiss/Index.h b/faiss/Index.h
-index f57140ec..8f511e5d 100644
+index f189bf3af..0f4b0b2fa 100644
 --- a/faiss/Index.h
 +++ b/faiss/Index.h
-@@ -51,8 +51,9 @@
+@@ -53,8 +53,9 @@
  namespace faiss {
  
  /// Forward declarations see impl/AuxIndexStructures.h, impl/IDSelector.h
@@ -68,7 +69,7 @@ index f57140ec..8f511e5d 100644
  struct RangeSearchResult;
  struct DistanceComputer;
  
-@@ -64,6 +65,9 @@ struct DistanceComputer;
+@@ -88,6 +89,9 @@ inline size_t get_numeric_type_size(NumericType numeric_type) {
  struct SearchParameters {
      /// if non-null, only these IDs will be considered during search.
      IDSelector* sel = nullptr;
@@ -79,35 +80,35 @@ index f57140ec..8f511e5d 100644
      virtual ~SearchParameters() {}
  };
 diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
-index 6a1186ca..9c8a8255 100644
+index 7af8adb3b..0f912b003 100644
 --- a/faiss/IndexHNSW.cpp
 +++ b/faiss/IndexHNSW.cpp
-@@ -301,10 +301,17 @@ void IndexHNSW::search(
-         const SearchParameters* params_in) const {
+@@ -305,10 +305,17 @@ void IndexHNSW::search(
+         const SearchParameters* params) const {
      FAISS_THROW_IF_NOT(k > 0);
  
 -    using RH = HeapBlockResultHandler<HNSW::C>;
 -    RH bres(n, distances, labels, k);
-+    if (params_in && params_in->grp) {
++    if (params && params->grp) {
 +        using RH = GroupedHeapBlockResultHandler<HNSW::C>;
-+        RH bres(n, distances, labels, k, params_in->grp);
++        RH bres(n, distances, labels, k, params->grp);
  
--    hnsw_search(this, n, x, bres, params_in);
-+        hnsw_search(this, n, x, bres, params_in);
+-    hnsw_search(this, n, x, bres, params);
++        hnsw_search(this, n, x, bres, params);
 +    } else {
 +        using RH = HeapBlockResultHandler<HNSW::C>;
 +        RH bres(n, distances, labels, k);
 +
-+        hnsw_search(this, n, x, bres, params_in);
++        hnsw_search(this, n, x, bres, params);
 +    }
  
      if (is_similarity_metric(this->metric_type)) {
          // we need to revert the negated distances
 diff --git a/faiss/IndexIDMap.cpp b/faiss/IndexIDMap.cpp
-index dc84052b..3f375e7b 100644
+index 595851116..123e8f2ff 100644
 --- a/faiss/IndexIDMap.cpp
 +++ b/faiss/IndexIDMap.cpp
-@@ -102,6 +102,23 @@ struct ScopedSelChange {
+@@ -164,6 +164,23 @@ struct ScopedSelChange {
      }
  };
  
@@ -131,7 +132,7 @@ index dc84052b..3f375e7b 100644
  } // namespace
  
  template <typename IndexT>
-@@ -114,6 +131,8 @@ void IndexIDMapTemplate<IndexT>::search(
+@@ -177,6 +194,8 @@ void IndexIDMapTemplate<IndexT>::search(
          const SearchParameters* params) const {
      IDSelectorTranslated this_idtrans(this->id_map, nullptr);
      ScopedSelChange sel_change;
@@ -140,7 +141,7 @@ index dc84052b..3f375e7b 100644
  
      if (params && params->sel) {
          auto idtrans = dynamic_cast<const IDSelectorTranslated*>(params->sel);
-@@ -131,6 +150,16 @@ void IndexIDMapTemplate<IndexT>::search(
+@@ -194,6 +213,16 @@ void IndexIDMapTemplate<IndexT>::search(
              sel_change.set(params_non_const, &this_idtrans);
          }
      }
@@ -154,11 +155,11 @@ index dc84052b..3f375e7b 100644
 +            grp_change.set(params_non_const, &this_idgrptrans);
 +        }
 +    }
-     index->search(n, x, k, distances, labels, params);
+     index->search(n, x, numeric_type, k, distances, labels, params);
      idx_t* li = labels;
  #pragma omp parallel for
 diff --git a/faiss/IndexIDMap.h b/faiss/IndexIDMap.h
-index 2d164123..a68887bd 100644
+index cfe43377e..6a5fa92a5 100644
 --- a/faiss/IndexIDMap.h
 +++ b/faiss/IndexIDMap.h
 @@ -9,6 +9,7 @@
@@ -169,7 +170,7 @@ index 2d164123..a68887bd 100644
  #include <faiss/impl/IDSelector.h>
  
  #include <unordered_map>
-@@ -124,4 +125,25 @@ struct IDSelectorTranslated : IDSelector {
+@@ -147,4 +148,25 @@ struct IDSelectorTranslated : IDSelector {
      }
  };
  
@@ -196,10 +197,10 @@ index 2d164123..a68887bd 100644
 +
  } // namespace faiss
 diff --git a/faiss/impl/HNSW.cpp b/faiss/impl/HNSW.cpp
-index c3693fd9..7ae28062 100644
+index 3baa65678..6fc392dd9 100644
 --- a/faiss/impl/HNSW.cpp
 +++ b/faiss/impl/HNSW.cpp
-@@ -906,6 +906,12 @@ int extract_k_from_ResultHandler(ResultHandler<C>& res) {
+@@ -929,6 +929,12 @@ int extract_k_from_ResultHandler(ResultHandler<C>& res) {
      if (auto hres = dynamic_cast<RH::SingleResultHandler*>(&res)) {
          return hres->k;
      }
@@ -214,7 +215,7 @@ index c3693fd9..7ae28062 100644
  
 diff --git a/faiss/impl/IDGrouper.cpp b/faiss/impl/IDGrouper.cpp
 new file mode 100644
-index 00000000..ca9f5fda
+index 000000000..ca9f5fda7
 --- /dev/null
 +++ b/faiss/impl/IDGrouper.cpp
 @@ -0,0 +1,51 @@
@@ -271,7 +272,7 @@ index 00000000..ca9f5fda
 +} // namespace faiss
 diff --git a/faiss/impl/IDGrouper.h b/faiss/impl/IDGrouper.h
 new file mode 100644
-index 00000000..d56113d9
+index 000000000..d56113d97
 --- /dev/null
 +++ b/faiss/impl/IDGrouper.h
 @@ -0,0 +1,51 @@
@@ -327,7 +328,7 @@ index 00000000..d56113d9
 +
 +} // namespace faiss
 diff --git a/faiss/impl/ResultHandler.h b/faiss/impl/ResultHandler.h
-index 3116eb24..126ed015 100644
+index b5544e0f8..8ad574373 100644
 --- a/faiss/impl/ResultHandler.h
 +++ b/faiss/impl/ResultHandler.h
 @@ -14,6 +14,8 @@
@@ -339,7 +340,7 @@ index 3116eb24..126ed015 100644
  #include <faiss/utils/Heap.h>
  #include <faiss/utils/partitioning.h>
  
-@@ -286,6 +288,193 @@ struct HeapBlockResultHandler : BlockResultHandler<C, use_sel> {
+@@ -301,6 +303,193 @@ struct HeapBlockResultHandler : TopkBlockResultHandler<C, use_sel> {
      }
  };
  
@@ -535,7 +536,7 @@ index 3116eb24..126ed015 100644
   *
 diff --git a/faiss/utils/GroupHeap.h b/faiss/utils/GroupHeap.h
 new file mode 100644
-index 00000000..3b7078da
+index 000000000..3b7078da6
 --- /dev/null
 +++ b/faiss/utils/GroupHeap.h
 @@ -0,0 +1,182 @@
@@ -723,10 +724,10 @@ index 00000000..3b7078da
 +} // namespace faiss
 \ No newline at end of file
 diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
-index c41edf0c..87ab2020 100644
+index 285b9090e..0edafafcc 100644
 --- a/tests/CMakeLists.txt
 +++ b/tests/CMakeLists.txt
-@@ -27,6 +27,8 @@ set(FAISS_TEST_SRC
+@@ -26,6 +26,8 @@ set(FAISS_TEST_SRC
    test_approx_topk.cpp
    test_RCQ_cropping.cpp
    test_distances_simd.cpp
@@ -737,7 +738,7 @@ index c41edf0c..87ab2020 100644
    test_hnsw.cpp
 diff --git a/tests/test_group_heap.cpp b/tests/test_group_heap.cpp
 new file mode 100644
-index 00000000..0e8fe7a7
+index 000000000..0e8fe7a7e
 --- /dev/null
 +++ b/tests/test_group_heap.cpp
 @@ -0,0 +1,98 @@
@@ -839,9 +840,52 @@ index 00000000..0e8fe7a7
 +        ASSERT_EQ(sorted_ids[i], binary_heap_ids[i]);
 +    }
 +}
+diff --git a/tests/test_hamming.cpp b/tests/test_hamming.cpp
+index 883f8f5b5..7b2a9264d 100644
+--- a/tests/test_hamming.cpp
++++ b/tests/test_hamming.cpp
+@@ -37,7 +37,7 @@ std::stringstream get_correct_hamming_example(
+         const size_t code_size,
+         std::shared_ptr<std::vector<uint8_t>> a,
+         std::shared_ptr<std::vector<uint8_t>> b,
+-        std::shared_ptr<std::vector<long>> true_ids,
++        std::shared_ptr<std::vector<int64_t>> true_ids,
+         // regular Hamming (bit-level distances)
+         std::shared_ptr<std::vector<int>> true_bit_distances,
+         // generalized Hamming (byte-level distances)
+@@ -278,7 +278,7 @@ TEST(TestHamming, test_hamming_knn) {
+ 
+     auto a = std::make_shared<std::vector<uint8_t>>();
+     auto b = std::make_shared<std::vector<uint8_t>>();
+-    auto true_ids = std::make_shared<std::vector<long>>();
++    auto true_ids = std::make_shared<std::vector<int64_t>>();
+     auto true_bit_distances = std::make_shared<std::vector<int>>();
+     auto true_byte_distances = std::make_shared<std::vector<int>>();
+ 
+@@ -298,9 +298,9 @@ TEST(TestHamming, test_hamming_knn) {
+                 true_byte_distances);
+ 
+         // run test on generalized_hammings_knn_hc
+-        std::vector<long> ids_gen(na * k);
++        std::vector<int64_t> ids_gen(na * k);
+         std::vector<int> dist_gen(na * k);
+-        faiss::int_maxheap_array_t res = {
++        auto res = faiss::int_maxheap_array_t {
+                 na, k, ids_gen.data(), dist_gen.data()};
+         faiss::generalized_hammings_knn_hc(
+                 &res, a->data(), b->data(), nb, code_size, true);
+@@ -308,7 +308,7 @@ TEST(TestHamming, test_hamming_knn) {
+         ASSERT_EQ(dist_gen, *true_byte_distances) << assert_str.str();
+ 
+         // run test on hammings_knn
+-        std::vector<long> ids_ham_knn(na * k, 0);
++        std::vector<int64_t> ids_ham_knn(na * k, 0);
+         std::vector<int> dist_ham_knn(na * k, 0);
+         res = {na, k, ids_ham_knn.data(), dist_ham_knn.data()};
+         faiss::hammings_knn(&res, a->data(), b->data(), nb, code_size, true);
 diff --git a/tests/test_id_grouper.cpp b/tests/test_id_grouper.cpp
 new file mode 100644
-index 00000000..6601795b
+index 000000000..6601795b8
 --- /dev/null
 +++ b/tests/test_id_grouper.cpp
 @@ -0,0 +1,241 @@
@@ -1087,5 +1131,4 @@ index 00000000..6601795b
 +    delete[] xb;
 +}
 -- 
-2.37.0
-
+2.39.5 (Apple Git-154)

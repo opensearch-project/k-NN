@@ -65,7 +65,7 @@ pip install cmake==3.24.0
 
 #### Faiss Dependencies
 
-To build the *faiss* JNI library, you need to have openmp, lapack and blas installed. For more information on *faiss* 
+To build the *faiss* JNI library, you need to have openmp, lapack, gflags and blas installed. For more information on *faiss* 
 dependencies, please refer to [their documentation](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md).
 
 [Openblas](https://www.openblas.net/) can be used for both lapack and blas. To install on Mac, run:
@@ -81,6 +81,11 @@ brew install libomp
 Additionally, the `gcc` toolchain might need to be installed on Mac. To install, run:
 ```bash
 brew install gcc
+```
+
+Lastly, `gflags` is required. To install, run:
+```bash
+brew install gflags
 ```
 
 ## Use an Editor
