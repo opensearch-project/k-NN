@@ -104,7 +104,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final VectorEncoding vectorEncoding,
         final IOSupplier<RandomVectorScorer> scorerSupplier,
         final KnnCollector knnCollector,
-        final Bits acceptDocs // here need to see if it can be modified in both usages.
+        final Bits acceptDocs
     ) throws IOException {
         if (faissIndex.getTotalNumberOfVectors() == 0 || knnCollector.k() == 0) {
             return;

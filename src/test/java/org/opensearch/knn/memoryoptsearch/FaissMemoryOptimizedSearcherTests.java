@@ -104,7 +104,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final String BINARY_HSNW_INDEX_DESCRIPTION = "BHNSW16,Flat";
     private static final Map<String, Object> EMTPY_ENCODER_PARAMETERS = Map.of();
     private static final int DIMENSIONS = 128;
-    private static final int BINARY_DIMENSIONS = DIMENSIONS / 8; // For binary quantization
     private static final int TOTAL_NUM_DOCS_IN_SEGMENT = 300;
     private static final int TOP_K = 30;
     private static final float NO_FILTERING = Float.NaN;
