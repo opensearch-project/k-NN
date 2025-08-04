@@ -62,7 +62,7 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                         mergeThreadCountAndExecutorService.v2()
                     );
                 }
-            },// TODO: this is the format supplier. may be able to get from mapper service, if it's bbq or not.
+            },
             knnBBQVectorsFormatParams -> {
                 final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
                 return new Lucene102HnswBinaryQuantizedVectorsFormat(

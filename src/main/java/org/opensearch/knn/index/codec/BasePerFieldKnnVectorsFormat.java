@@ -29,7 +29,9 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
