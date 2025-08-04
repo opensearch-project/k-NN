@@ -7,6 +7,7 @@ package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
@@ -29,6 +30,8 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
 public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
+    private static final FieldInfo NO_ADC_NEEDED = null;
+
     private static final int EF_SEARCH = 100;
     private static final int DIMENSION = 768;
     // Applying 32x quantization, one float will be quantized to 1 bit. As a result, one vector have 768 bits, which becomes 96 bytes.
@@ -42,7 +45,7 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
     ) {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input);
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, NO_ADC_NEEDED);
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;

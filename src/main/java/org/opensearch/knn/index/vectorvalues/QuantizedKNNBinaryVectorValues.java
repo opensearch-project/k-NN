@@ -11,6 +11,15 @@ import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 
 import java.io.IOException;
 
+/**
+ * This class is designed for uploading quantized binary vectors as part of the GPU indexing pipeline. Internally, we store the
+ * full-precision vectors. When needed, it retrieves these full-precision vectors, applies quantization based on its current state, and
+ * returns the quantized data as a byte[]. As a result, the `bytesPerVector` and `dimension` exposed externally refer to the quantized
+ * (binary) vectors.
+ * For instance, if the original vector has 768 dimensions and a 32× compression ratio is applied, the quantized vector size (code_size)
+ * becomes 96 bytes. In that case, `bytesPerVector` would be set to `96`, and the `dimension` would be set to 768 bits. (e.g. one float
+ * value became one bit)
+ */
 public class QuantizedKNNBinaryVectorValues extends KNNVectorValues<byte[]> {
     private KNNFloatVectorValues knnFloatVectorValues;
     private IndexBuildSetup indexBuildSetup;
@@ -41,8 +50,6 @@ public class QuantizedKNNBinaryVectorValues extends KNNVectorValues<byte[]> {
 
     @Override
     public byte[] conditionalCloneVector() throws IOException {
-        throw new UnsupportedOperationException(
-            "Cloning vector is not supported in " + QuantizedKNNBinaryVectorValues.class.getSimpleName()
-        );
+        return getVector();
     }
 }

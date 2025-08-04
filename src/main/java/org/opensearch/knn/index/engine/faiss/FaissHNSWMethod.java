@@ -194,45 +194,49 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
      * @return true if the method parameters + vector data type combination is supported for remote index build
      */
     @SuppressWarnings("unchecked")
-    static boolean supportsRemoteIndexBuild(Map<String, Object> parameters) {
-        if (isFloat32Index(parameters)) {
-            return true;
-        }
+    static boolean supportsRemoteIndexBuild(final Map<String, Object> parameters) {
+        try {
+            final VectorDataType vectorDataType = extractVectorDataType(parameters);
+            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
 
-        if (isFloat16Index(parameters)) {
-            return true;
-        }
+            if (isFloat32Index(vectorDataType, encoderMap)) {
+                return true;
+            }
 
-        if (isBinaryIndex(parameters)) {
-            return true;
-        }
+            if (isFloat16Index(vectorDataType, parameters)) {
+                return true;
+            }
 
-        if (isQuantizedIndex(parameters)) {
-            return true;
-        }
+            if (isBinaryIndex(vectorDataType, encoderMap)) {
+                return true;
+            }
 
-        if (isByteIndex(parameters)) {
-            return true;
+            if (isQuantizedIndex(vectorDataType, encoderMap)) {
+                return true;
+            }
+
+            return isByteIndex(vectorDataType, encoderMap);
+        } catch (final Exception e) {
+            // We don't need to rethrow this, as technically, it is not error even we hit an exception here.
+            // It merely tells us that configured parameters are not set in a way that we expect for supported types.
+            log.warn(e.getMessage());
         }
 
         return false;
     }
 
-    private static boolean isFloat32Index(final Map<String, Object> parameters) {
+    private static boolean isFloat32Index(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
         try {
             // Check whether if float32 vector data
-            final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
-            final VectorDataType vectorDataType = VectorDataType.get(dataType);
             if (vectorDataType != VectorDataType.FLOAT) {
                 return false;
             }
 
             // Check encoding is 'flat'
-            final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
-            final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
             final String encoder = getStringFromMap(encoderMap, NAME);
             return encoder.equals(ENCODER_FLAT);
         } catch (final Exception e) {
+            log.debug(e.getMessage());
             // Ignore
             return false;
         }
@@ -244,84 +248,103 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
      * @param parameters KNN library indexing parameters.
      * @return Trye if FP16, otherwise False.
      */
-    public static boolean isFloat16Index(final Map<String, Object> parameters) {
+    public static boolean isFloat16Index(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
         try {
             // Check whether if vector type is float
-            final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
-            final VectorDataType vectorDataType = VectorDataType.get(dataType);
             if (vectorDataType != VectorDataType.FLOAT) {
                 return false;
             }
 
             // Check encoding is 'sq' meaning fp32 is being scalar quantized to fp16
-            final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
-            final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
+            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
             final String encoder = getStringFromMap(encoderMap, NAME);
             return encoder.equals(ENCODER_SQ);
         } catch (final Exception e) {
+            log.debug(e.getMessage());
             // Ignore
             return false;
         }
     }
 
-    private static boolean isBinaryIndex(final Map<String, Object> parameters) {
+    private static boolean isBinaryIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
         try {
+            // This index type is a binary case where user ingested binary vectors (e.g. bit stream)
+            // Therefore, we didn't do any quantization from our end, it is already done from user side.
             // Check whether if vector type is binary
-            final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
-            final VectorDataType vectorDataType = VectorDataType.get(dataType);
-            if (vectorDataType != VectorDataType.BINARY) {
-                return false;
-            }
-
-            // Check encoding is 'flat'
-            final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
-            final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
-            final String encoder = getStringFromMap(encoderMap, NAME);
-            return encoder.equals(ENCODER_FLAT);
+            return vectorDataType == VectorDataType.BINARY && getStringFromMap(encoderMap, NAME).equals(ENCODER_FLAT);
         } catch (final Exception e) {
+            log.warn(e.getMessage());
             // Ignore
             return false;
         }
     }
 
-    private static boolean isQuantizedIndex(final Map<String, Object> parameters) {
+    private static boolean isQuantizedIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
         try {
-            // Check whether if vector type is binary
-            final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
-            final VectorDataType vectorDataType = VectorDataType.get(dataType);
-            // It is a little bit counter-intuitive, but for quantization, we set 'float' as a vector data type.
+            // Check whether if vector type is FLOAT
+            // It is a little bit counter-intuitive, but for quantization, we set 'float' as a vector data type by the time
+            // this method is called.
             if (vectorDataType != VectorDataType.FLOAT) {
                 return false;
             }
 
             // Check encoding is empty. For the quantization case, we don't save encoder.
-            final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
-            final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
             return encoderMap.isEmpty();
         } catch (final Exception e) {
+            log.debug(e.getMessage());
             // Ignore
             return false;
         }
     }
 
-    private static boolean isByteIndex(final Map<String, Object> parameters) {
+    private static boolean isByteIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
         try {
             // Check whether if byte index
-            final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
-            final VectorDataType vectorDataType = VectorDataType.get(dataType);
             if (vectorDataType != VectorDataType.BYTE) {
                 return false;
             }
 
             // Check encoding is 'flat'
-            final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
-            final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
             final String encoder = getStringFromMap(encoderMap, NAME);
             return encoder.equals(ENCODER_FLAT);
         } catch (final Exception e) {
+            log.debug(e.getMessage());
             // Ignore
             return false;
         }
+    }
+
+    /**
+     * Extract {@link VectorDataType} from parameter.
+     *
+     * @param parameters
+     * @return
+     */
+    private static VectorDataType extractVectorDataType(final Map<String, Object> parameters) {
+        // Check whether if byte index
+        final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
+        final VectorDataType vectorDataType = VectorDataType.get(dataType);
+        return vectorDataType;
+    }
+
+    /**
+     * Extract encoder map from the given parameters.
+     * Ex: {
+     *    ...
+     *    "parameters: {
+     *        "encoder": {
+     *            <This blob will be returned>
+     *        }
+     *    }
+     * }
+     *
+     * @param parameters
+     * @return
+     */
+    private static Map<String, Object> extractEncoderMap(final Map<String, Object> parameters) {
+        final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
+        final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
+        return encoderMap;
     }
 
     /**

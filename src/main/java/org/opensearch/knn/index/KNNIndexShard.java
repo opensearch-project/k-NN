@@ -131,10 +131,10 @@ public class KNNIndexShard {
      * @throws IOException Thrown when getting the HNSW Paths to be loaded in
      */
     public void warmup() throws IOException {
-        log.info("[KNN] Warming up index: [{}]", getIndexName());
+        final String indexName = indexShard.shardId().getIndexName();
+        log.info("[KNN] Warming up index: [{}]", indexName);
 
         final MapperService mapperService = indexShard.mapperService();
-        final String indexName = indexShard.shardId().getIndexName();
         final Directory directory = indexShard.store().directory();
 
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup-mem")) {
@@ -152,7 +152,8 @@ public class KNNIndexShard {
                 );
             }
         } catch (Exception e) {
-            log.error("Failed warm-up", e);
+            // Since the thrown exception is not being logged, we need to explicitly log the error message.
+            log.error("Failed warm-up index: [{}]", indexName, e);
             throw e;
         }
     }

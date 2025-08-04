@@ -24,6 +24,7 @@ import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.QuantizedKNNBinaryVectorValues;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClientFactory;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
@@ -203,7 +204,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     private static Supplier<KNNVectorValues<?>> decorateVectorValuesSupplier(final BuildIndexParams indexInfo) {
         if (indexInfo.getVectorDataType() == VectorDataType.BINARY && indexInfo.getQuantizationState() != null) {
-            return new QuantizedKNNVectorValuesSupplier(indexInfo);
+            return () -> new QuantizedKNNBinaryVectorValues(indexInfo.getKnnVectorValuesSupplier().get(), indexInfo);
         }
 
         return indexInfo.getKnnVectorValuesSupplier();
@@ -327,7 +328,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     private static String determineVectorDataType(final VectorDataType dataType, final Map<String, Object> parameters) {
         if (dataType == VectorDataType.FLOAT) {
-            if (FaissHNSWMethod.isFloat16Index(parameters)) {
+            if (FaissHNSWMethod.isFloat16Index(dataType, parameters)) {
                 return FLOAT16_VECTOR_TYPE_STRING;
             }
         }
