@@ -49,13 +49,11 @@ import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -659,73 +657,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         }
 
         return buildInfo;
-    }
-
-    @SneakyThrows
-    private void doAdcComparisonTest(final TestingSpec adcEnabledSpec, final TestingSpec adcDisabledSpec, final IndexingType indexingType) {
-        final SpaceType spaceType = SpaceType.L2;
-        final int k = TOP_K;
-
-        // Build indices with same vectors but different ADC settings
-        final BuildInfo adcEnabledBuildInfo = buildFaissIndex(adcEnabledSpec, TOTAL_NUM_DOCS_IN_SEGMENT, indexingType, spaceType);
-        final BuildInfo adcDisabledBuildInfo = buildFaissIndex(adcDisabledSpec, TOTAL_NUM_DOCS_IN_SEGMENT, indexingType, spaceType);
-
-        // Generate full precision float32 query vector for ADC
-        final float[] query = generateOneSingleFloatVector(DIMENSIONS, adcEnabledSpec.minValue, adcEnabledSpec.maxValue);
-
-        // Search ADC enabled index with float query
-        final KNNQueryResult[] adcEnabledResults = doSearchViaVectorReader(
-            adcEnabledBuildInfo,
-            query,
-            VectorDataType.FLOAT,
-            null,
-            k,
-            false
-        );
-
-        // quantize that same vector and assert that scores are different.
-        Field meanThresholdsField = OneBitScalarQuantizationState.class.getDeclaredField("meanThresholds");
-        meanThresholdsField.setAccessible(true);
-
-        // Access the field value
-        float[] thresholds = (float[]) meanThresholdsField.get(adcDisabledSpec.quantizationState);
-        meanThresholdsField.setAccessible(false);
-        byte[] output = new byte[(DIMENSIONS + 7) / 8];
-
-        for (int j = 0; j < DIMENSIONS; j++) {
-            if (query[j] > thresholds[j]) {
-                int bitPosition = j;
-                // Calculate the index of the byte in the packedBits array.
-                int byteIndex = bitPosition >> 3; // Equivalent to bitPosition / 8
-                // Calculate the bit index within the byte.
-                int bitIndex = 7 - (bitPosition & 7); // Equivalent to 7 - (bitPosition % 8)
-                // Set the bit at the calculated position.
-                output[byteIndex] |= (1 << bitIndex); // Set the bit at bitIndex
-            }
-        }
-        // Search ADC disabled index with byte query
-        final KNNQueryResult[] adcDisabledResults = doSearchViaVectorReader(
-            adcDisabledBuildInfo,
-            output,
-            VectorDataType.BINARY,
-            null,
-            k,
-            false
-        );
-
-        // Assert that scores are different between ADC and non-ADC indices
-        assertTrue("ADC and non-ADC results should have different scores", adcEnabledResults.length > 0);
-        assertTrue("ADC and non-ADC results should have different scores", adcDisabledResults.length > 0);
-
-        boolean scoresAreDifferent = false;
-        for (int i = 0; i < Math.min(adcEnabledResults.length, adcDisabledResults.length); i++) {
-            if (Float.compare(adcEnabledResults[i].getScore(), adcDisabledResults[i].getScore()) != 0) {
-                scoresAreDifferent = true;
-                break;
-            }
-        }
-
-        assertTrue("Scores should be different for ADC and non-ADC indices with the same documents and queries", scoresAreDifferent);
     }
 
     public static void validateResults(
