@@ -36,4 +36,4 @@ git submodule update --init -- jni/external/faiss
 # #define __builtin_popcountl __popcnt64
 # #endif
 (Get-Content jni/external/faiss/faiss/impl/platform_macros.h).replace('#include <intrin.h>', "#ifndef __MINGW64__`n#include <intrin.h>`n") | Set-Content jni/external/faiss/faiss/impl/platform_macros.h
-(Get-Content jni/external/faiss/faiss/impl/platform_macros.h).replace('#define __builtin_popcountl __popcnt64', "#define __builtin_popcountl __popcnt64`n#endif`n") | Set-Content jni/external/faiss/faiss/impl/platform_macros.h
+(Get-Content jni/external/faiss/faiss/impl/platform_macros.h).replace('#define __builtin_popcountll __popcnt64', "#define __builtin_popcountll __popcnt64`n#endif`n") | Set-Content jni/external/faiss/faiss/impl/platform_macros.h

@@ -19,7 +19,7 @@
 ## Project Resources
 
 * [Project Website](https://opensearch.org/)
-* [Downloads](https://opensearch.org/downloads.html).
+* [Downloads](https://opensearch.org/downloads.html)
 * [Documentation](https://opensearch.org/docs/search-plugins/knn/index/)
 * Need help? Try the [Forum](https://forum.opensearch.org/c/plugins/k-nn/48)
 * [Project Principles](https://opensearch.org/#principles)
