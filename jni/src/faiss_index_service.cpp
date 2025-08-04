@@ -58,12 +58,12 @@ IndexService::IndexService(std::unique_ptr<FaissMethods> _faissMethods) : faissM
 void IndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
     if (auto * indexHNSWSQ = dynamic_cast<faiss::IndexHNSWSQ *>(index)) {
         if (auto * indexScalarQuantizer = dynamic_cast<faiss::IndexScalarQuantizer *>(indexHNSWSQ->storage)) {
-            indexScalarQuantizer->codes.reserve(indexScalarQuantizer->code_size * numVectors);
+            indexScalarQuantizer->codes.owned_data.reserve(indexScalarQuantizer->code_size * numVectors);
         }
     }
     if (auto * indexHNSW = dynamic_cast<faiss::IndexHNSW *>(index)) {
         if(auto * indexFlat = dynamic_cast<faiss::IndexFlat *>(indexHNSW->storage)) {
-            indexFlat->codes.reserve(indexFlat->code_size * numVectors);
+            indexFlat->codes.owned_data.reserve(indexFlat->code_size * numVectors);
         }
     }
 }
@@ -162,7 +162,7 @@ BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> _faissMetho
 void BinaryIndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
     if (auto * indexBinaryHNSW = dynamic_cast<faiss::IndexBinaryHNSW *>(index)) {
         auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(indexBinaryHNSW->storage);
-        indexBinaryFlat->xb.reserve(dim * numVectors / 8);
+        indexBinaryFlat->xb.owned_data.reserve(dim * numVectors / 8);
     }
 }
 
@@ -259,7 +259,7 @@ ByteIndexService::ByteIndexService(std::unique_ptr<FaissMethods> _faissMethods)
 void ByteIndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
     if (auto * indexHNSWSQ = dynamic_cast<faiss::IndexHNSWSQ *>(index)) {
         if(auto * indexScalarQuantizer = dynamic_cast<faiss::IndexScalarQuantizer *>(indexHNSWSQ->storage)) {
-            indexScalarQuantizer->codes.reserve(indexScalarQuantizer->code_size * numVectors);
+            indexScalarQuantizer->codes.owned_data.reserve(indexScalarQuantizer->code_size * numVectors);
         }
     }
 }
