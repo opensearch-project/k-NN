@@ -79,23 +79,17 @@ public class DefaultKNNWeight extends KNNWeight {
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
         try {
-            indexAllocation = nativeMemoryCacheManager.get(
-                new NativeMemoryEntryContext.IndexEntryContext(
-                    reader.directory(),
-                    cacheKey,
-                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                    getParametersAtLoading(
-                        spaceType,
-                        knnEngine,
-                        knnQuery.getIndexName(),
-                        // TODO: In the future, more vector data types will be supported with quantization
-                        quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
-                        segmentLevelQuantizationInfo
-                    ),
-                    knnQuery.getIndexName(),
-                    modelId
-                ),
-                true
+            indexAllocation = loadGraph(
+                reader,
+                cacheKey,
+                spaceType,
+                knnEngine,
+                knnQuery,
+                vectorDataType,
+                quantizedVector,
+                segmentLevelQuantizationInfo,
+                modelId,
+                context
             );
         } catch (ExecutionException e) {
             GRAPH_QUERY_ERRORS.increment();
@@ -181,5 +175,40 @@ public class DefaultKNNWeight extends KNNWeight {
         TopDocs topDocs = collector.topDocs();
         addExplainIfRequired(results, knnEngine, spaceType);
         return topDocs;
+    }
+
+    /**
+     * Loads the graph from native memory.
+     */
+    protected NativeMemoryAllocation loadGraph(
+        final SegmentReader reader,
+        String cacheKey,
+        final SpaceType spaceType,
+        final KNNEngine knnEngine,
+        final KNNQuery knnQuery,
+        final VectorDataType vectorDataType,
+        final byte[] quantizedVector,
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
+        final String modelId,
+        LeafReaderContext context
+    ) throws ExecutionException, IOException {
+        return nativeMemoryCacheManager.get(
+            new NativeMemoryEntryContext.IndexEntryContext(
+                reader.directory(),
+                cacheKey,
+                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                getParametersAtLoading(
+                    spaceType,
+                    knnEngine,
+                    knnQuery.getIndexName(),
+                    // TODO: In the future, more vector data types will be supported with quantization
+                    quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
+                    segmentLevelQuantizationInfo
+                ),
+                knnQuery.getIndexName(),
+                modelId
+            ),
+            true
+        );
     }
 }
