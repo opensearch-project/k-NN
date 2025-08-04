@@ -1,21 +1,21 @@
-From 9ef5e349ca5893da07898d7f1d22b0a81f17fddc Mon Sep 17 00:00:00 2001
+From 47d4afb37e203cf9232cb73681cf5bba1b64864b Mon Sep 17 00:00:00 2001
 From: AnnTian Shao <anntians@amazon.com>
-Date: Thu, 3 Apr 2025 21:21:11 +0000
+Date: Fri, 1 Aug 2025 22:02:26 -0700
 Subject: [PATCH] Add multi-vector-support faiss patch to
  IndexHNSW::search_level_0
 
 Signed-off-by: AnnTian Shao <anntians@amazon.com>
 ---
- faiss/IndexHNSW.cpp       | 123 +++++++++++++++++++++++++-----------
+ faiss/IndexHNSW.cpp       | 117 +++++++++++++++++++++++++---------
  faiss/index_factory.cpp   |   7 ++-
  tests/test_id_grouper.cpp | 128 ++++++++++++++++++++++++++++++++++++++
- 3 files changed, 222 insertions(+), 36 deletions(-)
+ 3 files changed, 222 insertions(+), 30 deletions(-)
 
 diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
-index eee3e99c6..7c5dfe020 100644
+index 0f912b003..5cf1b0cdb 100644
 --- a/faiss/IndexHNSW.cpp
 +++ b/faiss/IndexHNSW.cpp
-@@ -286,6 +286,61 @@ void hnsw_search(
+@@ -294,6 +294,61 @@ void hnsw_search(
      hnsw_stats.combine({n1, n2, ndis, nhops});
  }
  
@@ -77,22 +77,13 @@ index eee3e99c6..7c5dfe020 100644
  } // anonymous namespace
  
  void IndexHNSW::search(
-@@ -419,46 +474,44 @@ void IndexHNSW::search_level_0(
-     FAISS_THROW_IF_NOT(k > 0);
-     FAISS_THROW_IF_NOT(nprobe > 0);
+@@ -446,38 +501,42 @@ void IndexHNSW::search_level_0(
  
--    const SearchParametersHNSW* params = nullptr;
--
--    if (params_in) {
--        params = dynamic_cast<const SearchParametersHNSW*>(params_in);
--        FAISS_THROW_IF_NOT_MSG(params, "params type invalid");
--    }
--
      storage_idx_t ntotal = hnsw.levels.size();
  
 -    using RH = HeapBlockResultHandler<HNSW::C>;
 -    RH bres(n, distances, labels, k);
- 
+-
 -#pragma omp parallel
 -    {
 -        std::unique_ptr<DistanceComputer> qdis(
@@ -100,14 +91,30 @@ index eee3e99c6..7c5dfe020 100644
 -        HNSWStats search_stats;
 -        VisitedTable vt(ntotal);
 -        RH::SingleResultHandler res(bres);
-+    if (params_in && params_in->grp) {
++    if (params && params->grp) {
 +        using RH = GroupedHeapBlockResultHandler<HNSW::C>;
-+        RH bres(n, distances, labels, k, params_in->grp);
++        RH bres(n, distances, labels, k, params->grp);
  
 -#pragma omp for
 -        for (idx_t i = 0; i < n; i++) {
 -            res.begin(i);
 -            qdis->set_query(x + i * d);
++        hnsw_search_level_0(
++                this,
++                n,
++                x,
++                k,
++                nearest,
++                nearest_d,
++                distances,
++                labels,
++                nprobe, // n_probes
++                search_type, // search_type
++                params,
++                bres);
++    } else {
++        using RH = HeapBlockResultHandler<HNSW::C>;
++        RH bres(n, distances, labels, k);  
  
 -            hnsw.search_level_0(
 -                    *qdis.get(),
@@ -135,33 +142,18 @@ index eee3e99c6..7c5dfe020 100644
 +                labels,
 +                nprobe, // n_probes
 +                search_type, // search_type
-+                params_in,
-+                bres);
-+    } else {
-+        using RH = HeapBlockResultHandler<HNSW::C>;
-+        RH bres(n, distances, labels, k);
-+
-+        hnsw_search_level_0(
-+                this,
-+                n,
-+                x,
-+                k,
-+                nearest,
-+                nearest_d,
-+                distances,
-+                labels,
-+                nprobe, // n_probes
-+                search_type, // search_type
-+                params_in,
++                params,
 +                bres);
      }
++
      if (is_similarity_metric(this->metric_type)) {
  // we need to revert the negated distances
+ #pragma omp parallel for
 diff --git a/faiss/index_factory.cpp b/faiss/index_factory.cpp
-index 8ff4bfec7..24e65b632 100644
+index baf7a760f..9b59b7a55 100644
 --- a/faiss/index_factory.cpp
 +++ b/faiss/index_factory.cpp
-@@ -453,6 +453,11 @@ IndexHNSW* parse_IndexHNSW(
+@@ -467,6 +467,11 @@ IndexHNSW* parse_IndexHNSW(
          return re_match(code_string, pattern, sm);
      };
  
@@ -173,7 +165,7 @@ index 8ff4bfec7..24e65b632 100644
      if (match("Flat|")) {
          return new IndexHNSWFlat(d, hnsw_M, mt);
      }
-@@ -781,7 +786,7 @@ std::unique_ptr<Index> index_factory_sub(
+@@ -801,7 +806,7 @@ std::unique_ptr<Index> index_factory_sub(
  
      // HNSW variants (it was unclear in the old version that the separator was a
      // "," so we support both "_" and ",")
@@ -183,10 +175,10 @@ index 8ff4bfec7..24e65b632 100644
          // We also accept empty code string (synonym of Flat)
          std::string code_string =
 diff --git a/tests/test_id_grouper.cpp b/tests/test_id_grouper.cpp
-index bd8ab5f9d..ebe16a364 100644
+index e6e14f59e..7c79ddc79 100644
 --- a/tests/test_id_grouper.cpp
 +++ b/tests/test_id_grouper.cpp
-@@ -172,6 +172,65 @@ TEST(IdGrouper, bitmap_with_hnsw) {
+@@ -173,6 +173,65 @@ TEST(IdGrouper, bitmap_with_hnsw) {
      delete[] xb;
  }
  
@@ -252,8 +244,8 @@ index bd8ab5f9d..ebe16a364 100644
  TEST(IdGrouper, bitmap_with_binary_hnsw) {
      int d = 16;   // dimension
      int nb = 10; // database size
-@@ -291,6 +350,75 @@ TEST(IdGrouper, bitmap_with_hnsw_idmap) {
-     delete[] xb;
+@@ -224,6 +283,75 @@ TEST(IdGrouper, bitmap_with_binary_hnsw) {
+     delete[] D;
  }
  
 +TEST(IdGrouper, bitmap_with_hnsw_cagra_idmap) {
@@ -325,9 +317,9 @@ index bd8ab5f9d..ebe16a364 100644
 +    delete[] xb;
 +}
 +
- TEST(IdGrouper, bitmap_with_binary_hnsw_idmap) {
-     int d = 16;   // dimension
+ TEST(IdGrouper, bitmap_with_hnsw_idmap) {
+     int d = 1;   // dimension
      int nb = 10; // database size
 -- 
-2.47.1
+2.39.5 (Apple Git-154)
 

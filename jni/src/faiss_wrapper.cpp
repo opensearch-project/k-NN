@@ -528,7 +528,7 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, 
 
     // altered storage containing the distance computer override.
     auto* alteredStorage = new knn_jni::faiss_wrapper::FaissIndexBQ(
-        indexReader->d, std::move(codesIndex->xb), metricType
+        indexReader->d, std::move(codesIndex->xb.owned_data), metricType
     );
 
     // alteredIndexHNSW is effectively a placeholder before we pass the preexisting HNSW structure.
