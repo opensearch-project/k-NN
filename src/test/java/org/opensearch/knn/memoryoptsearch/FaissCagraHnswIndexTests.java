@@ -15,6 +15,7 @@ import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.IOConsumer;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
@@ -42,8 +43,8 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
     public void doTestKNNSearch(boolean isApproximateSearch) {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
-            // TODO: adc placeholder. Note that ADC is not yet supported for cagra since binary hnsw is not supported.
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, false);
+            // TODO: adc placeholder. isAdc false and SpaceType L2 are noops for the MemoryOptimizedSearcher here.
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, false, SpaceType.L2);
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;

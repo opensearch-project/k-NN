@@ -49,11 +49,13 @@ import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -78,6 +80,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRU
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -243,23 +246,33 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
     public void testADCWithBinaryQuantization() {
         final TestingSpec adcEnabledSpec = new TestingSpec(
-            VectorDataType.FLOAT,
-            FLOAT_HNSW_INDEX_DESCRIPTION,
+            VectorDataType.BINARY,
+            BINARY_HSNW_INDEX_DESCRIPTION,
             -1000000,
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
+        adcEnabledSpec.quantizationParams = ScalarQuantizationParams.builder()
+            .sqType(ScalarQuantizationType.ONE_BIT)
+            .enableADC(true)
+            .build();
+
         adcEnabledSpec.isAdcEnabled = true;
 
         final TestingSpec adcDisabledSpec = new TestingSpec(
-            VectorDataType.FLOAT,
-            FLOAT_HNSW_INDEX_DESCRIPTION,
+            VectorDataType.BINARY,
+            BINARY_HSNW_INDEX_DESCRIPTION,
             -1000000,
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
+        adcDisabledSpec.quantizationParams = ScalarQuantizationParams.builder()
+            .sqType(ScalarQuantizationType.ONE_BIT)
+            .enableADC(false)
+            .build();
         adcDisabledSpec.isAdcEnabled = false;
 
+        // assert that the adc-enabled and adc-disabled scores are different
         doAdcComparisonTest(adcEnabledSpec, adcDisabledSpec, IndexingType.DENSE);
     }
 
@@ -421,8 +434,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             fieldInfoBuilder.addAttribute(KNNConstants.SPACE_TYPE, (String) buildInfo.parameters.get(SPACE_TYPE));
         }
 
+        if (buildInfo.parameters.containsKey(QFRAMEWORK_CONFIG)) {
+            fieldInfoBuilder.addAttribute(QFRAMEWORK_CONFIG, (String) buildInfo.parameters.get(QFRAMEWORK_CONFIG));
+        }
+
         // This test uses float indices, so no special quantization config needed
 
+        // TODO: pass in quantization config here.
         FieldInfo vectorField = fieldInfoBuilder.build();
         final FieldInfo[] vectorFieldArr = new FieldInfo[] { vectorField };
         final FieldInfos fieldInfos = new FieldInfos(vectorFieldArr);
@@ -510,6 +528,11 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 methodParameters.put(METHOD_PARAMETER_EF_CONSTRUCTION, numberOfTotalDocsInSegment);
 
                 methodParameters.put(METHOD_ENCODER_PARAMETER, testingSpec.encoderParameters);
+
+                // unit test for ADC, bit of a shortcut so we can hand build the quantization config.
+                if (testingSpec.isAdcEnabled) {
+                    parameters.put(QFRAMEWORK_CONFIG, "type=binary,bits=1,random_rotation=false,enable_adc=true");
+                }
 
                 builder.parameters(parameters);
 
@@ -614,11 +637,31 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             false
         );
 
-        // Search ADC disabled index with float query
+        // quantize that same vector and assert that scores are different.
+        Field meanThresholdsField = OneBitScalarQuantizationState.class.getDeclaredField("meanThresholds");
+        meanThresholdsField.setAccessible(true);
+
+        // Access the field value
+        float[] thresholds = (float[]) meanThresholdsField.get(adcDisabledSpec.quantizationState);
+        meanThresholdsField.setAccessible(false);
+        byte[] output = new byte[(DIMENSIONS + 7) / 8];
+
+        for (int j = 0; j < DIMENSIONS; j++) {
+            if (query[j] > thresholds[j]) {
+                int bitPosition = j;
+                // Calculate the index of the byte in the packedBits array.
+                int byteIndex = bitPosition >> 3; // Equivalent to bitPosition / 8
+                // Calculate the bit index within the byte.
+                int bitIndex = 7 - (bitPosition & 7); // Equivalent to 7 - (bitPosition % 8)
+                // Set the bit at the calculated position.
+                output[byteIndex] |= (1 << bitIndex); // Set the bit at bitIndex
+            }
+        }
+        // Search ADC disabled index with byte query
         final KNNQueryResult[] adcDisabledResults = doSearchViaVectorReader(
             adcDisabledBuildInfo,
-            query,
-            VectorDataType.FLOAT,
+            output,
+            VectorDataType.BINARY,
             null,
             k,
             false

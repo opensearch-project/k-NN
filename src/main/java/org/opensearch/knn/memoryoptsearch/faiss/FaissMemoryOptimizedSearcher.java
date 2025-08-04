@@ -35,10 +35,10 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final FaissHNSW hnsw;
     private final VectorSimilarityFunction vectorSimilarityFunction;
     private final long fileSize;
-    private boolean isAdc;
-    private final FlatVectorsScorerProvider.ADCFlatVectorsScorer adcScorer;
+    private final boolean isAdc;
+    private final SpaceType spaceType;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, boolean isAdc) throws IOException {
+    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, boolean isAdc, SpaceType spaceType) throws IOException {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
         this.faissIndex = FaissIndex.load(indexInput);
@@ -49,14 +49,12 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         } else {
             vectorSimilarityFunction = null;
         }
+        // spaceType is only used if ADC is enabled.
         this.isAdc = isAdc;
-        if (isAdc) {
-            this.adcScorer = FlatVectorsScorerProvider.getAdcFlatVectorScorer(knnVectorSimilarityFunction);
-            this.flatVectorsScorer = null;
-        } else {
-            this.adcScorer = null;
-            this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
-        }
+        this.spaceType = spaceType;
+        this.flatVectorsScorer = isAdc
+            ? new FlatVectorsScorerProvider.ADCFlatVectorsScorer(knnVectorSimilarityFunction, spaceType)
+            : FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
 
         this.hnsw = extractFaissHnsw(faissIndex);
     }
@@ -69,37 +67,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         throw new IllegalArgumentException("Faiss index [" + faissIndex.getIndexType() + "] does not have HNSW as an index.");
     }
 
-    /*
-     * Search with the given target (float) vector and the provided {@link KnnCollector}. The {@link KnnCollector} is expected to
-     * provide the top-k results. Use ADC to score full precision vector against quantized document vectors.
-     *
-     * @param vectorEncoding the vector encoding
-     * @param scorerSupplier the scorer supplier
-     * @param knnCollector the knn collector
-     * @param acceptDocs the accept docs
-     * @throws IOException if an I/O error occurs
-     */
-    public void searchWithAdc(float[] target, KnnCollector knnCollector, Bits acceptDocs, SpaceType spaceType) throws IOException {
-        search(
-            VectorEncoding.FLOAT32,
-            () -> adcScorer.getRandomVectorScorerForAdc(
-                vectorSimilarityFunction,
-                faissIndex.getByteValues(getSlicedIndexInput()),
-                target,
-                spaceType
-            ),
-            knnCollector,
-            acceptDocs
-        );
-    }
-
     @Override
     public void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         search(
             VectorEncoding.FLOAT32,
             () -> flatVectorsScorer.getRandomVectorScorer(
                 vectorSimilarityFunction,
-                faissIndex.getFloatValues(getSlicedIndexInput()),
+                isAdc ? faissIndex.getByteValues(getSlicedIndexInput()) : faissIndex.getFloatValues(getSlicedIndexInput()),
                 target
             ),
             knnCollector,
