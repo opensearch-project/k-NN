@@ -64,7 +64,7 @@ public class FlatVectorsScorerProvider {
                         @Override
                         public float score(int internalVectorId) throws IOException {
                             final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
-                            return KNNScoringUtil.l2SquaredADC(target, quantizedByteVector);
+                            return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(target, quantizedByteVector));
                         }
                     };
                 } else if (spaceType == SpaceType.COSINESIMIL) {
@@ -72,7 +72,7 @@ public class FlatVectorsScorerProvider {
                         @Override
                         public float score(int internalVectorId) throws IOException {
                             final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
-                            return KNNScoringUtil.innerProductADC(target, quantizedByteVector);
+                            return SpaceType.COSINESIMIL.scoreTranslation(1 - KNNScoringUtil.innerProductADC(target, quantizedByteVector));
                         }
                     };
                 } else if (spaceType == SpaceType.INNER_PRODUCT) {
@@ -80,7 +80,9 @@ public class FlatVectorsScorerProvider {
                         @Override
                         public float score(int internalVectorId) throws IOException {
                             final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
-                            return KNNScoringUtil.innerProductADC(target, quantizedByteVector);
+                            return SpaceType.INNER_PRODUCT.scoreTranslation(
+                                -1 * KNNScoringUtil.innerProductADC(target, quantizedByteVector)
+                            );
                         }
                     };
                 } else {
