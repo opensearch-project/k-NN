@@ -16,6 +16,8 @@
 #include "jni_util.h"
 #include "decoding/decoding.h"
 
+static knn_jni::JNIUtil jniUtil;
+
 JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDDecoding_convertFP16ToFP32(
     JNIEnv* env,
     jclass,
@@ -24,7 +26,7 @@ JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDDecoding_convertFP16T
     jint count,
     jint offset) {
     try {
-        return knn_jni::decoding::convertFP16ToFP32(env, fp16Array, fp32Array, count, offset);
+        return knn_jni::decoding::convertFP16ToFP32(&jniUtil, env, fp16Array, fp32Array, count, offset);
     } catch (...) {
         return JNI_FALSE;
     }

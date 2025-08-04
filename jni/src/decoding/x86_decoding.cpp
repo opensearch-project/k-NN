@@ -23,7 +23,7 @@ jboolean knn_jni::decoding::isSIMDSupported() {
     return JNI_TRUE;
 }
 
-jboolean knn_jni::decoding::convertFP16ToFP32(JNIEnv* env, jbyteArray fp16Array, jfloatArray fp32Array, jint count, jint offset) {
+jboolean knn_jni::decoding::convertFP16ToFP32(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env, jbyteArray fp16Array, jfloatArray fp32Array, jint count, jint offset) {
     if (count <= 0) return JNI_TRUE;
     jfloat* dst_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
     jbyte* src_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));

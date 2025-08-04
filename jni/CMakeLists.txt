@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.24.0)
 project(KNNPlugin_JNI)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/macros.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simd-flags.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-simd.cmake)
 
 # ---------------------------------- SETUP ----------------------------------
 # Target libraries to be compiled
@@ -129,11 +129,12 @@ endif ()
 # ---------------------------------------------------------------------------
 
 # ---------------------------------- SIMD ENCODING/DECODING ----------------------------------
+set(TARGET_LIB_SIMD opensearchknn_simd)
+
+# Architecture-specific SIMD implementation
 set(SIMD_ENCODING_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDEncoding.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDDecoding.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/default_encoding.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/default_decoding.cpp
 )
 
 if ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64" AND KNN_HAVE_ARM_FP16)
@@ -146,28 +147,28 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND (KNN_HAVE_F16C OR KNN_H
         ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/x86_encoding.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/x86_decoding.cpp
     )
+else()
+    # Only include default sources if no arch-specific SIMD sources are used
+    list(APPEND SIMD_ENCODING_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/default_encoding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/default_decoding.cpp
+    )
 endif()
 
-add_library(opensearchknn_simd SHARED ${SIMD_ENCODING_SRCS})
+message(STATUS "Creating SIMD library: ${TARGET_LIB_SIMD} with sources: ${SIMD_ENCODING_SRCS}")
+add_library(${TARGET_LIB_SIMD} SHARED ${SIMD_ENCODING_SRCS})
 
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/arm_encoding.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/x86_encoding.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/arm_decoding.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/x86_decoding.cpp
-    PROPERTIES
-    COMPILE_FLAGS "${FP16_SIMD_FLAGS} ${SIMD_FLAGS}"
-)
+target_compile_options(${TARGET_LIB_SIMD} PRIVATE ${FP16_SIMD_FLAGS} ${SIMD_FLAGS})
 
-target_include_directories(opensearchknn_simd PRIVATE
+target_link_libraries(${TARGET_LIB_SIMD} ${TARGET_LIB_UTIL})
+target_include_directories(${TARGET_LIB_SIMD} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/jni/include
     $ENV{JAVA_HOME}/include
     $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
 )
-
-opensearch_set_common_properties(opensearchknn_simd)
-list(APPEND TARGET_LIBS opensearchknn_simd)
+opensearch_set_common_properties(${TARGET_LIB_SIMD})
+list(APPEND TARGET_LIBS ${TARGET_LIB_SIMD})
 
 # ----------------------------------------------------------------------------
 

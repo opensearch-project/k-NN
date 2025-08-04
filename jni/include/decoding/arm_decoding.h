@@ -30,7 +30,7 @@ namespace knn_jni {
          * @param offset Offset in the FP16 input array in bytes.
          * @return JNI_TRUE on success, JNI_FALSE on failure.
          */
-        jboolean convertFP16ToFP32(JNIEnv* env, jbyteArray fp16Array, jfloatArray fp32Array, jint count, jint offset);
+        jboolean convertFP16ToFP32(knn_jni::JNIUtilInterface *, JNIEnv* env, jbyteArray fp16Array, jfloatArray fp32Array, jint count, jint offset);
     }
 }
 

@@ -11,28 +11,30 @@
 
 package org.opensearch.knn.jni;
 
+
 import org.opensearch.knn.common.KNNConstants;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
-import static org.opensearch.knn.index.KNNSettings.*;
-import static org.opensearch.knn.jni.PlatformUtils.*;
-
 public class SIMDEncoding {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            if (isAVX512SPRSupportedBySystem()) {
-                System.loadLibrary(KNNConstants.SIMD_AVX512_SPR_JNI_LIBRARY_NAME);
-            } else if (isAVX512SupportedBySystem()) {
-                System.loadLibrary(KNNConstants.SIMD_AVX512_JNI_LIBRARY_NAME);
-            } else if (isAVX2SupportedBySystem()) {
-                System.loadLibrary(KNNConstants.SIMD_AVX2_JNI_LIBRARY_NAME);
-            } else {
-                System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);
+            try {
+                // Load SIMD library based on support
+                if (PlatformUtils.isAVX512SPRSupportedBySystem()) {
+                    System.loadLibrary(KNNConstants.SIMD_AVX512_SPR_JNI_LIBRARY_NAME);
+                } else if (PlatformUtils.isAVX512SupportedBySystem()) {
+                    System.loadLibrary(KNNConstants.SIMD_AVX512_JNI_LIBRARY_NAME);
+                } else if (PlatformUtils.isAVX2SupportedBySystem()) {
+                    System.loadLibrary(KNNConstants.SIMD_AVX2_JNI_LIBRARY_NAME);
+                } else {
+                    System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);
+                }
+            } catch (UnsatisfiedLinkError e) {
+                throw new RuntimeException("[KNN] Failed to load native SIMD library", e);
             }
-
             return null;
         });
     }

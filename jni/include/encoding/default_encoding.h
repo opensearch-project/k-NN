@@ -26,7 +26,7 @@ namespace knn_jni {
          * Should never be called. Java fallback should be used instead.
          * Only declared to satisfy linkage.
          */
-        jboolean convertFP32ToFP16(JNIEnv* env, jfloatArray fp32Array, jbyteArray fp16Array, jint count);
+        jboolean convertFP32ToFP16(knn_jni::JNIUtilInterface *, JNIEnv* env, jfloatArray fp32Array, jbyteArray fp16Array, jint count);
     }
 }
 

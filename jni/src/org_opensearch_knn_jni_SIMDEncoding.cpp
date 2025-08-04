@@ -41,7 +41,7 @@ JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_convertFP32T
     jbyteArray fp16Array,
     jint count) {
     try {
-        return knn_jni::encoding::convertFP32ToFP16(env, fp32Array, fp16Array, count);
+        return knn_jni::encoding::convertFP32ToFP16(&jniUtil, env, fp32Array, fp16Array, count);
     } catch (...) {
         return JNI_FALSE;
     }

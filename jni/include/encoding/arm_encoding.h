@@ -29,7 +29,7 @@ namespace knn_jni {
          * @param count The number of elements in the arrays.
          * @return JNI_TRUE on success, JNI_FALSE on failure.
          */
-        jboolean convertFP32ToFP16(JNIEnv* env, jfloatArray fp32Array, jbyteArray fp16Array, jint count);
+        jboolean convertFP32ToFP16(knn_jni::JNIUtilInterface *, JNIEnv* env, jfloatArray fp32Array, jbyteArray fp16Array, jint count);
     }
 }
 
