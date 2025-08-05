@@ -105,6 +105,29 @@ public enum VectorDataType {
             JNICommons.freeVectorData(memoryAddress);
         }
 
+    },
+    HALF_FLOAT("half_float") {
+
+        @Override
+        public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
+            return KnnFloatVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
+        }
+
+        @Override
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
+            // FP16 not supported for DocValuesFormat as it is on the deprecation path.
+            throw new UnsupportedOperationException("HALF_FLOAT vector data type is not supported for DocValuesFormat.");
+        }
+
+        @Override
+        public TrainingDataConsumer getTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
+            return new FloatTrainingDataConsumer(trainingDataAllocation);
+        }
+
+        @Override
+        public void freeNativeMemory(long memoryAddress) {
+            JNICommons.freeVectorData(memoryAddress);
+        }
     };
 
     public static final String SUPPORTED_VECTOR_DATA_TYPES = Arrays.stream(VectorDataType.values())

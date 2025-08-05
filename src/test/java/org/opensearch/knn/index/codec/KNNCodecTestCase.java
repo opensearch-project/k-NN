@@ -165,7 +165,8 @@ public class KNNCodecTestCase extends KNNTestCase {
              * Add doc with field "test_vector"
              */
             float[] array = { 1.0f, 3.0f, 4.0f };
-            VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
+            // Specify the vector data type explicitly, e.g., VectorDataType.FLOAT
+            VectorField vectorField = new VectorField("test_vector", array, sampleFieldType, VectorDataType.FLOAT);
             RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
             Document doc = new Document();
             doc.add(vectorField);
@@ -177,7 +178,7 @@ public class KNNCodecTestCase extends KNNTestCase {
              * Add doc with field "my_vector"
              */
             float[] array1 = { 6.0f, 14.0f };
-            VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
+            VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType, VectorDataType.FLOAT);
             Document doc1 = new Document();
             doc1.add(vectorField1);
             writer.addDocument(doc1);
@@ -287,7 +288,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
             String fieldName = "test_vector";
             for (float[] array : arrays) {
-                VectorField vectorField = new VectorField(fieldName, array, fieldType);
+                // Specify the vector data type explicitly, e.g., VectorDataType.FLOAT
+                VectorField vectorField = new VectorField(fieldName, array, fieldType, VectorDataType.FLOAT);
                 Document doc = new Document();
                 doc.add(vectorField);
                 writer.addDocument(doc);
@@ -324,7 +326,7 @@ public class KNNCodecTestCase extends KNNTestCase {
          * Add doc with field "test_vector", expect it to fail
          */
         float[] array = { 1.0f, 3.0f, 4.0f };
-        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
+        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType, VectorDataType.FLOAT);
         try (RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc)) {
             Document doc = new Document();
             doc.add(vectorField);

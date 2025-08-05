@@ -52,7 +52,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
      *
      * @param blobName                  Base name of the blobs we are writing, excluding file extensions
      * @param totalLiveDocs             Number of documents we are processing. This is used to compute the size of the blob we are writing
-     * @param vectorDataType            Data type of the vector (FLOAT, BYTE, BINARY)
+     * @param vectorDataType            Data type of the vector (FLOAT, HALF_FLOAT, BYTE, BINARY)
      * @param knnVectorValuesSupplier   Supplier for {@link KNNVectorValues}
      * @throws IOException
      * @throws InterruptedException
@@ -160,7 +160,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
      * @param partSize                  Size of each InputStream to be uploaded in parallel. Provided by repository implementation
      * @param vectorBlobLength          Total size of the vectors across all InputStreams
      * @param knnVectorValuesSupplier   Supplier for {@link KNNVectorValues}
-     * @param vectorDataType            Data type of the vector (FLOAT, BYTE, BINARY)
+     * @param vectorDataType            Data type of the vector (FLOAT, HALF_FLOAT, BYTE, BINARY)
      * @return a {@link org.opensearch.common.StreamContext} with a function that will create {@link InputStream}s of {@param partSize}
      */
     private StreamContext getStreamContext(
@@ -183,7 +183,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
      * This method handles creating {@link VectorValuesInputStream}s based on the part number, the requested size of the stream part, and the position that the stream starts at within the underlying {@link KNNVectorValues}
      *
      * @param knnVectorValuesSupplier       Supplier for {@link KNNVectorValues}
-     * @param vectorDataType                Data type of the vector (FLOAT, BYTE, BINARY)
+     * @param vectorDataType                Data type of the vector (FLOAT, HALF_FLOAT, BYTE, BINARY)
      * @return a function with which the repository implementation will use to create {@link VectorValuesInputStream}s of specific sizes and start positions.
      */
     private CheckedTriFunction<Integer, Long, Long, InputStreamContainer, IOException> getTransferPartStreamSupplier(
