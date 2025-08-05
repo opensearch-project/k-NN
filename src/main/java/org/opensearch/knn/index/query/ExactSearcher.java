@@ -196,7 +196,7 @@ public class ExactSearcher {
             KNNVectorValues<byte[]> vectorValues;
             if (exactSearcherContext.getByteQueryVector() != null
                 && exactSearcherContext.getFloatQueryVector() == null
-                && fieldInfo.getAttribute(KNNConstants.KNN_ENGINE) == null) {
+                && fieldInfo.attributes().get(KNNConstants.KNN_ENGINE) == null) {
                 KnnVectorValues luceneVectorValues = leafReaderContext.reader().getByteVectorValues(exactSearcherContext.getField());
                 vectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, luceneVectorValues);
             } else {
