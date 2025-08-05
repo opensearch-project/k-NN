@@ -131,31 +131,16 @@ endif ()
 # ---------------------------------- SIMD ENCODING/DECODING ----------------------------------
 set(TARGET_LIB_SIMD opensearchknn_simd)
 
-# Architecture-specific SIMD implementation
+# Always include the unified encoding/decoding entry points.
+# Architecture-specific implementations (ARM, x86, or default) are selected
+# inside encoding.cpp and decoding.cpp.
 set(SIMD_ENCODING_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDEncoding.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDDecoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/encoding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/decoding.cpp
 )
 
-if ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64" AND KNN_HAVE_ARM_FP16)
-    list(APPEND SIMD_ENCODING_SRCS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/arm_encoding.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/arm_decoding.cpp
-    )
-elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND (KNN_HAVE_F16C OR KNN_HAVE_AVX512))
-    list(APPEND SIMD_ENCODING_SRCS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/x86_encoding.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/x86_decoding.cpp
-    )
-else()
-    # Only include default sources if no arch-specific SIMD sources are used
-    list(APPEND SIMD_ENCODING_SRCS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/default_encoding.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/default_decoding.cpp
-    )
-endif()
-
-message(STATUS "Creating SIMD library: ${TARGET_LIB_SIMD} with sources: ${SIMD_ENCODING_SRCS}")
 add_library(${TARGET_LIB_SIMD} SHARED ${SIMD_ENCODING_SRCS})
 
 target_compile_options(${TARGET_LIB_SIMD} PRIVATE ${FP16_SIMD_FLAGS} ${SIMD_FLAGS})

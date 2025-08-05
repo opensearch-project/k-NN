@@ -15,7 +15,7 @@
 #include <cstdint>
 
 #include "jni_util.h"
-#include "decoding/default_decoding.h"
+#include "decoding/decoding.h"
 
 jboolean knn_jni::decoding::isSIMDSupported() {
     return JNI_FALSE;

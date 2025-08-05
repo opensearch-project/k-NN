@@ -12,14 +12,26 @@
 #ifndef OPENSEARCH_KNN_DECODING_H
 #define OPENSEARCH_KNN_DECODING_H
 
-#pragma once
+#include "jni_util.h"
+#include <jni.h>
+namespace knn_jni {
+    namespace decoding {
+        /**
+         * Checks if the system architecture supports SIMD operations.
+         * @return true if SIMD is supported, false otherwise.
+         */
+        jboolean isSIMDSupported();
 
-#if defined(__aarch64__) && defined(KNN_HAVE_ARM_FP16)
-  #include "arm_decoding.h"
-#elif defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_F16C))
-  #include "x86_decoding.h"
-#else
-  #include "default_decoding.h"
-#endif
+        /**
+         * Converts an array of FP16 values to FP32 values.
+         * @param fp16Array The input array of FP16 values.
+         * @param fp32Array The output array of FP32 values.
+         * @param count The number of elements to convert.
+         * @param offset Offset in the FP16 input array in bytes.
+         * @return JNI_TRUE on success, JNI_FALSE on failure.
+         */
+        jboolean convertFP16ToFP32(knn_jni::JNIUtilInterface *, JNIEnv* env, jbyteArray fp16Array, jfloatArray fp32Array, jint count, jint offset);
+    }
+}
 
 #endif

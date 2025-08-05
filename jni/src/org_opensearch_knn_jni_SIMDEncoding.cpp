@@ -43,11 +43,12 @@ JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_convertFP32T
     try {
         return knn_jni::encoding::convertFP32ToFP16(&jniUtil, env, fp32Array, fp16Array, count);
     } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
         return JNI_FALSE;
     }
 }
 
-JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_isSIMDSupported(
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_isSIMDSupportedNative(
     JNIEnv*, jclass) {
     return knn_jni::encoding::isSIMDSupported();
 }

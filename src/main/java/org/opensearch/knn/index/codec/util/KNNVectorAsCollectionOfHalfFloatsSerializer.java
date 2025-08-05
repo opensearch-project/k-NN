@@ -80,12 +80,15 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
      * @param dimension number of elements to convert
      */
     private void floatToByteArrayFallback(float[] input, byte[] output, int dimension) {
-        for (int i = 0; i < dimension; ++i) {
-            short fp16 = Float.floatToFloat16(input[i]);
-            if (IS_LITTLE_ENDIAN) {
+        if (IS_LITTLE_ENDIAN) {
+            for (int i = 0; i < dimension; ++i) {
+                short fp16 = Float.floatToFloat16(input[i]);
                 output[2 * i] = (byte) (fp16 & 0xFF); // low byte
                 output[2 * i + 1] = (byte) ((fp16 >> 8) & 0xFF); // high byte
-            } else {
+            }
+        } else {
+            for (int i = 0; i < dimension; ++i) {
+                short fp16 = Float.floatToFloat16(input[i]);
                 output[2 * i] = (byte) ((fp16 >> 8) & 0xFF); // high byte
                 output[2 * i + 1] = (byte) (fp16 & 0xFF); // low byte
             }

@@ -37,14 +37,29 @@ public class SIMDEncoding {
             }
             return null;
         });
+
+        // Cache native SIMD support check once during class loading
+        SIMD_SUPPORTED = isSIMDSupportedNative();
+    }
+
+    // Cached value of SIMD support
+    private static final boolean SIMD_SUPPORTED;
+
+    /**
+     * Cached check for whether SIMD encoding is supported.
+     *
+     * @return true if native SIMD is supported and enabled, false otherwise
+     */
+    public static boolean isSIMDSupported() {
+        return SIMD_SUPPORTED;
     }
 
     /**
-     * Checks if the platform supports SIMD-based FP16 encoding.
+     * Actual JNI native call to check if the platform supports SIMD-based FP16 encoding.
      *
      * @return true if SIMD is supported and enabled, false otherwise
      */
-    public static native boolean isSIMDSupported();
+    private static native boolean isSIMDSupportedNative();
 
     /**
      * Converts an array of float values to half-precision (fp16) bytes using native code.

@@ -17,21 +17,30 @@
 #include <cstdint>
 
 #include "jni_util.h"
-#include "decoding/x86_decoding.h"
+#include "decoding/decoding.h"
 
 jboolean knn_jni::decoding::isSIMDSupported() {
     return JNI_TRUE;
 }
 
 jboolean knn_jni::decoding::convertFP16ToFP32(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env, jbyteArray fp16Array, jfloatArray fp32Array, jint count, jint offset) {
+    // Return early if there's nothing to convert
     if (count <= 0) return JNI_TRUE;
+
     jfloat* dst_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
     jbyte* src_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
 
+    // When 'release_arrays' goes out of scope, its lambda will run to ensure that the
+    // critical arrays are always released properly even if there's an error or early return
+    knn_jni::JNIReleaseElements release_arrays{[=]() {
+        // Release the destination FP32 array, mode 0 means changes are written back
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, dst_f32, 0);
+        // Release the source FP16 array, JNI_ABORT means we don't write changes back (read-only)
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, src_bytes, JNI_ABORT);
+    }};
+
     if ((reinterpret_cast<uintptr_t>(src_bytes + offset) % alignof(uint16_t)) != 0) {
-        env->ReleasePrimitiveArrayCritical(fp16Array, src_bytes, JNI_ABORT);
-        env->ReleasePrimitiveArrayCritical(fp32Array, dst_f32, 0);
-        return JNI_FALSE;
+        return JNI_FALSE;  // release_arrays will still run its cleanup here
     }
 
     float* dst = reinterpret_cast<float*>(dst_f32);
@@ -63,7 +72,6 @@ jboolean knn_jni::decoding::convertFP16ToFP32(knn_jni::JNIUtilInterface *jniUtil
         dst[i] = _mm_cvtss_f32(v);
     }
 
-    jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, dst_f32, 0);
-    jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, src_bytes, JNI_ABORT);
+    // Arrays are released automatically by the RAII release_arrays lambda
     return JNI_TRUE;
 }

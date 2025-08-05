@@ -15,7 +15,7 @@
 #include <cstdint>
 
 #include "jni_util.h"
-#include "encoding/default_encoding.h"
+#include "encoding/encoding.h"
 
 jboolean knn_jni::encoding::isSIMDSupported() {
     return JNI_FALSE;

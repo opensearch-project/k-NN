@@ -17,26 +17,35 @@
 #include <cstdint>
 
 #include "jni_util.h"
-#include "encoding/arm_encoding.h"
+#include "encoding/encoding.h"
 
 jboolean knn_jni::encoding::isSIMDSupported() {
     return JNI_TRUE;
 }
 
 jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env, jfloatArray fp32Array, jbyteArray fp16Array, jint count) {
+    // Return early if there's nothing to convert
     if (count <= 0) return JNI_TRUE;
+
     jfloat* src_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
     jbyte* dst_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
 
+    // When 'release_arrays' goes out of scope, its lambda will run to ensure that the
+    // critical arrays are always released properly even if there's an error or early return
+    knn_jni::JNIReleaseElements release_arrays{[=]() {
+        // Release the destination FP16 array, mode 0 means changes are written back
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, dst_bytes, 0);
+        // Release the source FP32 array, JNI_ABORT means we don't write changes back (read-only)
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, src_f32, JNI_ABORT);
+    }};
+
     if ((reinterpret_cast<uintptr_t>(dst_bytes) % alignof(uint16_t)) != 0) {
-        env->ReleasePrimitiveArrayCritical(fp16Array, dst_bytes, 0);
-        env->ReleasePrimitiveArrayCritical(fp32Array, src_f32, JNI_ABORT);
+        // release_arrays will cleanup the arrays automatically
         return JNI_FALSE;
     }
 
     const float* src = reinterpret_cast<const float*>(src_f32);
     uint16_t* dst = reinterpret_cast<uint16_t*>(dst_bytes);
-
 
     int i = 0;
     // ARM NEON bulk 8-wide
@@ -56,8 +65,7 @@ jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil
         dst[i] = *reinterpret_cast<const uint16_t*>(&lane);
     }
 
-    jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, dst_bytes, 0);
-    jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, src_f32, JNI_ABORT);
+    // Arrays are released automatically by the RAII release_arrays lambda
     return JNI_TRUE;
 }
 

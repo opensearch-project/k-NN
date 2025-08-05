@@ -23,7 +23,7 @@ extern "C" {
  * Method:    isSIMDSupported
  * Signature: ()Z
  */
-JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDDecoding_isSIMDSupported
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDDecoding_isSIMDSupportedNative
   (JNIEnv *, jclass);
 
 /*

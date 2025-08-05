@@ -19,11 +19,13 @@ import java.security.PrivilegedAction;
 public class SIMDDecoding {
 
     /**
-     * Checks if the platform supports SIMD-based FP16 decoding.
-     *
-     * @return true if SIMD is supported and enabled, false otherwise
+     * Returns whether native SIMD decoding is available.
+     * This reuses the cached value from SIMDEncoding.
+     * @return true if SIMD decoding is supported, false otherwise
      */
-    public static native boolean isSIMDSupported();
+    public static boolean isSIMDSupported() {
+        return SIMDEncoding.isSIMDSupported();
+    }
 
     /**
      * Converts a byte array containing float16 (half-precision) values into a float array of float32 values
