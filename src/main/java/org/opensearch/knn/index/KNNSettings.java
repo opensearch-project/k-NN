@@ -58,6 +58,10 @@ import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHe
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
 
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_THRESHOLD;
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_DEFAULT_LARGE;
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_DEFAULT_SMALL;
+
 /**
  * This class defines
  * 1. KNN settings to hold the <a href="https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md">HNSW algorithm parameters</a>.
@@ -1070,10 +1074,10 @@ public class KNNSettings {
     static int getHardwareDefaultIndexThreadQty(final Settings settings) {
         try {
             int availableProcessors = OpenSearchExecutors.allocatedProcessors(settings);
-            if (availableProcessors >= 32) {
-                return 4;
+            if (availableProcessors >= INDEX_THREAD_QUANTITY_THRESHOLD) {
+                return INDEX_THREAD_QUANTITY_DEFAULT_LARGE;
             } else {
-                return 1;
+                return INDEX_THREAD_QUANTITY_DEFAULT_SMALL;
             }
         } catch (Exception e) {
             logger.info("[KNN] Failed to determine available processors. Defaulting to 1. [{}]", e.getMessage(), e);
