@@ -15,6 +15,8 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
@@ -24,6 +26,7 @@ import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
@@ -175,12 +178,30 @@ public class ExactSearcher {
             );
             return null;
         }
-        final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        VectorDataType vectorDataType;
+        if (fieldInfo.getAttribute(PerFieldKnnVectorsFormat.PER_FIELD_FORMAT_KEY) != null
+            && fieldInfo.getAttribute(PerFieldKnnVectorsFormat.PER_FIELD_FORMAT_KEY).contains("Binary")) {
+            vectorDataType = VectorDataType.BINARY;
+        } else {
+            vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
+        }
+        SpaceType resolvedSpaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        if (exactSearcherContext.getExactKNNSpaceType() != null) {
+            resolvedSpaceType = SpaceType.getSpace(exactSearcherContext.getExactKNNSpaceType());
+        }
+        final SpaceType spaceType = resolvedSpaceType;
         boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
 
         if (VectorDataType.BINARY == vectorDataType) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+            KNNVectorValues<byte[]> vectorValues;
+            if (exactSearcherContext.getByteQueryVector() != null
+                && exactSearcherContext.getFloatQueryVector() == null
+                && fieldInfo.getAttribute(KNNConstants.KNN_ENGINE) == null) {
+                KnnVectorValues luceneVectorValues = leafReaderContext.reader().getByteVectorValues(exactSearcherContext.getField());
+                vectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, luceneVectorValues);
+            } else {
+                vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+            }
             if (isNestedRequired) {
                 return new NestedBinaryVectorIdsKNNIterator(
                     matchedDocs,
@@ -263,6 +284,10 @@ public class ExactSearcher {
         );
     }
 
+    public KNNIterator createIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
+        return getKNNIterator(leafReaderContext, exactSearcherContext);
+    }
+
     /**
      * Stores the context that is used to do the exact search. This class will help in reducing the explosion of attributes
      * for doing exact search.
@@ -291,5 +316,6 @@ public class ExactSearcher {
         Integer maxResultWindow;
         VectorSimilarityFunction similarityFunction;
         Boolean isMemoryOptimizedSearchEnabled;
+        String exactKNNSpaceType;
     }
 }

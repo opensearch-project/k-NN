@@ -9,6 +9,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
+import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 
@@ -82,6 +83,15 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         final byte[] byteQueryVector = new byte[queryVector.length];
         for (int i = 0; i < queryVector.length; i++) {
             byteQueryVector[i] = (byte) queryVector[i];
+        }
+        // adding l1/linf support for exact search in query so scoring script is not needed
+        if (spaceType.getValue().equals("l1") || spaceType.getValue().equals("linf")) {
+            if (spaceType.getValue().equals("l1")) {
+                return (1 / (1 + KNNScoringUtil.l1Norm(byteQueryVector, vector)));
+            }
+            if (spaceType.getValue().equals("linf")) {
+                return (1 / (1 + KNNScoringUtil.lInfNorm(byteQueryVector, vector)));
+            }
         }
         return spaceType.getKnnVectorSimilarityFunction().compare(byteQueryVector, vector);
     }

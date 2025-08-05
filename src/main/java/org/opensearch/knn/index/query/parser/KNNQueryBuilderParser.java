@@ -6,24 +6,21 @@
 package org.opensearch.knn.index.query.parser;
 
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ObjectParser;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.core.xcontent.XContentLocation;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.query.KNNBuilderAndParserUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -71,7 +68,7 @@ public final class KNNQueryBuilderParser {
         ObjectParser<KNNQueryBuilder.Builder, Void> internalParser = new ObjectParser<>(NAME, KNNQueryBuilder.Builder::new);
         internalParser.declareFloat(KNNQueryBuilder.Builder::boost, BOOST_FIELD);
         internalParser.declareString(KNNQueryBuilder.Builder::queryName, NAME_FIELD);
-        internalParser.declareFloatArray((b, v) -> b.vector(floatListToFloatArray(v)), VECTOR_FIELD);
+        internalParser.declareFloatArray((b, v) -> b.vector(KNNBuilderAndParserUtils.floatListToFloatArray(v, NAME)), VECTOR_FIELD);
         internalParser.declareInt(KNNQueryBuilder.Builder::k, K_FIELD);
         internalParser.declareBoolean((b, v) -> {
             if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
@@ -204,18 +201,28 @@ public final class KNNQueryBuilderParser {
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
             } else if (token == XContentParser.Token.START_OBJECT) {
-                throwParsingExceptionOnMultipleFields(parser.getTokenLocation(), fieldName, currentFieldName);
+                KNNBuilderAndParserUtils.throwParsingExceptionOnMultipleFields(
+                    parser.getTokenLocation(),
+                    fieldName,
+                    currentFieldName,
+                    NAME
+                );
                 fieldName = currentFieldName;
                 builder = INTERNAL_PARSER.apply(parser, null);
             } else {
-                throwParsingExceptionOnMultipleFields(parser.getTokenLocation(), fieldName, parser.currentName());
+                KNNBuilderAndParserUtils.throwParsingExceptionOnMultipleFields(
+                    parser.getTokenLocation(),
+                    fieldName,
+                    parser.currentName(),
+                    NAME
+                );
                 fieldName = parser.currentName();
                 vector = parser.list();
             }
         }
 
         if (builder == null) {
-            builder = KNNQueryBuilder.builder().vector(objectsToFloats(vector));
+            builder = KNNQueryBuilder.builder().vector(KNNBuilderAndParserUtils.objectsToFloats(vector, NAME));
         }
         builder.fieldName(fieldName);
         return builder.build();
@@ -265,47 +272,5 @@ public final class KNNQueryBuilderParser {
 
         builder.endObject();
         builder.endObject();
-    }
-
-    private static float[] floatListToFloatArray(List<Float> floats) {
-        if (Objects.isNull(floats) || floats.isEmpty()) {
-            throw new IllegalArgumentException(String.format("[%s] field 'vector' requires to be non-null and non-empty", NAME));
-        }
-        float[] vec = new float[floats.size()];
-        for (int i = 0; i < floats.size(); i++) {
-            vec[i] = floats.get(i);
-        }
-        return vec;
-    }
-
-    private static float[] objectsToFloats(List<Object> objs) {
-        if (Objects.isNull(objs) || objs.isEmpty()) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "[%s] field 'vector' requires to be non-null and non-empty", NAME)
-            );
-        }
-        float[] vec = new float[objs.size()];
-        for (int i = 0; i < objs.size(); i++) {
-            if ((objs.get(i) instanceof Number) == false) {
-                throw new IllegalArgumentException(
-                    String.format(Locale.ROOT, "[%s] field 'vector' requires to be an array of numbers", NAME)
-                );
-            }
-            vec[i] = ((Number) objs.get(i)).floatValue();
-        }
-        return vec;
-    }
-
-    private static void throwParsingExceptionOnMultipleFields(
-        XContentLocation contentLocation,
-        String processedFieldName,
-        String currentFieldName
-    ) {
-        if (processedFieldName != null) {
-            throw new ParsingException(
-                contentLocation,
-                "[" + NAME + "] query doesn't support multiple fields, found [" + processedFieldName + "] and [" + currentFieldName + "]"
-            );
-        }
     }
 }

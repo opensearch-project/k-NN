@@ -43,6 +43,9 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.KNNExactQueryBuilder;
+import org.opensearch.knn.index.query.KNNExactWeight;
+import org.opensearch.knn.index.query.parser.KNNExactQueryBuilderParser;
 import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -125,7 +128,6 @@ import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
-import static java.util.Collections.singletonList;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
@@ -211,7 +213,10 @@ public class KNNPlugin extends Plugin
 
     @Override
     public List<QuerySpec<?>> getQueries() {
-        return singletonList(new QuerySpec<>(KNNQueryBuilder.NAME, KNNQueryBuilder::new, KNNQueryBuilderParser::fromXContent));
+        return ImmutableList.of(
+            new QuerySpec<>(KNNQueryBuilder.NAME, KNNQueryBuilder::new, KNNQueryBuilderParser::fromXContent),
+            new QuerySpec<>(KNNExactQueryBuilder.NAME, KNNExactQueryBuilder::new, KNNExactQueryBuilderParser::fromXContent)
+        );
     }
 
     @Override
@@ -246,6 +251,7 @@ public class KNNPlugin extends Plugin
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
+        KNNExactWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
