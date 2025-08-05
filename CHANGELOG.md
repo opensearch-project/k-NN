@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Infrastructure
 * Bump JDK version to 24, gradle to 8.14 [#2792](https://github.com/opensearch-project/k-NN/pull/2792)
 * Bump Faiss commit to 2929bf4 [#2815](https://github.com/opensearch-project/k-NN/pull/2815)
+* Bump Faiss commit to 5617caa [#2824](https://github.com/opensearch-project/k-NN/pull/2824)
 
 ### Enhancements
 * Add random rotation feature to binary encoder for improving recall on certain datasets [#2718](https://github.com/opensearch-project/k-NN/pull/2718)
@@ -15,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * [BUGFIX] [Remote Vector Index Build] Don't fall back to CPU on terminal failures [#2773](https://github.com/opensearch-project/k-NN/pull/2773)
 * Add KNN timing info to core profiler [#2785](https://github.com/opensearch-project/k-NN/pull/2785)
 * Added dynamic index thread quantity defaults based on processor sizes [#2806](https://github.com/opensearch-project/k-NN/pull/2806)
+* Patch for supporting nested search in IndexBinaryHNSWCagra [#2824](https://github.com/opensearch-project/k-NN/pull/2824)
 
 ### Bug Fixes
 * Fix @ collision in NativeMemoryCacheKeyHelper for vector index filenames containing @ characters [#2810](https://github.com/opensearch-project/k-NN/pull/2810)
