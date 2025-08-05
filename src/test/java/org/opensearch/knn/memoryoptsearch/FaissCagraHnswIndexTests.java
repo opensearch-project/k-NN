@@ -42,7 +42,8 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
     public void doTestKNNSearch(boolean isApproximateSearch) {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input);
+            // TODO: adc placeholder. isAdc false and SpaceType L2 are noops for the MemoryOptimizedSearcher here.
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;
