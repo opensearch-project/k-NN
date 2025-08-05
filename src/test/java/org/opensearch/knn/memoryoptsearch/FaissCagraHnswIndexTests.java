@@ -15,7 +15,6 @@ import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.IOConsumer;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
@@ -44,7 +43,7 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
             // TODO: adc placeholder. isAdc false and SpaceType L2 are noops for the MemoryOptimizedSearcher here.
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, false, SpaceType.L2);
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;

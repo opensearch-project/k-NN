@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -14,11 +15,15 @@ import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
+import org.apache.lucene.util.Version;
 import org.apache.lucene.util.hnsw.HnswGraphSearcher;
 import org.apache.lucene.util.hnsw.OrdinalTranslatedKnnCollector;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
@@ -35,10 +40,9 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final FaissHNSW hnsw;
     private final VectorSimilarityFunction vectorSimilarityFunction;
     private final long fileSize;
-    private final boolean isAdc;
-    private final SpaceType spaceType;
+    private boolean isAdc;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, boolean isAdc, SpaceType spaceType) throws IOException {
+    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo) throws IOException {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
         this.faissIndex = FaissIndex.load(indexInput);
@@ -49,12 +53,17 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         } else {
             vectorSimilarityFunction = null;
         }
-        // spaceType is only used if ADC is enabled.
-        this.isAdc = isAdc;
-        this.spaceType = spaceType;
-        this.flatVectorsScorer = isAdc
-            ? new FlatVectorsScorerProvider.ADCFlatVectorsScorer(knnVectorSimilarityFunction, spaceType)
-            : FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
+
+        this.isAdc = false;
+        SpaceType spaceType = null;
+        if (fieldInfo != null) {
+            // Extract ADC info from fieldInfo to determine scorer.
+            final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo, Version.LATEST);
+            this.isAdc = quantizationConfig.isEnableADC();
+            spaceType = isAdc ? SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)) : null;
+        }
+
+        this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction, isAdc, spaceType);
 
         this.hnsw = extractFaissHnsw(faissIndex);
     }

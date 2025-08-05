@@ -11,11 +11,6 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.ReadAdvice;
 import org.apache.lucene.util.IOUtils;
-import org.apache.lucene.util.Version;
-import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
@@ -37,13 +32,8 @@ public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactor
         );
 
         try {
-            // Extract ADC info from fieldInfo
-            final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo, Version.LATEST);
-            final boolean isAdc = quantizationConfig.isEnableADC();
-            final SpaceType spaceType = isAdc ? SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)) : null;
-
             // Try load it. Not all FAISS index types are currently supported at the moment.
-            return new FaissMemoryOptimizedSearcher(indexInput, isAdc, spaceType);
+            return new FaissMemoryOptimizedSearcher(indexInput, fieldInfo);
         } catch (UnsupportedFaissIndexException e) {
             // Clean up input stream.
             try {
