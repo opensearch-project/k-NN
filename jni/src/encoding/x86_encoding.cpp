@@ -25,9 +25,21 @@ jboolean knn_jni::encoding::isSIMDSupported() {
 
 jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env, jfloatArray fp32Array, jbyteArray fp16Array, jint count) {
     if (count <= 0) return JNI_TRUE;
+
+    // Obtain direct in-place access to the Java byte[] backing store for FP16 results.
+    // GetPrimitiveArrayCritical typically pins the Java heap object and returns its real address
+    // (no copy on most JVMs, since they support pinning).
+    // If pinning isn’t possible (rare on modern OpenJDK), it will fall back to copying,
+    // so always check for NULL.
+    // While pinned, GC compaction is disabled, so keep this critical region very short
+    // to avoid stalling other threads or garbage collection.
     jfloat* src_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
     jbyte* dst_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
 
+    // Ensure the FP16 destination buffer is 2-byte aligned.
+    // The JVM will almost always give you an 8 or at least 4-byte-aligned buffer for any primitive array,
+    // so the base pointer (dst_bytes or src_bytes) is naturally aligned to alignof(uint16_t)==2.
+    // A misalignment here is therefore extremely rare, but this guard prevents undefined behavior or crashes.
     if ((reinterpret_cast<uintptr_t>(dst_bytes) % alignof(uint16_t)) != 0) {
         env->ReleasePrimitiveArrayCritical(fp16Array, dst_bytes, 0);
         env->ReleasePrimitiveArrayCritical(fp32Array, src_f32, JNI_ABORT);

@@ -21,7 +21,7 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
     public static final KNNVectorAsCollectionOfHalfFloatsSerializer INSTANCE = new KNNVectorAsCollectionOfHalfFloatsSerializer();
 
     /**
-     * Converts float[] to byte[] using SIMD optimization if supported, otherwise fallback.
+     * Converts float[] to byte[] using SIMD optimization if supported, otherwise fallback to Java.
      * @param input the float[] to be serialized into half-precision format
      * @param output byte[] containing the float16-encoded data
      * @param dimension number of floats to serialize
@@ -45,7 +45,7 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
     }
 
     /**
-     * Converts byte[] to float[] using SIMD optimization if supported, otherwise fallback.
+     * Converts byte[] to float[] using SIMD optimization if supported, otherwise fallback to Java.
      * @param input the byte[] containing half-precision encoded data
      * @param output a float[] containing the decoded float32 values
      * @param dimension number of floats to deserialize
