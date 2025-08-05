@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.jni;
 
-
 import org.opensearch.knn.common.KNNConstants;
 
 import java.security.AccessController;

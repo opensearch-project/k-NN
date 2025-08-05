@@ -62,8 +62,12 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         }
         if (input.length % BYTES_IN_HALF_FLOAT != 0) {
             throw new IllegalArgumentException(
-                    "Invalid byte array length (" + input.length +
-                            "). Must be a multiple of " + BYTES_IN_HALF_FLOAT + " to represent float16 values.");
+                "Invalid byte array length ("
+                    + input.length
+                    + "). Must be a multiple of "
+                    + BYTES_IN_HALF_FLOAT
+                    + " to represent float16 values."
+            );
         }
         if (offset < 0 || offset + dimension * BYTES_IN_HALF_FLOAT > input.length) {
             throw new IllegalArgumentException("Offset and dimension exceed input length.");
