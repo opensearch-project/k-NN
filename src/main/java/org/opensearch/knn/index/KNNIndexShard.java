@@ -9,12 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.SegmentCommitInfo;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
@@ -145,7 +140,7 @@ public class KNNIndexShard {
 
                 // Load off-heap index
                 final List<EngineFileContext> engineFileContexts = getAllEngineFileContexts(loadedFieldNames, leafReaderContext);
-                warmUpOffHeapIndex(engineFileContexts, directory);
+                warmUpOffHeapIndex(engineFileContexts, directory, leafReaderContext);
                 log.info(
                     "[KNN] Loaded off-heap indices for fields {}",
                     engineFileContexts.stream().map(ctx -> ctx.fieldName).collect(Collectors.toSet())
@@ -158,7 +153,11 @@ public class KNNIndexShard {
         }
     }
 
-    private void warmUpOffHeapIndex(final List<EngineFileContext> engineFileContexts, final Directory directory) {
+    private void warmUpOffHeapIndex(
+        final List<EngineFileContext> engineFileContexts,
+        final Directory directory,
+        final LeafReaderContext leafReaderContext
+    ) throws IOException {
         for (final EngineFileContext engineFileContext : engineFileContexts) {
             try {
                 // Get cache key for an off-heap index
@@ -166,6 +165,11 @@ public class KNNIndexShard {
                     engineFileContext.vectorFileName,
                     engineFileContext.segmentInfo
                 );
+
+                final VectorDataType vectorDataType = engineFileContext.getVectorDataType();
+                final KnnVectorValues knnVectorValues = (vectorDataType == VectorDataType.BYTE)
+                    ? leafReaderContext.reader().getByteVectorValues(engineFileContext.getFieldName())
+                    : leafReaderContext.reader().getFloatVectorValues(engineFileContext.getFieldName());
 
                 // Load an off-heap index
                 nativeMemoryCacheManager.get(
@@ -182,7 +186,8 @@ public class KNNIndexShard {
 
                         ),
                         getIndexName(),
-                        engineFileContext.getModelId()
+                        engineFileContext.getModelId(),
+                        knnVectorValues
                     ),
                     true
                 );

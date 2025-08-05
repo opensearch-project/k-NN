@@ -13,6 +13,7 @@ import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.packed.DirectMonotonicReader;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
 
@@ -49,13 +50,13 @@ public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvid
      * @throws IOException
      */
     @Override
-    protected void doLoad(IndexInput input) throws IOException {
+    protected void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
         if (indexType.equals(IXMP)) {
             readCommonHeader(input);
         } else {
             readBinaryCommonHeader(input);
         }
-        final FaissIndex nestedIndex = FaissIndex.load(input);
+        final FaissIndex nestedIndex = FaissIndex.load(input, flatVectorsReaderWithFieldName);
 
         if (nestedIndex instanceof AbstractFaissHNSWIndex || nestedIndex instanceof FaissBinaryHnswIndex) {
             this.nestedIndex = nestedIndex;

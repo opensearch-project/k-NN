@@ -10,10 +10,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.junit.AfterClass;
@@ -27,16 +24,16 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.*;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -109,8 +106,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
+            public KNNVectorValues<?> addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
                 called[0] = true;
+                return null;
             }
         };
 
@@ -146,8 +144,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, state) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
+            public KNNVectorValues<?> addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
                 called[0] = true;
+                return null;
             }
         };
 
@@ -248,7 +247,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by nmslib
-        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension, null);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
@@ -295,6 +294,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
 
+        VectorEncoding vectorEncoding = fieldInfoArray[0].getVectorEncoding();
+        VectorDataType vectorDataType = (vectorEncoding == VectorEncoding.FLOAT32) ? VectorDataType.FLOAT : VectorDataType.BYTE;
+
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
         assertFileInCorrectLocation(state, expectedFile);
@@ -303,7 +305,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by nmslib
-        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension, null);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
@@ -360,7 +362,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             docsInSegment,
             dimension
         );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, false);
+        KNNVectorValues<?> osKNNVectorValues = knn80DocValuesConsumer.addKNNBinaryField(
+            fieldInfoArray[0],
+            randomVectorDocValuesProducer,
+            false
+        );
+        KnnVectorValues knnVectorValues = new KnnFloatVectorValuesAdapter((KNNVectorValues<float[]>) osKNNVectorValues);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -370,7 +377,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by faiss
-        assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension, knnVectorValues);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
@@ -542,7 +549,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             assertValidFooter(state.directory, expectedFile);
 
             // The document should be readable by faiss
-            assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
+            assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension, null);
 
             // The graph creation statistics should be updated
             assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());

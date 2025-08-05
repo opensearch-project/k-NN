@@ -199,10 +199,12 @@ public class KNNCodecTestUtil {
         String fileName,
         KNNEngine knnEngine,
         SpaceType spaceType,
-        int dimension
+        int dimension,
+        KnnVectorValues knnVectorValues
     ) {
         try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.DEFAULT)) {
             final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+            indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
             long indexPtr = JNIService.loadIndex(
                 indexInputWithBuffer,
                 Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())),

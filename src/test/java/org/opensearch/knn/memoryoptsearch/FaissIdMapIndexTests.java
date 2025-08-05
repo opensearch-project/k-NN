@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.store.ByteBuffersDataOutput;
@@ -181,8 +182,9 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         final URL floatFloatVectors = FaissHNSWTests.class.getClassLoader().getResource(relativePath);
         byte[] bytes = Files.readAllBytes(Path.of(floatFloatVectors.toURI()));
         final IndexInput indexInput = new ByteArrayIndexInput("FaissIndexFloatFlatTests", bytes);
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
 
-        final FaissIndex faissIndex = FaissIndex.load(indexInput);
+        final FaissIndex faissIndex = FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);
         assert (faissIndex instanceof FaissIdMapIndex);
 
         final FaissIdMapIndex faissIdMapIndex = (FaissIdMapIndex) faissIndex;
@@ -218,7 +220,7 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         try (MockedStatic<FaissIndex> mockStaticFaissIndex = mockStatic(FaissIndex.class)) {
             // Nested index
             final FaissHNSWIndex nestedIndex = mock(FaissHNSWIndex.class);
-            mockStaticFaissIndex.when(() -> FaissIndex.load(any())).thenReturn(nestedIndex);
+            mockStaticFaissIndex.when(() -> FaissIndex.load(any(), any())).thenReturn(nestedIndex);
 
             // Byte vectors
             final Bits mockBitsFromByteVectors = mock(Bits.class);
@@ -277,9 +279,13 @@ public class FaissIdMapIndexTests extends KNNTestCase {
     @SneakyThrows
     private static FaissIdMapIndex triggerDoLoad(final IndexInput input, final String indexType) {
         final FaissIdMapIndex index = new FaissIdMapIndex(indexType);
-        final Method doLoadMethod = FaissIdMapIndex.class.getDeclaredMethod("doLoad", IndexInput.class);
+        final Method doLoadMethod = FaissIdMapIndex.class.getDeclaredMethod(
+            "doLoad",
+            IndexInput.class,
+            FlatVectorsReaderWithFieldName.class
+        );
         doLoadMethod.setAccessible(true);
-        doLoadMethod.invoke(index, input);
+        doLoadMethod.invoke(index, input, new FlatVectorsReaderWithFieldName(mock(FlatVectorsReader.class), "test_field"));
         return index;
     }
 

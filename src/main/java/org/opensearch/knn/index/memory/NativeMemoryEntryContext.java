@@ -13,6 +13,7 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -104,6 +105,9 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         @Getter
         IndexInputWithBuffer indexInputWithBuffer;
 
+        @Getter
+        KnnVectorValues knnVectorValues;
+
         /**
          * Constructor
          *
@@ -118,9 +122,10 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
-            String openSearchIndexName
+            String openSearchIndexName,
+            KnnVectorValues knnVectorValues
         ) {
-            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null);
+            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null, knnVectorValues);
         }
 
         /**
@@ -139,7 +144,8 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName,
-            String modelId
+            String modelId,
+            KnnVectorValues knnVectorValues
         ) {
             super(vectorIndexCacheKey);
             this.directory = directory;
@@ -147,6 +153,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             this.openSearchIndexName = openSearchIndexName;
             this.parameters = parameters;
             this.modelId = modelId;
+            this.knnVectorValues = knnVectorValues;
         }
 
         @Override

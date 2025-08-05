@@ -9,6 +9,8 @@ import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.lucene.document.*;
+import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
@@ -470,4 +472,185 @@ public class TestUtils {
             }
         }
     }
+
+    public static FloatVectorValues createInMemoryFloatVectorValues(float[][] vectors, int dimension) {
+        return new FloatVectorValues() {
+
+            @Override
+            public int size() {
+                return vectors.length;
+            }
+
+            @Override
+            public int dimension() {
+                return dimension;
+            }
+
+            @Override
+            public float[] vectorValue(int docId) {
+                return vectors[docId];
+            }
+
+            @Override
+            public FloatVectorValues copy() {
+                return this;
+            }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return new DocIndexIterator() {
+                    int doc = -1;
+
+                    @Override
+                    public int index() {
+                        return doc;
+                    }
+
+                    @Override
+                    public int nextDoc() {
+                        return ++doc < vectors.length ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public int advance(int target) throws IOException {
+                        doc = target;
+                        return doc < vectors.length ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public long cost() {
+                        return vectors.length;
+                    }
+
+                    @Override
+                    public int docID() {
+                        return doc;
+                    }
+                };
+            }
+        };
+    }
+
+    public static FloatVectorValues createInMemoryFloatVectorValuesForList(
+        List<float[]> vectors,
+        int dimension,
+        final List<Integer> docids
+    ) {
+        return new FloatVectorValues() {
+
+            @Override
+            public int size() {
+                return vectors.size();
+            }
+
+            @Override
+            public int dimension() {
+                return dimension;
+            }
+
+            @Override
+            public float[] vectorValue(int ord) {
+                int docId = docids.get(ord);
+                return vectors.get(docId);
+            }
+
+            @Override
+            public FloatVectorValues copy() {
+                return this;
+            }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return new DocIndexIterator() {
+                    int doc = -1;
+
+                    @Override
+                    public int index() {
+                        return doc;
+                    }
+
+                    @Override
+                    public int nextDoc() {
+                        return ++doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public int advance(int target) throws IOException {
+                        doc = target;
+                        return doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public long cost() {
+                        return vectors.size();
+                    }
+
+                    @Override
+                    public int docID() {
+                        return doc;
+                    }
+                };
+            }
+        };
+    }
+
+    public static ByteVectorValues createInMemoryByteVectorValuesForList(List<byte[]> vectors, int dimension, final List<Integer> docids) {
+        return new ByteVectorValues() {
+
+            @Override
+            public int size() {
+                return vectors.size();
+            }
+
+            @Override
+            public int dimension() {
+                return dimension;
+            }
+
+            @Override
+            public byte[] vectorValue(int ord) {
+                int docId = docids.get(ord);
+                return vectors.get(docId);
+            }
+
+            @Override
+            public ByteVectorValues copy() {
+                return this;
+            }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return new DocIndexIterator() {
+                    int doc = -1;
+
+                    @Override
+                    public int index() {
+                        return doc;
+                    }
+
+                    @Override
+                    public int nextDoc() {
+                        return ++doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public int advance(int target) throws IOException {
+                        doc = target;
+                        return doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public long cost() {
+                        return vectors.size();
+                    }
+
+                    @Override
+                    public int docID() {
+                        return doc;
+                    }
+                };
+            }
+        };
+    }
+
 }

@@ -9,6 +9,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 
 import java.io.IOException;
 
@@ -41,7 +42,7 @@ public class FaissHNSWIndex extends AbstractFaissHNSWIndex {
      * @throws IOException
      */
     @Override
-    protected void doLoad(IndexInput input) throws IOException {
+    protected void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
         // Read common header
         readCommonHeader(input);
 
@@ -49,7 +50,7 @@ public class FaissHNSWIndex extends AbstractFaissHNSWIndex {
         faissHnsw.load(input, getTotalNumberOfVectors());
 
         // Partial load flat vector storage
-        flatVectors = FaissIndex.load(input);
+        flatVectors = FaissIndex.load(input, flatVectorsReaderWithFieldName);
     }
 
     @Override

@@ -23,6 +23,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.mockito.Mockito.mock;
+
 public class FaissIndexFloatFlatTests extends KNNTestCase {
     static final int NUM_VECTORS = 50;
     static final int DIMENSION = 128;
@@ -36,8 +38,9 @@ public class FaissIndexFloatFlatTests extends KNNTestCase {
     @SneakyThrows
     public void testLoadInvalidType() {
         final IndexInput indexInput = loadFlatFloatVectors("INVALID_INDEX_TYPE");
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
         try {
-            FaissIndex.load(indexInput);
+            FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);
             fail();
         } catch (UnsupportedFaissIndexException e) {}
     }
@@ -46,7 +49,8 @@ public class FaissIndexFloatFlatTests extends KNNTestCase {
     public void testFloatVectorValues() {
         // Load binary
         IndexInput indexInput = loadFlatFloatVectors(FaissIndexFloatFlat.IXF2);
-        final FaissIndex faissIndex = FaissIndexFloatFlat.load(indexInput);
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
+        final FaissIndex faissIndex = FaissIndexFloatFlat.load(indexInput, flatVectorsReaderWithFieldName);
 
         // Prepare a new input stream
         indexInput = loadFlatFloatVectors(FaissIndexFloatFlat.IXF2);
@@ -72,9 +76,10 @@ public class FaissIndexFloatFlatTests extends KNNTestCase {
     private static void doTestLoad(final String indexType) {
         // Load binary
         final IndexInput indexInput = loadFlatFloatVectors(indexType);
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
 
         // Trigger load
-        final FaissIndex faissIndex = FaissIndex.load(indexInput);
+        final FaissIndex faissIndex = FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);
         assertTrue(faissIndex instanceof FaissIndexFloatFlat);
         final FaissIndexFloatFlat faissIndexFloatFlat = (FaissIndexFloatFlat) faissIndex;
 

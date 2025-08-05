@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 
+import static org.mockito.Mockito.mock;
 import static org.opensearch.knn.memoryoptsearch.FaissIndexFloatFlatTests.NUM_VECTORS;
 
 public class FaissBinaryHnswIndexTests extends KNNTestCase {
@@ -31,9 +32,10 @@ public class FaissBinaryHnswIndexTests extends KNNTestCase {
     public void testLoad() {
         // Load binary
         final IndexInput indexInput = loadBinaryHnswIndex();
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
 
         // Trigger load
-        final FaissIndex faissIndex = FaissIndex.load(indexInput);
+        final FaissIndex faissIndex = FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);
         assertTrue(faissIndex instanceof FaissBinaryHnswIndex);
         final FaissBinaryHnswIndex faissBinaryHnswIndex = (FaissBinaryHnswIndex) faissIndex;
 

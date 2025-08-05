@@ -8,10 +8,7 @@ package org.opensearch.knn.memoryoptsearch;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.index.*;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
@@ -24,6 +21,7 @@ import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.generate.IndexingType;
 import org.opensearch.knn.generate.SearchTestHelper;
@@ -318,11 +316,16 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Build FAISS index
         final BuildInfo buildInfo = buildFaissIndex(testingSpec, TOTAL_NUM_DOCS_IN_SEGMENT, indexingType, spaceType);
 
+        KnnVectorValues knnVectorValues = testingSpec.dataType == VectorDataType.FLOAT
+            ? TestUtils.createInMemoryFloatVectorValuesForList(buildInfo.vectors.floatVectors, DIMENSIONS, buildInfo.documentIds)
+            : TestUtils.createInMemoryByteVectorValuesForList(buildInfo.vectors.byteVectors, DIMENSIONS, buildInfo.documentIds);
+
         // Load FAISS index via JNI
         long indexPointer = -1;
         try (final Directory directory = newFSDirectory(buildInfo.tempDirPath)) {
             try (final IndexInput input = directory.openInput(buildInfo.faissIndexFile, IOContext.READONCE)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(input);
+                indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                 if (testingSpec.isAdcEnabled) {
                     buildInfo.parameters.put("data_type", VectorDataType.FLOAT.getValue());
                     buildInfo.parameters.put(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER, true);
@@ -512,12 +515,28 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Make SegmentReadState and do search
         try (final Directory directory = new MMapDirectory(buildInfo.tempDirPath)) {
             final SegmentReadState readState = new SegmentReadState(directory, segmentInfo, fieldInfos, IOContext.DEFAULT);
-            try (
-                NativeEngines990KnnVectorsReader vectorsReader = new NativeEngines990KnnVectorsReader(
-                    readState,
-                    mock(FlatVectorsReader.class)
-                )
-            ) {
+
+            FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
+            if (vectorDataType == VectorDataType.FLOAT) {
+                FloatVectorValues floatVectorValues = TestUtils.createInMemoryFloatVectorValuesForList(
+                    buildInfo.vectors.floatVectors,
+                    DIMENSIONS,
+                    buildInfo.documentIds
+                );
+                when(flatVectorsReader.getFloatVectorValues(TARGET_FIELD)).thenReturn(floatVectorValues);
+            }
+            if (vectorDataType == VectorDataType.BYTE) {
+                ByteVectorValues byteVectorValues = TestUtils.createInMemoryByteVectorValuesForList(
+                    buildInfo.vectors.byteVectors,
+                    DIMENSIONS,
+                    buildInfo.documentIds
+                );
+                when(flatVectorsReader.getByteVectorValues(TARGET_FIELD)).thenReturn(byteVectorValues);
+            }
+
+            try (NativeEngines990KnnVectorsReader vectorsReader = new NativeEngines990KnnVectorsReader(readState, flatVectorsReader
+            // mock(FlatVectorsReader.class)
+            )) {
                 if (vectorDataType == VectorDataType.FLOAT) {
                     vectorsReader.search(TARGET_FIELD, (float[]) query, knnCollector, acceptDocs);
                 } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {

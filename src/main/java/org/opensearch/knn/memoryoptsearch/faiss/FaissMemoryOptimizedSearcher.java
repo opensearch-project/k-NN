@@ -24,6 +24,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
@@ -42,10 +43,11 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final long fileSize;
     private boolean isAdc;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo) throws IOException {
+    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo, final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName)
+        throws IOException {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
-        this.faissIndex = FaissIndex.load(indexInput);
+        this.faissIndex = FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {

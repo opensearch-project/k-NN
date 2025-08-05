@@ -32,28 +32,101 @@ namespace stream {
  * This will then indirectly call the mediator component and eventually read required bytes from Lucene's IndexInput.
  */
 class FaissOpenSearchIOReader final : public faiss::IOReader {
- public:
-  explicit FaissOpenSearchIOReader(NativeEngineIndexInputMediator *_mediator)
-      : faiss::IOReader(),
-        mediator(knn_jni::util::ParameterCheck::require_non_null(_mediator, "mediator")) {
-    name = "FaissOpenSearchIOReader";
-  }
+public:
+    explicit FaissOpenSearchIOReader(NativeEngineIndexInputMediator* _mediator)
+        : faiss::IOReader(),
+          mediator(knn_jni::util::ParameterCheck::require_non_null(_mediator, "mediator")) {
 
-  size_t operator()(void *ptr, size_t size, size_t nitems) final {
-    const auto readBytes = size * nitems;
-    if (readBytes > 0) {
-      // Mediator calls IndexInput, then copy read bytes to `ptr`.
-      mediator->copyBytes(readBytes, (uint8_t *) ptr);
+        name = "FaissOpenSearchIOReader";
     }
-    return nitems;
-  }
 
-  int filedescriptor() final {
-    throw std::runtime_error("filedescriptor() is not supported in FaissOpenSearchIOReader.");
-  }
+    ~FaissOpenSearchIOReader() override {
+        JNIEnv* env = mediator->getEnv();
+        if (vectorReaderGlobalRef && env) {
+            env->DeleteGlobalRef(vectorReaderGlobalRef);
+        }
+    }
 
- private:
-  NativeEngineIndexInputMediator *mediator;
+    size_t operator()(void* ptr, size_t size, size_t nitems) override {
+        const auto bytes = size * nitems;
+        mediator->copyBytes(bytes, static_cast<uint8_t*>(ptr));
+        return nitems;
+    }
+
+    bool copy(void* dest, int expectedByteSize, bool isFloat) override {
+        JNIEnv* env = mediator->getEnv();
+        if (env == nullptr) return false;
+
+        jobject readStream = mediator->getJavaObject();
+        if (!vectorReaderGlobalRef) {
+            jclass streamClass = env->GetObjectClass(readStream);
+            if (env->ExceptionCheck() || streamClass == nullptr) return false;
+
+            jmethodID getVectorsMid = env->GetMethodID(
+                streamClass,
+                "getFullPrecisionVectors",
+                "()Lorg/opensearch/knn/index/store/VectorReader;"
+            );
+            if (env->ExceptionCheck() || !getVectorsMid) return false;
+
+            jobject vectorReader = env->CallObjectMethod(readStream, getVectorsMid);
+            if (env->ExceptionCheck() || vectorReader == nullptr) return false;
+
+            vectorReaderGlobalRef = env->NewGlobalRef(vectorReader);
+            if (env->ExceptionCheck() || vectorReaderGlobalRef == nullptr) return false;
+        }
+
+        if (isFloat) {
+            jclass vectorReaderClass = env->GetObjectClass(vectorReaderGlobalRef);
+            jmethodID nextFloatMid = env->GetMethodID(vectorReaderClass, "nextFloatVector", "()[F");
+            if (env->ExceptionCheck() || !nextFloatMid) return false;
+
+            jfloatArray vector = (jfloatArray) env->CallObjectMethod(vectorReaderGlobalRef, nextFloatMid);
+            if (env->ExceptionCheck() || vector == nullptr) return false;
+
+            jsize length = env->GetArrayLength(vector);
+            jfloat* elems = env->GetFloatArrayElements(vector, nullptr);
+
+            JNIReleaseElements release_elems([=]() {
+                env->ReleaseFloatArrayElements(vector, elems, JNI_ABORT);
+            });
+
+            int vectorByteSize = sizeof(float) * length;
+            if (vectorByteSize != expectedByteSize) return false;
+
+            std::memcpy(dest, elems, vectorByteSize);
+            return true;
+
+        } else {
+            jclass vectorReaderClass = env->GetObjectClass(vectorReaderGlobalRef);
+            jmethodID nextByteMid = env->GetMethodID(vectorReaderClass, "nextByteVector", "()[B");
+            if (env->ExceptionCheck() || !nextByteMid) return false;
+
+            jbyteArray vector = (jbyteArray) env->CallObjectMethod(vectorReaderGlobalRef, nextByteMid);
+            if (env->ExceptionCheck() || vector == nullptr) return false;
+
+            jsize length = env->GetArrayLength(vector);
+            jbyte* elems = env->GetByteArrayElements(vector, nullptr);
+
+            JNIReleaseElements release_elems([=]() {
+                env->ReleaseByteArrayElements(vector, elems, JNI_ABORT);
+            });
+
+            int vectorByteSize = sizeof(float) * length;
+            if (vectorByteSize != expectedByteSize) return false;
+
+            float* floatDest = static_cast<float*>(dest);
+            for (int i = 0; i < length; ++i) {
+                floatDest[i] = static_cast<float>(elems[i]);
+            }
+
+            return true;
+        }
+    }
+
+private:
+    NativeEngineIndexInputMediator* mediator;
+    jobject vectorReaderGlobalRef = nullptr;
 };  // class FaissOpenSearchIOReader
 
 
