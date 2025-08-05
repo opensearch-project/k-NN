@@ -104,7 +104,6 @@ public class FlatVectorsScorerProvider {
             }
 
             return switch (spaceType) {
-                case HAMMING -> throw new IllegalArgumentException("hamming distance unsupported by ADC");
                 case L2 -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
                     @Override
                     public float score(int internalVectorId) throws IOException {
