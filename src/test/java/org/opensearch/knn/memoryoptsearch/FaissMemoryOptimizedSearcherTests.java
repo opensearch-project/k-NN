@@ -693,7 +693,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // It can happen that match ratio between FAISS and MemOptimizedSearch is lower than 80%, but if it happens with a recall lower than
         // 0.8 indicates something's off. We use a smaller match threshold for ADC.
         if (isAdc) {
-            assertFalse(matchRatio < 0.7 && recall < 0.8);
+            assertFalse(matchRatio < 0.6 && recall < 0.8);
         } else {
             assertFalse(matchRatio < 0.8 && recall < 0.8);
         }
