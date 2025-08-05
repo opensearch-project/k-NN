@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.knn.jni.SIMDDecoding;
 import org.opensearch.knn.jni.SIMDEncoding;
 
@@ -15,6 +17,8 @@ import java.nio.ByteOrder;
  * as a collection of individual half-precision values
  */
 public class KNNVectorAsCollectionOfHalfFloatsSerializer {
+    private static final Logger log = LogManager.getLogger(KNNVectorAsCollectionOfHalfFloatsSerializer.class);
+
     private static final int BYTES_IN_HALF_FLOAT = 2;
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN);
 
@@ -41,6 +45,7 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             return;
         }
 
+        log.warn("SIMD FP32 to FP16 encoding not supported on this platform, falling back to Java implementation.");
         floatToByteArrayFallback(input, output, dimension);
     }
 
@@ -68,6 +73,7 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             return;
         }
 
+        log.warn("SIMD FP16 to FP32 decoding not supported on this platform, falling back to Java implementation.");
         byteToFloatArrayFallback(input, output, dimension, offset);
     }
 

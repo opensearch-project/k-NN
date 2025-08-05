@@ -22,6 +22,5 @@ jboolean knn_jni::encoding::isSIMDSupported() {
 }
 
 jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv*, jfloatArray, jbyteArray, jint) {
-    std::cerr << "[KNN] Warning: convertFP32ToFP16 called on unsupported platform. Java fallback expected.\n";
     return JNI_FALSE;
 }
