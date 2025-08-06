@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add KNN timing info to core profiler [#2785](https://github.com/opensearch-project/k-NN/pull/2785)
 * Patch for supporting nested search in IndexBinaryHNSWCagra [#2824](https://github.com/opensearch-project/k-NN/pull/2824)
 * Support Asymmetric Distance Computation in Lucene-on-Faiss [#2781](https://github.com/opensearch-project/k-NN/pull/2781)
+* Added dynamic index thread quantity defaults based on processor sizes [#2806](https://github.com/opensearch-project/k-NN/pull/2806)
+
 
 ### Bug Fixes
 * [Remote Vector Index Build] Don't fall back to CPU on terminal failures [#2773](https://github.com/opensearch-project/k-NN/pull/2773)
