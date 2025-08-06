@@ -320,12 +320,6 @@ opensearchplugin {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
-// Force bundle failureaccess dependency - required because compileOnly transport-grpc dependency
-tasks.named("bundlePlugin").configure {
-    from(configurations.runtimeClasspath) {
-        include "failureaccess-*.jar"
-    }
-}
 
 tasks.named("integTest").configure {
     it.dependsOn(project.tasks.named("bundlePlugin"))
@@ -349,7 +343,7 @@ dependencies {
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compileOnly "org.opensearch.plugin:transport-grpc:${opensearch_version}"
     compileOnly "org.opensearch:protobufs:0.6.0"
-    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'  // Keep same version as main branch
+    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     api group: 'com.google.guava', name: 'guava', version:'33.4.8-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
