@@ -5,108 +5,21 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
-import lombok.SneakyThrows;
-import org.apache.lucene.index.FloatVectorValues;
-import org.apache.lucene.index.VectorSimilarityFunction;
-import org.apache.lucene.search.KnnCollector;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TopKnnCollector;
-import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.util.IOConsumer;
-import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.VectorDataType;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
+public class FaissCagraHnswFP32IndexTests extends AbstractFaissCagraHnswIndexTests {
 
-import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
-
-public class FaissCagraHnswIndexTests extends KNNTestCase {
-    private static final int EF_SEARCH = 100;
-    private static final int DIMENSION = 768;
-    private static final int TOTAL_NUMBER_OF_VECTORS = 300;
-
-    public void testKNNSearch() {
+    public void testKNNSearchFloat32() {
         // Exhaustive search test
-        doTestKNNSearch(true);
+        doTestKNNSearch(true, VectorDataType.FLOAT, KNNVectorSimilarityFunction.EUCLIDEAN);
 
         // ANN search test
-        doTestKNNSearch(false);
-    }
-
-    public void doTestKNNSearch(boolean isApproximateSearch) {
-        doTestWithIndexInput(input -> {
-            // Instantiate memory optimized searcher
-            // TODO: adc placeholder. isAdc false and SpaceType L2 are noops for the MemoryOptimizedSearcher here.
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
-
-            // Make collector
-            final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;
-            final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE);
-
-            // Build a query
-            final float[] query = new float[DIMENSION];
-            for (int i = 0; i < query.length; i++) {
-                query[i] = ThreadLocalRandom.current().nextFloat();
-            }
-
-            // Start searching
-            searcher.search(query, knnCollector, null);
-            final TopDocs topDocs = knnCollector.topDocs();
-            final ScoreDoc[] scoreDocs = topDocs.scoreDocs;
-
-            // Get answer
-            input.seek(0);
-            final FaissIndex faissIndex = FaissIndex.load(input);
-            final Set<Integer> answerScoreDocs = calculateAnswer(query, faissIndex.getFloatValues(input), k);
-
-            // Validate search result
-            int matchCount = 0;
-            for (ScoreDoc sd : scoreDocs) {
-                if (answerScoreDocs.contains(sd.doc)) {
-                    ++matchCount;
-                }
-            }
-            final float matchRatio = (float) matchCount / (float) k;
-            assertTrue(matchRatio > 0.8);
-        });
-    }
-
-    @SneakyThrows
-    private Set<Integer> calculateAnswer(final float[] query, final FloatVectorValues values, final int k) {
-        final List<ScoreDoc> scoreDocs = new ArrayList<>();
-        for (int i = 0; i < TOTAL_NUMBER_OF_VECTORS; ++i) {
-            final float[] vector = values.vectorValue(i);
-            scoreDocs.add(new ScoreDoc(i, VectorSimilarityFunction.EUCLIDEAN.compare(query, vector)));
-        }
-        scoreDocs.sort((s1, s2) -> -Float.compare(s1.score, s2.score));
-        return scoreDocs.subList(0, k).stream().mapToInt(s -> s.doc).boxed().collect(Collectors.toSet());
+        doTestKNNSearch(false, VectorDataType.FLOAT, KNNVectorSimilarityFunction.EUCLIDEAN);
     }
 
     public void testLoadVectors() {
-        doTestWithIndexInput(input -> {
-            final FaissIndex faissIndex = FaissIndex.load(input);
-            final FloatVectorValues values = faissIndex.getFloatValues(input);
-
-            // Validate the first vector
-            float[] vector = values.vectorValue(0);
-            assertArrayEquals(FIRST_VECTOR, vector, 1e-3f);
-
-            // Validate the last vector
-            vector = values.vectorValue(TOTAL_NUMBER_OF_VECTORS - 1);
-            assertArrayEquals(LAST_VECTOR, vector, 1e-3f);
-        });
-    }
-
-    @SneakyThrows
-    private void doTestWithIndexInput(IOConsumer<IndexInput> indexInputConsumer) {
-        final IndexInput input = loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        indexInputConsumer.accept(input);
+        doTestLoadVectors(VectorDataType.FLOAT, FIRST_VECTOR, LAST_VECTOR);
     }
 
     private static final float[] FIRST_VECTOR = new float[] {
@@ -1648,4 +1561,9 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
         0.632547f,
         -0.442378f,
         -0.688082f };
+
+    @Override
+    protected String getBinaryDataRelativePath() {
+        return "data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin";
+    }
 }

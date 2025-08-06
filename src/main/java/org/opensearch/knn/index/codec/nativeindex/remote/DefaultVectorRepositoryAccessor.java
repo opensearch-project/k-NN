@@ -69,7 +69,8 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
         initializeVectorValues(knnVectorValues);
         long vectorBlobLength = (long) knnVectorValues.bytesPerVector() * totalLiveDocs;
 
-        if (blobContainer instanceof AsyncMultiStreamBlobContainer asyncBlobContainer) {
+        // TODO : Once Lucene patch https://github.com/apache/lucene/issues/14992 is merged, remove vector data type check in condition.
+        if (vectorDataType == VectorDataType.FLOAT && blobContainer instanceof AsyncMultiStreamBlobContainer asyncBlobContainer) {
             // First initiate vectors upload
             log.debug("Container {} Supports Parallel Blob Upload", blobContainer);
             // WriteContext is the main entry point into asyncBlobUpload. It stores all of our upload configurations, analogous to
