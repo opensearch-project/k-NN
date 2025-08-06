@@ -43,8 +43,11 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final long fileSize;
     private boolean isAdc;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo, final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName)
-        throws IOException {
+    public FaissMemoryOptimizedSearcher(
+        final IndexInput indexInput,
+        final FieldInfo fieldInfo,
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName
+    ) throws IOException {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
         this.faissIndex = FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);

@@ -368,7 +368,12 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             fieldInfo.name
         );
         if (fileName != null) {
-            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName, fieldInfo, flatVectorsReaderWithFieldName);
+            return () -> searcherFactory.createVectorSearcher(
+                segmentReadState.directory,
+                fileName,
+                fieldInfo,
+                flatVectorsReaderWithFieldName
+            );
         }
 
         // Not supported
