@@ -30,7 +30,7 @@ import java.util.Objects;
 @Getter
 @Builder
 @AllArgsConstructor
-public class KNNExactQuery extends Query {
+public class ExactKNNQuery extends Query {
 
     private final String field;
     private final float[] queryVector;
@@ -39,14 +39,13 @@ public class KNNExactQuery extends Query {
     private final String indexName;
     private final VectorDataType vectorDataType;
     private BitSetProducer parentFilter;
-    private final boolean expandNested;
     @Setter
     @Getter
     private boolean explain;
 
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
-        return new KNNExactWeight(this, boost);
+        return new ExactKNNWeight(this, boost);
     }
 
     @Override
@@ -69,7 +68,7 @@ public class KNNExactQuery extends Query {
         return sameClassAs(other) && equalsTo(getClass().cast(other));
     }
 
-    public boolean equalsTo(KNNExactQuery other) {
+    public boolean equalsTo(ExactKNNQuery other) {
         if (other == this) return true;
         return Objects.equals(field, other.field)
             && Arrays.equals(queryVector, other.queryVector)

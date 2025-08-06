@@ -234,8 +234,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         private void validate() {
-            KNNBuilderAndParserUtils.validateFieldName(fieldName, NAME);
-            KNNBuilderAndParserUtils.validateVector(vector, NAME);
+            KNNBuilderUtils.validateFieldName(fieldName, NAME);
+            KNNBuilderUtils.validateVector(vector, NAME);
 
             if (k == null && minScore == null && maxDistance == null) {
                 throw new IllegalArgumentException(
@@ -417,7 +417,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
     @Override
     protected Query doToQuery(QueryShardContext context) {
-        MappedFieldType mappedFieldType = KNNBuilderAndParserUtils.validateAndGetFieldType(this.fieldName, context, ignoreUnmapped);
+        MappedFieldType mappedFieldType = KNNBuilderUtils.validateAndGetFieldType(this.fieldName, context, ignoreUnmapped);
         if (mappedFieldType == null) {
             return new MatchNoDocsQuery();
         }
@@ -506,8 +506,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
 
-        int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
-        KNNBuilderAndParserUtils.validateVectorDimension(vectorLength, knnMappingConfig.getDimension());
+        KNNBuilderUtils.validateVectorDimension(vectorDataType, vector.length, knnMappingConfig.getDimension());
 
         byte[] byteVector = new byte[0];
         switch (vectorDataType) {

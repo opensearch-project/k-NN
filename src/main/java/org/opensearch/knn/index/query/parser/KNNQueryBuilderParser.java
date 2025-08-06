@@ -14,7 +14,6 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.KNNBuilderAndParserUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -68,7 +67,7 @@ public final class KNNQueryBuilderParser {
         ObjectParser<KNNQueryBuilder.Builder, Void> internalParser = new ObjectParser<>(NAME, KNNQueryBuilder.Builder::new);
         internalParser.declareFloat(KNNQueryBuilder.Builder::boost, BOOST_FIELD);
         internalParser.declareString(KNNQueryBuilder.Builder::queryName, NAME_FIELD);
-        internalParser.declareFloatArray((b, v) -> b.vector(KNNBuilderAndParserUtils.floatListToFloatArray(v, NAME)), VECTOR_FIELD);
+        internalParser.declareFloatArray((b, v) -> b.vector(KNNParserUtils.floatListToFloatArray(v, NAME)), VECTOR_FIELD);
         internalParser.declareInt(KNNQueryBuilder.Builder::k, K_FIELD);
         internalParser.declareBoolean((b, v) -> {
             if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
@@ -201,28 +200,18 @@ public final class KNNQueryBuilderParser {
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
             } else if (token == XContentParser.Token.START_OBJECT) {
-                KNNBuilderAndParserUtils.throwParsingExceptionOnMultipleFields(
-                    parser.getTokenLocation(),
-                    fieldName,
-                    currentFieldName,
-                    NAME
-                );
+                KNNParserUtils.throwParsingExceptionOnMultipleFields(parser.getTokenLocation(), fieldName, currentFieldName, NAME);
                 fieldName = currentFieldName;
                 builder = INTERNAL_PARSER.apply(parser, null);
             } else {
-                KNNBuilderAndParserUtils.throwParsingExceptionOnMultipleFields(
-                    parser.getTokenLocation(),
-                    fieldName,
-                    parser.currentName(),
-                    NAME
-                );
+                KNNParserUtils.throwParsingExceptionOnMultipleFields(parser.getTokenLocation(), fieldName, parser.currentName(), NAME);
                 fieldName = parser.currentName();
                 vector = parser.list();
             }
         }
 
         if (builder == null) {
-            builder = KNNQueryBuilder.builder().vector(KNNBuilderAndParserUtils.objectsToFloats(vector, NAME));
+            builder = KNNQueryBuilder.builder().vector(KNNParserUtils.objectsToFloats(vector, NAME));
         }
         builder.fieldName(fieldName);
         return builder.build();

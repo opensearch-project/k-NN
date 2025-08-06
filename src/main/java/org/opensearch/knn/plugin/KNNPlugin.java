@@ -43,9 +43,9 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.query.KNNExactQueryBuilder;
-import org.opensearch.knn.index.query.KNNExactWeight;
-import org.opensearch.knn.index.query.parser.KNNExactQueryBuilderParser;
+import org.opensearch.knn.index.query.ExactKNNQueryBuilder;
+import org.opensearch.knn.index.query.ExactKNNWeight;
+import org.opensearch.knn.index.query.parser.ExactKNNQueryBuilderParser;
 import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -215,7 +215,7 @@ public class KNNPlugin extends Plugin
     public List<QuerySpec<?>> getQueries() {
         return ImmutableList.of(
             new QuerySpec<>(KNNQueryBuilder.NAME, KNNQueryBuilder::new, KNNQueryBuilderParser::fromXContent),
-            new QuerySpec<>(KNNExactQueryBuilder.NAME, KNNExactQueryBuilder::new, KNNExactQueryBuilderParser::fromXContent)
+            new QuerySpec<>(ExactKNNQueryBuilder.NAME, ExactKNNQueryBuilder::new, ExactKNNQueryBuilderParser::fromXContent)
         );
     }
 
@@ -251,7 +251,7 @@ public class KNNPlugin extends Plugin
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
-        KNNExactWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
+        ExactKNNWeight.initialize();
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());

@@ -16,10 +16,11 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.query.KNNExactQueryBuilder;
+import org.opensearch.knn.index.query.ExactKNNQueryBuilder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
@@ -29,9 +30,11 @@ import static org.opensearch.knn.common.KNNConstants.QUERY;
 import static org.opensearch.knn.common.KNNConstants.EXACT_KNN;
 import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.PATH;
+import static org.opensearch.knn.common.KNNConstants.TYPE_NESTED;
 
 @Log4j2
-public class KNNExactQueryIT extends KNNRestTestCase {
+public class ExactKNNQueryIT extends KNNRestTestCase {
 
     private static final float[] QUERY_VECTOR = { 1.0f, 2.0f, 3.0f };
     private static final byte[] BYTE_QUERY_VECTOR = { 1, 2, 3 };
@@ -47,7 +50,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
         }
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder()
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .spaceType("innerproduct")
@@ -76,7 +79,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
         }
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder()
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .spaceType("innerproduct")
@@ -105,7 +108,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
         }
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).build();
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).build();
 
         Response searchResponse = validateKNNExactSearch(INDEX_NAME, exactQueryBuilder);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
@@ -130,7 +133,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
         }
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder()
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .spaceType("l1")
@@ -159,7 +162,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
         }
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder()
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .spaceType("linf")
@@ -188,7 +191,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
         }
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder()
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .spaceType("l1")
@@ -217,7 +220,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
         }
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).build();
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).build();
 
         Response searchResponse = validateKNNExactSearch(INDEX_NAME, exactQueryBuilder);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
@@ -245,7 +248,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
         refreshIndex(INDEX_NAME);
         forceMergeKnnIndex(INDEX_NAME);
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).build();
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).build();
 
         Response searchResponse = validateKNNExactSearch(INDEX_NAME, exactQueryBuilder);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
@@ -273,7 +276,7 @@ public class KNNExactQueryIT extends KNNRestTestCase {
         refreshIndex(INDEX_NAME);
         forceMergeKnnIndex(INDEX_NAME);
 
-        KNNExactQueryBuilder exactQueryBuilder = KNNExactQueryBuilder.builder()
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .spaceType("linf")
@@ -337,6 +340,171 @@ public class KNNExactQueryIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
+    @SneakyThrows
+    public void testKNNExactQuery_WithNestedField_NoExpandDocs() {
+        createNestedTestIndex();
+        for (int i = 0; i < SIZE; i++) {
+            NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
+            for (int j = 0; j < SIZE; j++) {
+                builder.addVectors(FIELD_NAME, new Float[] { (float) i + j, (float) i + j, (float) i + j });
+            }
+            String doc = builder.build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().field("_source", false);
+        queryBuilder.startObject(QUERY);
+        queryBuilder.startObject(TYPE_NESTED);
+        queryBuilder.field(PATH, FIELD_NAME_NESTED);
+        queryBuilder.startObject(QUERY).startObject(EXACT_KNN).startObject(FIELD_NAME_NESTED + "." + FIELD_NAME);
+        queryBuilder.field(VECTOR, QUERY_VECTOR);
+        queryBuilder.field("space_type", "l2");
+        queryBuilder.endObject().endObject().endObject();
+        queryBuilder.startObject("inner_hits").endObject();
+        queryBuilder.endObject().endObject().endObject();
+
+        float[] expectedResults = new float[SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            float maxScore = Float.NEGATIVE_INFINITY;
+            for (int j = 0; j < SIZE; j++) {
+                float[] childVector = { i + j, i + j, i + j };
+                float score = SpaceType.L2.getKnnVectorSimilarityFunction().compare(QUERY_VECTOR, childVector);
+                maxScore = Math.max(maxScore, score);
+            }
+            expectedResults[i] = maxScore;
+        }
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, queryBuilder, SIZE);
+        String entity = EntityUtils.toString(searchResponse.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(SIZE, docIds.size());
+        assertEquals(SIZE, parseTotalSearchHits(entity));
+        List<Double> results = parseScores(entity);
+        for (int i = 0; i < SIZE; i++) {
+            assertEquals(expectedResults[i], results.get(i), 0.00001);
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testKNNExactQuery_WithNestedField_NoExpandDocs_L1() {
+        createNestedTestIndex();
+        for (int i = 0; i < SIZE; i++) {
+            NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
+            for (int j = 0; j < SIZE; j++) {
+                builder.addVectors(FIELD_NAME, new Float[] { (float) i + j, (float) i + j, (float) i + j });
+            }
+            String doc = builder.build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().field("_source", false);
+        queryBuilder.startObject(QUERY);
+        queryBuilder.startObject(TYPE_NESTED);
+        queryBuilder.field(PATH, FIELD_NAME_NESTED);
+        queryBuilder.startObject(QUERY).startObject(EXACT_KNN).startObject(FIELD_NAME_NESTED + "." + FIELD_NAME);
+        queryBuilder.field(VECTOR, QUERY_VECTOR);
+        queryBuilder.field("space_type", "l1");
+        queryBuilder.endObject().endObject().endObject();
+        queryBuilder.startObject("inner_hits").endObject();
+        queryBuilder.endObject().endObject().endObject();
+
+        float[] expectedResults = new float[SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            float maxScore = Float.NEGATIVE_INFINITY;
+            for (int j = 0; j < SIZE; j++) {
+                float[] childVector = { i + j, i + j, i + j };
+                float score = 1 / (1 + KNNScoringUtil.l1Norm(QUERY_VECTOR, childVector));
+                maxScore = Math.max(maxScore, score);
+            }
+            expectedResults[i] = maxScore;
+        }
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, queryBuilder, SIZE);
+        String entity = EntityUtils.toString(searchResponse.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(SIZE, docIds.size());
+        assertEquals(SIZE, parseTotalSearchHits(entity));
+        List<Double> results = parseScores(entity);
+        for (int i = 0; i < SIZE; i++) {
+            assertEquals(expectedResults[i], results.get(i), 0.00001);
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testKNNExactQuery_WithNestedField_NoExpandDocs_Binary() {
+        createBinaryNestedTestIndex(false);
+        for (byte i = 0; i < SIZE; i++) {
+            NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
+            for (byte j = 0; j < SIZE; j++) {
+                builder.addVectors(FIELD_NAME, new Byte[] { (byte) (i + j), (byte) (i + j), (byte) (i + j) });
+            }
+            String doc = builder.build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().field("_source", false);
+        queryBuilder.startObject(QUERY);
+        queryBuilder.startObject(TYPE_NESTED);
+        queryBuilder.field(PATH, FIELD_NAME_NESTED);
+        queryBuilder.startObject(QUERY).startObject(EXACT_KNN).startObject(FIELD_NAME_NESTED + "." + FIELD_NAME);
+        queryBuilder.field(VECTOR, QUERY_VECTOR);
+        queryBuilder.endObject().endObject().endObject();
+        queryBuilder.startObject("inner_hits").endObject();
+        queryBuilder.endObject().endObject().endObject();
+
+        float[] expectedResults = new float[SIZE];
+        for (byte i = 0; i < SIZE; i++) {
+            float maxScore = Float.NEGATIVE_INFINITY;
+            for (byte j = 0; j < SIZE; j++) {
+                byte[] childVector = { (byte) (i + j), (byte) (i + j), (byte) (i + j) };
+                float score = SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(BYTE_QUERY_VECTOR, childVector);
+                maxScore = Math.max(maxScore, score);
+            }
+            expectedResults[i] = maxScore;
+        }
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, queryBuilder, SIZE);
+        String entity = EntityUtils.toString(searchResponse.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(SIZE, docIds.size());
+        assertEquals(SIZE, parseTotalSearchHits(entity));
+        List<Double> results = parseScores(entity);
+        for (int i = 0; i < SIZE; i++) {
+            assertEquals(expectedResults[i], results.get(i), 0.00001);
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testKNNExactQuery_HammingFloat_ThenException() {
+        createTestIndex(false);
+        for (int i = 0; i < SIZE; i++) {
+            addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, new float[] { i, i, i });
+        }
+
+        ExactKNNQueryBuilder exactQueryBuilder = ExactKNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .spaceType("hamming")
+            .build();
+
+        Exception e = expectThrows(Exception.class, () -> validateKNNExactSearch(INDEX_NAME, exactQueryBuilder));
+        assertTrue(e.getMessage(), e.getMessage().contains("Hamming space is not supported with float vectors"));
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    private Response validateKNNExactSearch(String testIndex, ExactKNNQueryBuilder exactKNNQueryBuilder) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
+        exactKNNQueryBuilder.doXContent(builder, ToXContent.EMPTY_PARAMS);
+        builder.endObject().endObject();
+        return searchKNNIndex(testIndex, builder, SIZE);
+    }
+
     public void createTestIndex(boolean isLucene) throws IOException {
         String mapping;
         if (isLucene) {
@@ -384,13 +552,6 @@ public class KNNExactQueryIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    private Response validateKNNExactSearch(String testIndex, KNNExactQueryBuilder knnExactQueryBuilder) throws Exception {
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
-        knnExactQueryBuilder.doXContent(builder, ToXContent.EMPTY_PARAMS);
-        builder.endObject().endObject();
-        return searchKNNIndex(testIndex, builder, SIZE);
-    }
-
     private KNNJsonIndexMappingsBuilder.Method getLuceneMethod() {
         return KNNJsonIndexMappingsBuilder.Method.builder().methodName(METHOD_HNSW).engine(KNNEngine.LUCENE.getName()).build();
     }
@@ -401,5 +562,39 @@ public class KNNExactQueryIT extends KNNRestTestCase {
             .spaceType(SpaceType.HAMMING.getValue())
             .engine(isLucene ? KNNEngine.LUCENE.getName() : KNNEngine.FAISS.getName())
             .build();
+    }
+
+    private void createNestedTestIndex() throws IOException {
+        String mapping = KNNJsonIndexMappingsBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .dimension(DIMENSION)
+            .nestedFieldName(FIELD_NAME_NESTED)
+            .build()
+            .getIndexMapping();
+        createKnnIndex(INDEX_NAME, mapping);
+    }
+
+    private void createBinaryNestedTestIndex(boolean isLucene) throws IOException {
+        String mapping;
+        if (isLucene) {
+            mapping = KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .dimension(DIMENSION * 8)
+                .vectorDataType(VectorDataType.BINARY.getValue())
+                .method(getBinaryMethod(isLucene))
+                .nestedFieldName(FIELD_NAME_NESTED)
+                .build()
+                .getIndexMapping();
+        } else {
+            mapping = KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .dimension(DIMENSION * 8)
+                .vectorDataType(VectorDataType.BINARY.getValue())
+                .method(getBinaryMethod(isLucene))
+                .nestedFieldName(FIELD_NAME_NESTED)
+                .build()
+                .getIndexMapping();
+        }
+        createKnnIndex(INDEX_NAME, mapping);
     }
 }

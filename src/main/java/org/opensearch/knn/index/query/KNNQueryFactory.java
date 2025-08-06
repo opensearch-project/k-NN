@@ -58,7 +58,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             shardId = context.getShardId();
         }
 
-        KNNBuilderAndParserUtils.validateExpandNested(expandNested, parentFilter);
+        KNNBuilderUtils.validateExpandNested(expandNested, parentFilter);
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());

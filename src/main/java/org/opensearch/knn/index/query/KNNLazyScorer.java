@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Scorer;
 import org.opensearch.knn.index.query.iterators.KNNIterator;
@@ -16,6 +17,7 @@ import java.io.IOException;
  * Unlike KNNScorer which uses pre-computed TopDocs, this scorer calculates scores
  * only when requested, preventing OOM exceptions for large document sets.
  */
+@Log4j2
 public class KNNLazyScorer extends Scorer {
     private final float boost;
     private final KNNIterator knnIterator;
