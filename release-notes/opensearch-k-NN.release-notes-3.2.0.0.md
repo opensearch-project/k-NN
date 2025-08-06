@@ -12,7 +12,7 @@ Compatible with OpenSearch 3.2.0
 * Support GPU indexing for FP16, Byte and Binary [#2819](https://github.com/opensearch-project/k-NN/pull/2819)
 * Add random rotation feature to binary encoder for improving recall on certain datasets [#2718](https://github.com/opensearch-project/k-NN/pull/2718)
 * Asymmetric Distance Computation (ADC) for binary quantized faiss indices [#2733](https://github.com/opensearch-project/k-NN/pull/2733)
-* Extend transport-grpc module to support GRPC KNN queries [#2792](https://github.com/opensearch-project/k-NN/pull/2792)
+* Extend transport-grpc module to support GRPC KNN queries [#2817](https://github.com/opensearch-project/k-NN/pull/2817)
 
 ### Enhancements
 * Add KNN timing info to core profiler [#2785](https://github.com/opensearch-project/k-NN/pull/2785)
