@@ -5,38 +5,39 @@
 
 package org.opensearch.knn.grpc.proto.request.search.query;
 
+import lombok.experimental.UtilityClass;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
+import org.opensearch.knn.index.query.request.MethodParameter;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverterRegistry;
 import org.opensearch.protobufs.KnnQuery;
 import org.opensearch.protobufs.KnnQueryRescore;
 import org.opensearch.protobufs.QueryContainer;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Utility class for converting KNN Protocol Buffers to OpenSearch objects.
  * This class provides methods to transform Protocol Buffer representations of KNN queries
  * into their corresponding OpenSearch KNNQueryBuilder implementations for search operations.
  */
+@UtilityClass
 public class KNNQueryBuilderProtoUtils {
 
     // Registry for query conversion
     private static QueryBuilderProtoConverterRegistry REGISTRY = new QueryBuilderProtoConverterRegistry();
-
-    private KNNQueryBuilderProtoUtils() {
-        // Utility class, no instances
-    }
 
     /**
      * Sets the registry for testing purposes.
      *
      * @param registry The registry to use
      */
-    static void setRegistry(QueryBuilderProtoConverterRegistry registry) {
+    void setRegistry(QueryBuilderProtoConverterRegistry registry) {
         REGISTRY = registry;
     }
 
@@ -45,136 +46,181 @@ public class KNNQueryBuilderProtoUtils {
      *
      * @return The current registry
      */
-    static QueryBuilderProtoConverterRegistry getRegistry() {
+    QueryBuilderProtoConverterRegistry getRegistry() {
         return REGISTRY;
     }
 
     /**
-     * Converts a Protocol Buffer KnnQuery to an OpenSearch KNNQueryBuilder.
-     * Similar to {@link KNNQueryBuilderParser#fromXContent(XContentParser)}, this method
-     * parses the Protocol Buffer representation and creates a properly configured
-     * KNNQueryBuilder with the appropriate field name, vector, k, and other settings.
-     *
-     * @param knnQueryProto The Protocol Buffer KnnQuery to convert
-     * @return A configured KNNQueryBuilder instance
-     */
-    public static QueryBuilder fromProto(KnnQuery knnQueryProto) {
-
-        // Create a builder for the KNNQueryBuilder with the field name
+    * Converts a Protocol Buffer KnnQuery to an OpenSearch KNNQueryBuilder.
+    * This method follows the exact same pattern as {@link KNNQueryBuilderParser#fromXContent(XContentParser)}
+    * to ensure parsing consistency and compatibility.
+    *
+    * @param knnQueryProto The Protocol Buffer KnnQuery to convert
+    * @return A configured KNNQueryBuilder instance
+    */
+    public QueryBuilder fromProto(KnnQuery knnQueryProto) {
+        // Create builder using the internal parser pattern like XContent parsing
         KNNQueryBuilder.Builder builder = KNNQueryBuilder.builder();
+
+        // Set field name (equivalent to fieldName parsing in XContent)
         builder.fieldName(knnQueryProto.getField());
 
-        // Set vector
-        List<Float> vectorList = knnQueryProto.getVectorList();
-        float[] vector = new float[vectorList.size()];
-        for (int i = 0; i < vectorList.size(); i++) {
-            vector[i] = vectorList.get(i);
+        // Set vector (equivalent to VECTOR_FIELD parsing)
+        builder.vector(convertVector(knnQueryProto.getVectorList()));
+
+        // Set k if present (equivalent to K_FIELD parsing)
+        if (knnQueryProto.getK() > 0) {
+            builder.k(knnQueryProto.getK());
         }
 
-        builder.vector(vector);
-
-        // Set k
-        builder.k(knnQueryProto.getK());
-
-        // Set filter if present
-        if (knnQueryProto.hasFilter()) {
-            // Convert the filter QueryContainer to a QueryBuilder
-            QueryContainer filterQueryContainer = knnQueryProto.getFilter();
-            // Use our instance of the registry to convert the filter
-            builder.filter(REGISTRY.fromProto(filterQueryContainer));
-        }
-
-        // Set max distance if present
-        if (knnQueryProto.hasMaxDistance()) {
+        // Set maxDistance if present (equivalent to MAX_DISTANCE_FIELD parsing)
+        else if (knnQueryProto.hasMaxDistance()) {
             builder.maxDistance(knnQueryProto.getMaxDistance());
         }
 
-        // Set min score if present
-        if (knnQueryProto.hasMinScore()) {
+        // Set minScore if present (equivalent to MIN_SCORE_FIELD parsing)
+        else if (knnQueryProto.hasMinScore()) {
             builder.minScore(knnQueryProto.getMinScore());
         }
 
-        // Set method parameters if present
+        // Set method parameters (equivalent to METHOD_PARAMS_FIELD parsing)
         if (knnQueryProto.hasMethodParameters()) {
-            // Convert ObjectMap to Java Map
-            java.util.Map<String, Object> methodParameters = new java.util.HashMap<>();
-            org.opensearch.protobufs.ObjectMap objectMap = knnQueryProto.getMethodParameters();
-
-            for (java.util.Map.Entry<String, org.opensearch.protobufs.ObjectMap.Value> entry : objectMap.getFieldsMap().entrySet()) {
-                String key = entry.getKey();
-                org.opensearch.protobufs.ObjectMap.Value value = entry.getValue();
-
-                // Extract the value based on its type
-                Object javaValue = null;
-                switch (value.getValueCase()) {
-                    case INT32:
-                        javaValue = value.getInt32();
-                        break;
-                    case INT64:
-                        javaValue = value.getInt64();
-                        break;
-                    case FLOAT:
-                        javaValue = value.getFloat();
-                        break;
-                    case DOUBLE:
-                        javaValue = value.getDouble();
-                        break;
-                    case STRING:
-                        javaValue = value.getString();
-                        break;
-                    case BOOL:
-                        javaValue = value.getBool();
-                        break;
-                    // Handle other types as needed
-                    default:
-                        // Skip unsupported types
-                        continue;
-                }
-
-                methodParameters.put(key, javaValue);
-            }
-
+            Map<String, ?> methodParameters = convertMethodParameters(knnQueryProto.getMethodParameters());
             builder.methodParameters(methodParameters);
         }
 
-        // Set rescore if present
+        // Set filter (equivalent to FILTER_FIELD parsing)
+        if (knnQueryProto.hasFilter()) {
+            QueryContainer filterQueryContainer = knnQueryProto.getFilter();
+            builder.filter(REGISTRY.fromProto(filterQueryContainer));
+        }
+
+        // Set rescore (equivalent to RESCORE_FIELD parsing)
         if (knnQueryProto.hasRescore()) {
-            // Convert the rescore KnnQueryRescore to a RescoreContext
-            KnnQueryRescore rescoreProto = knnQueryProto.getRescore();
-
-            if (rescoreProto.getKnnQueryRescoreCase() == KnnQueryRescore.KnnQueryRescoreCase.ENABLE) {
-                // If enable is true, use default rescore context, otherwise explicitly disable
-                if (rescoreProto.getEnable()) {
-                    builder.rescoreContext(RescoreContext.getDefault());
-                } else {
-                    builder.rescoreContext(RescoreContext.EXPLICITLY_DISABLED_RESCORE_CONTEXT);
-                }
-            } else if (rescoreProto.getKnnQueryRescoreCase() == KnnQueryRescore.KnnQueryRescoreCase.CONTEXT) {
-                // If context is provided, create a RescoreContext with the specified oversample factor
-                org.opensearch.protobufs.RescoreContext contextProto = rescoreProto.getContext();
-                if (contextProto.hasOversampleFactor()) {
-                    builder.rescoreContext(RescoreContext.builder().oversampleFactor(contextProto.getOversampleFactor()).build());
-                } else {
-                    builder.rescoreContext(RescoreContext.getDefault());
-                }
-            }
+            RescoreContext rescoreContext = convertRescoreContext(knnQueryProto.getRescore());
+            builder.rescoreContext(rescoreContext);
         }
 
-        // Set expandNested if present
-        if (knnQueryProto.hasExpandNestedDocs()) {
-            builder.expandNested(knnQueryProto.getExpandNestedDocs());
-        }
-
-        // Set boost if present
+        // Set boost (equivalent to BOOST_FIELD parsing)
         if (knnQueryProto.hasBoost()) {
             builder.boost(knnQueryProto.getBoost());
         }
 
-        // Set name if present
+        // Set query name (equivalent to NAME_FIELD parsing)
         if (knnQueryProto.hasUnderscoreName()) {
             builder.queryName(knnQueryProto.getUnderscoreName());
         }
 
+        // Set expandNested (equivalent to EXPAND_NESTED_FIELD parsing)
+        if (knnQueryProto.hasExpandNestedDocs()) {
+            builder.expandNested(knnQueryProto.getExpandNestedDocs());
+        }
+
         return builder.build();
     }
+
+    /**
+     * Converts a Protocol Buffer vector list to a float array.
+     *
+     * @param vectorList The Protocol Buffer vector list
+     * @return The converted float array
+     */
+    private float[] convertVector(List<Float> vectorList) {
+        float[] vector = new float[vectorList.size()];
+        for (int i = 0; i < vectorList.size(); i++) {
+            vector[i] = vectorList.get(i);
+        }
+        return vector;
+    }
+
+    /**
+     * Converts Protocol Buffer method parameters following the exact same pattern as
+     * {@link MethodParametersParser#fromXContent(XContentParser)} to ensure consistency.
+     *
+     * @param objectMap The Protocol Buffer ObjectMap to convert
+     * @return The converted method parameters Map
+     */
+    private Map<String, ?> convertMethodParameters(org.opensearch.protobufs.ObjectMap objectMap) {
+        // First convert Protocol Buffer to raw Map (equivalent to parser.map())
+        Map<String, Object> rawMethodParameters = new HashMap<>();
+        for (Map.Entry<String, org.opensearch.protobufs.ObjectMap.Value> entry : objectMap.getFieldsMap().entrySet()) {
+            String key = entry.getKey();
+            Object value = convertObjectMapValue(entry.getValue());
+            if (value != null) {
+                rawMethodParameters.put(key, value);
+            }
+        }
+
+        // Then process through MethodParameter.parse() exactly like XContent parsing does
+        Map<String, Object> processedMethodParameters = new HashMap<>();
+        for (Map.Entry<String, Object> entry : rawMethodParameters.entrySet()) {
+            String name = entry.getKey();
+            Object value = entry.getValue();
+
+            // Find the MethodParameter enum (same as XContent parsing)
+            MethodParameter parameter = MethodParameter.enumOf(name);
+            if (parameter == null) {
+                throw new IllegalArgumentException("unknown method parameter found [" + name + "]");
+            }
+
+            try {
+                // Parse using MethodParameter.parse() - this handles type conversion properly
+                Object parsedValue = parameter.parse(value);
+                processedMethodParameters.put(name, parsedValue);
+            } catch (Exception exception) {
+                throw new IllegalArgumentException("Error parsing method parameter [" + name + "]: " + exception.getMessage());
+            }
+        }
+
+        return processedMethodParameters.isEmpty() ? null : processedMethodParameters;
+    }
+
+    /**
+    * Converts a Protocol Buffer ObjectMap.Value to a Java Object.
+    *
+    * @param value The Protocol Buffer Value to convert
+    * @return The converted Java Object, or null if unsupported type
+    */
+    private Object convertObjectMapValue(org.opensearch.protobufs.ObjectMap.Value value) {
+        switch (value.getValueCase()) {
+            case INT32:
+                return value.getInt32();
+            case INT64:
+                return value.getInt64();
+            case FLOAT:
+                return value.getFloat();
+            case DOUBLE:
+                return value.getDouble();
+            case STRING:
+                return value.getString();
+            case BOOL:
+                return value.getBool();
+            default:
+                // Skip unsupported types
+                return null;
+        }
+    }
+
+    /**
+     * Converts a Protocol Buffer KnnQueryRescore to a RescoreContext.
+     *
+     * @param rescoreProto The Protocol Buffer KnnQueryRescore to convert
+     * @return The converted RescoreContext
+     */
+    private RescoreContext convertRescoreContext(KnnQueryRescore rescoreProto) {
+        switch (rescoreProto.getKnnQueryRescoreCase()) {
+            case ENABLE:
+                return rescoreProto.getEnable() ? RescoreContext.getDefault() : RescoreContext.EXPLICITLY_DISABLED_RESCORE_CONTEXT;
+
+            case CONTEXT:
+                org.opensearch.protobufs.RescoreContext contextProto = rescoreProto.getContext();
+                return contextProto.hasOversampleFactor()
+                    ? RescoreContext.builder().oversampleFactor(contextProto.getOversampleFactor()).build()
+                    : RescoreContext.getDefault();
+
+            default:
+                return RescoreContext.getDefault();
+        }
+    }
+
 }

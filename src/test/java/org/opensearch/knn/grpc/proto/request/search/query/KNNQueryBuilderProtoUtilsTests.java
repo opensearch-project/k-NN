@@ -79,7 +79,6 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .addVector(1.0f)
             .addVector(2.0f)
             .addVector(3.0f)
-            .setK(5)
             .setMaxDistance(0.75f)
             .build();
 
@@ -97,7 +96,6 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .addVector(1.0f)
             .addVector(2.0f)
             .addVector(3.0f)
-            .setK(5)
             .setMinScore(0.85f)
             .build();
 
@@ -143,9 +141,9 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
 
     @Test
     public void testFromProto_withMethodParameters() {
-        ObjectMap.Value intValue = ObjectMap.Value.newBuilder().setInt32(100).build();
-        ObjectMap.Value floatValue = ObjectMap.Value.newBuilder().setFloat(0.5f).build();
-        ObjectMap methodParams = ObjectMap.newBuilder().putFields("ef_search", intValue).putFields("nprobes", floatValue).build();
+        ObjectMap.Value efSearchValue = ObjectMap.Value.newBuilder().setInt32(100).build();
+        ObjectMap.Value nprobesValue = ObjectMap.Value.newBuilder().setInt32(10).build();
+        ObjectMap methodParams = ObjectMap.newBuilder().putFields("ef_search", efSearchValue).putFields("nprobes", nprobesValue).build();
 
         KnnQuery knnQuery = KnnQuery.newBuilder()
             .setField("test_field")
@@ -163,7 +161,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
         assertNotNull(methodParameters);
         assertEquals(2, methodParameters.size());
         assertEquals(100, methodParameters.get("ef_search"));
-        assertEquals(0.5f, methodParameters.get("nprobes"));
+        assertEquals(10, methodParameters.get("nprobes"));
     }
 
     @Test
