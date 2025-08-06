@@ -320,7 +320,6 @@ opensearchplugin {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
-
 tasks.named("integTest").configure {
     it.dependsOn(project.tasks.named("bundlePlugin"))
 }
@@ -337,6 +336,14 @@ task release(type: Copy, group: 'build') {
 //****************************************************************************/
 // Dependencies
 //****************************************************************************/
+// Force resolution of conflicting dependencies for tests
+configurations.matching { it.name.contains('test') || it.name.contains('Test') }.all {
+    resolutionStrategy {
+        force 'com.google.guava:guava:33.4.8-jre'
+        force 'com.google.guava:failureaccess:1.0.1'
+    }
+}
+
 dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     api project(":remote-index-build-client")
