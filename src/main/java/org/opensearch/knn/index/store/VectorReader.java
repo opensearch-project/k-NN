@@ -23,7 +23,7 @@ public class VectorReader {
     public float[] nextFloatVector() throws IOException {
         int docId = iterator.nextDoc();
         if (docId != KnnVectorValues.DocIndexIterator.NO_MORE_DOCS && knnVectorValues instanceof FloatVectorValues) {
-            return ((FloatVectorValues) knnVectorValues).vectorValue(docId);
+            return ((FloatVectorValues) knnVectorValues).vectorValue(iterator.index());
         }
         return null;
     }
@@ -31,7 +31,7 @@ public class VectorReader {
     public byte[] nextByteVector() throws IOException {
         int docId = iterator.nextDoc();
         if (docId != KnnVectorValues.DocIndexIterator.NO_MORE_DOCS && knnVectorValues instanceof ByteVectorValues) {
-            return ((ByteVectorValues) knnVectorValues).vectorValue(docId);
+            return ((ByteVectorValues) knnVectorValues).vectorValue(iterator.index());
         }
         return null;
     }

@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import static org.mockito.Mockito.mock;
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
 public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
@@ -44,8 +45,10 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
         final KNNVectorSimilarityFunction similarityFunction
     ) {
         doTestWithIndexInput(input -> {
+            FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
+
             // Instantiate memory optimized searcher
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, NO_ADC_NEEDED);
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, NO_ADC_NEEDED, flatVectorsReaderWithFieldName);
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;
@@ -84,7 +87,7 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
 
             // Get answer
             input.seek(0);
-            final FaissIndex faissIndex = FaissIndex.load(input);
+            final FaissIndex faissIndex = FaissIndex.load(input, flatVectorsReaderWithFieldName);
             final Set<Integer> answerScoreDocs;
             if (vectorDataType == VectorDataType.FLOAT) {
                 answerScoreDocs = calculateFloatAnswer((float[]) query, faissIndex.getFloatValues(input), k, similarityFunction);
@@ -138,7 +141,9 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
 
     protected void doTestLoadVectors(final VectorDataType vectorDataType, final Object firstVector, final Object lastVector) {
         doTestWithIndexInput(input -> {
-            final FaissIndex faissIndex = FaissIndex.load(input);
+            FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
+
+            final FaissIndex faissIndex = FaissIndex.load(input,flatVectorsReaderWithFieldName);
 
             if (vectorDataType == VectorDataType.FLOAT) {
                 final FloatVectorValues values = faissIndex.getFloatValues(input);
