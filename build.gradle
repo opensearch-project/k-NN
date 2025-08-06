@@ -320,6 +320,14 @@ opensearchplugin {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
+// Force bundle Guava dependencies
+tasks.named("bundlePlugin").configure {
+    from(configurations.runtimeClasspath) {
+        include "guava-*.jar"
+        include "failureaccess-*.jar"
+    }
+}
+
 tasks.named("integTest").configure {
     it.dependsOn(project.tasks.named("bundlePlugin"))
 }
@@ -341,7 +349,7 @@ dependencies {
     api project(":remote-index-build-client")
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compileOnly "org.opensearch.plugin:transport-grpc:${opensearch_version}"
-    implementation "org.opensearch:protobufs:0.6.0"
+    compileOnly "org.opensearch:protobufs:0.6.0"
     api group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     api group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
