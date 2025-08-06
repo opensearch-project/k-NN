@@ -13,6 +13,7 @@ package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IndexInput;
 import org.junit.After;
@@ -576,13 +577,15 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext1 = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
-                "test"
+                "test",
+                knnVectorValues
             )
         );
 
@@ -613,8 +616,16 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, "test")
+            new NativeMemoryEntryContext.IndexEntryContext(
+                (Directory) null,
+                "invalid-cache-key",
+                indexLoadStrategy,
+                null,
+                "test",
+                knnVectorValues
+            )
         );
 
         Directory mockDirectory = mock(Directory.class);
@@ -627,8 +638,16 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
-            new NativeMemoryEntryContext.IndexEntryContext((Directory) null, "invalid-cache-key", indexLoadStrategy, null, "test")
+            new NativeMemoryEntryContext.IndexEntryContext(
+                (Directory) null,
+                "invalid-cache-key",
+                indexLoadStrategy,
+                null,
+                "test",
+                knnVectorValues
+            )
         );
 
         doReturn(0).when(indexEntryContext).calculateSizeInKB();
@@ -665,13 +684,15 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext1 = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
-                "test"
+                "test",
+                knnVectorValues
             )
         );
 
@@ -725,13 +746,15 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // Create and set up the spy context that will be shared across threads
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext sharedContext = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
-                "test"
+                "test",
+                knnVectorValues
             )
         );
 

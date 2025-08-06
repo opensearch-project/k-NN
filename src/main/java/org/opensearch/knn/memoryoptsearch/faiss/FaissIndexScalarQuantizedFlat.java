@@ -11,6 +11,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructor;
 import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructorFactory;
 import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizerType;
@@ -43,6 +44,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     private FaissSection trainedValues;
     private FaissSection flatVectors;
     private VectorEncoding vectorEncoding;
+    private FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName;
 
     public FaissIndexScalarQuantizedFlat() {
         super(IXSQ);
@@ -56,8 +58,9 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
      * @throws IOException
      */
     @Override
-    protected void doLoad(IndexInput input) throws IOException {
-        readCommonHeader(input);
+    protected void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
+        this.flatVectorsReaderWithFieldName = flatVectorsReaderWithFieldName;
+        boolean dedupApplied = readCommonHeader(input);
 
         // Load quantizer type
         quantizerType = FaissQuantizerType.values()[input.readInt()];
@@ -81,7 +84,11 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
         trainedValues = new FaissSection(input, Float.BYTES);
         setDerivedSizes();
 
-        flatVectors = new FaissSection(input, Byte.BYTES);
+        if (dedupApplied) {
+            flatVectors = null;
+        } else {
+            flatVectors = new FaissSection(input, Byte.BYTES);
+        }
 
         // This should be put at the last as it needs dimension info + etc.
         reconstructor = FaissQuantizedValueReconstructorFactory.create(quantizerType, dimension, oneVectorElementBits);
@@ -93,7 +100,10 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     }
 
     @Override
-    public FloatVectorValues getFloatValues(IndexInput indexInput) {
+    public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
+        if (flatVectors == null) {
+            return flatVectorsReaderWithFieldName.getFlatVectorsReader().getFloatVectorValues(flatVectorsReaderWithFieldName.getField());
+        }
         @RequiredArgsConstructor
         final class FloatVectorValuesImpl extends FloatVectorValues {
             final IndexInput indexInput;
@@ -128,7 +138,10 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     }
 
     @Override
-    public ByteVectorValues getByteValues(IndexInput indexInput) {
+    public ByteVectorValues getByteValues(IndexInput indexInput) throws IOException {
+        if (flatVectors == null) {
+            return flatVectorsReaderWithFieldName.getFlatVectorsReader().getByteVectorValues(flatVectorsReaderWithFieldName.getField());
+        }
         @RequiredArgsConstructor
         final class ByteVectorValuesImpl extends ByteVectorValues {
             final IndexInput indexInput;

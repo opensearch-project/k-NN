@@ -61,7 +61,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         // Mocking FAISS engine to return a dummy vector searcher
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
-        when(mockFactory.createVectorSearcher(any(), any(), any())).thenReturn(mock(VectorSearcher.class));
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
 
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {

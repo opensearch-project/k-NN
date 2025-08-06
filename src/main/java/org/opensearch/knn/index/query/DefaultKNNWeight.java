@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.TopDocs;
@@ -192,6 +193,9 @@ public class DefaultKNNWeight extends KNNWeight {
         final String modelId,
         LeafReaderContext context
     ) throws ExecutionException, IOException {
+        KnnVectorValues knnVectorValues = (vectorDataType == VectorDataType.BYTE)
+            ? context.reader().getByteVectorValues(knnQuery.getField())
+            : context.reader().getFloatVectorValues(knnQuery.getField());
         return nativeMemoryCacheManager.get(
             new NativeMemoryEntryContext.IndexEntryContext(
                 reader.directory(),
@@ -206,7 +210,8 @@ public class DefaultKNNWeight extends KNNWeight {
                     segmentLevelQuantizationInfo
                 ),
                 knnQuery.getIndexName(),
-                modelId
+                modelId,
+                knnVectorValues
             ),
             true
         );

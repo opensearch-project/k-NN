@@ -24,5 +24,10 @@ public interface VectorSearcherFactory {
      * @return Null instance if it is not supported, otherwise return {@link VectorSearcher}
      * @throws IOException
      */
-    VectorSearcher createVectorSearcher(Directory directory, String fileName, FieldInfo fieldInfo) throws IOException;
+    VectorSearcher createVectorSearcher(
+        Directory directory,
+        String fileName,
+        FieldInfo fieldInfo,
+        FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName
+    ) throws IOException;
 }

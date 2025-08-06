@@ -23,6 +23,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.mockito.Mockito.mock;
+
 public class FaissByteIndexTests extends KNNTestCase {
     static final int NUM_VECTORS = 100;
     static final int DIMENSION = 8;
@@ -31,9 +33,10 @@ public class FaissByteIndexTests extends KNNTestCase {
     public void testLoad() {
         // Load binary
         final IndexInput indexInput = loadFlatByteVectors();
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
 
         // Trigger load
-        final FaissIndex faissIndex = FaissIdMapIndex.load(indexInput);
+        final FaissIndex faissIndex = FaissIdMapIndex.load(indexInput, flatVectorsReaderWithFieldName);
         assertTrue(faissIndex instanceof FaissIndexScalarQuantizedFlat);
         final FaissIndexScalarQuantizedFlat faissByteIndex = (FaissIndexScalarQuantizedFlat) faissIndex;
 

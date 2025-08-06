@@ -10,6 +10,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissSection;
 
 import java.io.IOException;
@@ -40,7 +41,7 @@ public class FaissIndexBinaryFlat extends FaissBinaryIndex {
      * @throws IOException
      */
     @Override
-    protected void doLoad(IndexInput input) throws IOException {
+    protected void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
         readBinaryCommonHeader(input);
         binaryFlatVectorSection = new FaissSection(input, 1);
     }

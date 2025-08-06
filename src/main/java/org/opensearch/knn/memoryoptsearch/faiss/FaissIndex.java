@@ -12,6 +12,7 @@ import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 
 import java.io.IOException;
 
@@ -49,20 +50,21 @@ public abstract class FaissIndex {
      * @return Top level {@link FaissIndex}.
      * @throws IOException
      */
-    public static FaissIndex load(IndexInput input) throws IOException {
+    public static FaissIndex load(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
         final String indexType = FaissIndexLoadUtils.readIndexType(input);
         final FaissIndex faissIndex = IndexTypeToFaissIndexMapping.getFaissIndex(indexType);
-        faissIndex.doLoad(input);
+        faissIndex.doLoad(input, flatVectorsReaderWithFieldName);
         return faissIndex;
     }
 
-    protected abstract void doLoad(IndexInput input) throws IOException;
+    protected abstract void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException;
 
-    protected void readCommonHeader(IndexInput readStream) throws IOException {
+    protected boolean readCommonHeader(IndexInput readStream) throws IOException {
         dimension = readStream.readInt();
         totalNumberOfVectors = Math.toIntExact(readStream.readLong());
         // consume 2 dummy deprecated fields.
-        readStream.readLong();
+        final long dedupCheck = readStream.readLong();
+        final boolean dedupApplied = dedupCheck == 0xFFFFFFF;
         readStream.readLong();
 
         // We don't use this field
@@ -76,6 +78,8 @@ public abstract class FaissIndex {
         } else {
             throw new IllegalStateException("Partial loading does not support metric type index=" + metricTypeIndex + " from FAISS.");
         }
+
+        return dedupApplied;
     }
 
     /**
