@@ -296,6 +296,10 @@ public abstract class KNNWeight extends Weight {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         final String segmentName = reader.getSegmentName();
 
+        if (false) {
+            log.info("NOOP log to run CI");
+        }
+
         StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
         stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
