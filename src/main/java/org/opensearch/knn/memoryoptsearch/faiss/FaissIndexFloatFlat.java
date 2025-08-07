@@ -87,6 +87,12 @@ public class FaissIndexFloatFlat extends FaissIndex {
         return VectorEncoding.FLOAT32;
     }
 
+    /**
+     * Returns a {@link FloatVectorValues} view for reading vectors.
+     * <p>
+     * If deduplication is enabled, vectors will be read from the .vec file
+     * instead of the flat vector section in the .faiss file.
+     */
     @Override
     public FloatVectorValues getFloatValues(final IndexInput indexInput) throws IOException {
         if (floatVectors == null) {

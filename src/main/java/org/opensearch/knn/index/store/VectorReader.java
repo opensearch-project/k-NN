@@ -11,6 +11,8 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+
 public class VectorReader {
     private final KNNVectorValues<?> knnVectorValues;
 
@@ -29,7 +31,7 @@ public class VectorReader {
      */
     public float[] nextFloatVector() throws IOException {
         int docId = knnVectorValues.nextDoc();
-        if (docId != -1 && knnVectorValues instanceof KNNFloatVectorValues) {
+        if (docId != NO_MORE_DOCS && knnVectorValues instanceof KNNFloatVectorValues) {
             return ((KNNFloatVectorValues) knnVectorValues).getVector();
         }
         return null;
@@ -46,7 +48,7 @@ public class VectorReader {
      */
     public byte[] nextByteVector() throws IOException {
         int docId = knnVectorValues.nextDoc();
-        if (docId != -1 && knnVectorValues instanceof KNNByteVectorValues) {
+        if (docId != NO_MORE_DOCS && knnVectorValues instanceof KNNByteVectorValues) {
             return ((KNNByteVectorValues) knnVectorValues).getVector();
         }
         return null;

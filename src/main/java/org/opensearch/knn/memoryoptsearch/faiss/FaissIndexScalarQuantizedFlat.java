@@ -99,6 +99,11 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
         return vectorEncoding;
     }
 
+    /**
+     * Returns a {@link FloatVectorValues} view for reading vectors.
+     * <p>
+     * If deduplication is enabled, vectors will be read from the .vec file
+     */
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
         if (flatVectors == null) {
@@ -137,6 +142,11 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
         return new FloatVectorValuesImpl(indexInput);
     }
 
+    /**
+     * Returns a {@link ByteVectorValues} view for reading vectors.
+     * <p>
+     * If deduplication is enabled, vectors will be read from the .vec file
+     */
     @Override
     public ByteVectorValues getByteValues(IndexInput indexInput) throws IOException {
         if (flatVectors == null) {

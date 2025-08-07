@@ -34,7 +34,7 @@ public abstract class FaissIndex {
     protected int totalNumberOfVectors;
     // Space type used to index vectors in this index.
     protected SpaceType spaceType;
-    static long DEDUPE_VECTORS_OPT_DISABLED = 0xFFFFFFF;
+    static long DEDUPE_VECTORS_OPT_DISABLED = 0x7FFFFFFFFFFFFFFFL;
 
     public FaissIndex(final String indexType) {
         this.indexType = indexType;
@@ -60,12 +60,19 @@ public abstract class FaissIndex {
 
     protected abstract void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException;
 
+    /**
+     * Reads the common header from the FAISS index input.
+     * <p>
+     * Previously, this method did not return any value, but to support
+     * deduplication optimization it now returns a boolean indicating
+     * whether deduplication was applied.
+     */
     protected boolean readCommonHeader(IndexInput readStream) throws IOException {
         dimension = readStream.readInt();
         totalNumberOfVectors = Math.toIntExact(readStream.readLong());
         // consume 2 dummy deprecated fields.
         final long dedupCheck = readStream.readLong();
-        final boolean dedupApplied = dedupCheck == DEDUPE_VECTORS_OPT_DISABLED;
+        final boolean dedupApplied = (dedupCheck & DEDUPE_VECTORS_OPT_DISABLED) == DEDUPE_VECTORS_OPT_DISABLED;
         readStream.readLong();
 
         // We don't use this field
