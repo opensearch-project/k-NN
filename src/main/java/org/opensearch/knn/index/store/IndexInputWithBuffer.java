@@ -8,8 +8,8 @@ package org.opensearch.knn.index.store;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
-import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 
@@ -27,7 +27,7 @@ public class IndexInputWithBuffer {
 
     @Getter
     @Setter
-    private KnnVectorValues knnVectorValues;
+    private KNNVectorValues<?> knnVectorValues;
 
     public IndexInputWithBuffer(@NonNull IndexInput indexInput) {
         this.indexInput = indexInput;

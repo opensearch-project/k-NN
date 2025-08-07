@@ -33,6 +33,7 @@ import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -577,7 +578,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
-        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext1 = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
@@ -616,7 +617,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
-        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
@@ -638,7 +639,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
-        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
@@ -684,7 +685,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
-        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext1 = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
@@ -746,7 +747,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // Create and set up the spy context that will be shared across threads
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
-        final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext sharedContext = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,

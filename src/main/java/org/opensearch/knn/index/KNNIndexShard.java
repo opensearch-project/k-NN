@@ -46,6 +46,8 @@ import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
@@ -166,10 +168,10 @@ public class KNNIndexShard {
                     engineFileContext.segmentInfo
                 );
 
-                final VectorDataType vectorDataType = engineFileContext.getVectorDataType();
-                final KnnVectorValues knnVectorValues = (vectorDataType == VectorDataType.BYTE)
-                    ? leafReaderContext.reader().getByteVectorValues(engineFileContext.getFieldName())
-                    : leafReaderContext.reader().getFloatVectorValues(engineFileContext.getFieldName());
+                final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+                FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, engineFileContext.getFieldName());
+
+                final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, leafReaderContext.reader());
 
                 // Load an off-heap index
                 nativeMemoryCacheManager.get(

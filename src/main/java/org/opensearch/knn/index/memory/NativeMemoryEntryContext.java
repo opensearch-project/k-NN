@@ -23,6 +23,7 @@ import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.util.Map;
@@ -106,7 +107,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         IndexInputWithBuffer indexInputWithBuffer;
 
         @Getter
-        KnnVectorValues knnVectorValues;
+        KNNVectorValues<?> knnVectorValues;
 
         /**
          * Constructor
@@ -123,7 +124,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName,
-            KnnVectorValues knnVectorValues
+            KNNVectorValues<?> knnVectorValues
         ) {
             this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null, knnVectorValues);
         }
@@ -145,7 +146,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             Map<String, Object> parameters,
             String openSearchIndexName,
             String modelId,
-            KnnVectorValues knnVectorValues
+            KNNVectorValues<?> knnVectorValues
         ) {
             super(vectorIndexCacheKey);
             this.directory = directory;

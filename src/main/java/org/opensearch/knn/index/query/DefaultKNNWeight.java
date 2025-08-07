@@ -13,6 +13,8 @@ import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Version;
+import org.opensearch.common.lucene.Lucene;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -21,6 +23,8 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 
@@ -193,9 +197,9 @@ public class DefaultKNNWeight extends KNNWeight {
         final String modelId,
         LeafReaderContext context
     ) throws ExecutionException, IOException {
-        KnnVectorValues knnVectorValues = (vectorDataType == VectorDataType.BYTE)
-            ? context.reader().getByteVectorValues(knnQuery.getField())
-            : context.reader().getFloatVectorValues(knnQuery.getField());
+        FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, context.reader());
+
         return nativeMemoryCacheManager.get(
             new NativeMemoryEntryContext.IndexEntryContext(
                 reader.directory(),

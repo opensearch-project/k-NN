@@ -21,6 +21,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQueryResult;
@@ -59,7 +60,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
             long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
             TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
-            final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
+            final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
 
             // Setup mock resource manager
             NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
@@ -108,7 +109,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             );
             long memoryAddress = JNICommons.storeBinaryVectorData(0, vectors, numVectors);
             TestUtils.createIndex(ids, memoryAddress, dimension, luceneDirectory, indexFileName, parameters, knnEngine);
-            final KnnVectorValues knnVectorValues = mock(KnnVectorValues.class);
+            final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
 
             // Setup mock resource manager
             NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
