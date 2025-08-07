@@ -8,6 +8,11 @@ import org.apache.tools.ant.taskdefs.condition.Os
 
 apply from : "$rootDir/qa/build.gradle"
 
+dependencies {
+    // Ensure Guava is available for BWC test compilation
+    testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+}
+
 String default_bwc_version = System.getProperty("bwc.version")
 String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
 boolean isSnapshot = knn_bwc_version.contains("-SNAPSHOT")
@@ -137,7 +142,7 @@ testClusters {
                 excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
             }
         }
-        
+
         if (knn_bwc_version.startsWith("1.") ||
                 knn_bwc_version.startsWith("2.0.") ||
                 knn_bwc_version.startsWith("2.1.") ||
