@@ -18,6 +18,7 @@ import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
@@ -126,6 +127,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
+import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_THREAD_POOL;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
@@ -385,7 +387,7 @@ public class KNNPlugin extends Plugin
 
     @Override
     public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
-        return ImmutableList.of(new FixedExecutorBuilder(settings, TRAIN_THREAD_POOL, 1, 1, KNN_THREAD_POOL_PREFIX, false));
+        return ImmutableList.of(new FixedExecutorBuilder(settings, TRAIN_THREAD_POOL, 1, 1, KNN_THREAD_POOL_PREFIX, false), new FixedExecutorBuilder(settings, EXACT_SEARCH_THREAD_POOL, 2 * (OpenSearchExecutors.allocatedProcessors(settings)), 1000, KNN_THREAD_POOL_PREFIX, false));
     }
 
     @Override

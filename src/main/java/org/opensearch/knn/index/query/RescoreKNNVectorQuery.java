@@ -19,6 +19,7 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.util.BitSet;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
@@ -115,8 +116,9 @@ public class RescoreKNNVectorQuery extends Query {
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
         DocIdSetIterator iterator = scorer.iterator();
+        BitSet matchedDocs = BitSet.of(iterator, leafReaderContext.reader().maxDoc());
         final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-            .matchedDocsIterator(iterator)
+            .matchedDocs(matchedDocs)
             .numberOfMatchedDocs(iterator.cost())
             // setting to false because in re-scoring we want to do exact search on full precision vectors
             .useQuantizedVectorsForSearch(false)

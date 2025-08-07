@@ -63,6 +63,7 @@ public class KNNConstants {
 
     public static final String KNN_THREAD_POOL_PREFIX = "knn";
     public static final String TRAIN_THREAD_POOL = "training";
+    public static final String EXACT_SEARCH_THREAD_POOL = "exact_search";
 
     public static final String TRAINING_JOB_COUNT_FIELD_NAME = "training_job_count";
     public static final String NODES_KEY = "nodes";
