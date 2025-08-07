@@ -149,7 +149,7 @@ public class ExactSearcher {
             int minDocId = offset, maxDocId = computePartitionEnd(parentBitSet, offset + size, maxDoc);
             tasks.add(() -> {
                 DocIdSetIterator matchedDocsIterator = matchedDocs != null
-                    ? new RangeDocIdSetIterator(new BitSetIterator(matchedDocs, context.getNumberOfMatchedDocs()), minDocId, maxDocId)
+                    ? new RangeDocIdSetIterator(new BitSetIterator(matchedDocs, maxDocId - minDocId), minDocId, maxDocId)
                     : DocIdSetIterator.range(minDocId, maxDocId);
                 KNNIterator iterator = getKNNIterator(leafReaderContext, context, matchedDocsIterator);
                 if (iterator == null) {
