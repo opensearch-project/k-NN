@@ -12,7 +12,6 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;

@@ -13,7 +13,6 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;

@@ -13,7 +13,6 @@ package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IndexInput;
 import org.junit.After;
