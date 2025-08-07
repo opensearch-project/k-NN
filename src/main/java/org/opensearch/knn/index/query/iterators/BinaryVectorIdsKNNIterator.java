@@ -77,13 +77,13 @@ public class BinaryVectorIdsKNNIterator implements KNNIterator {
     }
 
     protected int getNextDocId() throws IOException {
-        if (docIdSetIterator == null) {
-            return binaryVectorValues.nextDoc();
-        }
         int nextDocID = this.docIdSetIterator.nextDoc();
         // For filter case, advance vector values to corresponding doc id from filter bit set
         if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
-            binaryVectorValues.advance(nextDocID);
+            int ret = binaryVectorValues.advance(nextDocID);
+            if (ret > nextDocID) {
+                nextDocID = this.docIdSetIterator.advance(ret);
+            }
         }
         return nextDocID;
     }

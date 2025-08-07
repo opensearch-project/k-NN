@@ -318,7 +318,7 @@ public abstract class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            TopDocs result = doExactSearch(context, filterBitSet, cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -338,8 +338,7 @@ public abstract class KNNWeight extends Weight {
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, topDocs.scoreDocs.length)) {
-            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            TopDocs result = doExactSearch(context, docs, cardinality, k);
+            TopDocs result = doExactSearch(context, filterWeight != null ? filterBitSet : null, cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, topDocs);
@@ -384,12 +383,8 @@ public abstract class KNNWeight extends Weight {
         return BitSet.of(filterIterator, maxDoc);
     }
 
-    private TopDocs doExactSearch(
-        final LeafReaderContext context,
-        final DocIdSetIterator acceptedDocs,
-        final long numberOfAcceptedDocs,
-        final int k
-    ) throws IOException {
+    private TopDocs doExactSearch(final LeafReaderContext context, final BitSet matchedDocs, final long numberOfAcceptedDocs, final int k)
+        throws IOException {
         final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
             .parentsFilter(knnQuery.getParentsFilter())
             .k(k)
@@ -398,7 +393,7 @@ public abstract class KNNWeight extends Weight {
             .useQuantizedVectorsForSearch(true)
             .field(knnQuery.getField())
             .radius(knnQuery.getRadius())
-            .matchedDocsIterator(acceptedDocs)
+            .matchedDocs(matchedDocs)
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())

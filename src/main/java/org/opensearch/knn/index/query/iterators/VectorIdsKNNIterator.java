@@ -104,13 +104,13 @@ public class VectorIdsKNNIterator implements KNNIterator {
     }
 
     protected int getNextDocId() throws IOException {
-        if (filterIdsIterator == null) {
-            return knnFloatVectorValues.nextDoc();
-        }
         int nextDocID = this.filterIdsIterator.nextDoc();
         // For filter case, advance vector values to corresponding doc id from filter bit set
         if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
-            knnFloatVectorValues.advance(nextDocID);
+            int ret = knnFloatVectorValues.advance(nextDocID);
+            if (ret > nextDocID) {
+                nextDocID = this.filterIdsIterator.advance(ret);
+            }
         }
         return nextDocID;
     }
