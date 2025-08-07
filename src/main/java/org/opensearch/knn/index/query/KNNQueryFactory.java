@@ -21,10 +21,8 @@ import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
-import java.util.Locale;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS;
 
@@ -63,16 +61,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             mappedFieldType = (KNNVectorFieldType) context.getFieldType(fieldName);
         }
 
-        if (parentFilter == null && expandNested) {
-            throw new IllegalArgumentException(
-                String.format(
-                    Locale.ROOT,
-                    "Invalid value provided for the [%s] field. [%s] is only supported with a nested field.",
-                    EXPAND_NESTED,
-                    EXPAND_NESTED
-                )
-            );
-        }
+        KNNBuilderUtils.validateExpandNested(expandNested, parentFilter);
 
         // if index = false and graphs are not built, use KNNQuery since engine would not matter
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())

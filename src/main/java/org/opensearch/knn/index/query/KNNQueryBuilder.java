@@ -234,15 +234,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         private void validate() {
-            if (Strings.isNullOrEmpty(fieldName)) {
-                throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires fieldName", NAME));
-            }
-
-            if (vector == null) {
-                throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires query vector", NAME));
-            } else if (vector.length == 0) {
-                throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] query vector is empty", NAME));
-            }
+            KNNBuilderUtils.validateFieldName(fieldName, NAME);
+            KNNBuilderUtils.validateVector(vector, NAME);
 
             if (k == null && minScore == null && maxDistance == null) {
                 throw new IllegalArgumentException(
@@ -424,15 +417,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
     @Override
     protected Query doToQuery(QueryShardContext context) {
-        MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
-
-        if (mappedFieldType == null && ignoreUnmapped) {
+        MappedFieldType mappedFieldType = KNNBuilderUtils.validateAndGetFieldType(this.fieldName, context, ignoreUnmapped);
+        if (mappedFieldType == null) {
             return new MatchNoDocsQuery();
         }
 
-        if (!(mappedFieldType instanceof KNNVectorFieldType)) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
-        }
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         QueryConfigFromMapping queryConfigFromMapping = getQueryConfig(knnMappingConfig, knnVectorFieldType);
@@ -517,16 +506,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
 
-        int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
-        if (knnMappingConfig.getDimension() != vectorLength) {
-            throw new IllegalArgumentException(
-                String.format(
-                    "Query vector has invalid dimension: %d. Dimension should be: %d",
-                    vectorLength,
-                    knnMappingConfig.getDimension()
-                )
-            );
-        }
+        KNNBuilderUtils.validateVectorDimension(vectorDataType, vector.length, knnMappingConfig.getDimension());
 
         byte[] byteVector = new byte[0];
         switch (vectorDataType) {

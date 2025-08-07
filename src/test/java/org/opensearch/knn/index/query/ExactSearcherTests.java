@@ -14,15 +14,24 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.KNNIterator;
+import org.opensearch.knn.index.query.iterators.NestedVectorIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.VectorIdsKNNIterator;
+import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
@@ -46,6 +55,7 @@ import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class ExactSearcherTests extends KNNTestCase {
 
@@ -204,6 +214,193 @@ public class ExactSearcherTests extends KNNTestCase {
             assertEquals(topDocs.scoreDocs.length, dataVectors.size());
             List<Float> actualScores = Arrays.stream(topDocs.scoreDocs).map(scoreDoc -> scoreDoc.score).toList();
             assertEquals(expectedScores, actualScores);
+        }
+    }
+
+    @SneakyThrows
+    public void testCreateIterator_whenNoVectorField_thenReturnsNull() {
+        ExactSearcher exactSearcher = new ExactSearcher(null);
+        LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        FieldInfos fieldInfos = mock(FieldInfos.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(null);
+
+        ExactSearcher.ExactSearcherContext context = ExactSearcher.ExactSearcherContext.builder()
+            .field(FIELD_NAME)
+            .floatQueryVector(new float[] { 1.0f, 0.0f })
+            .build();
+
+        KNNIterator iterator = exactSearcher.createIterator(leafReaderContext, context);
+        assertNull(iterator);
+    }
+
+    @SneakyThrows
+    public void testCreateIterator_withFloatVectors_thenReturnsVectorIterator() {
+        try (MockedStatic<KNNVectorValuesFactory> factoryMock = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+            SpaceType spaceType = SpaceType.L2;
+
+            FieldInfos fieldInfos = mock(FieldInfos.class);
+            FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(Map.of(SPACE_TYPE, spaceType.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName()));
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+
+            KNNFloatVectorValues vectorValues = mock(KNNFloatVectorValues.class);
+            factoryMock.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(vectorValues);
+
+            ExactSearcher.ExactSearcherContext context = ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(new float[] { 1.0f, 0.0f })
+                .build();
+
+            KNNIterator iterator = exactSearcher.createIterator(leafReaderContext, context);
+            assertNotNull(iterator);
+            assertTrue(iterator instanceof VectorIdsKNNIterator);
+        }
+    }
+
+    @SneakyThrows
+    public void testCreateIterator_withNestedQuery_thenReturnsNestedIterator() {
+        try (MockedStatic<KNNVectorValuesFactory> factoryMock = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+            SpaceType spaceType = SpaceType.L2;
+
+            FieldInfos fieldInfos = mock(FieldInfos.class);
+            FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(Map.of(SPACE_TYPE, spaceType.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName()));
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+
+            KNNFloatVectorValues vectorValues = mock(KNNFloatVectorValues.class);
+            factoryMock.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(vectorValues);
+
+            BitSetProducer parentFilter = mock(BitSetProducer.class);
+            BitSet parentBitSet = mock(BitSet.class);
+            when(parentFilter.getBitSet(leafReaderContext)).thenReturn(parentBitSet);
+
+            ExactSearcher.ExactSearcherContext context = ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(new float[] { 1.0f, 0.0f })
+                .parentsFilter(parentFilter)
+                .build();
+
+            KNNIterator iterator = exactSearcher.createIterator(leafReaderContext, context);
+
+            assertNotNull(iterator);
+            assertTrue(iterator instanceof NestedVectorIdsKNNIterator);
+        }
+    }
+
+    @SneakyThrows
+    public void testCreateIterator_withUserDefinedOrDefaultSpaceType() {
+        try (MockedStatic<KNNVectorValuesFactory> factoryMock = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            // field info has l2 space type (default)
+            FieldInfos fieldInfos = mock(FieldInfos.class);
+            FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(Map.of(SPACE_TYPE, SpaceType.L2.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName()));
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+
+            float[] queryVector = { 1.0f, 0.0f };
+            float[] docVector = { 0.0f, 1.0f };
+
+            KNNFloatVectorValues vectorValues = mock(KNNFloatVectorValues.class);
+            when(vectorValues.nextDoc()).thenReturn(0, NO_MORE_DOCS);
+            when(vectorValues.getVector()).thenReturn(docVector);
+
+            factoryMock.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(vectorValues);
+
+            // use field's l2 space type
+            ExactSearcher.ExactSearcherContext contextL2 = ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(queryVector)
+                .build();
+
+            VectorIdsKNNIterator iteratorL2 = (VectorIdsKNNIterator) exactSearcher.createIterator(leafReaderContext, contextL2);
+            iteratorL2.nextDoc();
+            float scoreL2 = iteratorL2.score();
+
+            // reset mocks
+            when(vectorValues.nextDoc()).thenReturn(0, NO_MORE_DOCS);
+            when(vectorValues.getVector()).thenReturn(docVector);
+
+            // use user-defined inner product space type
+            ExactSearcher.ExactSearcherContext contextIP = ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(queryVector)
+                .exactKNNSpaceType(SpaceType.INNER_PRODUCT.getValue())
+                .build();
+
+            VectorIdsKNNIterator iteratorIP = (VectorIdsKNNIterator) exactSearcher.createIterator(leafReaderContext, contextIP);
+            iteratorIP.nextDoc();
+            float scoreIP = iteratorIP.score();
+
+            assertNotEquals(scoreL2, scoreIP, 0.001f);
+
+            float expectedL2 = SpaceType.L2.getKnnVectorSimilarityFunction().compare(queryVector, docVector);
+            float expectedIP = SpaceType.INNER_PRODUCT.getKnnVectorSimilarityFunction().compare(queryVector, docVector);
+
+            assertEquals(expectedL2, scoreL2, 0.001f);
+            assertEquals(expectedIP, scoreIP, 0.001f);
+        }
+    }
+
+    @SneakyThrows
+    public void testCreateIterator_withBinaryVectors_thenReturnsBinaryIterator() {
+        try (MockedStatic<KNNVectorValuesFactory> factoryMock = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            FieldInfos fieldInfos = mock(FieldInfos.class);
+            FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(
+                Map.of(
+                    SPACE_TYPE,
+                    SpaceType.HAMMING.getValue(),
+                    KNN_ENGINE,
+                    KNNEngine.FAISS.getName(),
+                    VECTOR_DATA_TYPE_FIELD,
+                    VectorDataType.BINARY.getValue()
+                )
+            );
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
+            when(fieldInfo.getAttribute(VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.BINARY.getValue());
+            when(fieldInfo.getAttribute(KNNConstants.KNN_ENGINE)).thenReturn(KNNEngine.FAISS.getName());
+
+            KNNBinaryVectorValues vectorValues = mock(KNNBinaryVectorValues.class);
+            factoryMock.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(vectorValues);
+
+            ExactSearcher.ExactSearcherContext context = ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .byteQueryVector(new byte[] { 1, 0 })
+                .build();
+
+            KNNIterator iterator = exactSearcher.createIterator(leafReaderContext, context);
+
+            assertNotNull(iterator);
+            assertTrue(iterator instanceof BinaryVectorIdsKNNIterator);
         }
     }
 }

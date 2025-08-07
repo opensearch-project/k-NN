@@ -92,6 +92,15 @@ public class VectorIdsKNNIterator implements KNNIterator {
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
         if (segmentLevelQuantizationInfo == null) {
+            // adding l1/linf support for exact search in query so scoring script is not needed
+            if (spaceType.getValue().equals("l1") || spaceType.getValue().equals("linf")) {
+                if (spaceType.getValue().equals("l1")) {
+                    return (1 / (1 + KNNScoringUtil.l1Norm(queryVector, vector)));
+                }
+                if (spaceType.getValue().equals("linf")) {
+                    return (1 / (1 + KNNScoringUtil.lInfNorm(queryVector, vector)));
+                }
+            }
             return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
         }
 
