@@ -315,7 +315,7 @@ opensearchplugin {
     // zip file name and plugin name in ${opensearch.plugin.name} read by OpenSearch when plugin loading
     description 'OpenSearch k-NN plugin'
     classname 'org.opensearch.knn.plugin.KNNPlugin'
-    extendedPlugins = ['lang-painless']
+    extendedPlugins = ['lang-painless', 'transport-grpc']
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
 }
@@ -336,20 +336,14 @@ task release(type: Copy, group: 'build') {
 //****************************************************************************/
 // Dependencies
 //****************************************************************************/
-// Force resolution of conflicting dependencies globally
-configurations.matching {
-    it.canBeResolved && !it.name.toLowerCase().contains('jacoco')
-}.all {
-    resolutionStrategy {
-        force 'com.google.guava:guava:32.1.3-jre'        // Override transport-grpc's 33.2.1-jre
-        force 'com.google.guava:failureaccess:1.0.1'     // Override transport-grpc's 1.0.2
-    }
-}
 dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     api project(":remote-index-build-client")
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
-    compileOnly "org.opensearch.plugin:transport-grpc:${opensearch_version}"
+    compileOnly("org.opensearch.plugin:transport-grpc:${opensearch_version}") {
+        exclude group: 'com.google.guava', module: 'guava'
+        exclude group: 'com.google.guava', module: 'failureaccess'
+    }
     compileOnly "org.opensearch:protobufs:0.6.0"
     api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     api group: 'com.google.guava', name: 'guava', version:'32.1.3-jre'
