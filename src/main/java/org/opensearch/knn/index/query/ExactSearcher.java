@@ -9,6 +9,7 @@ import com.google.common.base.Predicates;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NonNull;
+import lombok.Setter;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
@@ -25,8 +26,10 @@ import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
+import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
@@ -64,7 +67,12 @@ public class ExactSearcher {
     private final ModelDao modelDao;
     private static TaskExecutor taskExecutor;
 
-    private static final int MAX_DOCS_PER_PARTITION = 250_000;
+    @Setter
+    private static boolean concurrentExactSearchEnabled = KNNSettings.KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_ENABLED;
+    @Setter
+    private static int concurrentExactSearchMaxPartitionCount = KNNSettings.KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT;
+    @Setter
+    private static int concurrentExactSearchMinDocumentCount = KNNSettings.KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT;
 
     public static void initialize(ThreadPool threadPool) {
         ExactSearcher.taskExecutor = new TaskExecutor(threadPool.executor(EXACT_SEARCH_THREAD_POOL));
@@ -136,16 +144,14 @@ public class ExactSearcher {
     ) throws IOException {
         int maxDoc = leafReaderContext.reader().maxDoc();
         BitSetProducer parentsFilter = context.getParentsFilter();
-        BitSet parentBitSet = parentsFilter != null
-            ? parentsFilter.getBitSet(leafReaderContext)
-            : null;
-        int partitions = maxDoc / MAX_DOCS_PER_PARTITION + 1;
+        BitSet parentBitSet = parentsFilter != null ? parentsFilter.getBitSet(leafReaderContext) : null;
+        int partitions = computeNumPartitions(maxDoc);
         List<Callable<TopDocs>> tasks = new ArrayList<>(partitions);
-        int partitionSize = maxDoc / partitions, remainder = maxDoc % partitions;
+        int baseSize = maxDoc / partitions, remainder = maxDoc % partitions;
         BitSet matchedDocs = context.getMatchedDocs();
         int offset = 0;
         for (int i = 0; i < partitions; i++) {
-            int size = partitionSize + (i < remainder ? 1 : 0);
+            int size = baseSize + (i < remainder ? 1 : 0);
             int minDocId = offset, maxDocId = computePartitionEnd(parentBitSet, offset + size, maxDoc);
             tasks.add(() -> {
                 DocIdSetIterator matchedDocsIterator = matchedDocs != null
@@ -159,8 +165,17 @@ public class ExactSearcher {
             });
             offset = maxDocId;
         }
+
         List<TopDocs> results = ExactSearcher.taskExecutor.invokeAll(tasks);
         return TopDocs.merge(limit, results.toArray(new TopDocs[partitions]));
+    }
+
+    private int computeNumPartitions(int maxDoc) {
+        if (!concurrentExactSearchEnabled) {
+            return 1;
+        }
+        int partitions = Math.max(maxDoc / concurrentExactSearchMinDocumentCount, 1);
+        return (concurrentExactSearchMaxPartitionCount == 0) ? partitions : Math.min(partitions, concurrentExactSearchMaxPartitionCount);
     }
 
     private int computePartitionEnd(BitSet parentBitSet, int tentativeEnd, int maxDoc) {

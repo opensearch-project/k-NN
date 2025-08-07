@@ -28,6 +28,7 @@ import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
+import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
@@ -117,6 +118,10 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_SERVICE_USERNAME = "knn.remote_index_build.service.username";
     public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_index_build.service.password";
 
+    public static final String KNN_CONCURRENT_EXACT_SEARCH_ENABLED = "knn.search.concurrent_exact_search.enabled";
+    public static final String KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT = "knn.search.concurrent_exact_search.max_partition_count";
+    public static final String KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT = "knn.search.concurrent_exact_search.min_document_count";
+
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
      */
@@ -159,6 +164,10 @@ public class KNNSettings {
     // TODO: Tune these default values based on benchmarking
     public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_TIMEOUT_MINUTES = 60;
     public static final Integer KNN_DEFAULT_REMOTE_BUILD_CLIENT_POLL_INTERVAL_SECONDS = 5;
+
+    public static final Boolean KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_ENABLED = false;
+    public static final Integer KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT = 0;
+    public static final Integer KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT = 250_000;
 
     /**
      * Settings Definition
@@ -500,6 +509,35 @@ public class KNNSettings {
         null
     );
 
+    public static Map<String, Setting<?>> CONCURRENT_EXACT_SEARCH_SETTINGS = new HashMap<>() {
+        {
+            put(
+                KNN_CONCURRENT_EXACT_SEARCH_ENABLED,
+                Setting.boolSetting(KNN_CONCURRENT_EXACT_SEARCH_ENABLED, KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_ENABLED, NodeScope, Dynamic)
+            );
+            put(
+                KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+                Setting.intSetting(
+                    KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+                    KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+                    0,
+                    NodeScope,
+                    Dynamic
+                )
+            );
+            put(
+                KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+                Setting.intSetting(
+                    KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+                    KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+                    0,
+                    NodeScope,
+                    Dynamic
+                )
+            );
+        }
+    };
+
     /**
      * Dynamic settings
      */
@@ -596,7 +634,7 @@ public class KNNSettings {
             );
 
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
-        }, Stream.concat(dynamicCacheSettings.values().stream(), FEATURE_FLAGS.values().stream()).collect(Collectors.toUnmodifiableList()));
+        }, Stream.concat(dynamicCacheSettings.values().stream(), FEATURE_FLAGS.values().stream()).toList());
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, it -> {
             quantizationStateCacheManager.setMaxCacheSizeInKB(it.getKb());
             quantizationStateCacheManager.rebuildCache();
@@ -604,6 +642,23 @@ public class KNNSettings {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
             quantizationStateCacheManager.rebuildCache();
         });
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(updatedSettings -> {
+            ExactSearcher.setConcurrentExactSearchEnabled(
+                updatedSettings.getAsBoolean(KNN_CONCURRENT_EXACT_SEARCH_ENABLED, getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_ENABLED))
+            );
+            ExactSearcher.setConcurrentExactSearchMaxPartitionCount(
+                updatedSettings.getAsInt(
+                    KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+                    getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT)
+                )
+            );
+            ExactSearcher.setConcurrentExactSearchMinDocumentCount(
+                updatedSettings.getAsInt(
+                    KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+                    getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT)
+                )
+            );
+        }, CONCURRENT_EXACT_SEARCH_SETTINGS.values().stream().toList());
     }
 
     /**
@@ -714,6 +769,10 @@ public class KNNSettings {
             return KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING;
         }
 
+        if (CONCURRENT_EXACT_SEARCH_SETTINGS.containsKey(key)) {
+            return CONCURRENT_EXACT_SEARCH_SETTINGS.get(key);
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -751,8 +810,12 @@ public class KNNSettings {
             KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
             KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING
         );
-        return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
-            .collect(Collectors.toList());
+        return Stream.of(
+            settings.stream(),
+            getFeatureFlags().stream(),
+            dynamicCacheSettings.values().stream(),
+            CONCURRENT_EXACT_SEARCH_SETTINGS.values().stream()
+        ).flatMap(Function.identity()).collect(Collectors.toList());
     }
 
     public static boolean isCircuitBreakerTriggered() {

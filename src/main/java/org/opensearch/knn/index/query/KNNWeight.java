@@ -347,8 +347,8 @@ public abstract class KNNWeight extends Weight {
     private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage, String segmentName) {
         if (log.isDebugEnabled() && stopWatch != null) {
             stopWatch.stop();
-            final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in nanos:[{}] ";
-            log.debug(logMessage, knnQuery.getShardId(), segmentName, knnQuery.getField(), stopWatch.totalTime().nanos());
+            final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in millis:[{}] ";
+            log.debug(logMessage, knnQuery.getShardId(), segmentName, knnQuery.getField(), stopWatch.totalTime().millis());
         }
     }
 
