@@ -34,6 +34,7 @@ public abstract class FaissIndex {
     protected int totalNumberOfVectors;
     // Space type used to index vectors in this index.
     protected SpaceType spaceType;
+    static long DEDUPE_VECTORS_OPT_DISABLED = 0xFFFFFFF;
 
     public FaissIndex(final String indexType) {
         this.indexType = indexType;
@@ -64,7 +65,7 @@ public abstract class FaissIndex {
         totalNumberOfVectors = Math.toIntExact(readStream.readLong());
         // consume 2 dummy deprecated fields.
         final long dedupCheck = readStream.readLong();
-        final boolean dedupApplied = dedupCheck == 0xFFFFFFF;
+        final boolean dedupApplied = dedupCheck == DEDUPE_VECTORS_OPT_DISABLED;
         readStream.readLong();
 
         // We don't use this field
