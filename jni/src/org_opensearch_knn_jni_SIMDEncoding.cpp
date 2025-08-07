@@ -17,22 +17,6 @@
 #include "encoding/encoding.h"
 
 static knn_jni::JNIUtil jniUtil;
-static const jint KNN_SIMDENCODING_JNI_VERSION = JNI_VERSION_1_1;
-
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    JNIEnv* env;
-    if (vm->GetEnv((void**)&env, KNN_SIMDENCODING_JNI_VERSION) != JNI_OK) {
-        return JNI_ERR;
-    }
-    jniUtil.Initialize(env);
-    return KNN_SIMDENCODING_JNI_VERSION;
-}
-
-void JNI_OnUnload(JavaVM *vm, void *reserved) {
-    JNIEnv* env;
-    vm->GetEnv((void**)&env, KNN_SIMDENCODING_JNI_VERSION);
-    jniUtil.Uninitialize(env);
-}
 
 JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_convertFP32ToFP16(
     JNIEnv* env,
@@ -46,9 +30,4 @@ JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_convertFP32T
         jniUtil.CatchCppExceptionAndThrowJava(env);
         return JNI_FALSE;
     }
-}
-
-JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_isSIMDSupportedNative(
-    JNIEnv*, jclass) {
-    return knn_jni::encoding::isSIMDSupported();
 }

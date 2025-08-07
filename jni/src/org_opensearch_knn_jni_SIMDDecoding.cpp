@@ -32,8 +32,3 @@ JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDDecoding_convertFP16T
         return JNI_FALSE;
     }
 }
-
-JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDDecoding_isSIMDSupportedNative(
-    JNIEnv*, jclass) {
-    return knn_jni::decoding::isSIMDSupported();
-}

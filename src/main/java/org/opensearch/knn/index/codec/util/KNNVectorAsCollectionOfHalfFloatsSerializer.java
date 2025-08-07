@@ -9,8 +9,6 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.jni.SIMDDecoding;
 import org.opensearch.knn.jni.SIMDEncoding;
 
-import java.nio.ByteOrder;
-
 /**
  * Class implements KNNVectorSerializer based on serialization/deserialization of float array
  * as a collection of individual half-precision values

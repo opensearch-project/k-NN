@@ -5,15 +5,21 @@ include(CheckCXXSourceCompiles)
 
 # Allow user overrides
 if(NOT DEFINED AVX2_ENABLED)
-    set(AVX2_ENABLED ON)
+    set(AVX2_ENABLED true)   # set default value as true if the argument is not set
 endif()
 
 if(NOT DEFINED AVX512_ENABLED)
-    set(AVX512_ENABLED ON)
+    set(AVX512_ENABLED true)   # set default value as true if the argument is not set
 endif()
 
 if(NOT DEFINED AVX512_SPR_ENABLED)
-    set(AVX512_SPR_ENABLED OFF)
+    # Check if the system is Intel(R) Sapphire Rapids or a newer-generation processor
+    execute_process(COMMAND bash -c "lscpu | grep -q 'GenuineIntel' && lscpu | grep -i 'avx512_fp16' | grep -i 'avx512_bf16' | grep -i 'avx512_vpopcntdq'" OUTPUT_VARIABLE SPR_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if (NOT "${SPR_FLAGS}" STREQUAL "")
+	      set(AVX512_SPR_ENABLED true)
+    else()
+	      set(AVX512_SPR_ENABLED false)
+    endif()
 endif()
 
 # SIMD feature flags default to OFF

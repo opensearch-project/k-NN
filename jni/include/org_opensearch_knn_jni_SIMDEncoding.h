@@ -20,14 +20,6 @@ extern "C" {
 #endif
 /*
  * Class:     org_opensearch_knn_jni_SIMDEncoding
- * Method:    isSIMDSupported
- * Signature: ()Z
- */
-JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SIMDEncoding_isSIMDSupportedNative
-  (JNIEnv *, jclass);
-
-/*
- * Class:     org_opensearch_knn_jni_SIMDEncoding
  * Method:    convertFP32ToFP16
  * Signature: ([F[BI)Z
  */

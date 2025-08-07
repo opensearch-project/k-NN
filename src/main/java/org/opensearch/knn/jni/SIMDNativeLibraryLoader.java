@@ -10,6 +10,18 @@ import org.opensearch.knn.common.KNNConstants;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
+import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
+
+
+/**
+ * Service to interact with SIMD jni layer. Class dependencies should be minimal
+ * <p>
+ * In order to compile C++ header file, run:
+ * javac -h jni/include src/main/java/org/opensearch/knn/jni/SIMDNativeLibraryLoader.java
+ *      src/main/java/org/opensearch/knn/common/KNNConstants.java
+ */
 public class SIMDNativeLibraryLoader {
 
     // Cached value of SIMD support
@@ -18,11 +30,11 @@ public class SIMDNativeLibraryLoader {
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             try {
-                if (PlatformUtils.isAVX512SPRSupportedBySystem()) {
+                if (isAVX512SPRSupportedBySystem()) {
                     System.loadLibrary(KNNConstants.SIMD_AVX512_SPR_JNI_LIBRARY_NAME);
-                } else if (PlatformUtils.isAVX512SupportedBySystem()) {
+                } else if (isAVX512SupportedBySystem()) {
                     System.loadLibrary(KNNConstants.SIMD_AVX512_JNI_LIBRARY_NAME);
-                } else if (PlatformUtils.isAVX2SupportedBySystem()) {
+                } else if (isAVX2SupportedBySystem()) {
                     System.loadLibrary(KNNConstants.SIMD_AVX2_JNI_LIBRARY_NAME);
                 } else {
                     System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);

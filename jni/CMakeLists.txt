@@ -135,6 +135,7 @@ set(TARGET_LIB_SIMD opensearchknn_simd)
 # Architecture-specific implementations (ARM, x86, or default) are selected
 # inside encoding.cpp and decoding.cpp.
 set(SIMD_ENCODING_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDNativeLibraryLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDEncoding.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDDecoding.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/encoding.cpp
