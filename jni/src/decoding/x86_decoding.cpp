@@ -10,7 +10,7 @@
  */
 
 #include <jni.h>
-#if defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_F16C))
+#if defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_AVX2_F16C))
 #include <immintrin.h>
 #endif
 
@@ -56,7 +56,7 @@ jboolean knn_jni::decoding::convertFP16ToFP32(knn_jni::JNIUtilInterface *jniUtil
         __m512 v = _mm512_cvtph_ps(h);
         _mm512_storeu_ps(&dst[i], v);
     }
-#elif defined(KNN_HAVE_F16C)
+#elif defined(KNN_HAVE_AVX2_F16C)
     for (; i + 8 <= count; i += 8) {
         if (i + 64 < count) {
             _mm_prefetch(reinterpret_cast<const char*>(&src[i + 64]), _MM_HINT_T0);

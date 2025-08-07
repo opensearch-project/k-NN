@@ -44,7 +44,9 @@ import org.opensearch.knn.index.codec.util.KNNIOUtils;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
 
 /**
- * Writes half float vector values to index segments.
+ * Custom FlatVectorsWriter implementation to support half-float vectors. This class is mostly identical to
+ * {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsWriter} with changes to support writing
+ * half float vector values to index segments as 2 bytes.
  */
 public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
 

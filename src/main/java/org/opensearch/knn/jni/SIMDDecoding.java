@@ -13,13 +13,17 @@ package org.opensearch.knn.jni;
 
 public class SIMDDecoding {
 
+    static {
+        // Ensures native library is loaded as soon as class is referenced
+        SIMDNativeLibraryLoader.isSIMDSupported();
+    }
+
     /**
      * Returns whether native SIMD decoding is available.
-     * This reuses the cached value from SIMDEncoding.
      * @return true if SIMD decoding is supported, false otherwise
      */
     public static boolean isSIMDSupported() {
-        return SIMDEncoding.isSIMDSupported();
+        return SIMDNativeLibraryLoader.isSIMDSupported();
     }
 
     /**

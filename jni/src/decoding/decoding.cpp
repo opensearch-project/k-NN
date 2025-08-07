@@ -11,7 +11,7 @@
 
 #if defined(__aarch64__) && defined(KNN_HAVE_ARM_FP16)
   #include "arm_decoding.cpp"
-#elif defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_F16C))
+#elif defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_AVX2_F16C))
   #include "x86_decoding.cpp"
 #else
   #include "default_decoding.cpp"

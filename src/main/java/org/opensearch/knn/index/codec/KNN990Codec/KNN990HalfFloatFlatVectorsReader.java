@@ -40,8 +40,9 @@ import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSeri
 import org.opensearch.knn.index.codec.util.KNNIOUtils;
 
 /**
- * A FlatVectorsReader that reads half-precision (2-byte) FP16 data from .vec files,
- * decodes to float32 via the KNN serializer, and otherwise follows Lucene99 logic.
+ * Custom FlatVectorsReader implementation to support half-float vectors. This class is mostly identical to
+ * {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsReader} with changes to support reading
+ * half float vector values data from .vec file as 2 bytes and converting them to FP32.
  */
 public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(KNN990HalfFloatFlatVectorsReader.class);

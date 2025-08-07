@@ -25,14 +25,14 @@ import org.apache.lucene.index.SegmentWriteState;
  */
 public final class KNN990HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
-    static final String NAME = KNN990HalfFloatFlatVectorsFormat.class.getSimpleName();
+    static final String FORMAT_NAME = "KNN990HalfFloatFlatVectorsFormat";
     static final String META_CODEC_NAME = "Lucene99FlatVectorsFormatMeta";
     static final String VECTOR_DATA_CODEC_NAME = "Lucene99FlatVectorsFormatData";
     static final String META_EXTENSION = "vemf";
     static final String VECTOR_DATA_EXTENSION = "vec";
 
-    public static final int VERSION_START = 0;
-    public static final int VERSION_CURRENT = VERSION_START;
+    static final int VERSION_START = 0;
+    static final int VERSION_CURRENT = VERSION_START;
 
     static final int DIRECT_MONOTONIC_BLOCK_SHIFT = 16;
     private final FlatVectorsScorer vectorsScorer;
@@ -42,7 +42,7 @@ public final class KNN990HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
     }
 
     public KNN990HalfFloatFlatVectorsFormat(FlatVectorsScorer vectorsScorer) {
-        super(NAME);
+        super(FORMAT_NAME);
         this.vectorsScorer = vectorsScorer;
     }
 
@@ -58,6 +58,6 @@ public final class KNN990HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
     @Override
     public String toString() {
-        return NAME + "(vectorsScorer=" + vectorsScorer + ")";
+        return FORMAT_NAME + "(vectorsScorer=" + vectorsScorer + ")";
     }
 }

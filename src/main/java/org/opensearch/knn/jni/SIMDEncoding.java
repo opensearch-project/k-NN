@@ -19,46 +19,17 @@ import java.security.PrivilegedAction;
 public class SIMDEncoding {
 
     static {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            try {
-                // Load SIMD library based on support
-                if (PlatformUtils.isAVX512SPRSupportedBySystem()) {
-                    System.loadLibrary(KNNConstants.SIMD_AVX512_SPR_JNI_LIBRARY_NAME);
-                } else if (PlatformUtils.isAVX512SupportedBySystem()) {
-                    System.loadLibrary(KNNConstants.SIMD_AVX512_JNI_LIBRARY_NAME);
-                } else if (PlatformUtils.isAVX2SupportedBySystem()) {
-                    System.loadLibrary(KNNConstants.SIMD_AVX2_JNI_LIBRARY_NAME);
-                } else {
-                    System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);
-                }
-            } catch (UnsatisfiedLinkError e) {
-                throw new RuntimeException("[KNN] Failed to load native SIMD library", e);
-            }
-            return null;
-        });
-
-        // Cache native SIMD support check once during class loading
-        SIMD_SUPPORTED = isSIMDSupportedNative();
+        // Ensures native library is loaded as soon as class is referenced
+        SIMDNativeLibraryLoader.isSIMDSupported();
     }
 
-    // Cached value of SIMD support
-    private static final boolean SIMD_SUPPORTED;
-
     /**
-     * Cached check for whether SIMD encoding is supported.
-     *
-     * @return true if native SIMD is supported and enabled, false otherwise
+     * Returns whether native SIMD encoding is available.
+     * @return true if SIMD encoding is supported, false otherwise
      */
     public static boolean isSIMDSupported() {
-        return SIMD_SUPPORTED;
+        return SIMDNativeLibraryLoader.isSIMDSupported();
     }
-
-    /**
-     * Actual JNI native call to check if the platform supports SIMD-based FP16 encoding.
-     *
-     * @return true if SIMD is supported and enabled, false otherwise
-     */
-    private static native boolean isSIMDSupportedNative();
 
     /**
      * Converts an array of float values to half-precision (fp16) bytes using native code.

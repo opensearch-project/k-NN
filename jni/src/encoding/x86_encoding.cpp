@@ -10,7 +10,7 @@
  */
 
 #include <jni.h>
-#if defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_F16C))
+#if defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_AVX2_F16C))
 #include <immintrin.h>
 #endif
 
@@ -65,7 +65,7 @@ jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil
         __m256i h = _mm512_cvtps_ph(v, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(&dst[i]), h);
     }
-#elif defined(KNN_HAVE_F16C)
+#elif defined(KNN_HAVE_AVX2_F16C)
     for (; i + 8 <= count; i += 8) {
         __m256 v = _mm256_loadu_ps(&src[i]);
         __m128i h = _mm256_cvtps_ph(v, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
