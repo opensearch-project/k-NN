@@ -18,6 +18,7 @@
 #include "jni_util.h"
 #include "test_util.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexBinaryHNSW.h"
 #include "faiss/IndexIVFPQ.h"
 #include "mocks/faiss_index_service_mock.h"
 #include "native_stream_support_util.h"
@@ -822,6 +823,111 @@ TEST(FaissQueryIndexHNSWCagraWithParentFilterTest, BasicAssertions) {
         // Need to free up each result
         for (auto it : *results.get()) {
             delete it;
+        }
+    }
+}
+
+TEST(FaissQueryIndexHNSWCagraBinaryWithParentFilterTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 102;
+    std::vector<faiss::idx_t> ids;
+    int groupSize = 3;
+    int dim = 16;
+    int codeSize = 2;  // 32x applied to 16 dimension vector. e.g. 16 bits -> 2 bytes.
+    int numVectorsInGroup = 0;
+    int numGroups = 0;
+    std::vector<uint8_t> vectors (numIds * codeSize);
+    std::vector<int> parentIds;
+    std::unordered_map<faiss::idx_t, faiss::idx_t> childToParentMap;
+
+    // Generate random bit vectors.
+    for (int i = 0 ; i < vectors.size() ; ++i) {
+        vectors[i] = test_util::RandomInt(0, 255);
+    }
+
+    // Collect child ids + parent ids
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i + numGroups);
+        ++numVectorsInGroup;
+
+        if (numVectorsInGroup == groupSize) {
+            // This is parent
+            const auto parentId = i + numGroups + 1;
+            ++numGroups;
+            numVectorsInGroup = 0;
+
+            // Fill mapping table
+            parentIds.push_back(parentId);
+            for (auto childId = parentId - groupSize ; childId != parentId ; ++childId) {
+                childToParentMap[childId] = parentId;
+            }
+        }
+    }
+
+    const std::string method = "BHNSW32,Cagra";
+
+    // Define query data
+    int k = 20;
+    int numQueries = 100;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        queries.push_back(test_util::RandomVectors(dim, 1, -500.0, 500.0));
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+            test_util::FaissCreateBinaryIndex(dim, method));
+
+    // Add data with ids
+    auto createdIndexWithData =
+            test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
+
+    // Set base_level_only = true to force it to search on the bottom graph
+    dynamic_cast<faiss::IndexBinaryHNSWCagra*>(createdIndexWithData.index)->base_level_only=true;
+
+    // Prepare parameters
+    int efSearch = 100;
+    std::unordered_map<std::string, jobject> methodParams;
+    methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+
+    // Setup jni
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    EXPECT_CALL(mockJNIUtil,
+                    GetIntArrayElements(&jniEnv, reinterpret_cast<jintArray>(parentIds.data()), nullptr))
+                .WillRepeatedly(Return(reinterpret_cast<jint*>(parentIds.data())));
+    EXPECT_CALL(mockJNIUtil,
+                    GetJavaIntArrayLength(&jniEnv, reinterpret_cast<jintArray>(parentIds.data())))
+                .WillRepeatedly(Return(parentIds.size()));
+
+    // Execute searching for all query
+    for (auto query : queries) {
+        std::unique_ptr<std::vector<std::pair<int, int32_t> *>> results(
+                reinterpret_cast<std::vector<std::pair<int, int32_t> *> *>(
+                        knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(
+                                &mockJNIUtil, &jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jbyteArray>(&query), k, nullptr, nullptr, 0, reinterpret_cast<jintArray>(parentIds.data()))));
+
+        // We should've collected 20, which is k.
+        ASSERT_EQ(k, results->size());
+
+        // Result should be one for each group
+        std::set<int64_t> idSet;
+        std::set<int64_t> parentIdSet;
+        for (const auto pairPtr : *results) {
+            idSet.insert(pairPtr->first);
+            parentIdSet.insert(childToParentMap[pairPtr->first]);
+        }
+
+        // We should collect unique k group ids.
+        ASSERT_EQ(k, idSet.size());
+        ASSERT_EQ(k, parentIdSet.size());
+
+        // Need to free up each result
+        for (auto pairPtr : *results) {
+            delete pairPtr;
         }
     }
 }

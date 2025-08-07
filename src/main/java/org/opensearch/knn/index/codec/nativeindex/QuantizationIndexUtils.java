@@ -15,7 +15,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import java.io.IOException;
 
 @UtilityClass
-class QuantizationIndexUtils {
+public class QuantizationIndexUtils {
 
     /**
      * Processes the vector from {@link KNNVectorValues} and returns either a cloned quantized vector or a cloned original vector.
@@ -25,7 +25,7 @@ class QuantizationIndexUtils {
      * @return The quantized vector (as a byte array) or the original/cloned vector.
      * @throws IOException If an I/O error occurs while processing the vector.
      */
-    static Object processAndReturnVector(KNNVectorValues<?> knnVectorValues, IndexBuildSetup indexBuildSetup) throws IOException {
+    public static Object processAndReturnVector(KNNVectorValues<?> knnVectorValues, IndexBuildSetup indexBuildSetup) throws IOException {
         QuantizationService quantizationService = QuantizationService.getInstance();
         if (indexBuildSetup.getQuantizationState() != null && indexBuildSetup.getQuantizationOutput() != null) {
             quantizationService.quantize(
@@ -50,7 +50,7 @@ class QuantizationIndexUtils {
      * @param indexInfo the index build parameters.
      * @return an instance of QuantizationSetup containing relevant information.
      */
-    static IndexBuildSetup prepareIndexBuild(KNNVectorValues<?> knnVectorValues, BuildIndexParams indexInfo) {
+    public static IndexBuildSetup prepareIndexBuild(KNNVectorValues<?> knnVectorValues, BuildIndexParams indexInfo) {
         QuantizationState quantizationState = indexInfo.getQuantizationState();
         QuantizationOutput quantizationOutput = null;
         QuantizationService quantizationService = QuantizationService.getInstance();

@@ -35,6 +35,7 @@ import org.opensearch.monitor.os.OsProbe;
 import org.opensearch.transport.client.Client;
 
 import java.security.InvalidParameterException;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,10 @@ import static org.opensearch.common.settings.Setting.Property.UnmodifiableOnRest
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
+
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_THRESHOLD;
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_DEFAULT_LARGE;
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_DEFAULT_SMALL;
 
 /**
  * This class defines
@@ -316,11 +321,16 @@ public class KNNSettings {
      * this could lead to NUM_CORES^2 threads running and could lead to 100% CPU utilization. This setting allows users to
      * configure number of threads for graph construction.
      */
-    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = Setting.intSetting(
+    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = new Setting<>(
         KNN_ALGO_PARAM_INDEX_THREAD_QTY,
-        KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY,
-        1,
-        INDEX_THREAD_QTY_MAX,
+        settings -> Integer.toString(getHardwareDefaultIndexThreadQty(settings)),
+        s -> {
+            int value = Integer.parseInt(s);
+            if (value < 1 || value > INDEX_THREAD_QTY_MAX) {
+                throw new IllegalArgumentException("Value must be between 1 and " + INDEX_THREAD_QTY_MAX);
+            }
+            return value;
+        },
         NodeScope,
         Dynamic
     );
@@ -1054,6 +1064,25 @@ public class KNNSettings {
             // TODO: replace cache-rebuild with index reload into the cache
             NativeMemoryCacheManager.getInstance().rebuildCache();
         });
+    }
+
+    /**
+     * Finds the suggested number of indexing threads based on the number of available processors
+     *
+     * @return suggested number of indexing threads
+     */
+    static int getHardwareDefaultIndexThreadQty(final Settings settings) {
+        try {
+            int availableProcessors = OpenSearchExecutors.allocatedProcessors(settings);
+            if (availableProcessors >= INDEX_THREAD_QUANTITY_THRESHOLD) {
+                return INDEX_THREAD_QUANTITY_DEFAULT_LARGE;
+            } else {
+                return INDEX_THREAD_QUANTITY_DEFAULT_SMALL;
+            }
+        } catch (Exception e) {
+            logger.info("[KNN] Failed to determine available processors. Defaulting to 1. [{}]", e.getMessage(), e);
+            return 1;
+        }
     }
 
     /**

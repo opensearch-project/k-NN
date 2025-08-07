@@ -17,7 +17,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
  */
 @Getter
 @AllArgsConstructor
-final class IndexBuildSetup {
+public final class IndexBuildSetup {
     /**
      * The number of bytes per vector.
      */

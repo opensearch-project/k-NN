@@ -21,6 +21,7 @@ import java.io.IOException;
  */
 public class FaissHNSWCagraIndex extends AbstractFaissHNSWIndex {
     public static final String IHNC = "IHNc";
+    public static final String IHNC2 = "IHc2";
 
     // When set to true, all neighbors in level 0 are filled up
     // to the maximum size allowed (2 * M). This option is used by
@@ -44,8 +45,8 @@ public class FaissHNSWCagraIndex extends AbstractFaissHNSWIndex {
     // See https://github.com/facebookresearch/faiss/blob/main/faiss/IndexHNSW.h#L186
     private int numBaseLevelSearchEntryPoint;
 
-    public FaissHNSWCagraIndex() {
-        super(IHNC, new FaissCagraHNSW());
+    public FaissHNSWCagraIndex(final String indexType) {
+        super(indexType, new FaissCagraHNSW());
     }
 
     /**
@@ -61,9 +62,14 @@ public class FaissHNSWCagraIndex extends AbstractFaissHNSWIndex {
         readCommonHeader(input);
 
         // Read CAGRA meta info
-        keepMaxSizeLevel0 = input.readByte() != 0;
-        baseLevelOnly = input.readByte() != 0;
+        keepMaxSizeLevel0 = input.readByte() == 1;
+        baseLevelOnly = input.readByte() == 1;
         numBaseLevelSearchEntryPoint = input.readInt();
+
+        if (indexType.equals(IHNC2)) {
+            // Read numeric type.
+            input.readInt();
+        }
 
         // Partial load HNSW graph
         faissHnsw.load(input, getTotalNumberOfVectors());

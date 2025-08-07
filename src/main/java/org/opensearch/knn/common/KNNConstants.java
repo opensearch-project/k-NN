@@ -183,4 +183,9 @@ public class KNNConstants {
     // Repository-S3
     public static final String S3 = "s3";
     public static final String BUCKET = "bucket";
+
+    public static final Integer INDEX_THREAD_QUANTITY_THRESHOLD = 32;
+    public static final Integer INDEX_THREAD_QUANTITY_DEFAULT_LARGE = 4;
+    public static final Integer INDEX_THREAD_QUANTITY_DEFAULT_SMALL = 1;
+
 }

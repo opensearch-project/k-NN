@@ -534,7 +534,23 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADC(faiss::IOReader* ioReader, 
     // alteredIndexHNSW is effectively a placeholder before we pass the preexisting HNSW structure.
     // since Lucene segments are immutable once we flush a faiss index for searching, we are guaranteed never to ingest new indices into it.
     // Therefore, the M value doesn't matter and no new vectors are ingested.
-    auto* alteredIndexHNSW = new faiss::IndexHNSW(alteredStorage, 32);
+    constexpr int DEFAULT_M = 32;
+
+    faiss::IndexHNSW* alteredIndexHNSW = nullptr;
+    if (auto binaryCagra = dynamic_cast<faiss::IndexBinaryHNSWCagra*>(hnswBinary)) {
+        auto* alteredIndexCagraHNSW = new faiss::IndexHNSWCagra(alteredStorage->d, DEFAULT_M);
+        alteredIndexCagraHNSW->base_level_only = binaryCagra->base_level_only;
+        alteredIndexCagraHNSW->num_base_level_search_entrypoints = binaryCagra->num_base_level_search_entrypoints;
+        // IndexHNSWCagra creates storage in its constructor, so we must delete it before assigning a new one.
+        delete alteredIndexCagraHNSW->storage;
+        alteredIndexCagraHNSW->storage = alteredStorage;
+
+        // Assign HNSWCagra
+        alteredIndexHNSW = alteredIndexCagraHNSW;
+    } else {
+        alteredIndexHNSW = new faiss::IndexHNSW(alteredStorage, DEFAULT_M);
+    }
+
     alteredIndexHNSW->hnsw = std::move(hnswBinary->hnsw);
     auto* alteredIdMap = new faiss::IndexIDMap(alteredIndexHNSW);
     alteredStorage->init(alteredIndexHNSW, alteredIdMap);

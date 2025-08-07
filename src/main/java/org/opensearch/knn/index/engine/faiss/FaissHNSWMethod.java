@@ -7,7 +7,6 @@ package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -32,6 +31,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -55,8 +55,6 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         VectorDataType.BYTE
     );
 
-    private static final Set<VectorDataType> SUPPORTED_REMOTE_INDEX_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
-
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
         SpaceType.HAMMING,
@@ -65,10 +63,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         SpaceType.COSINESIMIL
     );
 
-    private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(
-        KNNConstants.ENCODER_FLAT,
-        Collections.emptyMap()
-    );
+    private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap());
 
     // Package private so that the method resolving logic can access the methods
     final static Encoder FLAT_ENCODER = new FaissFlatEncoder();
@@ -199,17 +194,157 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
      * @return true if the method parameters + vector data type combination is supported for remote index build
      */
     @SuppressWarnings("unchecked")
-    static boolean supportsRemoteIndexBuild(Map<String, Object> parameters) {
+    static boolean supportsRemoteIndexBuild(final Map<String, Object> parameters) {
         try {
-            Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
-            Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
-            String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
-            String encoder = getStringFromMap(encoderMap, NAME);
-            return SUPPORTED_REMOTE_INDEX_DATA_TYPES.contains(VectorDataType.get(dataType)) && ENCODER_FLAT.equals(encoder);
-        } catch (IllegalArgumentException e) {
-            log.error("Unrecognized indexing parameters in KNNLibraryIndexingContext", e);
+            final VectorDataType vectorDataType = extractVectorDataType(parameters);
+            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
+
+            if (isFloat32Index(vectorDataType, encoderMap)) {
+                return true;
+            }
+
+            if (isFloat16Index(vectorDataType, parameters)) {
+                return true;
+            }
+
+            if (isBinaryIndex(vectorDataType, encoderMap)) {
+                return true;
+            }
+
+            if (isQuantizedIndex(vectorDataType, encoderMap)) {
+                return true;
+            }
+
+            return isByteIndex(vectorDataType, encoderMap);
+        } catch (final Exception e) {
+            // We don't need to rethrow this, as technically, it is not error even we hit an exception here.
+            // It merely tells us that configured parameters are not set in a way that we expect for supported types.
+            log.warn(e.getMessage());
+        }
+
+        return false;
+    }
+
+    private static boolean isFloat32Index(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
+        try {
+            // Check whether if float32 vector data
+            if (vectorDataType != VectorDataType.FLOAT) {
+                return false;
+            }
+
+            // Check encoding is 'flat'
+            final String encoder = getStringFromMap(encoderMap, NAME);
+            return encoder.equals(ENCODER_FLAT);
+        } catch (final Exception e) {
+            log.debug(e.getMessage());
+            // Ignore
             return false;
         }
+    }
+
+    /**
+     * From indexing library parameter, it determines whether configured index is FP16, scalar quantized.
+     *
+     * @param parameters KNN library indexing parameters.
+     * @return Trye if FP16, otherwise False.
+     */
+    public static boolean isFloat16Index(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
+        try {
+            // Check whether if vector type is float
+            if (vectorDataType != VectorDataType.FLOAT) {
+                return false;
+            }
+
+            // Check encoding is 'sq' meaning fp32 is being scalar quantized to fp16
+            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
+            final String encoder = getStringFromMap(encoderMap, NAME);
+            return encoder.equals(ENCODER_SQ);
+        } catch (final Exception e) {
+            log.debug(e.getMessage());
+            // Ignore
+            return false;
+        }
+    }
+
+    private static boolean isBinaryIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
+        try {
+            // This index type is a binary case where user ingested binary vectors (e.g. bit stream)
+            // Therefore, we didn't do any quantization from our end, it is already done from user side.
+            // Check whether if vector type is binary
+            return vectorDataType == VectorDataType.BINARY && getStringFromMap(encoderMap, NAME).equals(ENCODER_FLAT);
+        } catch (final Exception e) {
+            log.warn(e.getMessage());
+            // Ignore
+            return false;
+        }
+    }
+
+    private static boolean isQuantizedIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
+        try {
+            // Check whether if vector type is FLOAT
+            // It is a little bit counter-intuitive, but for quantization, we set 'float' as a vector data type by the time
+            // this method is called.
+            if (vectorDataType != VectorDataType.FLOAT) {
+                return false;
+            }
+
+            // Check encoding is empty. For the quantization case, we don't save encoder.
+            return encoderMap.isEmpty();
+        } catch (final Exception e) {
+            log.debug(e.getMessage());
+            // Ignore
+            return false;
+        }
+    }
+
+    private static boolean isByteIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
+        try {
+            // Check whether if byte index
+            if (vectorDataType != VectorDataType.BYTE) {
+                return false;
+            }
+
+            // Check encoding is 'flat'
+            final String encoder = getStringFromMap(encoderMap, NAME);
+            return encoder.equals(ENCODER_FLAT);
+        } catch (final Exception e) {
+            log.debug(e.getMessage());
+            // Ignore
+            return false;
+        }
+    }
+
+    /**
+     * Extract {@link VectorDataType} from parameter.
+     *
+     * @param parameters
+     * @return
+     */
+    private static VectorDataType extractVectorDataType(final Map<String, Object> parameters) {
+        // Check whether if byte index
+        final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
+        final VectorDataType vectorDataType = VectorDataType.get(dataType);
+        return vectorDataType;
+    }
+
+    /**
+     * Extract encoder map from the given parameters.
+     * Ex: {
+     *    ...
+     *    "parameters: {
+     *        "encoder": {
+     *            <This blob will be returned>
+     *        }
+     *    }
+     * }
+     *
+     * @param parameters
+     * @return
+     */
+    private static Map<String, Object> extractEncoderMap(final Map<String, Object> parameters) {
+        final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
+        final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
+        return encoderMap;
     }
 
     /**
