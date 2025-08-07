@@ -40,14 +40,27 @@ public class KNNQueryBuilderProtoConverterTests extends OpenSearchTestCase {
         when(queryContainer.getQueryContainerCase()).thenReturn(QueryContainer.QueryContainerCase.KNN);
         when(queryContainer.getKnn()).thenReturn(knnQuery);
 
-        // Mock the KNNQueryBuilderProtoUtils.fromProto method using PowerMock
-        KNNQueryBuilder expectedQueryBuilder = mock(KNNQueryBuilder.class);
+        // Mock the KnnQuery to provide required fields
+        when(knnQuery.getField()).thenReturn("test_field");
+        when(knnQuery.getVectorList()).thenReturn(java.util.Arrays.asList(1.0f, 2.0f, 3.0f));
+        when(knnQuery.getK()).thenReturn(10);
+
+        // Mock optional fields that may be checked
+        when(knnQuery.hasMaxDistance()).thenReturn(false);
+        when(knnQuery.hasMinScore()).thenReturn(false);
+        when(knnQuery.hasMethodParameters()).thenReturn(false);
+        when(knnQuery.hasFilter()).thenReturn(false);
+        when(knnQuery.hasRescore()).thenReturn(false);
+        when(knnQuery.hasBoost()).thenReturn(false);
+        when(knnQuery.hasUnderscoreName()).thenReturn(false);
+        when(knnQuery.hasExpandNestedDocs()).thenReturn(false);
 
         // Test
         QueryBuilder result = converter.fromProto(queryContainer);
 
         // Verify
         assertNotNull(result);
+        assertTrue(result instanceof KNNQueryBuilder);
     }
 
     @Test
