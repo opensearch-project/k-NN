@@ -144,7 +144,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                 .getQuantizationState(
                     new QuantizationStateReadConfig(
                         segmentReadState,
-                        QuantizationService.getInstance().getQuantizationParams(fieldInfo),
+                        QuantizationService.getInstance().getQuantizationParams(fieldInfo, segmentReadState.segmentInfo.getVersion()),
                         field,
                         cacheKey
                     )
@@ -152,7 +152,6 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
-
         if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, true)) {
             return;
         }
@@ -187,6 +186,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      */
     @Override
     public void search(String field, byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+        // searching with byte vector is not supported by ADC.
         if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, false)) {
             return;
         }
@@ -345,7 +345,6 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         if (attributes == null || attributes.containsKey(KNN_FIELD) == false) {
             return null;
         }
-
         // Try to get KNN engine from fieldInfo.
         final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
 
@@ -364,7 +363,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         // Start creating searcher
         final String fileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
         if (fileName != null) {
-            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName);
+            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName, fieldInfo);
         }
 
         // Not supported

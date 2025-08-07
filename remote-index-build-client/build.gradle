@@ -7,7 +7,7 @@ plugins {
     id 'java'
     id 'java-library'
     id 'jacoco'
-    id "io.freefair.lombok"
+    id "io.freefair.lombok" version "8.14"
     id 'com.diffplug.spotless' version '6.25.0'
     id 'opensearch.build'
     id 'opensearch.java-agent'
@@ -15,6 +15,7 @@ plugins {
 
 repositories {
     mavenLocal()
+    maven { url = uri("https://central.sonatype.com/repository/maven-snapshots/") }
     maven { url = uri("https://aws.oss.sonatype.org/content/repositories/snapshots") }
     mavenCentral()
     maven { url = uri("https://plugins.gradle.org/m2/") }

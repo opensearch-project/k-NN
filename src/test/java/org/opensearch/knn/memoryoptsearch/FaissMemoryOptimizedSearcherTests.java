@@ -66,6 +66,7 @@ import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
@@ -78,9 +79,11 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRU
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.generate.SearchTestHelper.convertToFloatArray;
 import static org.opensearch.knn.generate.SearchTestHelper.generateOneSingleByteVector;
 import static org.opensearch.knn.generate.SearchTestHelper.generateOneSingleFloatVector;
 import static org.opensearch.knn.generate.SearchTestHelper.generateRandomByteVectors;
@@ -113,7 +116,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
-        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -136,7 +139,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
-        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -159,7 +162,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             1000000,
             FLOAT32_ENCODER_PARAMETERS
         );
-        testingSpec.quantizationParams = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+        testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -240,6 +243,46 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         doSearchTest(testingSpec, IndexingType.DENSE_NESTED);
     }
 
+    public void testADCWithBinaryQuantization() {
+        final TestingSpec adcEnabledSpec = new TestingSpec(
+            VectorDataType.BINARY,
+            BINARY_HSNW_INDEX_DESCRIPTION,
+            -100,
+            100,
+            FLOAT32_ENCODER_PARAMETERS
+        );
+        adcEnabledSpec.quantizationParams = ScalarQuantizationParams.builder()
+            .sqType(ScalarQuantizationType.ONE_BIT)
+            .enableADC(true)
+            .build();
+
+        adcEnabledSpec.isAdcEnabled = true;
+        // Define parameter options
+        List<IndexingType> indexingTypes = Arrays.asList(
+            IndexingType.DENSE,
+            IndexingType.DENSE_NESTED,
+            IndexingType.SPARSE,
+            IndexingType.SPARSE_NESTED
+        );
+
+        List<SpaceType> spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
+
+        List<Boolean> booleanOptions = Arrays.asList(true, false);
+
+        List<Object> filterOptions = Arrays.asList(0.8f, NO_FILTERING);
+
+        // // Generate cartesian product and run tests
+        for (SpaceType spaceType : spaceTypes) {
+            for (IndexingType indexingType : indexingTypes) {
+                for (Boolean boolOption : booleanOptions) {
+                    for (Object filterOption : filterOptions) {
+                        doSearchTest(adcEnabledSpec, indexingType, spaceType, boolOption, (float) filterOption);
+                    }
+                }
+            }
+        }
+    }
+
     @SneakyThrows
     private void doSearchTest(final TestingSpec testingSpec, final IndexingType indexingType) {
         final List<SpaceType> spaceTypes;
@@ -280,9 +323,18 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         try (final Directory directory = newFSDirectory(buildInfo.tempDirPath)) {
             try (final IndexInput input = directory.openInput(buildInfo.faissIndexFile, IOContext.READONCE)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(input);
-                indexPointer = JNIService.loadIndex(indexInputWithBuffer, buildInfo.parameters, KNNEngine.FAISS);
+                if (testingSpec.isAdcEnabled) {
+                    buildInfo.parameters.put("data_type", VectorDataType.FLOAT.getValue());
+                    buildInfo.parameters.put(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER, true);
+                    buildInfo.parameters.put("quantization_level", "ScalarQuantizationParams_1");
+                    buildInfo.parameters.put("space_type", spaceType.getValue());
+                    indexPointer = JNIService.loadIndex(indexInputWithBuffer, buildInfo.parameters, KNNEngine.FAISS);
+                } else {
+                    indexPointer = JNIService.loadIndex(indexInputWithBuffer, buildInfo.parameters, KNNEngine.FAISS);
+                }
             }
         }
+
         assertNotEquals(-1, indexPointer);
 
         // Make filtered ids
@@ -313,7 +365,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 queryForVectorReader = query = generateOneSingleFloatVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
             } else if (testingSpec.dataType == VectorDataType.BYTE) {
                 queryForVectorReader = byteQuery = generateOneSingleByteVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
-                query = SearchTestHelper.convertToFloatArray(byteQuery);
+                query = convertToFloatArray(byteQuery);
             }
 
             resultsFromFaiss = JNIService.queryIndex(
@@ -326,6 +378,24 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
                 parentIds
             );
+        } else if (testingSpec.isAdcEnabled) {
+            float[] rawFloat = (float[]) generateOneSingleFloatVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
+
+            (QuantizationService.getInstance()).transformWithADC(testingSpec.quantizationState, rawFloat, spaceType);
+
+            query = queryForVectorReader = rawFloat;
+
+            resultsFromFaiss = JNIService.queryIndex(
+                indexPointer,
+                (float[]) query,
+                k,
+                buildInfo.parameters,
+                KNNEngine.FAISS,
+                filteredIds,
+                FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
+                parentIds
+            );
+
         } else if (testingSpec.dataType == VectorDataType.BINARY) {
             if (testingSpec.quantizationParams != null) {
                 float[] floatQuery = generateOneSingleFloatVector(DIMENSIONS, testingSpec.minValue, testingSpec.maxValue);
@@ -360,7 +430,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final KNNQueryResult[] resultsFromVectorReader = doSearchViaVectorReader(
             buildInfo,
             queryForVectorReader,
-            testingSpec.dataType,
+            testingSpec.isAdcEnabled ? VectorDataType.FLOAT : testingSpec.dataType,
             filteredIds,
             k,
             doExhaustiveSearch
@@ -370,12 +440,22 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         validateResults(
             buildInfo.documentIds,
             buildInfo.vectors,
-            query,
+            testingSpec.isAdcEnabled
+                ? convertToFloatArray(
+                    (byte[]) QuantizationService.getInstance()
+                        .quantize(
+                            testingSpec.quantizationState,
+                            query,
+                            QuantizationService.getInstance().createQuantizationOutput(testingSpec.quantizationParams)
+                        )
+                )
+                : query,
             filteredIds,
             resultsFromFaiss,
             resultsFromVectorReader,
             spaceType.getKnnVectorSimilarityFunction(),
-            TOP_K
+            TOP_K,
+            testingSpec.isAdcEnabled
         );
     }
 
@@ -389,10 +469,23 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final boolean exhaustiveSearch
     ) {
         // Make KNN vector field info
-        FieldInfo vectorField = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
+        KNNCodecTestUtil.FieldInfoBuilder fieldInfoBuilder = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
             .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .build();
+            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
+
+        // Add space type from build parameters
+        if (buildInfo.parameters.containsKey(SPACE_TYPE)) {
+            fieldInfoBuilder.addAttribute(KNNConstants.SPACE_TYPE, (String) buildInfo.parameters.get(SPACE_TYPE));
+        }
+
+        if (buildInfo.parameters.containsKey(QFRAMEWORK_CONFIG)) {
+            fieldInfoBuilder.addAttribute(QFRAMEWORK_CONFIG, (String) buildInfo.parameters.get(QFRAMEWORK_CONFIG));
+        }
+
+        // This test uses float indices, so no special quantization config needed
+
+        // TODO: pass in quantization config here.
+        FieldInfo vectorField = fieldInfoBuilder.build();
         final FieldInfo[] vectorFieldArr = new FieldInfo[] { vectorField };
         final FieldInfos fieldInfos = new FieldInfos(vectorFieldArr);
 
@@ -401,6 +494,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         when(segmentInfo.getUseCompoundFile()).thenReturn(false);
         when(segmentInfo.files()).thenReturn(Set.of(buildInfo.faissIndexFile));
         when(segmentInfo.getId()).thenReturn("LuceneOnFaiss".getBytes());
+        when(segmentInfo.getVersion()).thenReturn(org.apache.lucene.util.Version.LATEST);
 
         // Prepare collector and bits
         // buildInfo.documentIds.size() + 1 -> Will force it to do exhaustive search.
@@ -476,7 +570,14 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 parameters.put(PARAMETERS, methodParameters);
                 methodParameters.put(METHOD_PARAMETER_EF_SEARCH, numberOfTotalDocsInSegment - 1);
                 methodParameters.put(METHOD_PARAMETER_EF_CONSTRUCTION, numberOfTotalDocsInSegment);
+
                 methodParameters.put(METHOD_ENCODER_PARAMETER, testingSpec.encoderParameters);
+
+                // unit test for ADC, bit of a shortcut so we can hand build the quantization config.
+                if (testingSpec.isAdcEnabled) {
+                    parameters.put(QFRAMEWORK_CONFIG, "type=binary,bits=1,random_rotation=false,enable_adc=true");
+                }
+
                 builder.parameters(parameters);
 
                 // Set up vectors
@@ -515,9 +616,12 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                     assert (testingSpec.quantizationParams != null);
 
                     // Get quantization state
-                    final KNNVectorValues floatVectorValues = createKNNFloatVectorValues(documentIds, floatVectors);
                     final QuantizationState quantizationState = QuantizationService.getInstance()
-                        .train(testingSpec.quantizationParams, floatVectorValues, documentIds.size());
+                        .train(
+                            testingSpec.quantizationParams,
+                            () -> (KNNVectorValues) createKNNFloatVectorValues(documentIds, floatVectors),
+                            documentIds.size()
+                        );
                     testingSpec.quantizationState = quantizationState;
                     builder.quantizationState(quantizationState);
 
@@ -563,7 +667,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         KNNQueryResult[] resultsFromFaiss,
         KNNQueryResult[] resultsFromVectorReader,
         KNNVectorSimilarityFunction similarityFunction,
-        final int topK
+        final int topK,
+        final boolean isAdc
     ) {
         final Set<Integer> answerDocIds = getKnnAnswerSetForVectors(documentIds, vectors, query, filteredIds, similarityFunction, topK);
 
@@ -586,8 +691,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final float recall = ((float) answerMatchCount) / topK;
 
         // It can happen that match ratio between FAISS and MemOptimizedSearch is lower than 80%, but if it happens with a recall lower than
-        // 0.8 indicates something's off.
-        assertFalse(matchRatio < 0.8 && recall < 0.8);
+        // 0.8 indicates something's off. We use a smaller match threshold for ADC.
+        if (isAdc) {
+            assertFalse(matchRatio < 0.6 && recall < 0.8);
+        } else {
+            assertFalse(matchRatio < 0.8 && recall < 0.8);
+        }
+
     }
 
     @SneakyThrows
@@ -723,5 +833,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         public final Map<String, Object> encoderParameters;
         public ScalarQuantizationParams quantizationParams;
         public QuantizationState quantizationState;
+        public boolean isAdcEnabled = false;
     }
 }

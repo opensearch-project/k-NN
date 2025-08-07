@@ -12,6 +12,9 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
+import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+
 import java.io.IOException;
 
 /**
@@ -88,14 +91,16 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
-        if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
-            byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
-            return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
-        } else {
-            // Calculates a similarity score between the two vectors with a specified function. Higher similarity
-            // scores correspond to closer vectors.
+        if (segmentLevelQuantizationInfo == null) {
             return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
         }
+
+        byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
+        if (quantizedQueryVector == null) {
+            // in ExactSearcher::getKnnIterator we don't set quantizedQueryVector if adc is enabled. So at this point adc is enabled.
+            return scoreWithADC(queryVector, quantizedVector, spaceType);
+        }
+        return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
     }
 
     protected int getNextDocId() throws IOException {
@@ -108,5 +113,37 @@ public class VectorIdsKNNIterator implements KNNIterator {
             knnFloatVectorValues.advance(nextDocID);
         }
         return nextDocID;
+    }
+
+    /*
+        protected for testing.
+        Logic:
+        - segmentLevelQuantizationInfo is null -> should not score with ADC
+        - quantizationParams is not ScalarQuantizationParams -> should not score with ADC
+        - quantizationParams is ScalarQuantizationParams -> defer to isEnableADC() to determine if should score with ADC.
+     */
+    protected boolean shouldScoreWithADC(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
+        if (segmentLevelQuantizationInfo == null) {
+            return false;
+        }
+
+        if (segmentLevelQuantizationInfo.getQuantizationParams() instanceof ScalarQuantizationParams scalarQuantizationParams) {
+            return scalarQuantizationParams.isEnableADC();
+        }
+        return false;
+    }
+
+    // protected for testing. scoreWithADC is used in exact searcher.
+    protected float scoreWithADC(float[] queryVector, byte[] documentVector, SpaceType spaceType) {
+        // NOTE: the prescore translations come from Faiss.java::SCORE_TRANSLATIONS.
+        if (spaceType.equals(SpaceType.L2)) {
+            return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(queryVector, documentVector));
+        } else if (spaceType.equals(SpaceType.INNER_PRODUCT)) {
+            return SpaceType.INNER_PRODUCT.scoreTranslation((-1 * KNNScoringUtil.innerProductADC(queryVector, documentVector)));
+        } else if (spaceType.equals(SpaceType.COSINESIMIL)) {
+            return SpaceType.COSINESIMIL.scoreTranslation(1 - KNNScoringUtil.innerProductADC(queryVector, documentVector));
+        }
+
+        throw new UnsupportedOperationException("Space type " + spaceType.getValue() + " is not supported for ADC");
     }
 }

@@ -21,11 +21,17 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.engine.faiss.QFrameBitEncoder.BITCOUNT_PARAM;
+import static org.opensearch.knn.index.engine.faiss.QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM;
+import static org.opensearch.knn.index.engine.faiss.QFrameBitEncoder.ENABLE_ADC_PARAM;
 
 public class QFrameBitEncoderTests extends KNNTestCase {
     public void testGetLibraryIndexingContext() {
@@ -65,6 +71,214 @@ public class QFrameBitEncoderTests extends KNNTestCase {
             QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build(),
             knnLibraryIndexingContext.getQuantizationConfig()
         );
+    }
+
+    public void testADCConfiguration() {
+        QFrameBitEncoder qFrameBitEncoder = new QFrameBitEncoder();
+        MethodComponent methodComponent = qFrameBitEncoder.getMethodComponent();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(10)
+            .build();
+
+        // Test default adc (should be false)
+        MethodComponentContext defaultContext = new MethodComponentContext(QFrameBitEncoder.NAME, ImmutableMap.of(BITCOUNT_PARAM, 1));
+        KNNLibraryIndexingContext defaultConfig = methodComponent.getKNNLibraryIndexingContext(defaultContext, knnMethodConfigContext);
+
+        assertEquals(defaultConfig.getQuantizationConfig().enableADC, false);
+
+        // Test explicit adc = false
+        MethodComponentContext explicitFalseContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 1, ENABLE_ADC_PARAM, false)
+        );
+        KNNLibraryIndexingContext explicitFalseConfig = methodComponent.getKNNLibraryIndexingContext(
+            explicitFalseContext,
+            knnMethodConfigContext
+        );
+        assertEquals(explicitFalseConfig.getQuantizationConfig().enableADC, false);
+
+        // Test explicit adc = true
+        MethodComponentContext explicitTrueContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 1, ENABLE_ADC_PARAM, true)
+        );
+        KNNLibraryIndexingContext explicitTrueConfig = methodComponent.getKNNLibraryIndexingContext(
+            explicitTrueContext,
+            knnMethodConfigContext
+        );
+
+        assertEquals(explicitTrueConfig.getQuantizationConfig().enableADC, true);
+
+    }
+
+    public void testInvalidADCValue() {
+        QFrameBitEncoder qFrameBitEncoder = new QFrameBitEncoder();
+        MethodComponent methodComponent = qFrameBitEncoder.getMethodComponent();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(10)
+            .build();
+
+        // Test invalid random rotation value
+        MethodComponentContext invalidContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 4, "enable_adc", true)
+        );
+
+        assertThrows(
+
+            "Validation Failed: ADC is not supported for bit count: 4",
+            IllegalArgumentException.class,
+            () -> methodComponent.getKNNLibraryIndexingContext(invalidContext, knnMethodConfigContext)
+        );
+
+    }
+
+    public void testRandomRotationAndADCConfiguration() {
+        QFrameBitEncoder qFrameBitEncoder = new QFrameBitEncoder();
+        MethodComponent methodComponent = qFrameBitEncoder.getMethodComponent();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(8)
+            .build();
+
+        // Test default random rotation (should be false)
+        MethodComponentContext defaultContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 1, ENABLE_ADC_PARAM, true)
+        );
+        KNNLibraryIndexingContext defaultConfig = methodComponent.getKNNLibraryIndexingContext(defaultContext, knnMethodConfigContext);
+        assertFalse(defaultConfig.getQuantizationConfig().isEnableRandomRotation());
+        assertTrue(defaultConfig.getQuantizationConfig().isEnableADC());
+
+        // Test explicit random rotation = false
+        MethodComponentContext explicitFalseContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 1, ENABLE_RANDOM_ROTATION_PARAM, false, ENABLE_ADC_PARAM, true)
+        );
+        KNNLibraryIndexingContext explicitFalseConfig = methodComponent.getKNNLibraryIndexingContext(
+            explicitFalseContext,
+            knnMethodConfigContext
+        );
+        assertFalse(explicitFalseConfig.getQuantizationConfig().isEnableRandomRotation());
+        assertTrue(defaultConfig.getQuantizationConfig().isEnableADC());
+
+        // Test explicit random rotation = true
+        MethodComponentContext explicitTrueContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 1, ENABLE_RANDOM_ROTATION_PARAM, true, ENABLE_ADC_PARAM, true)
+        );
+        KNNLibraryIndexingContext explicitTrueConfig = methodComponent.getKNNLibraryIndexingContext(
+            explicitTrueContext,
+            knnMethodConfigContext
+        );
+        assertTrue(explicitTrueConfig.getQuantizationConfig().isEnableRandomRotation());
+        assertTrue(defaultConfig.getQuantizationConfig().isEnableADC());
+
+        // Test explicit enable adc = false
+        MethodComponentContext explicitFalseADCContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 1, ENABLE_RANDOM_ROTATION_PARAM, true, ENABLE_ADC_PARAM, false)
+        );
+        KNNLibraryIndexingContext explicitFalseADCConfig = methodComponent.getKNNLibraryIndexingContext(
+            explicitFalseADCContext,
+            knnMethodConfigContext
+        );
+        assertTrue(explicitFalseADCConfig.getQuantizationConfig().isEnableRandomRotation());
+        assertFalse(explicitFalseADCConfig.getQuantizationConfig().isEnableADC());
+    }
+
+    public void testRandomRotationConfiguration() {
+        QFrameBitEncoder qFrameBitEncoder = new QFrameBitEncoder();
+        MethodComponent methodComponent = qFrameBitEncoder.getMethodComponent();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(10)
+            .build();
+
+        // Test default random rotation (should be false)
+        MethodComponentContext defaultContext = new MethodComponentContext(QFrameBitEncoder.NAME, ImmutableMap.of(BITCOUNT_PARAM, 4));
+        KNNLibraryIndexingContext defaultConfig = methodComponent.getKNNLibraryIndexingContext(defaultContext, knnMethodConfigContext);
+        assertFalse(defaultConfig.getQuantizationConfig().isEnableRandomRotation());
+
+        // Test explicit random rotation = false
+        MethodComponentContext explicitFalseContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 4, ENABLE_RANDOM_ROTATION_PARAM, false)
+        );
+        KNNLibraryIndexingContext explicitFalseConfig = methodComponent.getKNNLibraryIndexingContext(
+            explicitFalseContext,
+            knnMethodConfigContext
+        );
+        assertFalse(explicitFalseConfig.getQuantizationConfig().isEnableRandomRotation());
+
+        // Test explicit random rotation = true
+        MethodComponentContext explicitTrueContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 4, ENABLE_RANDOM_ROTATION_PARAM, true)
+        );
+        KNNLibraryIndexingContext explicitTrueConfig = methodComponent.getKNNLibraryIndexingContext(
+            explicitTrueContext,
+            knnMethodConfigContext
+        );
+        assertTrue(explicitTrueConfig.getQuantizationConfig().isEnableRandomRotation());
+    }
+
+    public void testInvalidRandomRotationValue() {
+        QFrameBitEncoder qFrameBitEncoder = new QFrameBitEncoder();
+        MethodComponent methodComponent = qFrameBitEncoder.getMethodComponent();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(10)
+            .build();
+
+        // Test invalid random rotation value
+        MethodComponentContext invalidContext = new MethodComponentContext(
+            QFrameBitEncoder.NAME,
+            ImmutableMap.of(BITCOUNT_PARAM, 4, ENABLE_RANDOM_ROTATION_PARAM, "invalid")
+        );
+
+        ValidationException validationException = methodComponent.validate(invalidContext, knnMethodConfigContext);
+
+        assertTrue(
+            validationException.getMessage().contains("value is not an instance of Boolean for Boolean parameter [random_rotation].")
+        );
+    }
+
+    public void testRandomRotationWithDifferentBitCounts() {
+        QFrameBitEncoder qFrameBitEncoder = new QFrameBitEncoder();
+        MethodComponent methodComponent = qFrameBitEncoder.getMethodComponent();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(10)
+            .build();
+
+        // Test with different bit counts
+        int[] validBitCounts = { 1, 2, 4 };
+        for (int bitCount : validBitCounts) {
+            MethodComponentContext context = new MethodComponentContext(
+                QFrameBitEncoder.NAME,
+                ImmutableMap.of(BITCOUNT_PARAM, bitCount, ENABLE_RANDOM_ROTATION_PARAM, true)
+            );
+            KNNLibraryIndexingContext config = methodComponent.getKNNLibraryIndexingContext(context, knnMethodConfigContext);
+            assertTrue(config.getQuantizationConfig().isEnableRandomRotation());
+
+            // Verify correct bit count configuration
+            ScalarQuantizationType expectedType = switch (bitCount) {
+                case 1 -> ScalarQuantizationType.ONE_BIT;
+                case 2 -> ScalarQuantizationType.TWO_BIT;
+                case 4 -> ScalarQuantizationType.FOUR_BIT;
+                default -> throw new IllegalStateException("Unexpected value: " + bitCount);
+            };
+            assertEquals(expectedType, config.getQuantizationConfig().getQuantizationType());
+        }
     }
 
     public void testValidate() {

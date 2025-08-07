@@ -8,6 +8,8 @@ package org.opensearch.knn.index.quantizationservice;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.util.Version;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -19,6 +21,7 @@ import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 import java.io.IOException;
+import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractQuantizationConfig;
 
@@ -53,19 +56,27 @@ public final class QuantizationService<T, R> {
      * {@link QuantizationState}. The quantizer is determined based on the given {@link QuantizationParams}.
      *
      * @param quantizationParams The {@link QuantizationParams} containing the parameters for quantization.
-     * @param knnVectorValues The {@link KNNVectorValues} representing the vector data to be used for training.
+     * @param knnVectorValuesSupplier The {@link KNNVectorValues} representing the vector data to be used for training.
      * @return The {@link QuantizationState} containing the state of the trained quantizer.
      * @throws IOException If an I/O error occurs during the training process.
      */
     public QuantizationState train(
         final QuantizationParams quantizationParams,
-        final KNNVectorValues<T> knnVectorValues,
+        final Supplier<KNNVectorValues<T>> knnVectorValuesSupplier,
         final long liveDocs
     ) throws IOException {
         Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationParams);
-
-        // Create the training request from the vector values
-        KNNVectorQuantizationTrainingRequest<T> trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValues, liveDocs);
+        KNNVectorQuantizationTrainingRequest<T> trainingRequest;
+        if (quantizationParams instanceof ScalarQuantizationParams scalarQuantizationParams) {
+            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(
+                knnVectorValuesSupplier,
+                liveDocs,
+                scalarQuantizationParams.isEnableRandomRotation()
+            );
+        } else {
+            trainingRequest = new KNNVectorQuantizationTrainingRequest<>(knnVectorValuesSupplier, liveDocs);
+        }
+        // Create the training request using the supplier
 
         // Train the quantizer and return the quantization state
         return quantizer.train(trainingRequest);
@@ -87,12 +98,34 @@ public final class QuantizationService<T, R> {
     }
 
     /**
-     * Retrieves quantization parameters from the FieldInfo.
+     * Transform vector with ADC. ADC allows us to score full-precision query vectors against binary document vectors.
+     * The transformation formula is:
+     * q_d = (q_d - x_d) / (y_d - x_d) where x_d is the mean of all document entries quantized to 0 (the below threshold mean)
+     * and y_d is the mean of all document entries quantized to 1 (the above threshold mean).
+     * @param vector array of floats, modified in-place.
+     * @param quantizationState The {@link QuantizationState} containing the state of the trained quantizer.
+     * @param spaceType spaceType (l2 or innerproduct). Used to identify whether an additional correction term should be applied.
      */
-    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+    public void transformWithADC(final QuantizationState quantizationState, T vector, final SpaceType spaceType) {
+        Quantizer<T, R> quantizer = QuantizerFactory.getQuantizer(quantizationState.getQuantizationParams());
+        quantizer.transformWithADC(vector, quantizationState, spaceType);
+    }
+
+    /**
+     * Retrieves quantization parameters from the FieldInfo.
+     * @param fieldInfo The {@link FieldInfo} object containing metadata about the field for which the quantization parameters
+     *                  are being determined.
+     * @param luceneVersion {@link Version} lucene version present in the segment, used for BWC.
+     * @return The {@link QuantizationParams} corresponding to the provided field information.
+     */
+    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
-            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType());
+            return ScalarQuantizationParams.builder()
+                .sqType(quantizationConfig.getQuantizationType())
+                .enableRandomRotation(quantizationConfig.isEnableRandomRotation())
+                .enableADC(quantizationConfig.isEnableADC())
+                .build();
         }
         return null;
     }
@@ -103,10 +136,11 @@ public final class QuantizationService<T, R> {
      *
      * @param fieldInfo The {@link FieldInfo} object containing metadata about the field for which the vector data type
      *                  is being determined.
+     * @param luceneVersion {@link Version} lucene version present in the segment, used for BWC.
      * @return The {@link VectorDataType} to be used during the vector transfer process
      */
-    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo, Version luceneVersion) {
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return VectorDataType.BINARY;
         }

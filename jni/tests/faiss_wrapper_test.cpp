@@ -18,6 +18,7 @@
 #include "jni_util.h"
 #include "test_util.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexBinaryHNSW.h"
 #include "faiss/IndexIVFPQ.h"
 #include "mocks/faiss_index_service_mock.h"
 #include "native_stream_support_util.h"
@@ -826,6 +827,111 @@ TEST(FaissQueryIndexHNSWCagraWithParentFilterTest, BasicAssertions) {
     }
 }
 
+TEST(FaissQueryIndexHNSWCagraBinaryWithParentFilterTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 102;
+    std::vector<faiss::idx_t> ids;
+    int groupSize = 3;
+    int dim = 16;
+    int codeSize = 2;  // 32x applied to 16 dimension vector. e.g. 16 bits -> 2 bytes.
+    int numVectorsInGroup = 0;
+    int numGroups = 0;
+    std::vector<uint8_t> vectors (numIds * codeSize);
+    std::vector<int> parentIds;
+    std::unordered_map<faiss::idx_t, faiss::idx_t> childToParentMap;
+
+    // Generate random bit vectors.
+    for (int i = 0 ; i < vectors.size() ; ++i) {
+        vectors[i] = test_util::RandomInt(0, 255);
+    }
+
+    // Collect child ids + parent ids
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i + numGroups);
+        ++numVectorsInGroup;
+
+        if (numVectorsInGroup == groupSize) {
+            // This is parent
+            const auto parentId = i + numGroups + 1;
+            ++numGroups;
+            numVectorsInGroup = 0;
+
+            // Fill mapping table
+            parentIds.push_back(parentId);
+            for (auto childId = parentId - groupSize ; childId != parentId ; ++childId) {
+                childToParentMap[childId] = parentId;
+            }
+        }
+    }
+
+    const std::string method = "BHNSW32,Cagra";
+
+    // Define query data
+    int k = 20;
+    int numQueries = 100;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        queries.push_back(test_util::RandomVectors(dim, 1, -500.0, 500.0));
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+            test_util::FaissCreateBinaryIndex(dim, method));
+
+    // Add data with ids
+    auto createdIndexWithData =
+            test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
+
+    // Set base_level_only = true to force it to search on the bottom graph
+    dynamic_cast<faiss::IndexBinaryHNSWCagra*>(createdIndexWithData.index)->base_level_only=true;
+
+    // Prepare parameters
+    int efSearch = 100;
+    std::unordered_map<std::string, jobject> methodParams;
+    methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+
+    // Setup jni
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    EXPECT_CALL(mockJNIUtil,
+                    GetIntArrayElements(&jniEnv, reinterpret_cast<jintArray>(parentIds.data()), nullptr))
+                .WillRepeatedly(Return(reinterpret_cast<jint*>(parentIds.data())));
+    EXPECT_CALL(mockJNIUtil,
+                    GetJavaIntArrayLength(&jniEnv, reinterpret_cast<jintArray>(parentIds.data())))
+                .WillRepeatedly(Return(parentIds.size()));
+
+    // Execute searching for all query
+    for (auto query : queries) {
+        std::unique_ptr<std::vector<std::pair<int, int32_t> *>> results(
+                reinterpret_cast<std::vector<std::pair<int, int32_t> *> *>(
+                        knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(
+                                &mockJNIUtil, &jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jbyteArray>(&query), k, nullptr, nullptr, 0, reinterpret_cast<jintArray>(parentIds.data()))));
+
+        // We should've collected 20, which is k.
+        ASSERT_EQ(k, results->size());
+
+        // Result should be one for each group
+        std::set<int64_t> idSet;
+        std::set<int64_t> parentIdSet;
+        for (const auto pairPtr : *results) {
+            idSet.insert(pairPtr->first);
+            parentIdSet.insert(childToParentMap[pairPtr->first]);
+        }
+
+        // We should collect unique k group ids.
+        ASSERT_EQ(k, idSet.size());
+        ASSERT_EQ(k, parentIdSet.size());
+
+        // Need to free up each result
+        for (auto pairPtr : *results) {
+            delete pairPtr;
+        }
+    }
+}
+
 TEST(FaissFreeTest, BasicAssertions) {
     // Define the data
     int dim = 2;
@@ -1336,4 +1442,173 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
             delete it;
         }
     }
+}
+TEST(FaissLoadIndexWithStreamADCTest, HandlesCorruptedBinaryIndex) {
+    // Create invalid/corrupted data
+    std::vector<uint8_t> corruptedData = {0x00, 0x01, 0x02, 0x03, 0x04};
+
+    // Create VectorIOReader with corrupted data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = corruptedData;
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+
+    // Should throw exception for corrupted data
+    EXPECT_THROW({
+        knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+            &vectorIoReader, metricType);
+    }, std::exception);
+}
+
+TEST(FaissLoadIndexWithStreamADCTest, ValidBinaryIndexTransformation) {
+    // Create a test binary index structure
+    int dim = 128;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<uint8_t> vectors;
+    vectors.reserve(numIds * (dim / 8));
+
+    for (int64_t i = 0; i < numIds; ++i) {
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    // Create binary HNSW index
+    std::string method = "BHNSW32";
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+        test_util::FaissCreateBinaryIndex(dim, method));
+    auto createdIndexWithData =
+        test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
+
+    // Serialize the index
+    auto serializedIndex = test_util::FaissGetSerializedBinaryIndex(&createdIndexWithData);
+
+    // Create VectorIOReader from serialized data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = serializedIndex.data;
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+
+    // Test the transformation
+    jlong resultPtr = 0;
+    EXPECT_NO_THROW({
+        resultPtr = knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+            &vectorIoReader, metricType);
+    });
+
+    ASSERT_NE(0, resultPtr);
+
+    // Verify the result is a valid IndexIDMap
+    auto* resultIndex = reinterpret_cast<faiss::IndexIDMap*>(resultPtr);
+    ASSERT_NE(resultIndex, nullptr);
+    ASSERT_NE(resultIndex->index, nullptr);
+
+    ASSERT_EQ(dim, resultIndex->d);
+    ASSERT_EQ(numIds, resultIndex->ntotal);
+
+    // Verify it's an HNSW index
+    auto* hnswIndex = dynamic_cast<faiss::IndexHNSW*>(resultIndex->index);
+    ASSERT_NE(hnswIndex, nullptr);
+
+    // Clean up
+    knn_jni::faiss_wrapper::Free(resultPtr, JNI_FALSE);
+}
+
+TEST(FaissLoadIndexWithStreamADCTest, ValidInnerProductMetric) {
+    // Create a test binary index structure
+    int dim = 64;
+    faiss::idx_t numIds = 50;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<uint8_t> vectors;
+    vectors.reserve(numIds * (dim / 8));
+
+    for (int64_t i = 0; i < numIds; ++i) {
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    // Create binary HNSW index
+    std::string method = "BHNSW16";
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+        test_util::FaissCreateBinaryIndex(dim, method));
+    auto createdIndexWithData =
+        test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
+
+    // Serialize the index
+    auto serializedIndex = test_util::FaissGetSerializedBinaryIndex(&createdIndexWithData);
+
+    // Create VectorIOReader from serialized data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = serializedIndex.data;
+
+    faiss::MetricType metricType = faiss::METRIC_INNER_PRODUCT;
+
+    // Test with inner product metric
+    jlong resultPtr = 0;
+    EXPECT_NO_THROW({
+        resultPtr = knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+            &vectorIoReader, metricType);
+    });
+
+    ASSERT_NE(0, resultPtr);
+
+    // Verify the result
+    auto* resultIndex = reinterpret_cast<faiss::IndexIDMap*>(resultPtr);
+    ASSERT_NE(resultIndex, nullptr);
+    ASSERT_EQ(dim, resultIndex->d);
+    ASSERT_EQ(numIds, resultIndex->ntotal);
+
+    // Clean up
+    knn_jni::faiss_wrapper::Free(resultPtr, JNI_FALSE);
+}
+
+TEST(FaissLoadIndexWithStreamADCTest, PreservesIdMapping) {
+     // Create a test binary index with specific IDs
+    int dim = 128;
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> customIds;
+    std::vector<uint8_t> vectors;
+    vectors.reserve(numIds * (dim / 8));
+
+    // Use non-sequential IDs to test mapping preservation
+    for (int64_t i = 0; i < numIds; ++i) {
+        customIds.push_back(i * 10 + 100); // IDs: 100, 110, 120, ...
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    // Create binary HNSW index
+    std::string method = "BHNSW32";
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+        test_util::FaissCreateBinaryIndex(dim, method));
+    auto createdIndexWithData =
+        test_util::FaissAddBinaryData(createdIndex.get(), customIds, vectors);
+
+    // Serialize the index
+    auto serializedIndex = test_util::FaissGetSerializedBinaryIndex(&createdIndexWithData);
+
+    // Create VectorIOReader from serialized data
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = serializedIndex.data;
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+
+    // Transform the index
+    jlong resultPtr = knn_jni::faiss_wrapper::LoadIndexWithStreamADC(
+        &vectorIoReader, metricType);
+
+    auto* resultIndex = reinterpret_cast<faiss::IndexIDMap*>(resultPtr);
+    ASSERT_NE(resultIndex, nullptr);
+
+    // Verify ID mapping is preserved
+    ASSERT_EQ(numIds, resultIndex->id_map.size());
+    for (size_t i = 0; i < customIds.size(); ++i) {
+        ASSERT_EQ(customIds[i], resultIndex->id_map[i]);
+    }
+
+    // Clean up
+    knn_jni::faiss_wrapper::Free(resultPtr, JNI_FALSE);
 }

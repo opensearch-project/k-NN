@@ -26,12 +26,12 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
     public static final String IBHF = "IBHf";
 
     @Getter
-    private FaissHNSW faissHnsw;
-    private FaissBinaryIndex storage;
+    protected FaissHNSW faissHnsw;
+    protected FaissBinaryIndex storage;
 
-    public FaissBinaryHnswIndex() {
-        super(IBHF);
-        this.faissHnsw = new FaissHNSW();
+    public FaissBinaryHnswIndex(final String indexType, final FaissHNSW faissHnsw) {
+        super(indexType);
+        this.faissHnsw = faissHnsw;
     }
 
     /**
@@ -61,7 +61,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
 
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
-        throw new UnsupportedOperationException(FaissBinaryHnswIndex.class.getSimpleName() + " doees not support FloatVectorValues.");
+        throw new UnsupportedOperationException(FaissBinaryHnswIndex.class.getSimpleName() + " does not support FloatVectorValues.");
     }
 
     @Override

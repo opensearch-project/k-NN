@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
@@ -13,13 +14,17 @@ import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexSettings;
+import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.QuantizedKNNBinaryVectorValues;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClientFactory;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
@@ -53,6 +58,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
 @Log4j2
 @ExperimentalApi
 public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
+    private static final String FLOAT16_VECTOR_TYPE_STRING = "half_float";
 
     private final Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final NativeIndexBuildStrategy fallbackStrategy;
@@ -137,9 +143,11 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      *      2. Triggers index build
      *      3. Awaits on vector build to complete
      *      4. Downloads index file and writes to indexOutput
+     * In most cases, a failure in this process will trigger a fall back to the designated {@link NativeIndexBuildStrategy}.
+     * However, if a {@link TerminalIOException} is thrown, it will be caught and rethrown to terminate the request.
      *
      * @param indexInfo {@link BuildIndexParams} containing information about the index to be built
-     * @throws IOException if an error occurs during the build process
+     * @throws IOException if a terminal error occurs during the build process
      */
     @Override
     public void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException {
@@ -162,6 +170,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
             success = true;
             return;
+        } catch (TerminalIOException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to build index remotely: " + indexInfo, e);
         } finally {
@@ -182,7 +192,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 repositoryContext.blobName,
                 indexInfo.getTotalLiveDocs(),
                 indexInfo.getVectorDataType(),
-                indexInfo.getKnnVectorValuesSupplier()
+                decorateVectorValuesSupplier(indexInfo)
             );
             success = true;
         } catch (InterruptedException | IOException e) {
@@ -190,6 +200,14 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } finally {
             metrics.endRepositoryWriteMetrics(success);
         }
+    }
+
+    private static Supplier<KNNVectorValues<?>> decorateVectorValuesSupplier(final BuildIndexParams indexInfo) {
+        if (indexInfo.getVectorDataType() == VectorDataType.BINARY && indexInfo.getQuantizationState() != null) {
+            return () -> new QuantizedKNNBinaryVectorValues(indexInfo.getKnnVectorValuesSupplier().get(), indexInfo);
+        }
+
+        return indexInfo.getKnnVectorValuesSupplier();
     }
 
     /**
@@ -251,7 +269,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         BuildIndexParams indexInfo,
         RepositoryContext repositoryContext,
         RemoteBuildStatusResponse remoteBuildStatusResponse
-    ) {
+    ) throws TerminalIOException {
         metrics.startRepositoryReadMetrics();
         boolean success = false;
         try {
@@ -260,6 +278,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexInfo.getIndexOutputWithBuffer()
             );
             success = true;
+        } catch (TerminalIOException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(String.format("Repository read failed for vector field [%s]", indexInfo.getFieldName()), e);
         } finally {
@@ -295,7 +315,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     /**
      * Helper method to get repository context. Generates a unique UUID for the blobName so should only be used once.
      */
-    private RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) {
+    @VisibleForTesting
+    RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) throws IOException {
         BlobStoreRepository repository = getRepository();
         BlobPath blobPath = repository.basePath().add(indexSettings.getUUID() + VECTORS_PATH);
         String blobName = UUIDs.base64UUID() + "_" + indexInfo.getFieldName() + "_" + indexInfo.getSegmentWriteState().segmentInfo.name;
@@ -303,6 +324,16 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             repository.blobStore().blobContainer(blobPath)
         );
         return new RepositoryContext(repository, blobPath, vectorRepositoryAccessor, blobName);
+    }
+
+    private static String determineVectorDataType(final VectorDataType dataType, final Map<String, Object> parameters) {
+        if (dataType == VectorDataType.FLOAT) {
+            if (FaissHNSWMethod.isFloat16Index(dataType, parameters)) {
+                return FLOAT16_VECTOR_TYPE_STRING;
+            }
+        }
+
+        return dataType.getValue();
     }
 
     /**
@@ -322,17 +353,18 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         String fullPath,
         Map<String, Object> parameters
     ) throws IOException {
-        String repositoryType = repositoryMetadata.type();
-        String containerName;
+        final String repositoryType = repositoryMetadata.type();
+        final String containerName;
         switch (repositoryType) {
             case S3 -> containerName = repositoryMetadata.settings().get(BUCKET);
             default -> throw new IllegalArgumentException(
                 "Repository type " + repositoryType + " is not supported by the remote build service"
             );
         }
-        String vectorDataType = indexInfo.getVectorDataType().getValue();
 
-        KNNVectorValues<?> vectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+        final String vectorDataType = determineVectorDataType(indexInfo.getVectorDataType(), parameters);
+
+        KNNVectorValues<?> vectorValues = decorateVectorValuesSupplier(indexInfo).get();
         initializeVectorValues(vectorValues);
         assert (vectorValues.dimension() > 0);
 

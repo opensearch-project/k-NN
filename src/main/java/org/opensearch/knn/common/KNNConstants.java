@@ -84,6 +84,13 @@ public class KNNConstants {
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final String MODEL_VERSION = "model_version";
     public static final String QUANTIZATION_STATE_FILE_SUFFIX = "osknnqstate";
+    public static final double ADC_CORRECTION_FACTOR = 2.0;
+    public static final String ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER = "adc_enabled";
+    public static final String QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER = "quantization_level";
+    public static final String SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER = "space_type";
+    public static final int QUANTIZATION_RANDOM_ROTATION_DEFAULT_SEED = 1212121212; // used to seed the RNG for reproducability in unit
+                                                                                    // tests and benchmark results of the random gaussian
+                                                                                    // rotation
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
@@ -176,4 +183,9 @@ public class KNNConstants {
     // Repository-S3
     public static final String S3 = "s3";
     public static final String BUCKET = "bucket";
+
+    public static final Integer INDEX_THREAD_QUANTITY_THRESHOLD = 32;
+    public static final Integer INDEX_THREAD_QUANTITY_DEFAULT_LARGE = 4;
+    public static final Integer INDEX_THREAD_QUANTITY_DEFAULT_SMALL = 1;
+
 }

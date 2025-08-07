@@ -14,6 +14,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
+import org.junit.After;
 import org.junit.Before;
 import org.mockito.Mockito;
 import org.opensearch.cluster.ClusterName;
@@ -40,6 +41,7 @@ import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
+import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -164,6 +166,19 @@ abstract class RemoteIndexBuildTests extends KNNTestCase {
         when(clusterSettings.get(KNN_REMOTE_VECTOR_REPOSITORY_SETTING)).thenReturn("test-repo-name");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
+    }
+
+    @After
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+        resetRemoteBuildStats();
+    }
+
+    private void resetRemoteBuildStats() {
+        for (KNNRemoteIndexBuildValue knnRemoteIndexBuildValue : KNNRemoteIndexBuildValue.values()) {
+            knnRemoteIndexBuildValue.reset();
+        }
     }
 
     public static IndexSettings createTestIndexSettings() {

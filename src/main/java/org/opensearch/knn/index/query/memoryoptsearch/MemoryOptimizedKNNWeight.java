@@ -18,6 +18,7 @@ import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -37,6 +38,9 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
  */
 @Log4j2
 public class MemoryOptimizedKNNWeight extends KNNWeight {
+    // Enable ACORN optimization when having filtering rate < 60%.
+    private static final KnnSearchStrategy.Hnsw DEFAULT_HNSW_SEARCH_STRATEGY = new KnnSearchStrategy.Hnsw(60);
+
     private final KnnCollectorManager knnCollectorManager;
 
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, int k) {
@@ -70,17 +74,19 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final KNNEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedTargetVector,
+        final float[] adcTransformedVector,
         final String modelId,
         final BitSet filterIdsBitSet,
         final int cardinality,
         final int k
     ) {
         try {
+            final Version segmentLuceneVersion = reader.getSegmentInfo().info.getVersion();
             if (k > 0) {
                 // KNN search
                 if (quantizedTargetVector != null) {
                     // Quantization case
-                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
+                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion) == VectorDataType.BINARY) {
                         return queryIndex(
                             quantizedTargetVector,
                             cardinality,
@@ -96,7 +102,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     // Should never occur, safety if ever any other quantization is added
                     throw new IllegalStateException(
                         "VectorDataType for transfer acquired ["
-                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo)
+                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion)
                             + "] while it is expected to get ["
                             + VectorDataType.BINARY
                             + "]"
@@ -107,6 +113,20 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     // when data_type is set byte or binary
                     return queryIndex(
                         knnQuery.getByteQueryVector(),
+                        cardinality,
+                        cardinality + 1,
+                        context,
+                        filterIdsBitSet,
+                        reader,
+                        knnEngine,
+                        spaceType
+                    );
+                }
+
+                if (adcTransformedVector != null) {
+                    // ADC case
+                    return queryIndex(
+                        adcTransformedVector,
                         cardinality,
                         cardinality + 1,
                         context,
@@ -168,7 +188,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
 
         // Create a collector + bitset
-        final KnnCollector knnCollector = knnCollectorManager.newCollector(visitedLimit, KnnSearchStrategy.Hnsw.DEFAULT, context);
+        final KnnCollector knnCollector = knnCollectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
         final BitSet bitSet = cardinality == 0 ? null : filterIdsBitSet;
 
         // Start searching index

@@ -11,6 +11,7 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -53,6 +54,7 @@ public class DefaultKNNWeight extends KNNWeight {
         final KNNEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedVector,
+        final float[] transformedVector,
         final String modelId,
         final BitSet filterIdsBitSet,
         final int cardinality,
@@ -66,25 +68,28 @@ public class DefaultKNNWeight extends KNNWeight {
         final String vectorIndexFileName = engineFiles.get(0);
         final String cacheKey = NativeMemoryCacheKeyHelper.constructCacheKey(vectorIndexFileName, reader.getSegmentInfo().info);
 
+        final Version segmentLuceneVersion = reader.getSegmentInfo().info.getVersion();
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+            reader,
+            fieldInfo,
+            knnQuery.getField(),
+            segmentLuceneVersion
+        );
+
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
         try {
-            indexAllocation = nativeMemoryCacheManager.get(
-                new NativeMemoryEntryContext.IndexEntryContext(
-                    reader.directory(),
-                    cacheKey,
-                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                    getParametersAtLoading(
-                        spaceType,
-                        knnEngine,
-                        knnQuery.getIndexName(),
-                        // TODO: In the future, more vector data types will be supported with quantization
-                        quantizedVector == null ? vectorDataType : VectorDataType.BINARY
-                    ),
-                    knnQuery.getIndexName(),
-                    modelId
-                ),
-                true
+            indexAllocation = loadGraph(
+                reader,
+                cacheKey,
+                spaceType,
+                knnEngine,
+                knnQuery,
+                vectorDataType,
+                quantizedVector,
+                segmentLevelQuantizationInfo,
+                modelId,
+                context
             );
         } catch (ExecutionException e) {
             GRAPH_QUERY_ERRORS.increment();
@@ -112,7 +117,8 @@ public class DefaultKNNWeight extends KNNWeight {
             final int[] parentIds = getParentIdsArray(context);
             if (k > 0) {
                 if (knnQuery.getVectorDataType() == VectorDataType.BINARY
-                    || quantizedVector != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
+                    || quantizedVector != null
+                        && quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion) == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
                         // TODO: In the future, quantizedVector can have other data types than byte
@@ -127,7 +133,7 @@ public class DefaultKNNWeight extends KNNWeight {
                 } else {
                     results = JNIService.queryIndex(
                         indexAllocation.getMemoryAddress(),
-                        knnQuery.getQueryVector(),
+                        transformedVector == null ? knnQuery.getQueryVector() : transformedVector,
                         k,
                         knnQuery.getMethodParameters(),
                         knnEngine,
@@ -169,5 +175,40 @@ public class DefaultKNNWeight extends KNNWeight {
         TopDocs topDocs = collector.topDocs();
         addExplainIfRequired(results, knnEngine, spaceType);
         return topDocs;
+    }
+
+    /**
+     * Loads the graph from native memory.
+     */
+    protected NativeMemoryAllocation loadGraph(
+        final SegmentReader reader,
+        String cacheKey,
+        final SpaceType spaceType,
+        final KNNEngine knnEngine,
+        final KNNQuery knnQuery,
+        final VectorDataType vectorDataType,
+        final byte[] quantizedVector,
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
+        final String modelId,
+        LeafReaderContext context
+    ) throws ExecutionException, IOException {
+        return nativeMemoryCacheManager.get(
+            new NativeMemoryEntryContext.IndexEntryContext(
+                reader.directory(),
+                cacheKey,
+                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                getParametersAtLoading(
+                    spaceType,
+                    knnEngine,
+                    knnQuery.getIndexName(),
+                    // TODO: In the future, more vector data types will be supported with quantization
+                    quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
+                    segmentLevelQuantizationInfo
+                ),
+                knnQuery.getIndexName(),
+                modelId
+            ),
+            true
+        );
     }
 }

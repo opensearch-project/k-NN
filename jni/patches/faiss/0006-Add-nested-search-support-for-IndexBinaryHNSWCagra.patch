@@ -1,0 +1,241 @@
+From a48361e8158ef5e7a38e2d21410c792a9378ac18 Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Mon, 4 Aug 2025 19:56:58 -0700
+Subject: [PATCH] Add nested search support for IndexBinaryHNSWCagra
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ faiss/IndexBinaryHNSW.cpp | 110 +++++++++++++++++++++++++++-----------
+ tests/test_id_grouper.cpp |  80 +++++++++++++++++++++++++++
+ 2 files changed, 158 insertions(+), 32 deletions(-)
+
+diff --git a/faiss/IndexBinaryHNSW.cpp b/faiss/IndexBinaryHNSW.cpp
+index 02646a8fd..4fbfb5ff5 100644
+--- a/faiss/IndexBinaryHNSW.cpp
++++ b/faiss/IndexBinaryHNSW.cpp
+@@ -377,6 +377,48 @@ void IndexBinaryHNSWCagra::add(idx_t n, const uint8_t* x) {
+     IndexBinaryHNSW::add(n, x);
+ }
+ 
++template <typename ResultHandler>
++void hnsw_search_level_0(
++        const IndexBinaryHNSWCagra* cagra_index,
++        idx_t n,
++        const uint8_t* x,
++        idx_t k,
++        const HNSW::storage_idx_t* nearest,
++        const float* nearest_d,
++        float* distances,
++        idx_t* labels,
++        const SearchParameters* params,
++        ResultHandler& bres) {
++    FAISS_THROW_IF_NOT(k > 0);
++
++#pragma omp parallel
++    {
++        VisitedTable vt(cagra_index->ntotal);
++        std::unique_ptr<DistanceComputer> dis(cagra_index->get_distance_computer());
++        HNSWStats search_stats;
++        typename ResultHandler::SingleResultHandler res(bres);
++
++#pragma omp for
++        for (idx_t i = 0; i < n; i++) {
++            res.begin(i);
++            dis->set_query((float*)(x + i * cagra_index->code_size));
++
++            cagra_index->hnsw.search_level_0(
++                    *dis,
++                    res,
++                    1,  // nprobe
++                    &nearest[i],
++                    &nearest_d[i],
++                    1, // search_type
++                    search_stats,
++                    vt,
++                    params);
++
++            res.end();
++        }
++    }
++}
++
+ void IndexBinaryHNSWCagra::search(
+         idx_t n,
+         const uint8_t* x,
+@@ -388,10 +430,6 @@ void IndexBinaryHNSWCagra::search(
+         IndexBinaryHNSW::search(n, x, k, distances, labels, params);
+     } else {
+         float* distances_f = (float*)distances;
+-
+-        using RH = HeapBlockResultHandler<HNSW::C>;
+-        RH bres(n, distances_f, labels, k);
+-
+         std::vector<storage_idx_t> nearest(n);
+         std::vector<float> nearest_d(n);
+ 
+@@ -420,38 +458,46 @@ void IndexBinaryHNSWCagra::search(
+                     nearest[i] >= 0, "Could not find a valid entrypoint.");
+         }
+ 
+-#pragma omp parallel
+-        {
+-            VisitedTable vt(ntotal);
+-            std::unique_ptr<DistanceComputer> dis(get_distance_computer());
+-            HNSWStats search_stats;
+-            RH::SingleResultHandler res(bres);
+-
+-#pragma omp for
+-            for (idx_t i = 0; i < n; i++) {
+-                res.begin(i);
+-                dis->set_query((float*)(x + i * code_size));
+-
+-                hnsw.search_level_0(
+-                        *dis,
+-                        res,
+-                        1,
+-                        &nearest[i],
+-                        &nearest_d[i],
+-                        1, // search_type
+-                        search_stats,
+-                        vt,
+-                        params);
+-
+-                res.end();
+-            }
++        if (params && params->grp) {
++            using RH = GroupedHeapBlockResultHandler<HNSW::C>;
++            RH bres(n, distances_f, labels, k, params->grp);
++
++            hnsw_search_level_0(
++                    this,
++                    n,
++                    x,
++                    k,
++                    nearest.data(),
++                    nearest_d.data(),
++                    distances_f,
++                    labels,
++                    params,
++                    bres);
++        } else {
++            using RH = HeapBlockResultHandler<HNSW::C>;
++            RH bres(n, distances_f, labels, k);
++
++            hnsw_search_level_0(
++                    this,
++                    n,
++                    x,
++                    k,
++                    nearest.data(),
++                    nearest_d.data(),
++                    distances_f,
++                    labels,
++                    params,
++                    bres);
+         }
+ 
++        if (is_similarity_metric(this->metric_type)) {
++            // we need to revert the negated distances
+ #pragma omp parallel for
+-        for (int i = 0; i < n * k; ++i) {
+-            distances[i] = std::round(distances_f[i]);
++            for (int64_t i = 0; i < k * n; i++) {
++                distances[i] = -distances[i];
++            }
+         }
+-    }
++    }  // End if
+ }
+ 
+ } // namespace faiss
+diff --git a/tests/test_id_grouper.cpp b/tests/test_id_grouper.cpp
+index 7c79ddc79..df5dde737 100644
+--- a/tests/test_id_grouper.cpp
++++ b/tests/test_id_grouper.cpp
+@@ -482,3 +482,83 @@ TEST(IdGrouper, bitmap_with_binary_hnsw_idmap) {
+     delete[] D;
+ }
+ 
++TEST(IdGrouper, bitmap_with_binary_hnsw_cagra_idmap) {
++    // Dimension
++    int d = 16;
++    // Number of binary vector
++    int nb = 30;
++
++    // Applying 32x quantization
++    // e.g. 16 bits == 2 bytes
++    int codeSize = 2;
++    std::vector<uint8_t> database(nb * codeSize);
++    for (size_t i = 0; i < database.size(); ++i) {
++        database[i] = rand() & 0xFFU;
++    }
++
++    // Prepare bitmap ID grouper
++    std::vector<idx_t> xids (nb);
++    // group_size=2, num_binary=30, then (2 + 1) * 30 bits required.
++    // therefore, we give 2 uint64_t, which is 128 bits
++    uint64_t bitmap[2] = {};
++    faiss::IDGrouperBitmap id_grouper(2, bitmap);
++    int num_grp = 0;
++    // One parent will have 2 child docs.
++    int grp_size = 2;
++    int id_in_grp = 0;
++    for (int i = 0; i < nb; i++) {
++        xids[i] = i + num_grp;
++        id_in_grp++;
++        if (id_in_grp == grp_size) {
++            id_grouper.set_group(i + num_grp + 1);
++            num_grp++;
++            id_in_grp = 0;
++        }
++    }
++
++    // Create IndexBinaryHNSWCagra and append data
++    int k = 50;
++    int m = 8;
++
++    auto* index = new faiss::IndexBinaryHNSWCagra(d, m);
++    faiss::IndexBinaryIDMap id_map {index};
++
++    // Add vectors to the index
++    id_map.add_with_ids(nb, database.data(), xids.data());
++    // Force Cagra to search at the bottom level
++    index->base_level_only=true;
++
++    // ID and distance vectors
++    std::vector<idx_t> I (k);
++    std::vector<float> D (k);
++
++    // Set grouper
++    auto pSearchParameters = std::make_unique<faiss::SearchParametersHNSW>();
++    pSearchParameters->grp = &id_grouper;
++
++    // Start search with the first vector.
++    id_map.search(1, database.data(), k, (int32_t*) D.data(), I.data(), pSearchParameters.get());
++
++    std::unordered_set<int> group_ids;
++
++    // First vector should be come up first as Hamming(vec, vec) == 0
++    ASSERT_EQ(0, I[0]);
++    ASSERT_EQ(0, D[0]);
++    group_ids.insert(id_grouper.get_group(I[0]));
++
++    // We've already collected the first group id above.
++    int numResults = 1;
++    for (int j = 1; j < k; j++) {
++        if (I[j] != -1) {
++            // Valid result, collect group id.
++            group_ids.insert(id_grouper.get_group(I[j]));
++            ++numResults;
++        } else {
++            break;
++        }
++    }
++
++    // Make sure we collected unique group ids.
++    // E.g. we should not never collect the vectors having the same group id more than once.
++    ASSERT_EQ(numResults, group_ids.size());
++}
+-- 
+2.39.5 (Apple Git-154)
+

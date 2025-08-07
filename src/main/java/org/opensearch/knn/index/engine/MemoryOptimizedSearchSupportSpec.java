@@ -123,6 +123,7 @@ public class MemoryOptimizedSearchSupportSpec {
 
     private static boolean isSupportedQuantization(final QuantizationConfig quantizationConfig) {
         final ScalarQuantizationType quantizationType = quantizationConfig.getQuantizationType();
+
         return quantizationType == ScalarQuantizationType.ONE_BIT
             || quantizationType == ScalarQuantizationType.TWO_BIT
             || quantizationType == ScalarQuantizationType.FOUR_BIT;

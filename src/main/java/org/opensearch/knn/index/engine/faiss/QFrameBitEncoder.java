@@ -33,7 +33,12 @@ public class QFrameBitEncoder implements Encoder {
     public static final String NAME = "binary";
     public static final String BITCOUNT_PARAM = "bits";
     private static final int DEFAULT_BITS = 1;
+    public static final String ENABLE_ADC_PARAM = "enable_adc";
+    public static final Boolean DEFAULT_ENABLE_ADC = false;
+    public static final String ENABLE_RANDOM_ROTATION_PARAM = "random_rotation";
+    public static final Boolean DEFAULT_ENABLE_RANDOM_ROTATION = false;
     private static final Set<Integer> validBitCounts = ImmutableSet.of(1, 2, 4);
+    private static final Set<Integer> supportedBitCountsForADC = ImmutableSet.of(1);
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
     /**
@@ -41,7 +46,9 @@ public class QFrameBitEncoder implements Encoder {
      *   "encoder": {
      *     "name": "binary",
      *     "parameters": {
-     *       "bits": 2
+     *       "bits": 2,
+     *       "random_rotation": true,
+     *       "enable_adc": false
      *     }
      *   }
      * }
@@ -52,18 +59,45 @@ public class QFrameBitEncoder implements Encoder {
             BITCOUNT_PARAM,
             new Parameter.IntegerParameter(BITCOUNT_PARAM, DEFAULT_BITS, (v, context) -> validBitCounts.contains(v))
         )
+
+        .addParameter(
+            ENABLE_RANDOM_ROTATION_PARAM,
+            new Parameter.BooleanParameter(ENABLE_RANDOM_ROTATION_PARAM, DEFAULT_ENABLE_RANDOM_ROTATION, (v, context) -> {
+                return true; // all booleans are valid for this toggleable setting.
+            })
+        )
+        .addParameter(ENABLE_ADC_PARAM, new Parameter.BooleanParameter(ENABLE_ADC_PARAM, DEFAULT_ENABLE_ADC, (v, context) -> {
+            // all booleans are valid for this toggleable setting. However, ADC is only supported for certain bit counts.
+            // That validation is handled as part of the knnLibraryIndexingContextGenerator builder logic below.
+            return true;
+        }))
         .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
-            QuantizationConfig quantizationConfig;
+
+            QuantizationConfig.QuantizationConfigBuilder quantizationConfigBuilder = QuantizationConfig.builder();
+
             int bitCount = (int) methodComponentContext.getParameters().getOrDefault(BITCOUNT_PARAM, DEFAULT_BITS);
-            if (bitCount == 1) {
-                quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
-            } else if (bitCount == 2) {
-                quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build();
-            } else if (bitCount == 4) {
-                quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build();
-            } else {
-                throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid bit count: %d", bitCount));
+            boolean enableRandomRotation = (boolean) methodComponentContext.getParameters()
+                .getOrDefault(ENABLE_RANDOM_ROTATION_PARAM, DEFAULT_ENABLE_RANDOM_ROTATION);
+
+            boolean enableADC = (boolean) methodComponentContext.getParameters().getOrDefault(ENABLE_ADC_PARAM, DEFAULT_ENABLE_ADC);
+
+            if (enableADC && !supportedBitCountsForADC.contains(bitCount)) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Validation Failed: ADC is not supported for bit count: %d", bitCount)
+                );
             }
+
+            ScalarQuantizationType quantizationType = switch (bitCount) {
+                case 1 -> ScalarQuantizationType.ONE_BIT;
+                case 2 -> ScalarQuantizationType.TWO_BIT;
+                case 4 -> ScalarQuantizationType.FOUR_BIT;
+                default -> throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid bit count: %d", bitCount));
+            };
+
+            QuantizationConfig quantizationConfig = quantizationConfigBuilder.quantizationType(quantizationType)
+                .enableRandomRotation(enableRandomRotation)
+                .enableADC(enableADC)
+                .build();
 
             // We use the flat description because we are doing the quantization
             return KNNLibraryIndexingContextImpl.builder().quantizationConfig(quantizationConfig).parameters(new HashMap<>() {

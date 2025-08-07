@@ -353,7 +353,7 @@ public abstract class KNNWeight extends Weight {
         }
     }
 
-    private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+    protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
         if (this.filterWeight == null) {
             return new FixedBitSet(0);
         }
@@ -411,7 +411,7 @@ public abstract class KNNWeight extends Weight {
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
-    private TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
+    protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
         throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
@@ -450,7 +450,8 @@ public abstract class KNNWeight extends Weight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,
-            knnQuery.getField()
+            knnQuery.getField(),
+            reader.getSegmentInfo().info.getVersion()
         );
 
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
@@ -460,7 +461,8 @@ public abstract class KNNWeight extends Weight {
         }
 
         // TODO: Change type of vector once more quantization methods are supported
-        final byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+        byte[] quantizedVector = maybeQuantizeVector(segmentLevelQuantizationInfo);
+        float[] transformedVector = maybeTransformVector(segmentLevelQuantizationInfo, spaceType);
 
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
         final TopDocs results = doANNSearch(
@@ -471,6 +473,7 @@ public abstract class KNNWeight extends Weight {
             knnEngine,
             vectorDataType,
             quantizedVector,
+            transformedVector,
             modelId,
             filterIdsBitSet,
             cardinality,
@@ -510,6 +513,7 @@ public abstract class KNNWeight extends Weight {
         final KNNEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedVector,
+        final float[] transformedVector,
         final String modelId,
         final BitSet filterIdsBitSet,
         final int cardinality,
@@ -680,6 +684,36 @@ public abstract class KNNWeight extends Weight {
             return null;
         }
         return bitSetToIntArray(knnQuery.getParentsFilter().getBitSet(context));
+    }
+
+    /**
+     * If segmentLevelQuantizationInfo exists then we need to quantize the query vector.
+     * @param segmentLevelQuantizationInfo {@link SegmentLevelQuantizationInfo}
+     * @return quantized query vector if segmentLevelQuantizationInfo is non-null and ADC is disabled, otherwise null
+     */
+    private byte[] maybeQuantizeVector(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            return null;
+        }
+
+        // will return null if segmentLevelQuantizationInfo is null.
+        return SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
+    }
+
+    /**
+     * If ADC is enabled from the segment level, then we need to transform the query vector for ADC.
+     * @param segmentLevelQuantizationInfo {@link SegmentLevelQuantizationInfo}
+     * @param spaceType {@link SpaceType}
+     * @return transformed query vector if ADC is enabled, otherwise null
+     */
+    private float[] maybeTransformVector(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo, SpaceType spaceType) {
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            float[] transformedVector = knnQuery.getQueryVector().clone();
+            SegmentLevelQuantizationUtil.transformVectorWithADC(transformedVector, segmentLevelQuantizationInfo, spaceType);
+            return transformedVector;
+        }
+
+        return null;
     }
 
     private static int[] bitSetToIntArray(final BitSet bitSet) {

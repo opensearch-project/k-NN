@@ -44,8 +44,10 @@ import org.opensearch.knn.indices.ModelDao;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Predicate;
 
 @Log4j2
@@ -126,6 +128,7 @@ public class ExactSearcher {
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
+        final Map<Integer, Float> docToScore = new HashMap<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
             final float currentScore = iterator.score();
@@ -213,19 +216,29 @@ public class ExactSearcher {
                 spaceType
             );
         }
-        final byte[] quantizedQueryVector;
-        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
+        byte[] quantizedQueryVector = null;
+        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = null;
         if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
             // Build Segment Level Quantization info.
-            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, exactSearcherContext.getField());
-            // Quantize the Query Vector Once.
-            quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
-                exactSearcherContext.getFloatQueryVector(),
-                segmentLevelQuantizationInfo
+            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+                reader,
+                fieldInfo,
+                exactSearcherContext.getField(),
+                reader.getSegmentInfo().info.getVersion()
             );
-        } else {
-            segmentLevelQuantizationInfo = null;
-            quantizedQueryVector = null;
+            // Quantize the Query Vector Once. Or transform it in the case of ADC.
+            if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+                SegmentLevelQuantizationUtil.transformVectorWithADC(
+                    exactSearcherContext.getFloatQueryVector(),
+                    segmentLevelQuantizationInfo,
+                    spaceType
+                );
+            } else {
+                quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
+                    exactSearcherContext.getFloatQueryVector(),
+                    segmentLevelQuantizationInfo
+                );
+            }
         }
 
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);

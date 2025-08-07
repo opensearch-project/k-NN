@@ -111,6 +111,69 @@ public class KNNScoringUtil {
         return VectorUtil.squareDistance(queryVector, inputVector);
     }
 
+    /**
+     * Calculates the L2 squared distance between a float query vector and a binary document vector using ADC (Asymmetric Distance Computation).
+     * This method implements a specialized version of L2 distance calculation where one vector is in binary format (compressed)
+     * and the other is in float format (uncompressed).
+     *
+     * TODO: For now this will be very inefficient. We can in the future optimize through the following:
+     * Use FloatVector.SPECIES_PREFERRED for SIMD processing in chunks with reduceLanes(),
+     * Configure build.gradle with --add-modules jdk.incubator.vector --enable-preview flags into the VectorUtils class.
+     *
+     * @param queryVector The uncompressed query vector in float format
+     * @param inputVector The compressed document vector in binary format, where each bit represents a dimension
+     * @return The L2 squared distance between the two vectors. Lower values indicate closer vectors.
+     * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
+     */
+    public static float l2SquaredADC(float[] queryVector, byte[] inputVector) {
+        // we cannot defer to VectorUtil as it does not support ADC.
+        // TODO: add batching logic similar to C++ to improve performance.
+        float score = 0;
+
+        for (int i = 0; i < queryVector.length; ++i) {
+            int byteIndex = i / 8;
+            int bitOffset = 7 - (i % 8);
+            int bitValue = (inputVector[byteIndex] >> bitOffset) & 1;
+
+            // Calculate squared difference
+            float diff = bitValue - queryVector[i];
+            score += diff * diff;
+        }
+        return score;
+    }
+
+    /**
+     * Calculates the inner product similarity between a float query vector and a binary document vector using ADC
+     * (Asymmetric Distance Computation). This method is useful for similarity searches where one vector is compressed
+     * in binary format and the other remains in float format.
+     *
+     * The inner product is calculated by summing the products of corresponding elements, where the binary vector's
+     * elements are interpreted as 0 or 1.
+     *
+     * TODO: For now this will be very inefficient. We can in the future optimize through the following:
+     * Use FloatVector.SPECIES_PREFERRED for SIMD processing in chunks with reduceLanes(),
+     * Configure build.gradle with --add-modules jdk.incubator.vector --enable-preview flags into the VectorUtils class.
+     *
+     * @param queryVector The uncompressed query vector in float format
+     * @param inputVector The compressed document vector in binary format, where each bit represents a dimension
+     * @return The inner product similarity score between the two vectors. Higher values indicate more similar vectors.
+     * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
+     */
+    public static float innerProductADC(float[] queryVector, byte[] inputVector) {
+        float score = 0;
+
+        for (int i = 0; i < queryVector.length; ++i) {
+            // Extract the bit for this dimension
+            int byteIndex = i / 8;
+            int bitOffset = 7 - (i % 8);
+            int bitValue = (inputVector[byteIndex] >> bitOffset) & 1;
+
+            // Calculate product and accumulate
+            score += bitValue * queryVector[i];
+        }
+        return score;
+    }
+
     private static float[] toFloat(final List<Number> inputVector, final VectorDataType vectorDataType) {
         Objects.requireNonNull(inputVector);
         float[] value = new float[inputVector.size()];

@@ -89,4 +89,11 @@ public enum KNNRemoteIndexBuildValue {
     public void decrementBy(long delta) {
         value.add(delta * -1);
     }
+
+    /**
+     * Reset the value to 0L.
+     */
+    public void reset() {
+        value.reset();
+    }
 }
