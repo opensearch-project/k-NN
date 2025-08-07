@@ -6,10 +6,15 @@
 package org.opensearch.knn.index.query;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.index.*;
-import org.apache.lucene.search.*;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.search.ScorerSupplier;
+import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.Explanation;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.KNNIterator;
 import org.opensearch.knn.index.query.iterators.VectorIdsKNNIterator;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -19,21 +24,27 @@ import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
 
 public class ExactKNNWeightTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "test_field";
     private static final float[] QUERY_VECTOR = { 1.0f, 0.0f };
+    private static final byte[] BYTE_QUERY_VECTOR = { 1, 0 };
     private static final float BOOST = 2.0f;
     private static final String SPACE_TYPE = "innerproduct";
 
     @SneakyThrows
     public void testScorerSupplier_ReturnsLazyScorer() {
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
         when(mockQuery.getField()).thenReturn(FIELD_NAME);
         when(mockQuery.getQueryVector()).thenReturn(QUERY_VECTOR);
+        when(mockQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
 
         ExactSearcher mockSearcher = mock(ExactSearcher.class);
         KNNIterator mockIterator = mock(KNNIterator.class);
@@ -53,7 +64,8 @@ public class ExactKNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testScorerSupplier_NullIterator_ReturnsEmptyScorer() {
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
+        when(mockQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
 
         ExactSearcher mockSearcher = mock(ExactSearcher.class);
         when(mockSearcher.createIterator(any(), any())).thenReturn(null);
@@ -71,9 +83,10 @@ public class ExactKNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testLazyScorerIntegration() {
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
         when(mockQuery.getField()).thenReturn(FIELD_NAME);
         when(mockQuery.getQueryVector()).thenReturn(QUERY_VECTOR);
+        when(mockQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
 
         KNNIterator mockIterator = mock(KNNIterator.class);
         when(mockIterator.nextDoc()).thenReturn(1, 5, NO_MORE_DOCS);
@@ -102,9 +115,10 @@ public class ExactKNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testLazyScoring_ScoreNotCalledUntilRequested() {
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
         when(mockQuery.getField()).thenReturn(FIELD_NAME);
         when(mockQuery.getQueryVector()).thenReturn(QUERY_VECTOR);
+        when(mockQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
 
         KNNIterator mockIterator = mock(KNNIterator.class);
         when(mockIterator.nextDoc()).thenReturn(1, 2, NO_MORE_DOCS);
@@ -141,9 +155,10 @@ public class ExactKNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testExplain() {
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
         when(mockQuery.getField()).thenReturn(FIELD_NAME);
         when(mockQuery.getQueryVector()).thenReturn(QUERY_VECTOR);
+        when(mockQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
 
         ExactKNNWeight weight = new ExactKNNWeight(mockQuery, BOOST);
         LeafReaderContext mockContext = mock(LeafReaderContext.class);
@@ -157,7 +172,7 @@ public class ExactKNNWeightTests extends KNNTestCase {
     }
 
     public void testIsCacheable() {
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
         ExactKNNWeight weight = new ExactKNNWeight(mockQuery, BOOST);
 
         assertTrue(weight.isCacheable(mock(LeafReaderContext.class)));
@@ -165,12 +180,12 @@ public class ExactKNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testExactSearchContextCreation() {
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
         when(mockQuery.getField()).thenReturn(FIELD_NAME);
         when(mockQuery.getQueryVector()).thenReturn(QUERY_VECTOR);
         when(mockQuery.getSpaceType()).thenReturn(SPACE_TYPE);
         when(mockQuery.getParentFilter()).thenReturn(null);
-        when(mockQuery.getByteQueryVector()).thenReturn(null);
+        when(mockQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
 
         ExactSearcher mockSearcher = mock(ExactSearcher.class);
         KNNIterator mockIterator = mock(KNNIterator.class);
@@ -191,12 +206,12 @@ public class ExactKNNWeightTests extends KNNTestCase {
     public void testNestedQueryWithParentFilter() {
         BitSetProducer mockParentFilter = mock(BitSetProducer.class);
 
-        ExactKNNQuery mockQuery = mock(ExactKNNQuery.class);
+        ExactKNNFloatQuery mockQuery = mock(ExactKNNFloatQuery.class);
         when(mockQuery.getField()).thenReturn(FIELD_NAME);
         when(mockQuery.getQueryVector()).thenReturn(QUERY_VECTOR);
         when(mockQuery.getSpaceType()).thenReturn(SPACE_TYPE);
         when(mockQuery.getParentFilter()).thenReturn(mockParentFilter);
-        when(mockQuery.getByteQueryVector()).thenReturn(null);
+        when(mockQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
 
         ExactSearcher mockSearcher = mock(ExactSearcher.class);
         KNNIterator mockIterator = mock(KNNIterator.class);
@@ -236,12 +251,14 @@ public class ExactKNNWeightTests extends KNNTestCase {
         ExactSearcher mockSearcher = mock(ExactSearcher.class);
         when(mockSearcher.createIterator(any(), any())).thenReturn(realIterator);
 
-        final ExactKNNQuery query = ExactKNNQuery.builder()
-            .field(FIELD_NAME)
-            .queryVector(QUERY_VECTOR)
-            .indexName(INDEX_NAME)
-            .spaceType(SPACE_TYPE)
-            .build();
+        final ExactKNNFloatQuery query = new ExactKNNFloatQuery(
+            FIELD_NAME,
+            SPACE_TYPE,
+            INDEX_NAME,
+            VectorDataType.FLOAT,
+            null,
+            QUERY_VECTOR
+        );
 
         ExactKNNWeight.initialize(mockSearcher);
 

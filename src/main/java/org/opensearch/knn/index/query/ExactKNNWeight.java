@@ -13,6 +13,7 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.DocIdSetIterator;
 
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.KNNIterator;
 import org.opensearch.knn.index.query.ExactSearcher.ExactSearcherContext;
 
@@ -51,9 +52,9 @@ public class ExactKNNWeight extends Weight {
 
     public Explanation explain(LeafReaderContext leafReaderContext, int doc, float score) {
         exactKNNQuery.setExplain(true);
-        String vectorString = exactKNNQuery.getQueryVector() != null
-            ? java.util.Arrays.toString(exactKNNQuery.getQueryVector())
-            : java.util.Arrays.toString(exactKNNQuery.getByteQueryVector());
+        String vectorString = exactKNNQuery.getVectorDataType() == VectorDataType.FLOAT
+            ? java.util.Arrays.toString(((ExactKNNFloatQuery) exactKNNQuery).getQueryVector())
+            : java.util.Arrays.toString(((ExactKNNByteQuery) exactKNNQuery).getByteQueryVector());
         String description = String.format("exact k-NN search on field [%s] with vector [%s]", exactKNNQuery.getField(), vectorString);
         return Explanation.match(score * boost, description);
     }
@@ -80,23 +81,28 @@ public class ExactKNNWeight extends Weight {
     }
 
     private ExactSearcherContext createExactSearcherContext(LeafReaderContext leafReaderContext) throws IOException {
-        if (exactKNNQuery.getParentFilter() != null) {
-            return ExactSearcher.ExactSearcherContext.builder()
-                .field(exactKNNQuery.getField())
-                .parentsFilter(exactKNNQuery.getParentFilter())
-                .floatQueryVector(exactKNNQuery.getQueryVector())
-                .byteQueryVector(exactKNNQuery.getByteQueryVector())
-                .exactKNNSpaceType(exactKNNQuery.getSpaceType())
-                .build();
-        } else {
-            return ExactSearcher.ExactSearcherContext.builder()
-                .field(exactKNNQuery.getField())
-                .floatQueryVector(exactKNNQuery.getQueryVector())
-                .byteQueryVector(exactKNNQuery.getByteQueryVector())
-                .matchedDocsIterator(DocIdSetIterator.all(leafReaderContext.reader().maxDoc()))
-                .numberOfMatchedDocs(leafReaderContext.reader().maxDoc())
-                .exactKNNSpaceType(exactKNNQuery.getSpaceType())
-                .build();
+        DocIdSetIterator matchedDocsIterator = exactKNNQuery.getParentFilter() == null
+            ? DocIdSetIterator.all(leafReaderContext.reader().maxDoc())
+            : null;
+
+        switch (exactKNNQuery.getVectorDataType()) {
+            case BINARY, BYTE:
+                return ExactSearcher.ExactSearcherContext.builder()
+                    .field(exactKNNQuery.getField())
+                    .byteQueryVector(((ExactKNNByteQuery) exactKNNQuery).getByteQueryVector())
+                    .floatQueryVector(((ExactKNNByteQuery) exactKNNQuery).getQueryVector())
+                    .matchedDocsIterator(matchedDocsIterator)
+                    .parentsFilter(exactKNNQuery.getParentFilter())
+                    .exactKNNSpaceType(exactKNNQuery.getSpaceType())
+                    .build();
+            default:
+                return ExactSearcher.ExactSearcherContext.builder()
+                    .field(exactKNNQuery.getField())
+                    .floatQueryVector(((ExactKNNFloatQuery) exactKNNQuery).getQueryVector())
+                    .matchedDocsIterator(matchedDocsIterator)
+                    .parentsFilter(exactKNNQuery.getParentFilter())
+                    .exactKNNSpaceType(exactKNNQuery.getSpaceType())
+                    .build();
         }
     }
 

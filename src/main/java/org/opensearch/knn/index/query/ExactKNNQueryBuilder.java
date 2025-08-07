@@ -187,36 +187,30 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
 
         byte[] byteVector = new byte[0];
         switch (vectorDataType) {
-            case BINARY:
+            case BINARY, BYTE:
                 byteVector = new byte[vector.length];
                 for (int i = 0; i < vector.length; i++) {
                     validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
                     byteVector[i] = (byte) vector[i];
                 }
-                resolvedSpaceType.validateVector(byteVector);
-                return ExactKNNQuery.builder()
-                    .field(fieldName)
-                    .byteQueryVector(byteVector)
-                    .indexName(indexName)
-                    .parentFilter(parentFilter)
-                    .spaceType(resolvedSpaceType.getValue())
-                    .vectorDataType(vectorDataType)
-                    .build();
-            case BYTE:
-                for (float v : vector) {
-                    validateByteVectorValue(v, knnVectorFieldType.getVectorDataType());
+                float[] floatVector = vectorDataType == VectorDataType.BINARY ? null : vector;
+                if (vectorDataType == VectorDataType.BINARY) {
+                    resolvedSpaceType.validateVector(byteVector);
+                } else {
+                    resolvedSpaceType.validateVector(vector);
                 }
+                return new ExactKNNByteQuery(
+                    fieldName,
+                    resolvedSpaceType.getValue(),
+                    indexName,
+                    vectorDataType,
+                    parentFilter,
+                    byteVector,
+                    floatVector
+                );
             case FLOAT:
                 resolvedSpaceType.validateVector(vector);
-                return ExactKNNQuery.builder()
-                    .field(fieldName)
-                    .queryVector(vector)
-                    .byteQueryVector(byteVector)
-                    .indexName(indexName)
-                    .parentFilter(parentFilter)
-                    .spaceType(resolvedSpaceType.getValue())
-                    .vectorDataType(vectorDataType)
-                    .build();
+                return new ExactKNNFloatQuery(fieldName, resolvedSpaceType.getValue(), indexName, vectorDataType, parentFilter, vector);
             default:
                 throw new IllegalStateException("Unsupported vector data type found.");
         }

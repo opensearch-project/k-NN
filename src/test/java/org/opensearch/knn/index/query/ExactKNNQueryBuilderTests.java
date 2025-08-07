@@ -41,6 +41,7 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "myvector";
     private static final float[] QUERY_VECTOR = new float[] { 1.0f, 2.0f, 3.0f, 4.0f };
+    private static final byte[] BYTE_QUERY_VECTOR = new byte[] { 1, 2, 3, 4 };
     private static final String SPACE_TYPE = "innerproduct";
 
     @Before
@@ -136,11 +137,31 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
-        ExactKNNQuery query = (ExactKNNQuery) builder.doToQuery(mockQueryShardContext);
+        // float
+        ExactKNNFloatQuery query = (ExactKNNFloatQuery) builder.doToQuery(mockQueryShardContext);
         assertNotNull(query);
         assertEquals(builder.fieldName(), query.getField());
         assertEquals(builder.getVector(), query.getQueryVector());
         assertEquals(builder.getSpaceType(), query.getSpaceType());
+
+        // byte
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BYTE);
+        ExactKNNByteQuery byteQuery = (ExactKNNByteQuery) builder.doToQuery(mockQueryShardContext);
+        assertNotNull(byteQuery);
+        assertEquals(builder.fieldName(), byteQuery.getField());
+        assertEquals(builder.getVector(), byteQuery.getQueryVector());
+        assertArrayEquals(BYTE_QUERY_VECTOR, byteQuery.getByteQueryVector());
+        assertEquals(builder.getSpaceType(), byteQuery.getSpaceType());
+
+        // binary
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 32));
+        ExactKNNByteQuery binaryQuery = (ExactKNNByteQuery) builder.doToQuery(mockQueryShardContext);
+        assertNotNull(binaryQuery);
+        assertEquals(builder.fieldName(), binaryQuery.getField());
+        assertNull(binaryQuery.getQueryVector());
+        assertArrayEquals(BYTE_QUERY_VECTOR, binaryQuery.getByteQueryVector());
+        assertEquals(builder.getSpaceType(), binaryQuery.getSpaceType());
     }
 
     public void testDoToQuery_NoSpaceType() {
@@ -155,11 +176,20 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
-        ExactKNNQuery query = (ExactKNNQuery) builder.doToQuery(mockQueryShardContext);
+        // float
+        ExactKNNFloatQuery query = (ExactKNNFloatQuery) builder.doToQuery(mockQueryShardContext);
         assertNotNull(query);
         assertEquals(builder.fieldName(), query.getField());
         assertEquals(builder.getVector(), query.getQueryVector());
         assertEquals(SpaceType.DEFAULT.getValue(), query.getSpaceType());
+
+        // byte
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BYTE);
+        ExactKNNByteQuery byteQuery = (ExactKNNByteQuery) builder.doToQuery(mockQueryShardContext);
+        assertNotNull(byteQuery);
+        assertEquals(builder.fieldName(), byteQuery.getField());
+        assertEquals(builder.getVector(), byteQuery.getQueryVector());
+        assertEquals(SpaceType.DEFAULT.getValue(), byteQuery.getSpaceType());
     }
 
     public void testDoToQuery_InvalidFieldType() {
@@ -188,9 +218,7 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
 
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4)); // 4
-                                                                                                                                      // dimensions
-                                                                                                                                      // expected
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
         expectThrows(IllegalArgumentException.class, () -> builder.doToQuery(mockQueryShardContext));

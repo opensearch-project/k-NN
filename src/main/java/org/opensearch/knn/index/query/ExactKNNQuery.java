@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.index.query;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
@@ -19,22 +17,16 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * Exact k-NN query that performs brute-force distance calculations.
- * Supports both regular and nested field queries with expand_nested functionality.
+ * Abstract exact k-NN query that performs brute-force distance calculations
  */
 @Log4j2
 @Getter
-@Builder
-@AllArgsConstructor
-public class ExactKNNQuery extends Query {
+public abstract class ExactKNNQuery extends Query {
 
     private final String field;
-    private final float[] queryVector;
-    private final byte[] byteQueryVector;
     private String spaceType;
     private final String indexName;
     private final VectorDataType vectorDataType;
@@ -42,6 +34,14 @@ public class ExactKNNQuery extends Query {
     @Setter
     @Getter
     private boolean explain;
+
+    protected ExactKNNQuery(String field, String spaceType, String indexName, VectorDataType vectorDataType, BitSetProducer parentFilter) {
+        this.field = field;
+        this.spaceType = spaceType;
+        this.indexName = indexName;
+        this.vectorDataType = vectorDataType;
+        this.parentFilter = parentFilter;
+    }
 
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
@@ -60,7 +60,7 @@ public class ExactKNNQuery extends Query {
 
     @Override
     public int hashCode() {
-        return Objects.hash(field, Arrays.hashCode(queryVector), Arrays.hashCode(byteQueryVector), spaceType, indexName, parentFilter);
+        return Objects.hash(field, spaceType, indexName, vectorDataType, parentFilter);
     }
 
     @Override
@@ -71,8 +71,6 @@ public class ExactKNNQuery extends Query {
     public boolean equalsTo(ExactKNNQuery other) {
         if (other == this) return true;
         return Objects.equals(field, other.field)
-            && Arrays.equals(queryVector, other.queryVector)
-            && Arrays.equals(byteQueryVector, other.byteQueryVector)
             && Objects.equals(spaceType, other.spaceType)
             && Objects.equals(indexName, other.indexName)
             && Objects.equals(parentFilter, other.parentFilter);
