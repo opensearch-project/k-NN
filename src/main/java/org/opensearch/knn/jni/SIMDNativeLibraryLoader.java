@@ -14,7 +14,6 @@ import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
 
-
 /**
  * Service to interact with SIMD jni layer. Class dependencies should be minimal
  * <p>
