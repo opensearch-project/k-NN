@@ -33,22 +33,6 @@ set(SIMD_OPT_LEVEL "")
 set(SIMD_FLAGS "")
 set(SIMD_LIB_EXT "")
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" OR ( NOT AVX2_ENABLED AND NOT AVX512_ENABLED AND NOT AVX512_SPR_ENABLED))
-    set(SIMD_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue. Also, on aarch64 avx2 is not supported.
-    set(SIMD_LIB_EXT "")
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux AND AVX512_SPR_ENABLED)
-    set(SIMD_OPT_LEVEL avx512_spr)
-    string(PREPEND LIB_EXT "_avx512_spr")
-    set(SIMD_LIB_EXT "_avx512_spr")
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux AND AVX512_ENABLED)
-    set(SIMD_OPT_LEVEL avx512)       # Keep optimization level as avx512 to improve performance on Linux. This is not present on mac systems, and presently not supported on Windows OS.
-    set(SIMD_LIB_EXT "_avx512")
-else()
-    set(SIMD_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac.
-    set(SIMD_LIB_EXT "_avx2")
-endif()
-
-
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows" OR (NOT AVX2_ENABLED AND NOT AVX512_ENABLED AND NOT AVX512_SPR_ENABLED))
     message(STATUS "[SIMD] Windows or SIMD explicitly disabled. Falling back to generic.")
     set(SIMD_OPT_LEVEL "generic")
@@ -85,7 +69,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
         int main() {
             __m512 x = _mm512_setzero_ps();
             __m512h h = _mm512_cvtps_ph(x);
-            (void)h;
+            __m128i t = _mm_cvtps_ph(_mm_setzero_ps(), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC); // F16C
+            (void)h; (void)t;
             return 0;
         }" HAVE_AVX512_SPR_COMPILER)
     unset(CMAKE_REQUIRED_FLAGS)
@@ -98,7 +83,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
         add_definitions(-DKNN_HAVE_AVX512_SPR)
         message(STATUS "[SIMD] AVX512_SPR supported by compiler.")
     else()
-        message(STATUS "[SIMD] AVX512_SPR instructions not supported by compiler. Falling back to generic.")
+        message(FATAL_ERROR "[SIMD] AVX512_SPR was explicitly enabled, but compiler does not support it.")
     endif()
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_ENABLED)
@@ -121,7 +106,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_ENABLED)
         add_definitions(-DKNN_HAVE_AVX512)
         message(STATUS "[SIMD] AVX512 + F16C supported by compiler.")
     else()
-        message(STATUS "[SIMD] AVX512 + F16C instructions not supported by compiler. Falling back to generic.")
+        message(FATAL_ERROR "[SIMD] AVX512 + FP16 was explicitly enabled, but compiler does not support it.")
     endif()
 
 else()
@@ -143,7 +128,7 @@ else()
         set(SIMD_LIB_EXT "_avx2")
         message(STATUS "[SIMD] AVX2 + F16C supported by compiler.")
     else()
-        message(WARNING "[SIMD] AVX2 + F16C not supported. Falling back to generic.")
+        message(FATAL_ERROR "[SIMD] AVX2 + F16C was explicitly enabled, but compiler does not support it.")
     endif()
 endif()
 
