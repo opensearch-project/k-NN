@@ -3,6 +3,15 @@ From: sobhu17 <saurabh.kaushiksde@gmail.com>
 Date: Fri, 8 Aug 2025 09:29:31 -0700
 Subject: [PATCH] change faiss to support dedup optimization
 
+During index loading, without this optimization the `.faiss` file
+contains the flat vector section. With this patch, the `.faiss` file
+will no longer store flat vectors; instead, vectors are loaded from the
+`.vec` file into the C++ side using our custom `VectorReader`, which
+streams the vectors one by one.
+To enable this, vector writing to the `.faiss` file is disabled, and
+the loading path is updated to fetch vectors via `VectorReader` at
+index load time.
+
 ---
  faiss/impl/index_read.cpp     | 123 +++++++++++++++++++----------
  faiss/impl/index_read_utils.h |   7 +-
