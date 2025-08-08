@@ -203,7 +203,7 @@ public class DefaultKNNWeight extends KNNWeight {
                     knnQuery.getIndexName(),
                     // TODO: In the future, more vector data types will be supported with quantization
                     quantizedVector == null ? vectorDataType : VectorDataType.BINARY,
-                    segmentLevelQuantizationInfo
+                    (segmentLevelQuantizationInfo == null) ? null : segmentLevelQuantizationInfo.getQuantizationParams()
                 ),
                 knnQuery.getIndexName(),
                 modelId

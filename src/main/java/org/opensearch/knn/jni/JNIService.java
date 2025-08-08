@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.jni;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
@@ -26,6 +27,7 @@ import java.util.Map;
 /**
  * Service to distribute requests to the proper engine jni service
  */
+@Log4j2
 public class JNIService {
 
     /**
@@ -202,7 +204,6 @@ public class JNIService {
             if (IndexUtil.isADCEnabled(knnEngine, parameters)) {
                 return FaissService.loadIndexWithStreamADCParams(readStream, parameters);
             }
-
             return FaissService.loadIndexWithStream(readStream);
         } else if (KNNEngine.NMSLIB == knnEngine) {
             return NmslibService.loadIndexWithStream(readStream, parameters);

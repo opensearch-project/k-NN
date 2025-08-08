@@ -22,7 +22,6 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.request.MethodParameter;
@@ -31,6 +30,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 import java.io.File;
 import java.util.Collections;
@@ -275,7 +275,7 @@ public class IndexUtil {
         KNNEngine knnEngine,
         String indexName,
         VectorDataType vectorDataType,
-        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
+        QuantizationParams quantizationParams
     ) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue()));
 
@@ -286,10 +286,9 @@ public class IndexUtil {
         }
         loadParameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
 
-        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationParams)) {
             loadParameters.put(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER, true);
-            final String quantizationLevel = segmentLevelQuantizationInfo.getQuantizationParams().getTypeIdentifier();
-
+            final String quantizationLevel = quantizationParams.getTypeIdentifier();
             loadParameters.put(QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER, quantizationLevel);
             loadParameters.put(SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER, spaceType.getValue());
         }
@@ -481,5 +480,13 @@ public class IndexUtil {
             return mapper.copyTo() == null || mapper.copyTo().copyToFields() == null || mapper.copyTo().copyToFields().isEmpty() != false;
         }
         return true;
+    }
+
+    public static boolean isWarmUpEnabledForIndex(MapperService mapperService) {
+        if (mapperService == null) {
+            return false;
+        }
+
+        return KNNSettings.isKnnIndexWarmupEnabled(mapperService.getIndexSettings().getSettings());
     }
 }

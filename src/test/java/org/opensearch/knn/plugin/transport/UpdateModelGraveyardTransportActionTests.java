@@ -241,7 +241,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
 
         // Create k-NN index not using the model
         String testIndex2 = "test-index2";
-        createKNNIndex(testIndex2);
+        createIndex(testIndex2, getKNNDefaultIndexSettingsBuildsGraphAlways().build());
 
         // Attempt to add model id to graveyard with one non-knn index and one k-nn index not using model present, should succeed
         updateModelGraveyardAndAssertNoError(updateModelGraveyardTransportAction, addModelGraveyardRequest);

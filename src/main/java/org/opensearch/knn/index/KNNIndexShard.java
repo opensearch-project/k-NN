@@ -178,8 +178,9 @@ public class KNNIndexShard {
                             KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
                             getIndexName(),
                             engineFileContext.getVectorDataType(),
-                            engineFileContext.getSegmentLevelQuantizationInfo()
-
+                            (engineFileContext.getSegmentLevelQuantizationInfo() == null)
+                                ? null
+                                : engineFileContext.getSegmentLevelQuantizationInfo().getQuantizationParams()
                         ),
                         getIndexName(),
                         engineFileContext.getModelId()
@@ -271,9 +272,9 @@ public class KNNIndexShard {
                     reader.getSegmentInfo().info.getVersion()
                 );
                 // obtain correct VectorDataType for this field based on the quantization state and if ADC is enabled.
-                VectorDataType vectorDataType = determineVectorDataType(
+                VectorDataType vectorDataType = FieldInfoExtractor.determineVectorDataType(
                     fieldInfo,
-                    segmentLevelQuantizationInfo,
+                    (segmentLevelQuantizationInfo == null) ? null : segmentLevelQuantizationInfo.getQuantizationParams(),
                     reader.getSegmentInfo().info.getVersion()
                 );
 
