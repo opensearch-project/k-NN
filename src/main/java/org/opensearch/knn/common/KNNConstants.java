@@ -105,6 +105,7 @@ public class KNNConstants {
     @Deprecated(since = "2.19.0", forRemoval = true)
     public static final String NMSLIB_NAME = "nmslib";
     public static final String COMMONS_NAME = "common";
+    public static final String SIMD_NAME = "simd";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
     public static final String HNSW_ALGO_M = "M";
     public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
@@ -157,6 +158,10 @@ public class KNNConstants {
     public static final String FAISS_AVX512_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME + "_avx512";
     public static final String FAISS_AVX512_SPR_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME + "_avx512_spr";
     public static final String NMSLIB_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + NMSLIB_NAME;
+    public static final String SIMD_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_NAME;
+    public static final String SIMD_AVX2_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_NAME + "_avx2";
+    public static final String SIMD_AVX512_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_NAME + "_avx512";
+    public static final String SIMD_AVX512_SPR_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_NAME + "_avx512_spr";
 
     public static final String COMMON_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + COMMONS_NAME;
 

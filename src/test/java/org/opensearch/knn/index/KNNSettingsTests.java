@@ -210,6 +210,18 @@ public class KNNSettingsTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testGetSimdAVX2DisabledSettingValueFromConfig_enableSetting_thenValidateAndSucceed() {
+        boolean expectedKnnSimdAvx2Disabled = true;
+        Node mockNode = createMockNode(Map.of(KNNSettings.KNN_SIMD_AVX2_DISABLED, expectedKnnSimdAvx2Disabled));
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        KNNSettings.state().setClusterService(clusterService);
+        boolean actualKnnSimdAvx2Disabled = KNNSettings.state().getSettingValue(KNNSettings.KNN_SIMD_AVX2_DISABLED);
+        mockNode.close();
+        assertEquals(expectedKnnSimdAvx2Disabled, actualKnnSimdAvx2Disabled);
+    }
+
+    @SneakyThrows
     public void testGetIndexThreadQty_WithDifferentValues_thenSuccess() {
         Node mockNode = createMockNode(Map.of(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY, 3));
         mockNode.start();
