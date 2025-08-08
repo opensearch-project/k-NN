@@ -37,6 +37,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.net.URL;
@@ -632,8 +633,12 @@ public class JNIServiceTests extends KNNTestCase {
             );
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
+            // KnnVectorValues ioexceptionKnnVectorValues = TestUtils.createInMemoryFloatVectorValues(vectors, vectors[0].length);
+            KNNVectorValues<float[]> ioexceptionKnnVectorValues = TestUtils.createKNNFloatVectorValues(docIds, vectors);
+
             final IndexInput raiseIOExceptionIndexInput = new RaisingIOExceptionIndexInput();
             final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(raiseIOExceptionIndexInput);
+            indexInputWithBuffer.setKnnVectorValues(ioexceptionKnnVectorValues);
 
             try {
                 JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
@@ -987,7 +992,12 @@ public class JNIServiceTests extends KNNTestCase {
             assertTrue(directory.fileLength(indexFileName1) > 0);
 
             try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                    testData.indexData.docs,
+                    testData.indexData.vectors
+                );
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                 long pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
             } catch (Throwable e) {
@@ -1092,7 +1102,7 @@ public class JNIServiceTests extends KNNTestCase {
         expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, null, KNNEngine.FAISS, null, 0, null));
     }
 
-    public void testQueryIndex_faiss_invalid_nullQueryVector() throws IOException {
+    public void testQueryIndex_faiss_invalid_nullQueryVector() throws IOException, ReflectiveOperationException {
 
         Path tempDirPath = createTempDir();
         String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
@@ -1110,7 +1120,12 @@ public class JNIServiceTests extends KNNTestCase {
 
             final long pointer;
             try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                    testData.indexData.docs,
+                    testData.indexData.vectors
+                );
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
             } catch (Throwable e) {
@@ -1122,7 +1137,7 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
-    public void testQueryIndex_faiss_streaming_invalid_nullQueryVector() throws IOException {
+    public void testQueryIndex_faiss_streaming_invalid_nullQueryVector() throws IOException, ReflectiveOperationException {
         Path tempDirPath = createTempDir();
         String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
         try (Directory directory = newFSDirectory(tempDirPath)) {
@@ -1139,7 +1154,12 @@ public class JNIServiceTests extends KNNTestCase {
 
             final long pointer;
             try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                    testData.indexData.docs,
+                    testData.indexData.vectors
+                );
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
             } catch (Throwable e) {
@@ -1151,7 +1171,7 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
-    public void testQueryIndex_faiss_valid() throws IOException {
+    public void testQueryIndex_faiss_valid() throws IOException, ReflectiveOperationException {
 
         int k = 10;
         int efSearch = 100;
@@ -1176,7 +1196,12 @@ public class JNIServiceTests extends KNNTestCase {
 
                     final long pointer;
                     try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                        KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                            testData.indexData.docs,
+                            testData.indexData.vectors
+                        );
                         final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                        indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                         pointer = JNIService.loadIndex(
                             indexInputWithBuffer,
                             ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
@@ -1244,8 +1269,14 @@ public class JNIServiceTests extends KNNTestCase {
                     assertTrue(directory.fileLength(indexFileName1) > 0);
 
                     try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.READONCE)) {
+                        KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                            testData.indexData.docs,
+                            testData.indexData.vectors
+                        );
+                        IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                        indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                         long pointer = JNIService.loadIndex(
-                            new IndexInputWithBuffer(indexInput),
+                            indexInputWithBuffer,
                             ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
                             KNNEngine.FAISS
                         );
@@ -1280,12 +1311,15 @@ public class JNIServiceTests extends KNNTestCase {
                             assertEquals(0, results.length);
                         }  // End for
                     }  // End try
+                    catch (ReflectiveOperationException e) {
+                        throw new RuntimeException(e);
+                    }
                 }  // End for
             }  // End for
         }
     }
 
-    public void testQueryIndex_faiss_parentIds() throws IOException {
+    public void testQueryIndex_faiss_parentIds() throws IOException, ReflectiveOperationException {
 
         int k = 100;
         int efSearch = 100;
@@ -1312,7 +1346,12 @@ public class JNIServiceTests extends KNNTestCase {
 
                     final long pointer;
                     try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                        KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                            testDataNested.indexData.docs,
+                            testDataNested.indexData.vectors
+                        );
                         final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                        indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                         pointer = JNIService.loadIndex(
                             indexInputWithBuffer,
                             ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
@@ -1344,14 +1383,14 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
-    public void testQueryIndex_faissCagra_parentIds() throws IOException {
+    public void testQueryIndex_faissCagra_parentIds() throws IOException, ReflectiveOperationException {
         doTestQueryIndex_faissCagra_parentIds(SpaceType.L2);
         doTestQueryIndex_faissCagra_parentIds(SpaceType.INNER_PRODUCT);
         doTestQueryIndex_faissCagra_parentIds(SpaceType.COSINESIMIL);
 
     }
 
-    private void doTestQueryIndex_faissCagra_parentIds(SpaceType spaceType) throws IOException {
+    private void doTestQueryIndex_faissCagra_parentIds(SpaceType spaceType) throws IOException, ReflectiveOperationException {
 
         int k = 100;
         int efSearch = 100;
@@ -1363,7 +1402,12 @@ public class JNIServiceTests extends KNNTestCase {
         // This faiss graph binary was created with the IndexHNSWCagra index (base_level_only==true) containing the
         // test_vectors_nested_1000x128.json vectors
         try (IndexInput indexInput = loadHnswBinary("data/remoteindexbuild/faiss_hnsw_cagra_nested_float_1000_vectors_128_dims.bin")) {
+            KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                testDataNested.indexData.docs,
+                testDataNested.indexData.vectors
+            );
             final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+            indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
             pointer = JNIService.loadIndex(
                 indexInputWithBuffer,
                 ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
@@ -1419,8 +1463,14 @@ public class JNIServiceTests extends KNNTestCase {
                     assertTrue(directory.fileLength(indexFileName1) > 0);
 
                     try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.READONCE)) {
+                        KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                            testDataNested.indexData.docs,
+                            testDataNested.indexData.vectors
+                        );
+                        IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                        indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                         long pointer = JNIService.loadIndex(
-                            new IndexInputWithBuffer(indexInput),
+                            indexInputWithBuffer,
                             ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
                             KNNEngine.FAISS
                         );
@@ -1442,6 +1492,9 @@ public class JNIServiceTests extends KNNTestCase {
                             assertEquals(results.length, parentIdSet.size());
                         }  // End for
                     }  // End try
+                    catch (ReflectiveOperationException e) {
+                        throw new RuntimeException(e);
+                    }
                 }  // End for
             }  // End for
         }
@@ -1476,7 +1529,12 @@ public class JNIServiceTests extends KNNTestCase {
 
                 final long pointer;
                 try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                    KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                        testData.indexData.docs,
+                        testData.indexData.vectors
+                    );
                     final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                    indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                     pointer = JNIService.loadIndex(
                         indexInputWithBuffer,
                         ImmutableMap.of(
@@ -1529,8 +1587,14 @@ public class JNIServiceTests extends KNNTestCase {
                 assertTrue(directory.fileLength(indexFileName1) > 0);
 
                 try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.READONCE)) {
+                    KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                        testData.indexData.docs,
+                        testData.indexData.vectors
+                    );
+                    IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                    indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                     long pointer = JNIService.loadIndex(
-                        new IndexInputWithBuffer(indexInput),
+                        indexInputWithBuffer,
                         ImmutableMap.of(
                             INDEX_DESCRIPTION_PARAMETER,
                             method,
@@ -1628,7 +1692,7 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
-    public void testFree_faiss_valid() throws IOException {
+    public void testFree_faiss_valid() throws IOException, ReflectiveOperationException {
 
         Path tempDirPath = createTempDir();
         String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
@@ -1646,7 +1710,12 @@ public class JNIServiceTests extends KNNTestCase {
 
             final long pointer;
             try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                    testDataNested.indexData.docs,
+                    testDataNested.indexData.vectors
+                );
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                 pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertNotEquals(0, pointer);
             } catch (Throwable e) {
@@ -2012,7 +2081,12 @@ public class JNIServiceTests extends KNNTestCase {
 
             String faissHNSWIndex = createFaissHNSWIndex(directory, SpaceType.L2);
             try (IndexInput indexInput = directory.openInput(faissHNSWIndex, IOContext.DEFAULT)) {
+                KNNVectorValues<?> knnVectorValues = TestUtils.createKNNFloatVectorValues(
+                    testDataNested.indexData.docs,
+                    testDataNested.indexData.vectors
+                );
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
                 long faissHNSWAddress = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
                 assertFalse(JNIService.isSharedIndexStateRequired(faissHNSWAddress, KNNEngine.FAISS));
                 JNIService.free(faissHNSWAddress, KNNEngine.FAISS);

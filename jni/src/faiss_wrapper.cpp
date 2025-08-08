@@ -252,7 +252,7 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
 
     // Create faiss index
     std::unique_ptr<faiss::Index> indexWriter;
-    indexWriter.reset(faiss::read_index(&vectorIoReader, 0));
+    indexWriter.reset(faiss::read_index(&vectorIoReader, 1ull<<63));
 
     auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
@@ -265,7 +265,7 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     // Write the index to disk
     knn_jni::stream::NativeEngineIndexOutputMediator mediator {jniUtil, env, output};
     knn_jni::stream::FaissOpenSearchIOWriter writer {&mediator};
-    faiss::write_index(&idMap, &writer);
+    faiss::write_index(&idMap, &writer, 1ull<<63);
     mediator.flush();
 }
 
@@ -458,7 +458,8 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
       faiss::read_index(ioReader,
                         faiss::IO_FLAG_READ_ONLY
                         | faiss::IO_FLAG_PQ_SKIP_SDC_TABLE
-                        | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
+                        | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE
+                        | 1ull<<63);
 
     return (jlong) indexReader;
 }
@@ -956,7 +957,7 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
 
     // Now that indexWriter is trained, we just load the bytes into an array and return
     faiss::VectorIOWriter vectorIoWriter;
-    faiss::write_index(indexWriter.get(), &vectorIoWriter);
+    faiss::write_index(indexWriter.get(), &vectorIoWriter, 1ull<<63);
 
     // Wrap in smart pointer
     std::unique_ptr<jbyte[]> jbytesBuffer;

@@ -33,6 +33,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -109,8 +110,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
+            public KNNVectorValues<?> addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
                 called[0] = true;
+                return null;
             }
         };
 
@@ -146,8 +148,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, state) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
+            public KNNVectorValues<?> addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
                 called[0] = true;
+                return null;
             }
         };
 
@@ -248,7 +251,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by nmslib
-        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension, null);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
@@ -303,7 +306,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by nmslib
-        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension, null);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
@@ -360,7 +363,11 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             docsInSegment,
             dimension
         );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, false);
+        KNNVectorValues<?> knnVectorValues = knn80DocValuesConsumer.addKNNBinaryField(
+            fieldInfoArray[0],
+            randomVectorDocValuesProducer,
+            false
+        );
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -370,7 +377,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by faiss
-        assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension, knnVectorValues);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
@@ -542,7 +549,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             assertValidFooter(state.directory, expectedFile);
 
             // The document should be readable by faiss
-            assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
+            assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension, null);
 
             // The graph creation statistics should be updated
             assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
