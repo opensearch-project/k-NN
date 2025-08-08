@@ -25,6 +25,7 @@ import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
@@ -199,10 +200,12 @@ public class KNNCodecTestUtil {
         String fileName,
         KNNEngine knnEngine,
         SpaceType spaceType,
-        int dimension
+        int dimension,
+        KNNVectorValues<?> knnVectorValues
     ) {
         try (final IndexInput indexInput = state.directory.openInput(fileName, IOContext.DEFAULT)) {
             final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+            indexInputWithBuffer.setKnnVectorValues(knnVectorValues);
             long indexPtr = JNIService.loadIndex(
                 indexInputWithBuffer,
                 Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())),

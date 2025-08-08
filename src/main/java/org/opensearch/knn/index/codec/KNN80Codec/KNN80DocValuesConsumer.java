@@ -24,6 +24,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
 import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
@@ -65,9 +66,18 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
             && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
     }
 
-    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) throws IOException {
+    public KNNVectorValues<?> addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) throws IOException {
         final VectorDataType vectorDataType = extractVectorDataType(field);
-        final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
+
+        Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = () -> {
+            try {
+                return KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
 
         // For BDV it is fine to use knnVectorValues.totalLiveDocs() as we already run the full loop to calculate total
         // live docs
@@ -76,6 +86,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
         } else {
             NativeIndexWriter.getWriter(field, state).flushIndex(() -> knnVectorValues, (int) knnVectorValues.totalLiveDocs());
         }
+
+        return knnVectorValuesSupplier.get();
     }
 
     /**

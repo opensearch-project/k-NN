@@ -9,6 +9,9 @@ import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
@@ -21,12 +24,19 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
+import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Constructor;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
@@ -469,5 +479,241 @@ public class TestUtils {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public static FloatVectorValues createInMemoryFloatVectorValuesForList(
+        List<float[]> vectors,
+        int dimension,
+        final List<Integer> docids
+    ) {
+        return new FloatVectorValues() {
+
+            @Override
+            public int size() {
+                return vectors.size();
+            }
+
+            @Override
+            public int dimension() {
+                return dimension;
+            }
+
+            @Override
+            public float[] vectorValue(int ord) {
+                int docId = docids.get(ord);
+                return vectors.get(docId);
+            }
+
+            @Override
+            public FloatVectorValues copy() {
+                return this;
+            }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return new DocIndexIterator() {
+                    int doc = -1;
+
+                    @Override
+                    public int index() {
+                        return doc;
+                    }
+
+                    @Override
+                    public int nextDoc() {
+                        return ++doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public int advance(int target) throws IOException {
+                        doc = target;
+                        return doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public long cost() {
+                        return vectors.size();
+                    }
+
+                    @Override
+                    public int docID() {
+                        return doc;
+                    }
+                };
+            }
+        };
+    }
+
+    public static ByteVectorValues createInMemoryByteVectorValuesForList(List<byte[]> vectors, int dimension, final List<Integer> docids) {
+        return new ByteVectorValues() {
+
+            @Override
+            public int size() {
+                return vectors.size();
+            }
+
+            @Override
+            public int dimension() {
+                return dimension;
+            }
+
+            @Override
+            public byte[] vectorValue(int ord) {
+                int docId = docids.get(ord);
+                return vectors.get(docId);
+            }
+
+            @Override
+            public ByteVectorValues copy() {
+                return this;
+            }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return new DocIndexIterator() {
+                    int doc = -1;
+
+                    @Override
+                    public int index() {
+                        return doc;
+                    }
+
+                    @Override
+                    public int nextDoc() {
+                        return ++doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public int advance(int target) throws IOException {
+                        doc = target;
+                        return doc < vectors.size() ? doc : NO_MORE_DOCS;
+                    }
+
+                    @Override
+                    public long cost() {
+                        return vectors.size();
+                    }
+
+                    @Override
+                    public int docID() {
+                        return doc;
+                    }
+                };
+            }
+        };
+    }
+
+    public static KNNFloatVectorValues createKNNFloatVectorValues(final int[] documentIds, final float[][] vectors)
+        throws ReflectiveOperationException {
+
+        final KNNVectorValuesIterator iterator = new KNNVectorValuesIterator() {
+            private int index = -1;
+
+            @Override
+            public int docId() {
+                if (index == -1) {
+                    return -1;
+                } else if (index == DocIdSetIterator.NO_MORE_DOCS) {
+                    return DocIdSetIterator.NO_MORE_DOCS;
+                }
+                return documentIds[index];
+            }
+
+            @Override
+            public int advance(int docId) throws IOException {
+                throw new UnsupportedEncodingException();
+            }
+
+            @Override
+            public int nextDoc() {
+                if ((index + 1) >= documentIds.length) {
+                    index = DocIdSetIterator.NO_MORE_DOCS;
+                    return DocIdSetIterator.NO_MORE_DOCS;
+                }
+                return documentIds[++index];
+            }
+
+            @Override
+            public DocIdSetIterator getDocIdSetIterator() {
+                return null;
+            }
+
+            @Override
+            public long liveDocs() {
+                return documentIds.length;
+            }
+
+            @Override
+            public VectorValueExtractorStrategy getVectorExtractorStrategy() {
+                return new VectorValueExtractorStrategy() {
+                    @Override
+                    public float[] extract(VectorDataType vectorDataType, KNNVectorValuesIterator vectorValuesIterator) {
+                        return vectors[index];
+                    }
+                };
+            }
+        };
+
+        // Instantiate KNNFloatVectorValues
+        Constructor<KNNFloatVectorValues> constructor = KNNFloatVectorValues.class.getDeclaredConstructor(KNNVectorValuesIterator.class);
+        constructor.setAccessible(true);
+        return constructor.newInstance(iterator);
+    }
+
+    public static KNNByteVectorValues createKNNByteVectorValues(final int[] documentIds, final byte[][] vectors)
+        throws ReflectiveOperationException {
+
+        final KNNVectorValuesIterator iterator = new KNNVectorValuesIterator() {
+            private int index = -1;
+
+            @Override
+            public int docId() {
+                if (index == -1) {
+                    return -1;
+                } else if (index == DocIdSetIterator.NO_MORE_DOCS) {
+                    return DocIdSetIterator.NO_MORE_DOCS;
+                }
+                return documentIds[index];
+            }
+
+            @Override
+            public int advance(int docId) throws IOException {
+                throw new UnsupportedEncodingException();
+            }
+
+            @Override
+            public int nextDoc() {
+                if ((index + 1) >= documentIds.length) {
+                    index = DocIdSetIterator.NO_MORE_DOCS;
+                    return DocIdSetIterator.NO_MORE_DOCS;
+                }
+                return documentIds[++index];
+            }
+
+            @Override
+            public DocIdSetIterator getDocIdSetIterator() {
+                return null;
+            }
+
+            @Override
+            public long liveDocs() {
+                return documentIds.length;
+            }
+
+            @Override
+            public VectorValueExtractorStrategy getVectorExtractorStrategy() {
+                return new VectorValueExtractorStrategy() {
+                    @Override
+                    public byte[] extract(VectorDataType vectorDataType, KNNVectorValuesIterator vectorValuesIterator) {
+                        return vectors[index];
+                    }
+                };
+            }
+        };
+
+        // Instantiate KNNByteVectorValues
+        Constructor<KNNByteVectorValues> constructor = KNNByteVectorValues.class.getDeclaredConstructor(KNNVectorValuesIterator.class);
+        constructor.setAccessible(true);
+        return constructor.newInstance(iterator);
     }
 }
