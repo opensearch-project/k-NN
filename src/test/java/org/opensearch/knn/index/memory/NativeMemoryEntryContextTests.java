@@ -22,6 +22,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -44,13 +45,15 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_load() throws IOException {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = spy(
             new NativeMemoryEntryContext.IndexEntryContext(
                 (Directory) null,
                 TestUtils.createFakeNativeMamoryCacheKey("test"),
                 indexLoadStrategy,
                 null,
-                "test"
+                "test",
+                knnVectorValues
             )
         );
 
@@ -72,12 +75,14 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_load_with_unopened_graphFile() throws IOException {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             (Directory) null,
             TestUtils.createFakeNativeMamoryCacheKey("test"),
             indexLoadStrategy,
             null,
-            "test"
+            "test",
+            knnVectorValues
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
@@ -107,6 +112,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         // Get the expected size of this function
         final long expectedSizeBytes = directory.fileLength(indexFileName);
         final long expectedSizeKb = expectedSizeBytes / 1024L;
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
 
         // Check that the indexEntryContext will return the same thing
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
@@ -114,7 +120,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             TestUtils.createFakeNativeMamoryCacheKey(indexFileName),
             null,
             null,
-            "test"
+            "test",
+            knnVectorValues
         );
 
         assertEquals(expectedSizeKb, indexEntryContext.calculateSizeInKB().longValue());
@@ -122,12 +129,14 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_getOpenSearchIndexName() {
         String openSearchIndexName = "test-index";
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             (Directory) null,
             TestUtils.createFakeNativeMamoryCacheKey("test"),
             null,
             null,
-            openSearchIndexName
+            openSearchIndexName,
+            knnVectorValues
         );
 
         assertEquals(openSearchIndexName, indexEntryContext.getOpenSearchIndexName());
@@ -135,12 +144,14 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     public void testIndexEntryContext_getParameters() {
         Map<String, Object> parameters = ImmutableMap.of("test-1", 10);
+        final KNNVectorValues<?> knnVectorValues = mock(KNNVectorValues.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
             (Directory) null,
             TestUtils.createFakeNativeMamoryCacheKey("test"),
             null,
             parameters,
-            "test"
+            "test",
+            knnVectorValues
         );
 
         assertEquals(parameters, indexEntryContext.getParameters());

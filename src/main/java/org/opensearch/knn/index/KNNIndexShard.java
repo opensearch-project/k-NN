@@ -51,6 +51,8 @@ import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
@@ -145,7 +147,7 @@ public class KNNIndexShard {
 
                 // Load off-heap index
                 final List<EngineFileContext> engineFileContexts = getAllEngineFileContexts(loadedFieldNames, leafReaderContext);
-                warmUpOffHeapIndex(engineFileContexts, directory);
+                warmUpOffHeapIndex(engineFileContexts, directory, leafReaderContext);
                 log.info(
                     "[KNN] Loaded off-heap indices for fields {}",
                     engineFileContexts.stream().map(ctx -> ctx.fieldName).collect(Collectors.toSet())
@@ -158,7 +160,11 @@ public class KNNIndexShard {
         }
     }
 
-    private void warmUpOffHeapIndex(final List<EngineFileContext> engineFileContexts, final Directory directory) {
+    private void warmUpOffHeapIndex(
+        final List<EngineFileContext> engineFileContexts,
+        final Directory directory,
+        final LeafReaderContext leafReaderContext
+    ) throws IOException {
         for (final EngineFileContext engineFileContext : engineFileContexts) {
             try {
                 // Get cache key for an off-heap index
@@ -166,6 +172,11 @@ public class KNNIndexShard {
                     engineFileContext.vectorFileName,
                     engineFileContext.segmentInfo
                 );
+
+                final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+                FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, engineFileContext.getFieldName());
+
+                final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, leafReaderContext.reader());
 
                 // Load an off-heap index
                 nativeMemoryCacheManager.get(
@@ -182,7 +193,8 @@ public class KNNIndexShard {
 
                         ),
                         getIndexName(),
-                        engineFileContext.getModelId()
+                        engineFileContext.getModelId(),
+                        knnVectorValues
                     ),
                     true
                 );

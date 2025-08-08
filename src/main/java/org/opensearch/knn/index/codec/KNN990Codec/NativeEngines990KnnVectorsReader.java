@@ -34,6 +34,7 @@ import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -363,7 +364,17 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         // Start creating searcher
         final String fileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
         if (fileName != null) {
-            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName, fieldInfo);
+            FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = new FlatVectorsReaderWithFieldName(
+                flatVectorsReader,
+                fieldInfo.name
+            );
+
+            return () -> searcherFactory.createVectorSearcher(
+                segmentReadState.directory,
+                fileName,
+                fieldInfo,
+                flatVectorsReaderWithFieldName
+            );
         }
 
         // Not supported

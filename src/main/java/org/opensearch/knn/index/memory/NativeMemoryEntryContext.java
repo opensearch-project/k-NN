@@ -22,6 +22,7 @@ import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.util.Map;
@@ -104,6 +105,9 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         @Getter
         IndexInputWithBuffer indexInputWithBuffer;
 
+        @Getter
+        KNNVectorValues<?> knnVectorValues;
+
         /**
          * Constructor
          *
@@ -118,9 +122,10 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             String vectorIndexCacheKey,
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
-            String openSearchIndexName
+            String openSearchIndexName,
+            KNNVectorValues<?> knnVectorValues
         ) {
-            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null);
+            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, null, knnVectorValues);
         }
 
         /**
@@ -139,7 +144,8 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
             Map<String, Object> parameters,
             String openSearchIndexName,
-            String modelId
+            String modelId,
+            KNNVectorValues<?> knnVectorValues
         ) {
             super(vectorIndexCacheKey);
             this.directory = directory;
@@ -147,6 +153,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             this.openSearchIndexName = openSearchIndexName;
             this.parameters = parameters;
             this.modelId = modelId;
+            this.knnVectorValues = knnVectorValues;
         }
 
         @Override

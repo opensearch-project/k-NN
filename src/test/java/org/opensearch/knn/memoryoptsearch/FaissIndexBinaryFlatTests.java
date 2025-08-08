@@ -23,6 +23,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 
+import static org.mockito.Mockito.mock;
+
 public class FaissIndexBinaryFlatTests extends KNNTestCase {
     public static final int IBXF_START_OFFSET = 7474;
     public static final int NUM_VECTORS = 50;
@@ -34,9 +36,10 @@ public class FaissIndexBinaryFlatTests extends KNNTestCase {
     public void testLoad() {
         // Load binary
         final IndexInput indexInput = loadFlatBinaryVectors();
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
 
         // Trigger load
-        final FaissIndex faissIndex = FaissIndex.load(indexInput);
+        final FaissIndex faissIndex = FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);
         assertTrue(faissIndex instanceof FaissIndexBinaryFlat);
         final FaissIndexBinaryFlat faissIndexBinaryFlat = (FaissIndexBinaryFlat) faissIndex;
 
@@ -63,7 +66,8 @@ public class FaissIndexBinaryFlatTests extends KNNTestCase {
     public void testByteVectorValues() {
         // Load binary
         IndexInput indexInput = loadFlatBinaryVectors();
-        final FaissIndex faissIndex = FaissIndexFloatFlat.load(indexInput);
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
+        final FaissIndex faissIndex = FaissIndexFloatFlat.load(indexInput, flatVectorsReaderWithFieldName);
 
         // Prepare a new input stream
         indexInput = loadFlatBinaryVectors();
@@ -96,9 +100,9 @@ public class FaissIndexBinaryFlatTests extends KNNTestCase {
     public void testFloatVectorValuesNotSupported() {
         // Load binary
         final IndexInput indexInput = loadFlatBinaryVectors();
-
+        final FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName = mock(FlatVectorsReaderWithFieldName.class);
         // Trigger load
-        final FaissIndex faissIndex = FaissIndex.load(indexInput);
+        final FaissIndex faissIndex = FaissIndex.load(indexInput, flatVectorsReaderWithFieldName);
 
         // Try to get float values
         try {

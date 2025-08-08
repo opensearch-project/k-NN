@@ -12,6 +12,7 @@ import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 
 import java.io.IOException;
 import java.util.Map;
@@ -40,6 +41,7 @@ public class FaissIndexFloatFlat extends FaissIndex {
     private long oneVectorByteSize;
     @Getter
     private final KNNVectorSimilarityFunction vectorSimilarityFunction;
+    private FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName;
 
     public FaissIndexFloatFlat(final String indexType) {
         super(indexType);
@@ -57,20 +59,26 @@ public class FaissIndexFloatFlat extends FaissIndex {
      * @throws IOException
      */
     @Override
-    protected void doLoad(IndexInput input) throws IOException {
-        readCommonHeader(input);
-        oneVectorByteSize = (long) Float.BYTES * getDimension();
-        floatVectors = new FaissSection(input, Float.BYTES);
-        if (floatVectors.getSectionSize() != (getTotalNumberOfVectors() * oneVectorByteSize)) {
-            throw new IllegalStateException(
-                "Got an inconsistent bytes size of vector ["
-                    + floatVectors.getSectionSize()
-                    + "] "
-                    + "when faissIndexFloatFlat.totalNumberOfVectors="
-                    + getTotalNumberOfVectors()
-                    + ", faissIndexFloatFlat.oneVectorByteSize="
-                    + oneVectorByteSize
-            );
+    protected void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
+        this.flatVectorsReaderWithFieldName = flatVectorsReaderWithFieldName;
+        boolean dedupApplied = readCommonHeader(input);
+
+        if (dedupApplied) {
+            floatVectors = null;
+        } else {
+            oneVectorByteSize = (long) Float.BYTES * getDimension();
+            floatVectors = new FaissSection(input, Float.BYTES);
+            if (floatVectors.getSectionSize() != (getTotalNumberOfVectors() * oneVectorByteSize)) {
+                throw new IllegalStateException(
+                    "Got an inconsistent bytes size of vector ["
+                        + floatVectors.getSectionSize()
+                        + "] "
+                        + "when faissIndexFloatFlat.totalNumberOfVectors="
+                        + getTotalNumberOfVectors()
+                        + ", faissIndexFloatFlat.oneVectorByteSize="
+                        + oneVectorByteSize
+                );
+            }
         }
     }
 
@@ -79,8 +87,17 @@ public class FaissIndexFloatFlat extends FaissIndex {
         return VectorEncoding.FLOAT32;
     }
 
+    /**
+     * Returns a {@link FloatVectorValues} view for reading vectors.
+     * <p>
+     * If deduplication is enabled, vectors will be read from the .vec file
+     * instead of the flat vector section in the .faiss file.
+     */
     @Override
-    public FloatVectorValues getFloatValues(final IndexInput indexInput) {
+    public FloatVectorValues getFloatValues(final IndexInput indexInput) throws IOException {
+        if (floatVectors == null) {
+            return flatVectorsReaderWithFieldName.getFlatVectorsReader().getFloatVectorValues(flatVectorsReaderWithFieldName.getField());
+        }
         @RequiredArgsConstructor
         class FloatVectorValuesImpl extends FloatVectorValues {
             final IndexInput indexInput;

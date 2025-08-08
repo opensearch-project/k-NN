@@ -8,12 +8,13 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 import lombok.experimental.UtilityClass;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 
 import java.io.IOException;
 
 /**
  * Util class being used during partial load each section in Faiss index file.
- * Refer to {@link FaissIndex#doLoad(IndexInput)} for more details regarding how it is being used.
+ * Refer to {@link FaissIndex#doLoad(IndexInput,FlatVectorsReaderWithFieldName)} for more details regarding how it is being used.
  */
 @UtilityClass
 public class FaissIndexLoadUtils {

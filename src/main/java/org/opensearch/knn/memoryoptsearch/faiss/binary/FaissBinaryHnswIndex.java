@@ -10,6 +10,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWProvider;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
@@ -43,7 +44,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
      * @throws IOException
      */
     @Override
-    protected void doLoad(IndexInput input) throws IOException {
+    protected void doLoad(IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
         // Read common binary index header
         readBinaryCommonHeader(input);
 
@@ -51,7 +52,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
         faissHnsw.load(input, getTotalNumberOfVectors());
 
         // Partial load storage
-        storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input));
+        storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input, flatVectorsReaderWithFieldName));
     }
 
     @Override

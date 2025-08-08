@@ -45,6 +45,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
@@ -169,6 +170,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
         when(leafReaderContext.reader()).thenReturn(reader);
 
         final FSDirectory directory = mock(FSDirectory.class);
@@ -200,7 +202,14 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.attributes()).thenReturn(Map.of());
         when(fieldInfo.getAttribute(eq(MODEL_ID))).thenReturn(modelId);
 
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        final KNNScorer knnScorer;
+        try (MockedStatic<ModelUtil> modelUtilMockedStatic = Mockito.mockStatic(ModelUtil.class)) {
+            modelUtilMockedStatic.when(() -> ModelUtil.getModelMetadata(any())).thenReturn(modelMetadata);
+            modelUtilMockedStatic.when(() -> ModelUtil.isModelCreated(modelMetadata)).thenReturn(true);
+            knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        }
+
+        // final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
@@ -303,6 +312,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
         when(leafReaderContext.reader()).thenReturn(reader);
 
         final FSDirectory directory = mock(FSDirectory.class);
@@ -373,6 +383,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             )
         ).thenReturn(getFilteredKNNQueryResults());
         final SegmentReader reader = mockSegmentReader();
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         when(leafReaderContext.reader()).thenReturn(reader);
 
@@ -598,6 +609,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final SegmentReader reader = mockSegmentReader();
         when(reader.maxDoc()).thenReturn(filterDocIds.length + 1);
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         when(leafReaderContext.reader()).thenReturn(reader);
@@ -706,6 +718,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final SegmentReader reader = mockSegmentReader();
         when(reader.maxDoc()).thenReturn(filterDocIds.length);
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         when(leafReaderContext.reader()).thenReturn(reader);
@@ -1294,6 +1307,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
     @SneakyThrows
     public void testANNWithParentsFilter_whenDoingANN_thenBitSetIsPassedToJNI() {
         SegmentReader reader = getMockedSegmentReader();
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         when(leafReaderContext.reader()).thenReturn(reader);
 
@@ -1385,6 +1399,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
         when(leafReaderContext.reader()).thenReturn(reader);
 
         final FSDirectory directory = mock(FSDirectory.class);
@@ -1527,6 +1542,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
         when(leafReaderContext.reader()).thenReturn(reader);
 
         final FSDirectory directory = mock(FSDirectory.class);
@@ -1690,6 +1706,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                     )
                 ).thenReturn(getFilteredKNNQueryResults());
                 final SegmentReader reader = mockSegmentReader();
+                when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
                 final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
                 when(leafReaderContext.reader()).thenReturn(reader);
 

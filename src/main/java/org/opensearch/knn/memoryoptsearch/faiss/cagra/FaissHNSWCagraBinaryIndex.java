@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss.cagra;
 
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.FlatVectorsReaderWithFieldName;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndexLoadUtils;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
@@ -29,7 +30,7 @@ public class FaissHNSWCagraBinaryIndex extends FaissBinaryHnswIndex {
     }
 
     @Override
-    protected void doLoad(final IndexInput input) throws IOException {
+    protected void doLoad(final IndexInput input, FlatVectorsReaderWithFieldName flatVectorsReaderWithFieldName) throws IOException {
         // Read common binary index header
         readBinaryCommonHeader(input);
 
@@ -39,6 +40,6 @@ public class FaissHNSWCagraBinaryIndex extends FaissBinaryHnswIndex {
         ((FaissCagraHNSW) faissHnsw).setNumBaseLevelSearchEntryPoints(numBaseLevelSearchEntryPoint);
 
         faissHnsw.load(input, getTotalNumberOfVectors());
-        storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input));
+        storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input, flatVectorsReaderWithFieldName));
     }
 }
