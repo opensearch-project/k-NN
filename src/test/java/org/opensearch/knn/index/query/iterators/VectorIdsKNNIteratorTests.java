@@ -93,12 +93,11 @@ public class VectorIdsKNNIteratorTests extends KNNTestCase {
         // set last return to be Integer.MAX_VALUE to represent no more docs
         stubbing.thenReturn(Integer.MAX_VALUE);
         // Execute and verify
-        VectorIdsKNNIterator iterator = new VectorIdsKNNIterator(queryVector, values, spaceType);
+        VectorIdsKNNIterator iterator = new VectorIdsKNNIterator(DocIdSetIterator.range(0, 5), queryVector, values, spaceType);
         for (int i = 0; i < dataVectors.size(); i++) {
             assertEquals(i, iterator.nextDoc());
             assertEquals(expectedScores.get(i), (Float) iterator.score());
         }
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
-        verify(values, never()).advance(anyInt());
     }
 }

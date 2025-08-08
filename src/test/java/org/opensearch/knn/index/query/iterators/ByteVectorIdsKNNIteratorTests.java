@@ -14,6 +14,7 @@ import org.mockito.stubbing.OngoingStubbing;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 
+import javax.print.Doc;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -94,12 +95,11 @@ public class ByteVectorIdsKNNIteratorTests extends TestCase {
         stubbing.thenReturn(Integer.MAX_VALUE);
 
         // Execute and verify
-        ByteVectorIdsKNNIterator iterator = new ByteVectorIdsKNNIterator(queryVector, values, spaceType);
+        ByteVectorIdsKNNIterator iterator = new ByteVectorIdsKNNIterator(DocIdSetIterator.range(0, 5), queryVector, values, spaceType);
         for (int i = 0; i < dataVectors.size(); i++) {
             assertEquals(i, iterator.nextDoc());
             assertEquals(expectedScores.get(i), iterator.score());
         }
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
-        verify(values, never()).advance(anyInt());
     }
 }

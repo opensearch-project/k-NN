@@ -17,6 +17,8 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
+import org.junit.After;
+import org.junit.Before;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
@@ -25,6 +27,7 @@ import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -34,14 +37,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.FIELD_NAME;
 import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_THREAD_POOL;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -50,6 +57,20 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 public class ExactSearcherTests extends KNNTestCase {
 
     private static final String SEGMENT_NAME = "0";
+    private ExecutorService executor;
+
+    @Before
+    public void setExactSearchThreadPool() {
+        ThreadPool threadPool = mock(ThreadPool.class);
+        executor = Executors.newSingleThreadExecutor();
+        when(threadPool.executor(EXACT_SEARCH_THREAD_POOL)).thenReturn(executor);
+        ExactSearcher.initialize(threadPool);
+    }
+
+    @After
+    public void shutdownExecutor() {
+        executor.shutdown();
+    }
 
     @SneakyThrows
     public void testExactSearch_whenSegmentHasNoVectorField_thenNoDocsReturned() {
@@ -63,6 +84,7 @@ public class ExactSearcherTests extends KNNTestCase {
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
+        when(reader.maxDoc()).thenReturn(1);
 
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
@@ -70,7 +92,7 @@ public class ExactSearcherTests extends KNNTestCase {
         TopDocs docs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
         Mockito.verify(fieldInfos).fieldInfo(query.getField());
         Mockito.verify(reader).getFieldInfos();
-        Mockito.verify(leafReaderContext).reader();
+        Mockito.verify(leafReaderContext, times(2)).reader();
         assertEquals(0, docs.scoreDocs.length);
     }
 
@@ -93,6 +115,7 @@ public class ExactSearcherTests extends KNNTestCase {
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
+        when(reader.maxDoc()).thenReturn(1);
 
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
@@ -100,7 +123,7 @@ public class ExactSearcherTests extends KNNTestCase {
         TopDocs docs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
         Mockito.verify(fieldInfos).fieldInfo(query.getField());
         Mockito.verify(reader).getFieldInfos();
-        Mockito.verify(leafReaderContext).reader();
+        Mockito.verify(leafReaderContext, times(2)).reader();
         assertEquals(0, docs.scoreDocs.length);
     }
 
@@ -152,6 +175,7 @@ public class ExactSearcherTests extends KNNTestCase {
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
             final SegmentReader reader = mock(SegmentReader.class);
             when(leafReaderContext.reader()).thenReturn(reader);
+            when(reader.maxDoc()).thenReturn(3);
 
             // Set up segment + Lucene Directory
             final FSDirectory directory = mock(FSDirectory.class);

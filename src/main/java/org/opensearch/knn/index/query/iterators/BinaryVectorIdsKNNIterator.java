@@ -41,11 +41,6 @@ public class BinaryVectorIdsKNNIterator implements KNNIterator {
         this.docId = getNextDocId();
     }
 
-    public BinaryVectorIdsKNNIterator(final byte[] queryVector, final KNNBinaryVectorValues binaryVectorValues, final SpaceType spaceType)
-        throws IOException {
-        this(null, queryVector, binaryVectorValues, spaceType);
-    }
-
     /**
      * Advance to the next doc and update score value with score of the next doc.
      * DocIdSetIterator.NO_MORE_DOCS is returned when there is no more docs

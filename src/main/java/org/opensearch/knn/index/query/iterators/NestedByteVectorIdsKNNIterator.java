@@ -22,23 +22,13 @@ public class NestedByteVectorIdsKNNIterator extends ByteVectorIdsKNNIterator {
     private final BitSet parentBitSet;
 
     public NestedByteVectorIdsKNNIterator(
-        @Nullable final DocIdSetIterator filterIdsIterator,
+        final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNByteVectorValues byteVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
         super(filterIdsIterator, queryVector, byteVectorValues, spaceType);
-        this.parentBitSet = parentBitSet;
-    }
-
-    public NestedByteVectorIdsKNNIterator(
-        final float[] queryVector,
-        final KNNByteVectorValues binaryVectorValues,
-        final SpaceType spaceType,
-        final BitSet parentBitSet
-    ) throws IOException {
-        super(null, queryVector, binaryVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
     }
 

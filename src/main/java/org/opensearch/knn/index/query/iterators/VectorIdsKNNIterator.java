@@ -42,11 +42,6 @@ public class VectorIdsKNNIterator implements KNNIterator {
         this(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, null, null);
     }
 
-    public VectorIdsKNNIterator(final float[] queryVector, final KNNFloatVectorValues knnFloatVectorValues, final SpaceType spaceType)
-        throws IOException {
-        this(null, queryVector, knnFloatVectorValues, spaceType, null, null);
-    }
-
     public VectorIdsKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,

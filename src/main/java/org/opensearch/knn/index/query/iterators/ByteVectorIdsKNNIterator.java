@@ -27,7 +27,7 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
     protected int docId;
 
     public ByteVectorIdsKNNIterator(
-        @Nullable final DocIdSetIterator filterIdsIterator,
+        final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNByteVectorValues byteVectorValues,
         final SpaceType spaceType
@@ -39,11 +39,6 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
         // nextDoc should already be referring to next knnVectorValues
         this.docId = getNextDocId();
-    }
-
-    public ByteVectorIdsKNNIterator(final float[] queryVector, final KNNByteVectorValues byteVectorValues, final SpaceType spaceType)
-        throws IOException {
-        this(null, queryVector, byteVectorValues, spaceType);
     }
 
     /**

@@ -92,12 +92,11 @@ public class BinaryVectorIdsKNNIteratorTests extends TestCase {
         stubbing.thenReturn(Integer.MAX_VALUE);
 
         // Execute and verify
-        BinaryVectorIdsKNNIterator iterator = new BinaryVectorIdsKNNIterator(queryVector, values, spaceType);
+        BinaryVectorIdsKNNIterator iterator = new BinaryVectorIdsKNNIterator(DocIdSetIterator.range(0, 5), queryVector, values, spaceType);
         for (int i = 0; i < dataVectors.size(); i++) {
             assertEquals(i, iterator.nextDoc());
             assertEquals(expectedScores.get(i), iterator.score());
         }
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
-        verify(values, never()).advance(anyInt());
     }
 }

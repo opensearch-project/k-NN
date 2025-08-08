@@ -16,6 +16,7 @@ import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -80,15 +81,28 @@ public class NestedByteVectorIdsKNNIteratorTests extends TestCase {
 
         KNNByteVectorValues values = mock(KNNByteVectorValues.class);
         when(values.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
-        when(values.nextDoc()).thenReturn(0, 2, 3, Integer.MAX_VALUE);
+        AtomicInteger lastReturned = new AtomicInteger(-1);
+        when(values.advance(anyInt())).thenAnswer(invocation -> {
+            int target = invocation.getArgument(0);
+            int prev = lastReturned.get();
+            assertTrue(prev < target);
+            int[] docs = {0, 2, 3, Integer.MAX_VALUE};
+            for (int doc : docs) {
+                if (doc >= target) {
+                    lastReturned.set(doc);
+                    return doc;
+                }
+            }
+            lastReturned.set(Integer.MAX_VALUE);
+            return Integer.MAX_VALUE;
+        });
 
         // Execute and verify
-        NestedByteVectorIdsKNNIterator iterator = new NestedByteVectorIdsKNNIterator(queryVector, values, spaceType, parentBitSet);
+        NestedByteVectorIdsKNNIterator iterator = new NestedByteVectorIdsKNNIterator(DocIdSetIterator.range(0, 5), queryVector, values, spaceType, parentBitSet);
         assertEquals(0, iterator.nextDoc());
         assertEquals(expectedScores.get(0), iterator.score());
         assertEquals(3, iterator.nextDoc());
         assertEquals(expectedScores.get(2), iterator.score());
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
-        verify(values, never()).advance(anyInt());
     }
 }

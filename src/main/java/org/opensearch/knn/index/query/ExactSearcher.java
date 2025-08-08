@@ -179,11 +179,7 @@ public class ExactSearcher {
     }
 
     private int computePartitionEnd(BitSet parentBitSet, int tentativeEnd, int maxDoc) {
-        if (parentBitSet == null) {
-            return tentativeEnd;
-        }
-        int end = parentBitSet.nextSetBit(tentativeEnd);
-        return Math.min(end, maxDoc);
+        return (parentBitSet == null) ? tentativeEnd : Math.min(parentBitSet.nextSetBit(tentativeEnd), maxDoc);
     }
 
     private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
