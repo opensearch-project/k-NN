@@ -99,6 +99,7 @@ public class ExplainTests extends KNNWeightTestCase {
         final SegmentReader reader = mockSegmentReader(isCompoundFile);
         when(reader.maxDoc()).thenReturn(maxDoc);
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+        when(reader.getBinaryDocValues(any())).thenReturn(mock(BinaryDocValues.class));
 
         when(leafReaderContext.reader()).thenReturn(reader);
         when(leafReaderContext.id()).thenReturn(new Object());
