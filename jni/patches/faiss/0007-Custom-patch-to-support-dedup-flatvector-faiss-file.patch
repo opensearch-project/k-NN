@@ -12,6 +12,17 @@ To enable this, vector writing to the `.faiss` file is disabled, and
 the loading path is updated to fetch vectors via `VectorReader` at
 index load time.
 
+To enable this:
+- In `write_index()`, we skip writing vectors to the `.faiss` file for
+  FP32 and byte vector types. Other cases follow the existing baseline
+  write path.
+- In `read_index()`, we load vectors via the Java-side `VectorReader`
+  to support deduplication optimization, ensuring that vectors are read
+  from the `.vec` file instead of being embedded in `.faiss`.
+
+This approach reduces `.faiss` file size and enables deduplication while
+keeping vector loading flexible and driven from the Java side.
+
 ---
  faiss/impl/index_read.cpp     | 123 +++++++++++++++++++----------
  faiss/impl/index_read_utils.h |   7 +-
