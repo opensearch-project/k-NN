@@ -58,8 +58,14 @@ jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil
     const float* src = reinterpret_cast<const float*>(src_f32);
     uint16_t* dst = reinterpret_cast<uint16_t*>(dst_bytes);
 
-    int i = 0;
-#if defined(KNN_HAVE_AVX512)
+    size_t i = 0;
+#if defined(KNN_HAVE_AVX512_SPR)
+    for (; i + 32 <= count; i += 32) {
+        __m512 v = _mm512_loadu_ps(&src[i]);
+        __m512h h = _mm512_cvtps_ph(v);
+        _mm512_storeu_ph(&dst[i], h);
+    }
+#elif defined(KNN_HAVE_AVX512)
     for (; i + 16 <= count; i += 16) {
         __m512 v = _mm512_loadu_ps(&src[i]);
         __m256i h = _mm512_cvtps_ph(v, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);

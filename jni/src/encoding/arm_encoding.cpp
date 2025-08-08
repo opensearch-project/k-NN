@@ -50,19 +50,16 @@ jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil
     int i = 0;
     // ARM NEON bulk 8-wide
     for (; i + 8 <= count; i += 8) {
-        float32x4_t v0 = vld1q_f32(&src[i + 0]);
+        float32x4_t v0 = vld1q_f32(&src[i]);
         float32x4_t v1 = vld1q_f32(&src[i + 4]);
         float16x4_t h0 = vcvt_f16_f32(v0);
         float16x4_t h1 = vcvt_f16_f32(v1);
-        vst1_f16(reinterpret_cast<__fp16*>(&dst[i + 0]), h0);
+        vst1_f16(reinterpret_cast<__fp16*>(&dst[i]), h0);
         vst1_f16(reinterpret_cast<__fp16*>(&dst[i + 4]), h1);
     }
     // tail via NEON scalar broadcast
     for (; i < count; ++i) {
-        float32x4_t sv = vdupq_n_f32(src[i]);
-        float16x4_t hv = vcvt_f16_f32(sv);
-        __fp16 lane = vget_lane_f16(hv, 0);
-        dst[i] = *reinterpret_cast<const uint16_t*>(&lane);
+        reinterpret_cast<__fp16*>(dst)[i] = static_cast<__fp16>(src[i]);
     }
 
     // Arrays are released automatically by the RAII release_arrays lambda

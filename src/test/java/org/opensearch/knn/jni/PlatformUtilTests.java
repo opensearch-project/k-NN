@@ -266,4 +266,205 @@ public class PlatformUtilTests extends Assert {
             }
         }
     }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsNotIntel_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(false);
+            assertFalse(PlatformUtils.isF16CSupportedBySystem());
+        }
+    }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isWindows).thenReturn(true);
+            assertFalse(PlatformUtils.isF16CSupportedBySystem());
+        }
+    }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsMac_returnsTrue() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(true);
+
+            try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
+                mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty"))
+                        .thenReturn("FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3 PCLMULQDQ SSSE3 FMA CX16 SSE4.1 SSE4.2 x2APIC MOVBE POPCNT AES F16C RDRAND");
+                assertTrue(PlatformUtils.isF16CSupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsMac_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(true);
+
+            try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
+                mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty"))
+                        .thenReturn("FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3");
+                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsMac_throwsExceptionReturnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(true);
+
+            try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
+                mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty"))
+                        .thenThrow(RuntimeException.class);
+                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsLinux_returnsTrue() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(false);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                        .thenReturn(Stream.of("flags: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm", "dummy string"));
+                assertTrue(PlatformUtils.isF16CSupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsLinux_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(false);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                        .thenReturn(Stream.of("flags: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx", "dummy string"));
+                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsF16CSupportedBySystem_platformIsLinux_throwsExceptionReturnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(false);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                        .thenThrow(RuntimeException.class);
+                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+            }
+        }
+    }
+
+    // SIMD AVX2 tests
+    @Test
+    public void testIsSIMDAVX2SupportedBySystem_bothAVX2AndF16CSupported_returnsTrue() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(true);
+
+            try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
+                // Mock AVX2 support
+                mockedSysctlUtil.when(() -> SysctlUtil.sysctl(MAC_CPU_FEATURES, "empty"))
+                        .thenReturn("RDWRFSGS TSC_THREAD_OFFSET SGX BMI1 AVX2 SMEP BMI2 ERMS INVPCID FPU_CSDS MPX RDSEED ADX SMAP CLFSOPT IPT SGXLC MDCLEAR TSXFA IBRS STIBP L1DF ACAPMSR SSBD");
+                // Mock F16C support
+                mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty"))
+                        .thenReturn("FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3 PCLMULQDQ SSSE3 FMA CX16 SSE4.1 SSE4.2 x2APIC MOVBE POPCNT AES F16C RDRAND");
+
+                assertTrue(PlatformUtils.isSIMDAVX2SupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsSIMDAVX2SupportedBySystem_AVX2SupportedButF16CNotSupported_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(true);
+
+            try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
+                // Mock AVX2 support
+                mockedSysctlUtil.when(() -> SysctlUtil.sysctl(MAC_CPU_FEATURES, "empty"))
+                        .thenReturn("RDWRFSGS TSC_THREAD_OFFSET SGX BMI1 AVX2 SMEP BMI2 ERMS INVPCID FPU_CSDS MPX RDSEED ADX SMAP CLFSOPT IPT SGXLC MDCLEAR TSXFA IBRS STIBP L1DF ACAPMSR SSBD");
+                // Mock F16C not supported
+                mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty"))
+                        .thenReturn("FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3");
+
+                assertFalse(PlatformUtils.isSIMDAVX2SupportedBySystem());
+            }
+        }
+    }
+
+    // SIMD AVX512 tests
+    @Test
+    public void testIsSIMDAVX512SupportedBySystem_bothAVX512AndF16CSupported_returnsTrue() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                        .thenReturn(Stream.of("flags: AVX2 avx512f avx512cd avx512vl avx512dq avx512bw f16c", "dummy string"));
+                assertTrue(PlatformUtils.isSIMDAVX512SupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsSIMDAVX512SupportedBySystem_AVX512SupportedButF16CNotSupported_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                        .thenReturn(Stream.of("flags: AVX2 avx512f avx512cd avx512vl avx512dq avx512bw", "dummy string"));
+                assertFalse(PlatformUtils.isSIMDAVX512SupportedBySystem());
+            }
+        }
+    }
+
+    // SIMD AVX512 SPR tests
+    @Test
+    public void testIsSIMDAVX512SPRSpecSupportedBySystem_bothAVX512SPRAndF16CSupported_returnsTrue() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                        .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq f16c", "dummy string"));
+                assertTrue(PlatformUtils.isSIMDAVX512SPRSpecSupportedBySystem());
+            }
+        }
+    }
+
+    @Test
+    public void testIsSIMDAVX512SPRSpecSupportedBySystem_AVX512SPRSupportedButF16CNotSupported_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isLinux).thenReturn(true);
+
+            try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
+                mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
+                        .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq", "dummy string"));
+                assertFalse(PlatformUtils.isSIMDAVX512SPRSpecSupportedBySystem());
+            }
+        }
+    }
 }

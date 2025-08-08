@@ -33,11 +33,13 @@ public class PlatformUtils {
     private static volatile Boolean isAVX2Supported;
     private static volatile Boolean isAVX512Supported;
     private static volatile Boolean isAVX512SPRSupported;
+    private static volatile Boolean isF16CSupported;
 
     static void reset() {
         isAVX2Supported = null;
         isAVX512Supported = null;
         isAVX512SPRSupported = null;
+        isF16CSupported = null;
     }
 
     /**
@@ -143,4 +145,67 @@ public class PlatformUtils {
         }
         return false;
     }
+
+    public static boolean isF16CSupportedBySystem() {
+        if (!Platform.isIntel() || Platform.isWindows()) {
+            isF16CSupported = false;
+        }
+
+        if (isF16CSupported != null) {
+            return isF16CSupported;
+        }
+
+        if (Platform.isMac()) {
+            // sysctl or system control retrieves system info and allows processes with appropriate privileges
+            // to set system info. This system info contains the machine dependent cpu features that are supported by it.
+            // On MacOS, if the underlying processor supports F16C instruction set, it will be listed under the "machdep.cpu.features"
+            // instruction subset ("sysctl -a | grep machdep.cpu.features").
+            // https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/sysctl.3.html
+            try {
+                isF16CSupported = AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
+                    String flags = SysctlUtil.sysctl("machdep.cpu.features", "empty");
+                    return (flags.toLowerCase(Locale.ROOT)).contains("f16c");
+                });
+            } catch (Exception e) {
+                isF16CSupported = false;
+                logger.error("[KNN] Error fetching F16C cpu flags on macOS. [{}]", e.getMessage(), e);
+            }
+
+        } else if (Platform.isLinux()) {
+            // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
+            // by system. This info contains "flags" for each processor which determines the qualities of that processor
+            // and its ability to process different instruction sets like mmx, avx, f16c, avx2 and so on.
+            // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
+            // Here, we are trying to read the details of all processors used by system and find if any of the processor
+            // supports F16C instructions. F16C enables hardware support for float32 to float16 conversions.
+            // Many older Intel CPUs and some low-power chips (e.g., early Pentium and Celeron models) do not support F16C.
+            // https://ark.intel.com/content/www/us/en/ark/products/series/122593/intel-pentium-gold-processors.html
+            String fileName = "/proc/cpuinfo";
+            try {
+                isF16CSupported = AccessController.doPrivileged(
+                    (PrivilegedExceptionAction<Boolean>) () -> Files.lines(Paths.get(fileName))
+                        .filter(s -> s.startsWith("flags"))
+                        .anyMatch(s -> StringUtils.containsIgnoreCase(s, "f16c"))
+                );
+            } catch (Exception e) {
+                isF16CSupported = false;
+                logger.error("[KNN] Error reading F16C support from file [{}]. [{}]", fileName, e.getMessage(), e);
+            }
+        }
+
+        return isF16CSupported;
+    }
+
+    public static boolean isSIMDAVX2SupportedBySystem() {
+        return isAVX2SupportedBySystem() && isF16CSupportedBySystem();
+    }
+
+    public static boolean isSIMDAVX512SupportedBySystem() {
+        return isAVX512SupportedBySystem() && isF16CSupportedBySystem();
+    }
+
+    public static boolean isSIMDAVX512SPRSpecSupportedBySystem() {
+        return isAVX512SPRSupportedBySystem() && isF16CSupportedBySystem();
+    }
+
 }

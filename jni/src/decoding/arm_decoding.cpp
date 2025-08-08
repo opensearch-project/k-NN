@@ -56,9 +56,7 @@ jboolean knn_jni::decoding::convertFP16ToFP32(knn_jni::JNIUtilInterface *jniUtil
         vst1q_f32(&dst[i + 4], v1);
     }
     for (; i < count; ++i) {
-        __fp16 half = *reinterpret_cast<const __fp16*>(&src[i]);
-        float32x4_t fv = vcvt_f32_f16(vdup_n_f16(half));
-        dst[i] = vgetq_lane_f32(fv, 0);
+        dst[i] = static_cast<float>(reinterpret_cast<const __fp16*>(src)[i]);
     }
 
     // Arrays are released automatically by the RAII release_arrays lambda
