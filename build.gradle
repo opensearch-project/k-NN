@@ -315,7 +315,7 @@ opensearchplugin {
     // zip file name and plugin name in ${opensearch.plugin.name} read by OpenSearch when plugin loading
     description 'OpenSearch k-NN plugin'
     classname 'org.opensearch.knn.plugin.KNNPlugin'
-    extendedPlugins = ['lang-painless', 'transport-grpc']
+    extendedPlugins = ['lang-painless', 'lang-mustache']
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
 }
@@ -347,8 +347,10 @@ dependencies {
         exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
     }
     compileOnly "org.opensearch:protobufs:0.6.0"
-    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
-    compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    // Mustache support - only core mustache library, OpenSearch classes available at runtime
+    compileOnly "com.github.spullara.mustache.java:compiler:0.9.14"
+    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
+    api group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     // Add Guava for test configurations since it's needed for testing but excluded from runtime

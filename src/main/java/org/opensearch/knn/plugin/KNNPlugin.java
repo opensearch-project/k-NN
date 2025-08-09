@@ -59,6 +59,7 @@ import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
 import org.opensearch.knn.plugin.rest.RestSearchModelHandler;
 import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
+import org.opensearch.knn.plugin.script.KNNEnhancedMustacheEngine;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.transport.ClearCacheAction;
@@ -107,6 +108,7 @@ import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
+import org.opensearch.script.TemplateScript;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
 import org.opensearch.threadpool.ExecutorBuilder;
@@ -380,6 +382,10 @@ public class KNNPlugin extends Plugin
      */
     @Override
     public ScriptEngine getScriptEngine(Settings settings, Collection<ScriptContext<?>> contexts) {
+        // Support both Mustache templating and Painless scoring
+        if (contexts.contains(TemplateScript.CONTEXT)) {
+            return new KNNEnhancedMustacheEngine();
+        }
         return new KNNScoringScriptEngine();
     }
 
