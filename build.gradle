@@ -349,6 +349,8 @@ dependencies {
     compileOnly "org.opensearch:protobufs:0.6.0"
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    // Mustache support - only core mustache library, OpenSearch classes available at runtime
+    compileOnly "com.github.spullara.mustache.java:compiler:0.9.14"
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     // Add Guava for test configurations since it's needed for testing but excluded from runtime
