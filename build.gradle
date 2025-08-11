@@ -346,7 +346,7 @@ dependencies {
         exclude group: 'com.google.guava', module: 'failureaccess'
         exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
     }
-    compileOnly "org.opensearch:protobufs:0.6.0"
+    compileOnly "org.opensearch:protobufs:0.8.0"
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
