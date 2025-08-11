@@ -55,7 +55,12 @@ public class ExactKNNWeight extends Weight {
         String vectorString = exactKNNQuery.getVectorDataType() == VectorDataType.FLOAT
             ? java.util.Arrays.toString(((ExactKNNFloatQuery) exactKNNQuery).getQueryVector())
             : java.util.Arrays.toString(((ExactKNNByteQuery) exactKNNQuery).getByteQueryVector());
-        String description = String.format("exact k-NN search on field [%s] with vector [%s]", exactKNNQuery.getField(), vectorString);
+        String description = String.format(
+            "exact k-NN search on field [%s] with vector [%s] and space type [%s]",
+            exactKNNQuery.getField(),
+            vectorString,
+            exactKNNQuery.getSpaceType()
+        );
         return Explanation.match(score * boost, description);
     }
 

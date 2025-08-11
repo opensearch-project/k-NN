@@ -185,16 +185,16 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
         BitSetProducer parentFilter = context.getParentFilter();
         log.debug("Creating exact k-NN query for index:{}, field:{}, spaceType:{}", indexName, fieldName, spaceType);
 
-        byte[] byteVector = new byte[0];
         switch (vectorDataType) {
             case BINARY, BYTE:
-                byteVector = new byte[vector.length];
+                byte[] byteVector = new byte[vector.length];
                 for (int i = 0; i < vector.length; i++) {
                     validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
                     byteVector[i] = (byte) vector[i];
                 }
                 float[] floatVector = vectorDataType == VectorDataType.BINARY ? null : vector;
                 if (vectorDataType == VectorDataType.BINARY) {
+                    // validate byteVector here because binary/hamming does not support float vectors
                     resolvedSpaceType.validateVector(byteVector);
                 } else {
                     resolvedSpaceType.validateVector(vector);
