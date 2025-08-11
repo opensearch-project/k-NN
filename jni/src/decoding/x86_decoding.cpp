@@ -52,9 +52,18 @@ jboolean knn_jni::decoding::convertFP16ToFP32(knn_jni::JNIUtilInterface *jniUtil
         if (i + 128 < count) {
             _mm_prefetch(reinterpret_cast<const char*>(&src[i + 128]), _MM_HINT_T0);
         }
-        __m512h h = _mm512_loadu_ph(&src[i]);
-        __m512 v = _mm512_cvtph_ps(h);
-        _mm512_storeu_ps(&dst[i], v);
+
+        // Load and convert first 16 FP16 values
+        __m256h h0 = _mm256_loadu_ph(&src[i]);
+        __m512 v0 = _mm512_cvtph_ps(h0);
+
+        // Load and convert next 16 FP16 values
+        __m256h h1 = _mm256_loadu_ph(&src[i + 16]);
+        __m512 v1 = _mm512_cvtph_ps(h1);
+
+        // Store 32 FP32 values to memory
+        _mm512_storeu_ps(&dst[i], v0);
+        _mm512_storeu_ps(&dst[i + 16], v1);
     }
 #elif defined(KNN_HAVE_AVX512)
     for (; i + 16 <= count; i += 16) {

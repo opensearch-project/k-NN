@@ -61,9 +61,17 @@ jboolean knn_jni::encoding::convertFP32ToFP16(knn_jni::JNIUtilInterface *jniUtil
     size_t i = 0;
 #if defined(KNN_HAVE_AVX512_SPR)
     for (; i + 32 <= count; i += 32) {
-        __m512 v = _mm512_loadu_ps(&src[i]);
-        __m512h h = _mm512_cvtps_ph(v);
-        _mm512_storeu_ph(&dst[i], h);
+        // Load two __m512 (16 FP32 values each) to process 32 elements total
+        __m512 v0 = _mm512_loadu_ps(&src[i]);
+        __m512 v1 = _mm512_loadu_ps(&src[i + 16]);
+
+        // Convert to two __m512h halves (each holds 16 FP16 values)
+        __m512h h0 = _mm512_cvtps_ph(v0);
+        __m512h h1 = _mm512_cvtps_ph(v1);
+
+        // Store each half (cast down to __m256i for correct size)
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&dst[i]), _mm256_castph512_ph256(h0));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&dst[i + 16]), _mm256_castph512_ph256(h1));
     }
 #elif defined(KNN_HAVE_AVX512)
     for (; i + 16 <= count; i += 16) {
