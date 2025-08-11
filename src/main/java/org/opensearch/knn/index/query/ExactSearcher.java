@@ -153,6 +153,7 @@ public class ExactSearcher {
         for (int i = 0; i < partitions; i++) {
             int size = baseSize + (i < remainder ? 1 : 0);
             int minDocId = offset, maxDocId = computePartitionEnd(parentBitSet, offset + size, maxDoc);
+            if (minDocId >= maxDocId) break;
             tasks.add(() -> {
                 DocIdSetIterator matchedDocsIterator = matchedDocs != null
                     ? new RangeDocIdSetIterator(new BitSetIterator(matchedDocs, maxDocId - minDocId), minDocId, maxDocId)
@@ -164,9 +165,6 @@ public class ExactSearcher {
                 return searchTopCandidates(iterator, limit, filterScore);
             });
             offset = maxDocId;
-            if (offset == maxDoc) {
-                break;
-            }
         }
 
         List<TopDocs> results = ExactSearcher.taskExecutor.invokeAll(tasks);
