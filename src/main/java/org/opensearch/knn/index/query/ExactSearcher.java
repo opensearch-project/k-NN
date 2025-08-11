@@ -166,7 +166,6 @@ public class ExactSearcher {
             });
             offset = maxDocId;
         }
-
         List<TopDocs> results = ExactSearcher.taskExecutor.invokeAll(tasks);
         return TopDocs.merge(limit, results.toArray(new TopDocs[tasks.size()]));
     }
