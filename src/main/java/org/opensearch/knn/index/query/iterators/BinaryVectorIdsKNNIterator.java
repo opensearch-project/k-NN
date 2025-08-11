@@ -72,7 +72,6 @@ public class BinaryVectorIdsKNNIterator implements KNNIterator {
 
     protected int getNextDocId() throws IOException {
         int nextDocID = this.docIdSetIterator.nextDoc();
-        // For filter case, advance vector values to corresponding doc id from filter bit set
         if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
             int ret = binaryVectorValues.advance(nextDocID);
             if (ret > nextDocID) {

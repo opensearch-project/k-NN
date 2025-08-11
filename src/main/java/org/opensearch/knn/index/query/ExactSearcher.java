@@ -79,7 +79,7 @@ public class ExactSearcher {
     }
 
     /**
-     * Execute an exact search on a subset of documents of a leaf./
+     * Execute an exact search on a leaf
      *
      * @param leafReaderContext {@link LeafReaderContext}
      * @param context {@link ExactSearcherContext}
