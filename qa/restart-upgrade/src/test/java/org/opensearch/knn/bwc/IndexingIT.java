@@ -662,6 +662,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/2805")
     public void testKNNIndexLuceneBBQ() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;

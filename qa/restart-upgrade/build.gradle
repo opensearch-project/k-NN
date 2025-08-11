@@ -102,7 +102,6 @@ testClusters {
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneBBQ"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
             }
         }
