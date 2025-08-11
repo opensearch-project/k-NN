@@ -45,8 +45,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier;
-    private final Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier;
     private final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
+    private final Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private static final String MAX_CONNECTIONS = "max_connections";
     private static final String BEAM_WIDTH = "beam_width";
@@ -67,8 +67,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         int defaultBeamWidth,
         Supplier<KnnVectorsFormat> defaultFormatSupplier,
         Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
-        Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier,
-        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier
+        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier,
+        Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier
     ) {
         this(
             mapperService,
@@ -76,8 +76,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             defaultBeamWidth,
             defaultFormatSupplier,
             vectorsFormatSupplier,
-            bbqVectorsFormatSupplier,
             scalarQuantizedVectorsFormatSupplier,
+            bbqVectorsFormatSupplier,
             new NativeIndexBuildStrategyFactory()
         );
     }

@@ -63,15 +63,6 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                     );
                 }
             },
-            knnBBQVectorsFormatParams -> {
-                final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
-                return new Lucene102HnswBinaryQuantizedVectorsFormat(
-                    knnBBQVectorsFormatParams.getMaxConnections(),
-                    knnBBQVectorsFormatParams.getBeamWidth(),
-                    mergeThreadCountAndExecutorService.v1(),
-                    mergeThreadCountAndExecutorService.v2()
-                );
-            },
             knnScalarQuantizedVectorsFormatParams -> {
                 final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
                 return new Lucene99HnswScalarQuantizedVectorsFormat(
@@ -83,6 +74,15 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                     knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
                     knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
                     // Executor service
+                    mergeThreadCountAndExecutorService.v2()
+                );
+            },
+            knnBBQVectorsFormatParams -> {
+                final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
+                return new Lucene102HnswBinaryQuantizedVectorsFormat(
+                    knnBBQVectorsFormatParams.getMaxConnections(),
+                    knnBBQVectorsFormatParams.getBeamWidth(),
+                    mergeThreadCountAndExecutorService.v1(),
                     mergeThreadCountAndExecutorService.v2()
                 );
             },
