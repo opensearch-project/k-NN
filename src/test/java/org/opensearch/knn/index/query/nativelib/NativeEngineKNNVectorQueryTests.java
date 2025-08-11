@@ -429,9 +429,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnWeight.exactSearch(eq(leaf2), any())).thenReturn(topDocs2);
         when(searcher.getIndexReader()).thenReturn(reader);
 
-        try (
-            MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)
-        ) {
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
 
             // When shard-level re-scoring is enabled
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
@@ -561,7 +559,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
             // Verify acceptedDocIds is intersection of allSiblings and filteredDocIds
             ArgumentCaptor<ExactSearcher.ExactSearcherContext> contextCaptor = ArgumentCaptor.forClass(
-                    ExactSearcher.ExactSearcherContext.class
+                ExactSearcher.ExactSearcherContext.class
             );
             verify(knnWeight, times(perLeafResults.size())).exactSearch(any(), contextCaptor.capture());
             BitSetIterator matchedDocsIterator = new BitSetIterator(contextCaptor.getValue().getMatchedDocs(), 2);

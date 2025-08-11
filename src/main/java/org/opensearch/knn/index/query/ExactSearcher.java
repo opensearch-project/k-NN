@@ -26,7 +26,6 @@ import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
-import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNSettings;
@@ -58,6 +57,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Predicate;
 
 import static org.apache.lucene.index.IndexWriter.MAX_DOCS;
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH_THREAD_POOL;
 
 @Log4j2
@@ -164,10 +164,13 @@ public class ExactSearcher {
                 return searchTopCandidates(iterator, limit, filterScore);
             });
             offset = maxDocId;
+            if (offset == maxDoc) {
+                break;
+            }
         }
 
         List<TopDocs> results = ExactSearcher.taskExecutor.invokeAll(tasks);
-        return TopDocs.merge(limit, results.toArray(new TopDocs[partitions]));
+        return TopDocs.merge(limit, results.toArray(new TopDocs[tasks.size()]));
     }
 
     private int computeNumPartitions(int maxDoc) {
@@ -179,7 +182,14 @@ public class ExactSearcher {
     }
 
     private int computePartitionEnd(BitSet parentBitSet, int tentativeEnd, int maxDoc) {
-        return (parentBitSet == null) ? tentativeEnd : Math.min(parentBitSet.nextSetBit(tentativeEnd), maxDoc);
+        if (parentBitSet == null) {
+            return tentativeEnd;
+        }
+        if (tentativeEnd >= maxDoc) {
+            return maxDoc;
+        }
+        int nextParent = parentBitSet.nextSetBit(tentativeEnd);
+        return (nextParent == NO_MORE_DOCS) ? maxDoc : nextParent + 1;
     }
 
     private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
@@ -187,7 +197,7 @@ public class ExactSearcher {
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
         int docId;
-        while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
+        while ((docId = iterator.nextDoc()) != NO_MORE_DOCS) {
             final float currentScore = iterator.score();
             if (filterScore.test(currentScore) && currentScore > topDoc.score) {
                 topDoc.score = currentScore;
@@ -325,7 +335,7 @@ public class ExactSearcher {
         KNNIterator iterator = getKNNIterator(leafReaderContext, exactSearcherContext, matchedDocsIterator);
         final List<ScoreDoc> scoreDocList = new ArrayList<>();
         int docId;
-        while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
+        while ((docId = iterator.nextDoc()) != NO_MORE_DOCS) {
             scoreDocList.add(new ScoreDoc(docId, iterator.score()));
         }
         scoreDocList.sort(Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));

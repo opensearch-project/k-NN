@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.MoreExecutors;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
@@ -66,7 +67,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -102,7 +102,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
     @Before
     public void setExactSearchThreadPool() {
         ThreadPool threadPool = mock(ThreadPool.class);
-        executor = Executors.newSingleThreadExecutor();
+        executor = MoreExecutors.newDirectExecutorService();
         when(threadPool.executor(EXACT_SEARCH_THREAD_POOL)).thenReturn(executor);
         ExactSearcher.initialize(threadPool);
     }

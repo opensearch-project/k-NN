@@ -10,20 +10,18 @@ import lombok.SneakyThrows;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.FixedBitSet;
-import org.mockito.stubbing.OngoingStubbing;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 
-import javax.print.Doc;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class ByteVectorIdsKNNIteratorTests extends TestCase {
@@ -32,20 +30,33 @@ public class ByteVectorIdsKNNIteratorTests extends TestCase {
         final SpaceType spaceType = SpaceType.L2;
         final byte[] byteQueryVector = { 1, 2, 3 };
         final float[] queryVector = { 1f, 2f, 3f };
-        final int[] filterIds = { 1, 2, 3 };
-        final List<byte[]> dataVectors = Arrays.asList(new byte[] { 11, 12, 13 }, new byte[] { 14, 15, 16 }, new byte[] { 17, 18, 19 });
-        final List<Float> expectedScores = dataVectors.stream()
-            .map(vector -> spaceType.getKnnVectorSimilarityFunction().compare(byteQueryVector, vector))
-            .collect(Collectors.toList());
+        final int[] filterIds = { 0, 2, 3 };
+        final Map<Integer, byte[]> dataVectors = Map.of(
+            0,
+            new byte[] { 11, 12, 13 },
+            2,
+            new byte[] { 17, 18, 19 },
+            3,
+            new byte[] { 14, 15, 16 }
+        );
+        final Map<Integer, Float> expectedScores = dataVectors.entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(Map.Entry::getKey, e -> spaceType.getKnnVectorSimilarityFunction().compare(byteQueryVector, e.getValue()))
+            );
 
         KNNByteVectorValues values = mock(KNNByteVectorValues.class);
-        when(values.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
-
         FixedBitSet filterBitSet = new FixedBitSet(4);
+        AtomicInteger lastReturned = new AtomicInteger(-1);
         for (int id : filterIds) {
-            when(values.advance(id)).thenReturn(id);
+            when(values.advance(id)).thenAnswer(inv -> {
+                int target = inv.getArgument(0);
+                lastReturned.set(target);
+                return target;
+            });
             filterBitSet.set(id);
         }
+        when(values.getVector()).thenAnswer(inv -> dataVectors.get(lastReturned.get()));
 
         // Execute and verify
         ByteVectorIdsKNNIterator iterator = new ByteVectorIdsKNNIterator(
@@ -54,9 +65,9 @@ public class ByteVectorIdsKNNIteratorTests extends TestCase {
             values,
             spaceType
         );
-        for (int i = 0; i < filterIds.length; i++) {
-            assertEquals(filterIds[i], iterator.nextDoc());
-            assertEquals(expectedScores.get(i), (Float) iterator.score());
+        for (int filterId : filterIds) {
+            assertEquals(filterId, iterator.nextDoc());
+            assertEquals(expectedScores.get(filterId), iterator.score());
         }
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
     }
@@ -66,6 +77,7 @@ public class ByteVectorIdsKNNIteratorTests extends TestCase {
         final SpaceType spaceType = SpaceType.L2;
         final byte[] byteQueryVector = { 1, 2, 3 };
         final float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        int[] docs = { 0, 1, 2, 3, 4, Integer.MAX_VALUE };
         final List<byte[]> dataVectors = Arrays.asList(
             new byte[] { 11, 12, 13 },
             new byte[] { 14, 15, 16 },
@@ -75,24 +87,24 @@ public class ByteVectorIdsKNNIteratorTests extends TestCase {
         );
         final List<Float> expectedScores = dataVectors.stream()
             .map(vector -> spaceType.getKnnVectorSimilarityFunction().compare(byteQueryVector, vector))
-            .collect(Collectors.toList());
+            .toList();
 
         KNNByteVectorValues values = mock(KNNByteVectorValues.class);
-        when(values.getVector()).thenReturn(
-            dataVectors.get(0),
-            dataVectors.get(1),
-            dataVectors.get(2),
-            dataVectors.get(3),
-            dataVectors.get(4)
-        );
-
-        // stub return value when nextDoc is called
-        OngoingStubbing<Integer> stubbing = when(values.nextDoc());
-        for (int i = 0; i < dataVectors.size(); i++) {
-            stubbing = stubbing.thenReturn(i);
-        }
-        // set last return to be Integer.MAX_VALUE to represent no more docs
-        stubbing.thenReturn(Integer.MAX_VALUE);
+        AtomicInteger lastReturned = new AtomicInteger(-1);
+        when(values.advance(anyInt())).thenAnswer(invocation -> {
+            int target = invocation.getArgument(0);
+            int prev = lastReturned.get();
+            assertTrue(prev < target);
+            for (int doc : docs) {
+                if (doc >= target) {
+                    lastReturned.set(doc);
+                    return doc;
+                }
+            }
+            lastReturned.set(Integer.MAX_VALUE);
+            return Integer.MAX_VALUE;
+        });
+        when(values.getVector()).thenAnswer(inv -> dataVectors.get(lastReturned.get()));
 
         // Execute and verify
         ByteVectorIdsKNNIterator iterator = new ByteVectorIdsKNNIterator(DocIdSetIterator.range(0, 5), queryVector, values, spaceType);

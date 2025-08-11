@@ -34,7 +34,7 @@ public class VectorIdsKNNIterator implements KNNIterator {
     private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
 
     public VectorIdsKNNIterator(
-        @Nullable final DocIdSetIterator filterIdsIterator,
+        final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType
@@ -100,7 +100,6 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected int getNextDocId() throws IOException {
         int nextDocID = this.filterIdsIterator.nextDoc();
-        // For filter case, advance vector values to corresponding doc id from filter bit set
         if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
             int ret = knnFloatVectorValues.advance(nextDocID);
             if (ret > nextDocID) {
