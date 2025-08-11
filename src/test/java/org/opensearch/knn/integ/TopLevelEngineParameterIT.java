@@ -66,6 +66,26 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
         assertTrue(e.getMessage(), e.getMessage().contains("Cannot specify conflicting engines: [faiss] and [lucene]"));
     }
 
+    @SneakyThrows
+    public void testEngineWithCompression() {
+        // faiss, 2x compression -> valid
+        createTestIndexWithCompression(KNNEngine.FAISS, "2x");
+        addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
+        validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
+        deleteIndex(INDEX_NAME);
+
+        // faiss, 4x compression -> exception
+        Exception e = expectThrows(Exception.class, () -> createTestIndexWithCompression(KNNEngine.FAISS, "4x"));
+        assertTrue(e.getMessage(), e.getMessage().contains("Lucene is the only engine that supports 4x compression"));
+        deleteIndex(INDEX_NAME);
+
+        // lucene, 4x compression -> valid
+        createTestIndexWithCompression(KNNEngine.LUCENE, "4x");
+        addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
+        validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
+        deleteIndex(INDEX_NAME);
+    }
+
     private void createTestIndexWithTopLevelEngineOnly() throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -149,6 +169,23 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, mapping);
+    }
+
+    private void createTestIndexWithCompression(KNNEngine engine, String compressionLevel) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, engine.getName())
+            .field("compression_level", compressionLevel)
             .endObject()
             .endObject()
             .endObject();
