@@ -530,7 +530,7 @@ public class KNNSettings {
                 Setting.intSetting(
                     KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
                     KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
-                    0,
+                    1,
                     NodeScope,
                     Dynamic
                 )
