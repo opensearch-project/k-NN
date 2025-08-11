@@ -35,7 +35,6 @@ public class ExactKNNWeightTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "test_field";
     private static final float[] QUERY_VECTOR = { 1.0f, 0.0f };
-    private static final byte[] BYTE_QUERY_VECTOR = { 1, 0 };
     private static final float BOOST = 2.0f;
     private static final String SPACE_TYPE = "innerproduct";
 
@@ -58,7 +57,7 @@ public class ExactKNNWeightTests extends KNNTestCase {
         ScorerSupplier supplier = weight.scorerSupplier(mockContext);
         Scorer scorer = supplier.get(0);
 
-        assertTrue(scorer instanceof KNNLazyScorer);
+        assertTrue(scorer instanceof KNNExactLazyScorer);
         verify(mockSearcher).createIterator(eq(mockContext), any());
     }
 
@@ -225,7 +224,7 @@ public class ExactKNNWeightTests extends KNNTestCase {
         ScorerSupplier supplier = weight.scorerSupplier(mockContext);
         Scorer scorer = supplier.get(0);
 
-        assertTrue(scorer instanceof KNNLazyScorer);
+        assertTrue(scorer instanceof KNNExactLazyScorer);
         verify(mockSearcher).createIterator(eq(mockContext), any(ExactSearcher.ExactSearcherContext.class));
     }
 

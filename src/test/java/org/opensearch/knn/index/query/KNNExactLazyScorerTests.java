@@ -16,13 +16,13 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 
-public class KNNLazyScorerTests extends KNNTestCase {
+public class KNNExactLazyScorerTests extends KNNTestCase {
 
     public void testIteratorNextDoc() throws IOException {
         KNNIterator mockIterator = mock(KNNIterator.class);
         when(mockIterator.nextDoc()).thenReturn(1, 2, DocIdSetIterator.NO_MORE_DOCS);
 
-        KNNLazyScorer scorer = new KNNLazyScorer(mockIterator, 1.0f);
+        KNNExactLazyScorer scorer = new KNNExactLazyScorer(mockIterator, 1.0f);
         DocIdSetIterator iterator = scorer.iterator();
 
         assertEquals(1, iterator.nextDoc());
@@ -36,7 +36,7 @@ public class KNNLazyScorerTests extends KNNTestCase {
         KNNIterator mockIterator = mock(KNNIterator.class);
         when(mockIterator.score()).thenReturn(0.8f);
 
-        KNNLazyScorer scorer = new KNNLazyScorer(mockIterator, 2.0f);
+        KNNExactLazyScorer scorer = new KNNExactLazyScorer(mockIterator, 2.0f);
 
         assertEquals(1.6f, scorer.score(), 0.0f);
         verify(mockIterator, times(1)).score();
@@ -46,7 +46,7 @@ public class KNNLazyScorerTests extends KNNTestCase {
         KNNIterator mockIterator = mock(KNNIterator.class);
         when(mockIterator.nextDoc()).thenReturn(5);
 
-        KNNLazyScorer scorer = new KNNLazyScorer(mockIterator, 1.0f);
+        KNNExactLazyScorer scorer = new KNNExactLazyScorer(mockIterator, 1.0f);
         DocIdSetIterator iterator = scorer.iterator();
         iterator.nextDoc();
 
@@ -57,7 +57,7 @@ public class KNNLazyScorerTests extends KNNTestCase {
         KNNIterator mockIterator = mock(KNNIterator.class);
         when(mockIterator.nextDoc()).thenReturn(3, 7, DocIdSetIterator.NO_MORE_DOCS);
 
-        KNNLazyScorer scorer = new KNNLazyScorer(mockIterator, 1.0f);
+        KNNExactLazyScorer scorer = new KNNExactLazyScorer(mockIterator, 1.0f);
         DocIdSetIterator iterator = scorer.iterator();
 
         assertEquals(7, iterator.advance(5));
@@ -66,7 +66,7 @@ public class KNNLazyScorerTests extends KNNTestCase {
 
     public void testGetMaxScore() throws IOException {
         KNNIterator mockIterator = mock(KNNIterator.class);
-        KNNLazyScorer scorer = new KNNLazyScorer(mockIterator, 1.0f);
+        KNNExactLazyScorer scorer = new KNNExactLazyScorer(mockIterator, 1.0f);
         assertEquals(Float.MAX_VALUE, scorer.getMaxScore(100), 0.0f);
     }
 }

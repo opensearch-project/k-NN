@@ -15,7 +15,6 @@ import java.util.Objects;
 @Getter
 public class ExactKNNByteQuery extends ExactKNNQuery {
     private final byte[] byteQueryVector;
-    private final float[] queryVector;
 
     public ExactKNNByteQuery(
         String field,
@@ -23,17 +22,15 @@ public class ExactKNNByteQuery extends ExactKNNQuery {
         String indexName,
         VectorDataType vectorDataType,
         BitSetProducer parentFilter,
-        byte[] byteQueryVector,
-        float[] queryVector
+        byte[] byteQueryVector
     ) {
         super(field, spaceType, indexName, vectorDataType, parentFilter);
         this.byteQueryVector = byteQueryVector;
-        this.queryVector = queryVector;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), Arrays.hashCode(byteQueryVector), Arrays.hashCode(queryVector));
+        return Objects.hash(super.hashCode(), Arrays.hashCode(byteQueryVector));
     }
 
     public boolean equalsTo(ExactKNNQuery other) {
@@ -41,6 +38,6 @@ public class ExactKNNByteQuery extends ExactKNNQuery {
             return false;
         }
         ExactKNNByteQuery that = (ExactKNNByteQuery) other;
-        return Arrays.equals(byteQueryVector, that.byteQueryVector) && Arrays.equals(queryVector, that.queryVector);
+        return Arrays.equals(byteQueryVector, that.byteQueryVector);
     }
 }

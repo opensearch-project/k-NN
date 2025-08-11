@@ -146,11 +146,10 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
 
         // byte
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BYTE);
-        ExactKNNByteQuery byteQuery = (ExactKNNByteQuery) builder.doToQuery(mockQueryShardContext);
+        ExactKNNFloatQuery byteQuery = (ExactKNNFloatQuery) builder.doToQuery(mockQueryShardContext);
         assertNotNull(byteQuery);
         assertEquals(builder.fieldName(), byteQuery.getField());
         assertEquals(builder.getVector(), byteQuery.getQueryVector());
-        assertArrayEquals(BYTE_QUERY_VECTOR, byteQuery.getByteQueryVector());
         assertEquals(builder.getSpaceType(), byteQuery.getSpaceType());
 
         // binary
@@ -159,7 +158,6 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
         ExactKNNByteQuery binaryQuery = (ExactKNNByteQuery) builder.doToQuery(mockQueryShardContext);
         assertNotNull(binaryQuery);
         assertEquals(builder.fieldName(), binaryQuery.getField());
-        assertNull(binaryQuery.getQueryVector());
         assertArrayEquals(BYTE_QUERY_VECTOR, binaryQuery.getByteQueryVector());
         assertEquals(builder.getSpaceType(), binaryQuery.getSpaceType());
     }
@@ -185,7 +183,7 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
 
         // byte
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BYTE);
-        ExactKNNByteQuery byteQuery = (ExactKNNByteQuery) builder.doToQuery(mockQueryShardContext);
+        ExactKNNFloatQuery byteQuery = (ExactKNNFloatQuery) builder.doToQuery(mockQueryShardContext);
         assertNotNull(byteQuery);
         assertEquals(builder.fieldName(), byteQuery.getField());
         assertEquals(builder.getVector(), byteQuery.getQueryVector());

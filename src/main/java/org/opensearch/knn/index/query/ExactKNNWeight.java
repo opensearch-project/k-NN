@@ -26,7 +26,7 @@ public class ExactKNNWeight extends Weight {
 
     @Getter
     private final ExactKNNQuery exactKNNQuery;
-    private static ExactSearcher DEFAULT_EXACT_SEARCHER;
+    private static ExactSearcher DEFAULT_EXACT_SEARCHER = new ExactSearcher(null);
     private final float boost;
     private final ExactSearcher exactSearcher;
 
@@ -35,10 +35,6 @@ public class ExactKNNWeight extends Weight {
         this.exactKNNQuery = query;
         this.boost = boost;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
-    }
-
-    public static void initialize() {
-        initialize(new ExactSearcher(null));
     }
 
     public static void initialize(ExactSearcher exactSearcher) {
@@ -75,7 +71,7 @@ public class ExactKNNWeight extends Weight {
                 if (knnIterator == null) {
                     return KNNScorer.emptyScorer();
                 }
-                return new KNNLazyScorer(knnIterator, boost);
+                return new KNNExactLazyScorer(knnIterator, boost);
             }
 
             @Override
@@ -91,11 +87,10 @@ public class ExactKNNWeight extends Weight {
             : null;
 
         switch (exactKNNQuery.getVectorDataType()) {
-            case BINARY, BYTE:
+            case BINARY:
                 return ExactSearcher.ExactSearcherContext.builder()
                     .field(exactKNNQuery.getField())
                     .byteQueryVector(((ExactKNNByteQuery) exactKNNQuery).getByteQueryVector())
-                    .floatQueryVector(((ExactKNNByteQuery) exactKNNQuery).getQueryVector())
                     .matchedDocsIterator(matchedDocsIterator)
                     .parentsFilter(exactKNNQuery.getParentFilter())
                     .exactKNNSpaceType(exactKNNQuery.getSpaceType())

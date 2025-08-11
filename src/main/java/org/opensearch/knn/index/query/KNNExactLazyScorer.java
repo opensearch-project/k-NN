@@ -18,12 +18,12 @@ import java.io.IOException;
  * only when requested, preventing OOM exceptions for large document sets.
  */
 @Log4j2
-public class KNNLazyScorer extends Scorer {
+public class KNNExactLazyScorer extends Scorer {
     private final float boost;
     private final KNNIterator knnIterator;
     private int currentDoc = -1;
 
-    public KNNLazyScorer(KNNIterator knnIterator, float boost) throws IOException {
+    public KNNExactLazyScorer(KNNIterator knnIterator, float boost) throws IOException {
         super();
         this.knnIterator = knnIterator;
         this.boost = boost;

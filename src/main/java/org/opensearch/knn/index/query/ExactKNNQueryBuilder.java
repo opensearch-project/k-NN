@@ -186,29 +186,17 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
         log.debug("Creating exact k-NN query for index:{}, field:{}, spaceType:{}", indexName, fieldName, spaceType);
 
         switch (vectorDataType) {
-            case BINARY, BYTE:
+            case BINARY:
                 byte[] byteVector = new byte[vector.length];
                 for (int i = 0; i < vector.length; i++) {
                     validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
                     byteVector[i] = (byte) vector[i];
                 }
-                float[] floatVector = vectorDataType == VectorDataType.BINARY ? null : vector;
-                if (vectorDataType == VectorDataType.BINARY) {
-                    // validate byteVector here because binary/hamming does not support float vectors
-                    resolvedSpaceType.validateVector(byteVector);
-                } else {
-                    resolvedSpaceType.validateVector(vector);
-                }
-                return new ExactKNNByteQuery(
-                    fieldName,
-                    resolvedSpaceType.getValue(),
-                    indexName,
-                    vectorDataType,
-                    parentFilter,
-                    byteVector,
-                    floatVector
-                );
-            case FLOAT:
+                // validate byteVector here because binary/hamming does not support float vectors
+                resolvedSpaceType.validateVector(byteVector);
+                return new ExactKNNByteQuery(fieldName, resolvedSpaceType.getValue(), indexName, vectorDataType, parentFilter, byteVector);
+            // FloatQuery used for bytes + floats because bytes are packed in floats
+            case BYTE, FLOAT:
                 resolvedSpaceType.validateVector(vector);
                 return new ExactKNNFloatQuery(fieldName, resolvedSpaceType.getValue(), indexName, vectorDataType, parentFilter, vector);
             default:
