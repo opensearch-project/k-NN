@@ -753,11 +753,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         // Use "byte" data_type with bbq encoder which throws an exception
         expectThrows(
             ResponseException.class,
-            () -> createKnnIndexMappingWithLuceneEngineAndBBQEncoder(
-                DIMENSION,
-                SpaceType.L2,
-                VectorDataType.BYTE
-            )
+            () -> createKnnIndexMappingWithLuceneEngineAndBBQEncoder(DIMENSION, SpaceType.L2, VectorDataType.BYTE)
         );
     }
 
@@ -841,11 +837,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
-    private void createKnnIndexMappingWithLuceneEngineAndBBQEncoder(
-        int dimension,
-        SpaceType spaceType,
-        VectorDataType vectorDataType
-    ) throws Exception {
+    private void createKnnIndexMappingWithLuceneEngineAndBBQEncoder(int dimension, SpaceType spaceType, VectorDataType vectorDataType)
+        throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD_NAME)
