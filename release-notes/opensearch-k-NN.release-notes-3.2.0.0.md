@@ -7,7 +7,7 @@ Compatible with OpenSearch 3.2.0
 * Bump Faiss commit to 2929bf4 [#2815](https://github.com/opensearch-project/k-NN/pull/2815)
 * Bump Faiss commit to 5617caa [#2824](https://github.com/opensearch-project/k-NN/pull/2824)
 * Bump Gradle to 8.14.3 [#2828](https://github.com/opensearch-project/k-NN/pull/2828)
-* Bump OpenSearch-Protobufs to 0.8.0 [#2842](https://github.com/opensearch-project/k-NN/pull/2842)
+* Bump OpenSearch-Protobufs to 0.9.0 [#2842](https://github.com/opensearch-project/k-NN/pull/2842)
 
 ### Features
 * Support GPU indexing for FP16, Byte and Binary [#2819](https://github.com/opensearch-project/k-NN/pull/2819)
