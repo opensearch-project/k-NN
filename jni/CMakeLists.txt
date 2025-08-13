@@ -8,7 +8,6 @@ cmake_minimum_required(VERSION 3.24.0)
 project(KNNPlugin_JNI)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/macros.cmake)
-
 # ---------------------------------- SETUP ----------------------------------
 # Target libraries to be compiled
 # Shared library with common utilities. Not a JNI library. Other JNI libs should depend on this one.
@@ -16,15 +15,17 @@ set(TARGET_LIB_UTIL opensearchknn_util)
 set(TARGET_LIB_COMMON opensearchknn_common)  # common lib for JNI
 set(TARGET_LIB_NMSLIB opensearchknn_nmslib)  # nmslib JNI
 set(TARGET_LIB_FAISS opensearchknn_faiss)    # faiss JNI
+set(TARGET_LIB_SIMD opensearchknn_simd)      # SIMD JNI
 set(TARGET_LIBS "")  # Libs to be installed
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 option(CONFIG_FAISS "Configure faiss library build when this is on")
+option(CONFIG_SIMD "Configure SIMD library build when this is on")
 option(CONFIG_NMSLIB "Configure nmslib library build when this is on")
 option(CONFIG_TEST "Configure tests when this is on")
 
-if (${CONFIG_FAISS} STREQUAL OFF AND ${CONFIG_NMSLIB} STREQUAL OFF AND ${CONFIG_TEST} STREQUAL OFF)
+if (${CONFIG_FAISS} STREQUAL OFF AND ${CONFIG_SIMD} STREQUAL OFF AND ${CONFIG_NMSLIB} STREQUAL OFF AND ${CONFIG_TEST} STREQUAL OFF)
     set(CONFIG_ALL ON)
 else()
     set(CONFIG_ALL OFF)
@@ -90,6 +91,41 @@ opensearch_set_common_properties(${TARGET_LIB_COMMON})
 list(APPEND TARGET_LIBS ${TARGET_LIB_COMMON})
 # ----------------------------------------------------------------------------
 
+# ---------------------------------- SIMD ENCODING/DECODING ----------------------------------
+if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-simd.cmake)
+    set(TARGET_LIB_SIMD opensearchknn_simd)
+
+    set(SIMD_ENCODING_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDNativeLibraryLoader.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDEncoding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDDecoding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/encoding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/decoding.cpp
+    )
+
+    add_library(${TARGET_LIB_SIMD} SHARED ${SIMD_ENCODING_SRCS})
+
+    target_compile_options(${TARGET_LIB_SIMD} PRIVATE ${FP16_SIMD_FLAGS} ${SIMD_FLAGS})
+
+    target_link_libraries(${TARGET_LIB_SIMD} ${TARGET_LIB_UTIL})
+    target_include_directories(${TARGET_LIB_SIMD} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/jni/include
+        $ENV{JAVA_HOME}/include
+        $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
+    )
+    opensearch_set_common_properties(${TARGET_LIB_SIMD})
+
+    # Set the output name to embed the SIMD extension (if any)
+    set_target_properties(${TARGET_LIB_SIMD} PROPERTIES
+        OUTPUT_NAME "${TARGET_LIB_SIMD}${SIMD_LIB_EXT}"
+    )
+    list(APPEND TARGET_LIBS ${TARGET_LIB_SIMD})
+endif ()
+
+# ----------------------------------------------------------------------------
+
 # ---------------------------------- NMSLIB ----------------------------------
 if (${CONFIG_NMSLIB} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-nmslib.cmake)
@@ -103,6 +139,9 @@ endif ()
 # ---------------------------------------------------------------------------
 
 # ---------------------------------- FAISS ----------------------------------
+# Note: `init-faiss.cmake` modifies the global `LIB_EXT` with architecture specific suffixes.
+# Libraries defined after this may inherit the suffix unintentionally.
+# To avoid this, define other libs beforehand or restore `LIB_EXT` manually.
 if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-faiss.cmake)
     find_package(OpenMP REQUIRED)
@@ -164,6 +203,7 @@ if ("${WIN32}" STREQUAL "")
                 jni_test
                 gtest_main
                 gmock_main
+                gfortran
                 faiss
                 NonMetricSpaceLib
                 OpenMP::OpenMP_CXX

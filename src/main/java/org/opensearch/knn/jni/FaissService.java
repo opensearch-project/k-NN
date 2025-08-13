@@ -21,9 +21,9 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Map;
 
-import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
-import static org.opensearch.knn.index.KNNSettings.isFaissAVX512Disabled;
-import static org.opensearch.knn.index.KNNSettings.isFaissAVX512SPRDisabled;
+import static org.opensearch.knn.index.KNNSettings.isAVX2Disabled;
+import static org.opensearch.knn.index.KNNSettings.isAVX512Disabled;
+import static org.opensearch.knn.index.KNNSettings.isAVX512SPRDisabled;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
@@ -42,13 +42,13 @@ class FaissService {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
 
             // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by setting
-            // 'knn.faiss.avx2.disabled', 'knn.faiss.avx512.disabled', or 'knn.faiss.avx512_spr.disabled' to true in the opensearch.yml
+            // 'knn.avx2.disabled', 'knn.avx512.disabled', or 'knn.avx512_spr.disabled' to true in the opensearch.yml
             // configuration
-            if (!isFaissAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
+            if (!isAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
                 System.loadLibrary(KNNConstants.FAISS_AVX512_SPR_JNI_LIBRARY_NAME);
-            } else if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
+            } else if (!isAVX512Disabled() && isAVX512SupportedBySystem()) {
                 System.loadLibrary(KNNConstants.FAISS_AVX512_JNI_LIBRARY_NAME);
-            } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
+            } else if (!isAVX2Disabled() && isAVX2SupportedBySystem()) {
                 System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
             } else {
                 System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);

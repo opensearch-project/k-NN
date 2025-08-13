@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.opensearch.common.Booleans.parseBoolean;
+import static org.opensearch.common.settings.Setting.Property.Deprecated;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.Final;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
@@ -93,10 +93,13 @@ public class KNNSettings {
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
     public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
+    public static final String KNN_AVX2_DISABLED = "knn.avx2.disabled";
     public static final String QUANTIZATION_STATE_CACHE_SIZE_LIMIT = "knn.quantization.cache.size.limit";
     public static final String QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = "knn.quantization.cache.expiry.minutes";
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
+    public static final String KNN_AVX512_DISABLED = "knn.avx512.disabled";
     public static final String KNN_FAISS_AVX512_SPR_DISABLED = "knn.faiss.avx512_spr.disabled";
+    public static final String KNN_AVX512_SPR_DISABLED = "knn.avx512_spr.disabled";
     public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
     public static final String KNN_DERIVED_SOURCE_ENABLED = "index.knn.derived_source.enabled";
     // Remote index build index settings
@@ -125,6 +128,9 @@ public class KNNSettings {
     public static final boolean KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE = false;
     public static final boolean KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE = false;
+    public static final boolean KNN_DEFAULT_AVX2_DISABLED_VALUE = false;
+    public static final boolean KNN_DEFAULT_AVX512_DISABLED_VALUE = false;
+    public static final boolean KNN_DEFAULT_AVX512_SPR_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 0;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
@@ -344,6 +350,13 @@ public class KNNSettings {
     public static final Setting<Boolean> KNN_FAISS_AVX2_DISABLED_SETTING = Setting.boolSetting(
         KNN_FAISS_AVX2_DISABLED,
         KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+        NodeScope,
+        Deprecated
+    );
+
+    public static final Setting<Boolean> KNN_AVX2_DISABLED_SETTING = Setting.boolSetting(
+        KNN_AVX2_DISABLED,
+        KNN_DEFAULT_AVX2_DISABLED_VALUE,
         NodeScope
     );
 
@@ -388,12 +401,26 @@ public class KNNSettings {
     public static final Setting<Boolean> KNN_FAISS_AVX512_DISABLED_SETTING = Setting.boolSetting(
         KNN_FAISS_AVX512_DISABLED,
         KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
+        NodeScope,
+        Deprecated
+    );
+
+    public static final Setting<Boolean> KNN_AVX512_DISABLED_SETTING = Setting.boolSetting(
+        KNN_AVX512_DISABLED,
+        KNN_DEFAULT_AVX512_DISABLED_VALUE,
         NodeScope
     );
 
     public static final Setting<Boolean> KNN_FAISS_AVX512_SPR_DISABLED_SETTING = Setting.boolSetting(
         KNN_FAISS_AVX512_SPR_DISABLED,
         KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE,
+        NodeScope,
+        Deprecated
+    );
+
+    public static final Setting<Boolean> KNN_AVX512_SPR_DISABLED_SETTING = Setting.boolSetting(
+        KNN_AVX512_SPR_DISABLED,
+        KNN_DEFAULT_AVX512_SPR_DISABLED_VALUE,
         NodeScope
     );
 
@@ -645,6 +672,18 @@ public class KNNSettings {
             return KNN_FAISS_AVX512_SPR_DISABLED_SETTING;
         }
 
+        if (KNN_AVX2_DISABLED.equals(key)) {
+            return KNN_AVX2_DISABLED_SETTING;
+        }
+
+        if (KNN_AVX512_DISABLED.equals(key)) {
+            return KNN_AVX512_DISABLED_SETTING;
+        }
+
+        if (KNN_AVX512_SPR_DISABLED.equals(key)) {
+            return KNN_AVX512_SPR_DISABLED_SETTING;
+        }
+
         if (KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB.equals(key)) {
             return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
         }
@@ -720,9 +759,12 @@ public class KNNSettings {
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
             KNN_FAISS_AVX2_DISABLED_SETTING,
+            KNN_AVX2_DISABLED_SETTING,
             KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
             KNN_FAISS_AVX512_DISABLED_SETTING,
             KNN_FAISS_AVX512_SPR_DISABLED_SETTING,
+            KNN_AVX512_DISABLED_SETTING,
+            KNN_AVX512_SPR_DISABLED_SETTING,
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
             KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
@@ -884,19 +926,26 @@ public class KNNSettings {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_REMOTE_BUILD_POLL_INTERVAL);
     }
 
-    public static boolean isFaissAVX2Disabled() {
+    public static boolean isAVX2Disabled() {
         try {
-            return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
+            boolean newSetting = KNNSettings.state().getSettingValue(KNNSettings.KNN_AVX2_DISABLED);
+            boolean oldSetting = KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
+
+            if (oldSetting) {
+                log.warn("[{}] is deprecated. Please use [{}] instead.", KNN_FAISS_AVX2_DISABLED, KNN_AVX2_DISABLED);
+            }
+
+            return newSetting || oldSetting;
         } catch (Exception e) {
-            // In some UTs we identified that cluster setting is not set properly an leads to NPE. This check will avoid
-            // those cases and will still return the default value.
+            // This check will avoid the cases when cluster setting is not set properly
+            // and will still return the default value.
             log.warn(
                 "Unable to get setting value {} from cluster settings. Using default value as {}",
-                KNN_FAISS_AVX2_DISABLED,
-                KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+                KNN_AVX2_DISABLED,
+                KNN_DEFAULT_AVX2_DISABLED_VALUE,
                 e
             );
-            return KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE;
+            return KNN_DEFAULT_AVX2_DISABLED_VALUE;
         }
     }
 
@@ -908,22 +957,44 @@ public class KNNSettings {
         return KNN_DERIVED_SOURCE_ENABLED_SETTING.get(settings);
     }
 
-    public static boolean isFaissAVX512Disabled() {
-        return parseBoolean(
-            Objects.requireNonNullElse(
-                KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED),
-                KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE
-            ).toString()
-        );
+    public static boolean isAVX512Disabled() {
+        try {
+            boolean newSetting = KNNSettings.state().getSettingValue(KNNSettings.KNN_AVX512_DISABLED);
+            boolean oldSetting = KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED);
+
+            if (oldSetting) {
+                log.warn("[{}] is deprecated. Please use [{}] instead.", KNN_FAISS_AVX512_DISABLED, KNN_AVX512_DISABLED);
+            }
+
+            return newSetting || oldSetting;
+        } catch (Exception e) {
+            log.warn(
+                "Unable to get setting value {} from cluster settings. Using default value as {}",
+                KNN_DEFAULT_AVX512_DISABLED_VALUE,
+                e.getMessage()
+            );
+            return KNN_DEFAULT_AVX512_DISABLED_VALUE;
+        }
     }
 
-    public static boolean isFaissAVX512SPRDisabled() {
-        return parseBoolean(
-            Objects.requireNonNullElse(
-                KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED),
-                KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
-            ).toString()
-        );
+    public static boolean isAVX512SPRDisabled() {
+        try {
+            boolean newSetting = KNNSettings.state().getSettingValue(KNNSettings.KNN_AVX512_SPR_DISABLED);
+            boolean oldSetting = KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED);
+
+            if (oldSetting) {
+                log.warn("[{}] is deprecated. Please use [{}] instead.", KNN_FAISS_AVX512_SPR_DISABLED, KNN_AVX512_SPR_DISABLED);
+            }
+
+            return newSetting || oldSetting;
+        } catch (Exception e) {
+            log.warn(
+                "Unable to get setting value {} from cluster settings. Using default value as {}",
+                KNN_DEFAULT_AVX512_SPR_DISABLED_VALUE,
+                e.getMessage()
+            );
+            return KNN_DEFAULT_AVX512_SPR_DISABLED_VALUE;
+        }
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {
