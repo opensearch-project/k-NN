@@ -191,6 +191,7 @@ public class ExactSearcher {
         }
         final SpaceType spaceType = resolvedSpaceType;
         boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
+        boolean isExpandNested = exactSearcherContext.isExpandNested();
 
         if (VectorDataType.BINARY == vectorDataType) {
             KNNVectorValues<byte[]> vectorValues;
@@ -208,7 +209,8 @@ public class ExactSearcher {
                     exactSearcherContext.getByteQueryVector(),
                     (KNNBinaryVectorValues) vectorValues,
                     spaceType,
-                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
+                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext),
+                    isExpandNested
                 );
             }
             return new BinaryVectorIdsKNNIterator(
@@ -227,7 +229,8 @@ public class ExactSearcher {
                     exactSearcherContext.getFloatQueryVector(),
                     (KNNByteVectorValues) vectorValues,
                     spaceType,
-                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
+                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext),
+                    isExpandNested
                 );
             }
             return new ByteVectorIdsKNNIterator(
@@ -271,7 +274,8 @@ public class ExactSearcher {
                 spaceType,
                 exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext),
                 quantizedQueryVector,
-                segmentLevelQuantizationInfo
+                segmentLevelQuantizationInfo,
+                isExpandNested
             );
         }
         return new VectorIdsKNNIterator(
@@ -317,5 +321,6 @@ public class ExactSearcher {
         VectorSimilarityFunction similarityFunction;
         Boolean isMemoryOptimizedSearchEnabled;
         String exactKNNSpaceType;
+        boolean expandNested;
     }
 }

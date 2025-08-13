@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 
 /**
@@ -45,6 +46,7 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
     public static final ParseField SPACE_TYPE_FIELD = new ParseField("space_type");
     public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
+    public static final ParseField EXPAND_NESTED_FIELD = new ParseField(EXPAND_NESTED);
 
     /**
      * The name for the knn exact query
@@ -58,6 +60,8 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
     private String spaceType;
     @Getter
     private boolean ignoreUnmapped;
+    @Getter
+    private Boolean expandNested;
 
     public static class Builder {
         private String fieldName;
@@ -66,6 +70,7 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
         private boolean ignoreUnmapped;
         private String queryName;
         private float boost = DEFAULT_BOOST;
+        private Boolean expandNested;
 
         public Builder() {}
 
@@ -99,9 +104,14 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
             return this;
         }
 
+        public Builder expandNested(Boolean expandNested) {
+            this.expandNested = expandNested;
+            return this;
+        }
+
         public ExactKNNQueryBuilder build() {
             validate();
-            return new ExactKNNQueryBuilder(fieldName, vector, spaceType, ignoreUnmapped).boost(boost).queryName(queryName);
+            return new ExactKNNQueryBuilder(fieldName, vector, spaceType, ignoreUnmapped, expandNested).boost(boost).queryName(queryName);
         }
 
         private void validate() {
@@ -135,6 +145,7 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
         vector = builder.vector;
         spaceType = builder.spaceType;
         ignoreUnmapped = builder.ignoreUnmapped;
+        expandNested = builder.expandNested;
     }
 
     @Override
@@ -194,11 +205,27 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
                 }
                 // validate byteVector here because binary/hamming does not support float vectors
                 resolvedSpaceType.validateVector(byteVector);
-                return new ExactKNNByteQuery(fieldName, resolvedSpaceType.getValue(), indexName, vectorDataType, parentFilter, byteVector);
+                return new ExactKNNByteQuery(
+                    fieldName,
+                    resolvedSpaceType.getValue(),
+                    indexName,
+                    vectorDataType,
+                    parentFilter,
+                    expandNested == null ? false : expandNested,
+                    byteVector
+                );
             // FloatQuery used for bytes + floats because bytes are packed in floats
             case BYTE, FLOAT:
                 resolvedSpaceType.validateVector(vector);
-                return new ExactKNNFloatQuery(fieldName, resolvedSpaceType.getValue(), indexName, vectorDataType, parentFilter, vector);
+                return new ExactKNNFloatQuery(
+                    fieldName,
+                    resolvedSpaceType.getValue(),
+                    indexName,
+                    vectorDataType,
+                    parentFilter,
+                    expandNested == null ? false : expandNested,
+                    vector
+                );
             default:
                 throw new IllegalStateException("Unsupported vector data type found.");
         }
@@ -209,12 +236,13 @@ public class ExactKNNQueryBuilder extends AbstractQueryBuilder<ExactKNNQueryBuil
         return Objects.equals(fieldName, other.fieldName)
             && Arrays.equals(vector, other.vector)
             && Objects.equals(ignoreUnmapped, other.ignoreUnmapped)
-            && Objects.equals(spaceType, other.spaceType);
+            && Objects.equals(spaceType, other.spaceType)
+            && Objects.equals(expandNested, other.expandNested);
     }
 
     @Override
     protected int doHashCode() {
-        return Objects.hash(fieldName, Arrays.hashCode(vector), ignoreUnmapped, spaceType);
+        return Objects.hash(fieldName, Arrays.hashCode(vector), ignoreUnmapped, spaceType, expandNested);
     }
 
     @Override

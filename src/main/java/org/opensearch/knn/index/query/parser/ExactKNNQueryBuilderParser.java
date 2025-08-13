@@ -20,10 +20,12 @@ import java.util.function.Function;
 
 import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.index.query.ExactKNNQueryBuilder.NAME;
 import static org.opensearch.knn.index.query.ExactKNNQueryBuilder.VECTOR_FIELD;
 import static org.opensearch.knn.index.query.ExactKNNQueryBuilder.SPACE_TYPE_FIELD;
 import static org.opensearch.knn.index.query.ExactKNNQueryBuilder.IGNORE_UNMAPPED_FIELD;
+import static org.opensearch.knn.index.query.ExactKNNQueryBuilder.EXPAND_NESTED_FIELD;
 import static org.opensearch.knn.index.util.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 
 /**
@@ -45,6 +47,7 @@ public final class ExactKNNQueryBuilderParser {
                 b.ignoreUnmapped(v);
             }
         }, IGNORE_UNMAPPED_FIELD);
+        internalParser.declareBoolean(ExactKNNQueryBuilder.Builder::expandNested, EXPAND_NESTED_FIELD);
         return internalParser;
     }
 
@@ -66,6 +69,9 @@ public final class ExactKNNQueryBuilderParser {
         if (minClusterVersionCheck.apply("ignore_unmapped")) {
             builder.ignoreUnmapped(in.readOptionalBoolean());
         }
+        if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
+            builder.expandNested(in.readOptionalBoolean());
+        }
 
         return builder;
     }
@@ -85,6 +91,9 @@ public final class ExactKNNQueryBuilderParser {
         out.writeOptionalString(builder.getSpaceType());
         if (minClusterVersionCheck.apply("ignore_unmapped")) {
             out.writeOptionalBoolean(builder.isIgnoreUnmapped());
+        }
+        if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
+            out.writeOptionalBoolean(builder.getExpandNested());
         }
     }
 
@@ -147,6 +156,9 @@ public final class ExactKNNQueryBuilderParser {
         builder.field(BOOST_FIELD.getPreferredName(), exactKNNQueryBuilder.boost());
         if (exactKNNQueryBuilder.queryName() != null) {
             builder.field(NAME_FIELD.getPreferredName(), exactKNNQueryBuilder.queryName());
+        }
+        if (exactKNNQueryBuilder.getExpandNested() != null) {
+            builder.field(EXPAND_NESTED, exactKNNQueryBuilder.getExpandNested());
         }
 
         builder.endObject();
