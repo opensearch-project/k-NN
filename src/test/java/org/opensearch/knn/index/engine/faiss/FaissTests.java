@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.opensearch.Version;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -22,6 +23,7 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -45,11 +47,22 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class FaissTests extends KNNTestCase {
 
+    private final VectorDataType vectorDataType;
+
+    public FaissTests(VectorDataType vectorDataType) {
+        this.vectorDataType = vectorDataType;
+    }
+
+    @ParametersFactory
+    public static Iterable<Object[]> parameters() {
+        return Arrays.asList(new Object[] { VectorDataType.FLOAT }, new Object[] { VectorDataType.HALF_FLOAT });
+    }
+
     public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWFlat_thenCreateCorrectIndexDescription() throws IOException {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
 
         int mParam = 65;
@@ -77,7 +90,7 @@ public class FaissTests extends KNNTestCase {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
         int hnswMParam = 65;
         int pqMParam = 17;
@@ -112,7 +125,7 @@ public class FaissTests extends KNNTestCase {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
         int hnswMParam = 65;
         String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,SQfp16", hnswMParam);
@@ -145,7 +158,7 @@ public class FaissTests extends KNNTestCase {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
         int nlists = 88;
         String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,Flat", nlists);
@@ -172,7 +185,7 @@ public class FaissTests extends KNNTestCase {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
         int ivfNlistsParam = 88;
         int pqMParam = 17;
@@ -209,7 +222,7 @@ public class FaissTests extends KNNTestCase {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
         int nlists = 88;
         String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,SQfp16", nlists);
@@ -243,7 +256,7 @@ public class FaissTests extends KNNTestCase {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
         int m = 88;
         String expectedIndexDescription = "BHNSW" + m + ",Flat";
@@ -282,7 +295,7 @@ public class FaissTests extends KNNTestCase {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)
             .dimension(4)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .build();
         int nlist = 88;
         String expectedIndexDescription = "BIVF" + nlist + ",Flat";
