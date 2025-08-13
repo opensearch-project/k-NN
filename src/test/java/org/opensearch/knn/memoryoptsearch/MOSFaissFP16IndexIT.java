@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 
@@ -19,20 +20,24 @@ public class MOSFaissFP16IndexIT extends AbstractMemoryOptimizedKnnSearchIT {
           }
         }""".trim();
 
+    @ExpectRemoteBuildValidation
     public void testNonNestedFloatIndexWithL2() {
         doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
         doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
 
+    @ExpectRemoteBuildValidation
     public void testNestedFloatIndexWithL2() {
         doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
 
+    @ExpectRemoteBuildValidation
     public void testNonNestedFloatIndexWithIP() {
         doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
         doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
     }
 
+    @ExpectRemoteBuildValidation
     public void testNestedFloatIndexWithIP() {
         doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
     }

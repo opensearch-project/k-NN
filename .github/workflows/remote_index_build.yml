@@ -80,7 +80,7 @@ jobs:
 
       - name: Pull Remote Index Build Docker Image from Docker Hub
         run: |
-          docker pull opensearchstaging/remote-vector-index-builder:api-latest
+          docker pull opensearchstaging/remote-vector-index-builder:api-snapshot
 
       - name: Pull LocalStack Docker image
         run: |
