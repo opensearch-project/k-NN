@@ -12,7 +12,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.query.request.MethodParameter;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverterRegistry;
+import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverterSpiRegistry;
 import org.opensearch.protobufs.KnnQuery;
 import org.opensearch.protobufs.KnnQueryRescore;
 import org.opensearch.protobufs.QueryContainer;
@@ -30,14 +30,14 @@ import java.util.Map;
 public class KNNQueryBuilderProtoUtils {
 
     // Registry for query conversion
-    private static QueryBuilderProtoConverterRegistry REGISTRY = new QueryBuilderProtoConverterRegistry();
+    private static QueryBuilderProtoConverterSpiRegistry REGISTRY = new QueryBuilderProtoConverterSpiRegistry();
 
     /**
      * Sets the registry for testing purposes.
      *
      * @param registry The registry to use
      */
-    void setRegistry(QueryBuilderProtoConverterRegistry registry) {
+    void setRegistry(QueryBuilderProtoConverterSpiRegistry registry) {
         REGISTRY = registry;
     }
 
@@ -46,7 +46,7 @@ public class KNNQueryBuilderProtoUtils {
      *
      * @return The current registry
      */
-    QueryBuilderProtoConverterRegistry getRegistry() {
+    QueryBuilderProtoConverterSpiRegistry getRegistry() {
         return REGISTRY;
     }
 

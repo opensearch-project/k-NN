@@ -7,3 +7,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.3](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
+* Migrate k-NN plugin to use transport-grpc-spi to support GRPC KNN queries [#2833](https://github.com/opensearch-project/k-NN/pull/2833)

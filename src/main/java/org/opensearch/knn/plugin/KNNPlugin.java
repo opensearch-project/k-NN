@@ -91,6 +91,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
+import org.opensearch.knn.grpc.proto.request.search.query.KNNQueryBuilderProtoConverter;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
@@ -251,7 +252,11 @@ public class KNNPlugin extends Plugin
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
         knnStats = new KNNStats();
-        return ImmutableList.of(knnStats);
+
+        // Create and provide the KNN query converter for gRPC transport
+        KNNQueryBuilderProtoConverter knnQueryConverter = new KNNQueryBuilderProtoConverter();
+
+        return ImmutableList.of(knnStats, knnQueryConverter);
     }
 
     @Override

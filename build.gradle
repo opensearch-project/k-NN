@@ -340,12 +340,7 @@ dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     api project(":remote-index-build-client")
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
-    // TODO migrate this to a dependency to 'transport-grpc-spi' once it is ready, to avoid excluding all these unnecessary dependencies
-    compileOnly("org.opensearch.plugin:transport-grpc:${opensearch_version}") {
-        exclude group: 'com.google.guava', module: 'guava'
-        exclude group: 'com.google.guava', module: 'failureaccess'
-        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
-    }
+    compileOnly "org.opensearch.plugin:transport-grpc-spi:${opensearch_version}"
     compileOnly "org.opensearch:protobufs:0.6.0"
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
