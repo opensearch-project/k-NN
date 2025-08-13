@@ -94,6 +94,7 @@ public class ExactKNNWeight extends Weight {
                     .matchedDocsIterator(matchedDocsIterator)
                     .parentsFilter(exactKNNQuery.getParentFilter())
                     .exactKNNSpaceType(exactKNNQuery.getSpaceType())
+                    .expandNested(exactKNNQuery.isExpandNested())
                     .build();
             default:
                 return ExactSearcher.ExactSearcherContext.builder()
@@ -102,6 +103,7 @@ public class ExactKNNWeight extends Weight {
                     .matchedDocsIterator(matchedDocsIterator)
                     .parentsFilter(exactKNNQuery.getParentFilter())
                     .exactKNNSpaceType(exactKNNQuery.getSpaceType())
+                    .expandNested(exactKNNQuery.isExpandNested())
                     .build();
         }
     }

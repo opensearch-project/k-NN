@@ -22,9 +22,10 @@ public class ExactKNNByteQuery extends ExactKNNQuery {
         String indexName,
         VectorDataType vectorDataType,
         BitSetProducer parentFilter,
+        boolean expandNested,
         byte[] byteQueryVector
     ) {
-        super(field, spaceType, indexName, vectorDataType, parentFilter);
+        super(field, spaceType, indexName, vectorDataType, parentFilter, expandNested);
         this.byteQueryVector = byteQueryVector;
     }
 

@@ -31,16 +31,25 @@ public abstract class ExactKNNQuery extends Query {
     private final String indexName;
     private final VectorDataType vectorDataType;
     private BitSetProducer parentFilter;
+    private boolean expandNested;
     @Setter
     @Getter
     private boolean explain;
 
-    protected ExactKNNQuery(String field, String spaceType, String indexName, VectorDataType vectorDataType, BitSetProducer parentFilter) {
+    protected ExactKNNQuery(
+        String field,
+        String spaceType,
+        String indexName,
+        VectorDataType vectorDataType,
+        BitSetProducer parentFilter,
+        boolean expandNested
+    ) {
         this.field = field;
         this.spaceType = spaceType;
         this.indexName = indexName;
         this.vectorDataType = vectorDataType;
         this.parentFilter = parentFilter;
+        this.expandNested = expandNested;
     }
 
     @Override
@@ -60,7 +69,7 @@ public abstract class ExactKNNQuery extends Query {
 
     @Override
     public int hashCode() {
-        return Objects.hash(field, spaceType, indexName, vectorDataType, parentFilter);
+        return Objects.hash(field, spaceType, indexName, vectorDataType, parentFilter, expandNested);
     }
 
     @Override
@@ -73,6 +82,7 @@ public abstract class ExactKNNQuery extends Query {
         return Objects.equals(field, other.field)
             && Objects.equals(spaceType, other.spaceType)
             && Objects.equals(indexName, other.indexName)
-            && Objects.equals(parentFilter, other.parentFilter);
+            && Objects.equals(parentFilter, other.parentFilter)
+            && Objects.equals(expandNested, other.expandNested);
     }
 }

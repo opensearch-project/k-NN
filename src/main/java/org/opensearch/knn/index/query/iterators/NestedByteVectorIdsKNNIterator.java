@@ -17,19 +17,23 @@ import java.io.IOException;
  * This iterator iterates filterIdsArray to score if filter is provided else it iterates over all docs.
  * However, it dedupe docs per each parent doc
  * of which ID is set in parentBitSet and only return best child doc with the highest score.
+ * When expandNested is true, it returns ALL child docs instead of just the best one.
  */
 public class NestedByteVectorIdsKNNIterator extends ByteVectorIdsKNNIterator {
     private final BitSet parentBitSet;
+    private final boolean expandNested;
 
     public NestedByteVectorIdsKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNByteVectorValues byteVectorValues,
         final SpaceType spaceType,
-        final BitSet parentBitSet
+        final BitSet parentBitSet,
+        final boolean expandNested
     ) throws IOException {
         super(filterIdsIterator, queryVector, byteVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
+        this.expandNested = expandNested;
     }
 
     public NestedByteVectorIdsKNNIterator(
@@ -40,18 +44,32 @@ public class NestedByteVectorIdsKNNIterator extends ByteVectorIdsKNNIterator {
     ) throws IOException {
         super(null, queryVector, binaryVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
+        this.expandNested = false;
     }
 
     /**
      * Advance to the next best child doc per parent and update score with the best score among child docs from the parent.
+     * When expandNested is true, returns ALL child docs instead of just the best one.
      * DocIdSetIterator.NO_MORE_DOCS is returned when there is no more docs
      *
-     * @return next best child doc id
+     * @return next child doc id (best child when expandNested=false, all children when expandNested=true)
      */
     @Override
     public int nextDoc() throws IOException {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
+        }
+
+        if (expandNested) {
+            int currentParent = parentBitSet.nextSetBit(docId);
+            if (currentParent != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
+                currentScore = computeScore();
+                int currentDocId = docId;
+                docId = getNextDocId();
+                return currentDocId;
+            }
+            docId = getNextDocId();
+            return nextDoc();
         }
 
         currentScore = Float.NEGATIVE_INFINITY;

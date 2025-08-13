@@ -256,6 +256,7 @@ public class ExactKNNWeightTests extends KNNTestCase {
             INDEX_NAME,
             VectorDataType.FLOAT,
             null,
+            false,
             QUERY_VECTOR
         );
 

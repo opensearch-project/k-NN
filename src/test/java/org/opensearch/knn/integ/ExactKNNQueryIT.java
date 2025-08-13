@@ -6,6 +6,7 @@
 package org.opensearch.knn.integ;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -24,7 +25,9 @@ import org.opensearch.knn.index.query.ExactKNNQueryBuilder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.QUERY;
 import static org.opensearch.knn.common.KNNConstants.EXACT_KNN;
@@ -32,6 +35,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.PATH;
 import static org.opensearch.knn.common.KNNConstants.TYPE_NESTED;
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 
 @Log4j2
 public class ExactKNNQueryIT extends KNNRestTestCase {
@@ -495,6 +499,216 @@ public class ExactKNNQueryIT extends KNNRestTestCase {
 
         Exception e = expectThrows(Exception.class, () -> validateKNNExactSearch(INDEX_NAME, exactQueryBuilder));
         assertTrue(e.getMessage(), e.getMessage().contains("Hamming space is not supported with float vectors"));
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testKNNExactQuery_NestedExpandDocs() {
+        createNestedTestIndex();
+        for (int i = 0; i < SIZE; i++) {
+            NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
+            for (int j = 0; j < SIZE; j++) {
+                builder.addVectors(FIELD_NAME, new Float[] { (float) i + j, (float) i + j, (float) i + j });
+            }
+            String doc = builder.build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().field("_source", false);
+        queryBuilder.startObject(QUERY);
+        queryBuilder.startObject(TYPE_NESTED);
+        queryBuilder.field(PATH, FIELD_NAME_NESTED);
+        queryBuilder.startObject(QUERY).startObject(EXACT_KNN).startObject(FIELD_NAME_NESTED + "." + FIELD_NAME);
+        queryBuilder.field(VECTOR, QUERY_VECTOR);
+        queryBuilder.field(EXPAND_NESTED, true);
+        queryBuilder.field("space_type", "l2");
+        queryBuilder.endObject().endObject().endObject();
+        queryBuilder.startObject("inner_hits").field("size", 5).endObject();
+        queryBuilder.endObject().endObject().endObject();
+
+        float[] expectedResults = new float[SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            float sum = 0;
+            for (int j = 0; j < SIZE; j++) {
+                float[] childVector = { i + j, i + j, i + j };
+                float score = SpaceType.L2.getKnnVectorSimilarityFunction().compare(QUERY_VECTOR, childVector);
+                sum += score;
+            }
+            expectedResults[i] = sum / SIZE;
+        }
+
+        Map<String, List<Integer>> expectedInnerScoreOrder = Map.of(
+            "0",
+            List.of(2, 1, 3, 0, 4),  // [2,2,2], [1,1,1], [3,3,3], [0,0,0], [4,4,4]
+            "1",
+            List.of(1, 0, 2, 3, 4),  // [2,2,2], [1,1,1], [3,3,3], [4,4,4], [5,5,5]
+            "2",
+            List.of(0, 1, 2, 3, 4),  // [2,2,2], [3,3,3], [4,4,4], [5,5,5], [6,6,6]
+            "3",
+            List.of(0, 1, 2, 3, 4),  // [3,3,3], [4,4,4], [5,5,5], [6,6,6], [7,7,7]
+            "4",
+            List.of(0, 1, 2, 3, 4)   // [4,4,4], [5,5,5], [6,6,6], [7,7,7], [8,8,8]
+        );
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, queryBuilder, SIZE);
+        String entity = EntityUtils.toString(searchResponse.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(SIZE, docIds.size());
+        assertEquals(SIZE, parseTotalSearchHits(entity));
+        List<Double> results = parseScores(entity);
+        for (int i = 0; i < SIZE; i++) {
+            assertEquals(expectedResults[i], results.get(i), 0.00001);
+        }
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
+        assertEquals(5, docIdToOffsets.keySet().size());
+        for (String key : docIdToOffsets.keySet()) {
+            assertEquals(5, docIdToOffsets.get(key).size());
+            List<Integer> offsets = new ArrayList<>(docIdToOffsets.get(key));
+            for (int i = 0; i < SIZE; i++) {
+                assertEquals(offsets.get(i), expectedInnerScoreOrder.get(key).get(i));
+            }
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testKNNExactQuery_NestedExpandDocs_Binary() {
+        createBinaryNestedTestIndex(false);
+        for (byte i = 0; i < SIZE; i++) {
+            NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
+            for (byte j = 0; j < SIZE; j++) {
+                builder.addVectors(FIELD_NAME, new Byte[] { (byte) (i + j), (byte) (i + j), (byte) (i + j) });
+            }
+            String doc = builder.build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().field("_source", false);
+        queryBuilder.startObject(QUERY);
+        queryBuilder.startObject(TYPE_NESTED);
+        queryBuilder.field(PATH, FIELD_NAME_NESTED);
+        queryBuilder.startObject(QUERY).startObject(EXACT_KNN).startObject(FIELD_NAME_NESTED + "." + FIELD_NAME);
+        queryBuilder.field(VECTOR, QUERY_VECTOR);
+        queryBuilder.field(EXPAND_NESTED, true);
+        queryBuilder.endObject().endObject().endObject();
+        queryBuilder.startObject("inner_hits").field("size", 5).endObject();
+        queryBuilder.endObject().endObject().endObject();
+
+        float[] expectedResults = new float[SIZE];
+        for (byte i = 0; i < SIZE; i++) {
+            float sum = 0;
+            for (byte j = 0; j < SIZE; j++) {
+                byte[] childVector = { (byte) (i + j), (byte) (i + j), (byte) (i + j) };
+                float score = SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(BYTE_QUERY_VECTOR, childVector);
+                sum += score;
+            }
+            expectedResults[i] = sum / SIZE;
+        }
+
+        Map<String, List<Integer>> expectedInnerScoreOrder = Map.of(
+            "0",
+            List.of(3, 1, 2, 0, 4),  // [3,3,3], [1,1,1], [2,2,2], [0,0,0], [4,4,4]
+            "1",
+            List.of(2, 0, 1, 4, 3),  // [3,3,3], [1,1,1], [2,2,2], [5,5,5], [4,4,4]
+            "2",
+            List.of(1, 0, 3, 4, 2),  // [3,3,3], [2,2,2], [5,5,5], [6,6,6], [4,4,4]
+            "3",
+            List.of(0, 4, 2, 3, 1),  // [3,3,3], [7,7,7], [5,5,5], [6,6,6], [4,4,4]
+            "4",
+            List.of(3, 1, 2, 0, 4)   // [7,7,7], [5,5,5], [6,6,6], [4,4,4], [8,8,8]
+        );
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, queryBuilder, SIZE);
+        String entity = EntityUtils.toString(searchResponse.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(SIZE, docIds.size());
+        assertEquals(SIZE, parseTotalSearchHits(entity));
+        List<Double> results = parseScores(entity);
+        for (int i = 0; i < SIZE; i++) {
+            assertEquals(expectedResults[i], results.get(i), 0.00001);
+        }
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
+        assertEquals(5, docIdToOffsets.keySet().size());
+        for (String key : docIdToOffsets.keySet()) {
+            assertEquals(5, docIdToOffsets.get(key).size());
+            List<Integer> offsets = new ArrayList<>(docIdToOffsets.get(key));
+            for (int i = 0; i < SIZE; i++) {
+                assertEquals(offsets.get(i), expectedInnerScoreOrder.get(key).get(i));
+            }
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testKNNExactQuery_NestedExpandDocs_ScoreModeMax() {
+        createNestedTestIndex();
+        for (int i = 0; i < SIZE; i++) {
+            NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
+            for (int j = 0; j < SIZE; j++) {
+                builder.addVectors(FIELD_NAME, new Float[] { (float) i + j, (float) i + j, (float) i + j });
+            }
+            String doc = builder.build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().field("_source", false);
+        queryBuilder.startObject(QUERY);
+        queryBuilder.startObject(TYPE_NESTED);
+        queryBuilder.field(PATH, FIELD_NAME_NESTED);
+        queryBuilder.startObject(QUERY).startObject(EXACT_KNN).startObject(FIELD_NAME_NESTED + "." + FIELD_NAME);
+        queryBuilder.field(VECTOR, QUERY_VECTOR);
+        queryBuilder.field(EXPAND_NESTED, true);
+        queryBuilder.field("space_type", "linf");
+        queryBuilder.endObject().endObject().endObject();
+        queryBuilder.startObject("inner_hits").field("size", 5).endObject();
+        queryBuilder.field("score_mode", "max");
+        queryBuilder.endObject().endObject().endObject();
+
+        float[] expectedResults = new float[SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            float maxScore = Float.NEGATIVE_INFINITY;
+            for (int j = 0; j < SIZE; j++) {
+                float[] childVector = { i + j, i + j, i + j };
+                float score = 1 / (1 + KNNScoringUtil.lInfNorm(QUERY_VECTOR, childVector));
+                maxScore = Math.max(maxScore, score);
+            }
+            expectedResults[i] = maxScore;
+        }
+
+        Map<String, List<Integer>> expectedInnerScoreOrder = Map.of(
+            "0",
+            List.of(2, 1, 3, 0, 4),  // [2,2,2], [1,1,1], [3,3,3], [0,0,0], [4,4,4]
+            "1",
+            List.of(1, 0, 2, 3, 4),  // [2,2,2], [1,1,1], [3,3,3], [4,4,4], [5,5,5]
+            "2",
+            List.of(0, 1, 2, 3, 4),  // [2,2,2], [3,3,3], [4,4,4], [5,5,5], [6,6,6]
+            "3",
+            List.of(0, 1, 2, 3, 4),  // [3,3,3], [4,4,4], [5,5,5], [6,6,6], [7,7,7]
+            "4",
+            List.of(0, 1, 2, 3, 4)   // [4,4,4], [5,5,5], [6,6,6], [7,7,7], [8,8,8]
+        );
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, queryBuilder, SIZE);
+        String entity = EntityUtils.toString(searchResponse.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(SIZE, docIds.size());
+        assertEquals(SIZE, parseTotalSearchHits(entity));
+        List<Double> results = parseScores(entity);
+        for (int i = 0; i < SIZE; i++) {
+            assertEquals(expectedResults[i], results.get(i), 0.00001);
+        }
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
+        assertEquals(5, docIdToOffsets.keySet().size());
+        for (String key : docIdToOffsets.keySet()) {
+            assertEquals(5, docIdToOffsets.get(key).size());
+            List<Integer> offsets = new ArrayList<>(docIdToOffsets.get(key));
+            for (int i = 0; i < SIZE; i++) {
+                assertEquals(offsets.get(i), expectedInnerScoreOrder.get(key).get(i));
+            }
+        }
         deleteKNNIndex(INDEX_NAME);
     }
 

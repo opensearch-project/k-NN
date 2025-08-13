@@ -18,18 +18,21 @@ import java.io.IOException;
  * This iterator iterates filterIdsArray to score if filter is provided else it iterates over all docs.
  * However, it dedupe docs per each parent doc
  * of which ID is set in parentBitSet and only return best child doc with the highest score.
+ * When expandNested is true, it returns ALL child docs instead of just the best one.
  */
 public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
     private final BitSet parentBitSet;
+    private final boolean expandNested;
 
     public NestedVectorIdsKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
-        final BitSet parentBitSet
+        final BitSet parentBitSet,
+        final boolean expandNested
     ) throws IOException {
-        this(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
+        this(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null, expandNested);
     }
 
     public NestedVectorIdsKNNIterator(
@@ -38,7 +41,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
-        this(null, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
+        this(null, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null, false);
     }
 
     public NestedVectorIdsKNNIterator(
@@ -50,20 +53,56 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         final byte[] quantizedVector,
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
     ) throws IOException {
+        this(
+            filterIdsIterator,
+            queryVector,
+            knnFloatVectorValues,
+            spaceType,
+            parentBitSet,
+            quantizedVector,
+            segmentLevelQuantizationInfo,
+            false
+        );
+    }
+
+    public NestedVectorIdsKNNIterator(
+        @Nullable final DocIdSetIterator filterIdsIterator,
+        final float[] queryVector,
+        final KNNFloatVectorValues knnFloatVectorValues,
+        final SpaceType spaceType,
+        final BitSet parentBitSet,
+        final byte[] quantizedVector,
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
+        final boolean expandNested
+    ) throws IOException {
         super(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, quantizedVector, segmentLevelQuantizationInfo);
         this.parentBitSet = parentBitSet;
+        this.expandNested = expandNested;
     }
 
     /**
      * Advance to the next best child doc per parent and update score with the best score among child docs from the parent.
+     * When expandNested is true, returns ALL child docs instead of just the best one.
      * DocIdSetIterator.NO_MORE_DOCS is returned when there is no more docs
      *
-     * @return next best child doc id
+     * @return next child doc id (best child when expandNested=false, all children when expandNested=true)
      */
     @Override
     public int nextDoc() throws IOException {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
+        }
+
+        if (expandNested) {
+            int currentParent = parentBitSet.nextSetBit(docId);
+            if (currentParent != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
+                currentScore = computeScore();
+                int currentDocId = docId;
+                docId = getNextDocId();
+                return currentDocId;
+            }
+            docId = getNextDocId();
+            return nextDoc();
         }
 
         currentScore = Float.NEGATIVE_INFINITY;
