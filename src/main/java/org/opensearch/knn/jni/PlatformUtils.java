@@ -190,7 +190,7 @@ public class PlatformUtils {
         return isAVX512SupportedBySystem() && isF16CSupportedBySystem();
     }
 
-    public static boolean isSIMDAVX512SPRSpecSupportedBySystem() {
+    public static boolean isSIMDAVX512SPRSupportedBySystem() {
         return isAVX512SPRSupportedBySystem() && isF16CSupportedBySystem();
     }
 

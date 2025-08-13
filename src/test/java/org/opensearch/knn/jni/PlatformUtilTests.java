@@ -481,7 +481,7 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq f16c", "dummy string"));
-                assertTrue(PlatformUtils.isSIMDAVX512SPRSpecSupportedBySystem());
+                assertTrue(PlatformUtils.isSIMDAVX512SPRSupportedBySystem());
             }
         }
     }
@@ -495,7 +495,7 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq", "dummy string"));
-                assertFalse(PlatformUtils.isSIMDAVX512SPRSpecSupportedBySystem());
+                assertFalse(PlatformUtils.isSIMDAVX512SPRSupportedBySystem());
             }
         }
     }

@@ -10,12 +10,12 @@ import org.opensearch.knn.common.KNNConstants;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
-import static org.opensearch.knn.index.KNNSettings.isSimdAVX2Disabled;
-import static org.opensearch.knn.index.KNNSettings.isSimdAVX512Disabled;
-import static org.opensearch.knn.index.KNNSettings.isSimdAVX512SPRDisabled;
+import static org.opensearch.knn.index.KNNSettings.isAVX2Disabled;
+import static org.opensearch.knn.index.KNNSettings.isAVX512Disabled;
+import static org.opensearch.knn.index.KNNSettings.isAVX512SPRDisabled;
 import static org.opensearch.knn.jni.PlatformUtils.isSIMDAVX2SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isSIMDAVX512SupportedBySystem;
-import static org.opensearch.knn.jni.PlatformUtils.isSIMDAVX512SPRSpecSupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isSIMDAVX512SPRSupportedBySystem;
 
 /**
  * Service to interact with SIMD jni layer. Class dependencies should be minimal
@@ -32,11 +32,14 @@ public class SIMDNativeLibraryLoader {
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             try {
-                if (!isSimdAVX512SPRDisabled() && isSIMDAVX512SPRSpecSupportedBySystem()) {
+                // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by setting
+                // 'knn.avx2.disabled', 'knn.avx512.disabled', or 'knn.avx512_spr.disabled' to true in the opensearch.yml
+                // configuration
+                if (!isAVX512SPRDisabled() && isSIMDAVX512SPRSupportedBySystem()) {
                     System.loadLibrary(KNNConstants.SIMD_AVX512_SPR_JNI_LIBRARY_NAME);
-                } else if (!isSimdAVX512Disabled() && isSIMDAVX512SupportedBySystem()) {
+                } else if (!isAVX512Disabled() && isSIMDAVX512SupportedBySystem()) {
                     System.loadLibrary(KNNConstants.SIMD_AVX512_JNI_LIBRARY_NAME);
-                } else if (!isSimdAVX2Disabled() && isSIMDAVX2SupportedBySystem()) {
+                } else if (!isAVX2Disabled() && isSIMDAVX2SupportedBySystem()) {
                     System.loadLibrary(KNNConstants.SIMD_AVX2_JNI_LIBRARY_NAME);
                 } else {
                     System.loadLibrary(KNNConstants.SIMD_JNI_LIBRARY_NAME);
