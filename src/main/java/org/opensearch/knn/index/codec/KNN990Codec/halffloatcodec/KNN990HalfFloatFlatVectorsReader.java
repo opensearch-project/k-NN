@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN990Codec;
+package org.opensearch.knn.index.codec.KNN990Codec.halffloatcodec;
 
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader.readSimilarityFunction;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader.readVectorEncoding;
@@ -27,12 +27,10 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.internal.hppc.IntObjectHashMap;
-import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.ReadAdvice;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
@@ -198,55 +196,7 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
             vectorData
         );
 
-        final int dim = fe.dimension;
-        final int byteSize = dim * Short.BYTES;
-
-        return new ByteVectorValues() {
-            private final byte[] bytesBuffer = new byte[byteSize];
-            private final IndexInput slice = base.getSlice();
-
-            @Override
-            public int dimension() {
-                return dim;
-            }
-
-            @Override
-            public int size() {
-                return base.size();
-            }
-
-            @Override
-            public int ordToDoc(int ord) {
-                return base.ordToDoc(ord);
-            }
-
-            @Override
-            public Bits getAcceptOrds(Bits bits) {
-                return base.getAcceptOrds(bits);
-            }
-
-            @Override
-            public DocIndexIterator iterator() {
-                return base.iterator();
-            }
-
-            @Override
-            public byte[] vectorValue(int ord) throws IOException {
-                slice.seek((long) ord * byteSize);
-                slice.readBytes(bytesBuffer, 0, bytesBuffer.length);
-                return bytesBuffer;
-            }
-
-            @Override
-            public ByteVectorValues copy() {
-                return this;
-            }
-
-            @Override
-            public VectorScorer scorer(byte[] query) throws IOException {
-                return base.scorer(query);
-            }
-        };
+        return new KNNHalfFloatByteVectorValues(base, fe.dimension);
     }
 
     @Override
@@ -264,57 +214,7 @@ public final class KNN990HalfFloatFlatVectorsReader extends FlatVectorsReader {
             vectorData
         );
 
-        final int dim = fe.dimension;
-        final int byteSize = dim * Short.BYTES;
-
-        return new FloatVectorValues() {
-            private final byte[] bytesBuffer = new byte[byteSize];
-            private final float[] floatBuffer = new float[dim];
-            private final IndexInput slice = base.getSlice();
-
-            @Override
-            public int dimension() {
-                return dim;
-            }
-
-            @Override
-            public int size() {
-                return base.size();
-            }
-
-            @Override
-            public int ordToDoc(int ord) {
-                return base.ordToDoc(ord);
-            }
-
-            @Override
-            public Bits getAcceptOrds(Bits bits) {
-                return base.getAcceptOrds(bits);
-            }
-
-            @Override
-            public DocIndexIterator iterator() {
-                return base.iterator();
-            }
-
-            @Override
-            public float[] vectorValue(int ord) throws IOException {
-                slice.seek((long) ord * byteSize);
-                slice.readBytes(bytesBuffer, 0, bytesBuffer.length);
-                SERIALIZER.byteToFloatArray(bytesBuffer, floatBuffer, dim, 0);
-                return floatBuffer;
-            }
-
-            @Override
-            public FloatVectorValues copy() {
-                return this;
-            }
-
-            @Override
-            public VectorScorer scorer(float[] query) throws IOException {
-                return base.scorer(query);
-            }
-        };
+        return new KNNHalfFloatVectorValues(base, fe.dimension);
     }
 
     @Override

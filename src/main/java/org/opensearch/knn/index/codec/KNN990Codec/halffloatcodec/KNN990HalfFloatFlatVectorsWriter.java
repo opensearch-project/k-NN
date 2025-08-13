@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN990Codec;
+package org.opensearch.knn.index.codec.KNN990Codec.halffloatcodec;
 
-import static org.opensearch.knn.index.codec.KNN990Codec.KNN990HalfFloatFlatVectorsFormat.DIRECT_MONOTONIC_BLOCK_SHIFT;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
 import java.io.Closeable;
@@ -38,8 +37,6 @@ import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.hnsw.CloseableRandomVectorScorerSupplier;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.apache.lucene.util.hnsw.UpdateableRandomVectorScorer;
-import org.apache.lucene.util.Bits;
-import org.apache.lucene.search.VectorScorer;
 import org.opensearch.knn.index.codec.util.KNNIOUtils;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
 
@@ -245,54 +242,7 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
                 fieldInfo.getVectorSimilarityFunction()
             );
 
-            FloatVectorValues floatVectorValues = new FloatVectorValues() {
-                private final byte[] bytesBuffer = new byte[dim * 2];
-                private final float[] floatBuffer = new float[dim];
-                private final IndexInput slice = base.getSlice();
-
-                @Override
-                public int dimension() {
-                    return dim;
-                }
-
-                @Override
-                public int size() {
-                    return base.size();
-                }
-
-                @Override
-                public int ordToDoc(int ord) {
-                    return base.ordToDoc(ord);
-                }
-
-                @Override
-                public Bits getAcceptOrds(Bits bits) {
-                    return base.getAcceptOrds(bits);
-                }
-
-                @Override
-                public KnnVectorValues.DocIndexIterator iterator() {
-                    return base.iterator();
-                }
-
-                @Override
-                public float[] vectorValue(int ord) throws IOException {
-                    slice.seek((long) ord * byteSize);
-                    slice.readBytes(bytesBuffer, 0, bytesBuffer.length);
-                    SERIALIZER.byteToFloatArray(bytesBuffer, floatBuffer, dim, 0);
-                    return floatBuffer;
-                }
-
-                @Override
-                public FloatVectorValues copy() {
-                    return this;
-                }
-
-                @Override
-                public VectorScorer scorer(float[] query) throws IOException {
-                    return base.scorer(query);
-                }
-            };
+            FloatVectorValues floatVectorValues = new KNNHalfFloatVectorValues(base, dim);
 
             final RandomVectorScorerSupplier randomVectorScorerSupplier = vectorsScorer.getRandomVectorScorerSupplier(
                 fieldInfo.getVectorSimilarityFunction(),
@@ -323,7 +273,14 @@ public final class KNN990HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
         // write docIDs
         int count = docsWithField.cardinality();
         meta.writeInt(count);
-        OrdToDocDISIReaderConfiguration.writeStoredMeta(DIRECT_MONOTONIC_BLOCK_SHIFT, meta, vectorData, count, maxDoc, docsWithField);
+        OrdToDocDISIReaderConfiguration.writeStoredMeta(
+            KNN990HalfFloatFlatVectorsFormat.DIRECT_MONOTONIC_BLOCK_SHIFT,
+            meta,
+            vectorData,
+            count,
+            maxDoc,
+            docsWithField
+        );
     }
 
     @Override
