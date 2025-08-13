@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * [BUGFIX] [Remote Vector Index Build] Don't fall back to CPU on terminal failures [#2773](https://github.com/opensearch-project/k-NN/pull/2773)
 * Add KNN timing info to core profiler [#2785](https://github.com/opensearch-project/k-NN/pull/2785)
 * Add "exact_knn" query clause type [#2826](https://github.com/opensearch-project/k-NN/pull/2826)
-* Add expandNested support for "exact_knn" query [#2846](https://github.com/opensearch-project/k-NN/pull/2846)
+* Add expandNested support for "exact_knn" query [#2848](https://github.com/opensearch-project/k-NN/pull/2848)
 
 ### Bug Fixes
 * Fix @ collision in NativeMemoryCacheKeyHelper for vector index filenames containing @ characters [#2810](https://github.com/opensearch-project/k-NN/pull/2810)
