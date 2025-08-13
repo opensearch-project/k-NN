@@ -13,7 +13,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverter;
-import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverterRegistry;
+import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverterSpiRegistry;
 import org.opensearch.protobufs.KnnQuery;
 import org.opensearch.protobufs.KnnQueryRescore;
 import org.opensearch.protobufs.ObjectMap;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
 
     @Mock
-    private QueryBuilderProtoConverterRegistry mockRegistry;
+    private QueryBuilderProtoConverterSpiRegistry mockRegistry;
 
     @Mock
     private QueryBuilderProtoConverter mockConverter;
@@ -176,7 +176,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setFilter(filterContainer)
             .build();
 
-        QueryBuilderProtoConverterRegistry originalRegistry = KNNQueryBuilderProtoUtils.getRegistry();
+        QueryBuilderProtoConverterSpiRegistry originalRegistry = KNNQueryBuilderProtoUtils.getRegistry();
 
         try {
             KNNQueryBuilderProtoUtils.setRegistry(mockRegistry);
