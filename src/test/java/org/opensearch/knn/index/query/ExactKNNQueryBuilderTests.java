@@ -36,6 +36,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
+import static org.opensearch.knn.index.util.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
+
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 
 public class ExactKNNQueryBuilderTests extends KNNTestCase {
 
@@ -90,6 +93,15 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
         assertThat(query, instanceOf(MatchNoDocsQuery.class));
         builder.ignoreUnmapped(false);
         expectThrows(IllegalArgumentException.class, () -> builder.build().doToQuery(mock(QueryShardContext.class)));
+    }
+
+    public void testExpandNested() throws IOException {
+        ExactKNNQueryBuilder.Builder builder = ExactKNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .spaceType(SPACE_TYPE)
+            .expandNested(true);
+        assertTrue(builder.build().getExpandNested());
     }
 
     public void testEmptyFieldName() {
@@ -227,6 +239,7 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
 
         assertNull(builder.getSpaceType()); // Should be null by default
         assertFalse(builder.isIgnoreUnmapped()); // Should be false by default
+        assertNull(builder.getExpandNested()); // Should be null by default
     }
 
     public void testNestedFields() {
@@ -252,6 +265,31 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
         assertEquals(mockParentFilter, query.getParentFilter());
     }
 
+    public void testNestedFields_withExpandNested() {
+        ExactKNNQueryBuilder builder = ExactKNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .spaceType(SPACE_TYPE)
+            .expandNested(true)
+            .build();
+
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+        BitSetProducer mockParentFilter = mock(BitSetProducer.class);
+
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 4));
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        when(mockQueryShardContext.getParentFilter()).thenReturn(mockParentFilter);
+
+        ExactKNNQuery query = (ExactKNNQuery) builder.doToQuery(mockQueryShardContext);
+        assertNotNull(query);
+        assertEquals(mockParentFilter, query.getParentFilter());
+        assertTrue(query.isExpandNested());
+    }
+
     public void testSerialization() throws Exception {
         assertSerialization(Version.CURRENT);
         assertSerialization(Version.V_2_3_0);
@@ -269,6 +307,7 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .spaceType(SPACE_TYPE)
+            .expandNested(true)
             .build();
 
         final ClusterService clusterService = mockClusterService(version);
@@ -290,6 +329,9 @@ public class ExactKNNQueryBuilderTests extends KNNTestCase {
                 assertArrayEquals(QUERY_VECTOR, deserializedExactKNNQueryBuilder.getVector(), 0.0f);
                 assertEquals(SPACE_TYPE, deserializedExactKNNQueryBuilder.getSpaceType());
                 assertFalse(deserializedExactKNNQueryBuilder.isIgnoreUnmapped());
+                if (isClusterOnOrAfterMinRequiredVersion(EXPAND_NESTED)) {
+                    assertTrue(deserializedExactKNNQueryBuilder.getExpandNested());
+                }
             }
         }
     }

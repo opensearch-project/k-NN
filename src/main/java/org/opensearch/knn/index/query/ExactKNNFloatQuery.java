@@ -22,9 +22,10 @@ public class ExactKNNFloatQuery extends ExactKNNQuery {
         String indexName,
         VectorDataType vectorDataType,
         BitSetProducer parentFilter,
+        boolean expandNested,
         float[] queryVector
     ) {
-        super(field, spaceType, indexName, vectorDataType, parentFilter);
+        super(field, spaceType, indexName, vectorDataType, parentFilter, expandNested);
         this.queryVector = queryVector;
     }
 
