@@ -22,6 +22,7 @@ public class KNNConstants {
     public static final String PATH = "path";
     public static final String QUERY = "query";
     public static final String KNN = "knn";
+    public static final String EXACT_KNN = "exact_knn";
     public static final String EXACT_SEARCH = "Exact";
     public static final String ANN_SEARCH = "Approximate-NN";
     public static final String RADIAL_SEARCH = "Radial";
@@ -81,6 +82,7 @@ public class KNNConstants {
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
     public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";
     public static final String TOP_LEVEL_SPACE_TYPE_FEATURE = "top_level_space_type_feature";
+    public static final String EXACT_KNN_QUERY_FEATURE = "exact_knn_query_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final String MODEL_VERSION = "model_version";
