@@ -76,6 +76,27 @@ public class KNNScoringSpaceTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    @SuppressWarnings("unchecked")
+    public void testL2_whenValidHalfFloat_thenSucceed() {
+        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
+        List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.HALF_FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
+        );
+        KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
+        float[] processedFloatQuery = (float[]) l2.getProcessedQuery(arrayListQueryObject, fieldType);
+        assertEquals(
+            1F,
+            ((BiFunction<float[], float[], Float>) l2.getScoringMethod(processedFloatQuery)).apply(arrayFloat, arrayFloat),
+            0.1F
+        );
+    }
+
+    @SneakyThrows
     public void testL2_whenInvalidType_thenException() {
         expectThrowsExceptionWithNonKNNField(KNNScoringSpace.L2.class);
         expectThrowsExceptionWithKNNFieldWithBinaryDataType(KNNScoringSpace.L2.class);
@@ -102,6 +123,59 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         );
 
         // invalid zero vector
+        final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
+        IllegalArgumentException exception1 = expectThrows(
+            IllegalArgumentException.class,
+            () -> new KNNScoringSpace.CosineSimilarity(queryZeroVector, fieldType)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception1.getMessage()
+        );
+    }
+
+    @SneakyThrows
+    @SuppressWarnings("unchecked")
+    public void testCosineSimilarity_whenValidHalfFloat_thenSucceed() {
+        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
+        List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(2.0, 4.0, 6.0));
+        float[] arrayFloat2 = new float[] { 2.0f, 4.0f, 6.0f };
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.HALF_FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
+        );
+        KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
+        float[] processedFloatQuery = (float[]) cosineSimilarity.getProcessedQuery(arrayListQueryObject, fieldType);
+        assertEquals(
+            VectorSimilarityFunction.COSINE.compare(arrayFloat2, arrayFloat),
+            ((BiFunction<float[], float[], Float>) cosineSimilarity.getScoringMethod(processedFloatQuery)).apply(arrayFloat2, arrayFloat),
+            0.1F
+        );
+
+        // invalid zero vector
+        final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
+        IllegalArgumentException exception1 = expectThrows(
+            IllegalArgumentException.class,
+            () -> new KNNScoringSpace.CosineSimilarity(queryZeroVector, fieldType)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception1.getMessage()
+        );
+    }
+
+    public void testCosineSimilarity_whenZeroHalfFloatVector_thenException() {
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.HALF_FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
+        );
+
         final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
         IllegalArgumentException exception1 = expectThrows(
             IllegalArgumentException.class,
@@ -150,6 +224,61 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             "test",
             Collections.emptyMap(),
             VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
+        );
+        KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
+
+        float[] processedFloatQuery_case1 = (float[]) innerProd.getProcessedQuery(arrayListQueryObject_case1, fieldType);
+        assertEquals(
+            7.0F,
+            ((BiFunction<float[], float[], Float>) innerProd.getScoringMethod(processedFloatQuery_case1)).apply(
+                arrayFloat_case1,
+                arrayFloat2_case1
+            ),
+            0.001F
+        );
+
+        float[] arrayFloat_case2 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
+        List<Double> arrayListQueryObject_case2 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
+        float[] arrayFloat2_case2 = new float[] { -100_000.0f, -200_000.0f, -300_000.0f };
+
+        innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case2, fieldType);
+        float[] processedFloatQuery_case2 = (float[]) innerProd.getProcessedQuery(arrayListQueryObject_case2, fieldType);
+        assertEquals(
+            7.142857143E-12F,
+            ((BiFunction<float[], float[], Float>) innerProd.getScoringMethod(processedFloatQuery_case2)).apply(
+                arrayFloat_case2,
+                arrayFloat2_case2
+            ),
+            1.0E-11F
+        );
+
+        float[] arrayFloat_case3 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
+        List<Double> arrayListQueryObject_case3 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
+        float[] arrayFloat2_case3 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
+
+        innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case3, fieldType);
+        float[] processedFloatQuery_case3 = (float[]) innerProd.getProcessedQuery(arrayListQueryObject_case3, fieldType);
+        assertEquals(
+            140_000_000_001F,
+            ((BiFunction<float[], float[], Float>) innerProd.getScoringMethod(processedFloatQuery_case3)).apply(
+                arrayFloat_case3,
+                arrayFloat2_case3
+            ),
+            0.01F
+        );
+    }
+
+    public void testInnerProd_whenValidHalfFloat_thenSucceed() {
+        float[] arrayFloat_case1 = new float[] { 1.0f, 2.0f, 3.0f };
+        List<Double> arrayListQueryObject_case1 = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
+        float[] arrayFloat2_case1 = new float[] { 1.0f, 1.0f, 1.0f };
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            VectorDataType.HALF_FLOAT,
             getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);

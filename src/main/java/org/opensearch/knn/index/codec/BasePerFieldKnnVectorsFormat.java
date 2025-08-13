@@ -14,10 +14,12 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
+import org.opensearch.knn.index.codec.KNN990Codec.halffloatcodec.KNN990HalfFloatFlatVectorsFormat;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
@@ -97,6 +99,12 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
+        // For now, we directly return the HalfFloatFlatVectorsFormat to perform Exact Search for FP16 based on the approximate threshold.
+        // This would change once the mapping field-level parameter `index` is added to disable graph creation.
+        if (getApproximateThresholdValue() < 0 && mappedFieldType.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+            return new KNN990HalfFloatFlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer());
+        }
+
         final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         if (knnMappingConfig.getModelId().isPresent()) {
             return nativeEngineVectorsFormat();
@@ -109,6 +117,10 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
 
         if (engine == KNNEngine.LUCENE) {
+            if (mappedFieldType.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                throw new UnsupportedOperationException("Half float data type is not yet supported for Lucene ANN.");
+            }
+
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
                 KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                     params,
@@ -149,6 +161,12 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             return vectorsFormatSupplier.apply(knnVectorsFormatParams);
         }
 
+        if (mappedFieldType.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+            throw new UnsupportedOperationException(
+                "Half float data type is not yet supported for native engines. For Faiss, use the fp16 encoder type with float data type for FP16 support."
+            );
+        }
+
         // All native engines to use NativeEngines990KnnVectorsFormat
         return nativeEngineVectorsFormat();
     }
@@ -168,6 +186,9 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         // This is private method and mapperService is already checked for null or valid instance type before this call
         // at caller, hence we don't need additional isPresent check here.
         final IndexSettings indexSettings = mapperService.get().getIndexSettings();
+        if (indexSettings == null) {
+            return KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+        }
         final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
         return approximateThresholdValue != null
             ? approximateThresholdValue

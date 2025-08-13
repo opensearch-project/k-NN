@@ -308,9 +308,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             int adjustedDimension = modelMetadata.getVectorDataType() == VectorDataType.BINARY
                 ? modelMetadata.getDimension() / Byte.SIZE
                 : modelMetadata.getDimension();
-            final VectorEncoding encoding = modelMetadata.getVectorDataType() == VectorDataType.FLOAT
-                ? VectorEncoding.FLOAT32
-                : VectorEncoding.BYTE;
+            final VectorEncoding encoding = (modelMetadata.getVectorDataType() == VectorDataType.FLOAT
+                || modelMetadata.getVectorDataType() == VectorDataType.HALF_FLOAT) ? VectorEncoding.FLOAT32 : VectorEncoding.BYTE;
             fieldType.setVectorAttributes(
                 adjustedDimension,
                 encoding,

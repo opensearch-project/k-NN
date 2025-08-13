@@ -29,6 +29,12 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         final KNNVectorValues<float[]> floatVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, binaryDocValues);
         Assert.assertNotNull(floatVectorValues);
 
+        final KNNVectorValues<float[]> halfFloatVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            binaryDocValues
+        );
+        Assert.assertNotNull(halfFloatVectorValues);
+
         final KNNVectorValues<byte[]> byteVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BYTE, binaryDocValues);
         Assert.assertNotNull(byteVectorValues);
 
@@ -47,6 +53,13 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
             floatVectorMap
         );
         Assert.assertNotNull(floatVectorValues);
+
+        final KNNVectorValues<float[]> halfFloatVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            docsWithFieldSet,
+            floatVectorMap
+        );
+        Assert.assertNotNull(halfFloatVectorValues);
 
         final Map<Integer, byte[]> byteVectorMap = Map.of(0, new byte[] { 4, 5 }, 1, new byte[] { 6, 7 });
 
@@ -94,6 +107,16 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         Assert.assertArrayEquals(floatArrayList.get(0), floatVectorValues.getVector(), 0.0f);
         Assert.assertNotNull(floatVectorValues);
 
+        // Checking for HALF_FLOAT
+        Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.FLOAT32);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.HALF_FLOAT.getValue());
+        Mockito.when(reader.getFloatVectorValues("test_field"))
+            .thenReturn(new TestVectorValues.PreDefinedFloatVectorValues(floatArrayList));
+        final KNNVectorValues<float[]> halfFloatVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+        halfFloatVectorValues.nextDoc();
+        Assert.assertArrayEquals(floatArrayList.get(0), halfFloatVectorValues.getVector(), 0.0f);
+        Assert.assertNotNull(halfFloatVectorValues);
+
         // Checking for BinaryVectorValues
         Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.BYTE);
         Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.BINARY.getValue());
@@ -135,6 +158,16 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         floatVectorValues.nextDoc();
         Assert.assertArrayEquals(floatArrayList.get(0), floatVectorValues.getVector(), 0.0f);
         Assert.assertNotNull(floatVectorValues);
+
+        // Checking for HALF_FLOAT with BinaryDocValues
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.HALF_FLOAT.getValue());
+        Mockito.when(reader.getBinaryDocValues("test_field"))
+            .thenReturn(new TestVectorValues.PredefinedFloatVectorBinaryDocValues(floatArrayList));
+
+        final KNNVectorValues<float[]> halfFloatVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+        halfFloatVectorValues.nextDoc();
+        Assert.assertArrayEquals(floatArrayList.get(0), halfFloatVectorValues.getVector(), 0.0f);
+        Assert.assertNotNull(halfFloatVectorValues);
 
         // Checking for BinaryVectorValues
         Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.BINARY.getValue());
