@@ -29,8 +29,8 @@ import static org.opensearch.knn.index.engine.KNNEngine.getMaxDimensionByEngine;
 
 /**
  * Custom KnnVectorsFormat implementation to support half-float vectors.  This class is mostly identical to
- * {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat}, however we use the custom however we use the custom {@link KNN990HalfFloatFlatVectorsFormat}
- * for storing flat vectors as half-float.
+ * {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat}, however we use the custom however we
+ * use the custom {@link KNN990HalfFloatFlatVectorsFormat} for storing flat vectors as half-float.
  */
 public final class KNN9120HnswHalfFloatVectorsFormat extends KnnVectorsFormat {
 

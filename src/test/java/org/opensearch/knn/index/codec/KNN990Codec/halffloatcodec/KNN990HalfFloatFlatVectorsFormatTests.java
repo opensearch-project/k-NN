@@ -204,11 +204,8 @@ public class KNN990HalfFloatFlatVectorsFormatTests extends KNNTestCase {
             mockedStaticCodecUtil.when(() -> CodecUtil.retrieveChecksum(any(IndexInput.class)))
                 .thenAnswer((Answer<Void>) invocation -> null);
 
-            Object reader = halfFloatFlatVectorsFormat.fieldsReader(mockedSegmentReadState);
-            Object writer = halfFloatFlatVectorsFormat.fieldsWriter(mockedSegmentWriteState);
-
-            Assert.assertNotNull(reader);
-            Assert.assertNotNull(writer);
+            Assert.assertNotNull(halfFloatFlatVectorsFormat.fieldsReader(mockedSegmentReadState));
+            Assert.assertNotNull(halfFloatFlatVectorsFormat.fieldsWriter(mockedSegmentWriteState));
         }
     }
 
