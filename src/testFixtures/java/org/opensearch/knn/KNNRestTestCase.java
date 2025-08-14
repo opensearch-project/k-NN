@@ -14,6 +14,7 @@ import com.jayway.jsonpath.JsonPath;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.net.URIBuilder;
 import org.hamcrest.Matchers;
@@ -23,6 +24,7 @@ import org.junit.Before;
 import org.opensearch.Version;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -2547,6 +2549,190 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected static String randomLowerCaseString() {
         return randomAlphaOfLengthBetween(MIN_CODE_UNITS, MAX_CODE_UNITS).toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Creates a random float vector of specified dimension
+     * @param dimension the dimension of the vector
+     * @return float array with random values
+     */
+    protected float[] createRandomVector(int dimension) {
+        float[] vector = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            vector[i] = (float) (Math.random() * 10.0);
+        }
+        return vector;
+    }
+
+    /**
+     * Checks if an index exists
+     * @param indexName name of the index to check
+     * @return true if index exists, false otherwise
+     * @throws IOException if request fails
+     */
+    protected boolean checkIndexExists(String indexName) throws IOException {
+        try {
+            return client().performRequest(new Request("HEAD", "/" + indexName)).getStatusLine().getStatusCode() == 200;
+        } catch (ResponseException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Performs KNN search and returns response body
+     * @param indexName index to search
+     * @param fieldName field name for KNN search
+     * @param queryVector vector for KNN search
+     * @param k number of nearest neighbors
+     * @return response body as string
+     * @throws IOException if request fails
+     * @throws ParseException if parsing fails
+     */
+    protected String performKNNSearchAndGetBody(String indexName, String fieldName, float[] queryVector, int k) throws IOException,
+        ParseException {
+        XContentBuilder query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(fieldName)
+            .field("vector", queryVector)
+            .field("k", k)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Response response = performSearch(indexName, query.toString());
+        return EntityUtils.toString(response.getEntity());
+    }
+
+    /**
+     * Performs search with XContentBuilder query and returns response body
+     * @param indexName index to search
+     * @param query search query
+     * @return response body as string
+     * @throws IOException if request fails
+     * @throws ParseException if parsing fails
+     */
+    protected String performSearchAndGetBody(String indexName, XContentBuilder query) throws IOException, ParseException {
+        Response response = performSearch(indexName, query.toString());
+        return EntityUtils.toString(response.getEntity());
+    }
+
+    /**
+     * Performs count request and returns response body
+     * @param indexName index to count documents
+     * @return response body as string
+     * @throws IOException if request fails
+     * @throws ParseException if parsing fails
+     */
+    protected String performCountAndGetBody(String indexName) throws IOException, ParseException {
+        Request request = new Request("GET", "/" + indexName + "/_count");
+        Response response = client().performRequest(request);
+        return EntityUtils.toString(response.getEntity());
+    }
+
+    /**
+     * Performs count with query and returns response body
+     * @param indexName index to count documents
+     * @param query count query
+     * @return response body as string
+     * @throws IOException if request fails
+     * @throws ParseException if parsing fails
+     */
+    protected String performSearchCountAndGetBody(String indexName, XContentBuilder query) throws IOException, ParseException {
+        Request request = new Request("POST", "/" + indexName + "/_count");
+        request.setJsonEntity(query.toString());
+        Response response = client().performRequest(request);
+        return EntityUtils.toString(response.getEntity());
+    }
+
+    /**
+     * Creates a bool query with term filters
+     * @param fieldName field name to filter on
+     * @param values values to match
+     * @return XContentBuilder with bool query
+     * @throws IOException if builder fails
+     */
+    protected XContentBuilder createBoolTermQuery(String fieldName, String... values) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query").startObject("bool").startArray("should");
+
+        for (String value : values) {
+            builder.startObject().startObject("term").field(fieldName, value).endObject().endObject();
+        }
+
+        return builder.endArray().endObject().endObject().endObject();
+    }
+
+    /**
+     * Creates an exists query for a specific field
+     * @param fieldName field to check existence
+     * @return XContentBuilder with exists query
+     * @throws IOException if builder fails
+     */
+    protected XContentBuilder createExistsQuery(String fieldName) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("exists")
+            .field("field", fieldName)
+            .endObject()
+            .endObject()
+            .endObject();
+    }
+
+    /**
+     * Creates a script score query for vector similarity
+     * @param vectorField field containing the vector
+     * @param queryVector query vector for similarity
+     * @return XContentBuilder with script score query
+     * @throws IOException if builder fails
+     */
+    protected XContentBuilder createVectorScriptScoreQuery(String vectorField, float[] queryVector) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("script_score")
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startObject("script")
+            .field(
+                "source",
+                "if (doc['"
+                    + vectorField
+                    + "'].size() > 0) { "
+                    + "cosineSimilarity(params.query_vector, doc['"
+                    + vectorField
+                    + "']) + 1.0 "
+                    + "} else { 0.1 }"
+            )
+            .startObject("params")
+            .field("query_vector", queryVector)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+    }
+
+    /**
+     * Creates a terms aggregation query
+     * @param fieldName field to aggregate on
+     * @return XContentBuilder with terms aggregation
+     * @throws IOException if builder fails
+     */
+    protected XContentBuilder createTermsAggregationQuery(String fieldName) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("aggs")
+            .startObject("category_terms")
+            .startObject("terms")
+            .field("field", fieldName)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
     }
 
     @SneakyThrows
