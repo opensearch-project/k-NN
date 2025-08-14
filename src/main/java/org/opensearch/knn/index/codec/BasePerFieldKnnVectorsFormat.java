@@ -99,8 +99,10 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
-        // For now, we directly return the HalfFloatFlatVectorsFormat to perform Exact Search for FP16 based on the approximate threshold.
-        // This would change once the mapping field-level parameter `index` is added to disable graph creation.
+        // TODO: Use the new `index` parameter to disable graph creation for exact search
+        // https://github.com/opensearch-project/k-NN/pull/2768
+        // For now, we directly return the KNN990HalfFloatFlatVectorsFormat to perform Exact Search for FP16 based on the approximate
+        // threshold.
         if (getApproximateThresholdValue() < 0 && mappedFieldType.getVectorDataType() == VectorDataType.HALF_FLOAT) {
             return new KNN990HalfFloatFlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer());
         }
