@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.query.iterators;
 
 import org.apache.lucene.search.DocIdSetIterator;
-import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 
@@ -27,7 +26,7 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
     protected int docId;
 
     public ByteVectorIdsKNNIterator(
-        @Nullable final DocIdSetIterator filterIdsIterator,
+        final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNByteVectorValues byteVectorValues,
         final SpaceType spaceType
@@ -39,11 +38,6 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
         // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
         // nextDoc should already be referring to next knnVectorValues
         this.docId = getNextDocId();
-    }
-
-    public ByteVectorIdsKNNIterator(final float[] queryVector, final KNNByteVectorValues byteVectorValues, final SpaceType spaceType)
-        throws IOException {
-        this(null, queryVector, byteVectorValues, spaceType);
     }
 
     /**
@@ -87,13 +81,12 @@ public class ByteVectorIdsKNNIterator implements KNNIterator {
     }
 
     protected int getNextDocId() throws IOException {
-        if (filterIdsIterator == null) {
-            return byteVectorValues.nextDoc();
-        }
         int nextDocID = this.filterIdsIterator.nextDoc();
-        // For filter case, advance vector values to corresponding doc id from filter bit set
         if (nextDocID != DocIdSetIterator.NO_MORE_DOCS) {
-            byteVectorValues.advance(nextDocID);
+            int ret = byteVectorValues.advance(nextDocID);
+            if (ret > nextDocID) {
+                nextDocID = this.filterIdsIterator.advance(ret);
+            }
         }
         return nextDocID;
     }

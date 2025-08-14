@@ -20,6 +20,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
+import org.junit.After;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -34,6 +35,7 @@ import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,6 +43,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.mockito.ArgumentMatchers.any;
@@ -61,6 +65,7 @@ public class ExplainTests extends KNNWeightTestCase {
     private Weight filterQueryWeight;
     @Mock
     private LeafReaderContext leafReaderContext;
+    private ExecutorService executor;
 
     private void setupTest(final int[] filterDocIds, final Map<String, String> attributesMap) throws IOException {
         setupTest(filterDocIds, attributesMap, filterDocIds != null ? filterDocIds.length : 0, SpaceType.L2, true, null, null, null);
@@ -127,6 +132,16 @@ public class ExplainTests extends KNNWeightTestCase {
             when(knnBinaryVectorValues.advance(0)).thenReturn(0);
             when(knnBinaryVectorValues.getVector()).thenReturn(byteVector);
         }
+
+        ThreadPool threadPool = mock(ThreadPool.class);
+        executor = Executors.newSingleThreadExecutor();
+        when(threadPool.executor(EXACT_SEARCH_THREAD_POOL)).thenReturn(executor);
+        ExactSearcher.initialize(threadPool);
+    }
+
+    @After
+    public void shutdownExecutor() {
+        executor.shutdown();
     }
 
     private void assertExplanation(Explanation explanation, float expectedScore, String topSearch, String... leafDescription) {

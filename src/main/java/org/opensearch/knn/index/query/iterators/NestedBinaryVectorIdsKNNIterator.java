@@ -7,7 +7,6 @@ package org.opensearch.knn.index.query.iterators;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
-import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 
@@ -22,23 +21,13 @@ public class NestedBinaryVectorIdsKNNIterator extends BinaryVectorIdsKNNIterator
     private final BitSet parentBitSet;
 
     public NestedBinaryVectorIdsKNNIterator(
-        @Nullable final DocIdSetIterator filterIdsIterator,
+        final DocIdSetIterator filterIdsIterator,
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
         super(filterIdsIterator, queryVector, binaryVectorValues, spaceType);
-        this.parentBitSet = parentBitSet;
-    }
-
-    public NestedBinaryVectorIdsKNNIterator(
-        final byte[] queryVector,
-        final KNNBinaryVectorValues binaryVectorValues,
-        final SpaceType spaceType,
-        final BitSet parentBitSet
-    ) throws IOException {
-        super(null, queryVector, binaryVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
     }
 
