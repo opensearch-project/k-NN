@@ -7,3 +7,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.3](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
+
+### Enhancements
+* Added engine as a top-level optional parameter while creating vector field [#2736](https://github.com/opensearch-project/k-NN/pull/2736)

@@ -27,7 +27,6 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
-import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -82,7 +81,8 @@ public class TrainingModelRequest extends ActionRequest {
             vectorDataType,
             mode,
             compressionLevel,
-            SpaceType.DEFAULT
+            SpaceType.DEFAULT,
+            knnMethodContext == null ? KNNEngine.DEFAULT : knnMethodContext.getKnnEngine()
         );
     }
 
@@ -108,7 +108,8 @@ public class TrainingModelRequest extends ActionRequest {
         VectorDataType vectorDataType,
         Mode mode,
         CompressionLevel compressionLevel,
-        SpaceType spaceType
+        SpaceType spaceType,
+        KNNEngine knnEngine
     ) {
         super();
         this.modelId = modelId;
@@ -134,7 +135,6 @@ public class TrainingModelRequest extends ActionRequest {
             .mode(mode)
             .build();
 
-        KNNEngine knnEngine = EngineResolver.INSTANCE.resolveEngine(knnMethodConfigContext, knnMethodContext, true, Version.CURRENT);
         ResolvedMethodContext resolvedMethodContext = knnEngine.resolveMethod(knnMethodContext, knnMethodConfigContext, true, spaceType);
         this.knnMethodContext = resolvedMethodContext.getKnnMethodContext();
         this.compressionLevel = resolvedMethodContext.getCompressionLevel();
