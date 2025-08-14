@@ -65,6 +65,13 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             methodContext,
             SpaceType.COSINESIMIL.getValue(),
             settings,
+            VectorDataType.HALF_FLOAT,
+            methodContext.getSpaceType()
+        );
+        assertResolveSpaceType(
+            methodContext,
+            SpaceType.COSINESIMIL.getValue(),
+            settings,
             VectorDataType.BINARY,
             methodContext.getSpaceType()
         );
@@ -86,14 +93,23 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             methodContext,
             SpaceType.COSINESIMIL.getValue(),
             emptySettings,
+            VectorDataType.HALF_FLOAT,
+            methodContext.getSpaceType()
+        );
+        assertResolveSpaceType(
+            methodContext,
+            SpaceType.COSINESIMIL.getValue(),
+            emptySettings,
             VectorDataType.BINARY,
             methodContext.getSpaceType()
         );
         assertResolveSpaceType(methodContext, "", settings, VectorDataType.BYTE, methodContext.getSpaceType());
         assertResolveSpaceType(methodContext, "", settings, VectorDataType.FLOAT, methodContext.getSpaceType());
+        assertResolveSpaceType(methodContext, "", settings, VectorDataType.HALF_FLOAT, methodContext.getSpaceType());
         assertResolveSpaceType(methodContext, "", settings, VectorDataType.BINARY, methodContext.getSpaceType());
         assertResolveSpaceType(methodContext, "", emptySettings, VectorDataType.BYTE, methodContext.getSpaceType());
         assertResolveSpaceType(methodContext, "", emptySettings, VectorDataType.FLOAT, methodContext.getSpaceType());
+        assertResolveSpaceType(methodContext, "", emptySettings, VectorDataType.HALF_FLOAT, methodContext.getSpaceType());
         assertResolveSpaceType(methodContext, "", emptySettings, VectorDataType.BINARY, methodContext.getSpaceType());
         assertResolveSpaceType(emptyMethodContext, SpaceType.COSINESIMIL.getValue(), settings, VectorDataType.BYTE, SpaceType.COSINESIMIL);
         assertResolveSpaceType(emptyMethodContext, SpaceType.COSINESIMIL.getValue(), settings, VectorDataType.FLOAT, SpaceType.COSINESIMIL);
@@ -122,6 +138,13 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             emptyMethodContext,
             SpaceType.COSINESIMIL.getValue(),
             emptySettings,
+            VectorDataType.HALF_FLOAT,
+            SpaceType.COSINESIMIL
+        );
+        assertResolveSpaceType(
+            emptyMethodContext,
+            SpaceType.COSINESIMIL.getValue(),
+            emptySettings,
             VectorDataType.BINARY,
             SpaceType.COSINESIMIL
         );
@@ -139,9 +162,17 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             VectorDataType.FLOAT,
             SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
         );
+        assertResolveSpaceType(
+            emptyMethodContext,
+            "",
+            settings,
+            VectorDataType.HALF_FLOAT,
+            SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
+        );
         assertResolveSpaceType(emptyMethodContext, "", settings, VectorDataType.BINARY, SpaceType.getSpace(SpaceType.HAMMING.name()));
         assertResolveSpaceType(emptyMethodContext, "", emptySettings, VectorDataType.BYTE, SpaceType.DEFAULT);
         assertResolveSpaceType(emptyMethodContext, "", emptySettings, VectorDataType.FLOAT, SpaceType.DEFAULT);
+        assertResolveSpaceType(emptyMethodContext, "", emptySettings, VectorDataType.HALF_FLOAT, SpaceType.DEFAULT);
         assertResolveSpaceType(emptyMethodContext, "", emptySettings, VectorDataType.BINARY, SpaceType.DEFAULT_BINARY);
         assertResolveSpaceType(nullMethodContext, SpaceType.COSINESIMIL.getValue(), settings, VectorDataType.BYTE, SpaceType.COSINESIMIL);
         assertResolveSpaceType(nullMethodContext, SpaceType.COSINESIMIL.getValue(), settings, VectorDataType.FLOAT, SpaceType.COSINESIMIL);
@@ -164,6 +195,13 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             nullMethodContext,
             SpaceType.COSINESIMIL.getValue(),
             emptySettings,
+            VectorDataType.HALF_FLOAT,
+            SpaceType.COSINESIMIL
+        );
+        assertResolveSpaceType(
+            nullMethodContext,
+            SpaceType.COSINESIMIL.getValue(),
+            emptySettings,
             VectorDataType.BINARY,
             SpaceType.COSINESIMIL
         );
@@ -181,9 +219,17 @@ public class SpaceTypeResolverTests extends KNNTestCase {
             VectorDataType.FLOAT,
             SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
         );
+        assertResolveSpaceType(
+            nullMethodContext,
+            "",
+            settings,
+            VectorDataType.HALF_FLOAT,
+            SpaceType.getSpace(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE)
+        );
         assertResolveSpaceType(nullMethodContext, "", settings, VectorDataType.BINARY, SpaceType.getSpace(SpaceType.HAMMING.name()));
         assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.BYTE, SpaceType.DEFAULT);
         assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.FLOAT, SpaceType.DEFAULT);
+        assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.HALF_FLOAT, SpaceType.DEFAULT);
         assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.BINARY, SpaceType.DEFAULT_BINARY);
     }
 

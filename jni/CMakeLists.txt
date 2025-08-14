@@ -97,11 +97,8 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON)
     set(TARGET_LIB_SIMD opensearchknn_simd)
 
     set(SIMD_ENCODING_SRCS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDNativeLibraryLoader.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDEncoding.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SIMDDecoding.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/encoding/encoding.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/decoding/decoding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SimdFp16.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/simd_fp16.cpp
     )
 
     add_library(${TARGET_LIB_SIMD} SHARED ${SIMD_ENCODING_SRCS})

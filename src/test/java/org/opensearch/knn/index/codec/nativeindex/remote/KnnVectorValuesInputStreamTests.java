@@ -100,6 +100,85 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         assertEquals(expectedBuffer, vectorStreamFloats);
     }
 
+    /*
+     * Tests that reading half-float vectors out of a VectorValuesInputStream yields the same results as reading the doc vectors
+     */
+    public void testHalfFloatVectorValuesInputStream() throws IOException {
+        int NUM_DOCS = randomIntBetween(1, 1000);
+        int NUM_DIMENSION = randomIntBetween(1, 1000);
+
+        List<float[]> vectorValues = getRandomFloatVectors(NUM_DOCS, NUM_DIMENSION);
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<float[]> knnVectorValuesForStream = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+
+        InputStream vectorValuesInputStream = new VectorValuesInputStream(knnVectorValuesForStream, VectorDataType.HALF_FLOAT);
+
+        // 1. Read all input stream bytes
+        byte[] vectorStreamBytes = vectorValuesInputStream.readAllBytes();
+        FloatBuffer vectorStreamFloats = ByteBuffer.wrap(vectorStreamBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+
+        // 2. Read all of knnVectorValues into a byte buffer:
+        initializeVectorValues(knnVectorValues);
+        FloatBuffer expectedBuffer = ByteBuffer.allocate(NUM_DOCS * knnVectorValues.bytesPerVector())
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .asFloatBuffer();
+        int docId = knnVectorValues.docId();
+        while (docId != -1 && docId != DocIdSetIterator.NO_MORE_DOCS) {
+            expectedBuffer.put(knnVectorValues.getVector());
+            docId = knnVectorValues.nextDoc();
+        }
+        expectedBuffer.position(0);
+
+        // Check the 2 arrays have the same content
+        assertEquals(expectedBuffer, vectorStreamFloats);
+    }
+
+    /**
+     * Tests that invoking {@link VectorValuesInputStream#read()} N times yields the same results as {@link VectorValuesInputStream#read(byte[], 0, N)}
+     */
+    public void testHalfFloatVectorValuesInputStreamReadByte() throws IOException {
+        final int NUM_DIMENSION = randomIntBetween(1, 1000);
+        List<float[]> vectorValues = getRandomFloatVectors(1, NUM_DIMENSION);
+
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+
+        // Read stream byte by byte
+        final KNNVectorValues<float[]> knnVectorValuesForReadByte = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        initializeVectorValues(knnVectorValuesForReadByte);
+        int vectorBlobLength = knnVectorValuesForReadByte.bytesPerVector();
+        InputStream vectorStreamForReadByte = new VectorValuesInputStream(knnVectorValuesForReadByte, VectorDataType.HALF_FLOAT);
+        ByteBuffer bufferReadByByte = ByteBuffer.allocate(vectorBlobLength).order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < vectorBlobLength; i++) {
+            bufferReadByByte.put((byte) vectorStreamForReadByte.read());
+        }
+        bufferReadByByte.position(0);
+
+        // Read stream with entire length
+        final KNNVectorValues<float[]> knnVectorValuesForRead = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        InputStream vectorStreamForRead = new VectorValuesInputStream(knnVectorValuesForRead, VectorDataType.HALF_FLOAT);
+        ByteBuffer bufferRead = ByteBuffer.allocate(vectorBlobLength).order(ByteOrder.LITTLE_ENDIAN);
+        assertEquals(vectorBlobLength, vectorStreamForRead.read(bufferRead.array(), 0, vectorBlobLength));
+
+        assertArrayEquals(bufferRead.array(), bufferReadByByte.array());
+    }
+
     public void testByteVectorValuesInputStream() throws IOException {
         int NUM_DOCS = randomIntBetween(1, 1000);
         int NUM_DIMENSION = randomIntBetween(1, 1000);

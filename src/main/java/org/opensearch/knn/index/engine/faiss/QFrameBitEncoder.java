@@ -39,7 +39,7 @@ public class QFrameBitEncoder implements Encoder {
     public static final Boolean DEFAULT_ENABLE_RANDOM_ROTATION = false;
     private static final Set<Integer> validBitCounts = ImmutableSet.of(1, 2, 4);
     private static final Set<Integer> supportedBitCountsForADC = ImmutableSet.of(1);
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
 
     /**
      * {

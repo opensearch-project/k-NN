@@ -11,6 +11,7 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -44,6 +45,15 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                 // changes in the future.
                 if (knnVectorsFormatParams.getSpaceType() == SpaceType.HAMMING) {
                     return new KNN9120HnswBinaryVectorsFormat(
+                        knnVectorsFormatParams.getMaxConnections(),
+                        knnVectorsFormatParams.getBeamWidth(),
+                        // number of merge threads
+                        mergeThreadCountAndExecutorService.v1(),
+                        // executor service
+                        mergeThreadCountAndExecutorService.v2()
+                    );
+                } else if (knnVectorsFormatParams.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                    return new KNN9120HnswHalfFloatVectorsFormat(
                         knnVectorsFormatParams.getMaxConnections(),
                         knnVectorsFormatParams.getBeamWidth(),
                         // number of merge threads

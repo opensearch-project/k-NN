@@ -781,7 +781,9 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         int size = VectorDataType.BINARY == vectorDataType ? dimensions / 8 : dimensions;
         final float[] vector = new float[size];
         for (int i = 0; i < size; i++) {
-            vector[i] = VectorDataType.FLOAT == vectorDataType ? randomFloat() : randomByte();
+            vector[i] = (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType)
+                ? randomFloat()
+                : randomByte();
         }
         return vector;
     }
@@ -829,7 +831,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             case COSINESIMIL:
             case INNER_PRODUCT:
             case HAMMING:
-                if (vectorDataType == VectorDataType.FLOAT) {
+                if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
                     return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(queryVector);
                 }
                 return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(toByte(queryVector));
@@ -907,6 +909,20 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         );
     }
 
+    private void testKNNHalffloatScriptScore(SpaceType spaceType) throws Exception {
+        final int dims = randomIntBetween(2, 10);
+        final float[] queryVector = randomVector(dims, VectorDataType.HALF_FLOAT);
+        final BiFunction<float[], float[], Float> scoreFunction = (BiFunction<float[], float[], Float>) getScoreFunction(
+            spaceType,
+            queryVector,
+            VectorDataType.HALF_FLOAT
+        );
+        for (String mapper : createMappers(dims)) {
+            createHalfFloatIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, true);
+            createHalfFloatIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, false);
+        }
+    }
+
     private void createIndexAndAssertScriptScore(
         String mapper,
         SpaceType spaceType,
@@ -924,6 +940,26 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             dense,
             true,
             VectorDataType.FLOAT
+        );
+    }
+
+    private void createHalfFloatIndexAndAssertScriptScore(
+        String mapper,
+        SpaceType spaceType,
+        BiFunction<float[], float[], Float> scoreFunction,
+        int dimensions,
+        float[] queryVector,
+        boolean dense
+    ) throws Exception {
+        createIndexAndAssertScriptScore(
+            mapper,
+            spaceType,
+            v -> scoreFunction.apply(queryVector, v),
+            dimensions,
+            queryVector,
+            dense,
+            true,
+            VectorDataType.HALF_FLOAT
         );
     }
 

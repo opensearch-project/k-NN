@@ -27,6 +27,10 @@ import static org.mockito.Mockito.mockStatic;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
 import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isF16CSupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isSIMDAVX2SupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isSIMDAVX512SupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isSIMDAVX512SPRSupportedBySystem;
 
 public class PlatformUtilTests extends Assert {
     public static final String MAC_CPU_FEATURES = "machdep.cpu.leaf7_features";
@@ -272,7 +276,7 @@ public class PlatformUtilTests extends Assert {
     public void testIsF16CSupportedBySystem_platformIsNotIntel_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(false);
-            assertFalse(PlatformUtils.isF16CSupportedBySystem());
+            assertFalse(isF16CSupportedBySystem());
         }
     }
 
@@ -281,7 +285,7 @@ public class PlatformUtilTests extends Assert {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isWindows).thenReturn(true);
-            assertFalse(PlatformUtils.isF16CSupportedBySystem());
+            assertFalse(isF16CSupportedBySystem());
         }
     }
 
@@ -296,7 +300,7 @@ public class PlatformUtilTests extends Assert {
                     .thenReturn(
                         "FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3 PCLMULQDQ SSSE3 FMA CX16 SSE4.1 SSE4.2 x2APIC MOVBE POPCNT AES F16C RDRAND"
                     );
-                assertTrue(PlatformUtils.isF16CSupportedBySystem());
+                assertTrue(isF16CSupportedBySystem());
             }
         }
     }
@@ -310,7 +314,7 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
                 mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty"))
                     .thenReturn("FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3");
-                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+                assertFalse(isF16CSupportedBySystem());
             }
         }
     }
@@ -323,7 +327,7 @@ public class PlatformUtilTests extends Assert {
 
             try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
                 mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty")).thenThrow(RuntimeException.class);
-                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+                assertFalse(isF16CSupportedBySystem());
             }
         }
     }
@@ -343,7 +347,7 @@ public class PlatformUtilTests extends Assert {
                             "dummy string"
                         )
                     );
-                assertTrue(PlatformUtils.isF16CSupportedBySystem());
+                assertTrue(isF16CSupportedBySystem());
             }
         }
     }
@@ -363,7 +367,7 @@ public class PlatformUtilTests extends Assert {
                             "dummy string"
                         )
                     );
-                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+                assertFalse(isF16CSupportedBySystem());
             }
         }
     }
@@ -377,7 +381,7 @@ public class PlatformUtilTests extends Assert {
 
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO))).thenThrow(RuntimeException.class);
-                assertFalse(PlatformUtils.isF16CSupportedBySystem());
+                assertFalse(isF16CSupportedBySystem());
             }
         }
     }
@@ -401,7 +405,7 @@ public class PlatformUtilTests extends Assert {
                         "FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3 PCLMULQDQ SSSE3 FMA CX16 SSE4.1 SSE4.2 x2APIC MOVBE POPCNT AES F16C RDRAND"
                     );
 
-                assertTrue(PlatformUtils.isSIMDAVX2SupportedBySystem());
+                assertTrue(isSIMDAVX2SupportedBySystem());
             }
         }
     }
@@ -422,7 +426,7 @@ public class PlatformUtilTests extends Assert {
                 mockedSysctlUtil.when(() -> SysctlUtil.sysctl("machdep.cpu.features", "empty"))
                     .thenReturn("FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH MMX FXSR SSE SSE2 HTT SSE3");
 
-                assertFalse(PlatformUtils.isSIMDAVX2SupportedBySystem());
+                assertFalse(isSIMDAVX2SupportedBySystem());
             }
         }
     }
@@ -437,7 +441,7 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: AVX2 f16c", "dummy string"));
-                assertTrue(PlatformUtils.isSIMDAVX2SupportedBySystem());
+                assertTrue(isSIMDAVX2SupportedBySystem());
             }
         }
     }
@@ -452,7 +456,7 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: AVX2 avx512f avx512cd avx512vl avx512dq avx512bw f16c", "dummy string"));
-                assertTrue(PlatformUtils.isSIMDAVX512SupportedBySystem());
+                assertTrue(isSIMDAVX512SupportedBySystem());
             }
         }
     }
@@ -466,14 +470,14 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: AVX2 avx512f avx512cd avx512vl avx512dq avx512bw", "dummy string"));
-                assertFalse(PlatformUtils.isSIMDAVX512SupportedBySystem());
+                assertFalse(isSIMDAVX512SupportedBySystem());
             }
         }
     }
 
     // SIMD AVX512 SPR tests
     @Test
-    public void testIsSIMDAVX512SPRSpecSupportedBySystem_bothAVX512SPRAndF16CSupported_returnsTrue() {
+    public void testIsSIMDAVX512SPRSupportedBySystem_bothAVX512SPRAndF16CSupported_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isLinux).thenReturn(true);
@@ -481,13 +485,13 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq f16c", "dummy string"));
-                assertTrue(PlatformUtils.isSIMDAVX512SPRSupportedBySystem());
+                assertTrue(isSIMDAVX512SPRSupportedBySystem());
             }
         }
     }
 
     @Test
-    public void testIsSIMDAVX512SPRSpecSupportedBySystem_AVX512SPRSupportedButF16CNotSupported_returnsFalse() {
+    public void testIsSIMDAVX512SPRSupportedBySystem_AVX512SPRSupportedButF16CNotSupported_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isLinux).thenReturn(true);
@@ -495,7 +499,7 @@ public class PlatformUtilTests extends Assert {
             try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
                 mockedFiles.when(() -> Files.lines(Paths.get(LINUX_PROC_CPU_INFO)))
                     .thenReturn(Stream.of("flags: avx512_fp16 avx512_bf16 avx512_vpopcntdq", "dummy string"));
-                assertFalse(PlatformUtils.isSIMDAVX512SPRSupportedBySystem());
+                assertFalse(isSIMDAVX512SPRSupportedBySystem());
             }
         }
     }

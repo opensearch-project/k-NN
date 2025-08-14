@@ -28,7 +28,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_PQ_DESCRIPTION;
  */
 public class FaissHNSWPQEncoder extends AbstractFaissPQEncoder {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)

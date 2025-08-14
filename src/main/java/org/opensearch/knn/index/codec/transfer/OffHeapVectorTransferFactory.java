@@ -30,6 +30,7 @@ public final class OffHeapVectorTransferFactory {
     ) {
         switch (vectorDataType) {
             case FLOAT:
+            case HALF_FLOAT:
                 return (OffHeapVectorTransfer<T>) new OffHeapFloatVectorTransfer(bytesPerVector, totalVectorsToTransfer);
             case BINARY:
                 return (OffHeapVectorTransfer<T>) new OffHeapBinaryVectorTransfer(bytesPerVector, totalVectorsToTransfer);

@@ -586,7 +586,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
+                .vector((VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) ? this.vector : null)
                 .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .radius(radius)

@@ -67,13 +67,21 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
         when(fieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
         assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.FLOAT), 0.1f);
 
+        assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.HALF_FLOAT), 0.1f);
+
         expectThrows(
             IllegalStateException.class,
             () -> KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 4, VectorDataType.FLOAT)
         );
 
+        expectThrows(
+            IllegalStateException.class,
+            () -> KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 4, VectorDataType.HALF_FLOAT)
+        );
+
         String invalidObject = "invalidObject";
         expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.FLOAT));
+        expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.HALF_FLOAT));
     }
 
     public void testConvertVectorToByteArray() {

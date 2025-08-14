@@ -12,3 +12,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add random rotation feature to binary encoder for improving recall on certain datasets [#2718](https://github.com/opensearch-project/k-NN/pull/2718)
 * Asymmetric Distance Computation for binary quantized faiss indices [#2733](https://github.com/opensearch-project/k-NN/pull/2733)
 * [BUGFIX] [Remote Vector Index Build] Don't fall back to CPU on terminal failures [#2773](https://github.com/opensearch-project/k-NN/pull/2773)
+* Add support for `half_float` as a vector data type [#2812](https://github.com/opensearch-project/k-NN/pull/2812)
+* Add custom format and C++ SIMD serializer for FP16 [#2814](https://github.com/opensearch-project/k-NN/pull/2814)
+* Enable FP16 support for Exact Search and Lucene ANN [#2850](https://github.com/opensearch-project/k-NN/pull/2850)

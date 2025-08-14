@@ -68,6 +68,25 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, ((KNNVectorScriptDocValues<float[]>) scriptDocValues).getValue(), 0.1f);
     }
 
+    /** Test for Half Float Vector Values */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testHalfFloatVectorValues() throws IOException {
+        createKNNVectorDocument(directory, FloatVectorValues.class);
+        reader = DirectoryReader.open(directory);
+        LeafReader leafReader = reader.leaves().get(0).reader();
+
+        // Separate scriptDocValues instance for this test
+        KNNVectorScriptDocValues<?> scriptDocValues = KNNVectorScriptDocValues.create(
+            leafReader.getFloatVectorValues(MOCK_INDEX_FIELD_NAME),
+            MOCK_INDEX_FIELD_NAME,
+            VectorDataType.HALF_FLOAT
+        );
+
+        scriptDocValues.setNextDocId(0);
+        Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, ((KNNVectorScriptDocValues<float[]>) scriptDocValues).getValue(), 0.1f);
+    }
+
     /** Test for Byte Vector Values */
     @Test
     @SuppressWarnings("unchecked")

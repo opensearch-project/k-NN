@@ -205,9 +205,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 int adjustedDimension = mappedFieldType.vectorDataType == VectorDataType.BINARY
                     ? knnMappingConfig.getDimension() / 8
                     : knnMappingConfig.getDimension();
-                final VectorEncoding encoding = mappedFieldType.vectorDataType == VectorDataType.FLOAT
-                    ? VectorEncoding.FLOAT32
-                    : VectorEncoding.BYTE;
+                final VectorEncoding encoding = (mappedFieldType.vectorDataType == VectorDataType.FLOAT
+                    || mappedFieldType.vectorDataType == VectorDataType.HALF_FLOAT) ? VectorEncoding.FLOAT32 : VectorEncoding.BYTE;
                 final VectorSimilarityFunction similarityFunction = findBestMatchingVectorSimilarityFunction(
                     resolvedKnnMethodContext.getSpaceType()
                 );

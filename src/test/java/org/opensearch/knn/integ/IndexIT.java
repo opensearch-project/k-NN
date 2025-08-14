@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -25,6 +26,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -37,6 +39,16 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 @Log4j2
 public class IndexIT extends KNNRestTestCase {
     private static TestUtils.TestData testData;
+    private final KNNEngine engine;
+
+    public IndexIT(KNNEngine engine) {
+        this.engine = engine;
+    }
+
+    @ParametersFactory
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
+    }
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -54,9 +66,9 @@ public class IndexIT extends KNNRestTestCase {
 
     @SneakyThrows
     @ExpectRemoteBuildValidation
-    public void testFaissHnsw_when1000Data_thenRecallIsAboveNinePointZero() {
+    public void testHnsw_when1000Data_thenRecallIsAboveNinePointZero() {
         // Create Index
-        createKnnHnswIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
+        createKnnHnswIndex(engine, INDEX_NAME, FIELD_NAME, 128);
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
         int k = 100;

@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.params;
 import lombok.Getter;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.util.Map;
 
@@ -19,15 +20,23 @@ public class KNNVectorsFormatParams {
     private int maxConnections;
     private int beamWidth;
     private final SpaceType spaceType;
+    private final VectorDataType vectorDataType;
 
     public KNNVectorsFormatParams(final Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
-        this(params, defaultMaxConnections, defaultBeamWidth, SpaceType.UNDEFINED);
+        this(params, defaultMaxConnections, defaultBeamWidth, SpaceType.UNDEFINED, VectorDataType.DEFAULT);
     }
 
-    public KNNVectorsFormatParams(final Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth, SpaceType spaceType) {
+    public KNNVectorsFormatParams(
+        final Map<String, Object> params,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        SpaceType spaceType,
+        VectorDataType vectorDataType
+    ) {
         initMaxConnections(params, defaultMaxConnections);
         initBeamWidth(params, defaultBeamWidth);
         this.spaceType = spaceType;
+        this.vectorDataType = vectorDataType;
     }
 
     public boolean validate(final Map<String, Object> params) {

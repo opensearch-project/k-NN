@@ -99,6 +99,37 @@ public class KNNVectorValuesTests extends KNNTestCase {
         new CompareVectorValues<byte[]>().validateVectorValues(knnBinaryVectorValuesBinaryDocValues, byteArray, 3, dimension, false);
     }
 
+    @SneakyThrows
+    public void testHalfFloatVectorValues_whenValidInput_thenSuccess() {
+        final List<float[]> floatArray = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
+        final int dimension = floatArray.get(0).length;
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            floatArray
+        );
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValues, floatArray, 8, dimension, true);
+
+        final DocsWithFieldSet docsWithFieldSet = getDocIdSetIterator(floatArray.size());
+
+        final Map<Integer, float[]> vectorsMap = Map.of(0, floatArray.get(0), 1, floatArray.get(1));
+        final KNNVectorValues<float[]> knnVectorValuesForFieldWriter = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            docsWithFieldSet,
+            vectorsMap
+        );
+        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValuesForFieldWriter, floatArray, 8, dimension, false);
+        final TestVectorValues.PredefinedFloatVectorBinaryDocValues preDefinedFloatVectorValues =
+            new TestVectorValues.PredefinedFloatVectorBinaryDocValues(floatArray);
+        final KNNVectorValues<float[]> knnFloatVectorValuesBinaryDocValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            preDefinedFloatVectorValues
+        );
+        new CompareVectorValues<float[]>().validateVectorValues(knnFloatVectorValuesBinaryDocValues, floatArray, 8, dimension, false);
+    }
+
     private DocsWithFieldSet getDocIdSetIterator(int numberOfDocIds) {
         final DocsWithFieldSet docsWithFieldSet = new DocsWithFieldSet();
         for (int i = 0; i < numberOfDocIds; i++) {

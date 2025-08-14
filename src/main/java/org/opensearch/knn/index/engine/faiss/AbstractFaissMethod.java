@@ -50,7 +50,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
             return PerDimensionValidator.DEFAULT_BYTE_VALIDATOR;
         }
 
-        if (VectorDataType.FLOAT == vectorDataType) {
+        if (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) {
             if (isFaissSQfp16(knnMethodContext.getMethodComponentContext())) {
                 return FaissFP16Util.FP16_VALIDATOR;
             }
@@ -75,7 +75,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
             return PerDimensionProcessor.NOOP_PROCESSOR;
         }
 
-        if (VectorDataType.FLOAT == vectorDataType) {
+        if (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) {
             if (isFaissSQClipToFP16RangeEnabled(knnMethodContext.getMethodComponentContext())) {
                 return FaissFP16Util.CLIP_TO_FP16_PROCESSOR;
             }
