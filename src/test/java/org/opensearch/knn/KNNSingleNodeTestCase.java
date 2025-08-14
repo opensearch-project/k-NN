@@ -5,6 +5,8 @@
 
 package org.opensearch.knn;
 
+import org.opensearch.action.admin.indices.forcemerge.ForceMergeRequest;
+import org.opensearch.action.admin.indices.forcemerge.ForceMergeResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -34,7 +36,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.index.IndexService;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.core.rest.RestStatus;
@@ -65,6 +66,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_ADVANCED_WARMUP_ENABLED;
 import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
 @ThreadLeakFilters(defaultFilters = true, filters = { KNNSingleNodeTestCase.ForkJoinFilter.class })
@@ -109,18 +111,12 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         super.tearDown();
     }
 
-    /**
-     * Create a k-NN index with default settings
-     */
-    protected IndexService createKNNIndex(String indexName) {
-        return createIndex(indexName, getKNNDefaultIndexSettingsBuildsGraphAlways());
+    protected void setMemoryOptimizedSearchEnabled(Settings.Builder builder, boolean value) {
+        builder.put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, value);
     }
 
-    protected IndexService createMemoryOptimizedSearchEnabledKNNIndex(final String indexName) {
-        Settings settings = getKNNDefaultIndexSettingsBuildsGraphAlways();
-        final Settings.Builder builder = Settings.builder().put(settings);
-        builder.put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true);
-        return createIndex(indexName, builder.build());
+    protected void setIndexWarmupEnabledSetting(Settings.Builder builder, boolean value) {
+        builder.put(KNN_INDEX_ADVANCED_WARMUP_ENABLED, value);
     }
 
     /**
@@ -188,13 +184,12 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     /**
      * Get default k-NN settings for test cases with build graph always
      */
-    protected Settings getKNNDefaultIndexSettingsBuildsGraphAlways() {
+    protected Settings.Builder getKNNDefaultIndexSettingsBuildsGraphAlways() {
         return Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
             .put("index.knn", true)
-            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
-            .build();
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
     }
 
     /**
@@ -210,6 +205,12 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
 
         IndexResponse response = client().index(indexRequest).get();
         assertEquals(response.status(), RestStatus.CREATED);
+    }
+
+    protected void mergeIndex(String index, int maxNumSegments) {
+        ForceMergeRequest forceMergeRequest = new ForceMergeRequest().indices(index).maxNumSegments(maxNumSegments);
+        ForceMergeResponse response = client().admin().indices().forceMerge(forceMergeRequest).actionGet();
+        assertEquals(response.getStatus(), RestStatus.OK);
     }
 
     /**

@@ -98,7 +98,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             BUILD_GRAPH_ALWAYS_THRESHOLD,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
         mockedFlatFieldVectorsWriter = Mockito.mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
@@ -333,7 +334,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             BUILD_GRAPH_NEVER_THRESHOLD,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
 
         try (
@@ -408,7 +410,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             maxThreshold + 1,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
 
         try (
@@ -483,7 +486,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             minThreshold,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
 
         try (
@@ -567,7 +571,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             threshold,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
 
         try (
@@ -652,7 +657,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             maxThreshold + 1, // to avoid building graph using max doc threshold, the same can be achieved by -1 too,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
 
         try (
@@ -752,7 +758,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
             segmentWriteState,
             flatVectorsWriter,
             BUILD_GRAPH_NEVER_THRESHOLD,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            null
         );
 
         try (
