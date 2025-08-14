@@ -178,21 +178,6 @@ public class LuceneMethodResolverTests extends KNNTestCase {
             )
         );
 
-        // Invalid compression
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                null,
-                KNNMethodConfigContext.builder()
-                    .vectorDataType(VectorDataType.FLOAT)
-                    .compressionLevel(CompressionLevel.x32)
-                    .versionCreated(Version.CURRENT)
-                    .build(),
-                false,
-                SpaceType.L2
-            )
-        );
-
         // Invalid spec ondisk and compression is 1
         expectThrows(
             ValidationException.class,
