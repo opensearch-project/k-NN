@@ -112,12 +112,12 @@ public final class KNNVectorValuesFactory {
         if (fieldInfo.getVectorEncoding() == VectorEncoding.BYTE) {
             return getVectorValues(
                 FieldInfoExtractor.extractVectorDataType(fieldInfo),
-                new KNNVectorValuesIterator.DocIdsIteratorValues(leafReader.getByteVectorValues(fieldInfo.getName()))
+                new KNNVectorValuesIterator.DocIdsIteratorValues(leafReader.getByteVectorValues(fieldInfo.getName()).copy())
             );
         } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
             return getVectorValues(
                 FieldInfoExtractor.extractVectorDataType(fieldInfo),
-                new KNNVectorValuesIterator.DocIdsIteratorValues(leafReader.getFloatVectorValues(fieldInfo.getName()))
+                new KNNVectorValuesIterator.DocIdsIteratorValues(leafReader.getFloatVectorValues(fieldInfo.getName()).copy())
             );
         } else {
             throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");

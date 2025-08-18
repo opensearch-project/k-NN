@@ -13,6 +13,7 @@ import lombok.Setter;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -146,24 +147,17 @@ public class ExactSearcher {
         BitSetProducer parentsFilter = context.getParentsFilter();
         BitSet parentBitSet = parentsFilter != null ? parentsFilter.getBitSet(leafReaderContext) : null;
         int partitions = computeNumPartitions(maxDoc);
+        if (partitions == 1) {
+            return searchTopCandidates(leafReaderContext, context, limit, filterScore, 0, maxDoc);
+        }
         List<Callable<TopDocs>> tasks = new ArrayList<>(partitions);
         int baseSize = maxDoc / partitions, remainder = maxDoc % partitions;
-        BitSet matchedDocs = context.getMatchedDocs();
         int offset = 0;
         for (int i = 0; i < partitions; i++) {
             int size = baseSize + (i < remainder ? 1 : 0);
             int minDocId = offset, maxDocId = computePartitionEnd(parentBitSet, offset + size, maxDoc);
             if (minDocId >= maxDocId) break;
-            tasks.add(() -> {
-                DocIdSetIterator matchedDocsIterator = matchedDocs != null
-                    ? new RangeDocIdSetIterator(new BitSetIterator(matchedDocs, maxDocId - minDocId), minDocId, maxDocId)
-                    : DocIdSetIterator.range(minDocId, maxDocId);
-                KNNIterator iterator = getKNNIterator(leafReaderContext, context, matchedDocsIterator);
-                if (iterator == null) {
-                    return TopDocsCollector.EMPTY_TOPDOCS;
-                }
-                return searchTopCandidates(iterator, limit, filterScore);
-            });
+            tasks.add(() -> searchTopCandidates(leafReaderContext, context, limit, filterScore, minDocId, maxDocId));
             offset = maxDocId;
         }
         List<TopDocs> results = ExactSearcher.taskExecutor.invokeAll(tasks);
@@ -189,7 +183,14 @@ public class ExactSearcher {
         return (nextParent == NO_MORE_DOCS) ? maxDoc : nextParent + 1;
     }
 
-    private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
+    private TopDocs searchTopCandidates(LeafReaderContext leafReaderContext, ExactSearcherContext context, int limit, @NonNull Predicate<Float> filterScore, int minDocId, int maxDocId) throws IOException {
+        DocIdSetIterator matchedDocsIterator = context.getMatchedDocs() != null
+                ? new RangeDocIdSetIterator(new BitSetIterator(context.getMatchedDocs(), maxDocId - minDocId), minDocId, maxDocId)
+                : DocIdSetIterator.range(minDocId, maxDocId);
+        KNNIterator iterator = getKNNIterator(leafReaderContext, context, matchedDocsIterator);
+        if (iterator == null) {
+            return TopDocsCollector.EMPTY_TOPDOCS;
+        }
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
