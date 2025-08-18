@@ -13,7 +13,6 @@ import lombok.Setter;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -183,10 +182,17 @@ public class ExactSearcher {
         return (nextParent == NO_MORE_DOCS) ? maxDoc : nextParent + 1;
     }
 
-    private TopDocs searchTopCandidates(LeafReaderContext leafReaderContext, ExactSearcherContext context, int limit, @NonNull Predicate<Float> filterScore, int minDocId, int maxDocId) throws IOException {
+    private TopDocs searchTopCandidates(
+        LeafReaderContext leafReaderContext,
+        ExactSearcherContext context,
+        int limit,
+        @NonNull Predicate<Float> filterScore,
+        int minDocId,
+        int maxDocId
+    ) throws IOException {
         DocIdSetIterator matchedDocsIterator = context.getMatchedDocs() != null
-                ? new RangeDocIdSetIterator(new BitSetIterator(context.getMatchedDocs(), maxDocId - minDocId), minDocId, maxDocId)
-                : DocIdSetIterator.range(minDocId, maxDocId);
+            ? new RangeDocIdSetIterator(new BitSetIterator(context.getMatchedDocs(), maxDocId - minDocId), minDocId, maxDocId)
+            : DocIdSetIterator.range(minDocId, maxDocId);
         KNNIterator iterator = getKNNIterator(leafReaderContext, context, matchedDocsIterator);
         if (iterator == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
