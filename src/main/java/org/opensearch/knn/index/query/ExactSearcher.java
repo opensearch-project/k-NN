@@ -155,12 +155,6 @@ public class ExactSearcher {
     }
 
     private int computeNumPartitions(int maxDoc, ExactSearcherContext context) {
-        log.info(
-            "Enabled: {}, Max Partition Count: {}, Min Document Count: {}",
-            context.getConcurrentExactSearchEnabled(),
-            context.getConcurrentExactSearchMaxPartitionCount(),
-            context.getConcurrentExactSearchMinDocumentCount()
-        );
         if (!context.getConcurrentExactSearchEnabled()) {
             return 1;
         }
