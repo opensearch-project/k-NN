@@ -178,14 +178,14 @@ public class KNNQueryFactory extends BaseQueryFactory {
     ) {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
-            return (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT)
+            return (vectorDataType.isFloatFamily())
                 ? new KnnFloatVectorQuery(fieldName, floatQueryVector, k, filterQuery)
                 : new KnnByteVectorQuery(fieldName, byteQueryVector, k, filterQuery);
         }
         // If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link
         // NestedKnnVectorQueryFactory}
         // which will create query to dedupe search result per parent so that we can get k parent results at the end.
-        return (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT)
+        return (vectorDataType.isFloatFamily())
             ? NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,
                 floatQueryVector,

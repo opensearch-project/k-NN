@@ -107,7 +107,7 @@ public interface VectorValueExtractorStrategy {
             }
             docIdsIteratorValues.setLastOrd(ord);
 
-            if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
+            if (vectorDataType.isFloatFamily()) {
                 FloatVectorValues knnVectorValues = (FloatVectorValues) docIdsIteratorValues.getKnnVectorValues();
                 docIdsIteratorValues.setLastAccessedVector(knnVectorValues.vectorValue(ord));
             } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {

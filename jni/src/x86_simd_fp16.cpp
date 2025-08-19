@@ -10,7 +10,7 @@
  */
 
 #include <jni.h>
-#if defined(__x86_64__) && (defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_AVX2_F16C))
+#if defined(__x86_64__) && (defined(KNN_HAVE_AVX512_SPR) || defined(KNN_HAVE_AVX512) || defined(KNN_HAVE_AVX2_F16C))
 #include <immintrin.h>
 #endif
 
@@ -72,14 +72,15 @@ jboolean knn_jni::codec::fp16::encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUt
         __m512 v0 = _mm512_loadu_ps(&src[i]);
         __m512 v1 = _mm512_loadu_ps(&src[i + 16]);
 
-        // Convert to two __m512h halves (each holds 16 FP16 values)
-        // _mm512_cvtps_ph is only available on Intel Sapphire Rapids and newer CPUs with AVX512FP16.
-        __m512h h0 = _mm512_cvtps_ph(v0);
-        __m512h h1 = _mm512_cvtps_ph(v1);
+        // Convert 16 fp32 values in v0 to 16 fp16 with round-to-nearest-even and no exceptions.
+        __m256h h0 = _mm512_cvt_roundps_ph(v0, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+        // Convert 16 fp32 values in v1 to 16 fp16 with the same rounding mode.
+        __m256h h1 = _mm512_cvt_roundps_ph(v1, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
 
-        // Store each half (cast down to __m256i for correct size)
-        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&dst[i]), _mm256_castph512_ph256(h0));
-        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&dst[i + 16]), _mm256_castph512_ph256(h1));
+        // Store 16 fp16 results to &dst[i] using an unaligned 256-bit half store.
+        _mm256_storeu_ph(&dst[i], h0);
+        // Store the next 16 fp16 results to &dst[i + 16].
+        _mm256_storeu_ph(&dst[i + 16], h1);
     }
 #elif defined(KNN_HAVE_AVX512)
     for (; i + 16 <= count; i += 16) {
@@ -156,7 +157,7 @@ jboolean knn_jni::codec::fp16::decodeFp16ToFp32(knn_jni::JNIUtilInterface *jniUt
 #if defined(KNN_HAVE_AVX512_SPR)
     for (; i + 32 <= count; i += 32) {
         // Prefetch 128 FP16 elements (256 bytes) ahead into L1 cache.
-        // Each AVX512_SPR iteration processes 32 FP16 values (64 bytes), so this prefetch is 4 iterations ahead.
+        // Each iteration processes 32 FP16 values (64 bytes), so this prefetches 4 iterations ahead.
         // This prefetches 4 full cache lines (assuming 64-byte cache line size)
         if (i + 128 < count) {
             _mm_prefetch(reinterpret_cast<const char*>(&src[i + 128]), _MM_HINT_T0);

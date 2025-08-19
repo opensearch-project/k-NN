@@ -775,7 +775,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             getVectorValidator().validateVector(array);
             getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForByteVector(array, isDerivedEnabled(context)));
-        } else if (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) {
+        } else if (vectorDataType.isFloatFamily()) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
             if (floatsArrayOptional.isEmpty()) {

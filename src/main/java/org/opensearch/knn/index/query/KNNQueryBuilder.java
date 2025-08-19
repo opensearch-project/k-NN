@@ -586,7 +586,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector((VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) ? this.vector : null)
+                .vector(vectorDataType.isFloatFamily() ? this.vector : null)
                 .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .radius(radius)
@@ -679,8 +679,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     }
 
     private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
-        if ((VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType)
-            || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
+        if (vectorDataType.isFloatFamily() || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
             return this.vector;
         }
         return null;

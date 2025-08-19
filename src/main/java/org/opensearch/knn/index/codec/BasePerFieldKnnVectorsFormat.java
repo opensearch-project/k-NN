@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.isFaissSQfp16;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
@@ -161,9 +162,12 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         }
 
         if (mappedFieldType.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-            throw new UnsupportedOperationException(
-                "Half float data type is not yet supported for native engines. For Faiss, use the fp16 encoder type with float data type for FP16 support."
-            );
+            // Allow HALF_FLOAT only for Faiss SQ encoder with fp16 type
+            if (!(engine == KNNEngine.FAISS && isFaissSQfp16(knnMethodContext.getMethodComponentContext()))) {
+                throw new UnsupportedOperationException(
+                    "For native engine ANN, HALF_FLOAT data type is only supported for Faiss when using the SQ encoder in fp16 mode. For all other native engines and encoder configurations, HALF_FLOAT is not supported."
+                );
+            }
         }
 
         // All native engines to use NativeEngines990KnnVectorsFormat

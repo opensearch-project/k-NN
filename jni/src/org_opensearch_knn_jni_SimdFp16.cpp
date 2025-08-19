@@ -20,11 +20,14 @@ static knn_jni::JNIUtil jniUtil;
 static const jint KNN_SIMDFP16_JNI_VERSION = JNI_VERSION_1_1;
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+    // Obtain the JNIEnv from the VM and confirm JNI_VERSION
     JNIEnv* env;
     if (vm->GetEnv((void**)&env, KNN_SIMDFP16_JNI_VERSION) != JNI_OK) {
         return JNI_ERR;
     }
+
     jniUtil.Initialize(env);
+
     return KNN_SIMDFP16_JNI_VERSION;
 }
 

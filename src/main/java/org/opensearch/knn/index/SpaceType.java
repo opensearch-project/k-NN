@@ -248,9 +248,7 @@ public enum SpaceType {
      * @param vectorDataType the given vector data type
      */
     public void validateVectorDataType(VectorDataType vectorDataType) {
-        if (VectorDataType.FLOAT != vectorDataType
-            && VectorDataType.HALF_FLOAT != vectorDataType
-            && VectorDataType.BYTE != vectorDataType) {
+        if (!vectorDataType.isFloatFamily() && vectorDataType != VectorDataType.BYTE) {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Space type [%s] is not supported with [%s] data type", getValue(), vectorDataType.getValue())
             );

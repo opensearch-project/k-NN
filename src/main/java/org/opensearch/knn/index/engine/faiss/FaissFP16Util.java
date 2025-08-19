@@ -93,7 +93,7 @@ public class FaissFP16Util {
      * @param methodComponentContext MethodComponentContext
      * @return true if it is a "faiss" Index using "sq" encoder of type "fp16"
      */
-    static boolean isFaissSQfp16(MethodComponentContext methodComponentContext) {
+    public static boolean isFaissSQfp16(MethodComponentContext methodComponentContext) {
         MethodComponentContext encoderContext = extractEncoderMethodComponentContext(methodComponentContext);
         if (encoderContext == null) {
             return false;

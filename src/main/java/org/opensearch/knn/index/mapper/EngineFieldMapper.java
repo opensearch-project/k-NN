@@ -199,14 +199,12 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             }
 
             if (useLuceneBasedVectorField) {
-                if (mappedFieldType.vectorDataType == VectorDataType.HALF_FLOAT) {
-                    throw new IllegalArgumentException("Lucene-based vector fields do not yet support HALF_FLOAT vector data type.");
-                }
                 int adjustedDimension = mappedFieldType.vectorDataType == VectorDataType.BINARY
                     ? knnMappingConfig.getDimension() / 8
                     : knnMappingConfig.getDimension();
-                final VectorEncoding encoding = (mappedFieldType.vectorDataType == VectorDataType.FLOAT
-                    || mappedFieldType.vectorDataType == VectorDataType.HALF_FLOAT) ? VectorEncoding.FLOAT32 : VectorEncoding.BYTE;
+                final VectorEncoding encoding = mappedFieldType.vectorDataType.isFloatFamily()
+                    ? VectorEncoding.FLOAT32
+                    : VectorEncoding.BYTE;
                 final VectorSimilarityFunction similarityFunction = findBestMatchingVectorSimilarityFunction(
                     resolvedKnnMethodContext.getSpaceType()
                 );

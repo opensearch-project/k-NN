@@ -63,14 +63,14 @@ elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} 
     endif()
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
-    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512dq -mf16c")
+    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512fp16 -mf16c")
     check_cxx_source_compiles("
         #include <immintrin.h>
         int main() {
-            __m512 x = _mm512_setzero_ps();
-            __m512h h = _mm512_cvtps_ph(x);
-            __m128i t = _mm_cvtps_ph(_mm_setzero_ps(), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC); // F16C
-            (void)h; (void)t;
+            __m512 v = _mm512_set1_ps(1.0f);
+            __m256h h = _mm512_cvt_roundps_ph(v, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+            __m512 w = _mm512_cvtph_ps(h);
+            (void)w;
             return 0;
         }" HAVE_AVX512_SPR_COMPILER)
     unset(CMAKE_REQUIRED_FLAGS)
@@ -78,7 +78,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     if(HAVE_AVX512_SPR_COMPILER)
         set(KNN_HAVE_AVX512_SPR ON)
         set(SIMD_OPT_LEVEL "avx512_spr")
-        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512dq -mf16c)
+        set(SIMD_FLAGS -mavx512f -mavx512fp16 -mf16c)
         set(SIMD_LIB_EXT "_avx512_spr")
         add_definitions(-DKNN_HAVE_AVX512_SPR)
         message(STATUS "[SIMD] AVX512_SPR supported by compiler.")

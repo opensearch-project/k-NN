@@ -1365,7 +1365,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testMethodFieldMapperParseCreateField_validInput_thenDifferentFieldTypes() {
         try (MockedStatic<KNNVectorFieldMapperUtil> utilMockedStatic = Mockito.mockStatic(KNNVectorFieldMapperUtil.class)) {
             for (VectorDataType dataType : VectorDataType.values()) {
-                // Half float is not supported for FAISS ANN yet
+                // Half float is not supported for FAISS ANN without fp16 SQ encoder yet
                 if (dataType == VectorDataType.HALF_FLOAT) continue;
                 log.info("Vector Data Type is : {}", dataType);
                 int dimension = adjustDimensionForIndexing(TEST_DIMENSION, dataType);
@@ -1481,6 +1481,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .build();
 
             for (VectorDataType dataType : VectorDataType.values()) {
+                // Half float is not supported for FAISS ANN without fp16 SQ encoder yet
                 if (dataType == VectorDataType.HALF_FLOAT) continue;
                 log.info("Vector Data Type is : {}", dataType);
                 SpaceType spaceType = VectorDataType.BINARY == dataType ? SpaceType.DEFAULT_BINARY : SpaceType.INNER_PRODUCT;

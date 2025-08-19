@@ -781,9 +781,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         int size = VectorDataType.BINARY == vectorDataType ? dimensions / 8 : dimensions;
         final float[] vector = new float[size];
         for (int i = 0; i < size; i++) {
-            vector[i] = (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType)
-                ? randomFloat()
-                : randomByte();
+            vector[i] = (vectorDataType.isFloatFamily()) ? randomFloat() : randomByte();
         }
         return vector;
     }
@@ -831,7 +829,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             case COSINESIMIL:
             case INNER_PRODUCT:
             case HAMMING:
-                if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
+                if (vectorDataType.isFloatFamily()) {
                     return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(queryVector);
                 }
                 return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod(toByte(queryVector));

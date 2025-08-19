@@ -195,7 +195,7 @@ class VectorValuesInputStream extends InputStream {
      */
     private void reloadBuffer() throws IOException {
         currentBuffer.clear();
-        if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
+        if (vectorDataType.isFloatFamily()) {
             float[] floatVector = ((KNNFloatVectorValues) knnVectorValues).getVector();
             currentBuffer.asFloatBuffer().put(floatVector);
         } else if (vectorDataType == VectorDataType.BYTE) {
