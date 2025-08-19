@@ -397,7 +397,10 @@ public abstract class KNNWeight extends Weight {
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
-            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch());
+            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+            .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled())
+            .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount())
+            .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount());
 
         if (knnQuery.getContext() != null) {
             exactSearcherContextBuilder.maxResultWindow(knnQuery.getContext().getMaxResultWindow());

@@ -9,7 +9,6 @@ import com.google.common.base.Predicates;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NonNull;
-import lombok.Setter;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
@@ -28,7 +27,6 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
@@ -66,13 +64,6 @@ public class ExactSearcher {
 
     private final ModelDao modelDao;
     private static TaskExecutor taskExecutor;
-
-    @Setter
-    private static boolean concurrentExactSearchEnabled = KNNSettings.KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_ENABLED;
-    @Setter
-    private static int concurrentExactSearchMaxPartitionCount = KNNSettings.KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT;
-    @Setter
-    private static int concurrentExactSearchMinDocumentCount = KNNSettings.KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT;
 
     public static void initialize(ThreadPool threadPool) {
         ExactSearcher.taskExecutor = new TaskExecutor(threadPool.executor(EXACT_SEARCH_THREAD_POOL));
@@ -145,7 +136,7 @@ public class ExactSearcher {
         int maxDoc = leafReaderContext.reader().maxDoc();
         BitSetProducer parentsFilter = context.getParentsFilter();
         BitSet parentBitSet = parentsFilter != null ? parentsFilter.getBitSet(leafReaderContext) : null;
-        int partitions = computeNumPartitions(maxDoc);
+        int partitions = computeNumPartitions(maxDoc, context);
         if (partitions == 1) {
             return searchTopCandidates(leafReaderContext, context, limit, filterScore, 0, maxDoc);
         }
@@ -163,12 +154,14 @@ public class ExactSearcher {
         return TopDocs.merge(limit, results.toArray(new TopDocs[tasks.size()]));
     }
 
-    private int computeNumPartitions(int maxDoc) {
-        if (!concurrentExactSearchEnabled) {
+    private int computeNumPartitions(int maxDoc, ExactSearcherContext context) {
+        if (!context.getConcurrentExactSearchEnabled()) {
             return 1;
         }
-        int partitions = Math.max(maxDoc / concurrentExactSearchMinDocumentCount, 1);
-        return (concurrentExactSearchMaxPartitionCount == 0) ? partitions : Math.min(partitions, concurrentExactSearchMaxPartitionCount);
+        int partitions = Math.max(maxDoc / context.getConcurrentExactSearchMinDocumentCount(), 1);
+        return (context.getConcurrentExactSearchMaxPartitionCount() == 0)
+            ? partitions
+            : Math.min(partitions, context.getConcurrentExactSearchMaxPartitionCount());
     }
 
     private int computePartitionEnd(BitSet parentBitSet, int tentativeEnd, int maxDoc) {
@@ -374,5 +367,8 @@ public class ExactSearcher {
         Integer maxResultWindow;
         VectorSimilarityFunction similarityFunction;
         Boolean isMemoryOptimizedSearchEnabled;
+        Boolean concurrentExactSearchEnabled;
+        int concurrentExactSearchMaxPartitionCount;
+        int concurrentExactSearchMinDocumentCount;
     }
 }

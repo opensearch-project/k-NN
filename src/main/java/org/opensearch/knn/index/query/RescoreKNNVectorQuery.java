@@ -22,6 +22,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.profile.KNNProfileUtil;
@@ -125,6 +126,9 @@ public class RescoreKNNVectorQuery extends Query {
             .k(k)
             .field(field)
             .floatQueryVector(queryVector)
+            .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled())
+            .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount())
+            .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount())
             .build();
         TopDocs results = (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,

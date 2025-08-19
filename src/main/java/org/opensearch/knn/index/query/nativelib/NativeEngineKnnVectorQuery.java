@@ -226,6 +226,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
             .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+            .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled())
+            .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount())
+            .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount())
             .build();
         TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
         return new PerLeafResult(perLeafResult.getFilterBits(), rescoreResult);
@@ -272,6 +275,9 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .floatQueryVector(knnQuery.getQueryVector())
                     .byteQueryVector(knnQuery.getByteQueryVector())
                     .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+                    .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled())
+                    .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount())
+                    .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount())
                     .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafeResult.getFilterBits(), rescoreResult);

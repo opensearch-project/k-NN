@@ -28,7 +28,6 @@ import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
-import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
@@ -642,23 +641,6 @@ public class KNNSettings {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
             quantizationStateCacheManager.rebuildCache();
         });
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(updatedSettings -> {
-            ExactSearcher.setConcurrentExactSearchEnabled(
-                updatedSettings.getAsBoolean(KNN_CONCURRENT_EXACT_SEARCH_ENABLED, getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_ENABLED))
-            );
-            ExactSearcher.setConcurrentExactSearchMaxPartitionCount(
-                updatedSettings.getAsInt(
-                    KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
-                    getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT)
-                )
-            );
-            ExactSearcher.setConcurrentExactSearchMinDocumentCount(
-                updatedSettings.getAsInt(
-                    KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
-                    getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT)
-                )
-            );
-        }, CONCURRENT_EXACT_SEARCH_SETTINGS.values().stream().toList());
     }
 
     /**
@@ -1008,6 +990,23 @@ public class KNNSettings {
 
     public static boolean isShardLevelRescoringDisabledForDiskBasedVector(final String indexName) {
         return getIndexSettings(indexName).getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
+    }
+
+    public static boolean isConcurrentExactSearchEnabled() {
+        return parseBoolean(
+            Objects.requireNonNullElse(
+                KNNSettings.state().getSettingValue(KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_ENABLED),
+                KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
+            ).toString()
+        );
+    }
+
+    public static int getConcurrentExactSearchMaxPartitionCount() {
+        return KNNSettings.state().getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT);
+    }
+
+    public static int getConcurrentExactSearchMinDocumentCount() {
+        return KNNSettings.state().getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT);
     }
 
     public void initialize(Client client, ClusterService clusterService) {
