@@ -120,6 +120,11 @@ public class KNNSettings {
     public static final String KNN_CONCURRENT_EXACT_SEARCH_ENABLED = "knn.search.concurrent_exact_search.enabled";
     public static final String KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT = "knn.search.concurrent_exact_search.max_partition_count";
     public static final String KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT = "knn.search.concurrent_exact_search.min_document_count";
+    public static final String INDEX_KNN_CONCURRENT_EXACT_SEARCH_ENABLED = "index.knn.search.concurrent_exact_search.enabled";
+    public static final String INDEX_KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT =
+        "index.knn.search.concurrent_exact_search.max_partition_count";
+    public static final String INDEX_KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT =
+        "index.knn.search.concurrent_exact_search.min_document_count";
 
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
@@ -508,32 +513,55 @@ public class KNNSettings {
         null
     );
 
+    public static final Setting<Boolean> KNN_CONCURRENT_EXACT_SEARCH_ENABLED_SETTING = Setting.boolSetting(
+        KNN_CONCURRENT_EXACT_SEARCH_ENABLED,
+        KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_ENABLED,
+        NodeScope,
+        Dynamic
+    );
+    public static final Setting<Integer> KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT_SETTING = Setting.intSetting(
+        KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+        KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+        0,
+        NodeScope,
+        Dynamic
+    );
+    public static final Setting<Integer> KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT_SETTING = Setting.intSetting(
+        KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+        KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+        1,
+        NodeScope,
+        Dynamic
+    );
+    public static final Setting<Boolean> INDEX_KNN_CONCURRENT_EXACT_SEARCH_ENABLED_SETTING = Setting.boolSetting(
+        INDEX_KNN_CONCURRENT_EXACT_SEARCH_ENABLED,
+        KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_ENABLED,
+        IndexScope,
+        Dynamic
+    );
+    public static final Setting<Integer> INDEX_KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT_SETTING = Setting.intSetting(
+        INDEX_KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+        KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+        0,
+        IndexScope,
+        Dynamic
+    );
+    public static final Setting<Integer> INDEX_KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT_SETTING = Setting.intSetting(
+        INDEX_KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+        KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+        1,
+        IndexScope,
+        Dynamic
+    );
+
     public static Map<String, Setting<?>> CONCURRENT_EXACT_SEARCH_SETTINGS = new HashMap<>() {
         {
-            put(
-                KNN_CONCURRENT_EXACT_SEARCH_ENABLED,
-                Setting.boolSetting(KNN_CONCURRENT_EXACT_SEARCH_ENABLED, KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_ENABLED, NodeScope, Dynamic)
-            );
-            put(
-                KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
-                Setting.intSetting(
-                    KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
-                    KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
-                    0,
-                    NodeScope,
-                    Dynamic
-                )
-            );
-            put(
-                KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
-                Setting.intSetting(
-                    KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
-                    KNN_DEFAULT_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
-                    1,
-                    NodeScope,
-                    Dynamic
-                )
-            );
+            put(KNN_CONCURRENT_EXACT_SEARCH_ENABLED, KNN_CONCURRENT_EXACT_SEARCH_ENABLED_SETTING);
+            put(KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT, KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT_SETTING);
+            put(KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT, KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT_SETTING);
+            put(INDEX_KNN_CONCURRENT_EXACT_SEARCH_ENABLED, INDEX_KNN_CONCURRENT_EXACT_SEARCH_ENABLED_SETTING);
+            put(INDEX_KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT, INDEX_KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT_SETTING);
+            put(INDEX_KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT, INDEX_KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT_SETTING);
         }
     };
 
@@ -992,21 +1020,25 @@ public class KNNSettings {
         return getIndexSettings(indexName).getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
     }
 
-    public static boolean isConcurrentExactSearchEnabled() {
-        return parseBoolean(
-            Objects.requireNonNullElse(
-                KNNSettings.state().getSettingValue(KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_ENABLED),
-                KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
-            ).toString()
+    public static boolean isConcurrentExactSearchEnabled(@NonNull String indexName) {
+        return getIndexSettings(indexName).getAsBoolean(
+            INDEX_KNN_CONCURRENT_EXACT_SEARCH_ENABLED,
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_ENABLED)
         );
     }
 
-    public static int getConcurrentExactSearchMaxPartitionCount() {
-        return KNNSettings.state().getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT);
+    public static int getConcurrentExactSearchMaxPartitionCount(@NonNull String indexName) {
+        return getIndexSettings(indexName).getAsInt(
+            INDEX_KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT,
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT)
+        );
     }
 
-    public static int getConcurrentExactSearchMinDocumentCount() {
-        return KNNSettings.state().getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT);
+    public static int getConcurrentExactSearchMinDocumentCount(@NonNull String indexName) {
+        return getIndexSettings(indexName).getAsInt(
+            INDEX_KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT,
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT)
+        );
     }
 
     public void initialize(Client client, ClusterService clusterService) {

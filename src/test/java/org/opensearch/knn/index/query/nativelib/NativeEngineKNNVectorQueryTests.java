@@ -106,7 +106,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         // Set ClusterService in KNNSettings
         KNNSettings.state().setClusterService(clusterService);
         when(knnQuery.getQueryVector()).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });  // Example vector
-
+        when(knnQuery.getIndexName()).thenReturn("test-index");
     }
 
     @SneakyThrows
@@ -304,7 +304,9 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class);
             MockedStatic<ResultUtil> mockedResultUtil = mockStatic(ResultUtil.class)
         ) {
-
+            mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
             // When shard-level re-scoring is enabled
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
@@ -430,7 +432,9 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(searcher.getIndexReader()).thenReturn(reader);
 
         try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
-
+            mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
             // When shard-level re-scoring is enabled
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
@@ -537,7 +541,14 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(allSiblings);
         when(queryUtils.createDocAndScoreQuery(eq(reader), any(), eq(knnWeight))).thenReturn(finalQuery);
 
-        try (MockedStatic<BitSet> mockedBitSet = mockStatic(BitSet.class)) {
+        try (
+            MockedStatic<BitSet> mockedBitSet = mockStatic(BitSet.class);
+            MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)
+        ) {
+            mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
+
             mockedBitSet.when(() -> BitSet.of(eq(allSiblings), anyInt())).thenReturn(new FixedBitSet(new long[] { 6 }, 3));
             // Run
             NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, queryUtils, true);

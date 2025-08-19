@@ -39,6 +39,7 @@ import java.util.concurrent.Callable;
 @Log4j2
 public class RescoreKNNVectorQuery extends Query {
 
+    private final String indexName;
     private final Query innerQuery;
     private final String field;
     private final int k;
@@ -56,7 +57,8 @@ public class RescoreKNNVectorQuery extends Query {
      * @param k          The number of nearest neighbors to return
      * @param queryVector The vector to compare against document vectors
      */
-    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, int shardId) {
+    public RescoreKNNVectorQuery(String indexName, Query innerQuery, String field, int k, float[] queryVector, int shardId) {
+        this.indexName = indexName;
         this.innerQuery = innerQuery;
         this.field = field;
         this.k = k;
@@ -66,7 +68,16 @@ public class RescoreKNNVectorQuery extends Query {
     }
 
     @VisibleForTesting
-    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, int shardId, ExactSearcher searcher) {
+    public RescoreKNNVectorQuery(
+        String indexName,
+        Query innerQuery,
+        String field,
+        int k,
+        float[] queryVector,
+        int shardId,
+        ExactSearcher searcher
+    ) {
+        this.indexName = indexName;
         this.innerQuery = innerQuery;
         this.field = field;
         this.k = k;
@@ -126,9 +137,9 @@ public class RescoreKNNVectorQuery extends Query {
             .k(k)
             .field(field)
             .floatQueryVector(queryVector)
-            .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled())
-            .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount())
-            .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount())
+            .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled(indexName))
+            .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount(indexName))
+            .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount(indexName))
             .build();
         TopDocs results = (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,

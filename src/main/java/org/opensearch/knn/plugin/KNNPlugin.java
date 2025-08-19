@@ -134,9 +134,6 @@ import static org.opensearch.knn.common.KNNConstants.KNN_TRAIN_THREAD_POOL_PREFI
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TIER;
-import static org.opensearch.knn.index.KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_ENABLED;
-import static org.opensearch.knn.index.KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT;
-import static org.opensearch.knn.index.KNNSettings.KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT;
 import static org.opensearch.knn.index.KNNSettings.KNN_DERIVED_SOURCE_ENABLED;
 
 /**

@@ -26,6 +26,7 @@ import org.junit.Before;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -49,6 +50,7 @@ import java.util.stream.IntStream;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.FIELD_NAME;
@@ -83,7 +85,12 @@ public class ExactSearcherTests extends KNNTestCase {
         final KNNQuery query = KNNQuery.builder().field(FIELD_NAME).queryVector(queryVector).k(10).indexName(INDEX_NAME).build();
 
         final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
-            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).floatQueryVector(queryVector);
+            ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(queryVector)
+                .concurrentExactSearchEnabled(true)
+                .concurrentExactSearchMaxPartitionCount(0)
+                .concurrentExactSearchMinDocumentCount(2);
 
         ExactSearcher exactSearcher = new ExactSearcher(null);
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -94,11 +101,13 @@ public class ExactSearcherTests extends KNNTestCase {
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(query.getField())).thenReturn(null);
-        TopDocs docs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
-        Mockito.verify(fieldInfos).fieldInfo(query.getField());
-        Mockito.verify(reader).getFieldInfos();
-        Mockito.verify(leafReaderContext, times(2)).reader();
-        assertEquals(0, docs.scoreDocs.length);
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            TopDocs docs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
+            Mockito.verify(fieldInfos).fieldInfo(query.getField());
+            Mockito.verify(reader).getFieldInfos();
+            Mockito.verify(leafReaderContext, times(2)).reader();
+            assertEquals(0, docs.scoreDocs.length);
+        }
     }
 
     @SneakyThrows
@@ -114,7 +123,12 @@ public class ExactSearcherTests extends KNNTestCase {
             .build();
 
         final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
-            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).floatQueryVector(queryVector);
+            ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(queryVector)
+                .concurrentExactSearchEnabled(true)
+                .concurrentExactSearchMaxPartitionCount(0)
+                .concurrentExactSearchMinDocumentCount(2);
 
         ExactSearcher exactSearcher = new ExactSearcher(null);
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -168,9 +182,6 @@ public class ExactSearcherTests extends KNNTestCase {
 
             // Create exact searcher
             ExactSearcher exactSearcher = new ExactSearcher(null);
-            ExactSearcher.setConcurrentExactSearchEnabled(true);
-            ExactSearcher.setConcurrentExactSearchMinDocumentCount(2);
-            ExactSearcher.setConcurrentExactSearchMaxPartitionCount(0);
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
             final SegmentReader reader = mock(SegmentReader.class);
             when(leafReaderContext.reader()).thenReturn(reader);
@@ -248,7 +259,10 @@ public class ExactSearcherTests extends KNNTestCase {
                     .radius(radius)
                     .isMemoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                     .maxResultWindow(maxResults)
-                    .field(FIELD_NAME);
+                    .field(FIELD_NAME)
+                    .concurrentExactSearchEnabled(true)
+                    .concurrentExactSearchMaxPartitionCount(0)
+                    .concurrentExactSearchMinDocumentCount(2);
 
             // Now, perform exact search and do a validation
             final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
@@ -296,9 +310,6 @@ public class ExactSearcherTests extends KNNTestCase {
 
             // Create exact searcher
             ExactSearcher exactSearcher = new ExactSearcher(null);
-            ExactSearcher.setConcurrentExactSearchEnabled(true);
-            ExactSearcher.setConcurrentExactSearchMinDocumentCount(2);
-            ExactSearcher.setConcurrentExactSearchMaxPartitionCount(0);
 
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
             final SegmentReader reader = mock(SegmentReader.class);
@@ -378,7 +389,10 @@ public class ExactSearcherTests extends KNNTestCase {
                     .floatQueryVector(queryVector)
                     .isMemoryOptimizedSearchEnabled(false)
                     .k(1000)
-                    .field(FIELD_NAME);
+                    .field(FIELD_NAME)
+                    .concurrentExactSearchEnabled(true)
+                    .concurrentExactSearchMaxPartitionCount(0)
+                    .concurrentExactSearchMinDocumentCount(2);
 
             // Now, perform exact search and do a validation
             final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
@@ -418,9 +432,6 @@ public class ExactSearcherTests extends KNNTestCase {
 
             // Create exact searcher
             ExactSearcher exactSearcher = new ExactSearcher(null);
-            ExactSearcher.setConcurrentExactSearchEnabled(true);
-            ExactSearcher.setConcurrentExactSearchMinDocumentCount(2);
-            ExactSearcher.setConcurrentExactSearchMaxPartitionCount(0);
 
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
             final SegmentReader reader = mock(SegmentReader.class);
@@ -497,7 +508,10 @@ public class ExactSearcherTests extends KNNTestCase {
                     .floatQueryVector(queryVector)
                     .isMemoryOptimizedSearchEnabled(false)
                     .k(1000)
-                    .field(FIELD_NAME);
+                    .field(FIELD_NAME)
+                    .concurrentExactSearchEnabled(true)
+                    .concurrentExactSearchMaxPartitionCount(0)
+                    .concurrentExactSearchMinDocumentCount(2);
 
             // Now, perform exact search and do a validation
             final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
@@ -529,9 +543,6 @@ public class ExactSearcherTests extends KNNTestCase {
 
             // Create exact searcher
             ExactSearcher exactSearcher = new ExactSearcher(null);
-            ExactSearcher.setConcurrentExactSearchEnabled(true);
-            ExactSearcher.setConcurrentExactSearchMinDocumentCount(2);
-            ExactSearcher.setConcurrentExactSearchMaxPartitionCount(0);
 
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
             final SegmentReader reader = mock(SegmentReader.class);
@@ -607,7 +618,10 @@ public class ExactSearcherTests extends KNNTestCase {
                     .floatQueryVector(queryVector)
                     .isMemoryOptimizedSearchEnabled(false)
                     .k(1000)
-                    .field(FIELD_NAME);
+                    .field(FIELD_NAME)
+                    .concurrentExactSearchEnabled(true)
+                    .concurrentExactSearchMaxPartitionCount(0)
+                    .concurrentExactSearchMinDocumentCount(2);
 
             // Now, perform exact search and do a validation
             final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());

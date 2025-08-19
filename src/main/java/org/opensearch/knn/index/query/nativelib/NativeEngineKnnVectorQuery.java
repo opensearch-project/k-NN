@@ -226,9 +226,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
             .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
-            .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled())
-            .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount())
-            .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount())
+            .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled(knnQuery.getIndexName()))
+            .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount(knnQuery.getIndexName()))
+            .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount(knnQuery.getIndexName()))
             .build();
         TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
         return new PerLeafResult(perLeafResult.getFilterBits(), rescoreResult);
@@ -275,9 +275,9 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .floatQueryVector(knnQuery.getQueryVector())
                     .byteQueryVector(knnQuery.getByteQueryVector())
                     .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
-                    .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled())
-                    .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount())
-                    .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount())
+                    .concurrentExactSearchEnabled(KNNSettings.isConcurrentExactSearchEnabled(knnQuery.getIndexName()))
+                    .concurrentExactSearchMaxPartitionCount(KNNSettings.getConcurrentExactSearchMaxPartitionCount(knnQuery.getIndexName()))
+                    .concurrentExactSearchMinDocumentCount(KNNSettings.getConcurrentExactSearchMinDocumentCount(knnQuery.getIndexName()))
                     .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafeResult.getFilterBits(), rescoreResult);

@@ -27,6 +27,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.test.OpenSearchTestCase;
@@ -86,10 +87,23 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
                 // Will use matchAll docs query to get all elements, but with score equal to 1, so that
                 // after rescore we can compare actual scores.
                 Query innerQuery = new MatchAllDocsQuery();
-                try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+                try (
+                    MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class);
+                    MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)
+                ) {
                     mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
-                    IndexSearcher searcher = newSearcher(reader, true, false);
-                    RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(innerQuery, FIELD_NAME, finalK, queryVector, 1);
+                    mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+                    mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+                    mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
+                    IndexSearcher searcher = newSearcher(reader, true, false, false);
+                    RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(
+                        "test-index",
+                        innerQuery,
+                        FIELD_NAME,
+                        finalK,
+                        queryVector,
+                        1
+                    );
                     TopDocs rescoredDocs = searcher.search(rescoreKnnVectorQuery, finalK);
                     assertEquals(finalK, rescoredDocs.scoreDocs.length);
                     List<Float> actualScores = new ArrayList<>();
@@ -125,9 +139,16 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
             }
             return results;
         });
-        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+        try (
+            MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class);
+            MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)
+        ) {
             mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+            mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
             RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(
+                "test-index",
                 mockedInnerQuery,
                 FIELD_NAME,
                 10,

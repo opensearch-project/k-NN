@@ -983,6 +983,9 @@ public class KNNWeightTests extends KNNWeightTestCase {
             .floatQueryVector(queryVector)
             .field(FIELD_NAME)
             .isMemoryOptimizedSearchEnabled(false)
+            .concurrentExactSearchEnabled(false)
+            .concurrentExactSearchMaxPartitionCount(0)
+            .concurrentExactSearchMinDocumentCount(0)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
