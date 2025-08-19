@@ -302,13 +302,10 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
 
         if (useLuceneBasedVectorField) {
-            if (modelMetadata.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-                throw new IllegalArgumentException("Lucene-based vector fields do not yet support HALF_FLOAT vector data type.");
-            }
             int adjustedDimension = modelMetadata.getVectorDataType() == VectorDataType.BINARY
                 ? modelMetadata.getDimension() / Byte.SIZE
                 : modelMetadata.getDimension();
-            final VectorEncoding encoding = modelMetadata.getVectorDataType() == VectorDataType.FLOAT
+            final VectorEncoding encoding = modelMetadata.getVectorDataType().isFloatFamily()
                 ? VectorEncoding.FLOAT32
                 : VectorEncoding.BYTE;
             fieldType.setVectorAttributes(

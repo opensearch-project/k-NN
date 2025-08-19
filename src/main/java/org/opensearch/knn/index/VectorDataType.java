@@ -195,5 +195,13 @@ public enum VectorDataType {
         }
     }
 
+    /**
+     * Returns true if this type is a floating-point family type (FLOAT, HALF_FLOAT).
+     * In the future, BHALF_FLOAT/BFLOAT16 can be added here.
+     */
+    public boolean isFloatFamily() {
+        return this == FLOAT || this == HALF_FLOAT;
+    }
+
     public static VectorDataType DEFAULT = FLOAT;
 }

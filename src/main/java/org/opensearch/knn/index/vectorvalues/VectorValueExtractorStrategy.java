@@ -107,7 +107,7 @@ public interface VectorValueExtractorStrategy {
             }
             docIdsIteratorValues.setLastOrd(ord);
 
-            if (vectorDataType == VectorDataType.FLOAT) {
+            if (vectorDataType.isFloatFamily()) {
                 FloatVectorValues knnVectorValues = (FloatVectorValues) docIdsIteratorValues.getKnnVectorValues();
                 docIdsIteratorValues.setLastAccessedVector(knnVectorValues.vectorValue(ord));
             } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
@@ -136,6 +136,7 @@ public interface VectorValueExtractorStrategy {
         public <T> T extract(final VectorDataType vectorDataType, final KNNVectorValuesIterator vectorValuesIterator) throws IOException {
             switch (vectorDataType) {
                 case FLOAT:
+                case HALF_FLOAT:
                     return (T) ((KNNVectorValuesIterator.FieldWriterIteratorValues<float[]>) vectorValuesIterator).vectorsValue();
                 case BYTE:
                 case BINARY:

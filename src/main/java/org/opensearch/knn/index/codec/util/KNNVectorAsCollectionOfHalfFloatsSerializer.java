@@ -6,8 +6,7 @@
 package org.opensearch.knn.index.codec.util;
 
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.knn.jni.SIMDDecoding;
-import org.opensearch.knn.jni.SIMDEncoding;
+import org.opensearch.knn.jni.SimdFp16;
 
 /**
  * Class implements KNNVectorSerializer based on serialization/deserialization of float array
@@ -36,8 +35,8 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             throw new IllegalArgumentException("Output buffer size mismatch. Must be 2x input length.");
         }
 
-        if (SIMDEncoding.isSIMDSupported()) {
-            if (!SIMDEncoding.convertFP32ToFP16(input, output, dimension)) {
+        if (SimdFp16.isSIMDSupported()) {
+            if (!SimdFp16.encodeFp32ToFp16(input, output, dimension)) {
                 throw new IllegalStateException("[KNN] SIMD is supported but native encoding failed unexpectedly.");
             }
             return;
@@ -71,8 +70,8 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             throw new IllegalArgumentException("Offset and dimension exceed input length.");
         }
 
-        if (SIMDDecoding.isSIMDSupported()) {
-            if (!SIMDDecoding.convertFP16ToFP32(input, output, dimension, offset)) {
+        if (SimdFp16.isSIMDSupported()) {
+            if (!SimdFp16.decodeFp16ToFp32(input, output, dimension, offset)) {
                 throw new IllegalStateException("[KNN] SIMD is supported but native decoding failed unexpectedly.");
             }
             return;

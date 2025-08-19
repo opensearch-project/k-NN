@@ -14,10 +14,12 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
+import org.opensearch.knn.index.codec.KNN990Codec.halffloatcodec.KNN990HalfFloatFlatVectorsFormat;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
@@ -31,6 +33,7 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.isFaissSQfp16;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
@@ -97,6 +100,14 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
+        // TODO: Use the new `index` parameter to disable graph creation for exact search
+        // https://github.com/opensearch-project/k-NN/pull/2768
+        // For now, we directly return the KNN990HalfFloatFlatVectorsFormat to perform Exact Search for FP16 based on the approximate
+        // threshold.
+        if (getApproximateThresholdValue() < 0 && mappedFieldType.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+            return new KNN990HalfFloatFlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer());
+        }
+
         final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         if (knnMappingConfig.getModelId().isPresent()) {
             return nativeEngineVectorsFormat();
@@ -136,7 +147,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 params,
                 defaultMaxConnections,
                 defaultBeamWidth,
-                knnMethodContext.getSpaceType()
+                knnMethodContext.getSpaceType(),
+                mappedFieldType.getVectorDataType()
             );
             log.debug(
                 "Initialize KNN vector format for field [{}] with params [{}] = \"{}\" and [{}] = \"{}\"",
@@ -147,6 +159,15 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 knnVectorsFormatParams.getBeamWidth()
             );
             return vectorsFormatSupplier.apply(knnVectorsFormatParams);
+        }
+
+        if (mappedFieldType.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+            // Allow HALF_FLOAT only for Faiss SQ encoder with fp16 type
+            if (!(engine == KNNEngine.FAISS && isFaissSQfp16(knnMethodContext.getMethodComponentContext()))) {
+                throw new UnsupportedOperationException(
+                    "For native engine ANN, HALF_FLOAT data type is only supported for Faiss when using the SQ encoder in fp16 mode. For all other native engines and encoder configurations, HALF_FLOAT is not supported."
+                );
+            }
         }
 
         // All native engines to use NativeEngines990KnnVectorsFormat
@@ -168,6 +189,9 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         // This is private method and mapperService is already checked for null or valid instance type before this call
         // at caller, hence we don't need additional isPresent check here.
         final IndexSettings indexSettings = mapperService.get().getIndexSettings();
+        if (indexSettings == null) {
+            return KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+        }
         final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
         return approximateThresholdValue != null
             ? approximateThresholdValue

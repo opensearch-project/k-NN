@@ -598,7 +598,7 @@ public abstract class KNNWeight extends Weight {
     }
 
     private boolean isMDCGreaterThanFilterIdCnt(int filterIdsCount) {
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getVectorDataType() == VectorDataType.FLOAT
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getVectorDataType().isFloatFamily()
             ? knnQuery.getQueryVector().length
             : knnQuery.getByteQueryVector().length);
     }

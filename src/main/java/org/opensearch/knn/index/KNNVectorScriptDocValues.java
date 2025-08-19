@@ -173,7 +173,7 @@ public abstract class KNNVectorScriptDocValues<T> extends ScriptDocValues<T> {
      * @return An empty KNNVectorScriptDocValues object.
      */
     public static KNNVectorScriptDocValues<?> emptyValues(String fieldName, VectorDataType type) {
-        if (type == VectorDataType.FLOAT) {
+        if (type.isFloatFamily()) {
             return new KNNVectorScriptDocValues<float[]>(DocIdSetIterator.empty(), fieldName, type) {
                 @Override
                 protected float[] doGetValue() throws IOException {

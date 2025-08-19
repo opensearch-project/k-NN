@@ -147,7 +147,7 @@ public interface KNNScoringSpace {
             VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType() == null
                 ? VectorDataType.FLOAT
                 : knnVectorFieldType.getVectorDataType();
-            if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
+            if (vectorDataType.isFloatFamily()) {
                 return parseToFloatArray(
                     query,
                     KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType),

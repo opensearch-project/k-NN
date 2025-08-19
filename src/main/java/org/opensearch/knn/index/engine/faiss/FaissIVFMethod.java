@@ -45,6 +45,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
         VectorDataType.FLOAT,
+        VectorDataType.HALF_FLOAT,
         VectorDataType.BINARY,
         VectorDataType.BYTE
     );

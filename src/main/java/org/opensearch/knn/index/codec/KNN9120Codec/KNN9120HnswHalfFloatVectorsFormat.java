@@ -9,7 +9,7 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsFormat;
-import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
+import org.opensearch.knn.index.codec.KNN990Codec.halffloatcodec.KNN990HalfFloatFlatVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
@@ -28,42 +28,42 @@ import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.MAXIMU
 import static org.opensearch.knn.index.engine.KNNEngine.getMaxDimensionByEngine;
 
 /**
- * Custom KnnVectorsFormat implementation to support binary vectors. This class is mostly identical to
- * {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat}, however we use the custom {@link KNN9120BinaryVectorScorer}
- * to perform hamming bit scoring.
+ * Custom KnnVectorsFormat implementation to support half-float vectors.  This class is mostly identical to
+ * {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat}, however we use the custom
+ * {@link KNN990HalfFloatFlatVectorsFormat} for storing flat vectors as half-float.
  * <p>
  * TODO: Remove this class once the PR to allow passing custom FlatVectorsFormat to
  * {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat} is merged into Lucene.
  * <a href="https://github.com/apache/lucene/pull/15090">...</a>
  */
-public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
+public final class KNN9120HnswHalfFloatVectorsFormat extends KnnVectorsFormat {
 
     private final int maxConn;
     private final int beamWidth;
-    private static final FlatVectorsFormat flatVectorsFormat = new Lucene99FlatVectorsFormat(new KNN9120BinaryVectorScorer());
+    private static final FlatVectorsFormat flatVectorsFormat = new KNN990HalfFloatFlatVectorsFormat();
     private final int numMergeWorkers;
     private final TaskExecutor mergeExec;
 
-    private static final String NAME = "KNN990HnswBinaryVectorsFormat";
+    private static final String NAME = "KNN9120HnswHalfFloatVectorsFormat";
 
     /**
      * Constructor logic is identical to {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat#Lucene99HnswVectorsFormat()}
      */
-    public KNN9120HnswBinaryVectorsFormat() {
+    public KNN9120HnswHalfFloatVectorsFormat() {
         this(DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_NUM_MERGE_WORKER, null);
     }
 
     /**
      * Constructor logic is identical to {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat#Lucene99HnswVectorsFormat(int, int)}
      */
-    public KNN9120HnswBinaryVectorsFormat(int maxConn, int beamWidth) {
+    public KNN9120HnswHalfFloatVectorsFormat(int maxConn, int beamWidth) {
         this(maxConn, beamWidth, 1, null);
     }
 
     /**
      * Constructor logic is identical to {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat#Lucene99HnswVectorsFormat(int, int, int, java.util.concurrent.ExecutorService)}
      */
-    public KNN9120HnswBinaryVectorsFormat(int maxConn, int beamWidth, int numMergeWorkers, ExecutorService mergeExec) {
+    public KNN9120HnswHalfFloatVectorsFormat(int maxConn, int beamWidth, int numMergeWorkers, ExecutorService mergeExec) {
         super(NAME);
         if (maxConn <= 0 || maxConn > MAXIMUM_MAX_CONN) {
             throw new IllegalArgumentException(
@@ -112,7 +112,7 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public String toString() {
-        return "KNN990HnswBinaryVectorsFormat(name=KNN990HnswBinaryVectorsFormat, maxConn="
+        return "KNN9120HnswHalfFloatVectorsFormat(name=KNN9120HnswHalfFloatVectorsFormat, maxConn="
             + this.maxConn
             + ", beamWidth="
             + this.beamWidth
