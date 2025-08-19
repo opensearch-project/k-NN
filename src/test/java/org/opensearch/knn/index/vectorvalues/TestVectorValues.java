@@ -238,7 +238,7 @@ public class TestVectorValues {
          */
         @Override
         public FloatVectorValues copy() throws IOException {
-            return null;
+            return this;
         }
 
         @Override
@@ -315,7 +315,7 @@ public class TestVectorValues {
          */
         @Override
         public ByteVectorValues copy() throws IOException {
-            return null;
+            return this;
         }
 
         @Override
