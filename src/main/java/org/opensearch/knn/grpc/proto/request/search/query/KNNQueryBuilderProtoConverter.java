@@ -6,7 +6,8 @@
 package org.opensearch.knn.grpc.proto.request.search.query;
 
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverter;
+import org.opensearch.transport.grpc.spi.QueryBuilderProtoConverter;
+import org.opensearch.transport.grpc.spi.QueryBuilderProtoConverterRegistry;
 import org.opensearch.protobufs.QueryContainer;
 
 /**
@@ -15,6 +16,15 @@ import org.opensearch.protobufs.QueryContainer;
  * for the gRPC transport plugin.
  */
 public class KNNQueryBuilderProtoConverter implements QueryBuilderProtoConverter {
+
+    private QueryBuilderProtoConverterRegistry registry;
+
+    @Override
+    public void setRegistry(QueryBuilderProtoConverterRegistry registry) {
+        this.registry = registry;
+        // Pass the registry to the utility class so it can convert nested queries
+        KNNQueryBuilderProtoUtils.setRegistry(registry);
+    }
 
     @Override
     public QueryContainer.QueryContainerCase getHandledQueryCase() {

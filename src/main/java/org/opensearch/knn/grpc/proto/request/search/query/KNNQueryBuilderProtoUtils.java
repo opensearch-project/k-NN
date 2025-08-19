@@ -12,7 +12,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.query.request.MethodParameter;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverterSpiRegistry;
+import org.opensearch.transport.grpc.spi.QueryBuilderProtoConverterRegistry;
 import org.opensearch.protobufs.KnnQuery;
 import org.opensearch.protobufs.KnnQueryRescore;
 import org.opensearch.protobufs.QueryContainer;
@@ -29,15 +29,16 @@ import java.util.Map;
 @UtilityClass
 public class KNNQueryBuilderProtoUtils {
 
-    // Registry for query conversion
-    private static QueryBuilderProtoConverterSpiRegistry REGISTRY = new QueryBuilderProtoConverterSpiRegistry();
+    // Registry for query conversion - injected by the gRPC plugin
+    private static QueryBuilderProtoConverterRegistry REGISTRY;
 
     /**
-     * Sets the registry for testing purposes.
+     * Sets the registry injected by the gRPC plugin.
+     * This method is called when the k-NN converter receives the populated registry.
      *
      * @param registry The registry to use
      */
-    void setRegistry(QueryBuilderProtoConverterSpiRegistry registry) {
+    public static void setRegistry(QueryBuilderProtoConverterRegistry registry) {
         REGISTRY = registry;
     }
 
@@ -46,7 +47,7 @@ public class KNNQueryBuilderProtoUtils {
      *
      * @return The current registry
      */
-    QueryBuilderProtoConverterSpiRegistry getRegistry() {
+    static QueryBuilderProtoConverterRegistry getRegistry() {
         return REGISTRY;
     }
 
