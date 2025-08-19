@@ -449,13 +449,6 @@ public class KNNPlugin extends Plugin
                 NativeMemoryCacheManager.getInstance().rebuildCache();
             }
         }
-        ExactSearcher.setConcurrentExactSearchEnabled(KNNSettings.state().getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_ENABLED));
-        ExactSearcher.setConcurrentExactSearchMaxPartitionCount(
-            KNNSettings.state().getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MAX_PARTITION_COUNT)
-        );
-        ExactSearcher.setConcurrentExactSearchMinDocumentCount(
-            KNNSettings.state().getSettingValue(KNN_CONCURRENT_EXACT_SEARCH_MIN_DOCUMENT_COUNT)
-        );
     }
 
     /**
