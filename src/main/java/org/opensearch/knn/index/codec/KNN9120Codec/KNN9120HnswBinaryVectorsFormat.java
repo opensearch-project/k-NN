@@ -31,6 +31,10 @@ import static org.opensearch.knn.index.engine.KNNEngine.getMaxDimensionByEngine;
  * Custom KnnVectorsFormat implementation to support binary vectors. This class is mostly identical to
  * {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat}, however we use the custom {@link KNN9120BinaryVectorScorer}
  * to perform hamming bit scoring.
+ * <p>
+ * TODO: Remove this class once the PR to allow passing custom FlatVectorsFormat to
+ * {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat} is merged into Lucene.
+ * <a href="https://github.com/apache/lucene/pull/15090">...</a>
  */
 public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
 
