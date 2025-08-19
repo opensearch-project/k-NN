@@ -443,15 +443,14 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                             quantizationParams,
                             segmentInfo.getVersion()
                         );
-                        cacheManager.get(
+                        cacheManager.loadIfSpace(
                             new NativeMemoryEntryContext.IndexEntryContext(
                                 segmentInfo.dir,
                                 cacheKey,
                                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                                 getParametersAtLoading(spaceType, knnEngine, indexName, vectorDataType, quantizationParams),
                                 indexName
-                            ),
-                            true
+                            )
                         );
                     } catch (Exception e) {
                         log.warn("Failed to put file in memory: {}, exception: {}", vectorIndexFileName, e.toString());

@@ -447,6 +447,18 @@ public class NativeMemoryCacheManager implements Closeable {
         }
     }
 
+    public void loadIfSpace(NativeMemoryEntryContext<?> nativeMemoryEntryContext) throws ExecutionException {
+        String key = nativeMemoryEntryContext.getKey();
+        synchronized (this) {
+            NativeMemoryAllocation result = cache.getIfPresent(key);
+            if (result != null || getCacheSizeInKilobytes() + nativeMemoryEntryContext.calculateSizeInKB() > maxWeight) return;
+            cache.get(key, () -> {
+                open(key, nativeMemoryEntryContext);
+                return nativeMemoryEntryContext.load();
+            });
+        }
+    }
+
     /**
      * Returns the NativeMemoryAllocation associated with given index
      * @param indexName name of OpenSearch index

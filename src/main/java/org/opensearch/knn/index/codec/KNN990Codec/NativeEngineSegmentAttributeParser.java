@@ -86,10 +86,7 @@ public class NativeEngineSegmentAttributeParser {
             fieldInfo -> fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
         ).map(FieldInfo::getName).filter(name -> {
             final MappedFieldType fieldType = mapperService.fieldType(name);
-            if (fieldType instanceof KNNVectorFieldType knnFieldType) {
-                return MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, indexName);
-            }
-            return false;
+            return (fieldType instanceof KNNVectorFieldType knnFieldType) && MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, indexName);
         }).collect(Collectors.toSet());
         segmentInfo.putAttribute(MEMORY_OPTIMIZED_FIELDS, String.join(DELIMITER, fieldsForMemoryOptimizedSearch));
     }
