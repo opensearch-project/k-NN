@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
@@ -114,15 +115,32 @@ public enum CompressionLevel {
                 // For index created before 3.1, context was always null and mode is empty
                 return null;
             }
+
             // Adjust RescoreContext based on dimension except for 4x compression
             if (this != x4 && dimension <= RescoreContext.DIMENSION_THRESHOLD) {
                 // For dimensions <= 1000, return a RescoreContext with 5.0f oversample factor
                 return RescoreContext.builder()
-                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
-                    .userProvided(false)
-                    .build();
+                        .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
+                        .userProvided(false)
+                        .build();
             }
             return defaultRescoreContext;
+        }
+
+        // Special handling for Lucene BBQ (x32 compression)
+        if (this == x32) {
+            if(dimension <= RescoreContext.DIMENSION_THRESHOLD) {
+                return RescoreContext.builder()
+                        .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
+                        .userProvided(false)
+                        .build();
+            }
+            else {
+                return RescoreContext.builder()
+                        .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_ABOVE_DIMENSION_THRESHOLD)
+                        .userProvided(false)
+                        .build();
+            }
         }
         return null;
     }
