@@ -31,7 +31,8 @@ public enum KNNEngine implements KNNLibrary {
     @Deprecated(since = "2.19.0", forRemoval = true)
     NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0),
     FAISS(FAISS_NAME, Faiss.INSTANCE),
-    LUCENE(LUCENE_NAME, Lucene.INSTANCE);
+    LUCENE(LUCENE_NAME, Lucene.INSTANCE),
+    UNDEFINED("undefined");
 
     public static final KNNEngine DEFAULT = FAISS;
     private final Version restrictedFromVersion; // Nullable field
@@ -72,6 +73,15 @@ public enum KNNEngine implements KNNLibrary {
         this.restrictedFromVersion = restrictedVersion;
     }
 
+    /**
+     * Constructor for undefined engines.
+     */
+    KNNEngine(String name) {
+        this.name = name;
+        this.knnLibrary = null;
+        this.restrictedFromVersion = null;
+    }
+
     private final String name;
     private final KNNLibrary knnLibrary;
 
@@ -92,6 +102,10 @@ public enum KNNEngine implements KNNLibrary {
 
         if (LUCENE.getName().equalsIgnoreCase(name)) {
             return LUCENE;
+        }
+
+        if (UNDEFINED.getName().equalsIgnoreCase(name)) {
+            return UNDEFINED;
         }
 
         throw new IllegalArgumentException(String.format("Invalid engine type: %s", name));
