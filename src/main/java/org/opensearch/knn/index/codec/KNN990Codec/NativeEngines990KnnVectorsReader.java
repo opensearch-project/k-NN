@@ -54,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
@@ -452,8 +453,8 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                                 indexName
                             )
                         );
-                    } catch (Exception e) {
-                        log.warn("Failed to put file in memory: {}, exception: {}", vectorIndexFileName, e.toString());
+                    } catch (ExecutionException ex) {
+                        throw new RuntimeException(ex);
                     }
                 }
             }

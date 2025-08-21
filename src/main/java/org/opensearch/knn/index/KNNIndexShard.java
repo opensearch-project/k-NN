@@ -25,7 +25,6 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -50,7 +49,6 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
-import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
@@ -327,27 +325,6 @@ public class KNNIndexShard {
                 )
             )
             .collect(Collectors.toList());
-    }
-
-    @VisibleForTesting
-    VectorDataType determineVectorDataType(
-        FieldInfo fieldInfo,
-        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
-        org.apache.lucene.util.Version segmentVersion
-    ) {
-
-        // First check if quantization config is empty
-        if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo, segmentVersion) == QuantizationConfig.EMPTY) {
-            // If empty, get from attributes with default FLOAT
-            return VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()));
-        }
-
-        // For non-empty quantization config
-        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
-            return VectorDataType.FLOAT;
-        }
-
-        return VectorDataType.BINARY;
     }
 
     @AllArgsConstructor
