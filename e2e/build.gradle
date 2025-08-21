@@ -1,0 +1,51 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+import org.apache.tools.ant.taskdefs.condition.Os
+
+plugins {
+    id 'opensearch.build'
+}
+
+
+task runTests(type: Exec) {
+    description 'Run Python e2e tests against external OpenSearch cluster'
+    group 'verification'
+    
+    def host = System.getProperty('opensearch.host', 'localhost')
+    def port = System.getProperty('opensearch.port', '9200')
+    def username = System.getProperty('opensearch.username', '')
+    def password = System.getProperty('opensearch.password', '')
+    def useSSL = System.getProperty('opensearch.ssl', 'false')
+    def numNodes = System.getProperty('opensearch.nodes', '1')
+    def testPattern = System.getProperty('test.pattern', '')
+    
+    environment 'OPENSEARCH_HOST', host
+    environment 'OPENSEARCH_PORT', port
+    environment 'OPENSEARCH_USERNAME', username
+    environment 'OPENSEARCH_PASSWORD', password
+    environment 'OPENSEARCH_USE_SSL', useSSL
+    environment 'OPENSEARCH_NODES', numNodes
+    
+    def pythonCmd = Os.isFamily(Os.FAMILY_WINDOWS) ? 'python' : 'python3'
+    def args = [pythonCmd, '-m', 'pytest', '-v']
+    
+    if (testPattern) {
+        args.addAll(['-k', testPattern])
+    }
+    
+    commandLine args
+    
+    doFirst {
+        println "Running e2e tests against cluster at ${host}:${port} with ${numNodes} nodes"
+        if (testPattern) {
+            println "Test pattern: ${testPattern}"
+        }
+    }
+    
+    doLast {
+        println "E2E tests completed"
+    }
+}
