@@ -136,8 +136,6 @@ public class KNNVectorFieldType extends MappedFieldType {
         return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion(), engine);
     }
 
-
-
     /**
      * Transforms a query vector based on the field's configuration. The transformation is performed
      * in-place on the input vector according to either the KNN method context or the model ID.

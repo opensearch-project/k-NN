@@ -11,7 +11,6 @@ import lombok.Getter;
 import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
@@ -130,9 +129,9 @@ public enum CompressionLevel {
             if (this != x4 && dimension <= RescoreContext.DIMENSION_THRESHOLD) {
                 // For dimensions <= 1000, return a RescoreContext with 5.0f oversample factor
                 return RescoreContext.builder()
-                        .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
-                        .userProvided(false)
-                        .build();
+                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
+                    .userProvided(false)
+                    .build();
             }
             return defaultRescoreContext;
         }
@@ -141,14 +140,14 @@ public enum CompressionLevel {
         if (this == x32 && engine == KNNEngine.LUCENE) {
             if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
                 return RescoreContext.builder()
-                        .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
-                        .userProvided(false)
-                        .build();
+                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
+                    .userProvided(false)
+                    .build();
             } else {
                 return RescoreContext.builder()
-                        .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_ABOVE_DIMENSION_THRESHOLD)
-                        .userProvided(false)
-                        .build();
+                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_ABOVE_DIMENSION_THRESHOLD)
+                    .userProvided(false)
+                    .build();
             }
         }
         return null;
