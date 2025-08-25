@@ -20,6 +20,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -125,8 +126,17 @@ public class KNNVectorFieldType extends MappedFieldType {
         int dimension = knnMappingConfig.getDimension();
         CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         Mode mode = knnMappingConfig.getMode();
-        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion());
+
+        KNNEngine engine = null;
+        Optional<KNNMethodContext> knnMethodContext = knnMappingConfig.getKnnMethodContext();
+        if (knnMethodContext.isPresent()) {
+            engine = knnMethodContext.get().getKnnEngine();
+        }
+
+        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion(), engine);
     }
+
+
 
     /**
      * Transforms a query vector based on the field's configuration. The transformation is performed
