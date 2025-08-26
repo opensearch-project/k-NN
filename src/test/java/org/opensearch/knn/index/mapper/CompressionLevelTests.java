@@ -117,20 +117,9 @@ public class CompressionLevelTests extends KNNTestCase {
         // NOT_CONFIGURED with dimension <= 1000 should return a RescoreContext with an oversample factor of 5.0f
         rescoreContext = CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNull(rescoreContext);
-    }
 
-    public void testGetDefaultRescoreContextWithLuceneEngine() {
-        Mode mode = Mode.ON_DISK;
-        int belowThresholdDimension = 500;
-        int aboveThresholdDimension = 1500;
-
-        // x32 with Lucene engine and dimension <= 1000
-        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
-            mode,
-            belowThresholdDimension,
-            null,
-            KNNEngine.LUCENE
-        );
+        // These tests test the 32x compression techniques, ensure that the correct rescoring factor is set for FAISS ADC/RR and Lucene BBQ
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, belowThresholdDimension, null, KNNEngine.LUCENE);
         assertNotNull(rescoreContext);
         assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
         assertFalse(rescoreContext.isUserProvided());
