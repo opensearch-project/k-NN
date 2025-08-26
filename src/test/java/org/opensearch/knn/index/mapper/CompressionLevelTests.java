@@ -7,6 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 public class CompressionLevelTests extends KNNTestCase {
@@ -116,5 +117,40 @@ public class CompressionLevelTests extends KNNTestCase {
         // NOT_CONFIGURED with dimension <= 1000 should return a RescoreContext with an oversample factor of 5.0f
         rescoreContext = CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNull(rescoreContext);
+    }
+
+    public void testGetDefaultRescoreContextWithLuceneEngine() {
+        Mode mode = Mode.ON_DISK;
+        int belowThresholdDimension = 500;
+        int aboveThresholdDimension = 1500;
+
+        // x32 with Lucene engine and dimension <= 1000
+        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            mode,
+            belowThresholdDimension,
+            null,
+            KNNEngine.LUCENE
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // x32 with Lucene engine and dimension > 1000
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, aboveThresholdDimension, null, KNNEngine.LUCENE);
+        assertNotNull(rescoreContext);
+        assertEquals(3.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // x32 with Faiss engine should return default behavior (not special Lucene handling)
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, belowThresholdDimension, null, KNNEngine.FAISS);
+        assertNotNull(rescoreContext);
+        assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // x32 with null engine should return default behavior
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, belowThresholdDimension, null, null);
+        assertNotNull(rescoreContext);
+        assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
     }
 }
