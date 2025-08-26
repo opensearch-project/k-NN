@@ -9,3 +9,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Added Integration tests for mixed vector documents: [#2818](https://github.com/opensearch-project/k-NN/pull/2818)
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
+
+### Enhancements
+* Added engine as a top-level optional parameter while creating vector field [#2736](https://github.com/opensearch-project/k-NN/pull/2736)

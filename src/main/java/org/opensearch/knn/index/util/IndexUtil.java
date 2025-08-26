@@ -66,6 +66,7 @@ public class IndexUtil {
     private static final Version MINIMAL_TOP_LEVEL_SPACE_TYPE_FEATURE = Version.V_2_17_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VERSION = Version.V_2_17_0;
     private static final Version MINIMAL_EXPAND_NESTED_FEATURE = Version.V_2_19_0;
+    private static final Version MINIMAL_TOP_LEVEL_ENGINE_FEATURE = Version.V_3_2_0;
     // public so neural search can access it
     public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
     public static final Set<VectorDataType> VECTOR_DATA_TYPES_NOT_SUPPORTING_ENCODERS = Set.of(VectorDataType.BINARY, VectorDataType.BYTE);
@@ -431,6 +432,7 @@ public class IndexUtil {
                 put(KNNConstants.TOP_LEVEL_SPACE_TYPE_FEATURE, MINIMAL_TOP_LEVEL_SPACE_TYPE_FEATURE);
                 put(KNNConstants.MODEL_VERSION, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VERSION);
                 put(EXPAND_NESTED, MINIMAL_EXPAND_NESTED_FEATURE);
+                put(KNNConstants.TOP_LEVEL_ENGINE_FEATURE, MINIMAL_TOP_LEVEL_ENGINE_FEATURE);
             }
         };
 
