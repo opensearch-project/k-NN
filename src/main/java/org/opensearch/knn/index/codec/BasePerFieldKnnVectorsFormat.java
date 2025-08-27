@@ -117,7 +117,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
                 if (bbqParams.validate(params)) {
                     log.debug(
-                        "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\"",
+                        "Initialize KNN vector format for field [{}] with binary quantization, params [{}] = \"{}\", [{}] = \"{}\"",
                         field,
                         MAX_CONNECTIONS,
                         bbqParams.getMaxConnections(),
@@ -134,7 +134,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 );
                 if (knnScalarQuantizedVectorsFormatParams.validate(params)) {
                     log.debug(
-                        "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
+                        "Initialize KNN vector format for field [{}] with scalar quantization, params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
                         field,
                         MAX_CONNECTIONS,
                         knnScalarQuantizedVectorsFormatParams.getMaxConnections(),

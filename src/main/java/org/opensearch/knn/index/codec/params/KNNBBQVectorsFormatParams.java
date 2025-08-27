@@ -27,7 +27,7 @@ public class KNNBBQVectorsFormatParams extends KNNVectorsFormatParams {
             return false;
         }
 
-        if (!(params.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext)) {
+        if ((params.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext) == false) {
             return false;
         }
 

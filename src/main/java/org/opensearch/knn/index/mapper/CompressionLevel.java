@@ -138,7 +138,7 @@ public enum CompressionLevel {
         }
 
         // Special handling for Lucene BBQ (x32 compression)
-        if (this == x32 && engine == KNNEngine.LUCENE) {
+        if (this == x32 && engine == KNNEngine.LUCENE && version.onOrAfter(Version.V_3_2_0)) {
             if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
                 return RescoreContext.builder()
                     .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
