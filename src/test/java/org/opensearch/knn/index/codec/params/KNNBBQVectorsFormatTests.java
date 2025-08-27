@@ -30,7 +30,6 @@ public class KNNBBQVectorsFormatTests extends TestCase {
 
         assertEquals(DEFAULT_MAX_CONNECTIONS, knnBBQVectorsFormatParams.getMaxConnections());
         assertEquals(DEFAULT_BEAM_WIDTH, knnBBQVectorsFormatParams.getBeamWidth());
-        assertTrue(knnBBQVectorsFormatParams.isBBQEnabled());
     }
 
     public void testInitParams_whenCalled_thenReturnParams() {
@@ -53,7 +52,6 @@ public class KNNBBQVectorsFormatTests extends TestCase {
 
         assertEquals(m, knnBBQVectorsFormatParams.getMaxConnections());
         assertEquals(efConstruction, knnBBQVectorsFormatParams.getBeamWidth());
-        assertTrue(knnBBQVectorsFormatParams.isBBQEnabled());
     }
 
     public void testValidate_whenCalled_thenReturnTrue() {

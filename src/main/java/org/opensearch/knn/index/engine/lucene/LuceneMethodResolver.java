@@ -73,12 +73,15 @@ public class LuceneMethodResolver extends AbstractMethodResolver {
 
         MethodComponentContext methodComponentContext = resolvedKNNMethodContext.getMethodComponentContext();
 
-        String encoderName = (resolvedCompressionLevel == CompressionLevel.x32)
-            ? LuceneHNSWMethod.BBQ_ENCODER.getName()
-            : LuceneHNSWMethod.SQ_ENCODER.getName();
-        MethodComponent encoderComponent = (resolvedCompressionLevel == CompressionLevel.x32)
-            ? LuceneHNSWMethod.BBQ_ENCODER.getMethodComponent()
-            : LuceneHNSWMethod.SQ_ENCODER.getMethodComponent();
+        String encoderName;
+        MethodComponent encoderComponent;
+        if (resolvedCompressionLevel == CompressionLevel.x32) {
+            encoderName = LuceneHNSWMethod.BBQ_ENCODER.getName();
+            encoderComponent = LuceneHNSWMethod.BBQ_ENCODER.getMethodComponent();
+        } else {
+            encoderName = LuceneHNSWMethod.SQ_ENCODER.getName();
+            encoderComponent = LuceneHNSWMethod.SQ_ENCODER.getMethodComponent();
+        }
 
         MethodComponentContext encoderComponentContext = new MethodComponentContext(encoderName, new HashMap<>());
         Map<String, Object> resolvedParams = MethodComponent.getParameterMapWithDefaultsAdded(

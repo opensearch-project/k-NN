@@ -34,13 +34,4 @@ public class KNNBBQVectorsFormatParams extends KNNVectorsFormatParams {
         MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
         return ENCODER_BBQ.equals(encoderMethodComponentContext.getName());
     }
-
-    /**
-     * Check if BBQ is enabled
-     * @return true if BBQ is enabled, false otherwise
-     */
-    public boolean isBBQEnabled() {
-        // BBQ is enabled if this class is being used, which means the encoder parameter was validated
-        return true;
-    }
 }

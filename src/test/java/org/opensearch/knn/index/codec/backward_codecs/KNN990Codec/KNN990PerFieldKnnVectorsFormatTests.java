@@ -50,7 +50,6 @@ public class KNN990PerFieldKnnVectorsFormatTests extends TestCase {
         assertTrue(bbqParams.validate(params));
         assertEquals(16, bbqParams.getMaxConnections());
         assertEquals(100, bbqParams.getBeamWidth());
-        assertTrue(bbqParams.isBBQEnabled());
 
         // Test validation with invalid encoder
         MethodComponentContext invalidEncoder = new MethodComponentContext("invalid", encoderParams);

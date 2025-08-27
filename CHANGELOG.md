@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.3](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 
 ### Features
-* Integrated Lucene's better binary quantization [#2838](https://github.com/opensearch-project/k-NN/pull/2838)
+* Integrates Lucene's better binary quantization  [#2838](https://github.com/opensearch-project/k-NN/pull/2838)
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.

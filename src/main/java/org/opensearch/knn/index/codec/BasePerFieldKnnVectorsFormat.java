@@ -116,6 +116,14 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
                 KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
                 if (bbqParams.validate(params)) {
+                    log.debug(
+                        "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\"",
+                        field,
+                        MAX_CONNECTIONS,
+                        bbqParams.getMaxConnections(),
+                        BEAM_WIDTH,
+                        bbqParams.getBeamWidth()
+                    );
                     return bbqVectorsFormatSupplier.apply(bbqParams);
                 }
 

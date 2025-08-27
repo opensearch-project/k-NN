@@ -119,6 +119,7 @@ public enum CompressionLevel {
 
     // Add new method signature with KNNEngine parameter
     public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, KNNEngine engine) {
+        // TODO move this to separate class called resolver to resolve rescore context
         if (modesForRescore.contains(mode)) {
             if (this == x4 && version.before(Version.V_3_1_0)) {
                 // For index created before 3.1, context was always null and mode is empty
