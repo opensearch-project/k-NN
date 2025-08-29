@@ -103,6 +103,8 @@ public class KNNConstants {
     public static final String LUCENE_SQ_BITS = "bits";
     public static final int LUCENE_SQ_DEFAULT_BITS = 7;
     public static final String ENCODER_BBQ = "binary";
+    public static final int LUCENE_BBQ_DEFAULT_BITS = 1;
+    public static final String LUCENE_BBQ_BITS = "bits";
 
     // nmslib specific constants
     @Deprecated(since = "2.19.0", forRemoval = true)

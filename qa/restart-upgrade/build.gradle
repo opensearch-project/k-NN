@@ -252,7 +252,6 @@ testClusters {
                 knn_bwc_version.startsWith("2.15.")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneBBQ"
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
             }
         }
@@ -316,6 +315,12 @@ testClusters {
         if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
+            }
+        }
+
+        if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.") || knn_bwc_version.startsWith("3.0")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneBBQ"
             }
         }
 

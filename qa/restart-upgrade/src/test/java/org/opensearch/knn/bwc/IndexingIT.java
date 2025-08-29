@@ -64,8 +64,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     private static final int NUM_DOCS = 10;
     private static int QUERY_COUNT = 0;
 
-    private static final String ALGO = "hnsw";
-
     // Default Legacy Field Mapping
     // space_type : "l2", engine : "nmslib", m : 16, ef_construction : 512
     public void testKNNIndexDefaultLegacyFieldMapping() throws Exception {
@@ -664,16 +662,17 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
     public void testKNNIndexLuceneBBQ() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        // Skip test if BBQ encoder is not supported in the old cluster version
+        if (isBBQEncoderSupported(getBWCVersion()) == false) {
+            logger.info("Skipping testKNNIndexLuceneBBQ as BBQ encoder is not supported in version: {}", getBWCVersion());
+            return;
+        }
+
         int k = 4;
         int dimension = 2;
 
         if (isRunningAgainstOldCluster()) {
-            // Skip test if BBQ encoder is not supported in the old cluster version
-            if (!isBBQEncoderSupported(getBWCVersion())) {
-                logger.info("Skipping testKNNIndexLuceneBBQ as BBQ encoder is not supported in version: {}", getBWCVersion());
-                return;
-            }
-
             String mapping = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -715,11 +714,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
             }
         } else {
-            // Skip test if BBQ encoder is not supported in the old cluster version
-            if (!isBBQEncoderSupported(getBWCVersion())) {
-                logger.info("Skipping testKNNIndexLuceneBBQ validation as BBQ encoder is not supported in version: {}", getBWCVersion());
-                return;
-            }
             float[] queryVector = { -10.5f, 25.48f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
