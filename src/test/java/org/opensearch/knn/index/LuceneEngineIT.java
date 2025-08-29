@@ -35,6 +35,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
@@ -736,6 +737,124 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .field(LUCENE_SQ_BITS, bits)
             .field(LUCENE_SQ_CONFIDENCE_INTERVAL, confidenceInterval)
             .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, mapping);
+    }
+
+    @SneakyThrows
+    public void testBBQ_withInvalidParams_thenThrowException() {
+        // Use "byte" data_type with bbq encoder which throws an exception
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndexMappingWithLuceneEngineAndBBQEncoder(DIMENSION, SpaceType.L2, VectorDataType.BYTE)
+        );
+    }
+
+    @SneakyThrows
+    public void testAddDocWithBBQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndBBQEncoder(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testUpdateDocWithBBQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndBBQEncoder(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+        Float[] vector = { 6.0f, 6.0f, 7.0f };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        Float[] updatedVector = { 8.0f, 8.0f, 8.0f };
+        updateKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, updatedVector);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testDeleteDocWithBBQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndBBQEncoder(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+        Float[] vector = { 6.0f, 6.0f, 7.0f };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        deleteKnnDoc(INDEX_NAME, DOC_ID);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(0, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testIndexingAndQueryingWithBBQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndBBQEncoder(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+
+        int numDocs = 10;
+        for (int i = 0; i < numDocs; i++) {
+            float[] indexVector = new float[DIMENSION];
+            Arrays.fill(indexVector, (float) i);
+            addKnnDocWithAttributes(INDEX_NAME, Integer.toString(i), FIELD_NAME, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
+        }
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(numDocs, getDocCount(INDEX_NAME));
+
+        float[] queryVector = new float[DIMENSION];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, k), k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
+        assertEquals(k, results.size());
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
+    public void testQueryWithFilterUsingBBQEncoder() throws Exception {
+        createKnnIndexMappingWithLuceneEngineAndBBQEncoder(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+
+        addKnnDocWithAttributes(
+            DOC_ID,
+            new float[] { 6.0f, 7.9f, 3.1f },
+            ImmutableMap.of(COLOR_FIELD_NAME, "red", TASTE_FIELD_NAME, "sweet")
+        );
+        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 6.0f, 4.1f };
+        List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
+        List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
+        validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
+    }
+
+    private void createKnnIndexMappingWithLuceneEngineAndBBQEncoder(int dimension, SpaceType spaceType, VectorDataType vectorDataType)
+        throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, M)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_BBQ)
             .endObject()
             .endObject()
             .endObject()

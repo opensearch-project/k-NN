@@ -2517,6 +2517,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * BBQ encoder is only supported on or after V_3_3_0
+     */
+    protected boolean isBBQEncoderSupported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get();
+        if (versionString.endsWith("-SNAPSHOT")) {
+            versionString = versionString.substring(0, versionString.length() - 9);
+        }
+        final Version version = Version.fromString(versionString);
+        return version.onOrAfter(Version.V_3_3_0);
+    }
+
+    /**
      * Remote Index Build settings are only supported on or after V_3_0_0
      */
     protected boolean isRemoteIndexBuildSupported(final Optional<String> bwcVersion) {

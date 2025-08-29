@@ -318,6 +318,12 @@ testClusters {
             }
         }
 
+        if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.") || knn_bwc_version.startsWith("3.0")) {
+            filter {
+                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneBBQ"
+            }
+        }
+
         nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
         nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
         systemProperty 'tests.security.manager', 'false'

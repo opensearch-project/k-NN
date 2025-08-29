@@ -24,7 +24,6 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -51,6 +50,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
 
 public class IndexingIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_FIELD = "test-field";
@@ -659,4 +659,70 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(newIndex);
         }
     }
+
+    public void testKNNIndexLuceneBBQ() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        // Skip test if BBQ encoder is not supported in the old cluster version
+        if (isBBQEncoderSupported(getBWCVersion()) == false) {
+            logger.info("Skipping testKNNIndexLuceneBBQ as BBQ encoder is not supported in version: {}", getBWCVersion());
+            return;
+        }
+
+        int k = 4;
+        int dimension = 2;
+
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_BBQ)
+                .endObject()
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
+                .field(METHOD_PARAMETER_M, 16)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            Float[] vector1 = { -10.6f, 25.48f };
+            Float[] vector2 = { -10.8f, 25.48f };
+            Float[] vector3 = { -11.0f, 25.48f };
+            Float[] vector4 = { -11.2f, 25.48f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
+            addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
+
+            float[] queryVector = { -10.5f, 25.48f };
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
+            }
+        } else {
+            float[] queryVector = { -10.5f, 25.48f };
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
+            }
+            deleteKNNIndex(testIndex);
+        }
+    }
+
 }

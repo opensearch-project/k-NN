@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.backward_codecs.KNN990Codec;
 
+import org.apache.lucene.codecs.lucene102.Lucene102HnswBinaryQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
@@ -36,6 +37,12 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
                 knnScalarQuantizedVectorsFormatParams.getBits(),
                 knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
                 knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
+                null
+            ),
+            knnBBQVectorsFormatParams -> new Lucene102HnswBinaryQuantizedVectorsFormat(
+                knnBBQVectorsFormatParams.getMaxConnections(),
+                knnBBQVectorsFormatParams.getBeamWidth(),
+                NUM_MERGE_WORKERS,
                 null
             )
         );
