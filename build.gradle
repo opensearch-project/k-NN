@@ -349,7 +349,7 @@ dependencies {
     compileOnly "org.opensearch:protobufs:0.6.0"
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
-    api group: 'commons-lang', name: 'commons-lang', version: '2.6'
+    api group: 'commons-lang3', name: 'commons-lang3', version: '3.18'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     // Add Guava for test configurations since it's needed for testing but excluded from runtime
     testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
