@@ -369,8 +369,7 @@ dependencies {
     implementation 'com.github.oshi:oshi-core:6.4.13'
     api "net.java.dev.jna:jna:${versions.jna}"
     api "net.java.dev.jna:jna-platform:${versions.jna}"
-    // OpenSearch core is using slf4j 2.0.17. Therefore, we cannot change the version here.
-    implementation 'org.slf4j:slf4j-api:2.0.17'
+    implementation "org.slf4j:slf4j-api:${versions.slf4j}"
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
 }
 
