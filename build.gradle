@@ -349,7 +349,7 @@ dependencies {
     compileOnly "org.opensearch:protobufs:0.6.0"
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
-    api group: 'commons-lang', name: 'commons-lang', version: '2.6'
+    api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     // Add Guava for test configurations since it's needed for testing but excluded from runtime
     testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
@@ -370,7 +370,7 @@ dependencies {
     api "net.java.dev.jna:jna:${versions.jna}"
     api "net.java.dev.jna:jna-platform:${versions.jna}"
     // OpenSearch core is using slf4j 1.7.36. Therefore, we cannot change the version here.
-    implementation 'org.slf4j:slf4j-api:1.7.36'
+    implementation 'org.slf4j:slf4j-api:2.0.17'
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
 }
 
