@@ -14,6 +14,10 @@ public class MOSFaissByteIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, false, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
 
+    public void testNonNestedByteIndexWithRadialL2() {
+        doTestNonNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, true, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
+    }
+
     public void testNestedByteIndexWithL2() {
         doTestNestedIndex(VectorDataType.BYTE, EMPTY_PARAMS, SpaceType.L2, NO_ADDITIONAL_SETTINGS);
     }
