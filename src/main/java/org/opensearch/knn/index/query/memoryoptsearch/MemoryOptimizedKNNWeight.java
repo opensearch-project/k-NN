@@ -155,16 +155,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                 );
             } else {
                 // Radius search
-                return queryIndex(
-                    knnQuery.getQueryVector(),
-                    cardinality,
-                    cardinality,
-                    context,
-                    filterIdsBitSet,
-                    reader,
-                    knnEngine,
-                    spaceType
-                );
+                return queryIndex(knnQuery.getVector(), cardinality, cardinality, context, filterIdsBitSet, reader, knnEngine, spaceType);
             }
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
