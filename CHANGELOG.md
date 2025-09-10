@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Replace commons-lang with org.apache.commons:commons-lang3 [#2863](https://github.com/opensearch-project/k-NN/pull/2863)
 ### Bug Fixes
+* Adds a process to make initially null k value null again on rewrite. [#2836](https://github.com/opensearch-project/k-NN/issues/2836)
 * Use queryVector length if present in MDC check [#2867](https://github.com/opensearch-project/k-NN/pull/2867)
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
