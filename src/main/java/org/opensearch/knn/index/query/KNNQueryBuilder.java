@@ -739,11 +739,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         QueryBuilder rewrittenFilter;
         if (Objects.nonNull(filter)) {
             rewrittenFilter = filter.rewrite(queryShardContext);
+            Integer nulledK = this.k == 0 ? null : this.k;
             if (rewrittenFilter != filter) {
                 KNNQueryBuilder rewrittenQueryBuilder = KNNQueryBuilder.builder()
                     .fieldName(this.fieldName)
                     .vector(this.vector)
-                    .k(this.k)
+                    .k(nulledK)
                     .maxDistance(this.maxDistance)
                     .minScore(this.minScore)
                     .methodParameters(this.methodParameters)
