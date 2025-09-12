@@ -149,7 +149,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         Map<String, Object> methodMap = (Map<String, Object>) in;
 
         boolean isEngineConfigured = false;
-        KNNEngine engine = KNNEngine.DEFAULT; // Get or default
+        KNNEngine engine = KNNEngine.UNDEFINED; // Get or default
         SpaceType spaceType = SpaceType.UNDEFINED; // Get or default
         String name = "";
         Map<String, Object> parameters = new HashMap<>();

@@ -1041,6 +1041,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testRadialSearch_whenUnsupportedEngine_thenThrowException() {
         List<KNNEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine))
+            .filter(knnEngine -> knnEngine != KNNEngine.UNDEFINED)
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : unsupportedEngines) {
             KNNMethodContext knnMethodContext = new KNNMethodContext(
