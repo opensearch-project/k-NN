@@ -35,15 +35,13 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
     @Before
     public void setup() {
         MockitoAnnotations.openMocks(this);
-        // Set up the registry for each test
-        KNNQueryBuilderProtoUtils.setRegistry(mockRegistry);
     }
 
     @Test
     public void testFromProto_basicFields() {
         KnnQuery knnQuery = KnnQuery.newBuilder().setField("test_field").addVector(1.0f).addVector(2.0f).addVector(3.0f).setK(5).build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
 
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
@@ -63,7 +61,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setBoost(2.5f)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
 
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
@@ -80,7 +78,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setMaxDistance(0.75f)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
 
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
@@ -97,7 +95,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setMinScore(0.85f)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertEquals(0.85f, knnQueryBuilder.getMinScore(), 0.001f);
@@ -114,7 +112,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setUnderscoreName("test_query")
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertEquals("test_query", knnQueryBuilder.queryName());
@@ -131,7 +129,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setExpandNestedDocs(true)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertTrue(knnQueryBuilder.getExpandNested());
@@ -152,7 +150,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setMethodParameters(methodParams)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         Map<String, ?> methodParameters = knnQueryBuilder.getMethodParameters();
@@ -176,7 +174,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
 
         when(mockRegistry.fromProto(any())).thenReturn(mockQueryBuilder);
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
 
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
@@ -197,7 +195,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setRescore(rescore)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertNotNull(knnQueryBuilder.getRescoreContext());
@@ -217,7 +215,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setRescore(rescore)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertNotNull(knnQueryBuilder.getRescoreContext());
@@ -241,7 +239,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setRescore(rescore)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertNotNull(knnQueryBuilder.getRescoreContext());
@@ -263,7 +261,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setRescore(rescore)
             .build();
 
-        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);
         assertTrue(result instanceof KNNQueryBuilder);
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertNotNull(knnQueryBuilder.getRescoreContext());
@@ -273,8 +271,6 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
     @Test
     public void testFromProto_withNullRegistry_withFilter() {
         // Test that queries with filters fail with null registry
-        KNNQueryBuilderProtoUtils.setRegistry(null);
-
         QueryContainer filterContainer = QueryContainer.newBuilder().build();
         KnnQuery knnQuery = KnnQuery.newBuilder()
             .setField("test_field")
@@ -286,7 +282,18 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .build();
 
         // Should throw NPE when trying to use null registry
-        expectThrows(NullPointerException.class, () -> { KNNQueryBuilderProtoUtils.fromProto(knnQuery); });
+        expectThrows(NullPointerException.class, () -> { KNNQueryBuilderProtoUtils.fromProto(knnQuery, null); });
+    }
+
+    @Test
+    public void testFromProto_withNullRegistry_noFilter() {
+        // Test that queries without filters work even with null registry
+        KnnQuery knnQuery = KnnQuery.newBuilder().setField("test_field").addVector(1.0f).addVector(2.0f).addVector(3.0f).setK(5).build();
+
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, null);
+
+        assertNotNull(result);
+        assertTrue(result instanceof KNNQueryBuilder);
     }
 
     @Test
@@ -305,6 +312,6 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .build();
 
         // Should throw IllegalArgumentException for unknown method parameter
-        expectThrows(IllegalArgumentException.class, () -> { KNNQueryBuilderProtoUtils.fromProto(knnQuery); });
+        expectThrows(IllegalArgumentException.class, () -> { KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry); });
     }
 }

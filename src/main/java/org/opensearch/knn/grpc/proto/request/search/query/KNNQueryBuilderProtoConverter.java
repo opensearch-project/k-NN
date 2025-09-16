@@ -22,8 +22,6 @@ public class KNNQueryBuilderProtoConverter implements QueryBuilderProtoConverter
     @Override
     public void setRegistry(QueryBuilderProtoConverterRegistry registry) {
         this.registry = registry;
-        // Pass the registry to the utility class so it can convert nested queries
-        KNNQueryBuilderProtoUtils.setRegistry(registry);
     }
 
     @Override
@@ -37,6 +35,6 @@ public class KNNQueryBuilderProtoConverter implements QueryBuilderProtoConverter
             throw new IllegalArgumentException("QueryContainer does not contain a KNN query");
         }
 
-        return KNNQueryBuilderProtoUtils.fromProto(queryContainer.getKnn());
+        return KNNQueryBuilderProtoUtils.fromProto(queryContainer.getKnn(), registry);
     }
 }

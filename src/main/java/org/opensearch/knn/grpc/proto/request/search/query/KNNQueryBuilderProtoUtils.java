@@ -29,28 +29,16 @@ import java.util.Map;
 @UtilityClass
 public class KNNQueryBuilderProtoUtils {
 
-    // Registry for query conversion - injected by the gRPC plugin
-    private static QueryBuilderProtoConverterRegistry REGISTRY;
-
-    /**
-     * Sets the registry injected by the gRPC plugin.
-     * This method is called when the k-NN converter receives the populated registry.
-     *
-     * @param registry The registry to use
-     */
-    public static void setRegistry(QueryBuilderProtoConverterRegistry registry) {
-        REGISTRY = registry;
-    }
-
     /**
     * Converts a Protocol Buffer KnnQuery to an OpenSearch KNNQueryBuilder.
     * This method follows the exact same pattern as {@link KNNQueryBuilderParser#fromXContent(XContentParser)}
     * to ensure parsing consistency and compatibility.
     *
     * @param knnQueryProto The Protocol Buffer KnnQuery to convert
+    * @param registry The registry to use for converting nested queries (e.g., filters)
     * @return A configured KNNQueryBuilder instance
     */
-    public QueryBuilder fromProto(KnnQuery knnQueryProto) {
+    public QueryBuilder fromProto(KnnQuery knnQueryProto, QueryBuilderProtoConverterRegistry registry) {
         // Create builder using the internal parser pattern like XContent parsing
         KNNQueryBuilder.Builder builder = KNNQueryBuilder.builder();
 
@@ -84,7 +72,7 @@ public class KNNQueryBuilderProtoUtils {
         // Set filter (equivalent to FILTER_FIELD parsing)
         if (knnQueryProto.hasFilter()) {
             QueryContainer filterQueryContainer = knnQueryProto.getFilter();
-            builder.filter(REGISTRY.fromProto(filterQueryContainer));
+            builder.filter(registry.fromProto(filterQueryContainer));
         }
 
         // Set rescore (equivalent to RESCORE_FIELD parsing)
