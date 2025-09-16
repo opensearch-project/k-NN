@@ -43,15 +43,6 @@ public class KNNQueryBuilderProtoUtils {
     }
 
     /**
-     * Gets the current registry.
-     *
-     * @return The current registry
-     */
-    static QueryBuilderProtoConverterRegistry getRegistry() {
-        return REGISTRY;
-    }
-
-    /**
     * Converts a Protocol Buffer KnnQuery to an OpenSearch KNNQueryBuilder.
     * This method follows the exact same pattern as {@link KNNQueryBuilderParser#fromXContent(XContentParser)}
     * to ensure parsing consistency and compatibility.
@@ -223,5 +214,4 @@ public class KNNQueryBuilderProtoUtils {
                 return RescoreContext.getDefault();
         }
     }
-
 }

@@ -12,7 +12,6 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.transport.grpc.spi.QueryBuilderProtoConverter;
 import org.opensearch.transport.grpc.spi.QueryBuilderProtoConverterRegistry;
 import org.opensearch.protobufs.KnnQuery;
 import org.opensearch.protobufs.KnnQueryRescore;
@@ -31,14 +30,13 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
     private QueryBuilderProtoConverterRegistry mockRegistry;
 
     @Mock
-    private QueryBuilderProtoConverter mockConverter;
-
-    @Mock
     private QueryBuilder mockQueryBuilder;
 
     @Before
     public void setup() {
         MockitoAnnotations.openMocks(this);
+        // Set up the registry for each test
+        KNNQueryBuilderProtoUtils.setRegistry(mockRegistry);
     }
 
     @Test
@@ -176,21 +174,14 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .setFilter(filterContainer)
             .build();
 
-        QueryBuilderProtoConverterRegistry originalRegistry = KNNQueryBuilderProtoUtils.getRegistry();
+        when(mockRegistry.fromProto(any())).thenReturn(mockQueryBuilder);
 
-        try {
-            KNNQueryBuilderProtoUtils.setRegistry(mockRegistry);
-            when(mockRegistry.fromProto(any())).thenReturn(mockQueryBuilder);
+        QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
 
-            QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery);
-
-            assertTrue(result instanceof KNNQueryBuilder);
-            KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
-            assertNotNull(knnQueryBuilder.getFilter());
-            assertEquals(mockQueryBuilder, knnQueryBuilder.getFilter());
-        } finally {
-            KNNQueryBuilderProtoUtils.setRegistry(originalRegistry);
-        }
+        assertTrue(result instanceof KNNQueryBuilder);
+        KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
+        assertNotNull(knnQueryBuilder.getFilter());
+        assertEquals(mockQueryBuilder, knnQueryBuilder.getFilter());
     }
 
     @Test
@@ -277,5 +268,43 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertNotNull(knnQueryBuilder.getRescoreContext());
         assertEquals(RescoreContext.getDefault(), knnQueryBuilder.getRescoreContext());
+    }
+
+    @Test
+    public void testFromProto_withNullRegistry_withFilter() {
+        // Test that queries with filters fail with null registry
+        KNNQueryBuilderProtoUtils.setRegistry(null);
+
+        QueryContainer filterContainer = QueryContainer.newBuilder().build();
+        KnnQuery knnQuery = KnnQuery.newBuilder()
+            .setField("test_field")
+            .addVector(1.0f)
+            .addVector(2.0f)
+            .addVector(3.0f)
+            .setK(5)
+            .setFilter(filterContainer)
+            .build();
+
+        // Should throw NPE when trying to use null registry
+        expectThrows(NullPointerException.class, () -> { KNNQueryBuilderProtoUtils.fromProto(knnQuery); });
+    }
+
+    @Test
+    public void testFromProto_invalidMethodParameter() {
+        // Test with invalid method parameter
+        ObjectMap.Value invalidValue = ObjectMap.Value.newBuilder().setString("invalid_ef_search").build();
+        ObjectMap methodParams = ObjectMap.newBuilder().putFields("invalid_param_name", invalidValue).build();
+
+        KnnQuery knnQuery = KnnQuery.newBuilder()
+            .setField("test_field")
+            .addVector(1.0f)
+            .addVector(2.0f)
+            .addVector(3.0f)
+            .setK(5)
+            .setMethodParameters(methodParams)
+            .build();
+
+        // Should throw IllegalArgumentException for unknown method parameter
+        expectThrows(IllegalArgumentException.class, () -> { KNNQueryBuilderProtoUtils.fromProto(knnQuery); });
     }
 }
