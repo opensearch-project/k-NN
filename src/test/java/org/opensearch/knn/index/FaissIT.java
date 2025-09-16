@@ -1640,6 +1640,66 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testByteVectorWithFilter_whenFilterCountGreaterThanK_thenSucceed() {
+        String indexName = "test-byte-vector-filter";
+        String fieldName = "test-byte-field";
+        String categoryField = "category";
+        int dimension = 8;
+        int k = 5;
+        int numDocsPerCategory = 20; // This ensures filterCount (20) > k (5)
+
+        // Create index with byte vector
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field("data_type", "byte")
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject(categoryField)
+            .field("type", "keyword")
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, builder.toString());
+
+        for (int i = 0; i < numDocsPerCategory; i++) {
+            Byte[] vector = new Byte[dimension];
+            Arrays.fill(vector, (byte) (i % 128));
+            addKnnDocWithAttributes(indexName, "doc_" + i, fieldName, vector, ImmutableMap.of(categoryField, "test_category"));
+        }
+
+        refreshIndex(indexName);
+        assertEquals(numDocsPerCategory, getDocCount(indexName));
+
+        // Query with filter that matches all documents (filterCount = 20 > k = 5)
+        // filterCount * dimension = 20 * 8 = 160 < MAX_DISTANCE_COMPUTATIONS (2048000)
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (byte) 10);
+
+        Response response = searchKNNIndex(
+            indexName,
+            new KNNQueryBuilder(fieldName, queryVector, k, QueryBuilders.termQuery(categoryField, "test_category")),
+            k
+        );
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, fieldName);
+
+        // Should return k results even though filter matches more documents
+        assertEquals(k, results.size());
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
     public void testFiltering_whenUsingFaissExactSearchWithIP_thenMatchExpectedScore() {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
