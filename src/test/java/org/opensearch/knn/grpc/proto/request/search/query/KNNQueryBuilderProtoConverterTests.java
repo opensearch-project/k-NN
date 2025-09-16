@@ -52,7 +52,7 @@ public class KNNQueryBuilderProtoConverterTests extends OpenSearchTestCase {
         when(knnQuery.hasFilter()).thenReturn(false);
         when(knnQuery.hasRescore()).thenReturn(false);
         when(knnQuery.hasBoost()).thenReturn(false);
-        when(knnQuery.hasUnderscoreName()).thenReturn(false);
+        when(knnQuery.hasXName()).thenReturn(false);
         when(knnQuery.hasExpandNestedDocs()).thenReturn(false);
 
         // Test

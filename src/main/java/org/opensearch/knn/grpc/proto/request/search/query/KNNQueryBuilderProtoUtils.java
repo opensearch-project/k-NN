@@ -87,8 +87,8 @@ public class KNNQueryBuilderProtoUtils {
         }
 
         // Set query name (equivalent to NAME_FIELD parsing)
-        if (knnQueryProto.hasUnderscoreName()) {
-            builder.queryName(knnQueryProto.getUnderscoreName());
+        if (knnQueryProto.hasXName()) {
+            builder.queryName(knnQueryProto.getXName());
         }
 
         // Set expandNested (equivalent to EXPAND_NESTED_FIELD parsing)

@@ -109,7 +109,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
             .addVector(2.0f)
             .addVector(3.0f)
             .setK(5)
-            .setUnderscoreName("test_query")
+            .setXName("test_query")
             .build();
 
         QueryBuilder result = KNNQueryBuilderProtoUtils.fromProto(knnQuery, mockRegistry);

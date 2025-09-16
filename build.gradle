@@ -341,7 +341,7 @@ dependencies {
     api project(":remote-index-build-client")
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compileOnly "org.opensearch.plugin:transport-grpc-spi:${opensearch_version}"
-    compileOnly "org.opensearch:protobufs:0.6.0"
+    compileOnly "org.opensearch:protobufs:0.13.0"
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
     api "org.apache.commons:commons-lang3:${versions.commonslang}"

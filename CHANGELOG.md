@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.3](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Maintenance
 * Replace commons-lang with org.apache.commons:commons-lang3 [#2863](https://github.com/opensearch-project/k-NN/pull/2863)
+* Bump OpenSearch-Protobufs to 0.13.0 [#2833](https://github.com/opensearch-project/k-NN/pull/2833)
+
 ### Bug Fixes
 * Use queryVector length if present in MDC check [#2867](https://github.com/opensearch-project/k-NN/pull/2867)
 ### Refactoring
