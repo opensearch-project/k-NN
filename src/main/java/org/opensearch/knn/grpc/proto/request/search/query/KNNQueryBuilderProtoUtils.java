@@ -12,7 +12,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.query.request.MethodParameter;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.transport.grpc.proto.request.search.query.QueryBuilderProtoConverterRegistry;
+import org.opensearch.transport.grpc.spi.QueryBuilderProtoConverterRegistry;
 import org.opensearch.protobufs.KnnQuery;
 import org.opensearch.protobufs.KnnQueryRescore;
 import org.opensearch.protobufs.QueryContainer;
@@ -29,36 +29,16 @@ import java.util.Map;
 @UtilityClass
 public class KNNQueryBuilderProtoUtils {
 
-    // Registry for query conversion
-    private static QueryBuilderProtoConverterRegistry REGISTRY = new QueryBuilderProtoConverterRegistry();
-
-    /**
-     * Sets the registry for testing purposes.
-     *
-     * @param registry The registry to use
-     */
-    void setRegistry(QueryBuilderProtoConverterRegistry registry) {
-        REGISTRY = registry;
-    }
-
-    /**
-     * Gets the current registry.
-     *
-     * @return The current registry
-     */
-    QueryBuilderProtoConverterRegistry getRegistry() {
-        return REGISTRY;
-    }
-
     /**
     * Converts a Protocol Buffer KnnQuery to an OpenSearch KNNQueryBuilder.
     * This method follows the exact same pattern as {@link KNNQueryBuilderParser#fromXContent(XContentParser)}
     * to ensure parsing consistency and compatibility.
     *
     * @param knnQueryProto The Protocol Buffer KnnQuery to convert
+    * @param registry The registry to use for converting nested queries (e.g., filters)
     * @return A configured KNNQueryBuilder instance
     */
-    public QueryBuilder fromProto(KnnQuery knnQueryProto) {
+    public QueryBuilder fromProto(KnnQuery knnQueryProto, QueryBuilderProtoConverterRegistry registry) {
         // Create builder using the internal parser pattern like XContent parsing
         KNNQueryBuilder.Builder builder = KNNQueryBuilder.builder();
 
@@ -92,7 +72,7 @@ public class KNNQueryBuilderProtoUtils {
         // Set filter (equivalent to FILTER_FIELD parsing)
         if (knnQueryProto.hasFilter()) {
             QueryContainer filterQueryContainer = knnQueryProto.getFilter();
-            builder.filter(REGISTRY.fromProto(filterQueryContainer));
+            builder.filter(registry.fromProto(filterQueryContainer));
         }
 
         // Set rescore (equivalent to RESCORE_FIELD parsing)
@@ -107,8 +87,8 @@ public class KNNQueryBuilderProtoUtils {
         }
 
         // Set query name (equivalent to NAME_FIELD parsing)
-        if (knnQueryProto.hasUnderscoreName()) {
-            builder.queryName(knnQueryProto.getUnderscoreName());
+        if (knnQueryProto.hasXName()) {
+            builder.queryName(knnQueryProto.getXName());
         }
 
         // Set expandNested (equivalent to EXPAND_NESTED_FIELD parsing)
@@ -222,5 +202,4 @@ public class KNNQueryBuilderProtoUtils {
                 return RescoreContext.getDefault();
         }
     }
-
 }
