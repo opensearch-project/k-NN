@@ -94,6 +94,12 @@ plugins {
     id "de.undercouch.download" version "5.3.0"
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 apply from: 'gradle/formatting.gradle'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.rest-test'
@@ -288,13 +294,13 @@ publishing {
 }
 
 compileJava {
-    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs.addAll(["--enable-preview", "-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
 }
 compileTestJava {
-    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs.addAll(["--enable-preview", "-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
 }
 compileTestFixturesJava {
-    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs.addAll(["--enable-preview", "-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
 }
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
@@ -450,6 +456,7 @@ test {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
+    jvmArgs += "--enable-preview"
 }
 
 def _numNodes = findProperty('numNodes') as Integer ?: 1
@@ -498,6 +505,7 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
     if (System.getProperty("test.debug") != null) {
         task.jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
+    task.jvmArgs += "--enable-preview"
     task.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
 }
 
@@ -542,15 +550,24 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
         cluster.nodes.forEach { node ->
-            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=${debugPort} --enable-preview")
             debugPort += 1
         }
+    }
+    cluster.nodes.forEach { node ->
+        node.jvmArgs("--enable-preview")
     }
     cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
     testSnapshotFolder.mkdirs()
     cluster.setting 'path.repo', "${buildDir}/testSnapshotFolder"
     cluster.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+}
+
+testClusters.all {
+    nodes.configureEach {
+        jvmArgs.add("--enable-preview")
+    }
 }
 
 testClusters.integTest {

@@ -42,6 +42,8 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final VectorSimilarityFunction vectorSimilarityFunction;
     private final long fileSize;
     private boolean isAdc;
+    // When this is true, then it will use a dedicated scorer which offload distance calculation logic to C++ layer.
+    private boolean useNativeScorer;
 
     public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo) throws IOException {
         this.indexInput = indexInput;
@@ -67,6 +69,16 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction, isAdc, spaceType);
 
         this.hnsw = extractFaissHnsw(faissIndex);
+
+        // Use native scoring logic to calculate distance outside JVM.
+        try {
+            if (faissIndex.getByteValues(indexInput) instanceof MMapByteVectorValues) {
+                this.useNativeScorer = true;
+            }
+        } catch (final UnsupportedOperationException e) {
+            // For FP32 flat index, we don't support native score yet.
+            this.useNativeScorer = false;
+        }
     }
 
     private static FaissHNSW extractFaissHnsw(final FaissIndex faissIndex) {
@@ -79,6 +91,11 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
     @Override
     public void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
+        if (useNativeScorer) {
+            // TODO : This will be implemented in PR-2
+        }
+
+        // Use JVM based distance calculator
         search(
             VectorEncoding.FLOAT32,
             () -> flatVectorsScorer.getRandomVectorScorer(
