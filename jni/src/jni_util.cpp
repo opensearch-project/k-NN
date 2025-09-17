@@ -291,6 +291,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env
             vect->push_back(vector[j]);
         }
         env->ReleaseFloatArrayElements(vectorArray, vector, JNI_ABORT);
+        env->DeleteLocalRef(vectorArray);
     }  // End for
     this->HasExceptionInStack(env);
     env->DeleteLocalRef(array2dJ);
@@ -324,6 +325,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToBinaryVector(JNIEnv *en
             vect->push_back(vector[j]);
         }
         env->ReleaseByteArrayElements(vectorArray, reinterpret_cast<int8_t*>(vector), JNI_ABORT);
+        env->DeleteLocalRef(vectorArray);
     }
     this->HasExceptionInStack(env);
     env->DeleteLocalRef(array2dJ);
@@ -356,6 +358,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env,
 
         vect->insert(vect->end(), vector, vector + dim);
         env->ReleaseByteArrayElements(vectorArray, reinterpret_cast<int8_t*>(vector), JNI_ABORT);
+        env->DeleteLocalRef(vectorArray);
     }
     this->HasExceptionInStack(env);
     env->DeleteLocalRef(array2dJ);
@@ -399,6 +402,7 @@ int knn_jni::JNIUtil::GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectAr
     this->HasExceptionInStack(env);
     int dim = env->GetArrayLength(vectorArray);
     this->HasExceptionInStack(env);
+    env->DeleteLocalRef(vectorArray);
     return dim;
 }
 
@@ -416,6 +420,7 @@ int knn_jni::JNIUtil::GetInnerDimensionOf2dJavaByteArray(JNIEnv *env, jobjectArr
     this->HasExceptionInStack(env);
     int dim = env->GetArrayLength(vectorArray);
     this->HasExceptionInStack(env);
+    env->DeleteLocalRef(vectorArray);
     return dim;
 }
 
