@@ -8,10 +8,6 @@ import org.apache.tools.ant.taskdefs.condition.Os
 
 apply from : "$rootDir/qa/build.gradle"
 
-dependencies {
-    // Ensure Guava is available for BWC test compilation
-    testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
-}
 
 String default_bwc_version = System.getProperty("bwc.version")
 String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
