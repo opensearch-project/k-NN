@@ -342,14 +342,10 @@ dependencies {
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compileOnly "org.opensearch.plugin:transport-grpc-spi:${opensearch_version}"
     compileOnly "org.opensearch:protobufs:0.13.0"
-    // Bundle both Guava and failureaccess together to ensure they're in the same classloader
-    // and exclude error_prone_annotations to avoid conflicts with OpenSearch core
-    api('com.google.guava:guava:33.2.1-jre') {
-        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
-    }
-    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
-    // Use OpenSearch core's version of error_prone_annotations to avoid conflicts
-    api group: 'com.google.errorprone', name: 'error_prone_annotations', version: '2.41.0'
+    // Guava is provided by OpenSearch's transport-grpc module - use compileOnly to avoid jar hell
+    compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    // Add failureaccess using implementation to make it available to transport-grpc's Guava
+    implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     testImplementation('com.google.guava:guava:33.2.1-jre') {
         exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
     }
