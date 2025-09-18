@@ -342,8 +342,19 @@ dependencies {
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compileOnly "org.opensearch.plugin:transport-grpc-spi:${opensearch_version}"
     compileOnly "org.opensearch:protobufs:0.13.0"
-    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
-    api group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    // Guava is provided by OpenSearch's transport-grpc module, so use compileOnly to avoid jar hell
+    // but make it available for compilation and testing
+    compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
+    testImplementation('com.google.guava:guava:33.2.1-jre') {
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+    testFixturesImplementation('com.google.guava:guava:33.2.1-jre') {
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+    // Use the OpenSearch core version of error_prone_annotations for tests
+    testImplementation group: 'com.google.errorprone', name: 'error_prone_annotations', version: '2.41.0'
+    testFixturesImplementation group: 'com.google.errorprone', name: 'error_prone_annotations', version: '2.41.0'
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"

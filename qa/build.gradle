@@ -25,6 +25,11 @@ dependencies {
     api "org.apache.logging.log4j:log4j-api:${versions.log4j}"
     api "org.apache.logging.log4j:log4j-core:${versions.log4j}"
 
+    // Guava is provided by transport-grpc but needed for QA test compilation
+    testImplementation('com.google.guava:guava:33.2.1-jre') {
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+    testImplementation group: 'com.google.errorprone', name: 'error_prone_annotations', version: '2.41.0'
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation(testFixtures(rootProject))
 }
