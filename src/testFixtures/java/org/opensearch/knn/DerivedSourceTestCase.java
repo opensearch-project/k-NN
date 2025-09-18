@@ -9,11 +9,13 @@ import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
@@ -23,6 +25,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Supplier;
+
+import static org.opensearch.knn.TestUtils.BWC_VERSION;
 
 public class DerivedSourceTestCase extends KNNRestTestCase {
 
@@ -304,6 +308,91 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
             indexConfigContexts.add(indexConfigContext);
         }
 
+        return indexConfigContexts;
+    }
+
+    /**
+     * Testing flat, single field base case with index configuration. The test will automatically skip adding fields for
+     *  random documents to ensure it works robustly. To ensure correctness, we repeat same operations against an
+     *  index without derived source enabled (baseline).
+     *  {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true/false
+     *         "analysis": {
+     *              "analyzer": {
+     *                  "delimited_tf": {
+     *                  "filter": [
+     *                             "delimited_term_freq"
+     *                         ],
+     *                  "index_options": "freqs",
+     *                  "tokenizer": "whitespace"
+     *                     }
+     *                 }
+     *             },
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     *             "test-text" {
+     *                  "type": "text",
+     *                  "index_options": "freqs",
+     *                  "analyzer": "delimited_tf"
+     *             }
+     *         }
+     *     }
+     * }
+     */
+    protected List<DerivedSourceUtils.IndexConfigContext> getCustomAnalyzerIndexContexts(
+            String testSuitePrefix,
+            boolean addRandom,
+            boolean addNull
+    ) {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        long consistentRandomSeed = random().nextLong();
+        for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
+            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
+            Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
+            Settings settingsWithAnalyzer = Settings.builder()
+                    .put(
+                            "index.number_of_shards",
+                            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+                    )
+                    .put(
+                            "index.number_of_replicas",
+                            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1
+                                    && System.getProperty(BWC_VERSION, null) == null ? 1 : 0
+                    )
+                    .put("index.knn", true)
+                    .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+                    .put("index.analysis.analyzer.delimited_tf.filter", "delimited_term_freq")
+                    .put("index.analysis.analyzer.delimited_tf.index_options", "freqs")
+                    .put("index.analysis.analyzer.delimited_tf.tokenizer", "whitespace")
+                    .build();
+            DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
+                    .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
+                    .docCount(randomDocCountSupplier.get())
+                    .derivedEnabled(index.getSecond())
+                    .random(new Random(consistentRandomSeed))
+                    .fields(
+                            List.of(
+                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                                            .dimension(dimensionSupplier.get())
+                                            .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
+                                            .fieldPath("test_float_vector")
+                                            .build(),
+                                    DerivedSourceUtils.TextAnalyzerFieldType.builder().fieldPath("test-text").build()
+                            )
+                    )
+                    .settings(settingsWithAnalyzer)
+                    .build();
+            indexConfigContext.init();
+            indexConfigContexts.add(indexConfigContext);
+        }
         return indexConfigContexts;
     }
 

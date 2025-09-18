@@ -17,6 +17,7 @@ import org.opensearch.knn.Pair;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -138,6 +139,49 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         }
 
         prepareOriginalIndices(indexConfigContexts);
+    }
+
+
+    /**
+     * Tests that kNN handles bad documents the same when derived source is enabled and disabled.
+     * @throws java.io.IOException
+     */
+    public void testDerivedSource_HandlesInvalidDocuments() throws IOException {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getCustomAnalyzerIndexContexts("derivedit", true, true);
+
+        assertTrue(1 < indexConfigContexts.size());
+        DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
+        DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
+        createKnnIndex(
+                derivedSourceEnabledContext.indexName,
+                derivedSourceEnabledContext.getSettings(),
+                derivedSourceEnabledContext.getMapping()
+        );
+        createKnnIndex(
+                derivedSourceDisabledContext.indexName,
+                derivedSourceDisabledContext.getSettings(),
+                derivedSourceDisabledContext.getMapping()
+        );
+        for (int i = 0; i < derivedSourceDisabledContext.docCount; i++) {
+            String doc1 = derivedSourceEnabledContext.buildDoc();
+            String doc2 = derivedSourceDisabledContext.buildDoc();
+            assertEquals(doc1, doc2);
+            boolean dsEnabledException = false;
+            boolean dsDisabledException = false;
+            try {
+                addKnnDoc(derivedSourceEnabledContext.getIndexName(), String.valueOf(i + 1), doc1);
+            } catch (ResponseException e) {
+                assertTrue(e.getMessage().contains("number_format_exception"));
+                dsEnabledException = true;
+            }
+            try {
+                addKnnDoc(derivedSourceDisabledContext.getIndexName(), String.valueOf(i + 1), doc2);
+            } catch (ResponseException e) {
+                assertTrue(e.getMessage().contains("number_format_exception"));
+                dsDisabledException = true;
+            }
+            assertEquals(dsEnabledException, dsDisabledException);
+        }
     }
 
     /**

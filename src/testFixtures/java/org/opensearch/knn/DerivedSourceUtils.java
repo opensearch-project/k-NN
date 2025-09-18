@@ -409,6 +409,39 @@ public class DerivedSourceUtils {
     }
 
     @SuperBuilder
+    public static class TextAnalyzerFieldType extends LeafFieldContext {
+        @Builder.Default
+        public boolean isDynamic = false;
+
+        public void init(Random random) {
+            super.init(random);
+            if (valueSupplier == null) {
+                this.valueSupplier = () -> {
+                    if (random.nextBoolean()) {
+                        return "test|123";
+                    } else {
+                        return "test|bad|123";
+                    }
+                };
+            }
+        }
+
+        @Override
+        public XContentBuilder buildMapping(XContentBuilder builder) throws IOException {
+            if (isDynamic) {
+                return builder;
+            }
+
+            builder.startObject(getFieldName());
+            builder.field("type", "text");
+            builder.field("index_options", "freqs");
+            builder.field("analyzer", "delimited_tf");
+            builder.endObject();
+            return builder;
+        }
+    }
+
+    @SuperBuilder
     public static class IntFieldType extends LeafFieldContext {
         @Builder.Default
         public boolean isDynamic = false;

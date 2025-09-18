@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN10010Codec;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergeState;
@@ -15,6 +16,7 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.compress.NotXContentException;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -29,6 +31,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Log4j2
 public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
 
     private final StoredFieldsWriter delegate;
@@ -113,11 +116,20 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
             // here because writeField may not always follow the preindex step, so it might have the vector (think
             // merge). This may be overly cautious and we can remove/optimize it in the future. For now, its a safety
             // net.
-            Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
-                BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length)),
-                true,
-                MediaTypeRegistry.JSON
-            );
+            Tuple<? extends MediaType, Map<String, Object>> mapTuple;
+
+            // If the content is not XContent, skip writing altogether. See:
+            // https://github.com/opensearch-project/k-NN/issues/2880
+            try {
+                mapTuple = XContentHelper.convertToMap(
+                        BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length)),
+                        true,
+                        MediaTypeRegistry.JSON
+                );
+            } catch (NotXContentException e) {
+                log.warn("Encountered NotXContent while deserializing _source field. Instead found String: [{}]", new String(bytesRef.bytes), e);
+                return;
+            }
             Map<String, Object> filteredSource = vectorMask.apply(mapTuple.v2());
             BytesStreamOutput bStream = new BytesStreamOutput();
             MediaType actualContentType = mapTuple.v1();
