@@ -136,6 +136,9 @@ jobs:
 
       # TODO: Detect processor count and set the value of nproc.count
       - name: Run build
+        env:
+          CC: clang
+          CXX: clang++
         run: |
           if sysctl -n machdep.cpu.features machdep.cpu.leaf7_features | grep -i AVX2
           then

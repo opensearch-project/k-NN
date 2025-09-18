@@ -348,7 +348,12 @@ dependencies {
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     // Add Guava for test configurations since it's needed for testing but excluded from runtime
     testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
-    testFixturesImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    // com.google.guava:guava:33.2.1-jre is using com.google.errorprone:error_prone_annotations:2.26.1 but OpenSearch
+    // core is using 2.41.0 so manually force to use 2.41.0 to avoid the conflict.
+    testFixturesImplementation('com.google.guava:guava:33.2.1-jre'){
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+    testFixturesImplementation group: 'com.google.errorprone', name: 'error_prone_annotations', version: '2.41.0'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"

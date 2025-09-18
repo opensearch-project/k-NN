@@ -174,7 +174,7 @@ public class KNNPlugin extends Plugin
         ExtensiblePlugin,
         SystemIndexPlugin,
         ReloadablePlugin {
-
+    public static final String TEST_EMPTY_CHANGE = "TEST_EMPTY_CHANGE";
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
 
