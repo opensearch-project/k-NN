@@ -345,7 +345,8 @@ dependencies {
     // Guava is provided by OpenSearch's transport-grpc module, so use compileOnly to avoid jar hell
     // but make it available for compilation and testing
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
-    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
+    // failureaccess is NOT provided by transport-grpc, so we need to bundle it
+    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
     testImplementation('com.google.guava:guava:33.2.1-jre') {
         exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
     }
