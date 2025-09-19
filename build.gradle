@@ -252,6 +252,12 @@ configurations {
     zipArchive
 }
 
+configurations.all {
+    resolutionStrategy {
+        force 'com.google.errorprone:error_prone_annotations:2.41.0'
+    }
+}
+
 publishing {
     repositories {
         maven {
