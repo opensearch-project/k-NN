@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN10010Codec;
+package org.opensearch.knn.index.codec.backward_codecs.KNN1010Codec;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.Codec;
@@ -12,6 +12,7 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
+import org.opensearch.knn.index.codec.backward_codecs.KNN10010Codec.KNN10010Codec;
 
 import java.util.Optional;
 import java.util.function.Function;

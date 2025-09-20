@@ -9,11 +9,14 @@ import lombok.SneakyThrows;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopKnnCollector;
+import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOConsumer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
@@ -49,7 +52,7 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;
-            final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE);
+            final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
 
             // Build a query
             final Object query;
@@ -73,11 +76,14 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
                 query = binaryQuery;
             }
 
+            Bits bits = new Bits.MatchAllBits(TOTAL_NUMBER_OF_VECTORS);
+            AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(bits, TOTAL_NUMBER_OF_VECTORS);
+
             // Start searching
             if (vectorDataType == VectorDataType.FLOAT) {
-                searcher.search((float[]) query, knnCollector, null);
+                searcher.search((float[]) query, knnCollector, acceptDocs);
             } else {
-                searcher.search((byte[]) query, knnCollector, null);
+                searcher.search((byte[]) query, knnCollector, acceptDocs);
             }
             final TopDocs topDocs = knnCollector.topDocs();
             final ScoreDoc[] scoreDocs = topDocs.scoreDocs;

@@ -9,6 +9,8 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.search.AcceptDocs;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopDocs;
@@ -18,6 +20,8 @@ import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.BitSetIterator;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -189,13 +193,34 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
         // Create a collector + bitset
         final KnnCollector knnCollector = knnCollectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
-        final BitSet bitSet = cardinality == 0 ? null : filterIdsBitSet;
+        final AcceptDocs acceptDocs;
+        if (cardinality == 0) {
+            final Bits liveDocs = reader.getLiveDocs();
+            acceptDocs = AcceptDocs.fromLiveDocs(liveDocs, reader.maxDoc());
+        } else {
+            acceptDocs = new AcceptDocs() {
+                @Override
+                public Bits bits() throws IOException {
+                    return filterIdsBitSet;
+                }
+
+                @Override
+                public DocIdSetIterator iterator() throws IOException {
+                    return new BitSetIterator(filterIdsBitSet, cardinality);
+                }
+
+                @Override
+                public int cost() throws IOException {
+                    return cardinality;
+                }
+            };
+        }
 
         // Start searching index
         if (targetVector instanceof float[] floatTargetVector) {
-            reader.getVectorReader().search(knnQuery.getField(), floatTargetVector, knnCollector, bitSet);
+            reader.getVectorReader().search(knnQuery.getField(), floatTargetVector, knnCollector, acceptDocs);
         } else {
-            reader.getVectorReader().search(knnQuery.getField(), (byte[]) targetVector, knnCollector, bitSet);
+            reader.getVectorReader().search(knnQuery.getField(), (byte[]) targetVector, knnCollector, acceptDocs);
         }
 
         // Make results to return

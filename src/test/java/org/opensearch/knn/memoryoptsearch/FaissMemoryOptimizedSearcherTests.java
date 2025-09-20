@@ -12,11 +12,13 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopKnnCollector;
+import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -500,14 +502,16 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // buildInfo.documentIds.size() + 1 -> Will force it to do exhaustive search.
         // buildInfo.documentIds.size() - 1 -> Will maximize search space, this is equivalent to set efSearch = len(N) - 1
         final int efSearch = exhaustiveSearch ? buildInfo.documentIds.size() + 1 : buildInfo.documentIds.size() - 1;
-        final KnnCollector knnCollector = new TopKnnCollector(efSearch, Integer.MAX_VALUE);
-        FixedBitSet acceptDocs = null;
+        final KnnCollector knnCollector = new TopKnnCollector(efSearch, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
+        FixedBitSet fixedBitSet = null;
         if (filteredIds != null) {
-            acceptDocs = new FixedBitSet(buildInfo.documentIds.getLast() + 10);
+            fixedBitSet = new FixedBitSet(buildInfo.documentIds.getLast() + 10);
             for (long filteredId : filteredIds) {
-                acceptDocs.set((int) filteredId);
+                fixedBitSet.set((int) filteredId);
             }
         }
+
+        AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(fixedBitSet, buildInfo.documentIds.getLast() + 10);
 
         // Make SegmentReadState and do search
         try (final Directory directory = new MMapDirectory(buildInfo.tempDirPath)) {

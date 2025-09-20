@@ -48,7 +48,7 @@ public class QueryUtils {
 
     /**
      * Returns a query that represents the specified TopDocs
-     * This is copied from {@link org.apache.lucene.search.AbstractKnnVectorQuery#createRewrittenQuery}
+     * This is copied from org.apache.lucene.search.AbstractKnnVectorQuery#createRewrittenQuery
      *
      * @param reader the index reader
      * @param topDocs the documents to be retured by the query

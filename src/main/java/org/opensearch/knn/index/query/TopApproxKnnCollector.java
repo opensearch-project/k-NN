@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import org.apache.lucene.search.TopKnnCollector;
+import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -20,7 +21,7 @@ public class TopApproxKnnCollector extends TopKnnCollector {
     private final SpaceType spaceType;
 
     public TopApproxKnnCollector(int k, KNNEngine engine, SpaceType spaceType) {
-        super(k, Integer.MAX_VALUE);
+        super(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
         this.spaceType = spaceType;
         this.engine = engine;
     }

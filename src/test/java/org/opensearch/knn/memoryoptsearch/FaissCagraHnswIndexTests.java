@@ -8,11 +8,14 @@ package org.opensearch.knn.memoryoptsearch;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopKnnCollector;
+import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOConsumer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
@@ -47,7 +50,9 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;
-            final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE);
+            // TODO use KNNPlugin's collector here
+            final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
+            AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(new Bits.MatchAllBits(TOTAL_NUMBER_OF_VECTORS), TOTAL_NUMBER_OF_VECTORS);
 
             // Build a query
             final float[] query = new float[DIMENSION];
@@ -56,7 +61,7 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
             }
 
             // Start searching
-            searcher.search(query, knnCollector, null);
+            searcher.search(query, knnCollector, acceptDocs);
             final TopDocs topDocs = knnCollector.topDocs();
             final ScoreDoc[] scoreDocs = topDocs.scoreDocs;
 
