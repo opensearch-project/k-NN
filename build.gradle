@@ -258,8 +258,8 @@ publishing {
             name = "Snapshots"
             url = "https://central.sonatype.com/repository/maven-snapshots/"
             credentials {
-                username "$System.env.SONATYPE_USERNAME"
-                password "$System.env.SONATYPE_PASSWORD"
+                username System.getenv("SONATYPE_USERNAME")
+                password System.getenv("SONATYPE_PASSWORD")
             }
         }
     }
@@ -341,16 +341,21 @@ dependencies {
     api project(":remote-index-build-client")
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compileOnly "org.opensearch.plugin:transport-grpc-spi:${opensearch_version}"
-    compileOnly "org.opensearch:protobufs:0.13.0"
-    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
-    compileOnly group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    compileOnly "org.opensearch:protobufs:${versions.opensearchprotobufs}"
+    // Declare guava as compile time since guava will come from OpenSearch transport-grpc module.
+    compileOnly group: 'com.google.guava', name: 'guava', version: "${versions.guava}"
+    compileOnly group: 'com.google.errorprone', name: 'error_prone_annotations', version: "${versions.error_prone_annotations}"
+
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
+    // We need to remove errorprone from guava since default guava is not bringing 2.26.1 version
+    // where as OpenSearch is using 2.41.0
+    testFixturesImplementation("com.google.guava:guava:${versions.guava}") {
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+    testFixturesImplementation group: 'com.google.errorprone', name: 'error_prone_annotations', version: "${versions.error_prone_annotations}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
-    // Add Guava for test configurations since it's needed for testing but excluded from runtime
-    testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
-    testFixturesImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
-    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
+    testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
     // json-path 2.9.0 depends on slf4j 2.0.11, which conflicts with the version used by OpenSearch core.
     // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
