@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN10010Codec;
+package org.opensearch.knn.index.codec.backward_codecs.KNN10010Codec;
 
 import lombok.Builder;
 import org.apache.lucene.codecs.Codec;
@@ -12,9 +12,10 @@ import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.StoredFieldsFormat;
-import org.apache.lucene.codecs.lucene101.Lucene101Codec;
+import org.apache.lucene.backward_codecs.lucene101.Lucene101Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.codec.KNN10010Codec.KNN10010DerivedSourceStoredFieldsFormat;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
@@ -29,7 +30,7 @@ import java.util.Optional;
 public class KNN10010Codec extends FilterCodec {
 
     private static final String NAME = "KNN10010Codec";
-    public static final Codec DEFAULT_DELEGATE = new Lucene101Codec();
+    private static final Codec DEFAULT_DELEGATE = new Lucene101Codec();
     private static final PerFieldKnnVectorsFormat DEFAULT_KNN_VECTOR_FORMAT = new KNN9120PerFieldKnnVectorsFormat(Optional.empty());
 
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
