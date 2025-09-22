@@ -20,10 +20,15 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.store.DataAccessHint;
+import org.apache.lucene.store.FileDataHint;
+import org.apache.lucene.store.FileTypeHint;
+import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.IOUtils;
@@ -63,12 +68,13 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private final SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
     private volatile Map<String, VectorSearcherHolder> vectorSearchers;
+    private final IOContext ioContext;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
-
+        ioContext = state.context.withHints(FileTypeHint.DATA, FileDataHint.KNN_VECTORS, DataAccessHint.RANDOM);
         loadCacheKeyMap();
         fillVectorSearcherTable();
     }
@@ -135,7 +141,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      *                     if they are all allowed to match.
      */
     @Override
-    public void search(String field, float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+    public void search(String field, float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         // TODO: This is a temporary hack where we are using KNNCollector to initialize the quantization state.
         if (knnCollector instanceof QuantizationConfigKNNCollector) {
             String cacheKey = quantizationStateCacheKeyPerField.get(field);
@@ -185,7 +191,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      *                     if they are all allowed to match.
      */
     @Override
-    public void search(String field, byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+    public void search(String field, byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         // searching with byte vector is not supported by ADC.
         if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, false)) {
             return;
@@ -239,7 +245,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         final String field,
         final Object target,
         final KnnCollector knnCollector,
-        final Bits acceptDocs,
+        final AcceptDocs acceptDocs,
         final boolean isFloatVector
     ) throws IOException {
         // Try with memory optimized searcher
@@ -363,7 +369,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         // Start creating searcher
         final String fileName = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo);
         if (fileName != null) {
-            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName, fieldInfo);
+            return () -> searcherFactory.createVectorSearcher(segmentReadState.directory, fileName, fieldInfo, ioContext);
         }
 
         // Not supported
