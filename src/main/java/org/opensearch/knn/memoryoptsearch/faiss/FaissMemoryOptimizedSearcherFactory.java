@@ -10,7 +10,6 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.store.ReadAdvice;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -25,13 +24,15 @@ import java.io.IOException;
  */
 @Log4j2
 public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactory {
+
     @Override
-    public VectorSearcher createVectorSearcher(final Directory directory, final String fileName, final FieldInfo fieldInfo)
-        throws IOException {
-        final IndexInput indexInput = directory.openInput(
-            fileName,
-            new IOContext(IOContext.Context.DEFAULT, null, null, ReadAdvice.RANDOM)
-        );
+    public VectorSearcher createVectorSearcher(
+        final Directory directory,
+        final String fileName,
+        final FieldInfo fieldInfo,
+        final IOContext ioContext
+    ) throws IOException {
+        final IndexInput indexInput = directory.openInput(fileName, ioContext);
 
         try {
             // Try load it. Not all FAISS index types are currently supported at the moment.
@@ -45,4 +46,5 @@ public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactor
             throw e;
         }
     }
+
 }

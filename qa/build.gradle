@@ -25,8 +25,12 @@ dependencies {
     api "org.apache.logging.log4j:log4j-api:${versions.log4j}"
     api "org.apache.logging.log4j:log4j-core:${versions.log4j}"
 
-    // Guava needed for BWC test compilation (ImmutableList, ImmutableMap usage)
-    testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    // We need to remove errorprone from guava since default guava is not bringing 2.26.1 version
+    // where as OpenSearch is using 2.41.0
+    testImplementation("com.google.guava:guava:${versions.guava}") {
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation(testFixtures(rootProject))
 }

@@ -9,6 +9,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
@@ -77,7 +78,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     @Override
-    public void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+    public void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         search(
             VectorEncoding.FLOAT32,
             () -> flatVectorsScorer.getRandomVectorScorer(
@@ -91,7 +92,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     @Override
-    public void search(byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+    public void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         search(
             VectorEncoding.BYTE,
             () -> flatVectorsScorer.getRandomVectorScorer(
@@ -113,7 +114,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final VectorEncoding vectorEncoding,
         final IOSupplier<RandomVectorScorer> scorerSupplier,
         final KnnCollector knnCollector,
-        final Bits acceptDocs
+        final AcceptDocs acceptDocs
     ) throws IOException {
         if (faissIndex.getTotalNumberOfVectors() == 0 || knnCollector.k() == 0) {
             return;
@@ -133,7 +134,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         // Set up required components for vector search
         final RandomVectorScorer scorer = scorerSupplier.get();
         final KnnCollector collector = createKnnCollector(knnCollector, scorer);
-        final Bits acceptedOrds = scorer.getAcceptOrds(acceptDocs);
+        final Bits acceptedOrds = scorer.getAcceptOrds(acceptDocs.bits());
 
         if (knnCollector.k() < scorer.maxOrd()) {
             // Do ANN search with Lucene's HNSW graph searcher.
