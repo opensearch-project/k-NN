@@ -45,6 +45,7 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
@@ -268,7 +269,7 @@ public abstract class KNNWeight extends Weight {
 
             @Override
             public Scorer get(long leadCost) throws IOException {
-                final TopDocs topDocs = searchLeaf(context, knnQuery.getK()).getResult();
+                final TopDocs topDocs = searchLeaf(context, Optional.ofNullable(knnQuery.getK()).orElse(0)).getResult();
                 cost = topDocs.scoreDocs.length;
                 if (cost == 0) {
                     return KNNScorer.emptyScorer();
@@ -279,7 +280,7 @@ public abstract class KNNWeight extends Weight {
             @Override
             public long cost() {
                 // Estimate the cost of the scoring operation, if applicable.
-                return cost == -1L ? knnQuery.getK() : cost;
+                return cost == -1L ? Optional.ofNullable(knnQuery.getK()).orElse(0) : cost;
             }
         };
     }

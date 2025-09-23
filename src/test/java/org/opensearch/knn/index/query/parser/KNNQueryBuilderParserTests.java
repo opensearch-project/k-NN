@@ -493,7 +493,6 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         builder.startObject(NAME);
         builder.startObject(FIELD_NAME);
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), queryVector);
-        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), 0);
         builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), MAX_DISTANCE);
         builder.field(BOOST_FIELD.getPreferredName(), BOOST);
         builder.endObject();
