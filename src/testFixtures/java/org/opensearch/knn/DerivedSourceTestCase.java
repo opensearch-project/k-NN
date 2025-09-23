@@ -348,9 +348,9 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
      * }
      */
     protected List<DerivedSourceUtils.IndexConfigContext> getCustomAnalyzerIndexContexts(
-            String testSuitePrefix,
-            boolean addRandom,
-            boolean addNull
+        String testSuitePrefix,
+        boolean addRandom,
+        boolean addNull
     ) {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
         long consistentRandomSeed = random().nextLong();
@@ -358,38 +358,38 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
             Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
             Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
             Settings settingsWithAnalyzer = Settings.builder()
-                    .put(
-                            "index.number_of_shards",
-                            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
-                    )
-                    .put(
-                            "index.number_of_replicas",
-                            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1
-                                    && System.getProperty(BWC_VERSION, null) == null ? 1 : 0
-                    )
-                    .put("index.knn", true)
-                    .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
-                    .put("index.analysis.analyzer.delimited_tf.filter", "delimited_term_freq")
-                    .put("index.analysis.analyzer.delimited_tf.index_options", "freqs")
-                    .put("index.analysis.analyzer.delimited_tf.tokenizer", "whitespace")
-                    .build();
+                .put(
+                    "index.number_of_shards",
+                    System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+                )
+                .put(
+                    "index.number_of_replicas",
+                    Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1
+                        && System.getProperty(BWC_VERSION, null) == null ? 1 : 0
+                )
+                .put("index.knn", true)
+                .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+                .put("index.analysis.analyzer.delimited_tf.filter", "delimited_term_freq")
+                .put("index.analysis.analyzer.delimited_tf.index_options", "freqs")
+                .put("index.analysis.analyzer.delimited_tf.tokenizer", "whitespace")
+                .build();
             DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
-                    .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
-                    .docCount(randomDocCountSupplier.get())
-                    .derivedEnabled(index.getSecond())
-                    .random(new Random(consistentRandomSeed))
-                    .fields(
-                            List.of(
-                                    DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                            .dimension(dimensionSupplier.get())
-                                            .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
-                                            .fieldPath("test_float_vector")
-                                            .build(),
-                                    DerivedSourceUtils.TextAnalyzerFieldType.builder().fieldPath("test-text").build()
-                            )
+                .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
+                .docCount(randomDocCountSupplier.get())
+                .derivedEnabled(index.getSecond())
+                .random(new Random(consistentRandomSeed))
+                .fields(
+                    List.of(
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .dimension(dimensionSupplier.get())
+                            .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
+                            .fieldPath("test_float_vector")
+                            .build(),
+                        DerivedSourceUtils.TextAnalyzerFieldType.builder().fieldPath("test-text").build()
                     )
-                    .settings(settingsWithAnalyzer)
-                    .build();
+                )
+                .settings(settingsWithAnalyzer)
+                .build();
             indexConfigContext.init();
             indexConfigContexts.add(indexConfigContext);
         }

@@ -141,7 +141,6 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         prepareOriginalIndices(indexConfigContexts);
     }
 
-
     /**
      * Tests that kNN handles bad documents the same when derived source is enabled and disabled.
      * @throws java.io.IOException
@@ -153,14 +152,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
         DerivedSourceUtils.IndexConfigContext derivedSourceDisabledContext = indexConfigContexts.get(1);
         createKnnIndex(
-                derivedSourceEnabledContext.indexName,
-                derivedSourceEnabledContext.getSettings(),
-                derivedSourceEnabledContext.getMapping()
+            derivedSourceEnabledContext.indexName,
+            derivedSourceEnabledContext.getSettings(),
+            derivedSourceEnabledContext.getMapping()
         );
         createKnnIndex(
-                derivedSourceDisabledContext.indexName,
-                derivedSourceDisabledContext.getSettings(),
-                derivedSourceDisabledContext.getMapping()
+            derivedSourceDisabledContext.indexName,
+            derivedSourceDisabledContext.getSettings(),
+            derivedSourceDisabledContext.getMapping()
         );
         for (int i = 0; i < derivedSourceDisabledContext.docCount; i++) {
             String doc1 = derivedSourceEnabledContext.buildDoc();

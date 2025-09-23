@@ -122,12 +122,17 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
             // https://github.com/opensearch-project/k-NN/issues/2880
             try {
                 mapTuple = XContentHelper.convertToMap(
-                        BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length)),
-                        true,
-                        MediaTypeRegistry.JSON
+                    BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length)),
+                    true,
+                    MediaTypeRegistry.JSON
                 );
             } catch (NotXContentException e) {
-                log.warn("Encountered NotXContent while deserializing _source field. Instead found String: [{}]", new String(bytesRef.bytes), e);
+                log.warn(
+                    "Encountered NotXContent while deserializing _source field. Instead found String: [{}]",
+                    // Limit max string length in case of long bytes object
+                    new String(bytesRef.bytes, 0, Math.min(bytesRef.bytes.length, 512)),
+                    e
+                );
                 return;
             }
             Map<String, Object> filteredSource = vectorMask.apply(mapTuple.v2());
