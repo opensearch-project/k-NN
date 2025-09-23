@@ -1,7 +1,7 @@
-From d1640229cbaff2fce8bc20735a3f6b5237e06775 Mon Sep 17 00:00:00 2001
+From da2b19af1911bce54ae1d77a78a1a71721c24fef Mon Sep 17 00:00:00 2001
 From: Dooyong Kim <kdooyong@amazon.com>
-Date: Mon, 22 Sep 2025 21:17:08 -0700
-Subject: [PATCH] Added AppleClang, and logging invalid compiler id.
+Date: Tue, 23 Sep 2025 15:56:47 -0700
+Subject: [PATCH] Added AppleClang and logging invalid compiler.
 
 Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
 ---
@@ -9,7 +9,7 @@ Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/similarity_search/CMakeLists.txt b/similarity_search/CMakeLists.txt
-index bc6ef3c..e73997e 100644
+index bc6ef3c..d90db60 100644
 --- a/similarity_search/CMakeLists.txt
 +++ b/similarity_search/CMakeLists.txt
 @@ -55,7 +55,7 @@ elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
@@ -26,7 +26,7 @@ index bc6ef3c..e73997e 100644
      endif()
  else ()
 -    message(FATAL_ERROR "Unrecognized compiler (use GCC, Clang, Intel compiler, or MSVC (on Windows)!")
-+    message(FATAL_ERROR "Unrecognized compiler (use GCC, AppleClang, Clang, Intel compiler, or MSVC (on Windows)! Compiler was ${CMAKE_CXX_COMPILER_ID}")
++    message(FATAL_ERROR "Unrecognized compiler (use GCC, Clang, Intel compiler, or MSVC (on Windows)!, compiler was ${CMAKE_CXX_COMPILER_ID}")
  endif()
  
  if (WITH_EXTRAS)
