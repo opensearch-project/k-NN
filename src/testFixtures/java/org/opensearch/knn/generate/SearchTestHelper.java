@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.generate;
 
+import org.apache.lucene.util.VectorUtil;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
 
@@ -253,10 +254,13 @@ public class SearchTestHelper {
         return vectors;
     }
 
-    public static float[] generateOneSingleFloatVector(final int dimension, final float minValue, float maxValue) {
+    public static float[] generateOneSingleFloatVector(final int dimension, final float minValue, float maxValue, final boolean normalize) {
         final float[] vector = new float[dimension];
         for (int k = 0; k < dimension; k++) {
             vector[k] = minValue + ThreadLocalRandom.current().nextFloat() * (maxValue - minValue);
+        }
+        if (normalize) {
+            return VectorUtil.l2normalize(vector);
         }
         return vector;
     }
@@ -274,7 +278,8 @@ public class SearchTestHelper {
         final List<Integer> docIds,
         final int dimensions,
         final float minValue,
-        final float maxValue
+        final float maxValue,
+        final boolean normalize
     ) {
 
         final List<float[]> vectors = new ArrayList<>();
@@ -287,7 +292,7 @@ public class SearchTestHelper {
                 ++i;
             }
 
-            vectors.add(generateOneSingleFloatVector(dimensions, minValue, maxValue));
+            vectors.add(generateOneSingleFloatVector(dimensions, minValue, maxValue, normalize));
             ++i;
         }
 

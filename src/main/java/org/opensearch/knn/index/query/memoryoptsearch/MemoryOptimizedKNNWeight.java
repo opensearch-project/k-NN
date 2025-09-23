@@ -28,6 +28,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 
 import java.io.IOException;
 
@@ -207,6 +208,9 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         if (topDocs.scoreDocs.length == 0) {
             log.debug("[KNN] Query yielded 0 results");
             return EMPTY_TOPDOCS;
+        }
+        if (spaceType == SpaceType.COSINESIMIL) {
+            MemoryOptimizedSearchScoreConverter.convertToCosineScore(topDocs.scoreDocs);
         }
         addExplainIfRequired(topDocs, knnEngine, spaceType);
         return topDocs;
