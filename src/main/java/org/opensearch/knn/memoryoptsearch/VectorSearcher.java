@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.util.Bits;
 
@@ -33,7 +34,7 @@ public interface VectorSearcher extends Closeable {
      * @param acceptDocs {@link Bits} that represents the allowed documents to match, or {@code null}
      *     if they are all allowed to match.
      */
-    void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException;
+    void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException;
 
     /**
      * Return the k nearest neighbor documents as determined by comparison of their vector values for
@@ -50,5 +51,5 @@ public interface VectorSearcher extends Closeable {
      * @param acceptDocs {@link Bits} that represents the allowed documents to match, or {@code null}
      *     if they are all allowed to match.
      */
-    void search(byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException;
+    void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException;
 }

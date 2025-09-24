@@ -9,8 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Replace commons-lang with org.apache.commons:commons-lang3 [#2863](https://github.com/opensearch-project/k-NN/pull/2863)
 * Bump OpenSearch-Protobufs to 0.13.0 [#2833](https://github.com/opensearch-project/k-NN/pull/2833)
 * Test an empty change.
+* Bump Lucene version to 10.3 and fix build failures [#2878](https://github.com/opensearch-project/k-NN/pull/2878)
+
 ### Bug Fixes
 * Use queryVector length if present in MDC check [#2867](https://github.com/opensearch-project/k-NN/pull/2867)
+* Fix derived source deserialization bug on invalid documents [#2882](https://github.com/opensearch-project/k-NN/pull/2882)
+
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
 

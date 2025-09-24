@@ -1,0 +1,35 @@
+From da2b19af1911bce54ae1d77a78a1a71721c24fef Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Tue, 23 Sep 2025 15:56:47 -0700
+Subject: [PATCH] Added AppleClang and logging invalid compiler.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ similarity_search/CMakeLists.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/similarity_search/CMakeLists.txt b/similarity_search/CMakeLists.txt
+index bc6ef3c..d90db60 100644
+--- a/similarity_search/CMakeLists.txt
++++ b/similarity_search/CMakeLists.txt
+@@ -55,7 +55,7 @@ elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
+     endif()
+     set (CMAKE_CXX_FLAGS_RELEASE "-Wall -Wunreachable-code -Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${SIMD_FLAGS} -fpic")
+     set (CMAKE_CXX_FLAGS_DEBUG   "-Wall -Wunreachable-code -ggdb  -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${SIMD_FLAGS} -fpic")
+-elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
++elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "AppleClang")
+     if (CMAKE_SYSTEM_NAME MATCHES Darwin)
+         # MACOSX
+         set (CMAKE_CXX_FLAGS_RELEASE "${WARN_FLAGS} -O3 -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread -fpic ${SIMD_FLAGS}")
+@@ -70,7 +70,7 @@ elseif(WIN32)
+          message(FATAL_ERROR "On Windows, only MSVC version should be >= 12, code 1800, current version ${MSVC_VERSION}!") 
+     endif()
+ else ()
+-    message(FATAL_ERROR "Unrecognized compiler (use GCC, Clang, Intel compiler, or MSVC (on Windows)!")
++    message(FATAL_ERROR "Unrecognized compiler (use GCC, Clang, Intel compiler, or MSVC (on Windows)!, compiler was ${CMAKE_CXX_COMPILER_ID}")
+ endif()
+ 
+ if (WITH_EXTRAS)
+-- 
+2.39.5 (Apple Git-154)
+
