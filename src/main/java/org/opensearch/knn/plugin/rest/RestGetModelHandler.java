@@ -12,7 +12,7 @@
 package org.opensearch.knn.plugin.rest;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.transport.client.node.NodeClient;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.GetModelAction;

@@ -92,8 +92,8 @@ jobs:
 
       - name: Verify Localstack is ready
         run: |
-          if ! timeout 3 bash -c 'until curl --silent --fail http://localhost:4566/_localstack/health; do sleep 1; done'; then
-            echo "Localstack health check failed after 3 seconds"
+          if ! timeout 30 bash -c 'until curl --silent --fail http://localhost:4566/_localstack/health; do sleep 1; done'; then
+            echo "Localstack health check failed after 30 seconds"
             exit 1
           fi
 

@@ -7,7 +7,7 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.LatchedActionListener;
 import org.opensearch.common.CheckedTriFunction;
 import org.opensearch.common.StreamContext;

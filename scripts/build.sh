@@ -94,12 +94,12 @@ cd jni
 
 # For x64, generalize arch so library is compatible for processors without simd instruction extensions
 if [ "$ARCHITECTURE" = "x64" ]; then
-    sed -i -e 's/-march=native/-march=x86-64/g' external/nmslib/similarity_search/CMakeLists.txt
+    NMSLIB_SIMD_FLAGS="x86-64"
 fi
 
 # For arm, march=native is broken in centos 7. Manually override to lowest version of armv8.
 if [ "$ARCHITECTURE" = "arm64" ]; then
-    sed -i -e 's/-march=native/-march=armv8-a/g' external/nmslib/similarity_search/CMakeLists.txt
+    NMSLIB_SIMD_FLAGS="armv8-a"
 fi
 
 if [ "$JAVA_HOME" = "" ]; then
@@ -129,7 +129,7 @@ fi
 
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
-./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dbuild.lib.commit_patches=false
+./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dbuild.lib.commit_patches=false -Dnmslib_simd_flags=$NMSLIB_SIMD_FLAGS
 ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512.enabled=false -Davx512_spr.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dbuild.snapshot=$SNAPSHOT
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then

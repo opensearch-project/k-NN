@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * Use queryVector length if present in MDC check [#2867](https://github.com/opensearch-project/k-NN/pull/2867)
 * FIX Potential Memory Leak [#2879](https://github.com/opensearch-project/k-NN/pull/2879)
+* Fix derived source deserialization bug on invalid documents [#2882](https://github.com/opensearch-project/k-NN/pull/2882)
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
