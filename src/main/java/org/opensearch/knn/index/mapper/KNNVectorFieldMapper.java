@@ -424,7 +424,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 final SpaceType resolvedSpaceType = SpaceTypeResolver.INSTANCE.resolveSpaceType(
                     builder.originalParameters.getKnnMethodContext(),
                     builder.topLevelSpaceType.get(),
-                    parserContext.getSettings(),
                     builder.vectorDataType.get()
                 );
 

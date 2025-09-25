@@ -190,4 +190,12 @@ public class KNNConstants {
     public static final Integer INDEX_THREAD_QUANTITY_DEFAULT_LARGE = 4;
     public static final Integer INDEX_THREAD_QUANTITY_DEFAULT_SMALL = 1;
 
+    // mmr
+    public static final String MMR = "mmr";
+    public static final String DIVERSITY = "diversity";
+    public static final String CANDIDATES = "candidates";
+    public static final String VECTOR_FIELD_PATH = "vector_field_path";
+    public static final String VECTOR_FIELD_DATA_TYPE = "vector_field_data_type";
+    public static final String VECTOR_FIELD_SPACE_TYPE = "vector_field_space_type";
+    public static final String MMR_RERANK_CONTEXT = "mmr.rerank_context";
 }

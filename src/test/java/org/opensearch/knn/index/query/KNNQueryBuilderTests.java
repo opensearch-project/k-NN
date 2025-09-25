@@ -14,6 +14,7 @@ import org.junit.Before;
 import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.ClusterSettings;
@@ -968,7 +969,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         final ClusterService clusterService = mockClusterService(version);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
+        knnClusterUtil.initialize(clusterService, mock(IndexNameExpressionResolver.class));
         try (BytesStreamOutput output = new BytesStreamOutput()) {
             output.setVersion(version);
             output.writeNamedWriteable(knnQueryBuilder);
