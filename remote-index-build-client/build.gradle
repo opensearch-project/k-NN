@@ -32,7 +32,7 @@ compileTestJava {
 
 dependencies {
     compileOnly group: 'org.opensearch', name: 'opensearch', version: "${opensearch_version}"
-    api "commons-lang:commons-lang:2.6"
+    api "org.apache.commons:commons-lang3:${versions.commonslang}"
     api "org.apache.httpcomponents.client5:httpclient5:${versions.httpclient5}"
     api "org.apache.httpcomponents.core5:httpcore5:${versions.httpcore5}"
     api "org.apache.httpcomponents.core5:httpcore5-h2:${versions.httpcore5}"

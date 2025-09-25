@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.remote;
 
 import lombok.Setter;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
 import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
 import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;

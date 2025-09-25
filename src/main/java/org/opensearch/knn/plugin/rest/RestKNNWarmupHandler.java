@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.plugin.rest;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.knn.common.exception.KNNInvalidIndicesException;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
