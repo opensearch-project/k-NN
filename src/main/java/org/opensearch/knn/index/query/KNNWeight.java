@@ -92,6 +92,7 @@ public abstract class KNNWeight extends Weight {
 
     public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
         super(query);
+        assert query != null : "query must not be null";
         this.knnQuery = query;
         this.boost = boost;
         this.filterWeight = filterWeight;

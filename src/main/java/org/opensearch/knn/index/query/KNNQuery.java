@@ -183,7 +183,17 @@ public class KNNQuery extends Query {
     }
 
     public int getQueryDimension() {
-        return this.queryVector != null ? this.queryVector.length : this.byteQueryVector.length;
+        return switch (vectorDataType) {
+            case FLOAT, BYTE -> {
+                assert queryVector != null;
+                yield queryVector.length;
+            }
+            case BINARY -> {
+                assert byteQueryVector != null;
+                yield byteQueryVector.length * Byte.SIZE;
+            }
+            default -> queryVector.length;
+        };
     }
 
     /**
