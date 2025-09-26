@@ -134,26 +134,23 @@ public class Documents {
         for (final Result result : results) {
             if (expectedAns.containsKey(result.id)) {
                 ++matchCount;
+                final float expectedScore = expectedAns.get(result.id);
+                final float error = Math.abs(expectedScore - result.score);
 
-                // We have scoring issue in nested exact search not returning the best score, until it's fixed we have to block this.
-                // TODO : After resolved scoring issue in exact search in nested, we should get rid of this.
-                if (indexingType != IndexingType.DENSE_NESTED && indexingType != IndexingType.SPARSE_NESTED) {
-                    final float expectedScore = expectedAns.get(result.id);
-                    final float error = Math.abs(expectedScore - result.score);
-
-                    // At least error should be less than 5%.
-                    assertTrue(
-                        "error="
-                            + error
-                            + ", expectedScore="
-                            + expectedScore
-                            + ", (error / expectedScore)="
-                            + (error / expectedScore)
-                            + " >= "
-                            + (0.05 * expectedScore),
-                        (error / expectedScore) < (0.05 * expectedScore)
-                    );
-                }
+                // At least error should be less than 5%.
+                assertTrue(
+                    "error="
+                        + error
+                        + ", expectedScore="
+                        + expectedScore
+                        + ", result score="
+                        + result.score
+                        + ", (error / expectedScore)="
+                        + (error / expectedScore)
+                        + " >= "
+                        + 0.05,
+                    (error / expectedScore) < 0.05
+                );
             }
         }
 
