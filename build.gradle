@@ -345,19 +345,14 @@ dependencies {
     compileOnly "org.opensearch:protobufs:${versions.opensearchprotobufs}"
     // Declare guava as compile time since guava will come from OpenSearch transport-grpc module.
     compileOnly group: 'com.google.guava', name: 'guava', version: "${versions.guava}"
-    compileOnly group: 'com.google.errorprone', name: 'error_prone_annotations', version: "${versions.error_prone_annotations}"
 
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
-    // We need to remove errorprone from guava since default guava is not bringing 2.26.1 version
-    // where as OpenSearch is using 2.41.0
-    testFixturesImplementation("com.google.guava:guava:${versions.guava}") {
-        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
-    }
-    testFixturesImplementation group: 'com.google.errorprone', name: 'error_prone_annotations', version: "${versions.error_prone_annotations}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
     testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
+    testImplementation("com.google.guava:guava:${versions.guava}")
+    testFixturesImplementation("com.google.guava:guava:${versions.guava}")
     // json-path 2.9.0 depends on slf4j 2.0.11, which conflicts with the version used by OpenSearch core.
     // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
     testFixturesImplementation('com.jayway.jsonpath:json-path:2.9.0') {
