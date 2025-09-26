@@ -1967,6 +1967,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         validateKNNSearch(testIndex, testField, dimension, numDocs, k, null);
     }
 
+    public void validateKNNSearchDistance(String testIndex, String testField, int dimension, int numDocs) throws Exception {
+        validateKNNSearchDistance(testIndex, testField, dimension, numDocs, Float.MAX_VALUE, null);
+    }
+
     // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
     public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k, Map<String, ?> methodParameters)
         throws Exception {
@@ -1983,6 +1987,36 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         assertEquals(k, results.size());
         for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
+    public void validateKNNSearchDistance(
+        String testIndex,
+        String testField,
+        int dimension,
+        int numDocs,
+        float maxDistance,
+        Map<String, ?> methodParameters
+    ) throws Exception {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        Response searchResponse = searchKNNIndex(
+            testIndex,
+            KNNQueryBuilder.builder()
+                .maxDistance(maxDistance)
+                .methodParameters(methodParameters)
+                .fieldName(testField)
+                .vector(queryVector)
+                .build(),
+            numDocs
+        );
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
+
+        assertEquals(numDocs, results.size());
+        for (int i = 0; i < numDocs; i++) {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
         }
     }
