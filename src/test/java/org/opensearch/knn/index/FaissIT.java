@@ -607,6 +607,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testHNSWSQFP16_whenIndexedAndQueried_thenSucceed() {
         String indexName = "test-index-hnsw-sqfp16";
         String fieldName = "test-field-hnsw-sqfp16";
@@ -717,6 +718,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    @ExpectRemoteBuildValidation
     public void testHNSWSQFP16_whenGraphThresholdIsMetDuringMerge_thenCreateGraph() {
         final String indexName = "test-index-hnsw-sqfp16";
         final String fieldName = "test-field-hnsw-sqfp16";
