@@ -23,7 +23,6 @@ import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -75,7 +74,6 @@ public class KNNWeightTestCase extends KNNTestCase {
     protected static MockedStatic<JNIService> jniServiceMockedStatic;
 
     protected static MockedStatic<KNNSettings> knnSettingsMockedStatic;
-    protected static MockedStatic<FieldInfoExtractor> fieldInfoExtractorMockedStatic;
 
     @BeforeClass
     public static void setUpClass() throws Exception {

@@ -183,7 +183,7 @@ public abstract class KNNWeight extends Weight {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since filtered threshold value = ")
                     .append(filterThresholdValue)
-                    .append(" is greater than or equal to cardinality = ")
+                    .append(" is greater than or equal to estimated distance computations = ")
                     .append(cardinality);
             } else if (!isExactSearchThresholdSettingSet(filterThresholdValue) && isMaxDistCompGreaterThanEstimatedDistComp(cardinality)) {
                 sb.append(KNNConstants.EXACT_SEARCH)
