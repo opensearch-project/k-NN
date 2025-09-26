@@ -47,7 +47,7 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
         KNNQueryBuilder knnQueryBuilder = (KNNQueryBuilder) result;
         assertEquals("test_field", knnQueryBuilder.fieldName());
         assertArrayEquals(new float[] { 1.0f, 2.0f, 3.0f }, (float[]) knnQueryBuilder.vector(), 0.001f);
-        assertEquals(5, knnQueryBuilder.getK());
+        assertEquals((Integer) 5, knnQueryBuilder.getK());
     }
 
     @Test

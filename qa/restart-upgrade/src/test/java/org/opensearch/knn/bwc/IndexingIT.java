@@ -187,6 +187,19 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testKNNRadialSearchAfterUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", FAISS_NAME));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            flush(testIndex, true);
+        } else {
+            validateKNNSearchDistance(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
     public void testKNNIndexLuceneQuantization() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;
