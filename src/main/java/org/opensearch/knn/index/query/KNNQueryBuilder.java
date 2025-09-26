@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -96,6 +97,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     private final String fieldName;
     private final float[] vector;
     @Getter
+    @Setter
     private Integer k;
     @Getter
     private Float maxDistance;

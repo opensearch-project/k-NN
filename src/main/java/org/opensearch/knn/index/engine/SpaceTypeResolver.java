@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.engine;
 
 import org.apache.logging.log4j.util.Strings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -38,15 +37,11 @@ public final class SpaceTypeResolver {
     public SpaceType resolveSpaceType(
         final KNNMethodContext knnMethodContext,
         final String topLevelSpaceTypeString,
-        final Settings indexSettings,
         final VectorDataType vectorDataType
     ) {
         SpaceType methodSpaceType = getSpaceTypeFromMethodContext(knnMethodContext);
         SpaceType topLevelSpaceType = getSpaceTypeFromString(topLevelSpaceTypeString);
 
-        // If we failed to find space type from both method context and top level
-        // 1. We try to get it from index setting, which is a relic of legacy.
-        // 2. Otherwise, we return a default one.
         if (isSpaceTypeConfigured(methodSpaceType) == false && isSpaceTypeConfigured(topLevelSpaceType) == false) {
             return getDefaultSpaceType(vectorDataType);
         }
