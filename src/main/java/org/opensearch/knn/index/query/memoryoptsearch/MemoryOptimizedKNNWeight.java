@@ -156,7 +156,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
             } else {
                 // Radius search
                 return queryIndex(
-                    knnQuery.getQueryVector(),
+                    knnQuery.getVectorDataType() == VectorDataType.BYTE ? knnQuery.getByteQueryVector() : knnQuery.getQueryVector(),
                     cardinality,
                     cardinality,
                     context,
