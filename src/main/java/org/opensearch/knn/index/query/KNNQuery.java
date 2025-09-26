@@ -68,6 +68,10 @@ public class KNNQuery extends Query {
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
     private int shardId;
 
+    /**
+     * @deprecated Use builder instead
+     */
+    @Deprecated
     public KNNQuery(
         final String field,
         final float[] queryVector,
@@ -78,6 +82,10 @@ public class KNNQuery extends Query {
         this(field, queryVector, null, k, indexName, null, parentsFilter, VectorDataType.FLOAT, null);
     }
 
+    /**
+     * @deprecated Use builder instead
+     */
+    @Deprecated
     public KNNQuery(
         final String field,
         final float[] queryVector,
@@ -90,6 +98,10 @@ public class KNNQuery extends Query {
         this(field, queryVector, null, k, indexName, filterQuery, parentsFilter, VectorDataType.FLOAT, rescoreContext);
     }
 
+    /**
+     * @deprecated Use builder instead
+     */
+    @Deprecated
     public KNNQuery(
         final String field,
         final byte[] byteQueryVector,
@@ -103,6 +115,10 @@ public class KNNQuery extends Query {
         this(field, null, byteQueryVector, k, indexName, filterQuery, parentsFilter, vectorDataType, rescoreContext);
     }
 
+    /**
+     * @deprecated Use builder instead
+     */
+    @Deprecated
     private KNNQuery(
         final String field,
         final float[] queryVector,
@@ -126,13 +142,9 @@ public class KNNQuery extends Query {
     }
 
     /**
-     * Constructor for KNNQuery with query vector, index name and parent filter
-     *
-     * @param field field name
-     * @param queryVector query vector
-     * @param indexName index name
-     * @param parentsFilter parent filter
+     * @deprecated Use builder instead
      */
+    @Deprecated
     public KNNQuery(String field, float[] queryVector, String indexName, BitSetProducer parentsFilter) {
         this(field, queryVector, null, 0, indexName, null, parentsFilter, VectorDataType.FLOAT, null);
     }
@@ -168,6 +180,10 @@ public class KNNQuery extends Query {
     public KNNQuery filterQuery(Query filterQuery) {
         this.filterQuery = filterQuery;
         return this;
+    }
+
+    public int getQueryDimension() {
+        return this.queryVector != null ? this.queryVector.length : this.byteQueryVector.length;
     }
 
     /**

@@ -185,12 +185,12 @@ public abstract class KNNWeight extends Weight {
                     .append(filterThresholdValue)
                     .append(" is greater than or equal to cardinality = ")
                     .append(cardinality);
-            } else if (!isExactSearchThresholdSettingSet(filterThresholdValue) && isMDCGreaterThanFilterIdCnt(cardinality)) {
+            } else if (!isExactSearchThresholdSettingSet(filterThresholdValue) && isMaxDistCompGreaterThanEstimatedDistComp(cardinality)) {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since max distance computation = ")
                     .append(KNNConstants.MAX_DISTANCE_COMPUTATIONS)
-                    .append(" is greater than or equal to cardinality = ")
-                    .append(cardinality);
+                    .append(" is greater than or equal to estimated distance computations = ")
+                    .append(((long) cardinality) * knnQuery.getQueryDimension());
             }
         }
         final Integer annResult = knnExplanation.getAnnResult(context.id());
@@ -302,15 +302,15 @@ public abstract class KNNWeight extends Weight {
         stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
 
         final int maxDoc = context.reader().maxDoc();
-        int cardinality = filterBitSet.cardinality();
+        int filterCardinality = filterBitSet.cardinality();
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
-        if (filterWeight != null && cardinality == 0) {
+        if (filterWeight != null && filterCardinality == 0) {
             return PerLeafResult.EMPTY_RESULT;
         }
         if (knnQuery.isExplain()) {
-            knnExplanation.setCardinality(cardinality);
+            knnExplanation.setCardinality(filterCardinality);
         }
 
         /*
@@ -318,8 +318,8 @@ public abstract class KNNWeight extends Weight {
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
          * This improves the recall.
          */
-        if (isFilteredExactSearchPreferred(cardinality)) {
-            TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+        if (isFilteredExactSearchPreferred(filterCardinality)) {
+            TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, filterCardinality), filterCardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -327,10 +327,10 @@ public abstract class KNNWeight extends Weight {
          * If filters match all docs in this segment, then null should be passed as filterBitSet
          * so that it will not do a bitset look up in bottom search layer.
          */
-        final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
+        final BitSet annFilter = (filterWeight != null && filterCardinality == maxDoc) ? null : filterBitSet;
 
         StopWatch annStopWatch = startStopWatch();
-        final TopDocs topDocs = approximateSearch(context, annFilter, cardinality, k);
+        final TopDocs topDocs = approximateSearch(context, annFilter, filterCardinality, k);
         stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
@@ -338,9 +338,9 @@ public abstract class KNNWeight extends Weight {
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
-        if (isExactSearchRequire(context, cardinality, topDocs.scoreDocs.length)) {
-            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            TopDocs result = doExactSearch(context, docs, cardinality, k);
+        if (isExactSearchRequire(context, filterCardinality, topDocs.scoreDocs.length)) {
+            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
+            TopDocs result = doExactSearch(context, docs, filterCardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, topDocs);
@@ -594,13 +594,12 @@ public abstract class KNNWeight extends Weight {
          * TODO we can have a different MAX_DISTANCE_COMPUTATIONS for binary index as computation cost for binary index
          * is cheaper than computation cost for non binary vector
          */
-        return isMDCGreaterThanFilterIdCnt(filterIdsCount);
+        return isMaxDistCompGreaterThanEstimatedDistComp(filterIdsCount);
     }
 
-    private boolean isMDCGreaterThanFilterIdCnt(int filterIdsCount) {
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getQueryVector() != null
-            ? knnQuery.getQueryVector().length
-            : knnQuery.getByteQueryVector().length);
+    private boolean isMaxDistCompGreaterThanEstimatedDistComp(int filterDocsCardinality) {
+        long estimatedDistanceComputations = ((long) filterDocsCardinality) * knnQuery.getQueryDimension();
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= estimatedDistanceComputations;
     }
 
     private boolean isFilterIdCountLessThanK(int filterIdsCount) {
