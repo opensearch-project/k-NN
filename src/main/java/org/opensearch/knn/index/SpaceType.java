@@ -188,7 +188,7 @@ public enum SpaceType {
     public static SpaceType DEFAULT = L2;
     public static SpaceType DEFAULT_BINARY = HAMMING;
 
-    private static final String[] VALID_VALUES = Arrays.stream(SpaceType.values())
+    public static final String[] VALID_VALUES = Arrays.stream(SpaceType.values())
         .filter(space -> space != SpaceType.UNDEFINED)
         .map(SpaceType::getValue)
         .collect(Collectors.toList())

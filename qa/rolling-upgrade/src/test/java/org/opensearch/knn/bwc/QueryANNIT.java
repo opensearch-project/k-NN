@@ -46,4 +46,24 @@ public class QueryANNIT extends AbstractRollingUpgradeTestCase {
                 deleteKNNIndex(testIndex);
         }
     }
+
+    public void testKNNRadialSearchRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        switch (getClusterType()) {
+            case OLD:
+                createKnnIndex(
+                    testIndex,
+                    getKNNDefaultIndexSettings(),
+                    createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGORITHM, FAISS_NAME)
+                );
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
+                break;
+            case MIXED:
+                validateKNNSearchDistance(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS);
+                break;
+            case UPGRADED:
+                validateKNNSearchDistance(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS);
+                deleteKNNIndex(testIndex);
+        }
+    }
 }

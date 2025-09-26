@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -96,7 +97,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     private final String fieldName;
     private final float[] vector;
     @Getter
-    private int k;
+    @Setter
+    private Integer k;
     @Getter
     private Float maxDistance;
     @Getter
@@ -218,7 +220,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
         public KNNQueryBuilder build() {
             validate();
-            int k = this.k == null ? 0 : this.k;
             return new KNNQueryBuilder(
                 fieldName,
                 vector,
@@ -563,7 +564,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support filters", knnEngine));
         }
 
-        if (k != 0) {
+        if (k != null && k != 0) {
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
@@ -653,14 +654,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
      * @param maxDistance Maximum distance for the given vector, if maxDistance is set, then the query type is MAX_DISTANCE
      * @param minScore Minimum score for the given vector, if minScore is set, then the query type is MIN_SCORE
      */
-    private VectorQueryType getVectorQueryType(int k, Float maxDistance, Float minScore) {
+    private VectorQueryType getVectorQueryType(Integer k, Float maxDistance, Float minScore) {
         if (maxDistance != null) {
             return VectorQueryType.MAX_DISTANCE;
         }
         if (minScore != null) {
             return VectorQueryType.MIN_SCORE;
         }
-        if (k != 0) {
+        if (k != null && k != 0) {
             return VectorQueryType.K;
         }
         throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires exactly one of k, distance or score to be set", NAME));

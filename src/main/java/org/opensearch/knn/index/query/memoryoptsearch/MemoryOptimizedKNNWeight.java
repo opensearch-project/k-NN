@@ -48,10 +48,10 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
     private final KnnCollectorManager knnCollectorManager;
 
-    public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, int k) {
+    public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);
 
-        if (k > 0) {
+        if (k != null && k > 0) {
             // ANN Search
             if (query.getParentsFilter() == null) {
                 // Non-nested case

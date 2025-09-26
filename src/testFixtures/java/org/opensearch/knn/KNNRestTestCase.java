@@ -413,6 +413,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Parse the response of KNN search into a List of KNNResults
      */
+    @SuppressWarnings("unchecked")
     protected List<KNNResult> parseSearchResponse(String responseBody, String fieldName) throws IOException {
         @SuppressWarnings("unchecked")
         List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
@@ -420,22 +421,26 @@ public class KNNRestTestCase extends ODFERestTestCase {
             responseBody
         ).map().get("hits")).get("hits");
 
-        @SuppressWarnings("unchecked")
-        List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
-            @SuppressWarnings("unchecked")
-            final float[] vector = Floats.toArray(
-                Arrays.stream(
-                    ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
-                ).map(Object::toString).map(Float::valueOf).collect(Collectors.toList())
-            );
+        return hits.stream().map(hit -> {
+            Object sourceObj = ((Map<String, Object>) hit).get("_source");
+            float[] vector = null;
+            if (sourceObj != null) {
+                Object vectorObj = ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName);
+                vector = vectorObj == null
+                    ? null
+                    : Floats.toArray(
+                        Arrays.stream(((ArrayList<Float>) vectorObj).toArray())
+                            .map(Object::toString)
+                            .map(Float::valueOf)
+                            .collect(Collectors.toList())
+                    );
+            }
             return new KNNResult(
                 (String) ((Map<String, Object>) hit).get("_id"),
                 vector,
                 ((Double) ((Map<String, Object>) hit).get("_score")).floatValue()
             );
         }).collect(Collectors.toList());
-
-        return knnSearchResponses;
     }
 
     protected List<Float> parseSearchResponseScore(String responseBody, String fieldName) throws IOException {
@@ -1076,12 +1081,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Utility to update  settings
      */
     protected void updateClusterSettings(String settingKey, Object value) throws Exception {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("persistent")
-            .field(settingKey, value)
-            .endObject()
-            .endObject();
+        XContentBuilder builder = value instanceof List
+            ? XContentFactory.jsonBuilder().startObject().startObject("persistent").array(settingKey, value).endObject().endObject()
+            : XContentFactory.jsonBuilder().startObject().startObject("persistent").field(settingKey, value).endObject().endObject();
         Request request = new Request("PUT", "_cluster/settings");
         request.setJsonEntity(builder.toString());
         Response response = client().performRequest(request);
@@ -1967,6 +1969,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         validateKNNSearch(testIndex, testField, dimension, numDocs, k, null);
     }
 
+    public void validateKNNSearchDistance(String testIndex, String testField, int dimension, int numDocs) throws Exception {
+        validateKNNSearchDistance(testIndex, testField, dimension, numDocs, Float.MAX_VALUE, null);
+    }
+
     // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
     public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k, Map<String, ?> methodParameters)
         throws Exception {
@@ -1983,6 +1989,36 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         assertEquals(k, results.size());
         for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
+    public void validateKNNSearchDistance(
+        String testIndex,
+        String testField,
+        int dimension,
+        int numDocs,
+        float maxDistance,
+        Map<String, ?> methodParameters
+    ) throws Exception {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        Response searchResponse = searchKNNIndex(
+            testIndex,
+            KNNQueryBuilder.builder()
+                .maxDistance(maxDistance)
+                .methodParameters(methodParameters)
+                .fieldName(testField)
+                .vector(queryVector)
+                .build(),
+            numDocs
+        );
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
+
+        assertEquals(numDocs, results.size());
+        for (int i = 0; i < numDocs; i++) {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
         }
     }

@@ -177,7 +177,6 @@ public class RestTrainModelHandler extends BaseRestHandler {
         SpaceType resolvedSpaceType = SpaceTypeResolver.INSTANCE.resolveSpaceType(
             knnMethodContext,
             topLevelSpaceType.getValue(),
-            null,
             vectorDataType
         );
         setSpaceType(knnMethodContext, resolvedSpaceType);
