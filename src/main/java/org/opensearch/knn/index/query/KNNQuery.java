@@ -184,15 +184,14 @@ public class KNNQuery extends Query {
 
     public int getQueryDimension() {
         return switch (vectorDataType) {
-            case FLOAT, BYTE -> {
-                assert queryVector != null;
-                yield queryVector.length;
-            }
             case BINARY -> {
                 assert byteQueryVector != null;
                 yield byteQueryVector.length * Byte.SIZE;
             }
-            default -> queryVector.length;
+            default -> {
+                assert queryVector != null;
+                yield queryVector.length;
+            }
         };
     }
 

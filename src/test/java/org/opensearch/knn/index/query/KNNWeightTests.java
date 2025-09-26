@@ -1139,7 +1139,10 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         try (
             MockedStatic<FieldInfoExtractor> fieldInfoExtractorMockedStatic = mockStatic(FieldInfoExtractor.class);
-            MockedStatic<BitSet> bitSetMockedStatic = Mockito.mockStatic(BitSet.class)
+            MockedStatic<BitSet> bitSetMockedStatic = Mockito.mockStatic(BitSet.class);
+            MockedStatic<SegmentLevelQuantizationInfo> segmentLevelQuantizationInfoMockedStatic = Mockito.mockStatic(
+                SegmentLevelQuantizationInfo.class
+            )
         ) {
             // Given
             // Mock segment
@@ -1189,9 +1192,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             fieldInfoExtractorMockedStatic.when(() -> FieldInfoExtractor.getFieldInfo(reader, FIELD_NAME)).thenReturn(mockFieldInfo);
 
             // Mock Quantization
-            MockedStatic<SegmentLevelQuantizationInfo> segmentLevelQuantizationInfoMockedStatic = Mockito.mockStatic(
-                SegmentLevelQuantizationInfo.class
-            );
+
             segmentLevelQuantizationInfoMockedStatic.when(() -> SegmentLevelQuantizationInfo.build(any(), any(), anyString(), any()))
                 .thenReturn(null);
 
@@ -1670,22 +1671,6 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
             // Given
             int k = 3;
-            jniServiceMockedStatic.when(
-                () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any())
-            ).thenReturn(getFilteredKNNQueryResults());
-
-            jniServiceMockedStatic.when(
-                () -> JNIService.queryBinaryIndex(
-                    anyLong(),
-                    eq(BYTE_QUERY_VECTOR),
-                    eq(k),
-                    eq(HNSW_METHOD_PARAMETERS),
-                    any(),
-                    any(),
-                    anyInt(),
-                    any()
-                )
-            ).thenReturn(getFilteredKNNQueryResults());
             final SegmentReader reader = mockSegmentReader();
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
             when(leafReaderContext.reader()).thenReturn(reader);
