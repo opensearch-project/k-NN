@@ -499,7 +499,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 );
             }
             if (memoryOptimizedSearchEnabled) {
-                radius = KNNEngine.LUCENE.distanceToRadialThreshold(this.maxDistance, spaceType);
+                radius = MemoryOptimizedSearchScoreConverter.distanceToRadialThreshold(this.maxDistance, spaceType);
             } else {
                 radius = knnEngine.distanceToRadialThreshold(this.maxDistance, spaceType);
             }
@@ -512,7 +512,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 );
             }
             if (memoryOptimizedSearchEnabled) {
-                radius = KNNEngine.LUCENE.scoreToRadialThreshold(this.minScore, spaceType);
+                radius = MemoryOptimizedSearchScoreConverter.scoreToRadialThreshold(this.minScore, spaceType);
             } else {
                 radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
             }

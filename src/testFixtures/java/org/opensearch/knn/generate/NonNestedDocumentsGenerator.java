@@ -41,7 +41,8 @@ public class NonNestedDocumentsGenerator extends DocumentsGenerator {
                     final float[] vector = SearchTestHelper.generateOneSingleFloatVector(
                         DIMENSIONS,
                         MIN_VECTOR_ELEMENT_VALUE,
-                        MAX_VECTOR_ELEMENT_VALUE
+                        MAX_VECTOR_ELEMENT_VALUE,
+                        false
                     );
                     vectors.add(vector);
                     builder.field(KNN_FIELD_NAME, vector);
