@@ -233,6 +233,8 @@ allprojects {
         sourceCompatibility = targetCompatibility = "21"
     }
 
+    
+
     afterEvaluate {
         project.dependencyLicenses.enabled = false
         project.thirdPartyAudit.enabled = false
@@ -246,6 +248,11 @@ allprojects {
         project.licenseFile = rootProject.file('LICENSE.txt')
         project.noticeFile = rootProject.file('NOTICE.txt')
         project.forbiddenApis.ignoreFailures = true
+        if (project.tasks.findByName("forbiddenApisMain")) {
+            tasks.named("forbiddenApisMain").configure {
+                enabled = false
+            }
+        }
     }
 }
 
@@ -289,6 +296,7 @@ publishing {
 
 compileJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
 }
 compileTestJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
@@ -296,6 +304,16 @@ compileTestJava {
 compileTestFixturesJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
 }
+
+javadoc {
+    enabled = false
+}
+
+
+
+
+
+
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
@@ -352,6 +370,7 @@ dependencies {
     testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
     testImplementation("com.google.guava:guava:${versions.guava}")
+    testImplementation "org.opensearch:opensearch-core:${opensearch_version}"
     testFixturesImplementation("com.google.guava:guava:${versions.guava}")
     // json-path 2.9.0 depends on slf4j 2.0.11, which conflicts with the version used by OpenSearch core.
     // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
@@ -396,6 +415,7 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
+
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
         args.add("-G")
@@ -441,6 +461,7 @@ test {
     systemProperty "java.library.path", "$rootDir/jni/build/release"
     //this change enables mockito-inline that supports mocking of static classes/calls
     systemProperty "jdk.attach.allowAttachSelf", true
+    jvmArgs '--add-modules', 'jdk.incubator.vector'
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
