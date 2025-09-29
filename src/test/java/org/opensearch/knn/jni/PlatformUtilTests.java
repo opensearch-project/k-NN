@@ -141,6 +141,16 @@ public class PlatformUtilTests extends Assert {
 
     }
 
+    @Test
+    public void testIsAVX2SupportedBySystem_platformIsNotLinuxMacWindows_returnsFalse() {
+        try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
+            mockedPlatform.when(Platform::isMac).thenReturn(false);
+            mockedPlatform.when(Platform::isLinux).thenReturn(false);
+            assertFalse(isAVX2SupportedBySystem());
+        }
+    }
+
     // AVX512 tests
     @Test
     public void testIsAVX512SupportedBySystem_platformIsNotIntel_returnsFalse() {

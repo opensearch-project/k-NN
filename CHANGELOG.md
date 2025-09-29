@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix invalid cosine score range in LuceneOnFaiss [#2892](https://github.com/opensearch-project/k-NN/pull/2892)
 * Allows k to be nullable to fix filter bug [#2836](https://github.com/opensearch-project/k-NN/issues/2836)
 * Fix integer overflow for while estimating distance computations for efficient filtering [#2903](https://github.com/opensearch-project/k-NN/pull/2903)
+* Fix AVX2 detection on other platforms [#2912](https://github.com/opensearch-project/k-NN/pull/2912)
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.

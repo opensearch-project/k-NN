@@ -50,12 +50,12 @@ public class PlatformUtils {
      *    the flags contains 'avx2' and return true if it exists else false.
      */
     public static boolean isAVX2SupportedBySystem() {
-        if (!Platform.isIntel() || Platform.isWindows()) {
-            isAVX2Supported = false;
-        }
-
         if (isAVX2Supported != null) {
             return isAVX2Supported;
+        }
+
+        if (!Platform.isIntel() || Platform.isWindows()) {
+            return isAVX2Supported = false;
         }
 
         if (Platform.isMac()) {
@@ -94,8 +94,10 @@ public class PlatformUtils {
                 isAVX2Supported = false;
                 logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
             }
+        } else {
+            isAVX2Supported = false;
         }
-        return isAVX2Supported;
+        return isAVX2Supported != null ? isAVX2Supported : false;
     }
 
     public static boolean isAVX512SupportedBySystem() {
