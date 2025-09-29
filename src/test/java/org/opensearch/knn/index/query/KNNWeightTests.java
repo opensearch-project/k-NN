@@ -16,11 +16,13 @@ import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
@@ -29,15 +31,16 @@ import org.apache.lucene.util.Version;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
-import org.opensearch.knn.index.engine.MethodComponentContext;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -71,6 +74,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -1131,6 +1135,84 @@ public class KNNWeightTests extends KNNWeightTestCase {
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
     }
 
+    public void testANNWithFilterQuery_whenExactSearchAndThresholdComputationsIntOverflow_thenSuccess() throws IOException {
+
+        try (
+            MockedStatic<FieldInfoExtractor> fieldInfoExtractorMockedStatic = mockStatic(FieldInfoExtractor.class);
+            MockedStatic<BitSet> bitSetMockedStatic = Mockito.mockStatic(BitSet.class);
+            MockedStatic<SegmentLevelQuantizationInfo> segmentLevelQuantizationInfoMockedStatic = Mockito.mockStatic(
+                SegmentLevelQuantizationInfo.class
+            )
+        ) {
+            // Given
+            // Mock segment
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mockSegmentReader();
+            when(leafReaderContext.reader()).thenReturn(reader);
+            final Bits liveDocsBits = mock(Bits.class);
+            when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+            when(reader.maxDoc()).thenReturn(Integer.MAX_VALUE);
+            when(liveDocsBits.get(anyInt())).thenReturn(true);
+
+            // Mock filter
+            final Weight filterQueryWeight = mock(Weight.class);
+            final Scorer filterScorer = mock(Scorer.class);
+            when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+            when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(Integer.MAX_VALUE));
+            BitSet filteredBitSet = mock(BitSet.class);
+            // Cardinality at int max makes sure it overflows on multiplication with vector dimension as 2
+            when(filteredBitSet.cardinality()).thenReturn(Integer.MAX_VALUE);
+            bitSetMockedStatic.when(() -> BitSet.of(any(FilteredDocIdSetIterator.class), eq(Integer.MAX_VALUE))).thenReturn(filteredBitSet);
+
+            // Mock KNNQuery
+            final KNNQuery mockKnnQuery = mock(KNNQuery.class);
+            int k = 2;
+            float[] vector = new float[] { 0.1f, 0.3f };
+            when(mockKnnQuery.isExplain()).thenReturn(false);
+            when(mockKnnQuery.getQueryDimension()).thenReturn(2);
+            when(mockKnnQuery.getQueryVector()).thenReturn(vector);
+            when(mockKnnQuery.getField()).thenReturn(FIELD_NAME);
+            when(mockKnnQuery.getK()).thenReturn(k);
+            when(mockKnnQuery.getIndexName()).thenReturn(INDEX_NAME);
+
+            // Mock Settings
+            knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(-1);
+
+            // Mock field Info
+            final Map<String, String> attributesMap = ImmutableMap.of(
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                SPACE_TYPE,
+                SpaceType.L2.name(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            );
+            FieldInfo mockFieldInfo = mock(FieldInfo.class);
+            when(mockFieldInfo.attributes()).thenReturn(attributesMap);
+            fieldInfoExtractorMockedStatic.when(() -> FieldInfoExtractor.getFieldInfo(reader, FIELD_NAME)).thenReturn(mockFieldInfo);
+
+            // Mock Quantization
+
+            segmentLevelQuantizationInfoMockedStatic.when(() -> SegmentLevelQuantizationInfo.build(any(), any(), anyString(), any()))
+                .thenReturn(null);
+
+            jniServiceMockedStatic.when(
+                () -> JNIService.queryIndex(anyLong(), eq(vector), anyInt(), anyMap(), any(), any(), anyInt(), any())
+            ).thenReturn(getFilteredKNNQueryResults());
+
+            // When
+            final KNNWeight knnWeight = new DefaultKNNWeight(mockKnnQuery, 1, filterQueryWeight);
+            knnWeight.searchLeaf(leafReaderContext, K);
+
+            // Then
+            // Verifies ANN index was called
+            jniServiceMockedStatic.verify(
+                () -> JNIService.queryIndex(anyLong(), any(float[].class), eq(K), anyMap(), eq(KNNEngine.FAISS), any(), anyInt(), any())
+            );
+            jniServiceMockedStatic.verifyNoMoreInteractions();
+        }
+    }
+
     /**
      * This test ensure that we do the exact search when threshold settings are correct and not using filteredIds<=K
      * condition to do exact search on binary index
@@ -1589,22 +1671,6 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
             // Given
             int k = 3;
-            jniServiceMockedStatic.when(
-                () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any())
-            ).thenReturn(getFilteredKNNQueryResults());
-
-            jniServiceMockedStatic.when(
-                () -> JNIService.queryBinaryIndex(
-                    anyLong(),
-                    eq(BYTE_QUERY_VECTOR),
-                    eq(k),
-                    eq(HNSW_METHOD_PARAMETERS),
-                    any(),
-                    any(),
-                    anyInt(),
-                    any()
-                )
-            ).thenReturn(getFilteredKNNQueryResults());
             final SegmentReader reader = mockSegmentReader();
             final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
             when(leafReaderContext.reader()).thenReturn(reader);

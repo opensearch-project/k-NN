@@ -569,7 +569,7 @@ public class ExplainTests extends KNNWeightTestCase {
                     EXACT_SEARCH,
                     VectorDataType.BINARY.name(),
                     SpaceType.HAMMING.getValue(),
-                    "is greater than or equal to cardinality",
+                    "is greater than or equal to estimated distance computations",
                     "since filtered threshold value"
                 );
             }
@@ -624,7 +624,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 VectorDataType.FLOAT.name(),
                 SpaceType.L2.getValue(),
                 "since max distance computation",
-                "is greater than or equal to cardinality"
+                "is greater than or equal to estimated distance computations"
             );
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
