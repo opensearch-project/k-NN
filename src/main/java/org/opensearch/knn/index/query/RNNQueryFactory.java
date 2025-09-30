@@ -86,6 +86,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
             return KNNQuery.builder()
                 .field(fieldName)
                 .queryVector(vector)
+                .byteQueryVector(byteVector)
                 .indexName(indexName)
                 .parentsFilter(parentFilter)
                 .radius(radius)
