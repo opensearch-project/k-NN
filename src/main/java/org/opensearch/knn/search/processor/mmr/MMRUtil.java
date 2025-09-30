@@ -472,7 +472,8 @@ public class MMRUtil {
                         }
                     } catch (Exception e) {
                         throw new IllegalArgumentException(
-                            String.format("%s: unexpected value at the vector field [%s]. error: %s", baseError, fieldPath, e.getMessage())
+                            String.format("%s: unexpected value at the vector field [%s]. error: %s", baseError, fieldPath, e.getMessage()),
+                            e
                         );
                     }
                     if (isFloatVector) {

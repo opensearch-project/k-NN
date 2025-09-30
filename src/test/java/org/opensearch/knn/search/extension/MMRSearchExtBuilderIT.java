@@ -30,7 +30,10 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
     private static final String FIELD_NAME = "vector_field";
     private static final String INDEX_NAME = "test_index";
     private static final int QUERY_SIZE = 3;
-    private static final float[] queryVector = new float[] { 1f, 1f };
+    private static final float[] SIMILAR_VECTOR = new float[] { 1f, 1f };
+    private static final float[] DIVERSE_VECTOR_1 = new float[] { 1f, 2f };
+    private static final float[] DIVERSE_VECTOR_2 = new float[] { 2f, 1f };
+    private float DELTA = 1e-6F;
 
     @Before
     public void setUpForMMR() {
@@ -46,7 +49,7 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testMMR_whenRerankWithVectors_thenSelectTop3() {
-        XContentBuilder queryBuilder = buildMMRQuery(queryVector, QUERY_SIZE, false, false);
+        XContentBuilder queryBuilder = buildMMRQuery(SIMILAR_VECTOR, QUERY_SIZE, false, false);
 
         Response response = searchKNNIndex(INDEX_NAME, queryBuilder.toString(), QUERY_SIZE);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
@@ -56,7 +59,7 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testMMR_whenSourceExcludesVector_thenVectorExcluded() {
-        XContentBuilder queryBuilder = buildMMRQuery(queryVector, QUERY_SIZE, true, false);
+        XContentBuilder queryBuilder = buildMMRQuery(SIMILAR_VECTOR, QUERY_SIZE, true, false);
 
         Response response = searchKNNIndex(INDEX_NAME, queryBuilder.toString(), QUERY_SIZE);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
@@ -66,7 +69,7 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testMMR_whenDisabledStoredFields_thenVectorExcluded() {
-        XContentBuilder queryBuilderDisabledStoredFields = buildMMRQuery(queryVector, QUERY_SIZE, false, false, "_none_");
+        XContentBuilder queryBuilderDisabledStoredFields = buildMMRQuery(SIMILAR_VECTOR, QUERY_SIZE, false, false, "_none_");
 
         Response response = searchKNNIndex(INDEX_NAME, queryBuilderDisabledStoredFields.toString(), QUERY_SIZE);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
@@ -76,7 +79,7 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testMMR_whenEmptyStoredFieldsAndExplicitlyEnableSource_thenVectorIncluded() {
-        XContentBuilder queryBuilderDisabledStoredFields = buildMMRQuery(queryVector, QUERY_SIZE, true, false, "empty");
+        XContentBuilder queryBuilderDisabledStoredFields = buildMMRQuery(SIMILAR_VECTOR, QUERY_SIZE, true, false, "empty");
 
         Response response = searchKNNIndex(INDEX_NAME, queryBuilderDisabledStoredFields.toString(), QUERY_SIZE);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
@@ -86,7 +89,7 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testMMR_whenUserProvidedVectorPath_thenVectorIncluded() {
-        XContentBuilder queryBuilder = buildMMRQuery(queryVector, QUERY_SIZE, false, true);
+        XContentBuilder queryBuilder = buildMMRQuery(SIMILAR_VECTOR, QUERY_SIZE, false, true);
 
         Response response = searchKNNIndex(INDEX_NAME, queryBuilder.toString(), QUERY_SIZE);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
@@ -123,13 +126,12 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        createKnnIndex(INDEX_NAME, mappingBuilder.toString());
+        createKnnIndex(INDEX_NAME, mappingBuilder.toString(), 3);
 
-        float[] similarVector = new float[] { 1f, 1f };
         for (int i = 0; i < 8; i++)
-            addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, similarVector);
+            addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, SIMILAR_VECTOR);
 
-        float[][] diverseVectors = new float[][] { { 1f, 2f }, { 2f, 1f } };
+        float[][] diverseVectors = new float[][] { DIVERSE_VECTOR_1, DIVERSE_VECTOR_2 };
         for (int i = 8; i < 10; i++)
             addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, diverseVectors[i - 8]);
     }
@@ -184,8 +186,19 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
             results.forEach(r -> assertNotNull("Vector should be included", r.getVector()));
         }
         assertEquals(QUERY_SIZE, results.size());
-        assertEquals("0", results.get(0).getDocId());
+
+        if (results.get(0).getVector() != null) {
+            assertArrayEquals(SIMILAR_VECTOR, results.get(0).getVector(), DELTA);
+        }
+        assertEquals(1.0, (double) results.get(0).getScore(), DELTA);
         assertEquals("Should pick up the hit with diversity.", "8", results.get(1).getDocId());
-        assertEquals("1", results.get(2).getDocId());
+        assertEquals(0.5, (double) results.get(1).getScore(), DELTA);
+        if (results.get(1).getVector() != null) {
+            assertArrayEquals("Should pick up the hit with diversity.", DIVERSE_VECTOR_1, results.get(1).getVector(), DELTA);
+        }
+        if (results.get(2).getVector() != null) {
+            assertArrayEquals(SIMILAR_VECTOR, results.get(2).getVector(), DELTA);
+        }
+        assertEquals(1.0, (double) results.get(2).getScore(), DELTA);
     }
 }
