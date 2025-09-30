@@ -35,8 +35,8 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
         indexDocuments();
 
         // Create query vectors as script parameters
-        List<List<Double>> queryVectors = new ArrayList<>();
-        List<Double> qv1 = new ArrayList<>();
+        List<List<Number>> queryVectors = new ArrayList<>();
+        List<Number> qv1 = new ArrayList<>();
         qv1.add(0.1);
         qv1.add(0.2);
         queryVectors.add(qv1);
@@ -75,8 +75,8 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
         createIndexWithMapping();
         indexDocuments();
 
-        List<List<Double>> queryVectors = new ArrayList<>();
-        List<Double> qv1 = new ArrayList<>();
+        List<List<Number>> queryVectors = new ArrayList<>();
+        List<Number> qv1 = new ArrayList<>();
         qv1.add(1.0);
         qv1.add(0.0);
         queryVectors.add(qv1);
@@ -137,16 +137,16 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
      */
     private void indexDocuments() throws Exception {
         // Document 1: vectors [[0.3, 0.4]]
-        List<List<Double>> docVectors1 = new ArrayList<>();
-        List<Double> dv1 = new ArrayList<>();
+        List<List<Number>> docVectors1 = new ArrayList<>();
+        List<Number> dv1 = new ArrayList<>();
         dv1.add(0.3);
         dv1.add(0.4);
         docVectors1.add(dv1);
         addKnnDoc(INDEX_NAME, "1", "my_vector", docVectors1);
 
         // Document 2: vectors [[0.1, 0.2]]
-        List<List<Double>> docVectors2 = new ArrayList<>();
-        List<Double> dv2 = new ArrayList<>();
+        List<List<Number>> docVectors2 = new ArrayList<>();
+        List<Number> dv2 = new ArrayList<>();
         dv2.add(0.1);
         dv2.add(0.2);
         docVectors2.add(dv2);

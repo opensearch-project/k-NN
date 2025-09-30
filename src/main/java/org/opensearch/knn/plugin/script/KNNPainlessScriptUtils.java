@@ -5,35 +5,30 @@
 
 package org.opensearch.knn.plugin.script;
 
+import lombok.NonNull;
+import org.opensearch.knn.index.SpaceType;
+
 import java.util.List;
 import java.util.Map;
 
-import org.opensearch.knn.index.SpaceType;
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
-
 /**
- * Utility class providing k-NN scoring functions for Painless scripts.
- * This class implements late interaction scoring for multi-vector similarity search,
- * commonly used in ColBERT-style retrieval systems.
+ * Utility class for k-NN scoring functions used in Painless scripts.
+ * Provides late interaction scoring functionality for ColBERT-style token-level matching.
  */
-@NoArgsConstructor(access = AccessLevel.PRIVATE)
-public final class KNNPainlessScriptUtils {
+public class KNNPainlessScriptUtils {
 
     /**
-     * Calculates the late interaction score between query vectors and document vectors.
+     * Calculates the late interaction score between query vectors and document vectors using inner product.
      * For each query vector, finds the maximum similarity with any document vector and sums these maxima.
      * This implements a ColBERT-style late interaction pattern for token-level matching.
      *
-     * @param queryVectors List of query vectors, each a float array
+     * @param queryVectors List of query vectors
      * @param docFieldName Name of the field in the document containing vectors
      * @param doc Document source as a map
      * @return Sum of maximum similarity scores
      */
-    @SuppressWarnings("unchecked")
-    public static double lateInteractionScore(
-        @NonNull final List<float[]> queryVectors,
+    public static float lateInteractionScore(
+        @NonNull final List<List<Number>> queryVectors,
         @NonNull final String docFieldName,
         @NonNull final Map<String, Object> doc
     ) {
@@ -45,80 +40,58 @@ public final class KNNPainlessScriptUtils {
      * For each query vector, finds the maximum similarity with any document vector and sums these maxima.
      * This implements a ColBERT-style late interaction pattern for token-level matching.
      *
-     * @param queryVectors List of query vectors, each a float array
+     * @param queryVectors List of query vectors
      * @param docFieldName Name of the field in the document containing vectors
      * @param doc Document source as a map
      * @param spaceType Space type for similarity calculation: "innerproduct", "cosinesimil", "l2", "l1", "linf"
      * @return Sum of maximum similarity scores
      */
     @SuppressWarnings("unchecked")
-    public static double lateInteractionScore(
-        @NonNull final List<float[]> queryVectors,
+    public static float lateInteractionScore(
+        @NonNull final List<List<Number>> queryVectors,
         @NonNull final String docFieldName,
         @NonNull final Map<String, Object> doc,
         @NonNull final String spaceType
     ) {
-        if (queryVectors.isEmpty()) {
-            throw new IllegalArgumentException("Query vectors cannot be empty");
+        List<List<Number>> docVectors = (List<List<Number>>) doc.get(docFieldName);
+
+        if (queryVectors.isEmpty() || docVectors == null || docVectors.isEmpty()) {
+            return 0.0f;
         }
 
-        List<float[]> docVectors = (List<float[]>) doc.get(docFieldName);
-        if (docVectors == null || docVectors.isEmpty()) {
-            return 0.0;
-        }
-
+        float totalMaxSim = 0.0f;
         SpaceType space = SpaceType.getSpace(spaceType);
         boolean isDistanceMetric = space == SpaceType.L2 || space == SpaceType.L1 || space == SpaceType.LINF;
 
-        double totalMaxSim = 0.0;
-        int expectedDimension = -1;
-
-        for (float[] q_vec : queryVectors) {
-            if (q_vec == null || q_vec.length == 0) {
+        for (List<Number> queryVector : queryVectors) {
+            if (queryVector == null || queryVector.isEmpty()) {
                 throw new IllegalArgumentException("Every single vector within query vectors cannot be empty or null");
             }
 
-            // Set expected dimension from first valid query vector
-            if (expectedDimension == -1) {
-                expectedDimension = q_vec.length;
-            } else if (q_vec.length != expectedDimension) {
-                throw new IllegalArgumentException(
-                    String.format("Query vector dimension mismatch: expected %d, found %d", expectedDimension, q_vec.length)
-                );
+            float[] qVec = new float[queryVector.size()];
+            for (int i = 0; i < queryVector.size(); i++) {
+                qVec[i] = queryVector.get(i).floatValue();
             }
 
-            double maxDocTokenSim = isDistanceMetric ? Double.MAX_VALUE : Double.NEGATIVE_INFINITY;
+            float maxDocTokenSim = isDistanceMetric ? Float.MAX_VALUE : Float.MIN_VALUE;
 
-            for (float[] doc_token_vec : docVectors) {
-                if (doc_token_vec == null || doc_token_vec.length == 0) {
+            for (List<Number> docVector : docVectors) {
+                if (docVector == null || docVector.isEmpty()) {
                     continue;
                 }
 
-                // Validate doc vector dimension
-                if (doc_token_vec.length != expectedDimension) {
-                    throw new IllegalArgumentException(
-                        String.format("Document vector dimension mismatch: expected %d, found %d", expectedDimension, doc_token_vec.length)
-                    );
+                float[] dVec = new float[docVector.size()];
+                for (int i = 0; i < docVector.size(); i++) {
+                    dVec[i] = docVector.get(i).floatValue();
                 }
 
-                double currentSim = calculateSimilarity(q_vec, doc_token_vec, space);
+                float similarity = calculateSimilarity(qVec, dVec, space);
 
                 if (isDistanceMetric) {
-                    // For distance metrics (L2, L1, LINF), we want minimum distance
-                    if (currentSim < maxDocTokenSim) {
-                        maxDocTokenSim = currentSim;
-                    }
+                    maxDocTokenSim = Math.min(maxDocTokenSim, similarity);
                 } else {
-                    // For similarity metrics (inner product, cosine), we want maximum similarity
-                    if (currentSim > maxDocTokenSim) {
-                        maxDocTokenSim = currentSim;
-                    }
+                    maxDocTokenSim = Math.max(maxDocTokenSim, similarity);
                 }
-            }
-
-            // Convert distance to similarity score using SpaceType's scoreTranslation
-            if (isDistanceMetric) {
-                maxDocTokenSim = space.scoreTranslation((float) maxDocTokenSim);
             }
 
             totalMaxSim += maxDocTokenSim;
@@ -126,12 +99,18 @@ public final class KNNPainlessScriptUtils {
         return totalMaxSim;
     }
 
-    private static double calculateSimilarity(
-        @NonNull final float[] vec1,
-        @NonNull final float[] vec2,
-        @NonNull final SpaceType spaceType
-    ) {
-        // Note: Dimension validation is now done in the main loop for efficiency
+    private static float calculateSimilarity(@NonNull final float[] vec1, @NonNull final float[] vec2, @NonNull final SpaceType spaceType) {
+        if (vec1.length != vec2.length) {
+            throw new IllegalArgumentException(
+                String.format(
+                    "Vector dimension mismatch in lateInteractionScore: query vector has %d dimensions, document vector has %d dimensions. "
+                        + "Ensure all vectors use the same dimensionality from the same embedding model.",
+                    vec1.length,
+                    vec2.length
+                )
+            );
+        }
+
         switch (spaceType) {
             case INNER_PRODUCT:
                 return KNNScoringUtil.innerProduct(vec1, vec2);
