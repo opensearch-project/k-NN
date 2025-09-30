@@ -251,6 +251,19 @@ public class KNNQuery extends Query {
         return null;
     }
 
+    public Object getVector() {
+        return switch (vectorDataType) {
+            case BYTE -> {
+                if (isMemoryOptimizedSearch) {
+                    yield byteQueryVector;
+                }
+                yield queryVector;
+            }
+            case BINARY -> byteQueryVector;
+            case FLOAT -> queryVector;
+        };
+    }
+
     @Override
     public void visit(QueryVisitor visitor) {
         visitor.visitLeaf(this);
