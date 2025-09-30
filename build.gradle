@@ -297,16 +297,6 @@ compileTestFixturesJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
 }
 
-javadoc {
-    enabled = false
-}
-
-
-
-
-
-
-
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
 // Only apply jacoco test coverage if we are running a local single node cluster
@@ -358,6 +348,7 @@ dependencies {
 
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
     testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
     testImplementation("com.google.guava:guava:${versions.guava}")
@@ -405,7 +396,6 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
-
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
         args.add("-G")
@@ -451,7 +441,6 @@ test {
     systemProperty "java.library.path", "$rootDir/jni/build/release"
     //this change enables mockito-inline that supports mocking of static classes/calls
     systemProperty "jdk.attach.allowAttachSelf", true
-    jvmArgs '--add-modules', 'jdk.incubator.vector'
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
