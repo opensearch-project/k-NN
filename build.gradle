@@ -233,8 +233,6 @@ allprojects {
         sourceCompatibility = targetCompatibility = "21"
     }
 
-    
-
     afterEvaluate {
         project.dependencyLicenses.enabled = false
         project.thirdPartyAudit.enabled = false
@@ -248,11 +246,6 @@ allprojects {
         project.licenseFile = rootProject.file('LICENSE.txt')
         project.noticeFile = rootProject.file('NOTICE.txt')
         project.forbiddenApis.ignoreFailures = true
-        if (project.tasks.findByName("forbiddenApisMain")) {
-            tasks.named("forbiddenApisMain").configure {
-                enabled = false
-            }
-        }
     }
 }
 
@@ -296,7 +289,6 @@ publishing {
 
 compileJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
-    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
 }
 compileTestJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
@@ -366,11 +358,9 @@ dependencies {
 
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
     testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
     testImplementation("com.google.guava:guava:${versions.guava}")
-    testImplementation "org.opensearch:opensearch-core:${opensearch_version}"
     testFixturesImplementation("com.google.guava:guava:${versions.guava}")
     // json-path 2.9.0 depends on slf4j 2.0.11, which conflicts with the version used by OpenSearch core.
     // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
