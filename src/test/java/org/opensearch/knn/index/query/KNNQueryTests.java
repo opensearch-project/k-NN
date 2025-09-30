@@ -21,4 +21,40 @@ public class KNNQueryTests extends OpenSearchTestCase {
         query = KNNQuery.builder().queryVector(new float[] { 0, 1 }).build();
         assertEquals(2, query.getQueryDimension());
     }
+
+    public void testGetVectorFloat() {
+        float[] floatVector = { 1.0f, 2.0f, 3.0f };
+        KNNQuery query = KNNQuery.builder().queryVector(floatVector).vectorDataType(VectorDataType.FLOAT).build();
+        assertTrue(query.getVector() instanceof float[]);
+        assertEquals(floatVector, query.getVector());
+    }
+
+    public void testGetVectorBinary() {
+        byte[] binaryVector = { 0, 1, 2 };
+        KNNQuery query = KNNQuery.builder().byteQueryVector(binaryVector).vectorDataType(VectorDataType.BINARY).build();
+        assertTrue(query.getVector() instanceof byte[]);
+        assertEquals(binaryVector, query.getVector());
+    }
+
+    public void testGetVectorByteMemoryOptimized() {
+        byte[] byteVector = { 1, 2, 3 };
+        KNNQuery query = KNNQuery.builder()
+            .byteQueryVector(byteVector)
+            .vectorDataType(VectorDataType.BYTE)
+            .isMemoryOptimizedSearch(true)
+            .build();
+        assertTrue(query.getVector() instanceof byte[]);
+        assertEquals(byteVector, query.getVector());
+    }
+
+    public void testGetVectorByteNotMemoryOptimized() {
+        float[] floatVector = { 1.0f, 2.0f, 3.0f };
+        KNNQuery query = KNNQuery.builder()
+            .queryVector(floatVector)
+            .vectorDataType(VectorDataType.BYTE)
+            .isMemoryOptimizedSearch(false)
+            .build();
+        assertTrue(query.getVector() instanceof float[]);
+        assertEquals(floatVector, query.getVector());
+    }
 }
