@@ -108,6 +108,9 @@ jobs:
 
       - name: Run tests
         run: |
+          echo "Cleaning up submodules first ..."
+          rm -rf .git/modules/* &>/dev/null || true
+          rm -rf ./jni/external/* &>/dev/null || true
           if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw
           then
             if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
