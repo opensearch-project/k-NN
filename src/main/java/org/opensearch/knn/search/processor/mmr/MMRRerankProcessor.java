@@ -6,6 +6,7 @@
 package org.opensearch.knn.search.processor.mmr;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponseSections;
@@ -41,6 +42,7 @@ import static org.opensearch.knn.search.processor.mmr.MMRUtil.shouldGenerateMMRP
 /**
  * A system generated search response processor that rerank the response based on the Maximal Marginal Relevance
  */
+@Log4j2
 @AllArgsConstructor
 public class MMRRerankProcessor implements SearchResponseProcessor, SystemGeneratedProcessor {
     public static final String TYPE = "mmr_rerank";
@@ -72,7 +74,7 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
         final boolean isFloatVector = VectorDataType.FLOAT.equals(mmrContext.getVectorDataType());
 
         final List<SearchHit> candidates = new ArrayList<>(List.of(searchResponse.getHits().getHits()));
-        final Map<Integer, Object> docVectors = extractVectors(
+        final Map<String, Object> docVectors = extractVectors(
             candidates,
             mmrContext.getVectorFieldPath(),
             mmrContext.getIndexToVectorFieldPathMap(),
@@ -113,7 +115,7 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
         );
 
         long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-        long newTookMillis = searchResponse.getTook().millis() + elapsedMillis;
+        log.debug("MMR rerank took: {} ms", elapsedMillis);
 
         return new SearchResponse(
             newSections,
@@ -121,7 +123,7 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
             searchResponse.getTotalShards(),
             searchResponse.getSuccessfulShards(),
             searchResponse.getSkippedShards(),
-            newTookMillis,
+            searchResponse.getTook().millis(),
             searchResponse.getPhaseTook(),
             searchResponse.getShardFailures(),
             searchResponse.getClusters(),
@@ -160,13 +162,13 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
         return ctx;
     }
 
-    private Map<Integer, Object> extractVectors(
+    private Map<String, Object> extractVectors(
         List<SearchHit> hits,
         String defaultVectorFieldPath,
         Map<String, String> indexToVectorFieldPathMap,
         boolean isFloatVector
     ) {
-        Map<Integer, Object> vectors = new ConcurrentHashMap<>();
+        Map<String, Object> vectors = new ConcurrentHashMap<>();
 
         hits.parallelStream().forEach(hit -> {
             String vectorPath = defaultVectorFieldPath;
@@ -179,7 +181,7 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
             }
 
             Object embedding = extractVectorFromHit(hit.getSourceAsMap(), vectorPath, hit.getId(), isFloatVector);
-            vectors.put(hit.docId(), embedding);
+            vectors.put(hit.getId(), embedding);
         });
 
         return vectors;
@@ -187,25 +189,25 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
 
     private List<SearchHit> selectHitsWithMMR(
         List<SearchHit> candidates,
-        Map<Integer, Object> docVectors,
+        Map<String, Object> docVectors,
         KNNVectorSimilarityFunction similarityFunction,
         float diversity,
         int targetSize,
         boolean isFloatVector
     ) {
         List<SearchHit> selected = new ArrayList<>();
-        Map<Long, Float> simCache = new ConcurrentHashMap<>();
+        Map<String, Float> simCache = new ConcurrentHashMap<>();
 
         while (selected.size() < targetSize && !candidates.isEmpty()) {
 
             Optional<SearchHit> bestCandidateOpt = candidates.parallelStream().max(Comparator.comparingDouble(candidate -> {
-                int candidateId = candidate.docId();
+                String candidateId = candidate.getId();
                 float maxSimToSelected = 0.0f;
 
                 for (SearchHit sel : selected) {
-                    int selId = sel.docId();
-                    long key = cacheKey(candidateId, selId);
-                    long symKey = cacheKey(selId, candidateId);
+                    String selId = sel.getId();
+                    String key = cacheKey(candidateId, selId);
+                    String symKey = cacheKey(selId, candidateId);
 
                     float sim = simCache.computeIfAbsent(key, k -> {
                         if (isFloatVector) {
@@ -252,8 +254,8 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
         }
     }
 
-    private long cacheKey(int id1, int id2) {
-        return ((long) id1 << 32) | (id2 & 0xffffffffL);
+    private String cacheKey(String id1, String id2) {
+        return String.join(":", id1, id2);
     }
 
     // This processor will be executed pre the user defined search request processor if there is any. Since
