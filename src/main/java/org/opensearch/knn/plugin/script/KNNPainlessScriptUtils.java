@@ -32,7 +32,7 @@ public class KNNPainlessScriptUtils {
         @NonNull final String docFieldName,
         @NonNull final Map<String, Object> doc
     ) {
-        return lateInteractionScore(queryVectors, docFieldName, doc, "innerproduct");
+        return lateInteractionScore(queryVectors, docFieldName, doc, SpaceType.INNER_PRODUCT.getValue());
     }
 
     /**
