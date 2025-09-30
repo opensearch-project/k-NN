@@ -79,6 +79,7 @@ void knn_jni::JNIUtil::ThrowJavaException(JNIEnv* env, const char* type, const c
     jclass newExcCls = env->FindClass(type);
     if (newExcCls != nullptr) {
         env->ThrowNew(newExcCls, message);
+        env->DeleteLocalRef(newExcCls);
     }
     // If newExcCls isn't found, NoClassDefFoundError will be thrown
 }
@@ -142,9 +143,17 @@ std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMa
     jmethodID entrySetMethodJ = this->FindMethod(env, "java/util/Map", "entrySet");
 
     jobject parametersEntrySetJ = env->CallObjectMethod(parametersJ, entrySetMethodJ);
+    // Auto release when exiting scope
+    JNIReleaseElements localRefDeleter {[=]{
+        env->DeleteLocalRef(parametersEntrySetJ);
+    }};
     this->HasExceptionInStack(env, R"(Unable to call "entrySet" method on "java/util/Map")");
     jmethodID iteratorJ = this->FindMethod(env, "java/util/Set", "iterator");
     jobject iterJ = env->CallObjectMethod(parametersEntrySetJ, iteratorJ);
+    // Auto release when exiting scope
+    JNIReleaseElements iterJlocalRefDeleter {[=]{
+        env->DeleteLocalRef(iterJ);
+    }};
     this->HasExceptionInStack(env, R"(Call to "iterator" method failed")");
 
     jmethodID hasNextMethodJ = this->FindMethod(env, "java/util/Iterator", "hasNext");
@@ -275,6 +284,11 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env
 
     for (int i = 0; i < numVectors; ++i) {
         auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, i);
+        // Auto release when exiting scope
+        JNIReleaseElements localRefDeleter {[=]{
+            env->DeleteLocalRef(vectorArray);
+        }};
+
         this->HasExceptionInStack(env, "Unable to get object array element");
 
         if (dim != env->GetArrayLength(vectorArray)) {
@@ -307,14 +321,23 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToBinaryVector(JNIEnv *en
     this->HasExceptionInStack(env);
 
     for (int i = 0; i < numVectors; ++i) {
+        // Acquire vector array
         auto vectorArray = (jbyteArray)env->GetObjectArrayElement(array2dJ, i);
+
+        // Auto release when exiting scope
+        JNIReleaseElements localRefDeleter {[=]{
+            env->DeleteLocalRef(vectorArray);
+        }};
+
         this->HasExceptionInStack(env, "Unable to get object array element");
 
         if (dim != env->GetArrayLength(vectorArray)) {
             throw std::runtime_error("Dimension of vectors is inconsistent");
         }
 
+        // Acquire array element
         uint8_t* vector = reinterpret_cast<uint8_t*>(env->GetByteArrayElements(vectorArray, nullptr));
+
         if (vector == nullptr) {
             this->HasExceptionInStack(env);
             throw std::runtime_error("Unable to get byte array elements");
@@ -336,11 +359,23 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env,
         throw std::runtime_error("Array cannot be null");
     }
 
+    // Delete local ref to array2dJ
+    JNIReleaseElements localRefDeleter {[=]{
+        env->DeleteLocalRef(array2dJ);
+    }};
+
     int numVectors = env->GetArrayLength(array2dJ);
     this->HasExceptionInStack(env, "Unable to get array length");
 
     for (int i = 0; i < numVectors; ++i) {
+        // Acquire vectorArray
         auto vectorArray = static_cast<jbyteArray>(env->GetObjectArrayElement(array2dJ, i));
+
+        // Auto release when exiting scope
+        JNIReleaseElements localRefDeleter {[=]{
+            env->DeleteLocalRef(vectorArray);
+        }};
+
         this->HasExceptionInStack(env, "Unable to get object array element");
 
         if (dim != env->GetArrayLength(vectorArray)) {
@@ -358,7 +393,6 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env,
         env->ReleaseByteArrayElements(vectorArray, reinterpret_cast<int8_t*>(vector), JNI_ABORT);
     }
     this->HasExceptionInStack(env);
-    env->DeleteLocalRef(array2dJ);
 }
 
 std::vector<int64_t> knn_jni::JNIUtil::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {
@@ -395,7 +429,14 @@ int knn_jni::JNIUtil::GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectAr
         return 0;
     }
 
+    // Acquire vector
     auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, 0);
+
+    // Auto release when exiting scope
+    JNIReleaseElements localRefDeleter {[=]{
+        env->DeleteLocalRef(vectorArray);
+    }};
+
     this->HasExceptionInStack(env);
     int dim = env->GetArrayLength(vectorArray);
     this->HasExceptionInStack(env);
@@ -413,6 +454,10 @@ int knn_jni::JNIUtil::GetInnerDimensionOf2dJavaByteArray(JNIEnv *env, jobjectArr
     }
 
     auto vectorArray = (jbyteArray)env->GetObjectArrayElement(array2dJ, 0);
+    // Auto release when exiting scope
+    JNIReleaseElements localRefDeleter {[=]{
+        env->DeleteLocalRef(vectorArray);
+    }};
     this->HasExceptionInStack(env);
     int dim = env->GetArrayLength(vectorArray);
     this->HasExceptionInStack(env);
@@ -587,7 +632,10 @@ jobject knn_jni::JNIUtil::GetObjectField(JNIEnv * env, jobject obj, jfieldID fie
 }
 
 jclass knn_jni::JNIUtil::FindClassFromJNIEnv(JNIEnv * env, const char *name) {
-    return env->FindClass(name);
+    jclass localRef = env->FindClass(name);
+    auto globalRef = (jclass) env->NewGlobalRef(localRef);
+    env->DeleteLocalRef(localRef);
+    return globalRef;
 }
 
 jmethodID knn_jni::JNIUtil::GetMethodID(JNIEnv * env, jclass clazz, const char *name, const char *sig) {
