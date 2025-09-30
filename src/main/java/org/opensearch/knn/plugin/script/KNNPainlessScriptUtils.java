@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
-import lombok.NonNull;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 
 import java.util.List;
@@ -18,7 +18,8 @@ import java.util.Map;
 public class KNNPainlessScriptUtils {
 
     /**
-     * Calculates the late interaction score between query vectors and document vectors using inner product.
+     * Calculates the late interaction score between query vectors and document vectors using default similarity metric.
+     * The default similarity metric is determined by the default space type, which is L2.
      * For each query vector, finds the maximum similarity with any document vector and sums these maxima.
      * This implements a ColBERT-style late interaction pattern for token-level matching.
      *
@@ -28,11 +29,11 @@ public class KNNPainlessScriptUtils {
      * @return Sum of maximum similarity scores
      */
     public static float lateInteractionScore(
-        @NonNull final List<List<Number>> queryVectors,
-        @NonNull final String docFieldName,
-        @NonNull final Map<String, Object> doc
+        final List<List<Number>> queryVectors,
+        final String docFieldName,
+        final Map<String, Object> doc
     ) {
-        return lateInteractionScore(queryVectors, docFieldName, doc, SpaceType.INNER_PRODUCT.getValue());
+        return lateInteractionScore(queryVectors, docFieldName, doc, SpaceType.DEFAULT.getValue());
     }
 
     /**
@@ -48,20 +49,31 @@ public class KNNPainlessScriptUtils {
      */
     @SuppressWarnings("unchecked")
     public static float lateInteractionScore(
-        @NonNull final List<List<Number>> queryVectors,
-        @NonNull final String docFieldName,
-        @NonNull final Map<String, Object> doc,
-        @NonNull final String spaceType
+        final List<List<Number>> queryVectors,
+        final String docFieldName,
+        final Map<String, Object> doc,
+        final String spaceType
     ) {
-        List<List<Number>> docVectors = (List<List<Number>>) doc.get(docFieldName);
+        validateInputs(queryVectors, docFieldName, doc, spaceType);
 
-        if (queryVectors.isEmpty() || docVectors == null || docVectors.isEmpty()) {
-            return 0.0f;
+        List<List<Number>> docVectors;
+        try {
+            docVectors = (List<List<Number>>) doc.get(docFieldName);
+        } catch (ClassCastException e) {
+            throw new IllegalArgumentException("Field " + docFieldName + " must contain a list of vector lists", e);
         }
 
-        float totalMaxSim = 0.0f;
+        if (docVectors == null || docVectors.isEmpty()) {
+            throw new IllegalArgumentException("Document vectors cannot be null or empty");
+        }
+
         SpaceType space = SpaceType.getSpace(spaceType);
-        boolean isDistanceMetric = space == SpaceType.L2 || space == SpaceType.L1 || space == SpaceType.LINF;
+        KNNVectorSimilarityFunction similarityFunction = space.getKnnVectorSimilarityFunction();
+        if (similarityFunction == null) {
+            throw new IllegalArgumentException("Space type " + spaceType + " does not support vector similarity function");
+        }
+
+        float totalScore = 0.0f;
 
         for (List<Number> queryVector : queryVectors) {
             if (queryVector == null || queryVector.isEmpty()) {
@@ -73,57 +85,45 @@ public class KNNPainlessScriptUtils {
                 qVec[i] = queryVector.get(i).floatValue();
             }
 
-            float maxDocTokenSim = isDistanceMetric ? Float.MAX_VALUE : Float.MIN_VALUE;
+            float bestRawScore = (float) docVectors.parallelStream()
+                .filter(docVector -> docVector != null && !docVector.isEmpty())
+                .mapToDouble(docVector -> {
+                    float[] dVec = new float[docVector.size()];
+                    for (int i = 0; i < docVector.size(); i++) {
+                        dVec[i] = docVector.get(i).floatValue();
+                    }
+                    return similarityFunction.compare(qVec, dVec);
+                })
+                .max()
+                .orElse(Double.NEGATIVE_INFINITY);
 
-            for (List<Number> docVector : docVectors) {
-                if (docVector == null || docVector.isEmpty()) {
-                    continue;
-                }
-
-                float[] dVec = new float[docVector.size()];
-                for (int i = 0; i < docVector.size(); i++) {
-                    dVec[i] = docVector.get(i).floatValue();
-                }
-
-                float similarity = calculateSimilarity(qVec, dVec, space);
-
-                if (isDistanceMetric) {
-                    maxDocTokenSim = Math.min(maxDocTokenSim, similarity);
-                } else {
-                    maxDocTokenSim = Math.max(maxDocTokenSim, similarity);
-                }
+            if (bestRawScore != Double.NEGATIVE_INFINITY) {
+                totalScore += space.scoreTranslation(bestRawScore);
             }
-
-            totalMaxSim += maxDocTokenSim;
         }
-        return totalMaxSim;
+        return totalScore;
     }
 
-    private static float calculateSimilarity(@NonNull final float[] vec1, @NonNull final float[] vec2, @NonNull final SpaceType spaceType) {
-        if (vec1.length != vec2.length) {
-            throw new IllegalArgumentException(
-                String.format(
-                    "Vector dimension mismatch in lateInteractionScore: query vector has %d dimensions, document vector has %d dimensions. "
-                        + "Ensure all vectors use the same dimensionality from the same embedding model.",
-                    vec1.length,
-                    vec2.length
-                )
-            );
+    private static void validateInputs(
+        final List<List<Number>> queryVectors,
+        final String docFieldName,
+        final Map<String, Object> doc,
+        final String spaceType
+    ) {
+        if (queryVectors == null) {
+            throw new IllegalArgumentException("Query vectors cannot be null");
         }
-
-        switch (spaceType) {
-            case INNER_PRODUCT:
-                return KNNScoringUtil.innerProduct(vec1, vec2);
-            case COSINESIMIL:
-                return KNNScoringUtil.cosinesimil(vec1, vec2);
-            case L2:
-                return KNNScoringUtil.l2Squared(vec1, vec2);
-            case L1:
-                return KNNScoringUtil.l1Norm(vec1, vec2);
-            case LINF:
-                return KNNScoringUtil.lInfNorm(vec1, vec2);
-            default:
-                return KNNScoringUtil.innerProduct(vec1, vec2);
+        if (queryVectors.isEmpty()) {
+            throw new IllegalArgumentException("Query vectors cannot be empty");
+        }
+        if (docFieldName == null || docFieldName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Document field name cannot be null or empty");
+        }
+        if (doc == null) {
+            throw new IllegalArgumentException("Document cannot be null");
+        }
+        if (spaceType == null || spaceType.trim().isEmpty()) {
+            throw new IllegalArgumentException("Space type cannot be null or empty");
         }
     }
 }

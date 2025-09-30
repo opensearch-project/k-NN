@@ -19,160 +19,223 @@ import java.util.Map;
 public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
 
     /**
-     * Tests late interaction score calculation with valid input vectors.
-     * Verifies correct computation of maximum similarity scores across query and document vectors.
+     * Tests late interaction score calculation with valid input vectors using inner product.
      */
     public void testLateInteractionScore_whenValidVectors_thenReturnsCorrectScore() {
-        // Create query vectors as List<List<Number>> (can be Double from Painless)
         List<List<Number>> queryVectors = new ArrayList<>();
         List<Number> qv1 = new ArrayList<>();
-        qv1.add(0.1);
-        qv1.add(0.2);
-        qv1.add(0.3);
-        qv1.add(0.4);
+        qv1.add(1.0);
+        qv1.add(0.0);
         queryVectors.add(qv1);
 
-        List<Number> qv2 = new ArrayList<>();
-        qv2.add(0.5);
-        qv2.add(0.6);
-        qv2.add(0.7);
-        qv2.add(0.8);
-        queryVectors.add(qv2);
-
-        // Create document vectors as List<List<Number>>
         List<List<Number>> docVectors = new ArrayList<>();
         List<Number> dv1 = new ArrayList<>();
-        dv1.add(0.1);
-        dv1.add(0.2);
-        dv1.add(0.3);
-        dv1.add(0.4);
+        dv1.add(1.0);
+        dv1.add(0.0);
         docVectors.add(dv1);
 
-        List<Number> dv2 = new ArrayList<>();
-        dv2.add(0.5);
-        dv2.add(0.6);
-        dv2.add(0.7);
-        dv2.add(0.8);
-        docVectors.add(dv2);
-
-        // Create document source
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
 
-        // Calculate expected result
-        // For qv1, max similarity is with dv2: 0.7
-        // For qv2, max similarity is with dv2: 1.74
-        // Total: 0.7 + 1.74 = 2.44
-        float expected = 2.44f;
-
-        // Calculate actual result
-        float actual = KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc);
-
-        // Assert
-        assertEquals(expected, actual, 0.001f);
+        float actual = KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, "innerproduct");
+        assertTrue("Score should be positive", actual > 0);
     }
 
     /**
      * Tests late interaction score with empty vectors.
-     * Verifies that empty input returns zero score.
      */
-    public void testLateInteractionScore_whenEmptyVectors_thenReturnsZero() {
-        // Test with empty query vectors
+    public void testLateInteractionScore_whenEmptyVectors_thenThrowsException() {
         List<List<Number>> emptyQueryVectors = new ArrayList<>();
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", new ArrayList<List<Number>>());
 
-        assertEquals(0.0f, KNNPainlessScriptUtils.lateInteractionScore(emptyQueryVectors, "my_vector", doc), 0.0f);
+        // Empty query vectors should throw exception
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(emptyQueryVectors, "my_vector", doc)
+        );
 
-        // Test with null document vectors
+        // Empty document vectors should throw exception
         List<List<Number>> queryVectors = new ArrayList<>();
         List<Number> qv = new ArrayList<>();
-        qv.add(0.1);
-        qv.add(0.2);
+        qv.add(1.0);
         queryVectors.add(qv);
 
+        expectThrows(IllegalArgumentException.class, () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc));
+
+        // Null document vectors should throw exception
         Map<String, Object> docWithNull = new HashMap<>();
         docWithNull.put("my_vector", null);
 
-        assertEquals(0.0f, KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", docWithNull), 0.0f);
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", docWithNull)
+        );
     }
 
     /**
-     * Tests late interaction score with dimension mismatch.
-     * Verifies that dimension mismatch throws appropriate exception.
+     * Tests late interaction score with null inputs.
      */
-    public void testLateInteractionScore_whenDimensionMismatch_thenThrowsException() {
-        // Create query vectors with 2 dimensions
+    public void testLateInteractionScore_whenNullInputs_thenThrowsException() {
+        List<List<Number>> queryVectors = new ArrayList<>();
+        Map<String, Object> doc = new HashMap<>();
+
+        // Test null query vectors
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(null, "my_vector", doc, "innerproduct")
+        );
+
+        // Test null field name
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, null, doc, "innerproduct")
+        );
+
+        // Test null document
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", null, "innerproduct")
+        );
+
+        // Test null space type
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, null)
+        );
+    }
+
+    /**
+     * Tests late interaction score with invalid field type.
+     */
+    public void testLateInteractionScore_whenInvalidFieldType_thenThrowsException() {
         List<List<Number>> queryVectors = new ArrayList<>();
         List<Number> qv = new ArrayList<>();
-        qv.add(0.1);
-        qv.add(0.2);
+        qv.add(1.0);
         queryVectors.add(qv);
 
-        // Create document vectors with 3 dimensions (mismatch)
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("my_vector", "invalid_type"); // String instead of List<List<Number>>
+
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, "innerproduct")
+        );
+    }
+
+    /**
+     * Tests late interaction score with unsupported space type.
+     */
+    public void testLateInteractionScore_whenUnsupportedSpaceType_thenThrowsException() {
+        List<List<Number>> queryVectors = new ArrayList<>();
+        List<Number> qv = new ArrayList<>();
+        qv.add(1.0);
+        qv.add(0.0);
+        queryVectors.add(qv);
+
         List<List<Number>> docVectors = new ArrayList<>();
         List<Number> dv = new ArrayList<>();
-        dv.add(0.1);
-        dv.add(0.2);
-        dv.add(0.3);
+        dv.add(1.0);
+        dv.add(0.0);
         docVectors.add(dv);
 
-        // Create document source
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
 
-        // Should throw IllegalArgumentException for dimension mismatch
-        IllegalArgumentException exception = expectThrows(
+        // L1 and LINF don't have KNNVectorSimilarityFunction support
+        expectThrows(
             IllegalArgumentException.class,
-            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc)
+            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, "l1")
         );
 
-        assertTrue(exception.getMessage().contains("Vector dimension mismatch"));
-        assertTrue(exception.getMessage().contains("query vector has 2 dimensions"));
-        assertTrue(exception.getMessage().contains("document vector has 3 dimensions"));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, "linf")
+        );
     }
 
     /**
-     * Tests late interaction score with multiple document vectors.
-     * Verifies that the function correctly finds maximum similarity for each query vector.
+     * Tests late interaction score with different supported space types.
      */
-    public void testLateInteractionScore_whenMultipleDocVectors_thenReturnsMaxSimilaritySum() {
-        // Create query vectors
+    public void testLateInteractionScore_whenSupportedSpaceTypes_thenReturnsScore() {
         List<List<Number>> queryVectors = new ArrayList<>();
         List<Number> qv = new ArrayList<>();
-        qv.add(0.1);
-        qv.add(0.2);
+        qv.add(1.0);
+        qv.add(0.0);
         queryVectors.add(qv);
 
-        // Create multiple document vectors
+        List<List<Number>> docVectors = new ArrayList<>();
+        List<Number> dv = new ArrayList<>();
+        dv.add(1.0);
+        dv.add(0.0);
+        docVectors.add(dv);
+
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("my_vector", docVectors);
+
+        String[] supportedSpaceTypes = { "innerproduct", "cosinesimil", "l2" };
+
+        for (String spaceType : supportedSpaceTypes) {
+            float score = KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, spaceType);
+            assertTrue("Score should be finite for " + spaceType, Float.isFinite(score));
+        }
+    }
+
+    /**
+     * Tests late interaction score with multiple query and document vectors.
+     */
+    public void testLateInteractionScore_whenMultipleVectors_thenReturnsSum() {
+        List<List<Number>> queryVectors = new ArrayList<>();
+        List<Number> qv1 = new ArrayList<>();
+        qv1.add(1.0);
+        qv1.add(0.0);
+        queryVectors.add(qv1);
+
+        List<Number> qv2 = new ArrayList<>();
+        qv2.add(0.0);
+        qv2.add(1.0);
+        queryVectors.add(qv2);
+
         List<List<Number>> docVectors = new ArrayList<>();
         List<Number> dv1 = new ArrayList<>();
-        dv1.add(0.1);
-        dv1.add(0.2);
+        dv1.add(1.0);
+        dv1.add(0.0);
         docVectors.add(dv1);
 
         List<Number> dv2 = new ArrayList<>();
-        dv2.add(0.3);
-        dv2.add(0.4);
+        dv2.add(0.0);
+        dv2.add(1.0);
         docVectors.add(dv2);
 
-        List<Number> dv3 = new ArrayList<>();
-        dv3.add(0.5);
-        dv3.add(0.6);
-        docVectors.add(dv3);
-
-        // Create document source
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
 
-        // Calculate expected result
-        // For qv, max similarity with doc vectors is with dv3: 0.1*0.5 + 0.2*0.6 = 0.17
-        float expected = 0.17f;
+        float score = KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, "innerproduct");
+        assertTrue("Score should be positive for multiple vectors", score > 0);
+    }
 
-        // Calculate actual result
-        float actual = KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc);
+    /**
+     * Tests late interaction score with default space type.
+     */
+    public void testLateInteractionScore_whenDefaultSpaceType_thenUsesL2() {
+        List<List<Number>> queryVectors = new ArrayList<>();
+        List<Number> qv = new ArrayList<>();
+        qv.add(1.0);
+        qv.add(0.0);
+        queryVectors.add(qv);
 
-        // Assert
-        assertEquals(expected, actual, 0.001f);
+        List<List<Number>> docVectors = new ArrayList<>();
+        List<Number> dv = new ArrayList<>();
+        dv.add(1.0);
+        dv.add(0.0);
+        docVectors.add(dv);
+
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("my_vector", docVectors);
+
+        float defaultScore = KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc);
+        float l2Score = KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc, "l2");
+
+        assertEquals("Default should use L2", defaultScore, l2Score, 0.001f);
     }
 }

@@ -8,6 +8,7 @@ package org.opensearch.knn.integ;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -81,9 +82,10 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
         qv1.add(0.0);
         queryVectors.add(qv1);
 
-        String[] spaceTypes = { "innerproduct", "cosinesimil", "l2", "l1", "linf" };
+        // Test supported space types only
+        String[] supportedSpaceTypes = { "innerproduct", "cosinesimil", "l2" };
 
-        for (String spaceType : spaceTypes) {
+        for (String spaceType : supportedSpaceTypes) {
             Map<String, Object> params = new HashMap<>();
             params.put("query_vector", queryVectors);
             params.put("space_type", spaceType);
@@ -110,6 +112,48 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
 
             String responseBody = EntityUtils.toString(response.getEntity());
             assertTrue("Response should contain hits for " + spaceType, responseBody.contains("\"hits\""));
+        }
+
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    /**
+     * Tests late interaction score with unsupported space types.
+     * Verifies that unsupported space types throw appropriate exceptions.
+     */
+    public void testLateInteractionScore_whenUnsupportedSpaceTypes_thenThrowsException() throws Exception {
+        createIndexWithMapping();
+        indexDocuments();
+
+        List<List<Number>> queryVectors = new ArrayList<>();
+        List<Number> qv1 = new ArrayList<>();
+        qv1.add(1.0);
+        qv1.add(0.0);
+        queryVectors.add(qv1);
+
+        // Test unsupported space types
+        String[] unsupportedSpaceTypes = { "l1", "linf" };
+
+        for (String spaceType : unsupportedSpaceTypes) {
+            Map<String, Object> params = new HashMap<>();
+            params.put("query_vector", queryVectors);
+            params.put("space_type", spaceType);
+
+            String source = "lateInteractionScore(params.query_vector, 'my_vector', params._source, params.space_type)";
+
+            QueryBuilder qb = new MatchAllQueryBuilder();
+            Request request = constructScriptScoreContextSearchRequest(
+                INDEX_NAME,
+                qb,
+                params,
+                Script.DEFAULT_SCRIPT_LANG,
+                source,
+                2,
+                Collections.emptyMap()
+            );
+
+            // Should throw ResponseException for unsupported space types
+            expectThrows(ResponseException.class, () -> client().performRequest(request));
         }
 
         deleteKNNIndex(INDEX_NAME);
