@@ -284,6 +284,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Create KNN Index with custom shard num
+     */
+    protected void createKnnIndex(String index, String mapping, int shardNum) throws IOException {
+        Settings defaultSettings = getKNNDefaultIndexSettings();
+        Settings settings = Settings.builder().put(defaultSettings).put("number_of_shards", shardNum).build();
+        createIndex(index, settings);
+        putMappingRequest(index, mapping);
+    }
+
+    /**
      * Builds a KNN Index for dimension and index, with on_disk mode
      */
     protected void createOnDiskIndex(String index, Integer dimensions, SpaceType spaceType) throws IOException {
