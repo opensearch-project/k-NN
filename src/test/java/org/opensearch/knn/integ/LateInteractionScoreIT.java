@@ -63,7 +63,7 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         assertTrue("Response should contain hits", responseBody.contains("\"hits\""));
         assertTrue("Response should contain scores", responseBody.contains("\"_score\""));
-        
+
         deleteKNNIndex(INDEX_NAME);
     }
 
@@ -81,8 +81,8 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
         qv1.add(0.0);
         queryVectors.add(qv1);
 
-        String[] spaceTypes = {"innerproduct", "cosinesimil", "l2", "l1", "linf"};
-        
+        String[] spaceTypes = { "innerproduct", "cosinesimil", "l2", "l1", "linf" };
+
         for (String spaceType : spaceTypes) {
             Map<String, Object> params = new HashMap<>();
             params.put("query_vector", queryVectors);
@@ -102,13 +102,16 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
             );
 
             Response response = client().performRequest(request);
-            assertEquals("Space type " + spaceType + " should work", 
-                RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+            assertEquals(
+                "Space type " + spaceType + " should work",
+                RestStatus.OK,
+                RestStatus.fromCode(response.getStatusLine().getStatusCode())
+            );
 
             String responseBody = EntityUtils.toString(response.getEntity());
             assertTrue("Response should contain hits for " + spaceType, responseBody.contains("\"hits\""));
         }
-        
+
         deleteKNNIndex(INDEX_NAME);
     }
 
@@ -117,14 +120,14 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
      * Sets up the test index with object type field for storing vectors.
      */
     private void createIndexWithMapping() throws Exception {
-        String mapping = "{\n" +
-            "  \"properties\": {\n" +
-            "    \"my_vector\": {\n" +
-            "      \"type\": \"object\",\n" +
-            "      \"enabled\": false\n" +
-            "    }\n" +
-            "  }\n" +
-            "}";
+        String mapping = "{\n"
+            + "  \"properties\": {\n"
+            + "    \"my_vector\": {\n"
+            + "      \"type\": \"object\",\n"
+            + "      \"enabled\": false\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
         createKnnIndex(INDEX_NAME, mapping);
     }
 
@@ -141,7 +144,7 @@ public class LateInteractionScoreIT extends KNNRestTestCase {
         docVectors1.add(dv1);
         addKnnDoc(INDEX_NAME, "1", "my_vector", docVectors1);
 
-        // Document 2: vectors [[0.1, 0.2]]  
+        // Document 2: vectors [[0.1, 0.2]]
         List<List<Double>> docVectors2 = new ArrayList<>();
         List<Double> dv2 = new ArrayList<>();
         dv2.add(0.1);

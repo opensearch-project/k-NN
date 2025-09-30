@@ -32,7 +32,11 @@ public final class KNNPainlessScriptUtils {
      * @return Sum of maximum similarity scores
      */
     @SuppressWarnings("unchecked")
-    public static double lateInteractionScore(@NonNull final List<float[]> queryVectors, @NonNull final String docFieldName, @NonNull final Map<String, Object> doc) {
+    public static double lateInteractionScore(
+        @NonNull final List<float[]> queryVectors,
+        @NonNull final String docFieldName,
+        @NonNull final Map<String, Object> doc
+    ) {
         return lateInteractionScore(queryVectors, docFieldName, doc, "innerproduct");
     }
 
@@ -48,7 +52,12 @@ public final class KNNPainlessScriptUtils {
      * @return Sum of maximum similarity scores
      */
     @SuppressWarnings("unchecked")
-    public static double lateInteractionScore(@NonNull final List<float[]> queryVectors, @NonNull final String docFieldName, @NonNull final Map<String, Object> doc, @NonNull final String spaceType) {
+    public static double lateInteractionScore(
+        @NonNull final List<float[]> queryVectors,
+        @NonNull final String docFieldName,
+        @NonNull final Map<String, Object> doc,
+        @NonNull final String spaceType
+    ) {
         if (queryVectors.isEmpty()) {
             throw new IllegalArgumentException("Query vectors cannot be empty");
         }
@@ -63,7 +72,7 @@ public final class KNNPainlessScriptUtils {
 
         double totalMaxSim = 0.0;
         int expectedDimension = -1;
-        
+
         for (float[] q_vec : queryVectors) {
             if (q_vec == null || q_vec.length == 0) {
                 throw new IllegalArgumentException("Every single vector within query vectors cannot be empty or null");
@@ -106,18 +115,22 @@ public final class KNNPainlessScriptUtils {
                     }
                 }
             }
-            
+
             // Convert distance to similarity score using SpaceType's scoreTranslation
             if (isDistanceMetric) {
                 maxDocTokenSim = space.scoreTranslation((float) maxDocTokenSim);
             }
-            
+
             totalMaxSim += maxDocTokenSim;
         }
         return totalMaxSim;
     }
 
-    private static double calculateSimilarity(@NonNull final float[] vec1, @NonNull final float[] vec2, @NonNull final SpaceType spaceType) {
+    private static double calculateSimilarity(
+        @NonNull final float[] vec1,
+        @NonNull final float[] vec2,
+        @NonNull final SpaceType spaceType
+    ) {
         // Note: Dimension validation is now done in the main loop for efficiency
         switch (spaceType) {
             case INNER_PRODUCT:

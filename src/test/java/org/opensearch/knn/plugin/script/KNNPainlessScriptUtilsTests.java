@@ -25,13 +25,13 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
     public void testLateInteractionScore_whenValidVectors_thenReturnsCorrectScore() {
         // Create query vectors
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{0.1f, 0.2f, 0.3f, 0.4f});
-        queryVectors.add(new float[]{0.5f, 0.6f, 0.7f, 0.8f});
+        queryVectors.add(new float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        queryVectors.add(new float[] { 0.5f, 0.6f, 0.7f, 0.8f });
 
         // Create document vectors
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{0.1f, 0.2f, 0.3f, 0.4f});
-        docVectors.add(new float[]{0.5f, 0.6f, 0.7f, 0.8f});
+        docVectors.add(new float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        docVectors.add(new float[] { 0.5f, 0.6f, 0.7f, 0.8f });
 
         // Create document source
         Map<String, Object> doc = new HashMap<>();
@@ -74,7 +74,7 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
 
         // Test with missing field
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{0.1f});
+        queryVectors.add(new float[] { 0.1f });
 
         assertEquals(0.0, KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "non_existent_field", doc), 0.0);
     }
@@ -86,13 +86,13 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
     public void testLateInteractionScore_whenNullOrEmptyIndividualVectors_thenThrowsException() {
         Map<String, Object> doc = new HashMap<>();
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{1.0f, 2.0f});
+        docVectors.add(new float[] { 1.0f, 2.0f });
         doc.put("my_vector", docVectors);
 
         // Test with null vector in query list
         List<float[]> queryVectorsWithNull = new ArrayList<>();
         queryVectorsWithNull.add(null);
-        
+
         IllegalArgumentException exception1 = expectThrows(
             IllegalArgumentException.class,
             () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectorsWithNull, "my_vector", doc)
@@ -101,8 +101,8 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
 
         // Test with empty vector in query list
         List<float[]> queryVectorsWithEmpty = new ArrayList<>();
-        queryVectorsWithEmpty.add(new float[]{});
-        
+        queryVectorsWithEmpty.add(new float[] {});
+
         IllegalArgumentException exception2 = expectThrows(
             IllegalArgumentException.class,
             () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectorsWithEmpty, "my_vector", doc)
@@ -117,11 +117,11 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
     public void testLateInteractionScore_whenDimensionMismatch_thenThrowsException() {
         // Create query vectors with 2 dimensions
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{0.1f, 0.2f});
+        queryVectors.add(new float[] { 0.1f, 0.2f });
 
         // Create document vectors with 3 dimensions (mismatch)
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{0.1f, 0.2f, 0.3f});
+        docVectors.add(new float[] { 0.1f, 0.2f, 0.3f });
 
         // Create document source
         Map<String, Object> doc = new HashMap<>();
@@ -132,7 +132,7 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
             IllegalArgumentException.class,
             () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc)
         );
-        
+
         assertTrue(exception.getMessage().contains("Vector dimension mismatch"));
         assertTrue(exception.getMessage().contains("query vector has 2 dimensions"));
         assertTrue(exception.getMessage().contains("document vector has 3 dimensions"));
@@ -145,13 +145,13 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
     public void testLateInteractionScore_whenMultipleDocVectors_thenReturnsMaxSimilaritySum() {
         // Create query vectors
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{0.1f, 0.2f});
+        queryVectors.add(new float[] { 0.1f, 0.2f });
 
         // Create multiple document vectors
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{0.1f, 0.2f});
-        docVectors.add(new float[]{0.3f, 0.4f});
-        docVectors.add(new float[]{0.5f, 0.6f});
+        docVectors.add(new float[] { 0.1f, 0.2f });
+        docVectors.add(new float[] { 0.3f, 0.4f });
+        docVectors.add(new float[] { 0.5f, 0.6f });
 
         // Create document source
         Map<String, Object> doc = new HashMap<>();
@@ -174,10 +174,10 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
      */
     public void testLateInteractionScore_whenInnerProduct_thenReturnsCorrectScore() {
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{1.0f, 2.0f});
+        queryVectors.add(new float[] { 1.0f, 2.0f });
 
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{3.0f, 4.0f});
+        docVectors.add(new float[] { 3.0f, 4.0f });
 
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
@@ -195,10 +195,10 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
      */
     public void testLateInteractionScore_whenCosinesimil_thenReturnsCorrectScore() {
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{1.0f, 0.0f});
+        queryVectors.add(new float[] { 1.0f, 0.0f });
 
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{1.0f, 0.0f});
+        docVectors.add(new float[] { 1.0f, 0.0f });
 
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
@@ -216,10 +216,10 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
      */
     public void testLateInteractionScore_whenL2_thenReturnsCorrectScore() {
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{1.0f, 1.0f});
+        queryVectors.add(new float[] { 1.0f, 1.0f });
 
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{1.0f, 1.0f});
+        docVectors.add(new float[] { 1.0f, 1.0f });
 
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
@@ -237,10 +237,10 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
      */
     public void testLateInteractionScore_whenL1_thenReturnsCorrectScore() {
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{2.0f, 3.0f});
+        queryVectors.add(new float[] { 2.0f, 3.0f });
 
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{1.0f, 1.0f});
+        docVectors.add(new float[] { 1.0f, 1.0f });
 
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
@@ -258,10 +258,10 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
      */
     public void testLateInteractionScore_whenLinf_thenReturnsCorrectScore() {
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{5.0f, 2.0f});
+        queryVectors.add(new float[] { 5.0f, 2.0f });
 
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{3.0f, 1.0f});
+        docVectors.add(new float[] { 3.0f, 1.0f });
 
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
@@ -286,7 +286,7 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
             IllegalArgumentException.class,
             () -> KNNPainlessScriptUtils.lateInteractionScore(emptyQueryVectors, "my_vector", doc)
         );
-        
+
         assertTrue(exception.getMessage().contains("Query vectors cannot be empty"));
     }
 
@@ -296,11 +296,11 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
      */
     public void testLateInteractionScore_whenInconsistentQueryVectorDimensions_thenThrowsException() {
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{1.0f, 2.0f});        // 2 dimensions
-        queryVectors.add(new float[]{1.0f, 2.0f, 3.0f});  // 3 dimensions - mismatch
+        queryVectors.add(new float[] { 1.0f, 2.0f });        // 2 dimensions
+        queryVectors.add(new float[] { 1.0f, 2.0f, 3.0f });  // 3 dimensions - mismatch
 
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{1.0f, 2.0f});
+        docVectors.add(new float[] { 1.0f, 2.0f });
 
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
@@ -309,7 +309,7 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
             IllegalArgumentException.class,
             () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc)
         );
-        
+
         assertTrue(exception.getMessage().contains("Query vector dimension mismatch"));
         assertTrue(exception.getMessage().contains("expected 2 dimensions, but found 3 dimensions"));
     }
@@ -320,11 +320,11 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
      */
     public void testLateInteractionScore_whenInconsistentDocVectorDimensions_thenThrowsException() {
         List<float[]> queryVectors = new ArrayList<>();
-        queryVectors.add(new float[]{1.0f, 2.0f});
+        queryVectors.add(new float[] { 1.0f, 2.0f });
 
         List<float[]> docVectors = new ArrayList<>();
-        docVectors.add(new float[]{1.0f, 2.0f});           // 2 dimensions
-        docVectors.add(new float[]{1.0f, 2.0f, 3.0f});     // 3 dimensions - mismatch
+        docVectors.add(new float[] { 1.0f, 2.0f });           // 2 dimensions
+        docVectors.add(new float[] { 1.0f, 2.0f, 3.0f });     // 3 dimensions - mismatch
 
         Map<String, Object> doc = new HashMap<>();
         doc.put("my_vector", docVectors);
@@ -333,7 +333,7 @@ public class KNNPainlessScriptUtilsTests extends OpenSearchTestCase {
             IllegalArgumentException.class,
             () -> KNNPainlessScriptUtils.lateInteractionScore(queryVectors, "my_vector", doc)
         );
-        
+
         assertTrue(exception.getMessage().contains("Document vector dimension mismatch"));
         assertTrue(exception.getMessage().contains("expected 2 dimensions, but found 3 dimensions"));
     }
