@@ -7,6 +7,7 @@ package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.core.common.Strings;
 
 import java.util.List;
 import java.util.Map;
@@ -98,7 +99,7 @@ public class KNNPainlessScriptUtils {
                 .orElse(Double.NEGATIVE_INFINITY);
 
             if (bestRawScore != Double.NEGATIVE_INFINITY) {
-                totalScore += space.scoreTranslation(bestRawScore);
+                totalScore += bestRawScore;
             }
         }
         return totalScore;
@@ -116,13 +117,13 @@ public class KNNPainlessScriptUtils {
         if (queryVectors.isEmpty()) {
             throw new IllegalArgumentException("Query vectors cannot be empty");
         }
-        if (docFieldName == null || docFieldName.trim().isEmpty()) {
+        if (Strings.isNullOrEmpty(docFieldName)) {
             throw new IllegalArgumentException("Document field name cannot be null or empty");
         }
         if (doc == null) {
             throw new IllegalArgumentException("Document cannot be null");
         }
-        if (spaceType == null || spaceType.trim().isEmpty()) {
+        if (Strings.isNullOrEmpty(spaceType)) {
             throw new IllegalArgumentException("Space type cannot be null or empty");
         }
     }
