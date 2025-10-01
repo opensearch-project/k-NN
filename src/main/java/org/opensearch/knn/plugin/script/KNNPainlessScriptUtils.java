@@ -86,7 +86,7 @@ public class KNNPainlessScriptUtils {
                 qVec[i] = queryVector.get(i).floatValue();
             }
 
-            float bestRawScore = (float) docVectors.parallelStream()
+            float bestRawScore = (float) docVectors.stream()
                 .filter(docVector -> docVector != null && !docVector.isEmpty())
                 .mapToDouble(docVector -> {
                     float[] dVec = new float[docVector.size()];
