@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -69,8 +70,14 @@ public class MemoryOptimizedSearchSupportSpec {
     public static boolean isSupportedFieldType(
         final Optional<KNNMethodContext> methodContextOpt,
         final QuantizationConfig quantizationConfig,
-        final Optional<String> modelId
+        final Optional<String> modelId,
+        final Version indexCreatedVersion
     ) {
+        // Since LuceneOnFaiss logic sits in newer codec, we don't support LuceneOnFaiss for older codec whose version < 2.19
+        if (indexCreatedVersion.before(Version.V_2_17_0)) {
+            return false;
+        }
+
         // PQ is not supported.
         if (modelId.isPresent()) {
             return false;

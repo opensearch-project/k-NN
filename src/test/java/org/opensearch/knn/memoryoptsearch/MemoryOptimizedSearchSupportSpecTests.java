@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import org.mockito.MockedStatic;
+import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -21,6 +22,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +50,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 VectorDataType.FLOAT,
                 mock(MethodComponentContext.class),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
         mustIsSupportedFieldType(
@@ -58,7 +61,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 VectorDataType.BYTE,
                 mock(MethodComponentContext.class),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
         mustIsSupportedFieldType(
@@ -68,7 +72,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 VectorDataType.FLOAT,
                 mock(MethodComponentContext.class),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
         mustIsSupportedFieldType(
@@ -78,9 +83,48 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 VectorDataType.BYTE,
                 mock(MethodComponentContext.class),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
+    }
+
+    public void testNewIndicesSupportsMemoryOptimizedSearch() {
+        for (final Version version : Arrays.asList(Version.V_2_19_0, Version.V_3_0_0, Version.V_3_1_0, Version.V_3_2_0, Version.CURRENT)) {
+            mustIsSupportedFieldType(
+                new TestingSpec(
+                    KNNEngine.FAISS,
+                    SpaceType.L2,
+                    VectorDataType.FLOAT,
+                    new MethodComponentContext(
+                        METHOD_HNSW,
+                        Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
+                    ),
+                    NO_QUANTIZATION,
+                    NO_MODEL_ID,
+                    version
+                )
+            );
+        }
+    }
+
+    public void testOldIndicesDoesNotSupportsMemoryOptimizedSearch() {
+        for (final Version version : Arrays.asList(Version.V_2_16_0, Version.V_2_15_0, Version.V_2_2_0)) {
+            mustNotIsSupportedFieldType(
+                new TestingSpec(
+                    KNNEngine.FAISS,
+                    SpaceType.L2,
+                    VectorDataType.FLOAT,
+                    new MethodComponentContext(
+                        METHOD_HNSW,
+                        Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
+                    ),
+                    NO_QUANTIZATION,
+                    NO_MODEL_ID,
+                    version
+                )
+            );
+        }
     }
 
     public void testFaissIsSupportedFieldTypeCases() {
@@ -99,7 +143,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
                 ),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
 
@@ -113,7 +158,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
                 ),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
 
@@ -127,7 +173,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
                 ),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
 
@@ -141,7 +188,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_BINARY, Collections.emptyMap()))
                 ),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
 
@@ -155,7 +203,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
                 ),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
     }
@@ -171,7 +220,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
                 ),
                 QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build(),
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
 
@@ -185,7 +235,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
                 ),
                 QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build(),
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
 
@@ -199,7 +250,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
                 ),
                 QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build(),
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
     }
@@ -216,7 +268,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext("DUMMY_KEY", Collections.emptyMap()))
                 ),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
 
@@ -228,7 +281,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 VectorDataType.FLOAT,
                 new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new Object())),
                 NO_QUANTIZATION,
-                NO_MODEL_ID
+                NO_MODEL_ID,
+                Version.CURRENT
             )
         );
     }
@@ -245,7 +299,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
                 ),
                 mock(QuantizationConfig.class),
-                Optional.of("model_id")
+                Optional.of("model_id"),
+                Version.CURRENT
             )
         );
     }
@@ -312,7 +367,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         final boolean isSupported = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
             testingSpec.methodComponentContext,
             testingSpec.quantizationConfig,
-            testingSpec.modelId
+            testingSpec.modelId,
+            testingSpec.version
         );
         assertEquals(expected, isSupported);
     }
@@ -324,6 +380,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         final Optional<KNNMethodContext> methodComponentContext;
         final QuantizationConfig quantizationConfig;
         final Optional<String> modelId;
+        final Version version;
 
         private TestingSpec(
             final KNNEngine knnEngine,
@@ -331,7 +388,8 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             final VectorDataType vectorDataType,
             final MethodComponentContext methodComponentContext,
             final QuantizationConfig quantizationConfig,
-            final Optional<String> modelId
+            final Optional<String> modelId,
+            final Version version
         ) {
             this.knnEngine = knnEngine;
             this.spaceType = spaceType;
@@ -340,6 +398,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
             this.methodComponentContext = Optional.of(methodContext);
             this.quantizationConfig = quantizationConfig;
             this.modelId = modelId;
+            this.version = version;
         }
     }
 }
