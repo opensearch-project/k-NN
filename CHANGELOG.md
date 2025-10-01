@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix AVX2 detection on other platforms [#2912](https://github.com/opensearch-project/k-NN/pull/2912)
 * Fix byte[] radial search for faiss [#2905](https://github.com/opensearch-project/k-NN/pull/2905)
 * Use the unique doc id for MMR rerank rather than internal lucenue doc id which is not unique for multiple shards case. [#2911](https://github.com/opensearch-project/k-NN/pull/2911)
+* Fix local ref leak in JNI [#2916](https://github.com/opensearch-project/k-NN/pull/2916)
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.

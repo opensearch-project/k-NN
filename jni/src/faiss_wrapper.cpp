@@ -762,10 +762,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
 
     jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
 
-    jobject result;
     for(int i = 0; i < resultSize; ++i) {
-        result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
+        jobject result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
+        env->DeleteLocalRef(result);
     }
     return results;
 }
@@ -886,10 +886,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
 
     jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
 
-    jobject result;
     for(int i = 0; i < resultSize; ++i) {
-        result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
+        jobject result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
+        env->DeleteLocalRef(result);
     }
     return results;
 }
@@ -1330,10 +1330,10 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
 
     jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
 
-    jobject result;
     for (int i = 0; i < resultSize; ++i) {
-        result = jniUtil->NewObject(env, resultClass, allArgs, res.labels[i], res.distances[i]);
+        jobject result = jniUtil->NewObject(env, resultClass, allArgs, res.labels[i], res.distances[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
+        env->DeleteLocalRef(result);
     }
 
     return results;
