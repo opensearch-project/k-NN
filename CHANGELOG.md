@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.3](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
 * Support native Maximal Marginal Relevance [#2868](https://github.com/opensearch-project/k-NN/pull/2868)
+* Support lateInteraction feature using painess script [#2909](https://github.com/opensearch-project/k-NN/pull/2909)
 ### Maintenance
 * Replace commons-lang with org.apache.commons:commons-lang3 [#2863](https://github.com/opensearch-project/k-NN/pull/2863)
 * Bump OpenSearch-Protobufs to 0.13.0 [#2833](https://github.com/opensearch-project/k-NN/pull/2833)
