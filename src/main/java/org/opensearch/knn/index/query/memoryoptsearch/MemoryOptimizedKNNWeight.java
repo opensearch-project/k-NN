@@ -14,15 +14,18 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorManager;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
+import org.apache.lucene.search.knn.MultiLeafKnnCollector;
 import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.Version;
+import org.apache.lucene.util.hnsw.BlockingFloatHeap;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -48,6 +51,37 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
     private final KnnCollectorManager knnCollectorManager;
 
+    // Ported from Lucene as since 10.3.0, TopKnnCollectorManager does not use MultiLeafKnnCollector no more.
+    private static class MultiLeafTopKnnCollectorManager implements KnnCollectorManager {
+        // the number of docs to collect
+        private final int k;
+        // the global score queue used to track the top scores collected across all leaves
+        private final BlockingFloatHeap globalScoreQueue;
+
+        public MultiLeafTopKnnCollectorManager(int k, IndexSearcher indexSearcher) {
+            boolean isMultiSegments = indexSearcher.getIndexReader().leaves().size() > 1;
+            this.k = k;
+            this.globalScoreQueue = isMultiSegments ? new BlockingFloatHeap(k) : null;
+        }
+
+        /**
+         * Return a new {@link TopKnnCollector} instance.
+         *
+         * @param visitedLimit the maximum number of nodes that the search is allowed to visit
+         * @param context the leaf reader context
+         */
+        @Override
+        public KnnCollector newCollector(
+            int visitedLimit, KnnSearchStrategy searchStrategy, LeafReaderContext context) {
+            if (globalScoreQueue == null) {
+                return new TopKnnCollector(k, visitedLimit, searchStrategy);
+            } else {
+                return new MultiLeafKnnCollector(
+                    k, globalScoreQueue, new TopKnnCollector(k, visitedLimit, searchStrategy));
+            }
+        }
+    }
+
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);
 
@@ -55,7 +89,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
             // ANN Search
             if (query.getParentsFilter() == null) {
                 // Non-nested case
-                this.knnCollectorManager = new TopKnnCollectorManager(k, searcher);
+                this.knnCollectorManager = new MultiLeafTopKnnCollectorManager(k, searcher);
             } else {
                 // Nested case
                 this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
