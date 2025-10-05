@@ -8,6 +8,8 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 import lombok.Getter;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.common.Nullable;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructor;
 
 import java.io.IOException;
 
@@ -20,12 +22,10 @@ import java.io.IOException;
  * Users can still retrieve vector bytes via the {@code vectorValue} API, which lazily creates
  * an internal buffer and returns it after filling in the requested bytes.
  */
-public class MMapFloatVectorValues extends FloatVectorValues {
+public class MMapFloatVectorValues extends FloatVectorValues implements MMapVectorValues {
     private final IndexInput indexInput;
-    @Getter
     // oneVectorByteSize == Float.BYTES * Dimension. Ex: 3072 bytes for 768 dimensions.
     private final long oneVectorByteSize;
-    @Getter
     // Start offset pointing to flat vectors section in Faiss index.
     private final long baseOffset;
     // Vector dimension
@@ -40,41 +40,57 @@ public class MMapFloatVectorValues extends FloatVectorValues {
     @Getter
     private final long[] addressAndSize;
     // Internal buffer that lazily created.
-    private float[] buffer;
+    private float[] floatBuffer;
+    private byte[] bytesBuffer;
+    @Nullable
+    private final FaissQuantizedValueReconstructor reconstructor;
 
     public MMapFloatVectorValues(
         final IndexInput indexInput,
+        final long oneVectorByteSize,
         final long baseOffset,
         final int dimension,
         final int totalNumberOfVectors,
-        final long[] addressAndSize
+        final long[] addressAndSize,
+        final FaissQuantizedValueReconstructor reconstructor
     ) {
         this.indexInput = indexInput;
-        this.oneVectorByteSize = Float.BYTES * dimension;
+        this.oneVectorByteSize = oneVectorByteSize;
         this.baseOffset = baseOffset;
         this.dimension = dimension;
         this.totalNumberOfVectors = totalNumberOfVectors;
         if (addressAndSize == null || addressAndSize.length == 0) {
             throw new IllegalArgumentException(
-                "Empty `addressAndSize` was provided in "
-                    + MMapFloatVectorValues.class.getSimpleName()
-                    + ". Is null?="
-                    + (addressAndSize == null)
-            );
+                "Empty `addressAndSize` was provided in " + MMapFloatVectorValues.class.getSimpleName() + ". Is null?=" + (addressAndSize
+                                                                                                                           == null));
         }
         this.addressAndSize = addressAndSize;
+        this.reconstructor = reconstructor;
     }
 
     @Override
     public float[] vectorValue(int internalVectorId) throws IOException {
+        // Seek to the starting offset of vector
         indexInput.seek(baseOffset + internalVectorId * oneVectorByteSize);
         // Lazy initialization, in general this method is not expected to be called during search.
         // During search, distance calculation will be done in a separated C++ code.
-        if (buffer == null) {
-            buffer = new float[(int) dimension];
+        if (floatBuffer == null) {
+            floatBuffer = new float[(int) dimension];
         }
-        indexInput.readFloats(buffer, 0, buffer.length);
-        return buffer;
+
+        if (reconstructor != null) {
+            // We have transform logic present, first load bytes into byte[] then transform it to float[]
+            if (bytesBuffer == null) {
+                bytesBuffer = new byte[(int) oneVectorByteSize];
+            }
+            indexInput.readBytes(bytesBuffer, 0, bytesBuffer.length);
+            reconstructor.reconstruct(bytesBuffer, floatBuffer);
+        } else {
+            // No encoding logic present, directly load into float[]
+            indexInput.readFloats(floatBuffer, 0, floatBuffer.length);
+        }
+
+        return floatBuffer;
     }
 
     @Override
@@ -89,6 +105,13 @@ public class MMapFloatVectorValues extends FloatVectorValues {
 
     @Override
     public FloatVectorValues copy() throws IOException {
-        return new MMapFloatVectorValues(indexInput.clone(), baseOffset, dimension, totalNumberOfVectors, addressAndSize);
+        return new MMapFloatVectorValues(indexInput.clone(),
+                                         oneVectorByteSize,
+                                         baseOffset,
+                                         dimension,
+                                         totalNumberOfVectors,
+                                         addressAndSize,
+                                         reconstructor
+        );
     }
 }

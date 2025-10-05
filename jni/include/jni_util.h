@@ -276,6 +276,8 @@ namespace knn_jni {
 
     extern const std::string SPACE_TYPE_FAISS_INDEX_JAVA_KNN_CONSTANTS;
     extern const std::string QUANTIZATION_LEVEL_FAISS_INDEX_LOAD_PARAMETER_JAVA_KNN_CONSTANTS;
+
+    inline constexpr int32_t MAX_DIMENSION = 16000;
     // --------------------------------------------------------------------------
 }
 

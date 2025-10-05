@@ -67,12 +67,12 @@ public final class MemorySegmentAddressExtractorUtil {
         } catch (Throwable t) {
             // Any other errors (constructor, reflection issues)
             log.error("Failed to instantiate MemorySegmentAddressExtractor", t);
-            instance = (indexInput) -> null;
+            instance = (indexInput, baseOffset) -> null;
         }
         INSTANCE = instance;
     }
 
-    public static long[] tryExtractAddressAndSize(final IndexInput indexInput) {
-        return INSTANCE.extractAddressAndSize(indexInput);
+    public static long[] tryExtractAddressAndSize(final IndexInput indexInput, final long baseOffset) {
+        return INSTANCE.extractAddressAndSize(indexInput, baseOffset);
     }
 }

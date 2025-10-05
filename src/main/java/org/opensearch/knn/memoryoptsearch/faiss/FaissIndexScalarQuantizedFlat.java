@@ -127,6 +127,25 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
             }
         }
 
+        if (quantizerType == FaissQuantizerType.QT_FP16) {
+            // Faiss SIMD bulk only supported for FP16 for now.
+            final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, flatVectors.getBaseOffset());
+            if (addressAndSize != null) {
+                // Return MMapByteVectorValues having pointers pointing to mmap regions.
+                return new MMapFloatVectorValues(
+                    indexInput,
+                    oneVectorByteSize,
+                    flatVectors.getBaseOffset(),
+                    dimension,
+                    totalNumberOfVectors,
+                    addressAndSize,
+                    reconstructor
+                );
+            } else {
+                log.debug("Failed to extract mapped pointers from IndexInput, falling back to ByteVectorValuesImpl.");
+            }
+        }
+
         return new FloatVectorValuesImpl(indexInput);
     }
 
@@ -158,24 +177,6 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
             @Override
             public ByteVectorValues copy() {
                 return new ByteVectorValuesImpl(indexInput.clone());
-            }
-        }
-
-        if (quantizerType == FaissQuantizerType.QT_FP16) {
-            // Faiss SIMD bulk only supported for FP16 for now.
-            final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput);
-            if (addressAndSize != null) {
-                // Return MMapByteVectorValues having pointers pointing to mmap regions.
-                return new MMapByteVectorValues(
-                    indexInput,
-                    oneVectorByteSize,
-                    flatVectors.getBaseOffset(),
-                    dimension,
-                    totalNumberOfVectors,
-                    addressAndSize
-                );
-            } else {
-                log.warn("Failed to extract mapped pointers from IndexInput, falling back to ByteVectorValuesImpl.");
             }
         }
 

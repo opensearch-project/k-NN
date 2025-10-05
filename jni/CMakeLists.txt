@@ -16,6 +16,7 @@ set(TARGET_LIB_UTIL opensearchknn_util)
 set(TARGET_LIB_COMMON opensearchknn_common)  # common lib for JNI
 set(TARGET_LIB_NMSLIB opensearchknn_nmslib)  # nmslib JNI
 set(TARGET_LIB_FAISS opensearchknn_faiss)    # faiss JNI
+set(TARGET_LIB_SIMD opensearchknn_simd)      # SIMD computing JNI
 set(TARGET_LIBS "")  # Libs to be installed
 
 set(CMAKE_CXX_STANDARD 17)
@@ -126,6 +127,50 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
 endif ()
 
 # ---------------------------------------------------------------------------
+
+# ----------------------------- SIMD Computing ------------------------------
+if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
+    # Init SIMD computing properties
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-simd.cmake)
+
+    # Set target library + source
+    set(SIMD_COMPUTING_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SimdVectorComputeService.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/simd/similarity_function/similarity_function.cpp
+    )
+
+    # Make it a shared library
+    add_library(${TARGET_LIB_SIMD} SHARED ${SIMD_COMPUTING_SRCS})
+
+    # Set SIMD compile option
+    target_compile_options(${TARGET_LIB_SIMD} PRIVATE ${FP16_SIMD_FLAGS} ${SIMD_FLAGS})
+
+    # Link util library
+    target_link_libraries(${TARGET_LIB_SIMD} ${TARGET_LIB_UTIL} ${TARGET_LINK_FAISS_LIB})
+
+    # Add include headers
+    target_include_directories(${TARGET_LIB_SIMD} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/jni/include
+        $ENV{JAVA_HOME}/include
+        $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss
+    )
+
+    # Set common properties
+    opensearch_set_common_properties(${TARGET_LIB_SIMD})
+
+    # Set the output name to embed the SIMD extension (if any)
+    set_target_properties(${TARGET_LIB_SIMD} PROPERTIES
+        OUTPUT_NAME "${TARGET_LIB_SIMD}"
+    )
+
+    # Add target SIMD library to TARGET_LIBS list
+    list(APPEND TARGET_LIBS ${TARGET_LIB_SIMD})
+endif ()
+# ---------------------------------------------------------------------------
+
+
 
 # --------------------------------- TESTS -----------------------------------
 # Windows : Comment the TESTS for now because the tests are failing(failing to build jni_tests.exe) if we are building our target libraries as SHARED libraries.
