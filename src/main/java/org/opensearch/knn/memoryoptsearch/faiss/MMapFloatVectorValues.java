@@ -61,8 +61,11 @@ public class MMapFloatVectorValues extends FloatVectorValues implements MMapVect
         this.totalNumberOfVectors = totalNumberOfVectors;
         if (addressAndSize == null || addressAndSize.length == 0) {
             throw new IllegalArgumentException(
-                "Empty `addressAndSize` was provided in " + MMapFloatVectorValues.class.getSimpleName() + ". Is null?=" + (addressAndSize
-                                                                                                                           == null));
+                "Empty `addressAndSize` was provided in "
+                    + MMapFloatVectorValues.class.getSimpleName()
+                    + ". Is null?="
+                    + (addressAndSize == null)
+            );
         }
         this.addressAndSize = addressAndSize;
         this.reconstructor = reconstructor;
@@ -105,13 +108,14 @@ public class MMapFloatVectorValues extends FloatVectorValues implements MMapVect
 
     @Override
     public FloatVectorValues copy() throws IOException {
-        return new MMapFloatVectorValues(indexInput.clone(),
-                                         oneVectorByteSize,
-                                         baseOffset,
-                                         dimension,
-                                         totalNumberOfVectors,
-                                         addressAndSize,
-                                         reconstructor
+        return new MMapFloatVectorValues(
+            indexInput.clone(),
+            oneVectorByteSize,
+            baseOffset,
+            dimension,
+            totalNumberOfVectors,
+            addressAndSize,
+            reconstructor
         );
     }
 }

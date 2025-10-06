@@ -20,9 +20,9 @@ struct DefaultFP16SimilarityFunction final : SimilarityFunction {
     void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                    int32_t* internalVectorIds,
                                    float* scores,
-                                   int32_t numVectors) final {
+                                   const int32_t numVectors) final {
 
-        // Prepare distance calculation
+        // Prepare similarity calculation
         auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
         knn_jni::util::ParameterCheck::require_non_null(
             func, "Unexpected distance function acquired. Expected SQDistanceComputer, but it was something else");
@@ -33,10 +33,11 @@ struct DefaultFP16SimilarityFunction final : SimilarityFunction {
             scores[i] = func->query_to_code(vector);
         }
 
+        // Transform score values if it needs to
         return BulkScoreTransformFunc(scores, numVectors);
     }
 
-    float calculateSimilarity(SimdVectorSearchContext* srchContext, int32_t internalVectorId) final {
+    float calculateSimilarity(SimdVectorSearchContext* srchContext, const int32_t internalVectorId) final {
         // Prepare distance calculation
         auto vector = reinterpret_cast<uint8_t*>(srchContext->getVectorPointer(internalVectorId));
         auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
@@ -46,15 +47,21 @@ struct DefaultFP16SimilarityFunction final : SimilarityFunction {
         // Calculate distance
         const float score = func->query_to_code(vector);
 
+        // Transform score value if it needs to
         return ScoreTransformFunc(score);
     }
 };
 
+//
+// FP16
+//
+// 1. Max IP
 DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, FaissScoreToLuceneScoreTransform::ipToMaxIpTransform> DEFAULT_FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
+// 2. L2
 DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> DEFAULT_FP16_L2_SIMIL_FUNC;
 
 #ifndef __NO_SELECT_FUNCTION
-SimilarityFunction* SimilarityFunction::selectSimilarityFunction(NativeSimilarityFunctionType nativeFunctionType) {
+SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
     if (nativeFunctionType == NativeSimilarityFunctionType::FP16_MAXIMUM_INNER_PRODUCT) {
         return &DEFAULT_FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_L2) {

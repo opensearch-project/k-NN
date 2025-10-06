@@ -80,8 +80,13 @@ public final class MemorySegmentAddressExtractorJDK21 implements MemorySegmentAd
                 final Object memorySegment = Array.get(objSegments, segmentIndex);
                 if (memorySegment == null) {
                     // Memory segments does not have complete mapped regions.
-                    log.warn("Memory segment at " + segmentIndex + " is null, which is unexpected. " + "The number of MemorySegment was"
-                             + numSegments);
+                    log.warn(
+                        "Memory segment at "
+                            + segmentIndex
+                            + " is null, which is unexpected. "
+                            + "The number of MemorySegment was"
+                            + numSegments
+                    );
                     return null;
                 }
 

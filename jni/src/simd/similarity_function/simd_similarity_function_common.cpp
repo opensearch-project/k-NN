@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 
+#include "platform_defs.h"
 #include "simd/similarity_function/similarity_function.h"
 #include "faiss/impl/ScalarQuantizer.h"
 #include "jni_util.h"
@@ -11,11 +12,33 @@
 using knn_jni::simd::similarity_function::SimdVectorSearchContext;
 using knn_jni::simd::similarity_function::SimilarityFunction;
 
+// Since Windows CI is failing to recognize std::aligned_malloc, it will make CI pass with macro.
+#if defined(_WIN32)
+    #include <malloc.h>
+#endif
+
+inline void* allocate_aligned_memory(size_t alignment, size_t size) {
+#if defined(_WIN32)
+    // Works for MSVC and MinGW alike
+    return _aligned_malloc(size, alignment);
+#else
+    return std::aligned_alloc(alignment, size);
+#endif
+}
+
+inline void free_aligned_memory(void* ptr) {
+#if defined(_WIN32)
+    _aligned_free(ptr);
+#else
+    std::free(ptr);
+#endif
+}
+
 //
 // SimdVectorSearchContext
 //
 void SimdVectorSearchContext::getVectorPointersInBulk(uint8_t* vectors[], int32_t* internalVectorIds, int32_t numVectors) {
-    if (mmapPages.size() == 1) {
+    if (LIKELY(mmapPages.size() == 1)) {
         // Fast case, there's only one mmap area.
         auto base = mmapPages[0];
         for (int32_t i = 0 ; i < numVectors ; ++i) {
@@ -28,7 +51,7 @@ void SimdVectorSearchContext::getVectorPointersInBulk(uint8_t* vectors[], int32_
     if (mmapPages.empty() == false) {
         for (int32_t i = 0 ; i < numVectors ; ++i) {
             vectors[i] = getVectorPointer(internalVectorIds[i]);
-        }  // End for
+        }
         return;
     }  // End if
 
@@ -36,7 +59,7 @@ void SimdVectorSearchContext::getVectorPointersInBulk(uint8_t* vectors[], int32_
 }
 
 uint8_t* SimdVectorSearchContext::getVectorPointer(const int32_t internalVectorId) {
-    if (mmapPages.size() == 1) {
+    if (LIKELY(mmapPages.size() == 1)) {
         // Fast case, there's only one mmap area.
         return reinterpret_cast<uint8_t*>(mmapPages[0]) + (oneVectorByteSize * internalVectorId);
     }
@@ -116,8 +139,7 @@ uint8_t* SimdVectorSearchContext::getVectorPointer(const int32_t internalVectorI
 
 SimdVectorSearchContext::~SimdVectorSearchContext() {
     if (queryVectorSimdAligned) {
-        // Use free() because we used aligned_alloc
-        std::free(queryVectorSimdAligned);
+        free_aligned_memory(queryVectorSimdAligned);
     }
 }
 
@@ -145,14 +167,14 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         // Allocating 64 bytes aligned memory.
         // Since 16000 dimension is the maximum, therefore at most 62.6KB will be allocated per thread.
         const auto roundedUpQueryByteSize = ((queryByteSize + 63) / 64) * 64;
-        void* alignedPtr = std::aligned_alloc(64, roundedUpQueryByteSize);
-        if (!alignedPtr) {
+        void* alignedPtr = allocate_aligned_memory(64, roundedUpQueryByteSize);
+        if (alignedPtr == nullptr) {
             throw std::runtime_error("Failed to allocate space for SIMD aligned query vector with size=" + std::to_string(queryByteSize));
         }
 
         // Free up previously allocated space
         if (THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned) {
-            std::free(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned);
+            free_aligned_memory(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned);
         }
 
         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned = alignedPtr;

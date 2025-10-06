@@ -26,8 +26,8 @@ void JNI_OnUnload(JavaVM *vm, void *reserved) {
     JNI_UTIL.Uninitialize(env);
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_bulkDistanceCalculation
-  (JNIEnv *env, jclass clazz, jintArray internalVectorIds, jfloatArray jscores, jint numVectors) {
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulk
+  (JNIEnv *env, jclass clazz, jintArray internalVectorIds, jfloatArray jscores, const jint numVectors) {
 
     try {
       // Get search context
@@ -36,9 +36,9 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_bulk
           throw std::runtime_error("No search context has been initialized, SimdVectorSearchContext* was empty.");
       }
 
-      // Get pointers
-      jint* vectorIds = static_cast<jint*>(env->GetPrimitiveArrayCritical(internalVectorIds, nullptr));
-      jfloat* scores = static_cast<jfloat*>(env->GetPrimitiveArrayCritical(jscores, nullptr));
+      // Get pointers of vectorIds and scores
+      jint* vectorIds = static_cast<jint*>(JNI_UTIL.GetPrimitiveArrayCritical(env, internalVectorIds, nullptr));
+      jfloat* scores = static_cast<jfloat*>(JNI_UTIL.GetPrimitiveArrayCritical(env, jscores, nullptr));
 
       // Bulk similarity calculation
       srchContext->similarityFunction->calculateSimilarityInBulk(
@@ -48,23 +48,23 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_bulk
           numVectors);
 
       // Release pinned pointers
-      env->ReleasePrimitiveArrayCritical(internalVectorIds, vectorIds, 0);
-      env->ReleasePrimitiveArrayCritical(jscores, scores, 0);
+      JNI_UTIL.ReleasePrimitiveArrayCritical(env, internalVectorIds, vectorIds, 0);
+      JNI_UTIL.ReleasePrimitiveArrayCritical(env, jscores, scores, 0);
     } catch (...) {
       JNI_UTIL.CatchCppExceptionAndThrowJava(env);
     }
 }
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_saveSearchContext
-  (JNIEnv *env, jclass clazz, jfloatArray query, jlongArray addressAndSize, jint nativeFunctionTypeOrd) {
+  (JNIEnv *env, jclass clazz, jfloatArray query, jlongArray addressAndSize, const jint nativeFunctionTypeOrd) {
     try {
       // Get raw pointer of query vector + size
-      jsize queryVecSize = env->GetArrayLength(query);
-      jfloat* queryVecPtr = static_cast<jfloat*>(env->GetPrimitiveArrayCritical(query, nullptr));
+      const jsize queryVecSize = JNI_UTIL.GetJavaFloatArrayLength(env, query);
+      jfloat* queryVecPtr = static_cast<jfloat*>(JNI_UTIL.GetPrimitiveArrayCritical(env, query, nullptr));
 
       // Get mmap address and size
-      jsize mmapAddressAndSizeLength = env->GetArrayLength(addressAndSize);
-      jlong* mmapAddressAndSize = static_cast<jlong*>(env->GetPrimitiveArrayCritical(addressAndSize, nullptr));
+      const jsize mmapAddressAndSizeLength = JNI_UTIL.GetJavaLongArrayLength(env, addressAndSize);
+      jlong* mmapAddressAndSize = static_cast<jlong*>(JNI_UTIL.GetPrimitiveArrayCritical(env, addressAndSize, nullptr));
 
       // Save search context
       SimilarityFunction::saveSearchContext(
@@ -74,15 +74,15 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
           nativeFunctionTypeOrd);
 
       // Release query vector
-      env->ReleasePrimitiveArrayCritical(query, queryVecPtr, 0);
-      env->ReleasePrimitiveArrayCritical(addressAndSize, mmapAddressAndSize, 0);
+      JNI_UTIL.ReleasePrimitiveArrayCritical(env, query, queryVecPtr, 0);
+      JNI_UTIL.ReleasePrimitiveArrayCritical(env, addressAndSize, mmapAddressAndSize, 0);
     } catch (...) {
       JNI_UTIL.CatchCppExceptionAndThrowJava(env);
     }
 }
 
-JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSingleVector
-  (JNIEnv *env, jclass clazz, jint internalVectorId) {
+JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarity
+  (JNIEnv *env, jclass clazz, const jint internalVectorId) {
 
     try {
       // Get search context

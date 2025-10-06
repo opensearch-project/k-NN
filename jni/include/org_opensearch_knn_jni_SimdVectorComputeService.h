@@ -12,7 +12,7 @@ extern "C" {
  * Method:    bulkDistanceCalculation
  * Signature: ([I[FI)V
  */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_bulkDistanceCalculation
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulk
   (JNIEnv *, jclass, jintArray, jfloatArray, jint);
 
 /*
@@ -28,7 +28,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
  * Method:    scoreSingleVector
  * Signature: (JI)F
  */
-JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSingleVector
+JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarity
   (JNIEnv *, jclass, jint);
 
 #ifdef __cplusplus

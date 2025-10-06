@@ -55,8 +55,11 @@ public class MMapByteVectorValues extends ByteVectorValues implements MMapVector
         this.totalNumberOfVectors = totalNumberOfVectors;
         if (addressAndSize == null || addressAndSize.length == 0) {
             throw new IllegalArgumentException(
-                "Empty `addressAndSize` was provided in " + MMapByteVectorValues.class.getSimpleName() + ". Is null?=" + (addressAndSize
-                                                                                                                          == null));
+                "Empty `addressAndSize` was provided in "
+                    + MMapByteVectorValues.class.getSimpleName()
+                    + ". Is null?="
+                    + (addressAndSize == null)
+            );
         }
         this.addressAndSize = addressAndSize;
     }

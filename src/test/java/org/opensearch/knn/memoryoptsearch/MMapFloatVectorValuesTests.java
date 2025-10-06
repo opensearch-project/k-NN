@@ -54,7 +54,14 @@ public class MMapFloatVectorValuesTests extends LuceneTestCase {
                 final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(input, 0);
                 assertNotNull(addressAndSize);
                 final MMapFloatVectorValues values = new MMapFloatVectorValues(
-                    input, oneVectorByteSize, 0, dimension, numVectors, addressAndSize, null);
+                    input,
+                    oneVectorByteSize,
+                    0,
+                    dimension,
+                    numVectors,
+                    addressAndSize,
+                    null
+                );
 
                 // Ensure properties are correct.
                 assertEquals(oneVectorByteSize, values.getVectorByteLength());

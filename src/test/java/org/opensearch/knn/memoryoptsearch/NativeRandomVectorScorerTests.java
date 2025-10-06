@@ -29,15 +29,17 @@ public class NativeRandomVectorScorerTests extends LuceneTestCase {
     @Test
     public void fp16MaxIPTest() {
         // Single MemorySegment scenario
-        doFp16ScoringTest(SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT,
-                          KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
-                          false
+        doFp16ScoringTest(
+            SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT,
+            KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            false
         );
 
         // Multi MemorySegments scenario
-        doFp16ScoringTest(SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT,
-                          KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
-                          true
+        doFp16ScoringTest(
+            SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT,
+            KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            true
         );
     }
 
@@ -67,10 +69,11 @@ public class NativeRandomVectorScorerTests extends LuceneTestCase {
         final long flatVectorStartOffset = 1555;
         final List<float[]> vectors = new ArrayList<>();
         try (
-            FileChannel channel = FileChannel.open(tempFile,
-                                                   StandardOpenOption.CREATE,
-                                                   StandardOpenOption.WRITE,
-                                                   StandardOpenOption.TRUNCATE_EXISTING
+            FileChannel channel = FileChannel.open(
+                tempFile,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING
             )
         ) {
             // Write few bytes before flat vector section
@@ -122,15 +125,15 @@ public class NativeRandomVectorScorerTests extends LuceneTestCase {
                     // Since the start offset of flat vector is 1555, the first chunk should be excluded. Therefore, 25 = 26 - 1
                     assertEquals(25, addressAndSize.length / 2);
                     // the first part size is 2 * 1024 - 1555
-                    //                                  <------> => 2 * 1024 - 1555 = 493
-                    //                                        2048
+                    // <------> => 2 * 1024 - 1555 = 493
+                    // 2048
                     // |-------------------|------------x------|
-                    // 0                  1024          ^--------- 1555
+                    // 0 1024 ^--------- 1555
                     assertEquals(493, addressAndSize[1]);
                 } else {
                     assertEquals(1, addressAndSize.length / 2);
 
-                    // 24600 = 2 (=FP16 byte size)  * 123 (=dimension) * 100 (=#vectors)
+                    // 24600 = 2 (=FP16 byte size) * 123 (=dimension) * 100 (=#vectors)
                     assertEquals(24600, addressAndSize[1]);
                 }
 
@@ -139,7 +142,7 @@ public class NativeRandomVectorScorerTests extends LuceneTestCase {
 
                 // Test single vector scoring
                 for (int i = 0; i < numVectors; ++i) {
-                    final float score = SimdVectorComputeService.scoreSingleVector(i);
+                    final float score = SimdVectorComputeService.scoreSimilarity(i);
                     final float expectedScore = similarityFunction.compare(queryVec, vectors.get(i));
                     assertEquals(expectedScore, score, 1e-3);
                 }
@@ -149,7 +152,7 @@ public class NativeRandomVectorScorerTests extends LuceneTestCase {
                 for (int i = 0; i < numVectors; i += batchSize) {
                     int[] vectorIds = java.util.stream.IntStream.rangeClosed(i, i + batchSize).toArray();
                     float[] scores = new float[batchSize];
-                    SimdVectorComputeService.bulkDistanceCalculation(vectorIds, scores, batchSize);
+                    SimdVectorComputeService.scoreSimilarityInBulk(vectorIds, scores, batchSize);
 
                     for (int j = 0; j < batchSize; j++) {
                         final float expectedScore = similarityFunction.compare(queryVec, vectors.get(vectorIds[j]));

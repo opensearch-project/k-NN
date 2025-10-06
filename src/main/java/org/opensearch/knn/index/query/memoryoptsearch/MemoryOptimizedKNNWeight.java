@@ -20,7 +20,6 @@ import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorMana
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.search.knn.MultiLeafKnnCollector;
-import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
@@ -71,13 +70,11 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
          * @param context the leaf reader context
          */
         @Override
-        public KnnCollector newCollector(
-            int visitedLimit, KnnSearchStrategy searchStrategy, LeafReaderContext context) {
+        public KnnCollector newCollector(int visitedLimit, KnnSearchStrategy searchStrategy, LeafReaderContext context) {
             if (globalScoreQueue == null) {
                 return new TopKnnCollector(k, visitedLimit, searchStrategy);
             } else {
-                return new MultiLeafKnnCollector(
-                    k, globalScoreQueue, new TopKnnCollector(k, visitedLimit, searchStrategy));
+                return new MultiLeafKnnCollector(k, globalScoreQueue, new TopKnnCollector(k, visitedLimit, searchStrategy));
             }
         }
     }

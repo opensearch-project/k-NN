@@ -1,17 +1,15 @@
 #include <cmath>
 #include <cstdint>
 
+// This class is responsible to convert Faiss distance value to Lucene similarity score.
 struct FaissScoreToLuceneScoreTransform final {
-    static void noTransformBulk(float* scores, const int32_t numScores) noexcept {
-    }
-    static float noTransform(float score) noexcept {
-        return score;
-    }
-
-    static float ipToMaxIpTransform(const float score) noexcept {
-        return score < 0 ? 1 / (1 - score) : (1 + score);
+    // Convert Faiss inner product value to Max Inner Product scheme whose range is in [0, +Inf)
+    static float ipToMaxIpTransform(const float innerProductValue) noexcept {
+        return innerProductValue < 0 ? 1 / (1 - innerProductValue) : (1 + innerProductValue);
     }
 
+    // Convert Faiss inner product values to Max Inner Product scheme whose range is in [0, +Inf)
+    // Initially, `scores` have Faiss inner product values, after this transform, it will have Max IP value.
     static void ipToMaxIpTransformBulk(float* scores, const int32_t numScores) noexcept {
         int32_t i = 0;
         for (; (i + 8) <= numScores ; i += 8, scores += 8) {
@@ -33,16 +31,19 @@ struct FaissScoreToLuceneScoreTransform final {
         }
 
         while (i < numScores) {
-            *scores = *scores < 0 ? 1 / (1 - *scores) : (1 + *scores);
+            *scores = ipToMaxIpTransform(*scores);
             ++i;
             ++scores;
         }
     }
 
+    // Transform Faiss L2 distance to be bounded (0, 1]
     static float l2Transform(float l2Distance) noexcept {
         return 1.0f / (1.0f + l2Distance);
     }
 
+    // Transform Faiss L2 distance to be bounded (0, 1].
+    // `scores` have Faiss L2 distance, and after the transform, it will have a value in (0, 1].
     static void l2TransformBulk(float* scores, const int32_t numScores) noexcept {
         int32_t i = 0;
         for (; (i + 8) <= numScores ; i += 8, scores += 8) {
@@ -64,7 +65,7 @@ struct FaissScoreToLuceneScoreTransform final {
         }
 
         while (i < numScores) {
-            *scores = 1.0f / (1.0f + *scores);
+            *scores = l2Transform(*scores);
             ++i;
             ++scores;
         }
