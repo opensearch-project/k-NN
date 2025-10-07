@@ -6,10 +6,9 @@
 package org.opensearch.knn.search.extension;
 
 import org.junit.Before;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.xcontent.ToXContent;
@@ -19,9 +18,11 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.search.processor.mmr.MMRTestCase;
+import org.opensearch.search.pipeline.SearchPipelineService;
 
 import java.io.IOException;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,8 +34,10 @@ public class MMRSearchExtBuilderTests extends MMRTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettingsWithSystemGeneratedFactoriesEnabled);
-        KNNClusterUtil.instance().initialize(clusterService, null);
+        SearchPipelineService searchPipelineService = mock(SearchPipelineService.class);
+        when(searchPipelineService.isSystemGeneratedFactoryEnabled(any())).thenReturn(true);
+        KNNClusterUtil.instance().initialize(clusterService, mock(IndexNameExpressionResolver.class));
+        KNNClusterUtil.instance().setSearchPipelineService(searchPipelineService);
     }
 
     public void testBuilderDefaultsAndValues() {
@@ -172,9 +175,10 @@ public class MMRSearchExtBuilderTests extends MMRTestCase {
     }
 
     public void testParse_whenMMRProcessorsNotEnabled_thenException() throws IOException {
-        ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        KNNClusterUtil.instance().initialize(clusterService, null);
+        SearchPipelineService searchPipelineService = mock(SearchPipelineService.class);
+        when(searchPipelineService.isSystemGeneratedFactoryEnabled(any())).thenReturn(false);
+        KNNClusterUtil.instance().initialize(clusterService, mock(IndexNameExpressionResolver.class));
+        KNNClusterUtil.instance().setSearchPipelineService(searchPipelineService);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
         xContentBuilder.startObject();

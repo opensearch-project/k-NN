@@ -494,6 +494,7 @@ public class KNNPlugin extends Plugin
     public Map<String, SystemGeneratedProcessor.SystemGeneratedFactory<SearchRequestProcessor>> getSystemGeneratedRequestProcessors(
         Parameters parameters
     ) {
+        KNNClusterUtil.instance().setSearchPipelineService(parameters.searchPipelineService);
         return Map.of(
             MMROverSampleProcessor.MMROverSampleProcessorFactory.TYPE,
             new MMROverSampleProcessor.MMROverSampleProcessorFactory(parameters.client, mmrQueryTransformers)

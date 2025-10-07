@@ -24,7 +24,6 @@ import org.opensearch.search.SearchExtBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -258,10 +257,10 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
     }
 
     private static void ensureMMRProcessorsEnabled() {
-        List<String> enabledFactories = KNNClusterUtil.instance().getEnabledSystemGeneratedFactories();
-        boolean isMMRProcessorsEnabled = enabledFactories.contains("*")
-            || (enabledFactories.contains(MMROverSampleProcessor.MMROverSampleProcessorFactory.TYPE)
-                && enabledFactories.contains(MMRRerankProcessor.MMRRerankProcessorFactory.TYPE));
+        KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        boolean isMMRProcessorsEnabled = (knnClusterUtil.isSystemGeneratedSearchFactoryEnabled(
+            MMROverSampleProcessor.MMROverSampleProcessorFactory.TYPE
+        ) && knnClusterUtil.isSystemGeneratedSearchFactoryEnabled(MMRRerankProcessor.MMRRerankProcessorFactory.TYPE));
         if (isMMRProcessorsEnabled == false) {
             throw new IllegalArgumentException(
                 String.format(
