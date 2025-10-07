@@ -14,6 +14,7 @@ import com.jayway.jsonpath.JsonPath;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.net.URIBuilder;
 import org.hamcrest.Matchers;
@@ -136,6 +137,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public static final String FIELD_NAME = "test_field";
     public static final String FIELD_NAME_NON_KNN = "test_field_non_knn";
     public static final String PROPERTIES_FIELD = "properties";
+    public static final String ROUTING_FIELD = "_routing";
+    public static final String REQUIRED_FIELD = "required";
     public static final String STORE_FIELD = "store";
     public static final String STORED_QUERY_FIELD = "stored_fields";
     public static final String MATCH_ALL_QUERY_FIELD = "match_all";
@@ -953,10 +956,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Adds a doc where document is represented as a string.
      */
-    protected void addKnnDoc(final String index, final String docId, final String document) throws IOException {
-        Request request = new Request("POST", "/" + index + "/_doc/" + docId); // + "?refresh=true");
+    protected void addKnnDoc(final String index, final String docId, final String document, final String routingValue) throws IOException {
+        String endpoint = String.join("/", index, "_doc", docId);
+        if (!StringUtils.isEmpty(routingValue)) {
+            endpoint = endpoint + "?" + "routing=" + routingValue;
+        }
+        Request request = new Request("POST", endpoint); // + "?refresh=true");
         request.setJsonEntity(document);
         client().performRequest(request);
+    }
+
+    /**
+     * Adds a doc where document is represented as a string.
+     */
+    protected void addKnnDoc(final String index, final String docId, final String document) throws IOException {
+        addKnnDoc(index, docId, document, null);
     }
 
     /**
@@ -1069,22 +1083,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Retrieve document by index and document id
      */
     protected Map<String, Object> getKnnDoc(final String index, final String docId) throws Exception {
-        final Request request = new Request("GET", "/" + index + "/_doc/" + docId);
-        request.addParameter("ignore", "404");
-        final Response response = client().performRequest(request);
+        return getKnnDoc(index, docId, null);
+    }
 
-        final Map<String, Object> responseMap = createParser(
-            MediaTypeRegistry.getDefaultMediaType().xContent(),
-            EntityUtils.toString(response.getEntity())
-        ).map();
+    /**
+     * Retrieve document by index and document id
+     */
+    protected Map<String, Object> getKnnDoc(final String index, final String docId, final String routingValue) throws Exception {
 
-        assertNotNull(responseMap);
-        // assertTrue((Boolean) responseMap.get(DOCUMENT_FIELD_FOUND));
-        // assertNotNull(responseMap.get(DOCUMENT_FIELD_SOURCE));
-
-        final Map<String, Object> docMap = (Map<String, Object>) responseMap.get(DOCUMENT_FIELD_SOURCE);
-
-        return docMap;
+        String endpoint = String.join("/", index, "_doc", docId);
+        if (!StringUtils.isEmpty(routingValue)) {
+            endpoint += "?routing=" + routingValue;
+        }
+        return getKnnDoc(endpoint);
     }
 
     /**
@@ -2634,6 +2645,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
             restoreResponse.getStatusLine().getStatusCode(),
             Matchers.equalTo(RestStatus.OK.getStatus())
         );
+    }
+
+    private Map<String, Object> getKnnDoc(String endpoint) throws IOException, ParseException {
+        final Request request = new Request("GET", endpoint);
+        request.addParameter("ignore", "404");
+        final Response response = client().performRequest(request);
+
+        final Map<String, Object> responseMap = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
+
+        assertNotNull(responseMap);
+        // assertTrue((Boolean) responseMap.get(DOCUMENT_FIELD_FOUND));
+        // assertNotNull(responseMap.get(DOCUMENT_FIELD_SOURCE));
+
+        final Map<String, Object> docMap = (Map<String, Object>) responseMap.get(DOCUMENT_FIELD_SOURCE);
+
+        return docMap;
     }
 
 }

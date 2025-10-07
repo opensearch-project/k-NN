@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 
 import static org.opensearch.knn.DerivedSourceUtils.DERIVED_ENABLED_WITH_SEGREP_SETTINGS;
@@ -50,6 +51,32 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
     public void testFlatFields() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true, true);
         testDerivedSourceE2E(indexConfigContexts);
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testMetaFields() {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getIndexContextsWithMetaFields("derivedit", true, true);
+        List<String> metaFields = List.of(ROUTING_FIELD, "_id", "_score");
+
+        assertEquals("Expected 6 index contexts for meta fields test", 6, indexConfigContexts.size());
+        prepareOriginalIndices(indexConfigContexts);
+
+        List<Object> searchResults = testSearch(indexConfigContexts);
+        assertFalse("Search results should not be empty", searchResults.isEmpty());
+
+        for (int i = 0; i < searchResults.size(); i++) {
+            Object searchResult = searchResults.get(i);
+            assertNotNull("Search result at index " + i + " should not be null", searchResult);
+
+            Map<String, Object> hits = (Map<String, Object>) searchResult;
+            for (String metaField : metaFields) {
+                assertTrue(String.format("Missing meta field '%s' in search result %d", metaField, i), hits.containsKey(metaField));
+                assertNotNull(
+                    String.format("Meta field '%s' value should not be null in search result %d", metaField, i),
+                    hits.get(metaField)
+                );
+            }
+        }
     }
 
     @SneakyThrows
