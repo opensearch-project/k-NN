@@ -59,7 +59,7 @@ public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
     }
 
     @Override
-    protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
+    public TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
         throws IOException {
         return (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,
