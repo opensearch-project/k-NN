@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query.memoryoptsearch;
 
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
@@ -29,6 +30,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
+import org.opensearch.lucene.OptimisticKnnCollectorManager;
 
 import java.io.IOException;
 
@@ -47,6 +49,8 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
     private static final KnnSearchStrategy.Hnsw DEFAULT_HNSW_SEARCH_STRATEGY = new KnnSearchStrategy.Hnsw(60);
 
     private final KnnCollectorManager knnCollectorManager;
+    @Setter
+    private KnnCollectorManager optimistic2ndKnnCollectorManager;
 
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);
@@ -55,7 +59,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
             // ANN Search
             if (query.getParentsFilter() == null) {
                 // Non-nested case
-                this.knnCollectorManager = new TopKnnCollectorManager(k, searcher);
+                this.knnCollectorManager = new OptimisticKnnCollectorManager(k, new TopKnnCollectorManager(k, searcher));
             } else {
                 // Nested case
                 this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
@@ -184,7 +188,10 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
 
         // Create a collector + bitset
-        final KnnCollector knnCollector = knnCollectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
+        final KnnCollectorManager collectorManager = optimistic2ndKnnCollectorManager != null
+            ? optimistic2ndKnnCollectorManager
+            : knnCollectorManager;
+        final KnnCollector knnCollector = collectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
         final AcceptDocs acceptDocs = getAcceptedDocs(reader, cardinality, filterIdsBitSet);
 
         // Start searching index
@@ -217,22 +224,21 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         } else {
             acceptDocs = new AcceptDocs() {
                 @Override
-                public Bits bits() throws IOException {
+                public Bits bits() {
                     return filterIdsBitSet;
                 }
 
                 @Override
-                public DocIdSetIterator iterator() throws IOException {
+                public DocIdSetIterator iterator() {
                     return new BitSetIterator(filterIdsBitSet, cardinality);
                 }
 
                 @Override
-                public int cost() throws IOException {
+                public int cost() {
                     return cardinality;
                 }
             };
         }
         return acceptDocs;
     }
-
 }
