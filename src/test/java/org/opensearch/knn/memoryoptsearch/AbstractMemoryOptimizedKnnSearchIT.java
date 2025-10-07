@@ -104,7 +104,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             .idFieldName(ID_FIELD_NAME);
 
         final String mappingStr = mapping.createString();
-        final Schema schema = new Schema(mappingStr, dataType, additionalSettings);
+        final Schema schema = new Schema(mappingStr, dataType, diskMode, additionalSettings);
 
         // Start validate dense, sparse cases.
         doKnnSearchTest(spaceType, schema, IndexingType.DENSE, isRadial);
@@ -142,7 +142,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             .idFieldName(ID_FIELD_NAME);
 
         final String mappingStr = mapping.createString();
-        final Schema schema = new Schema(mappingStr, dataType, additionalSettings);
+        final Schema schema = new Schema(mappingStr, dataType, diskMode, additionalSettings);
 
         // Start validate dense, sparse cases.
         doKnnSearchTest(spaceType, schema, IndexingType.DENSE_NESTED, false);
@@ -253,7 +253,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results, indexingType);
+            documents.validateResponse(results, indexingType, schema.mode());
         } else if (schema.vectorDataType == VectorDataType.BYTE) {
             final byte[] queryVector = SearchTestHelper.generateOneSingleByteVector(
                 DIMENSIONS,
@@ -281,7 +281,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results, indexingType);
+            documents.validateResponse(results, indexingType, schema.mode());
         } else if (schema.vectorDataType == VectorDataType.BINARY) {
             final byte[] queryVector = SearchTestHelper.generateOneSingleBinaryVector(DIMENSIONS);
             final float minSimil = documents.prepareAnswerSet(
@@ -306,7 +306,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results, indexingType);
+            documents.validateResponse(results, indexingType, schema.mode());
         } else {
             throw new AssertionError();
         }
@@ -537,6 +537,6 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         createKnnIndex(INDEX_NAME, settingsBuilder.build(), mapping);
     }
 
-    protected record Schema(String mapping, VectorDataType vectorDataType, Consumer<Settings.Builder> additionalSettings) {
+    protected record Schema(String mapping, VectorDataType vectorDataType, Mode mode, Consumer<Settings.Builder> additionalSettings) {
     }
 }

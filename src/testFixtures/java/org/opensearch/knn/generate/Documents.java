@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -121,7 +122,7 @@ public class Documents {
         return prepareAnswerSet(vector, similarityFunction, doFiltering, isRadial);
     }
 
-    public void validateResponse(final List<Result> results, final IndexingType indexingType) {
+    public void validateResponse(final List<Result> results, final IndexingType indexingType, final Mode mode) {
         // Filtering check
         if (doFiltering) {
             for (final Result result : results) {
@@ -134,26 +135,28 @@ public class Documents {
         for (final Result result : results) {
             if (expectedAns.containsKey(result.id)) {
                 ++matchCount;
-
-                // We have scoring issue in nested exact search not returning the best score, until it's fixed we have to block this.
-                // TODO : After resolved scoring issue in exact search in nested, we should get rid of this.
-                if (indexingType != IndexingType.DENSE_NESTED && indexingType != IndexingType.SPARSE_NESTED) {
-                    final float expectedScore = expectedAns.get(result.id);
-                    final float error = Math.abs(expectedScore - result.score);
-
-                    // At least error should be less than 5%.
-                    assertTrue(
-                        "error="
-                            + error
-                            + ", expectedScore="
-                            + expectedScore
-                            + ", (error / expectedScore)="
-                            + (error / expectedScore)
-                            + " >= "
-                            + (0.05 * expectedScore),
-                        (error / expectedScore) < (0.05 * expectedScore)
-                    );
+                final float expectedScore = expectedAns.get(result.id);
+                final float error = Math.abs(expectedScore - result.score);
+                // ANN nested search might not return the best child score. So, we need to skip the score check in those cases.
+                // Scores for nested case are checked only for disk-based vector search to ensure that the rescoring gives the best child
+                // score
+                if ((indexingType == IndexingType.DENSE_NESTED || indexingType == IndexingType.SPARSE_NESTED) && (mode != Mode.ON_DISK)) {
+                    continue;
                 }
+                // At least error should be less than 5%.
+                assertTrue(
+                    "error="
+                        + error
+                        + ", expectedScore="
+                        + expectedScore
+                        + ", result score="
+                        + result.score
+                        + ", (error / expectedScore)="
+                        + (error / expectedScore)
+                        + " >= "
+                        + 0.05,
+                    (error / expectedScore) < 0.05
+                );
             }
         }
 
