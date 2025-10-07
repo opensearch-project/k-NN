@@ -21,6 +21,7 @@ Compatible with OpenSearch and OpenSearch Dashboards version 3.3.0
 * Fix byte[] radial search for faiss ([#2905](https://github.com/opensearch-project/k-NN/pull/2905))
 * Use the unique doc id for MMR rerank rather than internal lucenue doc id which is not unique for multiple shards case. ([#2911](https://github.com/opensearch-project/k-NN/pull/2911))
 * Fix local ref leak in JNI ([#2916](https://github.com/opensearch-project/k-NN/pull/2916))
+* Fix rescoring logic for nested exact search ([#2921](https://github.com/opensearch-project/k-NN/pull/2921))
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
