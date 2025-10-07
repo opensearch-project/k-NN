@@ -37,7 +37,7 @@ public final class MemorySegmentAddressExtractorJDK22 implements MemorySegmentAd
      *         ex: address_i = array[i], size_i = array[i + 1]
      */
     @Override
-    public long[] extractAddressAndSize(final IndexInput indexInput) {
+    public long[] extractAddressAndSize(final IndexInput indexInput, final long baseOffset) {
         try {
             // MMapDirectory in Lucene will return MemorySegmentIndexInput$SingleSegmentImpl or .$MultiSegmentImpl.
             // Thus, get the super class (e.g. MemorySegmentIndexInput) to acquire `MemorySegment[] segments`.
@@ -48,21 +48,49 @@ public final class MemorySegmentAddressExtractorJDK22 implements MemorySegmentAd
                 return null;
             }
             final long[] addressAndSize = new long[2 * segments.length];
-            for (int segmentIndex = 0; segmentIndex < segments.length; ++segmentIndex) {
-                final int addressIndex = 2 * segmentIndex;
-                final int sizeIndex = 2 * segmentIndex + 1;
-                final MemorySegment segment = segments[segmentIndex];
+            int addressIndex = 0, sizeIndex = 1;
+            long startOffset = 0;
+            for (final MemorySegment segment : segments) {
                 if (segment == null) {
                     // Memory segments does not have complete mapped regions.
                     return null;
                 }
-                addressAndSize[addressIndex] = segments[segmentIndex].address();
-                addressAndSize[sizeIndex] = segments[segmentIndex].byteSize();
+                long address = segment.address();
+                long chunkSize = segment.byteSize();
+                final long originalChunkSize = chunkSize;
+                final long endOffsetExclusive = address + chunkSize;
+                if (endOffsetExclusive > baseOffset) {
+                    // If this chunk contains `baseOffset`, then force its address value to be `baseOffset`
+                    if (address < baseOffset) {
+                        chunkSize = endOffsetExclusive - baseOffset;
+                        address += baseOffset - startOffset;
+                    }
+
+                    // Collect only chunk that overlap with baseOffset or placed after baseOffset
+                    addressAndSize[addressIndex] = address;
+                    addressIndex += 2;
+                    addressAndSize[sizeIndex] = chunkSize;
+                    sizeIndex += 2;
+                }
+                startOffset += originalChunkSize;
             }
+
+            if (addressIndex != addressAndSize.length) {
+                // There was a chunk that excluded, shrink it
+                long[] newAddressAndSize = new long[addressIndex];
+                System.arraycopy(addressAndSize, 0, newAddressAndSize, 0, addressIndex);
+                return newAddressAndSize;
+            }
+
             return addressAndSize;
-        } catch (NoSuchFieldException | IllegalAccessException | InaccessibleObjectException e) {
+        } catch (IllegalAccessException | InaccessibleObjectException e) {
             // Ignore
-            log.warn("Failed to extract MemorySegment[] from IndexInput, error message={}", e.getMessage());
+            log.warn(
+                "Failed to extract MemorySegment[] from IndexInput=" + indexInput.getClass().getSimpleName() + ", error message={}",
+                e.getMessage()
+            );
+        } catch (NoSuchFieldException e) {
+            // Ignore, this is not MemorySegmentIndexInput.
         }
         return null;
     }

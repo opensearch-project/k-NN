@@ -187,7 +187,7 @@ public interface ModelDao {
         private int numberOfShards;
         private int numberOfReplicas;
 
-        private static OpenSearchKNNModelDao INSTANCE;
+        private static volatile OpenSearchKNNModelDao INSTANCE;
         private static Client client;
         private static ClusterService clusterService;
         private static Settings settings;

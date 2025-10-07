@@ -67,12 +67,22 @@ public final class MemorySegmentAddressExtractorUtil {
         } catch (Throwable t) {
             // Any other errors (constructor, reflection issues)
             log.error("Failed to instantiate MemorySegmentAddressExtractor", t);
-            instance = (indexInput) -> null;
+            instance = (indexInput, baseOffset) -> null;
         }
         INSTANCE = instance;
     }
 
-    public static long[] tryExtractAddressAndSize(final IndexInput indexInput) {
-        return INSTANCE.extractAddressAndSize(indexInput);
+    /**
+     * Try to extract {@code MemorySegment[]} from given input stream, and return address and size info of them.
+     *
+     * @param indexInput : Input stream
+     * @param baseOffset : The offset used to determine which chunks to include.
+     *                     Only chunks whose end offset is greater than baseOffset are collected, while those ending before baseOffset are
+     *                     excluded.
+     * @return null if it fails to extract mapped pointer otherwise it will return an array having address and size.
+     *         Ex: address_i = array[i], size_i = array[i + 1].
+     */
+    public static long[] tryExtractAddressAndSize(final IndexInput indexInput, final long baseOffset) {
+        return INSTANCE.extractAddressAndSize(indexInput, baseOffset);
     }
 }
