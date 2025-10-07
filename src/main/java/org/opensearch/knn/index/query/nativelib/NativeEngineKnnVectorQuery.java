@@ -259,10 +259,23 @@ public class NativeEngineKnnVectorQuery extends Query {
                 if (perLeafeResult.getResult().scoreDocs.length == 0) {
                     return perLeafeResult;
                 }
-                DocIdSetIterator matchedDocs = new TopDocsDISI(perLeafeResult.getResult());
+                final Set<Integer> docIds = Arrays.stream(perLeafeResult.getResult().scoreDocs)
+                    .map(scoreDoc -> scoreDoc.doc)
+                    .collect(Collectors.toSet());
+                DocIdSetIterator matchedDocs;
+                if (knnQuery.getParentsFilter() != null) {
+                    matchedDocs = queryUtils.getAllSiblings(
+                        leafReaderContext,
+                        docIds,
+                        knnQuery.getParentsFilter(),
+                        perLeafeResult.getFilterBits()
+                    );
+                } else {
+                    matchedDocs = new TopDocsDISI(perLeafeResult.getResult());
+                }
                 final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
                     .matchedDocsIterator(matchedDocs)
-                    .numberOfMatchedDocs(perLeafResults.get(finalI).getResult().scoreDocs.length)
+                    .numberOfMatchedDocs(matchedDocs.cost())
                     // setting to false because in re-scoring we want to do exact search on full precision vectors
                     .useQuantizedVectorsForSearch(false)
                     .k(k)
@@ -271,6 +284,7 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .floatQueryVector(knnQuery.getQueryVector())
                     .byteQueryVector(knnQuery.getByteQueryVector())
                     .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+                    .parentsFilter(knnQuery.getParentsFilter())
                     .build();
                 TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
                 return new PerLeafResult(perLeafeResult.getFilterBits(), rescoreResult);
