@@ -31,7 +31,7 @@ public class DiskMode1xCompressionSupportedIT extends AbstractMemoryOptimizedKnn
             .idFieldName(ID_FIELD_NAME);
 
         final String mappingStr = mapping.createString();
-        final Schema schema = new Schema(mappingStr, VectorDataType.FLOAT, NO_ADDITIONAL_SETTINGS);
+        final Schema schema = new Schema(mappingStr, VectorDataType.FLOAT, Mode.ON_DISK, NO_ADDITIONAL_SETTINGS);
 
         // Start validate dense, sparse cases.
         doKnnSearchTest(SpaceType.INNER_PRODUCT, schema, IndexingType.DENSE, false, false);
