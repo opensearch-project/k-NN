@@ -13,8 +13,6 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.Index;
 import org.opensearch.knn.KNNTestCase;
@@ -34,14 +32,9 @@ import java.util.Set;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.opensearch.search.pipeline.SearchPipelineService.ENABLED_SYSTEM_GENERATED_FACTORIES_SETTING;
 
 public class MMRTestCase extends KNNTestCase {
     float DELTA = 1e-6F;
-    protected ClusterSettings clusterSettingsWithSystemGeneratedFactoriesEnabled = new ClusterSettings(
-        Settings.builder().putList(ENABLED_SYSTEM_GENERATED_FACTORIES_SETTING.getKey(), "*").build(),
-        ClusterSettings.BUILT_IN_CLUSTER_SETTINGS
-    );
 
     void mockClusterIndexMetadata(final Map<String, Map<String, Object>> indexToMappingMap) {
         ClusterService clusterService = mock(ClusterService.class);
@@ -49,7 +42,6 @@ public class MMRTestCase extends KNNTestCase {
         Metadata metadata = mock(Metadata.class);
         when(clusterService.state()).thenReturn(clusterState);
         when(clusterState.metadata()).thenReturn(metadata);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettingsWithSystemGeneratedFactoriesEnabled);
 
         final Set<String> indices = indexToMappingMap.keySet();
         Map<String, Index> indexNameToIndexMap = new HashMap<>();

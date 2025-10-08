@@ -11,6 +11,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.search.pipeline.SearchPipelineService;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -53,5 +54,28 @@ public class KNNClusterUtilTests extends KNNTestCase {
         final Version minVersion = knnClusterUtil.getClusterMinVersion();
 
         assertTrue(Version.CURRENT.equals(minVersion));
+    }
+
+    public void testIsSystemGeneratedSearchFactoryEnabled_whenSearchPipelineServiceNotInitialized_thenException() {
+        KNNClusterUtil.instance().setSearchPipelineService(null);
+        IllegalStateException exception = assertThrows(
+            IllegalStateException.class,
+            () -> KNNClusterUtil.instance().isSystemGeneratedSearchFactoryEnabled("dummy")
+        );
+        assertEquals("search pipeline service is not initialized in the KNN cluster util.", exception.getMessage());
+    }
+
+    public void testIsSystemGeneratedSearchFactoryEnabled_whenEnabled_thenTrue() {
+        SearchPipelineService searchPipelineService = mock(SearchPipelineService.class);
+        KNNClusterUtil.instance().setSearchPipelineService(searchPipelineService);
+        when(searchPipelineService.isSystemGeneratedFactoryEnabled("dummy")).thenReturn(true);
+        assertTrue(KNNClusterUtil.instance().isSystemGeneratedSearchFactoryEnabled("dummy"));
+    }
+
+    public void testIsSystemGeneratedSearchFactoryEnabled_whenDisabled_thenFalse() {
+        SearchPipelineService searchPipelineService = mock(SearchPipelineService.class);
+        KNNClusterUtil.instance().setSearchPipelineService(searchPipelineService);
+        when(searchPipelineService.isSystemGeneratedFactoryEnabled("dummy")).thenReturn(false);
+        assertFalse(KNNClusterUtil.instance().isSystemGeneratedSearchFactoryEnabled("dummy"));
     }
 }

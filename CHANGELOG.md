@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
+* Change to use the function defined in core to check if system generate search factory is enabled or not []()
 
 ### Enhancements
 * Added engine as a top-level optional parameter while creating vector field [#2736](https://github.com/opensearch-project/k-NN/pull/2736)
