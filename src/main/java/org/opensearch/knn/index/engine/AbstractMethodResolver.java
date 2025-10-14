@@ -38,7 +38,10 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         // If the context is null, the compression is not configured or the encoder is not defined, return not configured
         // because the method context does not contain this info
         if (isEncoderSpecified(resolvedKnnMethodContext) == false) {
-            return CompressionLevel.x1;
+            if (knnMethodConfigContext.getCompressionLevel() == null) {
+                return CompressionLevel.NOT_CONFIGURED;
+            }
+            return knnMethodConfigContext.getCompressionLevel();
         }
         Encoder encoder = encoderMap.get(getEncoderName(resolvedKnnMethodContext));
         if (encoder == null) {
@@ -109,17 +112,12 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         // The encoder should not be resolved if:
         // 1. The encoder is specified
         // 2. The compression is x1
-        // 3. The compression is not specified and the mode is not disk-based
+        // 3. The datatype is float
         if (isEncoderSpecified(knnMethodContext)) {
             return false;
         }
 
         if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x1) {
-            return false;
-        }
-
-        if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel()) == false
-            && Mode.ON_DISK != knnMethodConfigContext.getMode()) {
             return false;
         }
 
