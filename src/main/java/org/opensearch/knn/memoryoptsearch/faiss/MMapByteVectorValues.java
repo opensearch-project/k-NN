@@ -20,12 +20,10 @@ import java.io.IOException;
  * Users can still retrieve vector bytes via the {@code vectorValue} API, which lazily creates
  * an internal buffer and returns it after filling in the requested bytes.
  */
-public class MMapByteVectorValues extends ByteVectorValues {
+public class MMapByteVectorValues extends ByteVectorValues implements MMapVectorValues {
     private final IndexInput indexInput;
-    @Getter
     // oneVectorByteSize == Float.BYTES * Dimension. Ex: 3072 bytes for 768 dimensions.
     private final long oneVectorByteSize;
-    @Getter
     // Start offset pointing to flat vectors section in Faiss index.
     private final long baseOffset;
     // Vector dimension

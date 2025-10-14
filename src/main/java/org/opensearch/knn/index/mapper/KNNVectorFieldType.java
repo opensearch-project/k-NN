@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.mapper;
 
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.FieldExistsQuery;
@@ -41,6 +42,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deseriali
  * A KNNVector field type to represent the vector field in Opensearch
  */
 @Getter
+@Log4j2
 public class KNNVectorFieldType extends MappedFieldType {
     private static final Logger logger = LogManager.getLogger(KNNVectorFieldType.class);
     KNNMappingConfig knnMappingConfig;
@@ -65,6 +67,7 @@ public class KNNVectorFieldType extends MappedFieldType {
             annConfig.getQuantizationConfig(),
             annConfig.getModelId()
         );
+        log.info("Field [{}] memory_optimized_search_enabled={}", name, memoryOptimizedSearchAvailable);
     }
 
     @Override
