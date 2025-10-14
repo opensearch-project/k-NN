@@ -185,6 +185,6 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
             return CompressionLevel.x32;
         }
-        return CompressionLevel.x1;
+        return CompressionLevel.x2;
     }
 }
