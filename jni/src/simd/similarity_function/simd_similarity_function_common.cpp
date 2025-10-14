@@ -42,7 +42,13 @@ void SimdVectorSearchContext::getVectorPointersInBulk(uint8_t* vectors[], int32_
         // Fast case, there's only one mmap area.
         auto base = mmapPages[0];
         for (int32_t i = 0 ; i < numVectors ; ++i) {
-            vectors[i] = reinterpret_cast<uint8_t*>(base) + (oneVectorByteSize * internalVectorIds[i]);
+            const uint64_t offset = oneVectorByteSize * internalVectorIds[i];
+            if (LIKELY(offset < mmapPageSizes[0])) {
+                vectors[i] = reinterpret_cast<uint8_t*>(base) + offset;
+            } else {
+                throw std::runtime_error(std::string("Offset [") + std::to_string(offset)
+                + "] exceeds the chunk size [" + std::to_string(mmapPageSizes[0]) + "].");
+            }
         }
         return;
     }
@@ -87,9 +93,9 @@ uint8_t* SimdVectorSearchContext::getVectorPointer(const int32_t internalVectorI
                 } else {
                     // Prevent seg-fault, this should not happen but it's better to throw an exception than
                     // halting a process.
-                    if ((j + 1) >= mmapPageSizes.size()) {
+                    if (UNLIKELY((j + 1) >= mmapPageSizes.size() || (j + 1) >= mmapPages.size())) {
                         throw std::runtime_error(
-                        "One vector[vid=" + std::to_string(internalVectorId)
+                        std::string("One vector[vid=") + std::to_string(internalVectorId)
                         + "] straddle two regions(" + std::to_string(j) + "th and " + std::to_string(j + 1)
                         + "th), but there was no next region. We had " + std::to_string(mmapPageSizes.size()) + " regions.");
                     }
@@ -108,6 +114,13 @@ uint8_t* SimdVectorSearchContext::getVectorPointer(const int32_t internalVectorI
 
                     // Copy the second part
                     const int32_t secondPartSize = oneVectorByteSize - firstPartSize;
+                    if (UNLIKELY(secondPartSize > mmapPageSizes[j + 1])) {
+                        throw std::runtime_error(
+                            std::string("One vector[vid=") + std::to_string(internalVectorId)
+                            + "] straddle two regions(" + std::to_string(j) + "th and " + std::to_string(j + 1)
+                            + "th), but the second part of the vector size=" + std::to_string(secondPartSize)
+                            + " exceeds the second region size=" + std::to_string(mmapPageSizes[j + 1]));
+                    }
                     std::memcpy(&tmpBuffer[copyDestIndex + firstPartSize],
                                 reinterpret_cast<uint8_t*>(mmapPages[j + 1]), secondPartSize);
 
@@ -121,7 +134,7 @@ uint8_t* SimdVectorSearchContext::getVectorPointer(const int32_t internalVectorI
         }  // End for
 
         // Should not happen, region must be found
-        std::string errorMsg = "Mapped region for vector(vid=" + std::to_string(internalVectorId) + ") was not found. ";
+        std::string errorMsg = std::string("Mapped region for vector(vid=") + std::to_string(internalVectorId) + ") was not found. ";
         errorMsg += "#mmapPageSizes=" + std::to_string(mmapPageSizes.size()) + ", [";
         for (auto pageSize : mmapPageSizes) {
             errorMsg += std::to_string(pageSize) + ", ";
@@ -169,7 +182,9 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         const auto roundedUpQueryByteSize = ((queryByteSize + 63) / 64) * 64;
         void* alignedPtr = allocate_aligned_memory(64, roundedUpQueryByteSize);
         if (alignedPtr == nullptr) {
-            throw std::runtime_error("Failed to allocate space for SIMD aligned query vector with size=" + std::to_string(queryByteSize));
+            throw std::runtime_error(
+            std::string("Failed to allocate space for SIMD aligned query vector with size=")
+            + std::to_string(queryByteSize));
         }
 
         // Free up previously allocated space
@@ -218,8 +233,9 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
             reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
     } else {
-        throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionTypeOrd="
-                                 + std::to_string(nativeFunctionTypeOrd));
+        throw std::runtime_error(
+            std::string("Invalid native similarity function type was given, nativeFunctionTypeOrd=")
+            + std::to_string(nativeFunctionTypeOrd));
     }
 
     // Assign native function ord number

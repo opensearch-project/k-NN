@@ -23,5 +23,5 @@ public interface MemorySegmentAddressExtractor {
      * @return null if it fails to extract mapped pointer otherwise it will return an array having address and size.
      *         Ex: address_i = array[i], size_i = array[i + 1].
      */
-    long[] extractAddressAndSize(IndexInput indexInput, long baseOffset);
+    long[] extractAddressAndSize(IndexInput indexInput, long baseOffset, long requestSize);
 }
