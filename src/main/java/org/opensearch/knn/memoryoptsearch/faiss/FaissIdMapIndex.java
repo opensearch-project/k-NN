@@ -188,12 +188,12 @@ public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvid
 
             @Override
             public float[] vectorValue(int internalVectorId) throws IOException {
-                return nestedVectorValues.vectorValue(internalVectorId);
+                return floatVectorValues.vectorValue(internalVectorId);
             }
 
             @Override
             public int dimension() {
-                return nestedVectorValues.dimension();
+                return floatVectorValues.dimension();
             }
 
             @Override
@@ -205,7 +205,7 @@ public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvid
             @Override
             public Bits getAcceptOrds(final Bits acceptDocs) {
                 if (acceptDocs != null) {
-                    final Bits internalBits = nestedVectorValues.getAcceptOrds(acceptDocs);
+                    final Bits internalBits = floatVectorValues.getAcceptOrds(acceptDocs);
 
                     return new Bits() {
                         @Override
@@ -226,12 +226,12 @@ public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvid
 
             @Override
             public int size() {
-                return nestedVectorValues.size();
+                return floatVectorValues.size();
             }
 
             @Override
             public FloatVectorValues copy() throws IOException {
-                return new SparseFloatVectorValuesImpl(nestedVectorValues.copy());
+                return new SparseFloatVectorValuesImpl(floatVectorValues.copy());
             }
         }
 

@@ -21,7 +21,7 @@ import org.apache.lucene.index.KnnVectorValues;
 public abstract class WrappedFloatVectorValues extends FloatVectorValues {
 
     // The wrapped (nested) {@link FloatVectorValues} instance.
-    protected final FloatVectorValues nestedVectorValues;
+    protected final FloatVectorValues floatVectorValues;
 
     /**
      * Extracts the bottom-level {@link FloatVectorValues} from a possibly wrapped
@@ -37,10 +37,9 @@ public abstract class WrappedFloatVectorValues extends FloatVectorValues {
      */
     public static FloatVectorValues getBottomFloatVectorValues(KnnVectorValues knnVectorValues) {
         if (knnVectorValues instanceof FloatVectorValues floatVectorValues) {
-            while (floatVectorValues instanceof WrappedFloatVectorValues wrappedFloatVectorValues) {
-                floatVectorValues = wrappedFloatVectorValues.nestedVectorValues;
+            if (floatVectorValues instanceof WrappedFloatVectorValues wrappedFloatVectorValues) {
+                return wrappedFloatVectorValues.floatVectorValues;
             }
-
             return floatVectorValues;
         }
 

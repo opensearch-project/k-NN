@@ -15,12 +15,20 @@ if(NOT DEFINED AVX512_ENABLED)
 endif()
 
 if(NOT DEFINED AVX512_SPR_ENABLED)
-    # Check if the system is Intel(R) Sapphire Rapids or a newer-generation processor
-    execute_process(COMMAND bash -c "lscpu | grep -q 'GenuineIntel' && lscpu | grep -i 'avx512_fp16' | grep -i 'avx512_bf16' | grep -i 'avx512_vpopcntdq'" OUTPUT_VARIABLE SPR_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if (NOT "${SPR_FLAGS}" STREQUAL "")
-	      set(AVX512_SPR_ENABLED true)
-    else()
-	      set(AVX512_SPR_ENABLED false)
+    # By default it's false
+    set(AVX512_SPR_ENABLED false)
+
+    # We only explore CPU info in Linux by default
+    if(AVX512_ENABLED AND ${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+        find_program(LSCPU_PROGRAM lscpu)
+        if(LSCPU_PROGRAM)
+            if(CPU_INFO MATCHES "GenuineIntel" AND
+               CPU_INFO MATCHES "avx512_fp16" AND
+               CPU_INFO MATCHES "avx512_bf16" AND
+               CPU_INFO MATCHES "avx512_vpopcntdq")
+                set(AVX512_SPR_ENABLED true)
+            endif()
+        endif()
     endif()
 endif()
 

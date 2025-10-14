@@ -131,7 +131,8 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
             // Faiss SIMD bulk only supported for FP16 for now.
             final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
                 indexInput,
-                flatVectors.getBaseOffset()
+                flatVectors.getBaseOffset(),
+                flatVectors.getSectionSize()
             );
             if (addressAndSize != null) {
                 // Return MMapByteVectorValues having pointers pointing to mmap regions.
@@ -145,7 +146,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
                     reconstructor
                 );
             } else {
-                log.debug("Failed to extract mapped pointers from IndexInput, falling back to ByteVectorValuesImpl.");
+                log.debug("Failed to extract mapped pointers from IndexInput, falling back to FloatVectorValuesImpl.");
             }
         }
 

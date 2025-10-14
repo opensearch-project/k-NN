@@ -9,8 +9,8 @@ import lombok.SneakyThrows;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.MMapDirectory;
-import org.apache.lucene.tests.util.LuceneTestCase;
 import org.junit.Test;
+import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 
@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -25,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class NativeRandomVectorScorerTests extends LuceneTestCase {
+public class NativeRandomVectorScorerTests extends KNNTestCase {
     @Test
     public void fp16MaxIPTest() {
         // Single MemorySegment scenario
@@ -119,7 +120,11 @@ public class NativeRandomVectorScorerTests extends LuceneTestCase {
         try (mmapDirectory) {
             try (final IndexInput indexInput = mmapDirectory.openInput(tempFile.getFileName().toString(), IOContext.DEFAULT)) {
                 // Extract mmap pointer
-                final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, flatVectorStartOffset);
+                final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
+                    indexInput,
+                    flatVectorStartOffset,
+                    Files.size(tempFile) - flatVectorStartOffset
+                );
 
                 if (multiSegmentsScenario) {
                     // Since the start offset of flat vector is 1555, the first chunk should be excluded. Therefore, 25 = 26 - 1

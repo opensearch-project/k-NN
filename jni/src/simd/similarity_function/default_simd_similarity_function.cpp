@@ -34,12 +34,13 @@ struct DefaultFP16SimilarityFunction final : SimilarityFunction {
         }
 
         // Transform score values if it needs to
-        return BulkScoreTransformFunc(scores, numVectors);
+        BulkScoreTransformFunc(scores, numVectors);
     }
 
     float calculateSimilarity(SimdVectorSearchContext* srchContext, const int32_t internalVectorId) final {
         // Prepare distance calculation
         auto vector = reinterpret_cast<uint8_t*>(srchContext->getVectorPointer(internalVectorId));
+        knn_jni::util::ParameterCheck::require_non_null(vector, "vector from getVectorPointer");
         auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
         knn_jni::util::ParameterCheck::require_non_null(
             func, "Unexpected distance function acquired. Expected SQDistanceComputer, but it was something else");
