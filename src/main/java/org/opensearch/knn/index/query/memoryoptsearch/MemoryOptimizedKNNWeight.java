@@ -31,6 +31,7 @@ import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.lucene.OptimisticKnnCollectorManager;
+import org.opensearch.lucene.ReentrantKnnCollectorManager;
 
 import java.io.IOException;
 
@@ -50,7 +51,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
     private final KnnCollectorManager knnCollectorManager;
     @Setter
-    private KnnCollectorManager optimistic2ndKnnCollectorManager;
+    private ReentrantKnnCollectorManager optimistic2ndKnnCollectorManager;
 
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);

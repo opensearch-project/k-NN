@@ -53,6 +53,9 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.profile.StopWatchUtils.startStopWatch;
+import static org.opensearch.knn.profile.StopWatchUtils.stopStopWatchAndLog;
+
 /**
  * {@link KNNQuery} executes approximate nearest neighbor search (ANN) on a segment level.
  * {@link NativeEngineKnnVectorQuery} executes approximate nearest neighbor search but gives
@@ -274,7 +277,13 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         // For memory optimized search, it should kick off 2nd search if optimistic
         if (knnQuery.isMemoryOptimizedSearch() && perLeafResults.size() > 1) {
+            log.debug(
+                "Running second deep dive search in optimistic while memory optimized search is enabled. perLeafResults.size()={}",
+                perLeafResults.size()
+            );
+            final StopWatch stopWatch = startStopWatch(log);
             run2ndOptimisticSearch(perLeafResults, knnWeight, leafReaderContexts, k, indexSearcher);
+            stopStopWatchAndLog(log, stopWatch, "2ndOptimisticSearch", knnQuery.getShardId(), "All Shards", knnQuery.getField());
         }
 
         return perLeafResults;
@@ -313,12 +322,6 @@ public class NativeEngineKnnVectorQuery extends Query {
             return;
         }
 
-        // Build segment to results table
-        final Map<Integer, TopDocs> segmentOrdToResults = new HashMap<>(leafReaderContexts.size());
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            segmentOrdToResults.put(leafReaderContexts.get(i).ord, perLeafResults.get(i).getResult());
-        }
-
         // Start 2nd deep dive, and get the minimum bar.
         final float minTopKScore = OptimisticSearchStrategyUtils.findKthLargestScore(perLeafResults, knnQuery.getK(), totalResults);
 
@@ -326,12 +329,17 @@ public class NativeEngineKnnVectorQuery extends Query {
         // value in the merged results.
         final List<Callable<TopDocs>> secondDeepDiveTasks = new ArrayList<>();
         final List<Integer> contextIndices = new ArrayList<>();
+        final Map<Integer, TopDocs> segmentOrdToResults = new HashMap<>();
+
         for (int i = 0; i < leafReaderContexts.size(); ++i) {
             final LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
             final PerLeafResult perLeafResult = perLeafResults.get(i);
-            final TopDocs perLeaf = segmentOrdToResults.get(leafReaderContext.ord);
+            final TopDocs perLeaf = perLeafResults.get(i).getResult();
             if (perLeaf.scoreDocs.length > 0 && perLeafResult.getSearchMode() == PerLeafResult.SearchMode.APPROXIMATE_SEARCH) {
                 if (FORCE_REENTER_TESTING || perLeaf.scoreDocs[perLeaf.scoreDocs.length - 1].score >= minTopKScore) {
+                    // For the target segment, save top results. Which will be used as seeds.
+                    segmentOrdToResults.put(leafReaderContext.ord, perLeaf);
+
                     // All this leaf's hits are at or above the global topK min score; explore it further
                     secondDeepDiveTasks.add(
                         () -> knnWeight.approximateSearch(
