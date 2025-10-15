@@ -43,7 +43,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
     public void testLuceneEngineIsIsSupportedFieldType() {
         // Lucene + any configurations must be supported.
-        mustIsSupportedFieldType(
+        mustNotIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.INNER_PRODUCT,
@@ -54,7 +54,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 Version.CURRENT
             )
         );
-        mustIsSupportedFieldType(
+        mustNotIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.INNER_PRODUCT,
@@ -65,7 +65,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 Version.CURRENT
             )
         );
-        mustIsSupportedFieldType(
+        mustNotIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.L2,
@@ -76,7 +76,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
                 Version.CURRENT
             )
         );
-        mustIsSupportedFieldType(
+        mustNotIsSupportedFieldType(
             new TestingSpec(
                 KNNEngine.LUCENE,
                 SpaceType.L2,
@@ -92,25 +92,6 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     public void testNewIndicesSupportsMemoryOptimizedSearch() {
         for (final Version version : Arrays.asList(Version.V_2_19_0, Version.V_3_0_0, Version.V_3_1_0, Version.V_3_2_0, Version.CURRENT)) {
             mustIsSupportedFieldType(
-                new TestingSpec(
-                    KNNEngine.FAISS,
-                    SpaceType.L2,
-                    VectorDataType.FLOAT,
-                    new MethodComponentContext(
-                        METHOD_HNSW,
-                        Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
-                    ),
-                    NO_QUANTIZATION,
-                    NO_MODEL_ID,
-                    version
-                )
-            );
-        }
-    }
-
-    public void testOldIndicesDoesNotSupportsMemoryOptimizedSearch() {
-        for (final Version version : Arrays.asList(Version.V_2_16_0, Version.V_2_15_0, Version.V_2_2_0)) {
-            mustNotIsSupportedFieldType(
                 new TestingSpec(
                     KNNEngine.FAISS,
                     SpaceType.L2,
@@ -306,39 +287,75 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     }
 
     public void testIsSupportedFieldTypeDuringSearch() {
-        // |----------------------|-------------|---------------||-----------|
-        // | field type supported | mem_opt_src | on_disk && 1x || supported |
-        // |----------------------|-------------|---------------||-----------|
-        // | true | true | true || true |
-        // | true | true | false || true |
-        // | true | false | true || true |
-        // | true | false | false || false |
-        // | false | true | true || false |
-        // | false | true | false || false |
-        // | false | false | true || false |
-        // | false | false | false || false |
-        // |----------------------|-------------|---------------||-----------|
+        // @formatter:off
+        /*
+        |----------------------|-------------|---------------||-----------|
+        | field type supported | mem_opt_src | on_disk && 1x || supported |
+        |----------------------|-------------|---------------||-----------|
+        |         true         |     true    |      true     ||    true   |
+        |         true         |     true    |      false    ||    true   |
+        |         true         |     false   |      true     ||    true   |
+        |         true         |     false   |      false    ||    false  |
+        |         false        |     true    |      true     ||    false  |
+        |         false        |     true    |      false    ||    false  |
+        |         false        |     false   |      true     ||    false  |
+        |         false        |     false   |      false    ||    false  |
+        |----------------------|-------------|---------------||-----------|
+        */
+        // @formatter:on
 
-        doTestIsSupportedFieldTypeDuringSearch(true, true, true, true);
-        doTestIsSupportedFieldTypeDuringSearch(true, true, false, true);
-        doTestIsSupportedFieldTypeDuringSearch(true, false, true, true);
-        doTestIsSupportedFieldTypeDuringSearch(true, false, false, false);
-        doTestIsSupportedFieldTypeDuringSearch(false, true, true, false);
-        doTestIsSupportedFieldTypeDuringSearch(false, true, false, false);
-        doTestIsSupportedFieldTypeDuringSearch(false, false, true, false);
-        doTestIsSupportedFieldTypeDuringSearch(false, false, false, false);
+        doTestIsSupportedFieldTypeDuringSearch(true, true, true, true, Version.CURRENT);
+        doTestIsSupportedFieldTypeDuringSearch(true, true, false, true, Version.CURRENT);
+        doTestIsSupportedFieldTypeDuringSearch(true, false, true, true, Version.CURRENT);
+        doTestIsSupportedFieldTypeDuringSearch(true, false, false, false, Version.CURRENT);
+        doTestIsSupportedFieldTypeDuringSearch(false, true, true, false, Version.CURRENT);
+        doTestIsSupportedFieldTypeDuringSearch(false, true, false, false, Version.CURRENT);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, true, false, Version.CURRENT);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, false, false, Version.CURRENT);
+    }
+
+    public void testShouldThrowExceptionRegardless() {
+        // @formatter:off
+        /*
+        |----------------------|-------------|---------------|----------||-----------|
+        | field type supported | mem_opt_src | on_disk && 1x |  version || supported |
+        |----------------------|-------------|---------------|----------||-----------|
+        |         true         |     true    |      true     |    old   ||    false  |
+        |         true         |     true    |      false    |    old   ||    false  |
+        |         true         |     false   |      true     |    old   ||    false  |
+        |         true         |     false   |      false    |    old   ||    false  |
+        |         false        |     true    |      true     |    old   ||    false  |
+        |         false        |     true    |      false    |    old   ||    false  |
+        |         false        |     false   |      true     |    old   ||    false  |
+        |         false        |     false   |      false    |    old   ||    false  |
+        |----------------------|-------------|---------------|----------||-----------|
+        */
+        // @formatter:on
+
+        assertThrows(IllegalStateException.class, () -> doTestIsSupportedFieldTypeDuringSearch(true, true, true, true, Version.V_2_16_0));
+        assertThrows(IllegalStateException.class, () -> doTestIsSupportedFieldTypeDuringSearch(true, true, false, true, Version.V_2_16_0));
+
+        // It's ok! MemOptSrch is turned off.
+        doTestIsSupportedFieldTypeDuringSearch(false, true, false, false, Version.V_2_16_0);
+        doTestIsSupportedFieldTypeDuringSearch(false, true, true, false, Version.V_2_16_0);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, true, false, Version.V_2_16_0);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, false, false, Version.V_2_16_0);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, true, false, Version.V_2_16_0);
+        doTestIsSupportedFieldTypeDuringSearch(false, false, false, false, Version.V_2_16_0);
     }
 
     public void doTestIsSupportedFieldTypeDuringSearch(
         final boolean fieldTypeSupported,
         final boolean memoryOptSrchSupported,
         final boolean onDiskWith1x,
-        final boolean expected
+        final boolean expected,
+        final Version version
     ) {
         try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
             knnSettingsMockedStatic.when(() -> KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(any())).thenReturn(memoryOptSrchSupported);
 
             final KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
+            when(fieldType.getIndexCreatedVersion()).thenReturn(version);
             when(fieldType.isMemoryOptimizedSearchAvailable()).thenReturn(fieldTypeSupported);
 
             final KNNMappingConfig mappingConfig = mock(KNNMappingConfig.class);
@@ -367,8 +384,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         final boolean isSupported = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
             testingSpec.methodComponentContext,
             testingSpec.quantizationConfig,
-            testingSpec.modelId,
-            testingSpec.version
+            testingSpec.modelId
         );
         assertEquals(expected, isSupported);
     }

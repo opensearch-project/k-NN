@@ -48,6 +48,7 @@ public class KNNVectorFieldType extends MappedFieldType {
     VectorDataType vectorDataType;
     // Whether this field type can be benefit from memory optimized search?
     boolean memoryOptimizedSearchAvailable;
+    Version indexCreatedVersion;
 
     /**
      * Constructor for KNNVectorFieldType with index created version.
@@ -69,9 +70,9 @@ public class KNNVectorFieldType extends MappedFieldType {
         this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
             knnMappingConfig.getKnnMethodContext(),
             annConfig.getQuantizationConfig(),
-            annConfig.getModelId(),
-            indexCreatedVersion
+            annConfig.getModelId()
         );
+        this.indexCreatedVersion = indexCreatedVersion;
     }
 
     /**

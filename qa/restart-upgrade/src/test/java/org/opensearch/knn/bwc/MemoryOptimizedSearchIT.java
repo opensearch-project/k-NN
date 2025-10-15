@@ -6,12 +6,15 @@
 package org.opensearch.knn.bwc;
 
 import org.opensearch.Version;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
@@ -23,6 +26,7 @@ public class MemoryOptimizedSearchIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_FIELD = "target_field";
     private static final int DIMENSION = 128;
     private static final int NUM_DOCS = 200;
+    private static final int K = 5;
 
     public void testMemoryOptimizedSearchWithFaiss() throws Exception {
         doTestMemoryOptimizedSearch(FAISS_NAME);
@@ -51,16 +55,34 @@ public class MemoryOptimizedSearchIT extends AbstractRestartUpgradeTestCase {
             // Validate warm-up is done without an issue
             knnWarmup(Collections.singletonList(testIndex));
 
-            // Validate search
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSION, NUM_DOCS, 5);
+            if (oldVersion.compareTo(Version.V_2_17_0) < 0) {
+                if (engine.equals(NMSLIB_NAME)) {
+                    // Search should work regardless
+                    validateKNNSearch(testIndex, TEST_FIELD, DIMENSION, NUM_DOCS, K);
 
-            if (engine.equals(NMSLIB_NAME)) {
-                // Memory optimized search does not support NMSLIB
-                assertEquals(1, getTotalGraphsInCache());
+                    // Memory optimized search is applied, but NMSLIB should load off-heap index.
+                    assertEquals(1, getTotalGraphsInCache());
+                } else {
+                    // For FAISS engine, indices created < 2.17 should throw an exception.
+                    final float[] queryVector = new float[DIMENSION];
+                    Arrays.fill(queryVector, (float) NUM_DOCS);
+
+                    // Exception should be thrown
+                    assertThrows(
+                        ResponseException.class,
+                        () -> searchKNNIndex(
+                            testIndex,
+                            KNNQueryBuilder.builder().k(K).methodParameters(null).fieldName(TEST_FIELD).vector(queryVector).build(),
+                            K
+                        )
+                    );
+                }
             } else {
-                // Validate memory optimized search applied conditionally
-                if (oldVersion.compareTo(Version.V_2_17_0) < 0) {
-                    // For indices created version < 2.19 are not supported
+                // Validate search, should be fine
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSION, NUM_DOCS, K);
+
+                if (engine.equals(NMSLIB_NAME)) {
+                    // Memory optimized search is applied, but NMSLIB should load off-heap index.
                     assertEquals(1, getTotalGraphsInCache());
                 } else {
                     // Memory optimized search is applied, no off-heap graph is expected
