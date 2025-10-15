@@ -53,6 +53,9 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.profile.StopWatchUtils.startStopWatch;
+import static org.opensearch.knn.profile.StopWatchUtils.stopStopWatchAndLog;
+
 /**
  * {@link KNNQuery} executes approximate nearest neighbor search (ANN) on a segment level.
  * {@link NativeEngineKnnVectorQuery} executes approximate nearest neighbor search but gives
@@ -274,13 +277,19 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         // For memory optimized search, it should kick off 2nd search if optimistic
         if (knnQuery.isMemoryOptimizedSearch() && perLeafResults.size() > 1) {
-            run2ndOptimisticSearch(perLeafResults, knnWeight, leafReaderContexts, k, indexSearcher);
+            log.debug(
+                "Running second deep dive search in optimistic while memory optimized search is enabled. perLeafResults.size()={}",
+                perLeafResults.size()
+            );
+            final StopWatch stopWatch = startStopWatch(log);
+            reentrantSearch(perLeafResults, knnWeight, leafReaderContexts, k, indexSearcher);
+            stopStopWatchAndLog(log, stopWatch, "2ndOptimisticSearch", knnQuery.getShardId(), "All Shards", knnQuery.getField());
         }
 
         return perLeafResults;
     }
 
-    private void run2ndOptimisticSearch(
+    private void reentrantSearch(
         final List<PerLeafResult> perLeafResults,
         final KNNWeight knnWeight,
         final List<LeafReaderContext> leafReaderContexts,
@@ -299,7 +308,7 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         assert (perLeafResults.size() == leafReaderContexts.size());
 
-        // Get collector manager first
+        // Get memory optimized knn weight first, it's safe get it, we checked it already.
         final MemoryOptimizedKNNWeight memoryOptKNNWeight = (MemoryOptimizedKNNWeight) knnWeight;
 
         // How many results have we collected?
@@ -313,12 +322,6 @@ public class NativeEngineKnnVectorQuery extends Query {
             return;
         }
 
-        // Build segment to results table
-        final Map<Integer, TopDocs> segmentOrdToResults = new HashMap<>(leafReaderContexts.size());
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            segmentOrdToResults.put(leafReaderContexts.get(i).ord, perLeafResults.get(i).getResult());
-        }
-
         // Start 2nd deep dive, and get the minimum bar.
         final float minTopKScore = OptimisticSearchStrategyUtils.findKthLargestScore(perLeafResults, knnQuery.getK(), totalResults);
 
@@ -326,12 +329,18 @@ public class NativeEngineKnnVectorQuery extends Query {
         // value in the merged results.
         final List<Callable<TopDocs>> secondDeepDiveTasks = new ArrayList<>();
         final List<Integer> contextIndices = new ArrayList<>();
+        final Map<Integer, TopDocs> segmentOrdToResults = new HashMap<>();
+
         for (int i = 0; i < leafReaderContexts.size(); ++i) {
             final LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
             final PerLeafResult perLeafResult = perLeafResults.get(i);
-            final TopDocs perLeaf = segmentOrdToResults.get(leafReaderContext.ord);
+            final TopDocs perLeaf = perLeafResults.get(i).getResult();
             if (perLeaf.scoreDocs.length > 0 && perLeafResult.getSearchMode() == PerLeafResult.SearchMode.APPROXIMATE_SEARCH) {
                 if (FORCE_REENTER_TESTING || perLeaf.scoreDocs[perLeaf.scoreDocs.length - 1].score >= minTopKScore) {
+                    log.debug("Entering the second deep dive approximate search while FORCE_REENTER_TESTING={}", FORCE_REENTER_TESTING);
+                    // For the target segment, save top results. Which will be used as seeds.
+                    segmentOrdToResults.put(leafReaderContext.ord, perLeaf);
+
                     // All this leaf's hits are at or above the global topK min score; explore it further
                     secondDeepDiveTasks.add(
                         () -> knnWeight.approximateSearch(
@@ -348,7 +357,7 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         // Kick off 2nd search tasks
         if (secondDeepDiveTasks.isEmpty() == false) {
-            final ReentrantKnnCollectorManager knnCollectorManagerPhase2 = new ReentrantKnnCollectorManager(
+            final ReentrantKnnCollectorManager reentrantCollectorManager = new ReentrantKnnCollectorManager(
                 new TopKnnCollectorManager(k, indexSearcher),
                 segmentOrdToResults,
                 knnQuery.getQueryVector(),
@@ -356,16 +365,16 @@ public class NativeEngineKnnVectorQuery extends Query {
             );
 
             // Make weight use reentrant collector manager
-            memoryOptKNNWeight.setOptimistic2ndKnnCollectorManager(knnCollectorManagerPhase2);
+            memoryOptKNNWeight.setReentrantKNNCollectorManager(reentrantCollectorManager);
 
             final List<TopDocs> deepDiveTopDocs = indexSearcher.getTaskExecutor().invokeAll(secondDeepDiveTasks);
 
             // Override results for target context
             for (int i = 0; i < deepDiveTopDocs.size(); ++i) {
                 // Override with the new results
-                final TopDocs resultsFrom2ncDeepDive = deepDiveTopDocs.get(i);
+                final TopDocs resultsFromDeepDive = deepDiveTopDocs.get(i);
                 final PerLeafResult perLeafResult = perLeafResults.get(contextIndices.get(i));
-                perLeafResult.setResult(resultsFrom2ncDeepDive);
+                perLeafResult.setResult(resultsFromDeepDive);
             }
         }
     }

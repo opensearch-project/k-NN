@@ -31,6 +31,7 @@ import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.lucene.OptimisticKnnCollectorManager;
+import org.opensearch.lucene.ReentrantKnnCollectorManager;
 
 import java.io.IOException;
 
@@ -50,7 +51,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
     private final KnnCollectorManager knnCollectorManager;
     @Setter
-    private KnnCollectorManager optimistic2ndKnnCollectorManager;
+    private ReentrantKnnCollectorManager reentrantKNNCollectorManager;
 
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);
@@ -188,8 +189,8 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
 
         // Create a collector + bitset
-        final KnnCollectorManager collectorManager = optimistic2ndKnnCollectorManager != null
-            ? optimistic2ndKnnCollectorManager
+        final KnnCollectorManager collectorManager = reentrantKNNCollectorManager != null
+            ? reentrantKNNCollectorManager
             : knnCollectorManager;
         final KnnCollector knnCollector = collectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
         final AcceptDocs acceptDocs = getAcceptedDocs(reader, cardinality, filterIdsBitSet);

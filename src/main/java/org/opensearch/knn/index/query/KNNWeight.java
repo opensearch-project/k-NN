@@ -24,7 +24,6 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
-import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -51,6 +50,9 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+
+import static org.opensearch.knn.profile.StopWatchUtils.startStopWatch;
+import static org.opensearch.knn.profile.StopWatchUtils.stopStopWatchAndLog;
 
 /**
  * {@link KNNWeight} serves as a template for implementing approximate nearest neighbor (ANN)
@@ -298,9 +300,9 @@ public abstract class KNNWeight extends Weight {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         final String segmentName = reader.getSegmentName();
 
-        StopWatch stopWatch = startStopWatch();
+        final StopWatch stopWatch = startStopWatch(log);
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
-        stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
+        stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
         // Save its cardinality, as the cardinality calculation is expensive.
         final int filterCardinality = filterBitSet.cardinality();
@@ -330,9 +332,10 @@ public abstract class KNNWeight extends Weight {
             );
         }
 
-        StopWatch annStopWatch = startStopWatch();
+        final StopWatch annStopWatch = startStopWatch(log);
         final TopDocs topDocs = approximateSearch(context, filterBitSet, filterCardinality, k);
-        stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
+        stopStopWatchAndLog(log, stopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
+
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
         }
@@ -356,14 +359,6 @@ public abstract class KNNWeight extends Weight {
             topDocs,
             PerLeafResult.SearchMode.APPROXIMATE_SEARCH
         );
-    }
-
-    private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage, String segmentName) {
-        if (log.isDebugEnabled() && stopWatch != null) {
-            stopWatch.stop();
-            final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in nanos:[{}] ";
-            log.debug(logMessage, knnQuery.getShardId(), segmentName, knnQuery.getField(), stopWatch.totalTime().nanos());
-        }
     }
 
     protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
@@ -593,10 +588,10 @@ public abstract class KNNWeight extends Weight {
      */
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
-        StopWatch stopWatch = startStopWatch();
+        final StopWatch stopWatch = startStopWatch(log);
         TopDocs exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
+        stopStopWatchAndLog(log, stopWatch, "Exact search", knnQuery.getShardId(), reader.getSegmentName(), knnQuery.getField());
         return exactSearchResults;
     }
 
@@ -711,13 +706,6 @@ public abstract class KNNWeight extends Weight {
             reader.getSegmentInfo().info
         );
         return engineFiles.isEmpty();
-    }
-
-    private StopWatch startStopWatch() {
-        if (log.isDebugEnabled()) {
-            return new StopWatch().start();
-        }
-        return null;
     }
 
     protected int[] getParentIdsArray(final LeafReaderContext context) throws IOException {

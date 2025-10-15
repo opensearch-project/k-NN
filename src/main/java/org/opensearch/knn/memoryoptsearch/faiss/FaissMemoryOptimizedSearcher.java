@@ -6,9 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
-import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.AcceptDocs;
@@ -81,25 +79,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
     @Override
     public void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
-        final KnnVectorValues knnVectorValues;
-        final boolean useNativeScoring;
-        if (isAdc) {
-            knnVectorValues = faissIndex.getByteValues(getSlicedIndexInput());
-            useNativeScoring = knnVectorValues instanceof MMapByteVectorValues;
-        } else {
-            knnVectorValues = faissIndex.getFloatValues(getSlicedIndexInput());
-            useNativeScoring = knnVectorValues instanceof MMapFloatVectorValues;
-        }
-
-        if (useNativeScoring) {
-            // We can use native scoring.
-            // TODO : This will be covered in Part-2 PR.
-        }
-
-        // Falling back to default scoring using pure Java.
         search(
             VectorEncoding.FLOAT32,
-            () -> flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, knnVectorValues, target),
+            () -> flatVectorsScorer.getRandomVectorScorer(
+                vectorSimilarityFunction,
+                isAdc ? faissIndex.getByteValues(getSlicedIndexInput()) : faissIndex.getFloatValues(getSlicedIndexInput()),
+                target
+            ),
             knnCollector,
             acceptDocs
         );
@@ -107,16 +93,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
     @Override
     public void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
-        final ByteVectorValues byteVectorValues = faissIndex.getByteValues(getSlicedIndexInput());
-        if (byteVectorValues instanceof MMapByteVectorValues) {
-            // We can use native scoring.
-            // TODO : This will be covered in Part-2 PR.
-        }
-
-        // Falling back to default scoring using pure Java.
         search(
             VectorEncoding.BYTE,
-            () -> flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, byteVectorValues, target),
+            () -> flatVectorsScorer.getRandomVectorScorer(
+                vectorSimilarityFunction,
+                faissIndex.getByteValues(getSlicedIndexInput()),
+                target
+            ),
             knnCollector,
             acceptDocs
         );
