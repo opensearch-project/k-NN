@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.4](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
+* Memory optimized search warmup ([#2954](https://github.com/opensearch-project/k-NN/pull/2954))
 ### Maintenance
 * Onboard to s3 snapshots ([#2943](https://github.com/opensearch-project/k-NN/pull/2943))
 
