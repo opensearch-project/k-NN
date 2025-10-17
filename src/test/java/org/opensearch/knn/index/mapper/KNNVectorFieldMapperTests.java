@@ -1435,7 +1435,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 new Explicit<>(true, true),
                 false,
                 false,
-                originalMappingParameters
+                originalMappingParameters,
+                CURRENT
             );
             methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
             final IndexableField field1 = document.getFields().get(0);
@@ -1504,7 +1505,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     new Explicit<>(true, true),
                     false,
                     false,
-                    originalMappingParameters
+                    originalMappingParameters,
+                    CURRENT
                 );
                 methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
 
@@ -1545,7 +1547,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     new Explicit<>(true, true),
                     false,
                     false,
-                    originalMappingParameters
+                    originalMappingParameters,
+                    CURRENT
                 );
 
                 methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
@@ -1724,7 +1727,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             new Explicit<>(true, true),
             false,
             true,
-            originalMappingParameters
+            originalMappingParameters,
+            CURRENT
         );
         luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, VectorDataType.FLOAT);
 
@@ -1786,7 +1790,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             new Explicit<>(true, true),
             false,
             false,
-            originalMappingParameters
+            originalMappingParameters,
+            CURRENT
         );
         luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, VectorDataType.FLOAT);
 
@@ -1840,7 +1845,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 new Explicit<>(true, true),
                 false,
                 true,
-                originalMappingParameters
+                originalMappingParameters,
+                CURRENT
             )
         );
         doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper)
@@ -1894,7 +1900,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 new Explicit<>(true, true),
                 false,
                 false,
-                originalMappingParameters
+                originalMappingParameters,
+                CURRENT
             )
         );
         doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper)
