@@ -7,6 +7,7 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
@@ -25,6 +26,7 @@ import java.util.Map;
  * For example, the quantization type `QT_8BIT` indicates that each element in a vector is quantized into 8bits. Therefore, each element
  * will occupy exactly one byte, a vector would occupy exactly the size of dimensions.
  */
+@Log4j2
 @Getter
 public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     private static EnumMap<FaissQuantizerType, VectorEncoding> VECTOR_DATA_TYPES = new EnumMap<>(

@@ -742,15 +742,19 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             final Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
             // If memory optimized search is on then, use Lucene query
             final KNNQuery knnQuery;
-            if (doRescore) {
-                assertTrue(query instanceof NativeEngineKnnVectorQuery);
+            final boolean memoryOptimizedEnabled = memoryOptimizedSearchEnabled && memoryOptimizedSearchEnabledInField;
+            if (memoryOptimizedEnabled) {
+                // Regardless rescoring, once memory optimized search is enabled, It always uses NativeEngineKnnVectorQuery
                 knnQuery = ((NativeEngineKnnVectorQuery) query).getKnnQuery();
             } else {
-                assertFalse(query instanceof NativeEngineKnnVectorQuery);
-                knnQuery = (KNNQuery) query;
+                // We use NativeEngineKnnVectorQuery only if when rescoring when memory optimized is turned off.
+                if (doRescore) {
+                    knnQuery = ((NativeEngineKnnVectorQuery) query).getKnnQuery();
+                } else {
+                    knnQuery = (KNNQuery) query;
+                }
             }
 
-            final boolean memoryOptimizedEnabled = memoryOptimizedSearchEnabled && memoryOptimizedSearchEnabledInField;
             if (memoryOptimizedEnabled) {
                 if (vectorDataType == VectorDataType.FLOAT) {
                     assertEquals(queryVector.length, knnQuery.getQueryVector().length);

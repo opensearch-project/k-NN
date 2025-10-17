@@ -289,9 +289,22 @@ publishing {
 
 compileJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+
+    // Since MemorySegment is not available until JDK22, exclude it when packaging and only include it for Java22+.
+    def javaExt = project.extensions.getByType(JavaPluginExtension)
+    if (javaExt.sourceCompatibility <= JavaVersion.VERSION_21 || javaExt.targetCompatibility <= JavaVersion.VERSION_21) {
+        exclude("org/opensearch/knn/memoryoptsearch/MemorySegmentAddressExtractorJDK22.java")
+    }
 }
 compileTestJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+}
+javadoc {
+    // Block generating Java doc as it will complain MemorySegment is under preview for Java21.
+    def javaExt = project.extensions.getByType(JavaPluginExtension)
+    if (javaExt.sourceCompatibility <= JavaVersion.VERSION_21 || javaExt.targetCompatibility <= JavaVersion.VERSION_21) {
+        exclude("org/opensearch/knn/memoryoptsearch/MemorySegmentAddressExtractorJDK22.java")
+    }
 }
 compileTestFixturesJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
@@ -482,6 +495,7 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
         task.systemProperty 'cluster.debug', isDebuggingCluster
         // Set number of nodes system property to be used in tests
         task.systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written
         task.getClusters().forEach { cluster ->
@@ -541,6 +555,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
             debugPort += 1
         }
     }
+
     cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
     testSnapshotFolder.mkdirs()
@@ -550,6 +565,8 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
 
 testClusters.integTest {
     commonIntegTestClusters(it, _numNodes)
+    // Forcing optimistic search for testing
+    systemProperty 'mem_opt_srch.force_reenter', 'true'
 }
 
 testClusters.integTestRemoteIndexBuild {
@@ -562,6 +579,8 @@ testClusters.integTestRemoteIndexBuild {
     keystore 's3.client.default.access_key', "${System.getProperty("access_key")}"
     keystore 's3.client.default.secret_key', "${System.getProperty("secret_key")}"
     keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
+    // Forcing optimistic search for testing
+    systemProperty 'mem_opt_srch.force_reenter', 'true'
 }
 
 task integTestRemote(type: RestIntegTestTask) {
