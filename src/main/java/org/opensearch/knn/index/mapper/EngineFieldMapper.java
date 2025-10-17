@@ -64,7 +64,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        Version indexCreatedVersion
     ) {
         KNNMethodContext methodContext = originalMappingParameters.getResolvedKnnMethodContext();
         KNNLibraryIndexingContext libraryContext = methodContext.getKnnEngine()
@@ -112,7 +113,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 public KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
                     return libraryContext;
                 }
-            }
+            },
+            indexCreatedVersion
         );
 
         return new EngineFieldMapper(

@@ -327,7 +327,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 ignoreMalformed,
                 stored.getValue(),
                 hasDocValues.get(),
-                originalParameters
+                originalParameters,
+                indexCreatedVersion
             );
         }
 
