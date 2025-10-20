@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Replace commons-lang with org.apache.commons:commons-lang3 [#2863](https://github.com/opensearch-project/k-NN/pull/2863)
 * Bump OpenSearch-Protobufs to 0.13.0 [#2833](https://github.com/opensearch-project/k-NN/pull/2833)
 * Bump Lucene version to 10.3 and fix build failures [#2878](https://github.com/opensearch-project/k-NN/pull/2878)
+* Onboard to s3 snapshots ([#2943](https://github.com/opensearch-project/k-NN/pull/2943))
 
 ### Bug Fixes
 * Use queryVector length if present in MDC check [#2867](https://github.com/opensearch-project/k-NN/pull/2867)
