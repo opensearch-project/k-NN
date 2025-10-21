@@ -176,6 +176,12 @@ testClusters {
             testClusters."${baseName}".systemProperty("java.library.path", "$rootDir/jni/build/release")
             testClusters."${baseName}".upgradeAllNodesAndPluginsToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
         }
+        // Disable cgroup detection. When initializing MBean in Log4J, if container was detected it will try to get
+        // `jdk.internal.platform.CgroupInfo.getMountPoint()` for the mount point which causes NPE for now.
+        // So, disabling this cgroup detection for CI.
+        testClusters."${baseName}".nodes.forEach { node ->
+            node.jvmArgs("-XX:-UseContainerSupport -Djdk.disableLinuxContainerSupport=true")
+        }
         systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
         systemProperty 'tests.skip_delete_model_index', 'true'
         systemProperty 'tests.is_old_cluster', 'false'
@@ -299,3 +305,4 @@ testClusters {
         nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
         systemProperty 'tests.security.manager', 'false'
     }
+
