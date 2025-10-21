@@ -33,6 +33,7 @@ buildscript {
         // set this to false. In dev environments, set to true. If false, repetitive execution of cmakeJniLib may fail.
         // To prevent this, set build.lib.apply_patches to false after the first cmakeJniLib run.
         commit_lib_patches = System.getProperty("build.lib.commit_patches", "true")
+        nmslib_simd_flags = System.getProperty("nmslib_simd_flags")
 
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -381,6 +382,9 @@ tasks.register('cmakeJniLib', Exec) {
     }
     if (avx512_spr_enabled != null) {
         args.add("-DAVX512_SPR_ENABLED=${avx512_spr_enabled}")
+    }
+    if (nmslib_simd_flags?.trim()) {
+        args.add("-DNMSLIB_SIMD_FLAGS=${nmslib_simd_flags}")
     }
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")

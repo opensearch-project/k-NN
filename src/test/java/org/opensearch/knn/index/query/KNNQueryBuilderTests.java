@@ -14,9 +14,12 @@ import org.junit.Before;
 import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -77,16 +80,21 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     private static final Float MIN_SCORE = 0.5f;
     private static final TermQueryBuilder TERM_QUERY = QueryBuilders.termQuery("field", "value");
     private static final float[] QUERY_VECTOR = new float[] { 1.0f, 2.0f, 3.0f, 4.0f };
-    protected static final String TEXT_FIELD_NAME = "some_field";
-    protected static final String TEXT_VALUE = "some_value";
 
     @Before
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        ClusterSettings clusterSettings = mock(ClusterSettings.class);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        KNNSettings.state().setClusterService(clusterService);
+
+        // Mocked index setting as MemoryOptimizedSearchSupportSpec needs this.
+        final ClusterState clusterState = mock(ClusterState.class);
+        final Metadata metadata = mock(Metadata.class);
+        final IndexMetadata indexMetadata = mock(IndexMetadata.class);
+        final Settings settings = mock(Settings.class);
+        when(clusterService.state()).thenReturn(clusterState);
+        when(clusterState.getMetadata()).thenReturn(metadata);
+        when(metadata.index(anyString())).thenReturn(indexMetadata);
+        when(indexMetadata.getSettings()).thenReturn(settings);
     }
 
     public void testInvalidK() {
@@ -708,6 +716,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
             // Field type
             KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+            when(mockKNNVectorField.getIndexCreatedVersion()).thenReturn(Version.CURRENT);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
             when(mockKNNVectorField.isMemoryOptimizedSearchAvailable()).thenReturn(memoryOptimizedSearchEnabledInField);
             when(mockKNNVectorField.getVectorDataType()).thenReturn(vectorDataType);

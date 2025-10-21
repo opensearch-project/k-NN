@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -31,6 +32,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
  * The overall logic will be made based on the given method context and quantization configuration.
  */
 public class MemoryOptimizedSearchSupportSpec {
+    private static final Version MIN_VERSION_SUPPORTS_MEM_OPT_SEARCH = Version.V_2_17_0;
     private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY);
 
     /**
@@ -45,6 +47,22 @@ public class MemoryOptimizedSearchSupportSpec {
     public static boolean isSupportedFieldType(final KNNVectorFieldType fieldType, final String indexName) {
         if (fieldType.isMemoryOptimizedSearchAvailable()) {
             if (KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(indexName)) {
+                final boolean shouldBlockMemoryOptimizedSearch = fieldType.getIndexCreatedVersion() == null
+                    || fieldType.getIndexCreatedVersion().before(MIN_VERSION_SUPPORTS_MEM_OPT_SEARCH);
+                if (shouldBlockMemoryOptimizedSearch) {
+                    // Memory-optimized search is enabled, but some existing indices were created before
+                    // the minimum version that supports this feature. Throw an exception to clearly
+                    // notify the user of the incompatibility.
+                    throw new IllegalStateException(
+                        "Memory optimized search does not support old indices created before "
+                            + MIN_VERSION_SUPPORTS_MEM_OPT_SEARCH.toString()
+                            + ". Index ["
+                            + indexName
+                            + "] was created in "
+                            + fieldType.getIndexCreatedVersion().toString()
+                    );
+                }
+
                 return true;
             }
 
@@ -79,11 +97,6 @@ public class MemoryOptimizedSearchSupportSpec {
         if (methodContextOpt.isPresent()) {
             final KNNMethodContext methodContext = methodContextOpt.get();
             final KNNEngine engine = methodContext.getKnnEngine();
-
-            // We support Lucene engine
-            if (engine == KNNEngine.LUCENE) {
-                return true;
-            }
 
             // We don't support non-FAISS engine
             if (engine != KNNEngine.FAISS) {

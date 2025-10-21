@@ -1,0 +1,78 @@
+From 4147a630c63d94edcf3a2febc575faf454b07fe2 Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Tue, 23 Sep 2025 22:50:43 -0700
+Subject: [PATCH] Add NMSLIB_SIMD_FLAGS, use AppleClang in CMake.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ similarity_search/CMakeLists.txt | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
+
+diff --git a/similarity_search/CMakeLists.txt b/similarity_search/CMakeLists.txt
+index bc6ef3c..03a3275 100644
+--- a/similarity_search/CMakeLists.txt
++++ b/similarity_search/CMakeLists.txt
+@@ -35,10 +35,9 @@ if(NOT WIN32)
+ endif()
+ #message(FATAL_ERROR "stopping... compiler version is: ${CMAKE_CXX_COMPILER_ID} ${CXX_COMPILER_VERSION}")
+ 
+-set(SIMD_FLAGS " -march=native")
+-#set(SIMD_FLAGS "-march=x86-64")
+-#set(SIMD_FLAGS "-march=core2")
+-#set(SIMD_FLAGS "-fpic -msse4.2")
++if(NOT NMSLIB_SIMD_FLAGS)
++    set(NMSLIB_SIMD_FLAGS "-march=native" CACHE STRING "SIMD compile flags for NMSLIB" FORCE)
++endif()
+ 
+ set(WARN_FLAGS "-Wall -Wunreachable-code -Wcast-align") 
+ 
+@@ -47,22 +46,22 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+     if (CXX_COMPILER_VERSION VERSION_LESS 4.7)
+         message(FATAL_ERROR "GCC version must be at least 4.7!")
+     endif()
+-    set (CMAKE_CXX_FLAGS_RELEASE "${WARN_FLAGS} -Ofast -lm -DNDEBUG -std=c++11 -pthread  -DHAVE_CXX0X ${SIMD_FLAGS} -Wl,--no-as-needed -fpic")
+-    set (CMAKE_CXX_FLAGS_DEBUG   "${WARN_FLAGS} -ggdb  -lm -DNDEBUG -std=c++11 -pthread  -DHAVE_CXX0X ${SIMD_FLAGS} -Wl,--no-as-needed -fpic")
++    set (CMAKE_CXX_FLAGS_RELEASE "${WARN_FLAGS} -Ofast -lm -DNDEBUG -std=c++11 -pthread  -DHAVE_CXX0X ${NMSLIB_SIMD_FLAGS} -Wl,--no-as-needed -fpic")
++    set (CMAKE_CXX_FLAGS_DEBUG   "${WARN_FLAGS} -ggdb  -lm -DNDEBUG -std=c++11 -pthread  -DHAVE_CXX0X ${NMSLIB_SIMD_FLAGS} -Wl,--no-as-needed -fpic")
+ elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
+     if (CXX_COMPILER_VERSION VERSION_LESS 14.0.1)
+         message(FATAL_ERROR "Intel version must be at least 14.0.1!")
+     endif()
+-    set (CMAKE_CXX_FLAGS_RELEASE "-Wall -Wunreachable-code -Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${SIMD_FLAGS} -fpic")
+-    set (CMAKE_CXX_FLAGS_DEBUG   "-Wall -Wunreachable-code -ggdb  -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${SIMD_FLAGS} -fpic")
+-elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
++    set (CMAKE_CXX_FLAGS_RELEASE "-Wall -Wunreachable-code -Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${NMSLIB_SIMD_FLAGS} -fpic")
++    set (CMAKE_CXX_FLAGS_DEBUG   "-Wall -Wunreachable-code -ggdb  -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${NMSLIB_SIMD_FLAGS} -fpic")
++elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "AppleClang")
+     if (CMAKE_SYSTEM_NAME MATCHES Darwin)
+         # MACOSX
+-        set (CMAKE_CXX_FLAGS_RELEASE "${WARN_FLAGS} -O3 -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread -fpic ${SIMD_FLAGS}")
+-        set (CMAKE_CXX_FLAGS_DEBUG   "${WARN_FLAGS} -ggdb  -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread -fpic ${SIMD_FLAGS}")
++        set (CMAKE_CXX_FLAGS_RELEASE "${WARN_FLAGS} -O3 -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread -fpic ${NMSLIB_SIMD_FLAGS}")
++        set (CMAKE_CXX_FLAGS_DEBUG   "${WARN_FLAGS} -ggdb  -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread -fpic ${NMSLIB_SIMD_FLAGS}")
+     else()
+-        set (CMAKE_CXX_FLAGS_RELEASE "${WARN_FLAGS} -O3 -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${SIMD_FLAGS} -Wl,--no-as-needed -fpic")
+-        set (CMAKE_CXX_FLAGS_DEBUG   "${WARN_FLAGS} -ggdb  -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${SIMD_FLAGS} -Wl,--no-as-needed -fpic")
++        set (CMAKE_CXX_FLAGS_RELEASE "${WARN_FLAGS} -O3 -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${NMSLIB_SIMD_FLAGS} -Wl,--no-as-needed -fpic")
++        set (CMAKE_CXX_FLAGS_DEBUG   "${WARN_FLAGS} -ggdb  -DNDEBUG -std=c++11 -DHAVE_CXX0X -pthread ${NMSLIB_SIMD_FLAGS} -Wl,--no-as-needed -fpic")
+     endif()
+ elseif(WIN32)
+     # TODO how can we add support for later versions? There seems to be no flag with the semantics "version x or higher"
+@@ -70,7 +69,7 @@ elseif(WIN32)
+          message(FATAL_ERROR "On Windows, only MSVC version should be >= 12, code 1800, current version ${MSVC_VERSION}!") 
+     endif()
+ else ()
+-    message(FATAL_ERROR "Unrecognized compiler (use GCC, Clang, Intel compiler, or MSVC (on Windows)!")
++    message(FATAL_ERROR "Unrecognized compiler (use GCC, AppleClang, Clang, Intel compiler, or MSVC (on Windows)!, compiler was ${CMAKE_CXX_COMPILER_ID}")
+ endif()
+ 
+ if (WITH_EXTRAS)
+@@ -117,3 +116,5 @@ message(STATUS "OS:                ${CMAKE_SYSTEM_NAME}")
+ message(STATUS "Compiler:          ${CMAKE_CXX_COMPILER_ID} ${CXX_COMPILER_VERSION}")
+ message(STATUS "CXX flags release: ${CMAKE_CXX_FLAGS_RELEASE}")
+ message(STATUS "CXX flags debug:   ${CMAKE_CXX_FLAGS_DEBUG}")
++
++
+-- 
+2.39.5 (Apple Git-154)
+
