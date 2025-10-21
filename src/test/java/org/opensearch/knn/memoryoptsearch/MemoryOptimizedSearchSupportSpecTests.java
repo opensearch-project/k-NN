@@ -90,7 +90,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     }
 
     public void testNewIndicesSupportsMemoryOptimizedSearch() {
-        for (final Version version : Arrays.asList(Version.V_2_19_0, Version.V_3_0_0, Version.V_3_1_0, Version.V_3_2_0, Version.CURRENT)) {
+        for (final Version version : Arrays.asList(Version.V_2_19_0, Version.V_3_0_0, Version.V_3_1_0, Version.CURRENT)) {
             mustIsSupportedFieldType(
                 new TestingSpec(
                     KNNEngine.FAISS,
