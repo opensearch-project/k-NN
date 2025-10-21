@@ -11,9 +11,10 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.FieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.Version;
 import org.opensearch.index.fielddata.IndexFieldData;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.ArraySourceValueFetcher;
+import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
@@ -21,10 +22,10 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -47,6 +48,32 @@ public class KNNVectorFieldType extends MappedFieldType {
     VectorDataType vectorDataType;
     // Whether this field type can be benefit from memory optimized search?
     boolean memoryOptimizedSearchAvailable;
+    Version indexCreatedVersion;
+
+    /**
+     * Constructor for KNNVectorFieldType with index created version.
+     *
+     * @param name name of the field
+     * @param metadata metadata of the field
+     * @param vectorDataType data type of the vector
+     * @param annConfig configuration context for the ANN index
+     * @param indexCreatedVersion Index created version.
+     */
+    public KNNVectorFieldType(
+        String name,
+        Map<String, String> metadata,
+        VectorDataType vectorDataType,
+        KNNMappingConfig annConfig,
+        Version indexCreatedVersion
+    ) {
+        this(name, metadata, vectorDataType, annConfig);
+        this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
+            knnMappingConfig.getKnnMethodContext(),
+            annConfig.getQuantizationConfig(),
+            annConfig.getModelId()
+        );
+        this.indexCreatedVersion = indexCreatedVersion;
+    }
 
     /**
      * Constructor for KNNVectorFieldType.
@@ -60,11 +87,6 @@ public class KNNVectorFieldType extends MappedFieldType {
         super(name, false, false, true, TextSearchInfo.NONE, metadata);
         this.vectorDataType = vectorDataType;
         this.knnMappingConfig = annConfig;
-        this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
-            knnMappingConfig.getKnnMethodContext(),
-            annConfig.getQuantizationConfig(),
-            annConfig.getModelId()
-        );
     }
 
     @Override

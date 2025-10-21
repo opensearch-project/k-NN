@@ -35,285 +35,291 @@ testClusters {
     }
 }
 
-   def versionsBelow2_3 = ["1.", "2.0.", "2.1.", "2.2."]
-   def versionOnOrAfter2_17 = ["2.17", "2.18", "2.19", "2.20", "3."]
+def versionsBelow2_3 = ["1.", "2.0.", "2.1.", "2.2."]
+def versionOnOrAfter2_17 = ["2.17", "2.18", "2.19", "2.20", "3."]
 // Task to run BWC tests against the old cluster
-    task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
-        dependsOn "zipBwcPlugin"
-        useCluster testClusters."${baseName}"
-        systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
-        systemProperty 'tests.is_old_cluster', 'true'
-        systemProperty 'tests.skip_delete_model_index', 'true'
-        systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
+    dependsOn "zipBwcPlugin"
+    useCluster testClusters."${baseName}"
+    systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
+    systemProperty 'tests.is_old_cluster', 'true'
+    systemProperty 'tests.skip_delete_model_index', 'true'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
 
-        // Skip test if version is 1.0 or 1.1 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.0") || knn_bwc_version.startsWith("1.1")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexCustomMethodFieldMapping"
-                excludeTestsMatching "org.opensearch.knn.bwc.WarmupIT.testKNNWarmupCustomMethodFieldMapping"
-            }
+    // Skip test if version is 1.0 or 1.1 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.0") || knn_bwc_version.startsWith("1.1")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.ModelIT"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexCustomMethodFieldMapping"
+            excludeTestsMatching "org.opensearch.knn.bwc.WarmupIT.testKNNWarmupCustomMethodFieldMapping"
         }
-
-        // Skip test if version is 1.2 or 1.3 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.2") || knn_bwc_version.startsWith("1.3")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testNullParametersOnUpgrade"
-            }
-        }
-
-        // Skip test if version is 1.0, 1.1, 1.2 or 1.3 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
-            }
-        }
-
-        if (knn_bwc_version.startsWith("1.") ||
-                knn_bwc_version.startsWith("2.0.") ||
-                knn_bwc_version.startsWith("2.1.") ||
-                knn_bwc_version.startsWith("2.2.") ||
-                knn_bwc_version.startsWith("2.3.") ||
-                knn_bwc_version.startsWith("2.4")  ||
-                knn_bwc_version.startsWith("2.5.") ||
-                knn_bwc_version.startsWith("2.6.") ||
-                knn_bwc_version.startsWith("2.7.") ||
-                knn_bwc_version.startsWith("2.8.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
-            }
-        }
-        if (knn_bwc_version.startsWith("1.") ||
-                knn_bwc_version.startsWith("2.0.") ||
-                knn_bwc_version.startsWith("2.1.") ||
-                knn_bwc_version.startsWith("2.2.") ||
-                knn_bwc_version.startsWith("2.3.") ||
-                knn_bwc_version.startsWith("2.4")  ||
-                knn_bwc_version.startsWith("2.5.") ||
-                knn_bwc_version.startsWith("2.6.") ||
-                knn_bwc_version.startsWith("2.7.") ||
-                knn_bwc_version.startsWith("2.8.") ||
-                knn_bwc_version.startsWith("2.9.") ||
-                knn_bwc_version.startsWith("2.10.") ||
-                knn_bwc_version.startsWith("2.11.") ||
-                knn_bwc_version.startsWith("2.12.") ||
-                knn_bwc_version.startsWith("2.13.") ||
-                knn_bwc_version.startsWith("2.14.") ||
-                knn_bwc_version.startsWith("2.15.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
-            }
-        }
-
-        // excludes: 1.any; 2.x where x < 17
-        def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-        if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }
-                ) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
-            }
-        }
-
-
-        if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
-            }
-        }
-        if (!(knn_bwc_version.startsWith("2.13.") ||
-                knn_bwc_version.startsWith("2.14.") ||
-                knn_bwc_version.startsWith("2.15.") ||
-                knn_bwc_version.startsWith("2.16."))) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
-                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
-            }
-        }
-
-        if (knn_bwc_version.startsWith("1.") ||
-                knn_bwc_version.startsWith("2.0.") ||
-                knn_bwc_version.startsWith("2.1.") ||
-                knn_bwc_version.startsWith("2.2.") ||
-                knn_bwc_version.startsWith("2.3.") ||
-                knn_bwc_version.startsWith("2.4")  ||
-                knn_bwc_version.startsWith("2.5.") ||
-                knn_bwc_version.startsWith("2.6.") ||
-                knn_bwc_version.startsWith("2.7.") ||
-                knn_bwc_version.startsWith("2.8.") ||
-                knn_bwc_version.startsWith("2.9.") ||
-                knn_bwc_version.startsWith("2.10.") ||
-                knn_bwc_version.startsWith("2.11.") ||
-                knn_bwc_version.startsWith("2.12.") ||
-                knn_bwc_version.startsWith("2.13.") ||
-                knn_bwc_version.startsWith("2.14.") ||
-                knn_bwc_version.startsWith("2.15.") ||
-                knn_bwc_version.startsWith("2.16.") ||
-                knn_bwc_version.startsWith("2.17.") ||
-                knn_bwc_version.startsWith("2.18.") ||
-                knn_bwc_version.startsWith("2.19.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
-            }
-        }
-
-        if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
-            }
-        }
-
-        nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
-        nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
-        systemProperty 'tests.security.manager', 'false'
     }
+
+    // Skip test if version is 1.2 or 1.3 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.2") || knn_bwc_version.startsWith("1.3")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testNullParametersOnUpgrade"
+        }
+    }
+
+    // Skip test if version is 1.0, 1.1, 1.2 or 1.3 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
+        }
+    }
+
+    if (knn_bwc_version.startsWith("1.") ||
+            knn_bwc_version.startsWith("2.0.") ||
+            knn_bwc_version.startsWith("2.1.") ||
+            knn_bwc_version.startsWith("2.2.") ||
+            knn_bwc_version.startsWith("2.3.") ||
+            knn_bwc_version.startsWith("2.4")  ||
+            knn_bwc_version.startsWith("2.5.") ||
+            knn_bwc_version.startsWith("2.6.") ||
+            knn_bwc_version.startsWith("2.7.") ||
+            knn_bwc_version.startsWith("2.8.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
+        }
+    }
+    if (knn_bwc_version.startsWith("1.") ||
+            knn_bwc_version.startsWith("2.0.") ||
+            knn_bwc_version.startsWith("2.1.") ||
+            knn_bwc_version.startsWith("2.2.") ||
+            knn_bwc_version.startsWith("2.3.") ||
+            knn_bwc_version.startsWith("2.4")  ||
+            knn_bwc_version.startsWith("2.5.") ||
+            knn_bwc_version.startsWith("2.6.") ||
+            knn_bwc_version.startsWith("2.7.") ||
+            knn_bwc_version.startsWith("2.8.") ||
+            knn_bwc_version.startsWith("2.9.") ||
+            knn_bwc_version.startsWith("2.10.") ||
+            knn_bwc_version.startsWith("2.11.") ||
+            knn_bwc_version.startsWith("2.12.") ||
+            knn_bwc_version.startsWith("2.13.") ||
+            knn_bwc_version.startsWith("2.14.") ||
+            knn_bwc_version.startsWith("2.15.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
+        }
+    }
+
+    // excludes: 1.any; 2.x where x < 17
+    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }
+            ) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
+        }
+    }
+
+
+    if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
+        }
+    }
+    if (!(knn_bwc_version.startsWith("2.13.") ||
+            knn_bwc_version.startsWith("2.14.") ||
+            knn_bwc_version.startsWith("2.15.") ||
+            knn_bwc_version.startsWith("2.16."))) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
+            excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+        }
+    }
+
+    if (knn_bwc_version.startsWith("1.") ||
+            knn_bwc_version.startsWith("2.0.") ||
+            knn_bwc_version.startsWith("2.1.") ||
+            knn_bwc_version.startsWith("2.2.") ||
+            knn_bwc_version.startsWith("2.3.") ||
+            knn_bwc_version.startsWith("2.4")  ||
+            knn_bwc_version.startsWith("2.5.") ||
+            knn_bwc_version.startsWith("2.6.") ||
+            knn_bwc_version.startsWith("2.7.") ||
+            knn_bwc_version.startsWith("2.8.") ||
+            knn_bwc_version.startsWith("2.9.") ||
+            knn_bwc_version.startsWith("2.10.") ||
+            knn_bwc_version.startsWith("2.11.") ||
+            knn_bwc_version.startsWith("2.12.") ||
+            knn_bwc_version.startsWith("2.13.") ||
+            knn_bwc_version.startsWith("2.14.") ||
+            knn_bwc_version.startsWith("2.15.") ||
+            knn_bwc_version.startsWith("2.16.") ||
+            knn_bwc_version.startsWith("2.17.") ||
+            knn_bwc_version.startsWith("2.18.") ||
+            knn_bwc_version.startsWith("2.19.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
+        }
+    }
+
+    if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
+        }
+    }
+
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
+}
 
 // All nodes are upgraded to latest version and run the tests
-    task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
-        dependsOn "testAgainstOldCluster"
-        dependsOn rootProject.tasks.buildJniLib
-        dependsOn rootProject.tasks.assemble
-        useCluster testClusters."${baseName}"
-        doFirst {
-            testClusters."${baseName}".environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
-            testClusters."${baseName}".systemProperty("java.library.path", "$rootDir/jni/build/release")
-            testClusters."${baseName}".upgradeAllNodesAndPluginsToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
-        }
-        systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
-        systemProperty 'tests.skip_delete_model_index', 'true'
-        systemProperty 'tests.is_old_cluster', 'false'
-        systemProperty 'tests.plugin_bwc_version', knn_bwc_version
-
-        // Skip test if version is 1.0 or 1.1 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.0") || knn_bwc_version.startsWith("1.1")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexCustomMethodFieldMapping"
-                excludeTestsMatching "org.opensearch.knn.bwc.WarmupIT.testKNNWarmupCustomMethodFieldMapping"
-            }
-        }
-
-        // Skip test if version is 1.2 or 1.3 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.2") || knn_bwc_version.startsWith("1.3")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testNullParametersOnUpgrade"
-            }
-        }
-
-        // Skip test if version is 1.0, 1.1, 1.2 or 1.3 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
-            }
-        }
-
-        if (knn_bwc_version.startsWith("1.") ||
-                knn_bwc_version.startsWith("2.0.") ||
-                knn_bwc_version.startsWith("2.1.") ||
-                knn_bwc_version.startsWith("2.2.") ||
-                knn_bwc_version.startsWith("2.3.") ||
-                knn_bwc_version.startsWith("2.4")  ||
-                knn_bwc_version.startsWith("2.5.") ||
-                knn_bwc_version.startsWith("2.6.") ||
-                knn_bwc_version.startsWith("2.7.") ||
-                knn_bwc_version.startsWith("2.8.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
-            }
-        }
-        if (knn_bwc_version.startsWith("1.") ||
-                knn_bwc_version.startsWith("2.0.") ||
-                knn_bwc_version.startsWith("2.1.") ||
-                knn_bwc_version.startsWith("2.2.") ||
-                knn_bwc_version.startsWith("2.3.") ||
-                knn_bwc_version.startsWith("2.4")  ||
-                knn_bwc_version.startsWith("2.5.") ||
-                knn_bwc_version.startsWith("2.6.") ||
-                knn_bwc_version.startsWith("2.7.") ||
-                knn_bwc_version.startsWith("2.8.") ||
-                knn_bwc_version.startsWith("2.9.") ||
-                knn_bwc_version.startsWith("2.10.") ||
-                knn_bwc_version.startsWith("2.11.") ||
-                knn_bwc_version.startsWith("2.12.") ||
-                knn_bwc_version.startsWith("2.13.") ||
-                knn_bwc_version.startsWith("2.14.") ||
-                knn_bwc_version.startsWith("2.15.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
-            }
-        }
-
-        def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-        if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
-            }
-        }
-
-        if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
-            }
-        }
-
-        if (!(knn_bwc_version.startsWith("2.13.") ||
-                knn_bwc_version.startsWith("2.14.") ||
-                knn_bwc_version.startsWith("2.15.") ||
-                knn_bwc_version.startsWith("2.16."))) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
-                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
-                excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
-            }
-        }
-
-        if (knn_bwc_version.startsWith("1.") ||
-                knn_bwc_version.startsWith("2.0.") ||
-                knn_bwc_version.startsWith("2.1.") ||
-                knn_bwc_version.startsWith("2.2.") ||
-                knn_bwc_version.startsWith("2.3.") ||
-                knn_bwc_version.startsWith("2.4")  ||
-                knn_bwc_version.startsWith("2.5.") ||
-                knn_bwc_version.startsWith("2.6.") ||
-                knn_bwc_version.startsWith("2.7.") ||
-                knn_bwc_version.startsWith("2.8.") ||
-                knn_bwc_version.startsWith("2.9.") ||
-                knn_bwc_version.startsWith("2.10.") ||
-                knn_bwc_version.startsWith("2.11.") ||
-                knn_bwc_version.startsWith("2.12.") ||
-                knn_bwc_version.startsWith("2.13.") ||
-                knn_bwc_version.startsWith("2.14.") ||
-                knn_bwc_version.startsWith("2.15.") ||
-                knn_bwc_version.startsWith("2.16.") ||
-                knn_bwc_version.startsWith("2.17.") ||
-                knn_bwc_version.startsWith("2.18.") ||
-                knn_bwc_version.startsWith("2.19.")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
-            }
-        }
-
-        if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
-            }
-        }
-
-        nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
-        nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
-        systemProperty 'tests.security.manager', 'false'
+task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
+    dependsOn "testAgainstOldCluster"
+    dependsOn rootProject.tasks.buildJniLib
+    dependsOn rootProject.tasks.assemble
+    useCluster testClusters."${baseName}"
+    doFirst {
+        testClusters."${baseName}".environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+        testClusters."${baseName}".systemProperty("java.library.path", "$rootDir/jni/build/release")
+        testClusters."${baseName}".upgradeAllNodesAndPluginsToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
+    // Disable cgroup detection. When initializing MBean in Log4J, if container was detected it will try to get
+    // `jdk.internal.platform.CgroupInfo.getMountPoint()` for the mount point which causes NPE for now.
+    // So, disabling this cgroup detection for CI.
+    testClusters."${baseName}".nodes.forEach { node ->
+        node.jvmArgs("-XX:-UseContainerSupport -Djdk.disableLinuxContainerSupport=true")
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
+    systemProperty 'tests.skip_delete_model_index', 'true'
+    systemProperty 'tests.is_old_cluster', 'false'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+
+    // Skip test if version is 1.0 or 1.1 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.0") || knn_bwc_version.startsWith("1.1")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.ModelIT"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexCustomMethodFieldMapping"
+            excludeTestsMatching "org.opensearch.knn.bwc.WarmupIT.testKNNWarmupCustomMethodFieldMapping"
+        }
+    }
+
+    // Skip test if version is 1.2 or 1.3 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.2") || knn_bwc_version.startsWith("1.3")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testNullParametersOnUpgrade"
+        }
+    }
+
+    // Skip test if version is 1.0, 1.1, 1.2 or 1.3 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
+        }
+    }
+
+    if (knn_bwc_version.startsWith("1.") ||
+            knn_bwc_version.startsWith("2.0.") ||
+            knn_bwc_version.startsWith("2.1.") ||
+            knn_bwc_version.startsWith("2.2.") ||
+            knn_bwc_version.startsWith("2.3.") ||
+            knn_bwc_version.startsWith("2.4")  ||
+            knn_bwc_version.startsWith("2.5.") ||
+            knn_bwc_version.startsWith("2.6.") ||
+            knn_bwc_version.startsWith("2.7.") ||
+            knn_bwc_version.startsWith("2.8.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneByteVector"
+        }
+    }
+    if (knn_bwc_version.startsWith("1.") ||
+            knn_bwc_version.startsWith("2.0.") ||
+            knn_bwc_version.startsWith("2.1.") ||
+            knn_bwc_version.startsWith("2.2.") ||
+            knn_bwc_version.startsWith("2.3.") ||
+            knn_bwc_version.startsWith("2.4")  ||
+            knn_bwc_version.startsWith("2.5.") ||
+            knn_bwc_version.startsWith("2.6.") ||
+            knn_bwc_version.startsWith("2.7.") ||
+            knn_bwc_version.startsWith("2.8.") ||
+            knn_bwc_version.startsWith("2.9.") ||
+            knn_bwc_version.startsWith("2.10.") ||
+            knn_bwc_version.startsWith("2.11.") ||
+            knn_bwc_version.startsWith("2.12.") ||
+            knn_bwc_version.startsWith("2.13.") ||
+            knn_bwc_version.startsWith("2.14.") ||
+            knn_bwc_version.startsWith("2.15.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
+        }
+    }
+
+    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
+        }
+    }
+
+    if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
+        }
+    }
+
+    if (!(knn_bwc_version.startsWith("2.13.") ||
+            knn_bwc_version.startsWith("2.14.") ||
+            knn_bwc_version.startsWith("2.15.") ||
+            knn_bwc_version.startsWith("2.16."))) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.ModelIT.testNonKNNIndex_withModelId"
+            excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.PainlessScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withFaissEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withNmslibEngine"
+            excludeTestsMatching "org.opensearch.knn.bwc.ScriptScoringIT.testNonKNNIndex_withMethodParams_withLuceneEngine"
+        }
+    }
+
+    if (knn_bwc_version.startsWith("1.") ||
+            knn_bwc_version.startsWith("2.0.") ||
+            knn_bwc_version.startsWith("2.1.") ||
+            knn_bwc_version.startsWith("2.2.") ||
+            knn_bwc_version.startsWith("2.3.") ||
+            knn_bwc_version.startsWith("2.4")  ||
+            knn_bwc_version.startsWith("2.5.") ||
+            knn_bwc_version.startsWith("2.6.") ||
+            knn_bwc_version.startsWith("2.7.") ||
+            knn_bwc_version.startsWith("2.8.") ||
+            knn_bwc_version.startsWith("2.9.") ||
+            knn_bwc_version.startsWith("2.10.") ||
+            knn_bwc_version.startsWith("2.11.") ||
+            knn_bwc_version.startsWith("2.12.") ||
+            knn_bwc_version.startsWith("2.13.") ||
+            knn_bwc_version.startsWith("2.14.") ||
+            knn_bwc_version.startsWith("2.15.") ||
+            knn_bwc_version.startsWith("2.16.") ||
+            knn_bwc_version.startsWith("2.17.") ||
+            knn_bwc_version.startsWith("2.18.") ||
+            knn_bwc_version.startsWith("2.19.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
+        }
+    }
+
+    if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
+        }
+    }
+
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
+}

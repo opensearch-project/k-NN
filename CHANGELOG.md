@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix local ref leak in JNI [#2916](https://github.com/opensearch-project/k-NN/pull/2916)
 * Fix rescoring logic for nested exact search [#2921](https://github.com/opensearch-project/k-NN/pull/2921)
 * Update Visitor to delegate for other fields [#2925](https://github.com/opensearch-project/k-NN/pull/2925)
+* Fix blocking old indices created before 2.18 to use memory optimized search. [#2918](https://github.com/opensearch-project/k-NN/pull/2918)
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.
