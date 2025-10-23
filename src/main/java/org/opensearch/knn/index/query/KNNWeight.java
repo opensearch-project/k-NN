@@ -461,19 +461,20 @@ public class KNNWeight extends Weight {
          * TODO we can have a different MAX_DISTANCE_COMPUTATIONS for binary index as computation cost for binary index
          * is cheaper than computation cost for non binary vector
          */
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * getQueryVectorLength();
+        long estimatedDistanceComputations = ((long) filterIdsCount) * getQueryVectorDimension();
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= estimatedDistanceComputations;
     }
 
     /**
      * Returns the length of query vector based on the query vector data type
      * @return length of query vector
      */
-    private int getQueryVectorLength() {
+    private int getQueryVectorDimension() {
         if (knnQuery.getVectorDataType() == VectorDataType.FLOAT || knnQuery.getVectorDataType() == VectorDataType.BYTE) {
             return knnQuery.getQueryVector().length;
         }
         if (knnQuery.getVectorDataType() == VectorDataType.BINARY) {
-            return knnQuery.getByteQueryVector().length;
+            return knnQuery.getByteQueryVector().length * Byte.SIZE;
         }
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "[%s] datatype is not supported for k-NN query vector", knnQuery.getVectorDataType().getValue())
