@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * Fix the put mapping issue for already created index with flat mapper [#2542](https://github.com/opensearch-project/k-NN/pull/2542)
 * [BUGFIX] Avoid opening of graph file if graph is already loaded in memory [#2719](https://github.com/opensearch-project/k-NN/pull/2719)
+* Reverts k back to null in radial search with filter rewrite [#2915](https://github.com/opensearch-project/k-NN/pull/2910)
 ### Infrastructure
 ### Documentation
 ### Maintenance
