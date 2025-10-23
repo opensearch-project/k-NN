@@ -15,7 +15,10 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.IOConsumer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
@@ -23,6 +26,9 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -169,8 +175,27 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
 
     @SneakyThrows
     private void doTestWithIndexInput(IOConsumer<IndexInput> indexInputConsumer) {
+        // Non mmap input
         final IndexInput input = loadHnswBinary(getBinaryDataRelativePath());
         indexInputConsumer.accept(input);
+
+        // Provide MMap input
+        final Path tempDirPath = createTempDir();
+
+        // Create a vector file in temp directory, we don't want to take a lock on common shared resource directory.
+        final int tmpFileSize = (int) input.length();
+        final Path tempFile = Paths.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
+        final byte[] buffer = new byte[tmpFileSize];
+        input.seek(0);
+        input.readBytes(buffer, 0, tmpFileSize);
+        Files.write(tempFile, buffer);
+
+        // Create directory
+        try (final Directory directory = new MMapDirectory(tempDirPath)) {
+            try (final IndexInput indexInput = directory.openInput(tempFile.getFileName().toString(), IOContext.DEFAULT)) {
+                indexInputConsumer.accept(indexInput);
+            }
+        }
     }
 
     protected abstract String getBinaryDataRelativePath();

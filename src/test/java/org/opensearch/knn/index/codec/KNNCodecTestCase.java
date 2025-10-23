@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import lombok.SneakyThrows;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.DocValuesType;
@@ -62,6 +63,7 @@ import org.opensearch.watcher.ResourceWatcherService;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -70,7 +72,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -217,7 +218,8 @@ public class KNNCodecTestCase extends KNNTestCase {
         }
     }
 
-    public void testBuildFromModelTemplate(Codec codec) throws IOException, ExecutionException, InterruptedException {
+    @SneakyThrows
+    public void testBuildFromModelTemplate(Codec codec) {
         // Setup model params
         String modelId = "test-model";
         KNNEngine knnEngine = KNNEngine.FAISS;
@@ -233,9 +235,30 @@ public class KNNCodecTestCase extends KNNTestCase {
             KNNEngine.FAISS
         );
 
+        // Set the mocked OpenSearchKNNModelDao to INSTANCE.
+        // Mockito’s static mocking is unreliable when multiple threads call the mocked static method concurrently.
+        // Lucene’s test framework uses a random seed to decide whether to create a real FSDirectory instance,
+        // which rarely happens. In most cases, it creates a mocked Directory and never calls the mocked static method.
+        // However, when a real FSDirectory is created, it can spawn multiple threads to perform index checks.
+        // In such cases, a thread may end up calling the actual static method instead of the mocked one.
+        // To prevent this, we explicitly assign the mocked DAO to INSTANCE so that even if the real method is invoked,
+        // the mocked DAO will still be returned.
+        final ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+
+        // Access private static field
+        final Field instanceField = ModelDao.OpenSearchKNNModelDao.class.getDeclaredField("INSTANCE");
+        instanceField.setAccessible(true);
+
+        // Set mock instance
+        instanceField.set(null, modelDao);
+
         // Setup model cache
-        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
-            ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+        try (
+            MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class);
+            AutoCloseable resetModelDao = () -> {
+                instanceField.set(null, null);
+            }
+        ) {
             modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 
             // Set model state to created
@@ -310,6 +333,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             reader.close();
             dir.close();
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+
+            Thread.sleep(10000);
         }
     }
 
