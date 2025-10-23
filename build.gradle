@@ -15,7 +15,7 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "3.4.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "3.3.1-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -228,9 +228,8 @@ allprojects {
         version += "-SNAPSHOT"
     }
     apply from: rootProject.file('build-tools/repositories.gradle').absoluteFile
-    java {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+    plugins.withId('java') {
+        sourceCompatibility = targetCompatibility = "21"
     }
 
     afterEvaluate {
@@ -290,22 +289,9 @@ publishing {
 
 compileJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
-
-    // Since MemorySegment is not available until JDK22, exclude it when packaging and only include it for Java22+.
-    def javaExt = project.extensions.getByType(JavaPluginExtension)
-    if (javaExt.sourceCompatibility <= JavaVersion.VERSION_21 || javaExt.targetCompatibility <= JavaVersion.VERSION_21) {
-        exclude("org/opensearch/knn/memoryoptsearch/MemorySegmentAddressExtractorJDK22.java")
-    }
 }
 compileTestJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
-}
-javadoc {
-    // Block generating Java doc as it will complain MemorySegment is under preview for Java21.
-    def javaExt = project.extensions.getByType(JavaPluginExtension)
-    if (javaExt.sourceCompatibility <= JavaVersion.VERSION_21 || javaExt.targetCompatibility <= JavaVersion.VERSION_21) {
-        exclude("org/opensearch/knn/memoryoptsearch/MemorySegmentAddressExtractorJDK22.java")
-    }
 }
 compileTestFixturesJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
@@ -438,7 +424,7 @@ tasks.register('buildJniLib', Exec) {
     args.add("--build")
     args.add("jni/build")
     args.add("--target")
-    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib', 'opensearchknn_simd']
+    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib']
     if (project.hasProperty('knn_libs')) {
         knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
     }
@@ -496,7 +482,6 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
         task.systemProperty 'cluster.debug', isDebuggingCluster
         // Set number of nodes system property to be used in tests
         task.systemProperty 'cluster.number_of_nodes', "${_numNodes}"
-
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written
         task.getClusters().forEach { cluster ->
@@ -556,7 +541,6 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
             debugPort += 1
         }
     }
-
     cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
     testSnapshotFolder.mkdirs()
@@ -566,8 +550,6 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
 
 testClusters.integTest {
     commonIntegTestClusters(it, _numNodes)
-    // Forcing optimistic search for testing
-    systemProperty 'mem_opt_srch.force_reenter', 'true'
 }
 
 testClusters.integTestRemoteIndexBuild {
@@ -580,8 +562,6 @@ testClusters.integTestRemoteIndexBuild {
     keystore 's3.client.default.access_key', "${System.getProperty("access_key")}"
     keystore 's3.client.default.secret_key', "${System.getProperty("secret_key")}"
     keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
-    // Forcing optimistic search for testing
-    systemProperty 'mem_opt_srch.force_reenter', 'true'
 }
 
 task integTestRemote(type: RestIntegTestTask) {
