@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.jni;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
