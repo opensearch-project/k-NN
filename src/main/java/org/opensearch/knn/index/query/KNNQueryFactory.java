@@ -117,7 +117,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .build();
             }
 
-            if (createQueryRequest.getRescoreContext().isPresent()
+            if (memoryOptimizedSearchEnabled
+                || createQueryRequest.getRescoreContext().isPresent()
                 || (ENGINES_SUPPORTING_NESTED_FIELDS.contains(createQueryRequest.getKnnEngine()) && expandNested)) {
                 return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), expandNested);
             }
