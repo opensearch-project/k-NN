@@ -164,8 +164,18 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         leafReader1 = leaf1.reader();
         leafReader2 = leaf2.reader();
         // Given
-        PerLeafResult leaf1Result = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(0, 1.2f, 1, 5.1f, 2, 2.2f))));
-        PerLeafResult leaf2Result = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(4, 3.4f, 3, 5.1f))));
+        PerLeafResult leaf1Result = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(0, 1.2f, 1, 5.1f, 2, 2.2f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
+        PerLeafResult leaf2Result = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(4, 3.4f, 3, 5.1f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
 
         when(knnWeight.searchLeaf(leaf1, 4)).thenReturn(leaf1Result);
         when(knnWeight.searchLeaf(leaf2, 4)).thenReturn(leaf2Result);
@@ -195,7 +205,12 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         leaf1 = leaves.get(0);
         leafReader1 = leaf1.reader();
 
-        PerLeafResult leafResult = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(4, 3.4f, 3, 5.1f))));
+        PerLeafResult leafResult = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(4, 3.4f, 3, 5.1f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
 
         when(knnWeight.searchLeaf(leaf1, 4)).thenReturn(leafResult);
 
@@ -270,8 +285,18 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         leafReader2 = leaf2.reader();
 
         int k = 2;
-        PerLeafResult initialLeaf1Results = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(0, 21f, 1, 19f, 2, 17f))));
-        PerLeafResult initialLeaf2Results = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(0, 20f, 1, 18f, 2, 16f))));
+        PerLeafResult initialLeaf1Results = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(0, 21f, 1, 19f, 2, 17f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
+        PerLeafResult initialLeaf2Results = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(0, 20f, 1, 18f, 2, 16f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
         Map<Integer, Float> rescoredLeaf1Results = new HashMap<>(Map.of(0, 18f, 1, 20f));
         Map<Integer, Float> rescoredLeaf2Results = new HashMap<>(Map.of(0, 21f));
 
@@ -313,7 +338,12 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         // Given
         int k = 4;
         float boost = 1;
-        PerLeafResult leaf1Result = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(0, 1.2f, 1, 5.1f, 2, 2.2f))));
+        PerLeafResult leaf1Result = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(0, 1.2f, 1, 5.1f, 2, 2.2f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
         List<LeafReaderContext> leaves = reader.leaves();
         leaf1 = leaves.get(0);
         when(knnWeight.searchLeaf(leaf1, k)).thenReturn(leaf1Result);
@@ -389,8 +419,18 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         int k = 2;
         int firstPassK = 100;
-        PerLeafResult initialLeaf1Results = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(0, 21f, 1, 19f, 2, 17f, 3, 15f))));
-        PerLeafResult initialLeaf2Results = new PerLeafResult(null, buildTopDocs(new HashMap<>(Map.of(0, 20f, 1, 18f, 2, 16f, 3, 14f))));
+        PerLeafResult initialLeaf1Results = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(0, 21f, 1, 19f, 2, 17f, 3, 15f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
+        PerLeafResult initialLeaf2Results = new PerLeafResult(
+            null,
+            0,
+            buildTopDocs(new HashMap<>(Map.of(0, 20f, 1, 18f, 2, 16f, 3, 14f))),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
         TopDocs topDocs1 = ResultUtil.resultMapToTopDocs(Map.of(0, 18f, 1, 20f), 0);
         TopDocs topDocs2 = ResultUtil.resultMapToTopDocs(Map.of(0, 21f), 4);
         when(knnQuery.getRescoreContext()).thenReturn(RescoreContext.builder().oversampleFactor(1.5f).build());
@@ -467,11 +507,20 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         // Simulate liveDocs for leaf1 (e.g., marking some documents as deleted)
         leafReader1 = leaf1.reader();
         leafReader2 = leaf2.reader();
-        Bits queryFilterBits = mock(Bits.class);
         HashMap<Integer, Float> leaf1Result = new HashMap<>(Map.of(0, 19f, 1, 20f, 2, 17f, 3, 15f));
-        PerLeafResult initialLeaf1Results = new PerLeafResult(queryFilterBits, buildTopDocs(leaf1Result));
+        PerLeafResult initialLeaf1Results = new PerLeafResult(
+            PerLeafResult.MATCH_ALL_BIT_SET,
+            0,
+            buildTopDocs(leaf1Result),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
         HashMap<Integer, Float> leaf2Result = new HashMap<>(Map.of(0, 21f, 1, 18f, 2, 16f, 3, 14f));
-        PerLeafResult initialLeaf2Results = new PerLeafResult(queryFilterBits, buildTopDocs(leaf2Result));
+        PerLeafResult initialLeaf2Results = new PerLeafResult(
+            PerLeafResult.MATCH_ALL_BIT_SET,
+            0,
+            buildTopDocs(leaf2Result),
+            PerLeafResult.SearchMode.EXACT_SEARCH
+        );
 
         Map<Integer, Float> exactSearchLeaf1Result = new HashMap<>(Map.of(1, 20f));
         Map<Integer, Float> exactSearchLeaf2Result = new HashMap<>(Map.of(0, 21f));
@@ -512,8 +561,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         // Verify
         assertEquals(expectedWeight, finalWeigh);
-        verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, queryFilterBits);
-        verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, queryFilterBits);
+        verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, PerLeafResult.MATCH_ALL_BIT_SET);
+        verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, PerLeafResult.MATCH_ALL_BIT_SET);
         ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
         verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture(), eq(knnWeight));
         TopDocs capturedTopDocs = topDocsCaptor.getValue();
