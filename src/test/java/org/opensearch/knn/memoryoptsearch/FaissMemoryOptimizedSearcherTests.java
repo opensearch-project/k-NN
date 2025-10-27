@@ -23,6 +23,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.MMapDirectory;
+import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
@@ -225,6 +226,17 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     public void testFloat16IndexType() {
+        // Validate mmap optimized logic for FP16.
+        doTestFloat16IndexType(false);
+    }
+
+    public void testFloat16IndexTypeWithNIOFSDirectory() {
+        // For FP16, it applies a different logic for non-mmap Directory.
+        // Therefore, configuring NIOFSDirectory to validate the logic.
+        doTestFloat16IndexType(true);
+    }
+
+    public void doTestFloat16IndexType(final boolean useNIOFSDirectory) {
         final TestingSpec testingSpec = new TestingSpec(
             VectorDataType.FLOAT,
             FLOAT16_HNSW_INDEX_DESCRIPTION,
@@ -232,6 +244,10 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             10,
             FLOAT16_ENCODER_PARAMETERS
         );
+
+        if (useNIOFSDirectory) {
+            testingSpec.directoryClass = NIOFSDirectory.class;
+        }
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -467,7 +483,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             filteredIds,
             k,
             doExhaustiveSearch,
-            spaceType
+            spaceType,
+            testingSpec.directoryClass
         );
 
         // Validate results
@@ -494,14 +511,15 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static KNNQueryResult[] doSearchViaVectorReader(
+    private static <D extends Directory> KNNQueryResult[] doSearchViaVectorReader(
         BuildInfo buildInfo,
         Object query,
         VectorDataType vectorDataType,
         long[] filteredIds,
         final int k,
         final boolean exhaustiveSearch,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final Class<D> directoryClass
     ) {
         // Make KNN vector field info
         KNNCodecTestUtil.FieldInfoBuilder fieldInfoBuilder = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
@@ -547,7 +565,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(fixedBitSet, buildInfo.documentIds.getLast() + 10);
 
         // Make SegmentReadState and do search
-        try (final Directory directory = new MMapDirectory(buildInfo.tempDirPath)) {
+        try (final Directory directory = directoryClass.getConstructor(Path.class).newInstance(buildInfo.tempDirPath)) {
             final SegmentReadState readState = new SegmentReadState(directory, segmentInfo, fieldInfos, IOContext.DEFAULT);
             try (
                 NativeEngines990KnnVectorsReader vectorsReader = new NativeEngines990KnnVectorsReader(
@@ -735,9 +753,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // It can happen that match ratio between FAISS and MemOptimizedSearch is lower than 80%, but if it happens with a recall lower than
         // 0.8 indicates something's off. We use a smaller match threshold for ADC.
         if (isAdc) {
-            assertFalse(matchRatio < 0.6 && recall < 0.8);
+            assertFalse("matchRatio=" + matchRatio + " < 0.6 && recall=" + recall + " < 0.8", matchRatio < 0.6 && recall < 0.8);
         } else {
-            assertFalse(matchRatio < 0.8 && recall < 0.8);
+            assertFalse("matchRatio=" + matchRatio + " < 0.8 && recall=" + recall + " < 0.8", matchRatio < 0.8 && recall < 0.8);
         }
 
         // Validate score values are the same
@@ -891,5 +909,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         public ScalarQuantizationParams quantizationParams;
         public QuantizationState quantizationState;
         public boolean isAdcEnabled = false;
+        public Class directoryClass = MMapDirectory.class;
     }
 }

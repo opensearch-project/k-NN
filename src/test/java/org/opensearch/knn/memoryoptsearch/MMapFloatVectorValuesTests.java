@@ -51,12 +51,23 @@ public class MMapFloatVectorValuesTests extends LuceneTestCase {
 
             // Read validation
             try (final IndexInput input = directory.openInput(fileName, IOContext.DEFAULT)) {
-                final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(input);
+                final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
+                    input,
+                    0,
+                    numVectors * dimension * Float.BYTES
+                );
                 assertNotNull(addressAndSize);
-                final MMapFloatVectorValues values = new MMapFloatVectorValues(input, 0, dimension, numVectors, addressAndSize);
+                final MMapFloatVectorValues values = new MMapFloatVectorValues(
+                    input,
+                    oneVectorByteSize,
+                    0,
+                    dimension,
+                    numVectors,
+                    addressAndSize,
+                    null
+                );
 
                 // Ensure properties are correct.
-                assertEquals(oneVectorByteSize, values.getOneVectorByteSize());
                 assertEquals(oneVectorByteSize, values.getVectorByteLength());
                 assertEquals(addressAndSize, values.getAddressAndSize());
 
