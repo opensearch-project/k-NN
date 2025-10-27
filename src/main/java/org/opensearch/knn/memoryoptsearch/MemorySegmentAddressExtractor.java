@@ -17,8 +17,11 @@ public interface MemorySegmentAddressExtractor {
      * Try to extract {@code MemorySegment[]} from given input stream, and return address and size info of them.
      *
      * @param indexInput : Input stream
+     * @param baseOffset : The offset used to determine which chunks to include.
+     *                     Only chunks whose end offset is greater than baseOffset are collected, while those ending before baseOffset are
+     *                     excluded.
      * @return null if it fails to extract mapped pointer otherwise it will return an array having address and size.
      *         Ex: address_i = array[i], size_i = array[i + 1].
      */
-    long[] extractAddressAndSize(IndexInput indexInput);
+    long[] extractAddressAndSize(IndexInput indexInput, long baseOffset, long requestSize);
 }

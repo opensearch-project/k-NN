@@ -18,3 +18,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Enhancements
 * Removed VectorSearchHolders map from NativeEngines990KnnVectorsReader [#2948](https://github.com/opensearch-project/k-NN/pull/2948)
+* Native scoring for FP16 [#2922](https://github.com/opensearch-project/k-NN/pull/2922)
