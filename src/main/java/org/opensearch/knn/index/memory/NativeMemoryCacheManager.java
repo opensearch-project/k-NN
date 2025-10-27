@@ -18,7 +18,7 @@ import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
