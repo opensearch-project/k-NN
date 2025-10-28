@@ -117,8 +117,15 @@ public class NativeEngineKnnVectorQuery extends Query {
             log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, leafReaderContexts.size());
         }
 
-        if (expandNestedDocs) {
+        // Since memory optimized search is using this class, we need to return the same totalHits value when it's disabled.
+        // e.g. Let's say we got 100 result per each segment where #segments=3, then 300 should be returned as total hit.
+        // Therefore, when memory optimized search is enabled, we should skip taking top-k and return whatever we got from approximate
+        // search.
+        if (knnQuery.isMemoryOptimizedSearch() == false) {
             ResultUtil.reduceToTopK(perLeafResults, finalK);
+        }
+
+        if (expandNestedDocs) {
             StopWatch stopWatch = new StopWatch().start();
             perLeafResults = retrieveAll(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, rescoreContext == null);
             long time_in_millis = stopWatch.stop().totalTime().millis();
@@ -128,32 +135,21 @@ public class NativeEngineKnnVectorQuery extends Query {
             }
         }
 
-        // Get the total result size
-        int totalResultSize = 0;
-        for (PerLeafResult perLeafResult : perLeafResults) {
-            totalResultSize += perLeafResult.getResult().scoreDocs.length;
+        TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
+        for (int i = 0; i < perLeafResults.size(); i++) {
+            TopDocs leafTopDocs = perLeafResults.get(i).getResult();
+            for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
+                scoreDoc.doc += leafReaderContexts.get(i).docBase;
+            }
+            topDocs[i] = leafTopDocs;
         }
 
-        // If empty? then return MatchNoDocs$Weight
-        if (totalResultSize == 0) {
+        TopDocs topK = TopDocs.merge(getTotalTopDoc(topDocs), topDocs);
+
+        if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
 
-        // Combine all part results we obtained
-        final ScoreDoc[] scoreDocs = new ScoreDoc[totalResultSize];
-        for (int i = 0, j = 0; i < perLeafResults.size(); i++) {
-            final TopDocs leafTopDocs = perLeafResults.get(i).getResult();
-            final int docBase = leafReaderContexts.get(i).docBase;
-            for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
-                scoreDoc.doc += docBase;
-            }
-            System.arraycopy(leafTopDocs.scoreDocs, 0, scoreDocs, j, leafTopDocs.scoreDocs.length);
-            j += leafTopDocs.scoreDocs.length;
-        }
-        // We don't need to sort docs by score as `DocAndScoreQuery` will sort them by doc id anyway, sorting is redundant.
-        final TopDocs topK = new TopDocs(new TotalHits(totalResultSize, TotalHits.Relation.EQUAL_TO), scoreDocs);
-
-        // Return DocAndScoreQuery$Weight
         return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
     }
 
@@ -169,15 +165,15 @@ public class NativeEngineKnnVectorQuery extends Query {
      * @return the total number of documents in the topDocs
      */
     private int getTotalTopDoc(TopDocs[] topDocs) {
-        if (expandNestedDocs == false) {
-            return knnQuery.getK();
+        if (knnQuery.isMemoryOptimizedSearch() || expandNestedDocs) {
+            int sum = 0;
+            for (TopDocs topDoc : topDocs) {
+                sum += topDoc.scoreDocs.length;
+            }
+            return sum;
         }
 
-        int sum = 0;
-        for (TopDocs topDoc : topDocs) {
-            sum += topDoc.scoreDocs.length;
-        }
-        return sum;
+        return knnQuery.getK();
     }
 
     /**

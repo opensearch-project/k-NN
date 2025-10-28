@@ -328,7 +328,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
             // Then
-            mockedResultUtil.verify(() -> ResultUtil.reduceToTopK(any(), anyInt()), times(1));
+            mockedResultUtil.verify(() -> ResultUtil.reduceToTopK(any(), anyInt()), times(2));
             assertNotNull(actual);
         }
     }
@@ -432,7 +432,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             PerLeafResult.SearchMode.EXACT_SEARCH
         );
         TopDocs topDocs1 = ResultUtil.resultMapToTopDocs(Map.of(0, 18f, 1, 20f), 0);
-        TopDocs topDocs2 = ResultUtil.resultMapToTopDocs(Map.of(0, 21f), 6);
+        TopDocs topDocs2 = ResultUtil.resultMapToTopDocs(Map.of(0, 21f), 4);
         when(knnQuery.getRescoreContext()).thenReturn(RescoreContext.builder().oversampleFactor(1.5f).build());
         when(knnQuery.getK()).thenReturn(k);
         when(knnWeight.getQuery()).thenReturn(knnQuery);
@@ -459,7 +459,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
             // Verify
             TopDocs[] topDocs = { topDocs1, topDocs2 };
-            TopDocs expectedTopDocs = TopDocs.merge(topDocs1.scoreDocs.length + topDocs2.scoreDocs.length, topDocs);
+            TopDocs expectedTopDocs = TopDocs.merge(k, topDocs);
             Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
             assertEquals(expected, actual.getQuery());
         }
@@ -566,16 +566,11 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
         verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture(), eq(knnWeight));
         TopDocs capturedTopDocs = topDocsCaptor.getValue();
-        // We don't sort score docs by its score because it's not needed. Regardless we sort them or not, DocAndScoreQuery will sort them
-        // by doc-id anyway, so sorting is redundant.
-        ScoreDoc[] capturedScoreDocs = new ScoreDoc[capturedTopDocs.scoreDocs.length];
-        System.arraycopy(capturedTopDocs.scoreDocs, 0, capturedScoreDocs, 0, capturedTopDocs.scoreDocs.length);
-        Arrays.sort(capturedScoreDocs, (sd1, sd2) -> -Float.compare(sd1.score, sd2.score));
         assertEquals(topK.totalHits, capturedTopDocs.totalHits);
         for (int i = 0; i < topK.scoreDocs.length; i++) {
-            assertEquals(topK.scoreDocs[i].doc, capturedScoreDocs[i].doc);
-            assertEquals(topK.scoreDocs[i].score, capturedScoreDocs[i].score, 0.01f);
-            assertEquals(topK.scoreDocs[i].shardIndex, capturedScoreDocs[i].shardIndex);
+            assertEquals(topK.scoreDocs[i].doc, capturedTopDocs.scoreDocs[i].doc);
+            assertEquals(topK.scoreDocs[i].score, capturedTopDocs.scoreDocs[i].score, 0.01f);
+            assertEquals(topK.scoreDocs[i].shardIndex, capturedTopDocs.scoreDocs[i].shardIndex);
         }
 
         // Verify acceptedDocIds is intersection of allSiblings and filteredDocIds
