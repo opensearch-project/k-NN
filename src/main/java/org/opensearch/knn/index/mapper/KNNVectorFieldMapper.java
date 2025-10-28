@@ -201,6 +201,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNEngine.UNDEFINED.getName()
         ).setValidator(KNNEngine::getEngine);
 
+        protected final Parameter<Boolean> multiVector = Parameter.boolParam(
+            KNNConstants.MULTI_VECTOR_PARAMETER,
+            false,
+            m -> toType(m).originalMappingParameters.getMultiVector(),
+            false).acceptsNull();
+
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
         protected ModelDao modelDao;
@@ -255,7 +261,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 mode,
                 compressionLevel,
                 topLevelSpaceType,
-                topLevelEngine
+                topLevelEngine,
+                multiVector
             );
         }
 
@@ -324,6 +331,26 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     hasDocValues.get(),
                     originalParameters
                 );
+            }
+
+            // TODO: Do we need any index version checks here?
+            if (originalParameters.getMultiVector() == true) {
+                return LateInteractionFieldMapper.createFieldMapper(
+                    buildFullName(context),
+                    name,
+                    metaValue,
+                    KNNMethodConfigContext.builder()
+                        .vectorDataType(vectorDataType.getValue())
+                        .versionCreated(indexCreatedVersion)
+                        .dimension(dimension.getValue())
+                        .multiVector(true)
+                        .build(),
+                    multiFieldsBuilder,
+                    copyToBuilder,
+                    ignoreMalformed,
+                    false,
+                    hasDocValues.get(),
+                    originalParameters);
             }
 
             return EngineFieldMapper.createFieldMapper(
@@ -439,6 +466,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // Validate if the KNN engine is allowed for index creation
                 validateBlockedKNNEngine(builder.knnMethodContext.get(), parserContext.indexVersionCreated());
                 validateFromKNNMethod(builder);
+
+                // Validate Knn Engine for multi-vectors
+                validateMultiVector(builder);
             }
 
             return builder;
@@ -551,6 +581,67 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                         name
                     )
                 );
+            }
+        }
+
+        private void validateMultiVector(KNNVectorFieldMapper.Builder builder) {
+            if (builder.multiVector.getValue() == true) {
+                if (KNNEngine.LUCENE.getName().equals(builder.topLevelEngine.getValue()) == false) {
+                    throw new IllegalArgumentException(
+                        String.format(
+                            Locale.ROOT,
+                            "Field: %s configured as multi-vector with engine: %s. Multi-Vectors are only supported with engine: %s",
+                            builder.name(),
+                            builder.topLevelEngine.getValue(),
+                            KNNEngine.LUCENE.getName()
+                        )
+                    );
+                }
+                if (builder.vectorDataType.getValue() != VectorDataType.FLOAT) {
+                    throw new IllegalArgumentException(
+                        String.format(
+                            Locale.ROOT,
+                            "Field: %s configured as multi-vector with data_type: %s. Multi-Vectors are only supported for float data_type",
+                            builder.name(),
+                            builder.vectorDataType.getValue().name()
+                        )
+                    );
+                }
+                validateDimensionSet(builder);
+                validateCompressionAndModeNotSet(builder, builder.name(), "multi_vector");
+
+                if (builder.modelId.isConfigured()) {
+                    throw new IllegalArgumentException(
+                        String.format(
+                            Locale.ROOT,
+                            "Field: %s configured as multi-vector with model_id: %s. Configuring model_id for multi_vector fields is not supported",
+                            builder.name(),
+                            builder.modelId.getValue()
+                        )
+                    );
+                }
+
+                // TODO: do we need to support stored fields?
+                if (builder.stored.get() == true) {
+                    throw new IllegalArgumentException(
+                        String.format(
+                            Locale.ROOT,
+                            "Field: %s configured as multi-vector with stored=true. Stored fields are not allowed for multi-vectors",
+                            builder.name()
+                        )
+                    );
+                }
+
+                if (builder.topLevelSpaceType.isConfigured()) {
+                    throw new IllegalArgumentException(
+                        String.format(
+                            Locale.ROOT,
+                            "Field: %s configured as multi-vector with spaceType: %s. Index time space type for multi_vector fields is not supported",
+                            builder.name(),
+                            builder.topLevelSpaceType.get()
+                        )
+                    );
+                }
             }
         }
 
