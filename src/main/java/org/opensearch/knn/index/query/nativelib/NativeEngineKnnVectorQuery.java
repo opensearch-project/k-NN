@@ -27,17 +27,17 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
+import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.memoryoptsearch.optimistic.OptimisticSearchStrategyUtils;
-import org.opensearch.lucene.ReentrantKnnCollectorManager;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.lucene.ReentrantKnnCollectorManager;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
@@ -116,9 +116,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             long rescoreTime = stopWatch.stop().totalTime().millis();
             log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, leafReaderContexts.size());
         }
-        ResultUtil.reduceToTopK(perLeafResults, finalK);
 
         if (expandNestedDocs) {
+            ResultUtil.reduceToTopK(perLeafResults, finalK);
             StopWatch stopWatch = new StopWatch().start();
             perLeafResults = retrieveAll(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, rescoreContext == null);
             long time_in_millis = stopWatch.stop().totalTime().millis();
@@ -128,20 +128,32 @@ public class NativeEngineKnnVectorQuery extends Query {
             }
         }
 
-        TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            TopDocs leafTopDocs = perLeafResults.get(i).getResult();
-            for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
-                scoreDoc.doc += leafReaderContexts.get(i).docBase;
-            }
-            topDocs[i] = leafTopDocs;
+        // Get the total result size
+        int totalResultSize = 0;
+        for (PerLeafResult perLeafResult : perLeafResults) {
+            totalResultSize += perLeafResult.getResult().scoreDocs.length;
         }
 
-        TopDocs topK = TopDocs.merge(getTotalTopDoc(topDocs), topDocs);
-
-        if (topK.scoreDocs.length == 0) {
+        // If empty? then return MatchNoDocs$Weight
+        if (totalResultSize == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
+
+        // Combine all part results we obtained
+        final ScoreDoc[] scoreDocs = new ScoreDoc[totalResultSize];
+        for (int i = 0, j = 0; i < perLeafResults.size(); i++) {
+            final TopDocs leafTopDocs = perLeafResults.get(i).getResult();
+            final int docBase = leafReaderContexts.get(i).docBase;
+            for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
+                scoreDoc.doc += docBase;
+            }
+            System.arraycopy(leafTopDocs.scoreDocs, 0, scoreDocs, j, leafTopDocs.scoreDocs.length);
+            j += leafTopDocs.scoreDocs.length;
+        }
+        // We don't need to sort docs by score as `DocAndScoreQuery` will sort them by doc id anyway, sorting is redundant.
+        final TopDocs topK = new TopDocs(new TotalHits(totalResultSize, TotalHits.Relation.EQUAL_TO), scoreDocs);
+
+        // Return DocAndScoreQuery$Weight
         return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
     }
 

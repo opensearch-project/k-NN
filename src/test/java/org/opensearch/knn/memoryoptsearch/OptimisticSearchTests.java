@@ -198,10 +198,6 @@ public class OptimisticSearchTests {
             }
         }
         answerScores.sort((a, b) -> Float.compare(b, a));
-        if (numSegments > 0) {
-            // Only take top-k for non-empty segment.
-            answerScores = answerScores.subList(0, DEFAULT_K);
-        }
 
         // Collect scores and sort them in desc.
         final List<Float> acquiredScores = new ArrayList<>();
