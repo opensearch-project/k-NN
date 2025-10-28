@@ -7,6 +7,7 @@ package org.opensearch.knn.search.processor.mmr;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponseSections;
@@ -26,11 +27,10 @@ import org.opensearch.search.profile.SearchProfileShardResults;
 import java.io.IOException;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -170,7 +170,7 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
     ) {
         Map<String, Object> vectors = new ConcurrentHashMap<>();
 
-        hits.parallelStream().forEach(hit -> {
+        for (SearchHit hit : hits) {
             String vectorPath = defaultVectorFieldPath;
 
             if (indexToVectorFieldPathMap != null) {
@@ -182,7 +182,7 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
 
             Object embedding = extractVectorFromHit(hit.getSourceAsMap(), vectorPath, hit.getId(), isFloatVector);
             vectors.put(hit.getId(), embedding);
-        });
+        }
 
         return vectors;
     }
@@ -196,11 +196,14 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
         boolean isFloatVector
     ) {
         List<SearchHit> selected = new ArrayList<>();
-        Map<String, Float> simCache = new ConcurrentHashMap<>();
+        Map<String, Float> simCache = new HashMap<>();
 
         while (selected.size() < targetSize && !candidates.isEmpty()) {
 
-            Optional<SearchHit> bestCandidateOpt = candidates.parallelStream().max(Comparator.comparingDouble(candidate -> {
+            Pair<SearchHit, Double> bestCandidate = null;
+            double bestScore = Double.NEGATIVE_INFINITY;
+
+            for (SearchHit candidate : candidates) {
                 String candidateId = candidate.getId();
                 float maxSimToSelected = 0.0f;
 
@@ -221,11 +224,15 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
                     maxSimToSelected = Math.max(maxSimToSelected, sim);
                 }
 
-                return (1 - diversity) * candidate.getScore() - diversity * maxSimToSelected;
-            }));
+                double score = (1 - diversity) * candidate.getScore() - diversity * maxSimToSelected;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestCandidate = Pair.of(candidate, score);
+                }
+            }
 
-            if (bestCandidateOpt.isPresent()) {
-                SearchHit bestHit = bestCandidateOpt.get();
+            if (bestCandidate != null) {
+                SearchHit bestHit = bestCandidate.getLeft();
                 selected.add(bestHit);
                 candidates.remove(bestHit);
             }
