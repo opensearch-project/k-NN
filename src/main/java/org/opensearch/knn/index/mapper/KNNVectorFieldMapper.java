@@ -205,7 +205,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNConstants.MULTI_VECTOR_PARAMETER,
             false,
             m -> toType(m).originalMappingParameters.getMultiVector(),
-            false).acceptsNull();
+            false
+        ).acceptsNull();
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
@@ -350,7 +351,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     ignoreMalformed,
                     false,
                     hasDocValues.get(),
-                    originalParameters);
+                    originalParameters
+                );
             }
 
             return EngineFieldMapper.createFieldMapper(

@@ -44,10 +44,9 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Index a document with a multi-vector (nested array of vectors)
         float[][] multiVector = new float[][] {
-            {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f},
-            {9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f},
-            {17.0f, 18.0f, 19.0f, 20.0f, 21.0f, 22.0f, 23.0f, 24.0f}
-        };
+            { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f },
+            { 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f },
+            { 17.0f, 18.0f, 19.0f, 20.0f, 21.0f, 22.0f, 23.0f, 24.0f } };
 
         IndexResponse response = indexMultiVectorDocument(indexName, TEST_FIELD_NAME, multiVector);
         assertEquals(RestStatus.CREATED, response.status());
@@ -61,18 +60,16 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Index first document with ID 1
         float[][] multiVector1 = new float[][] {
-            {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-            {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f}
-        };
+            { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f },
+            { 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f } };
         IndexResponse response1 = indexMultiVectorDocument(indexName, TEST_FIELD_NAME, multiVector1, 1);
         assertEquals(RestStatus.CREATED, response1.status());
 
         // Index second document with ID 2
         float[][] multiVector2 = new float[][] {
-            {3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f},
-            {4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f},
-            {5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f}
-        };
+            { 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f },
+            { 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f },
+            { 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f } };
         IndexResponse response2 = indexMultiVectorDocument(indexName, TEST_FIELD_NAME, multiVector2, 2);
         assertEquals(RestStatus.CREATED, response2.status());
     }
@@ -85,14 +82,10 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Try to index a document with wrong dimension
         float[][] incorrectMultiVector = new float[][] {
-            {1.0f, 2.0f, 3.0f}, // Only 3 dimensions instead of 8
-            {4.0f, 5.0f, 6.0f}
-        };
+            { 1.0f, 2.0f, 3.0f }, // Only 3 dimensions instead of 8
+            { 4.0f, 5.0f, 6.0f } };
 
-        expectThrows(
-            MapperParsingException.class,
-            () -> indexMultiVectorDocument(indexName, TEST_FIELD_NAME, incorrectMultiVector)
-        );
+        expectThrows(MapperParsingException.class, () -> indexMultiVectorDocument(indexName, TEST_FIELD_NAME, incorrectMultiVector));
     }
 
     @SneakyThrows
@@ -103,10 +96,7 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Try to index a single vector instead of multi-vector
         IndexRequest request = new IndexRequest(indexName).source(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .array(TEST_FIELD_NAME, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f)
-                .endObject()
+            XContentFactory.jsonBuilder().startObject().array(TEST_FIELD_NAME, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).endObject()
         ).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
         expectThrows(MapperParsingException.class, () -> client().index(request).actionGet());
@@ -120,10 +110,7 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Index a document without the multi-vector field (empty)
         IndexRequest request = new IndexRequest(indexName).source(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .field("other_field", "value")
-                .endObject()
+            XContentFactory.jsonBuilder().startObject().field("other_field", "value").endObject()
         ).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
         IndexResponse response = client().index(request).actionGet();
@@ -138,20 +125,18 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Document with ID 100 and 2 vectors
         float[][] smallMultiVector = new float[][] {
-            {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-            {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f}
-        };
+            { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f },
+            { 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f } };
         IndexResponse response1 = indexMultiVectorDocument(indexName, TEST_FIELD_NAME, smallMultiVector, 100);
         assertEquals(RestStatus.CREATED, response1.status());
 
         // Document with ID 200 and 5 vectors
         float[][] largeMultiVector = new float[][] {
-            {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-            {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f},
-            {3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f},
-            {4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f},
-            {5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f}
-        };
+            { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f },
+            { 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f },
+            { 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f },
+            { 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f, 4.0f },
+            { 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f } };
         IndexResponse response2 = indexMultiVectorDocument(indexName, TEST_FIELD_NAME, largeMultiVector, 200);
         assertEquals(RestStatus.CREATED, response2.status());
     }
@@ -182,9 +167,7 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
         OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
 
         // Verify indexing works
-        float[][] multiVector = new float[][] {
-            {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f}
-        };
+        float[][] multiVector = new float[][] { { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f } };
         IndexResponse response = indexMultiVectorDocument(indexName, TEST_FIELD_NAME, multiVector);
         assertEquals(RestStatus.CREATED, response.status());
     }
@@ -199,9 +182,8 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Index document and verify
         float[][] multiVector = new float[][] {
-            {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f},
-            {9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}
-        };
+            { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f },
+            { 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f } };
         IndexResponse response = indexMultiVectorDocument(indexName, TEST_FIELD_NAME, multiVector);
         assertEquals(RestStatus.CREATED, response.status());
     }
@@ -214,10 +196,9 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         // Index document with multi-vector, ID, and additional metadata
         float[][] multiVector = new float[][] {
-            {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f},
-            {9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f},
-            {17.0f, 18.0f, 19.0f, 20.0f, 21.0f, 22.0f, 23.0f, 24.0f}
-        };
+            { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f },
+            { 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f },
+            { 17.0f, 18.0f, 19.0f, 20.0f, 21.0f, 22.0f, 23.0f, 24.0f } };
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
 
@@ -244,8 +225,7 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         builder.endObject();
 
-        IndexRequest request = new IndexRequest(indexName).source(builder)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        IndexRequest request = new IndexRequest(indexName).source(builder).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
         IndexResponse response = client().index(request).actionGet();
         assertEquals(RestStatus.CREATED, response.status());
@@ -333,8 +313,7 @@ public class LateInteractionFieldMapperTests extends KNNSingleNodeTestCase {
 
         builder.endObject();
 
-        IndexRequest request = new IndexRequest(indexName).source(builder)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        IndexRequest request = new IndexRequest(indexName).source(builder).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
         return client().index(request).actionGet();
     }

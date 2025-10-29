@@ -1496,7 +1496,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     null,
                     SpaceType.UNDEFINED.getValue(),
                     KNNEngine.UNDEFINED.getName(),
-                false
+                    false
                 );
                 originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
                 EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
