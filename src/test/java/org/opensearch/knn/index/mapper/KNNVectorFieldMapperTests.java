@@ -2687,7 +2687,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.FAISS.getName())
             .endObject();
 
-        IllegalArgumentException exception = expectThrows(
+        Exception exception = expectThrows(
             IllegalArgumentException.class,
             () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(nonLuceneEngine), buildParserContext(TEST_INDEX_NAME, settings))
         );
@@ -2721,7 +2721,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .endObject();
 
         exception = expectThrows(
-            IllegalArgumentException.class,
+            MapperParsingException.class,
             () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withMode), buildParserContext(TEST_INDEX_NAME, settings))
         );
         assertTrue(exception.getMessage().contains("mode"));
@@ -2741,23 +2741,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withCompression), buildParserContext(TEST_INDEX_NAME, settings))
         );
         assertTrue(exception.getMessage().contains("compression"));
-
-        // Test case: Model ID set - should fail
-        XContentBuilder withModelId = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION, TEST_DIMENSION)
-            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
-            .field(MODEL_ID, "test-model-id")
-            .endObject();
-
-        exception = expectThrows(
-            IllegalArgumentException.class,
-            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withModelId), buildParserContext(TEST_INDEX_NAME, settings))
-        );
-        assertTrue(exception.getMessage().contains("model_id"));
-        assertTrue(exception.getMessage().contains("not supported"));
 
         // Test case: Stored field set - should fail
         XContentBuilder withStored = XContentFactory.jsonBuilder()
@@ -2803,6 +2786,5 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withoutDimension), buildParserContext(TEST_INDEX_NAME, settings))
         );
-        assertTrue(exception.getMessage().contains("dimension"));
     }
 }

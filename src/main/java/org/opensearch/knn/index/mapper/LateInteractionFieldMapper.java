@@ -127,7 +127,6 @@ public class LateInteractionFieldMapper extends KNNVectorFieldMapper {
         // TODO: we can avoid a double copy here by changing Lucene to accept a List
         context.doc().addAll(getFieldsForMultiVector(multiVector.toArray(new float[0][])));
 
-        context.path().remove();
     }
 
     protected List<Field> getFieldsForMultiVector(float[][] multiVector) {
@@ -169,6 +168,8 @@ public class LateInteractionFieldMapper extends KNNVectorFieldMapper {
                 throw new IllegalArgumentException("Malformed input to multi-vector field. Nested array of floats expected.");
             }
         }
+
+        context.path().remove();
         if (multiVector.isEmpty() == true) {
             return Optional.empty();
         }

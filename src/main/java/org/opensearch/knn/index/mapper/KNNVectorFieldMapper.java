@@ -610,18 +610,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 validateDimensionSet(builder);
                 validateCompressionAndModeNotSet(builder, builder.name(), "multi_vector");
 
-                if (builder.modelId.isConfigured()) {
-                    throw new IllegalArgumentException(
-                        String.format(
-                            Locale.ROOT,
-                            "Field: %s configured as multi-vector with model_id: %s. Configuring model_id for multi_vector fields is not supported",
-                            builder.name(),
-                            builder.modelId.getValue()
-                        )
-                    );
-                }
-
-                // TODO: do we need to support stored fields?
                 if (builder.stored.get() == true) {
                     throw new IllegalArgumentException(
                         String.format(
