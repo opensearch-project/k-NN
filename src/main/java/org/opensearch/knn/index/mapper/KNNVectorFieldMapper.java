@@ -306,6 +306,31 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
+            // TODO: Do we need any index version checks here?
+            if (originalParameters.getMultiVector() == true) {
+                hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
+                if (hasDocValues.get() == false) {
+                    throw new IllegalArgumentException("Late Interaction field requires doc values. Expected: docValues=true, Found: docValues=false");
+                }
+                return LateInteractionFieldMapper.createFieldMapper(
+                    buildFullName(context),
+                    name,
+                    metaValue,
+                    KNNMethodConfigContext.builder()
+                        .vectorDataType(vectorDataType.getValue())
+                        .versionCreated(indexCreatedVersion)
+                        .dimension(dimension.getValue())
+                        .multiVector(true)
+                        .build(),
+                    multiFieldsBuilder,
+                    copyToBuilder,
+                    ignoreMalformed,
+                    false,
+                    hasDocValues.get(),
+                    originalParameters
+                );
+            }
+
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
             // EngineFieldMapper to maintain backwards compatibility
             if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
@@ -329,27 +354,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     copyToBuilder,
                     ignoreMalformed,
                     stored.get(),
-                    hasDocValues.get(),
-                    originalParameters
-                );
-            }
-
-            // TODO: Do we need any index version checks here?
-            if (originalParameters.getMultiVector() == true) {
-                return LateInteractionFieldMapper.createFieldMapper(
-                    buildFullName(context),
-                    name,
-                    metaValue,
-                    KNNMethodConfigContext.builder()
-                        .vectorDataType(vectorDataType.getValue())
-                        .versionCreated(indexCreatedVersion)
-                        .dimension(dimension.getValue())
-                        .multiVector(true)
-                        .build(),
-                    multiFieldsBuilder,
-                    copyToBuilder,
-                    ignoreMalformed,
-                    false,
                     hasDocValues.get(),
                     originalParameters
                 );

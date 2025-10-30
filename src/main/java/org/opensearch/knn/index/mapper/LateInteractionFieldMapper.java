@@ -163,6 +163,7 @@ public class LateInteractionFieldMapper extends KNNVectorFieldMapper {
                         "Dimension mismatch for composing vectors in provided multi-vector. Expected: " + dimension + ", Found: " + i
                     );
                 }
+                multiVector.add(vector);
                 token = context.parser().nextToken();
             }
             if (token != XContentParser.Token.END_ARRAY) {
@@ -174,7 +175,6 @@ public class LateInteractionFieldMapper extends KNNVectorFieldMapper {
         if (multiVector.isEmpty() == true) {
             return Optional.empty();
         }
-        // TODO: assert for tests, can remove later
         for (float[] v : multiVector) {
             assert v.length == dimension : "Nested vector dimension=" + v.length + " does not match configured dimension=" + dimension;
         }
