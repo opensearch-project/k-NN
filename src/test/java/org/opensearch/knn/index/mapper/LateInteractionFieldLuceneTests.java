@@ -57,7 +57,7 @@ public class LateInteractionFieldLuceneTests extends KNNSingleNodeTestCase {
         List<float[][]> corpus = new ArrayList<>();
         int numDocs = 10;
         for (int i = 0; i < numDocs; i++) {
-            corpus.add(randomMultiVector(randomIntBetween(1,5), TEST_DIMENSION));
+            corpus.add(randomMultiVector(randomIntBetween(1, 5), TEST_DIMENSION));
             indexMultiVectorDocument(i, corpus.get(i));
         }
         client().admin().indices().prepareFlush(TEST_INDEX_NAME).execute().actionGet();
@@ -77,19 +77,10 @@ public class LateInteractionFieldLuceneTests extends KNNSingleNodeTestCase {
                     float[][] expectedMultiVector = corpus.get(id);
 
                     assertNotNull("Decoded multi-vector should not be null", decodedMultiVector);
-                    assertEquals(
-                        "Number of vectors should match",
-                        expectedMultiVector.length,
-                        decodedMultiVector.length
-                    );
+                    assertEquals("Number of vectors should match", expectedMultiVector.length, decodedMultiVector.length);
 
                     for (int i = 0; i < expectedMultiVector.length; i++) {
-                        assertArrayEquals(
-                            "Vector " + i + " should match",
-                            expectedMultiVector[i],
-                            decodedMultiVector[i],
-                            0.0001f
-                        );
+                        assertArrayEquals("Vector " + i + " should match", expectedMultiVector[i], decodedMultiVector[i], 0.0001f);
                     }
                 }
             }
@@ -100,7 +91,7 @@ public class LateInteractionFieldLuceneTests extends KNNSingleNodeTestCase {
         IndexService indexService = createKNNIndex(TEST_INDEX_NAME);
         createMultiVectorMapping();
         float[][] wrongDimMultiVector = randomMultiVector(3, TEST_DIMENSION - 1);
-        float[][] incorrectMultiVector = {{1,2,3,4,5,6,7,8},{2,3}};
+        float[][] incorrectMultiVector = { { 1, 2, 3, 4, 5, 6, 7, 8 }, { 2, 3 } };
         Exception e = expectThrows(Exception.class, () -> indexMultiVectorDocument(0, incorrectMultiVector));
         assertTrue(e.getCause() instanceof MapperParsingException);
         e = expectThrows(Exception.class, () -> indexMultiVectorDocument(0, wrongDimMultiVector));
@@ -134,9 +125,7 @@ public class LateInteractionFieldLuceneTests extends KNNSingleNodeTestCase {
             .endObject();
 
         request.source(builder);
-        OpenSearchAssertions.assertAcked(
-            client().admin().indices().putMapping(request).actionGet()
-        );
+        OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
     }
 
     @SneakyThrows
@@ -155,10 +144,7 @@ public class LateInteractionFieldLuceneTests extends KNNSingleNodeTestCase {
         builder.field(DOC_ID_FIELD_NAME, docId);
         builder.endObject();
 
-        IndexRequest indexRequest = new IndexRequest()
-            .index(TEST_INDEX_NAME)
-            .id(Integer.toString(docId))
-            .source(builder);
+        IndexRequest indexRequest = new IndexRequest().index(TEST_INDEX_NAME).id(Integer.toString(docId)).source(builder);
 
         IndexResponse response = client().index(indexRequest).get();
         assertEquals(RestStatus.CREATED, response.status());

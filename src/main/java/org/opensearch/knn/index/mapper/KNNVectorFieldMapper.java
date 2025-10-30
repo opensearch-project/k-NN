@@ -310,7 +310,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (originalParameters.getMultiVector() == true) {
                 hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
                 if (hasDocValues.get() == false) {
-                    throw new IllegalArgumentException("Late Interaction field requires doc values. Expected: docValues=true, Found: docValues=false");
+                    throw new IllegalArgumentException(
+                        "Late Interaction field requires doc values. Expected: docValues=true, Found: docValues=false"
+                    );
                 }
                 return LateInteractionFieldMapper.createFieldMapper(
                     buildFullName(context),
