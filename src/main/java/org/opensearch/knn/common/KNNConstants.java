@@ -163,6 +163,13 @@ public class KNNConstants {
 
     public static final String COMMON_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + COMMONS_NAME;
 
+    // SIMD computation related shared library
+    private static final String SIMD_COMPUTING_JNI_SUFFIX = "simd";
+    public static final String DEFAULT_SIMD_COMPUTING_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_COMPUTING_JNI_SUFFIX;
+    public static final String SIMD_COMPUTING_AVX2_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_COMPUTING_JNI_SUFFIX + "_avx2";
+    public static final String SIMD_COMPUTING_AVX512_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_COMPUTING_JNI_SUFFIX + "_avx512";
+    public static final String SIMD_COMPUTING_AVX512_SPR_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + SIMD_COMPUTING_JNI_SUFFIX + "_avx512_spr";
+
     // API Constants
     public static final String CLEAR_CACHE = "clear_cache";
 

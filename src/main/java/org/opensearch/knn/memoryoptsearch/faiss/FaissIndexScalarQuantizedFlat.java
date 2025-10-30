@@ -12,6 +12,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructor;
 import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizedValueReconstructorFactory;
 import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizerType;
@@ -126,6 +127,29 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
             }
         }
 
+        if (quantizerType == FaissQuantizerType.QT_FP16) {
+            // Faiss SIMD bulk only supported for FP16 for now.
+            final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
+                indexInput,
+                flatVectors.getBaseOffset(),
+                flatVectors.getSectionSize()
+            );
+            if (addressAndSize != null) {
+                // Return MMapByteVectorValues having pointers pointing to mmap regions.
+                return new MMapFloatVectorValues(
+                    indexInput,
+                    oneVectorByteSize,
+                    flatVectors.getBaseOffset(),
+                    dimension,
+                    totalNumberOfVectors,
+                    addressAndSize,
+                    reconstructor
+                );
+            } else {
+                log.debug("Failed to extract mapped pointers from IndexInput, falling back to FloatVectorValuesImpl.");
+            }
+        }
+
         return new FloatVectorValuesImpl(indexInput);
     }
 
@@ -160,6 +184,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
             }
         }
 
+        // Return default implementation
         return new ByteVectorValuesImpl(indexInput);
     }
 
