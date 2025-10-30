@@ -20,4 +20,20 @@
 #define RESTRICT
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+/**
+ * Generic wrapper for GCC/Clang's __builtin_assume_aligned.
+ * This tells the compiler that 'ptr' is guaranteed to be aligned to 'align' bytes.
+ */
+#define BUILTIN_ASSUME_ALIGNED(ptr, align) \
+    (typeof(ptr))__builtin_assume_aligned((ptr), (align))
+#else
+
+/**
+ * Fallback for other compilers (e.g., MSVC or others without __builtin_assume_aligned).
+ * Returns the original pointer, relying on explicit aligned intrinsics like _mm512_load_ps.
+ */
+#define BUILTIN_ASSUME_ALIGNED(ptr, align) (ptr)
+#endif
+
 #endif //KNNPLUGIN_JNI_INCLUDE_MEMORY_UTIL_H_
