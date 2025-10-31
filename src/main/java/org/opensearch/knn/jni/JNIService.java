@@ -30,7 +30,7 @@ public class JNIService {
 
     /**
      * Initialize an index for the native library. Takes in numDocs to
-     * allocate the correct amount of memory.
+     * allocate the correct amount of memory. empty commit to trigger CI
      *
      * @param numDocs    number of documents to be added
      * @param dim        dimension of the vector to be indexed
@@ -44,6 +44,7 @@ public class JNIService {
                 return FaissService.initBinaryIndex(numDocs, dim, parameters);
             }
             if (IndexUtil.isByteIndex(parameters)) {
+                
                 return FaissService.initByteIndex(numDocs, dim, parameters);
             }
 
