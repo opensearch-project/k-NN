@@ -334,7 +334,7 @@ public abstract class KNNWeight extends Weight {
 
         final StopWatch annStopWatch = startStopWatch(log);
         final TopDocs topDocs = approximateSearch(context, filterBitSet, filterCardinality, k);
-        stopStopWatchAndLog(log, stopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
+        stopStopWatchAndLog(log, annStopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
