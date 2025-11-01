@@ -51,7 +51,22 @@ public abstract class BaseQueryFactory {
         @NonNull
         private String indexName;
         private String fieldName;
+        /**
+         * Holds the vector that will actually be used for search.
+         *
+         * <p>This may be the same as {@code originalVector}, or it may be a transformed
+         * version of it depending on the requested similarity function or engine behavior.
+         * For example, when cosine similarity is used, the vector may be L2-normalized
+         * before search, in which case this field contains the normalized result.
+         */
         private float[] vector;
+        /**
+         * The original query vector provided by the user before any transformation.
+         *
+         * <p>This value is kept so the internal logic can access the unmodified
+         * user input vector even if {@code vector} has been transformed. If no transformation
+         * is required, {@code vector} and {@code originalVector} may refer to the same data.
+         */
         private float[] originalVector;
         private byte[] byteVector;
         private VectorDataType vectorDataType;
