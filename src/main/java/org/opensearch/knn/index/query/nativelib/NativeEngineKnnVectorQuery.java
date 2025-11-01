@@ -27,17 +27,17 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
+import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.memoryoptsearch.optimistic.OptimisticSearchStrategyUtils;
-import org.opensearch.lucene.ReentrantKnnCollectorManager;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
+import org.opensearch.lucene.ReentrantKnnCollectorManager;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
@@ -116,7 +116,14 @@ public class NativeEngineKnnVectorQuery extends Query {
             long rescoreTime = stopWatch.stop().totalTime().millis();
             log.debug("Rescoring results took {} ms. oversampled k:{}, segments:{}", rescoreTime, firstPassK, leafReaderContexts.size());
         }
-        ResultUtil.reduceToTopK(perLeafResults, finalK);
+
+        // Since memory optimized search is using this class, we need to return the same totalHits value when it's disabled.
+        // e.g. Let's say we got 100 result per each segment where #segments=3, then 300 should be returned as total hit.
+        // Therefore, when memory optimized search is enabled, we should skip taking top-k and return whatever we got from approximate
+        // search.
+        if (knnQuery.isMemoryOptimizedSearch() == false) {
+            ResultUtil.reduceToTopK(perLeafResults, finalK);
+        }
 
         if (expandNestedDocs) {
             StopWatch stopWatch = new StopWatch().start();
@@ -142,6 +149,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
+
         return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
     }
 
@@ -157,15 +165,15 @@ public class NativeEngineKnnVectorQuery extends Query {
      * @return the total number of documents in the topDocs
      */
     private int getTotalTopDoc(TopDocs[] topDocs) {
-        if (expandNestedDocs == false) {
-            return knnQuery.getK();
+        if (knnQuery.isMemoryOptimizedSearch() || expandNestedDocs) {
+            int sum = 0;
+            for (TopDocs topDoc : topDocs) {
+                sum += topDoc.scoreDocs.length;
+            }
+            return sum;
         }
 
-        int sum = 0;
-        for (TopDocs topDoc : topDocs) {
-            sum += topDoc.scoreDocs.length;
-        }
-        return sum;
+        return knnQuery.getK();
     }
 
     /**

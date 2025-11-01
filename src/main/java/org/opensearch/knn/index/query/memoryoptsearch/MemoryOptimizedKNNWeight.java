@@ -15,6 +15,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorManager;
 import org.apache.lucene.search.knn.KnnCollectorManager;
@@ -203,7 +204,11 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
 
         // Make results to return
-        final TopDocs topDocs = knnCollector.topDocs();
+        TopDocs topDocs = knnCollector.topDocs();
+        // Align `hitCount` logic with the non-memory-optimized path by setting it to the size of the result set.
+        // Note: DefaultKNNWeight defines `hitCount` as the number of results returned per Lucene segment,
+        // while Lucene’s implementation interprets it as the total number of vectors visited during search.
+        topDocs = new TopDocs(new TotalHits(topDocs.scoreDocs.length, TotalHits.Relation.EQUAL_TO), topDocs.scoreDocs);
         if (topDocs.scoreDocs.length == 0) {
             log.debug("[KNN] Query yielded 0 results");
             return EMPTY_TOPDOCS;

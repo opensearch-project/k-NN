@@ -67,6 +67,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final String fieldName = createQueryRequest.getFieldName();
         final Float radius = createQueryRequest.getRadius();
         final float[] vector = createQueryRequest.getVector();
+        final float[] originalVector = createQueryRequest.getOriginalVector();
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
@@ -86,6 +87,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
             return KNNQuery.builder()
                 .field(fieldName)
                 .queryVector(vector)
+                .originalQueryVector(originalVector)
                 .byteQueryVector(byteVector)
                 .indexName(indexName)
                 .parentsFilter(parentFilter)

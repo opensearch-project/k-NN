@@ -47,6 +47,7 @@ public class KNNQuery extends Query {
 
     private final String field;
     private final float[] queryVector;
+    private final float[] originalQueryVector;
     private final byte[] byteQueryVector;
     private int k;
     private Map<String, ?> methodParameters;
@@ -139,6 +140,7 @@ public class KNNQuery extends Query {
         this.parentsFilter = parentsFilter;
         this.vectorDataType = vectorDataType;
         this.rescoreContext = rescoreContext;
+        this.originalQueryVector = queryVector;
     }
 
     /**
