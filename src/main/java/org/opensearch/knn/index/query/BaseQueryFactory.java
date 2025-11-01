@@ -52,6 +52,7 @@ public abstract class BaseQueryFactory {
         private String indexName;
         private String fieldName;
         private float[] vector;
+        private float[] originalVector;
         private byte[] byteVector;
         private VectorDataType vectorDataType;
         private Map<String, ?> methodParameters;

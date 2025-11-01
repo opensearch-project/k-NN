@@ -49,7 +49,7 @@ public class PlatformUtils {
      * 4. If the operating system is linux, read the '/proc/cpuinfo' file path and verify if
      *    the flags contains 'avx2' and return true if it exists else false.
      */
-    public static boolean isAVX2SupportedBySystem() {
+    public synchronized static boolean isAVX2SupportedBySystem() {
         if (isAVX2Supported != null) {
             return isAVX2Supported;
         }
@@ -100,14 +100,14 @@ public class PlatformUtils {
         return isAVX2Supported != null ? isAVX2Supported : false;
     }
 
-    public static boolean isAVX512SupportedBySystem() {
+    public static synchronized boolean isAVX512SupportedBySystem() {
         if (isAVX512Supported == null) {
             isAVX512Supported = areAVX512FlagsAvailable(new String[] { "avx512f", "avx512cd", "avx512vl", "avx512dq", "avx512bw" });
         }
         return isAVX512Supported;
     }
 
-    public static boolean isAVX512SPRSupportedBySystem() {
+    public static synchronized boolean isAVX512SPRSupportedBySystem() {
         if (isAVX512SPRSupported == null) {
             isAVX512SPRSupported = areAVX512FlagsAvailable(new String[] { "avx512_fp16", "avx512_bf16", "avx512_vpopcntdq" });
         }

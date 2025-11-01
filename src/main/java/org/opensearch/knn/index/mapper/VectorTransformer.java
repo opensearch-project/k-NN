@@ -17,10 +17,11 @@ public interface VectorTransformer {
      * @param vector The input vector to transform (must not be null)
      * @throws IllegalArgumentException if the input vector is null
      */
-    default void transform(final float[] vector) {
+    default float[] transform(final float[] vector, final boolean inplaceUpdate) {
         if (vector == null) {
             throw new IllegalArgumentException("Input vector cannot be null");
         }
+        return vector;
     }
 
     /**

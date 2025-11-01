@@ -137,7 +137,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
@@ -199,11 +198,9 @@ public class KNNPlugin extends Plugin
     private final Map<String, MMRQueryTransformer<? extends QueryBuilder>> mmrQueryTransformers = new HashMap<>();
 
     static {
-        ForkJoinPool.commonPool().execute(() -> {
-            PlatformUtils.isAVX2SupportedBySystem();
-            PlatformUtils.isAVX512SupportedBySystem();
-            PlatformUtils.isAVX512SPRSupportedBySystem();
-        });
+        PlatformUtils.isAVX2SupportedBySystem();
+        PlatformUtils.isAVX512SupportedBySystem();
+        PlatformUtils.isAVX512SPRSupportedBySystem();
     }
 
     @Override

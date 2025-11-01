@@ -6,6 +6,8 @@ package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.util.VectorUtil;
 
+import java.util.Arrays;
+
 /**
  * Normalizes vectors using L2 (Euclidean) normalization, ensuring the vector's
  * magnitude becomes 1 while preserving its directional properties.
@@ -13,9 +15,15 @@ import org.apache.lucene.util.VectorUtil;
 public class NormalizeVectorTransformer implements VectorTransformer {
 
     @Override
-    public void transform(float[] vector) {
+    public float[] transform(final float[] vector, final boolean inplaceUpdate) {
         validateVector(vector);
-        VectorUtil.l2normalize(vector);
+        if (inplaceUpdate) {
+            // Normalize the given vector in-place.
+            return VectorUtil.l2normalize(vector);
+        } else {
+            // Create a new one and do normalization then returns it.
+            return VectorUtil.l2normalize(Arrays.copyOf(vector, vector.length));
+        }
     }
 
     /**

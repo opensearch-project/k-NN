@@ -443,7 +443,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
         RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
-        knnVectorFieldType.transformQueryVector(vector);
+        // Transform the query vector if it's required. It will return `vector` itself if transform is not needed.
+        // Otherwise, it will return a new transformed vector.
+        final float[] transformedQueryVector = knnVectorFieldType.transformQueryVector(vector);
 
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         final String indexName = context.index().getName();
@@ -518,7 +520,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
 
-        int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
+        final int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
         if (knnMappingConfig.getDimension() != vectorLength) {
             throw new IllegalArgumentException(
                 String.format(
@@ -569,8 +571,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine))
-                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
+                .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
+                .originalVector(vector)
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
@@ -587,8 +590,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine))
-                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
+                .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
+                .originalVector(vector)
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
                 .vectorDataType(vectorDataType)
                 .radius(radius)
                 .methodParameters(this.methodParameters)
@@ -679,14 +683,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
     }
 
-    private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
+    private float[] getFloatVectorForCreatingQueryRequest(
+        final float[] transformedVector,
+        VectorDataType vectorDataType,
+        KNNEngine knnEngine
+    ) {
+
         if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
-            return this.vector;
+            return transformedVector;
         }
         return null;
     }
 
-    private byte[] getVectorForCreatingQueryRequest(
+    private byte[] getByteVectorForCreatingQueryRequest(
         VectorDataType vectorDataType,
         KNNEngine knnEngine,
         byte[] byteVector,

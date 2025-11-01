@@ -23,6 +23,8 @@ public final class VectorTransformerFactory {
     public final static VectorTransformer NOOP_VECTOR_TRANSFORMER = new VectorTransformer() {
     };
 
+    private final static NormalizeVectorTransformer DEFAULT_VECTOR_TRANSFORMER = new NormalizeVectorTransformer();
+
     /**
      * Returns a vector transformer based on the provided KNN engine and space type.
      * For FAISS engine with cosine similarity space type, returns a NormalizeVectorTransformer
@@ -34,7 +36,7 @@ public final class VectorTransformerFactory {
      * @return VectorTransformer An appropriate vector transformer instance
      */
     public static VectorTransformer getVectorTransformer(final KNNEngine knnEngine, final SpaceType spaceType) {
-        return shouldNormalizeVector(knnEngine, spaceType) ? new NormalizeVectorTransformer() : NOOP_VECTOR_TRANSFORMER;
+        return shouldNormalizeVector(knnEngine, spaceType) ? DEFAULT_VECTOR_TRANSFORMER : NOOP_VECTOR_TRANSFORMER;
     }
 
     private static boolean shouldNormalizeVector(final KNNEngine knnEngine, final SpaceType spaceType) {
