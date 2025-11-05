@@ -5,11 +5,11 @@
 
 package org.opensearch.knn.index;
 
-import junit.framework.TestCase;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.util.Version;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
@@ -20,7 +20,7 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
-public class KNNIndexShardUnitTests extends TestCase {
+public class KNNIndexShardUnitTests extends KNNTestCase {
     /**
      * Unit test for the determineVectorDataType helper method
      */
