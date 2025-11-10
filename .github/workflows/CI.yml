@@ -35,117 +35,6 @@ jobs:
     with:
       product: opensearch
 
-  Build-k-NN-Linux:
-    strategy:
-      matrix:
-        java: [21, 24]
-
-    env:
-       CC: gcc10-gcc
-       CXX: gcc10-g++
-       FC: gcc10-gfortran
-
-    name: Build and Test k-NN Plugin on Linux
-    runs-on: ubuntu-latest
-    needs: Get-CI-Image-Tag
-    container:
-      # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
-      # this image tag is subject to change as more dependencies and updates will arrive over time
-      image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
-      # need to switch to root so that github actions can install runner binary on container without permission issues.
-      options: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-options }}
-
-    steps:
-      - name: Run start commands
-        run: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-command }}
-
-      - name: Checkout k-NN
-        uses: actions/checkout@v4
-
-      # Setup git user so that patches for native libraries can be applied and committed
-      - name: Setup git user
-        run: |
-          su `id -un 1000` -c 'git config --global user.name "github-actions[bot]"'
-          su `id -un 1000` -c 'git config --global user.email "github-actions[bot]@users.noreply.github.com"'
-
-      - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-
-      - name: Run build
-        # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
-        run: |
-          chown -R 1000:1000 `pwd`
-          if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw          
-          then
-            if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
-            then
-              echo "the system is an Intel(R) Sapphire Rapids or a newer-generation processor"
-              su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx512_spr.enabled=true -Dnproc.count=`nproc`"
-            else
-              echo "avx512 available on system"
-              su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx512_spr.enabled=false -Dnproc.count=`nproc`"
-            fi
-          elif lscpu  | grep -i avx2
-          then
-            echo "avx2 available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`"
-          else
-            echo "avx512 and avx2 not available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`"
-          fi  
-
-
-      - name: Upload Coverage Report
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  Build-k-NN-MacOS:
-    strategy:
-      matrix:
-        java: [21, 24]
-
-    name: Build and Test k-NN Plugin on MacOS
-    needs: Get-CI-Image-Tag
-    runs-on: macos-13
-
-    steps:
-      - name: Checkout k-NN
-        uses: actions/checkout@v4
-
-      # Setup git user so that patches for native libraries can be applied and committed
-      - name: Setup git user
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-
-      - name: Install dependencies on macos
-        run: |
-          brew install libomp
-          brew reinstall gcc
-          export FC=/usr/local/Cellar/gcc/12.2.0/bin/gfortran
-
-      # TODO: Detect processor count and set the value of nproc.count
-      - name: Run build
-        run: |
-          if sysctl -n machdep.cpu.features machdep.cpu.leaf7_features | grep -i AVX2
-          then
-              echo "avx2 available on system"
-              ./gradlew build -Dnproc.count=3
-          else
-              echo "avx2 not available on system"
-              ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Dnproc.count=3
-          fi
-
   Build-k-NN-Windows:
     strategy:
       matrix:
@@ -177,6 +66,11 @@ jobs:
           scoop bucket add main
           scoop install mingw
 
+      - name: Print working directory
+        run: |
+          echo "Current directory: $PWD"
+          dir
+
       - name: Add MinGW to PATH
         run: |
           echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
@@ -202,7 +96,14 @@ jobs:
           rm .\OpenBLAS-0.3.21-x64.zip
           rm -r .\OpenBLAS\
 
+      - name: Add dependent DLLs to PATH
+        run: |
+          echo "${env:RUNNER_WORKSPACE}\k-NN\jni\build\release" >> $env:GITHUB_PATH
+          echo "C:\Users\runneradmin\scoop\apps\mingw\current\bin" >> $env:GITHUB_PATH
+          echo "${{ github.workspace }}\src\main\resources\windowsDependencies" >> $env:GITHUB_PATH
+
       # TODO: Detect processor count and set the value of nproc.count
       - name: Run build
         run: |
           ./gradlew.bat build -D'avx2.enabled=false' -D'avx512.enabled=false' -D'nproc.count=4'
+

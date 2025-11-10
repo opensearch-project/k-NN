@@ -17,9 +17,15 @@ import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX512Disabled;
@@ -40,22 +46,36 @@ class FaissService {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+            try {
+                // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by setting
+                // 'knn.faiss.avx2.disabled', 'knn.faiss.avx512.disabled', or 'knn.faiss.avx512_spr.disabled' to true in the opensearch.yml
+                // configuration
+                if (!isFaissAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
+                    System.loadLibrary(KNNConstants.FAISS_AVX512_SPR_JNI_LIBRARY_NAME);
+                } else if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
+                    System.loadLibrary(KNNConstants.FAISS_AVX512_JNI_LIBRARY_NAME);
+                } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
+                    System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
+                } else {
+                    System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+                }
 
-            // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by setting
-            // 'knn.faiss.avx2.disabled', 'knn.faiss.avx512.disabled', or 'knn.faiss.avx512_spr.disabled' to true in the opensearch.yml
-            // configuration
-            if (!isFaissAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
-                System.loadLibrary(KNNConstants.FAISS_AVX512_SPR_JNI_LIBRARY_NAME);
-            } else if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
-                System.loadLibrary(KNNConstants.FAISS_AVX512_JNI_LIBRARY_NAME);
-            } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
-                System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
-            } else {
-                System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+                initLibrary();
+                KNNEngine.FAISS.setInitialized(true);
+            } catch (Throwable e) {
+                Path root = Paths.get("D:\\a\\k-NN\\k-NN\\jni\\build\\release");
+
+                List<String> sss = null;
+                try {
+                    sss = Files.walk(root)
+                        .filter(Files::isRegularFile)      // only files, skip dirs
+                        .map(path -> "_____________ " + path.toAbsolutePath().toString())
+                        .collect(Collectors.toUnmodifiableList());
+                } catch (IOException ex) {}
+
+                throw new RuntimeException("" + sss);
             }
 
-            initLibrary();
-            KNNEngine.FAISS.setInitialized(true);
             return null;
         });
     }
