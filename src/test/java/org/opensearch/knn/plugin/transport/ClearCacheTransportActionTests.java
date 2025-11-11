@@ -14,6 +14,7 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.IndexService;
+import org.opensearch.knn.KNNCommonSettingsBuilder;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
@@ -33,7 +34,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
         KNNWarmupTransportAction knnWarmupTransportAction = node().injector().getInstance(KNNWarmupTransportAction.class);
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
-        IndexService indexService = createIndex(testIndex, getKNNDefaultIndexSettingsBuildsGraphAlways());
+        IndexService indexService = createIndex(testIndex, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndex, TEST_FIELD, DIMENSIONS);
         addKnnDoc(testIndex, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
         ShardRouting shardRouting = indexService.iterator().next().routingEntry();
@@ -54,7 +55,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
         ClearCacheTransportAction clearCacheTransportAction = node().injector().getInstance(ClearCacheTransportAction.class);
         ClearCacheRequest clearCacheRequest = new ClearCacheRequest(testIndex);
 
-        createKNNIndex(testIndex);
+        createIndex(testIndex, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndex, TEST_FIELD, DIMENSIONS);
         addKnnDoc(testIndex, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
 

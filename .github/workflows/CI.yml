@@ -41,9 +41,9 @@ jobs:
         java: [21, 24]
 
     env:
-       CC: gcc10-gcc
-       CXX: gcc10-g++
-       FC: gcc10-gfortran
+      CC: gcc10-gcc
+      CXX: gcc10-g++
+      FC: gcc10-gfortran
 
     name: Build and Test k-NN Plugin on Linux
     runs-on: ubuntu-latest
@@ -110,7 +110,7 @@ jobs:
 
     name: Build and Test k-NN Plugin on MacOS
     needs: Get-CI-Image-Tag
-    runs-on: macos-13
+    runs-on: macos-15
 
     steps:
       - name: Checkout k-NN
@@ -177,6 +177,11 @@ jobs:
           scoop bucket add main
           scoop install mingw
 
+      - name: Print working directory
+        run: |
+          echo "Current directory: $PWD"
+          dir
+
       - name: Add MinGW to PATH
         run: |
           echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
@@ -201,6 +206,12 @@ jobs:
           cp ./OpenBLAS/bin/libopenblas.dll ./src/main/resources/windowsDependencies/
           rm .\OpenBLAS-0.3.21-x64.zip
           rm -r .\OpenBLAS\
+
+      - name: Add dependent DLLs to PATH
+        run: |
+          echo "${env:RUNNER_WORKSPACE}\k-NN\jni\build\release" >> $env:GITHUB_PATH
+          echo "C:\Users\runneradmin\scoop\apps\mingw\current\bin" >> $env:GITHUB_PATH
+          echo "${{ github.workspace }}\src\main\resources\windowsDependencies" >> $env:GITHUB_PATH
 
       # TODO: Detect processor count and set the value of nproc.count
       - name: Run build

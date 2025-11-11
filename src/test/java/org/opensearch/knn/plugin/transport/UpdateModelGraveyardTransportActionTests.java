@@ -13,6 +13,7 @@ import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.KNNCommonSettingsBuilder;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.exception.DeleteModelException;
@@ -241,7 +242,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
 
         // Create k-NN index not using the model
         String testIndex2 = "test-index2";
-        createKNNIndex(testIndex2);
+        createIndex(testIndex2, KNNCommonSettingsBuilder.defaultSettings().build());
 
         // Attempt to add model id to graveyard with one non-knn index and one k-nn index not using model present, should succeed
         updateModelGraveyardAndAssertNoError(updateModelGraveyardTransportAction, addModelGraveyardRequest);

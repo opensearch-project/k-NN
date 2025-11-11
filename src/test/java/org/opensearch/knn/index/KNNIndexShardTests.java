@@ -15,6 +15,7 @@ import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.mockito.Mockito;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.KNNCommonSettingsBuilder;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.shard.IndexShard;
@@ -40,7 +41,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     private final int dimensions = 2;
 
     public void testGetIndexShard() throws InterruptedException, ExecutionException, IOException {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
 
@@ -50,7 +51,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     }
 
     public void testGetIndexName() throws InterruptedException, ExecutionException, IOException {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
 
@@ -60,7 +61,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     }
 
     public void testWarmup_emptyIndex() throws IOException {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
 
         IndexShard indexShard = indexService.iterator().next();
@@ -70,7 +71,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     }
 
     public void testWarmup_shardPresentInCache() throws InterruptedException, ExecutionException, IOException {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
@@ -85,7 +86,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     }
 
     public void testWarmup_shardNotPresentInCache() throws InterruptedException, ExecutionException, IOException {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
         IndexShard indexShard;
@@ -107,7 +108,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     }
 
     public void testGetAllEngineFileContexts() {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         assertThrows(
             IllegalArgumentException.class,
             () -> createKnnIndexMapping(testIndexName, testFieldName, dimensions, KNNEngine.NMSLIB)
@@ -179,7 +180,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
     @SneakyThrows
     public void testClearCache_emptyIndex() {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
 
         IndexShard indexShard = indexService.iterator().next();
@@ -190,7 +191,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
     @SneakyThrows
     public void testClearCache_shardPresentInCache() {
-        IndexService indexService = createKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
         addKnnDoc(testIndexName, String.valueOf(randomInt()), testFieldName, new Float[] { randomFloat(), randomFloat() });
@@ -207,7 +208,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     @SneakyThrows
     public void testOnlyCacheNonMemoryOptimizedFields() {
         // Create an index while mem_opt_srch = true
-        IndexService indexService = createMemoryOptimizedSearchEnabledKNNIndex(testIndexName);
+        IndexService indexService = createIndex(testIndexName, KNNCommonSettingsBuilder.defaultSettings().memOptSearch().build());
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
 
         // Add some docs
