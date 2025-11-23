@@ -5,9 +5,9 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 public class MOSFaissFloatIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
 
@@ -44,6 +44,7 @@ public class MOSFaissFloatIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         doTestNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, SpaceType.COSINESIMIL, NO_ADDITIONAL_SETTINGS);
     }
 
+    @ExpectRemoteBuildValidation
     public void testWhenNoIndexBuilt() {
         doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, true, SpaceType.L2, NO_BUILD_HNSW);
         doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, false, SpaceType.L2, NO_BUILD_HNSW);
