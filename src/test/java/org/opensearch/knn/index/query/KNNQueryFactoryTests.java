@@ -396,7 +396,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         assertEquals(ToChildBlockJoinQuery.class, query.getFilterQuery().getClass());
     }
 
-    public void testCreate_whenNestedVectorAndFilterField_thenReturnSameFilterQuery() {
+    public void testCreate_whenNestedVectorAndFilterField_thenReturnToChildBlockJoinQueryForFilters() {
         MapperService mockMapperService = mock(MapperService.class);
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         when(mockQueryShardContext.getMapperService()).thenReturn(mockMapperService);
@@ -422,7 +422,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .build();
         KNNQuery query = (KNNQuery) KNNQueryFactory.create(createQueryRequest);
         mockedNestedHelper.close();
-        assertEquals(FILTER_QUERY.getClass(), query.getFilterQuery().getClass());
+        assertEquals(ToChildBlockJoinQuery.class, query.getFilterQuery().getClass());
     }
 
     public void testCreate_whenFaissWithParentFilter_thenSuccess() {
