@@ -552,6 +552,72 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testDiskBasedMergeBWCMultipleCompressions() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            // Test multiple compression levels that might have different quantization configs
+            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
+                String indexName = testIndex + "_" + level.getName();
+                String mapping = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject(PROPERTIES)
+                    .startObject(TEST_FIELD)
+                    .field(VECTOR_TYPE, KNN_VECTOR)
+                    .field(DIMENSION, String.valueOf(DIMENSIONS))
+                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                    .field(COMPRESSION_LEVEL_PARAMETER, level.getName())
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .toString();
+                createKnnIndex(indexName, getKNNDefaultIndexSettings(), mapping);
+                addKNNDocs(indexName, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+                flush(indexName, true);
+                forceMergeKnnIndex(indexName, 1);
+            }
+        } else {
+            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
+                String indexName = testIndex + "_" + level.getName();
+                addKNNDocs(indexName, TEST_FIELD, DIMENSIONS, DOC_ID + NUM_DOCS, NUM_DOCS);
+                flush(indexName, true);
+                forceMergeKnnIndex(indexName, 1);
+                validateKNNSearch(indexName, TEST_FIELD, DIMENSIONS, 2 * NUM_DOCS, K);
+                deleteKNNIndex(indexName);
+            }
+        }
+    }
+
+    public void testDiskBasedMergeBWCLargeDataset() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int LARGE_NUM_DOCS = 1000; // Larger dataset to trigger quantization issues
+
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(DIMENSIONS))
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, LARGE_NUM_DOCS);
+            flush(testIndex, true);
+            forceMergeKnnIndex(testIndex, 1);
+        } else {
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID + LARGE_NUM_DOCS, LARGE_NUM_DOCS);
+            flush(testIndex, true);
+            forceMergeKnnIndex(testIndex, 1);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 2 * LARGE_NUM_DOCS, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
     private String createKnnMapping(int dimension, Map<String, Object> encoderParameters) throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
