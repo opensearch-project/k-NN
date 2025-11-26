@@ -530,14 +530,15 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             flush(testIndex, true);
-            forceMergeKnnIndex(testIndex, 1);
-        } else {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID + NUM_DOCS, NUM_DOCS);
+            flush(testIndex, true);
+        } else {
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID + 2 * NUM_DOCS, NUM_DOCS);
             flush(testIndex, true);
             forceMergeKnnIndex(testIndex, 1);
 
             // Validate search works after force merge
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 2 * NUM_DOCS, K);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 3 * NUM_DOCS, K);
 
             // Verify there is only 1 segment after force merge
             Map<String, Object> segments = getSegments(testIndex);
