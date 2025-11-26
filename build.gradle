@@ -228,8 +228,9 @@ allprojects {
         version += "-SNAPSHOT"
     }
     apply from: rootProject.file('build-tools/repositories.gradle').absoluteFile
-    plugins.withId('java') {
-        sourceCompatibility = targetCompatibility = "21"
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     afterEvaluate {

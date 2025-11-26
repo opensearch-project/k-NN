@@ -38,7 +38,7 @@ jobs:
   Build-k-NN-Linux:
     strategy:
       matrix:
-        java: [21, 24]
+        java: [21, 25]
 
     env:
        CC: gcc10-gcc
@@ -106,7 +106,7 @@ jobs:
   Build-k-NN-MacOS:
     strategy:
       matrix:
-        java: [21, 24]
+        java: [21, 25]
 
     name: Build and Test k-NN Plugin on MacOS
     needs: Get-CI-Image-Tag
@@ -149,7 +149,7 @@ jobs:
   Build-k-NN-Windows:
     strategy:
       matrix:
-        java: [21, 24]
+        java: [21, 25]
 
     name: Build and Test k-NN Plugin on Windows
     needs: Get-CI-Image-Tag
