@@ -280,7 +280,14 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNByteDocs(testIndex, TEST_FIELD, dimension / 8, DOC_ID, 100);
             // Flush to ensure that index is not re-indexed when node comes back up
             flush(testIndex, true);
+            forceMergeKnnIndex(testIndex);
+            // seg1 (2.19) seg2 (2.19) --- (restart upgrade) --- (merge) -> seg3 (3.3)
         } else {
+            // add docs to queue
+            addKNNByteDocs(testIndex, TEST_FIELD, dimension / 8, DOC_ID, 100);
+            // flush to a 3.3 segment
+            flush(testIndex, true);
+            // merge together the 2.19 and the 3.3 segment
             forceMergeKnnIndex(testIndex);
         }
     }
