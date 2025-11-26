@@ -1099,6 +1099,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Get the segments information for an index
+     * @param index index name
+     * @return the parsed segments information as a Map
+     */
+    protected Map<String, Object> getSegments(final String index) throws Exception {
+        Request request = new Request("GET", "/" + index + "/_segments");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        
+        String responseBody = EntityUtils.toString(response.getEntity());
+        return createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+    }
+
+    /**
      * Utility to update  settings
      */
     protected void updateClusterSettings(String settingKey, Object value) throws Exception {
@@ -1155,6 +1169,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         return builder.build();
     }
+
+
 
     protected Settings buildKNNIndexSettings(int approximateThreshold) {
         Settings.Builder builder = Settings.builder()

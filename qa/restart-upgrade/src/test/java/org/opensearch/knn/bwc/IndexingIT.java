@@ -510,6 +510,50 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    public void testDiskBasedMergeBWC() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject(PROPERTIES)
+                    .startObject(TEST_FIELD)
+                    .field(VECTOR_TYPE, KNN_VECTOR)
+                    .field(DIMENSION, String.valueOf(DIMENSIONS))
+                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                    .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .toString();
+            // 1 shard, 0 replicas
+            createKnnIndex(
+                    testIndex,
+                    getKNNDefaultIndexSettings(),
+                    mapping
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            flush(testIndex, true);
+            forceMergeKnnIndex(testIndex, 1);
+        } else {
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID + NUM_DOCS, NUM_DOCS);
+            flush(testIndex, true);
+            forceMergeKnnIndex(testIndex, 1);
+            
+            // Verify there is only 1 segment after force merge
+            Map<String, Object> segments = getSegments(testIndex);
+            Map<String, Object> indices = (Map<String, Object>) segments.get("indices");
+            Map<String, Object> indexInfo = (Map<String, Object>) indices.get(testIndex);
+            Map<String, Object> shards = (Map<String, Object>) indexInfo.get("shards");
+            Map<String, Object> shard0 = ((List<Map<String, Object>>) shards.get("0")).get(0);
+            Map<String, Object> segmentInfo = (Map<String, Object>) shard0.get("segments");
+            assertEquals("Expected exactly 1 segment after force merge", 1, segmentInfo.size());
+
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+
     private String createKnnMapping(int dimension, Map<String, Object> encoderParameters) throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
