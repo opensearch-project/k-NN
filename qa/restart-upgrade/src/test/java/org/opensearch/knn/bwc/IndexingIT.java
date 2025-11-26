@@ -515,23 +515,19 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
         if (isRunningAgainstOldCluster()) {
             String mapping = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject(PROPERTIES)
-                    .startObject(TEST_FIELD)
-                    .field(VECTOR_TYPE, KNN_VECTOR)
-                    .field(DIMENSION, String.valueOf(DIMENSIONS))
-                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())
-                    .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .toString();
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(DIMENSIONS))
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
             // 1 shard, 0 replicas
-            createKnnIndex(
-                    testIndex,
-                    getKNNDefaultIndexSettings(),
-                    mapping
-            );
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             flush(testIndex, true);
             forceMergeKnnIndex(testIndex, 1);
@@ -539,7 +535,10 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID + NUM_DOCS, NUM_DOCS);
             flush(testIndex, true);
             forceMergeKnnIndex(testIndex, 1);
-            
+
+            // Validate search works after force merge
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 2 * NUM_DOCS, K);
+
             // Verify there is only 1 segment after force merge
             Map<String, Object> segments = getSegments(testIndex);
             Map<String, Object> indices = (Map<String, Object>) segments.get("indices");
@@ -552,7 +551,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(testIndex);
         }
     }
-
 
     private String createKnnMapping(int dimension, Map<String, Object> encoderParameters) throws IOException {
         return XContentFactory.jsonBuilder()
