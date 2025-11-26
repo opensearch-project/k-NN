@@ -1107,7 +1107,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Request request = new Request("GET", "/" + index + "/_segments");
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-        
+
         String responseBody = EntityUtils.toString(response.getEntity());
         return createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
     }
@@ -1169,8 +1169,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         return builder.build();
     }
-
-
 
     protected Settings buildKNNIndexSettings(int approximateThreshold) {
         Settings.Builder builder = Settings.builder()
