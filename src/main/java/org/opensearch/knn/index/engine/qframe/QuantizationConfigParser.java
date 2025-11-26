@@ -70,8 +70,11 @@ public class QuantizationConfigParser {
         if (csv == null || csv.isEmpty()) {
             return QuantizationConfig.EMPTY;
         }
+        String[] csvArray = CSVUtil.parse(csv);
 
-        if (luceneVersion.onOrAfter(org.apache.lucene.util.Version.LUCENE_10_2_2)) {
+        boolean isRRADCEnabled = (csvArray.length == 4);
+
+        if (isRRADCEnabled) {
             return parseCurrentVersion(csv);
         } else {
             return parseLegacyVersion(csv);
