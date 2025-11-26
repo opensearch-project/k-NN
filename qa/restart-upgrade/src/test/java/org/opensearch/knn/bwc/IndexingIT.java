@@ -280,8 +280,51 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNByteDocs(testIndex, TEST_FIELD, dimension / 8, DOC_ID, 100);
             // Flush to ensure that index is not re-indexed when node comes back up
             flush(testIndex, true);
-        } else {
             forceMergeKnnIndex(testIndex);
+        } else {
+            // add docs some new docs
+            addKNNByteDocs(testIndex, TEST_FIELD, dimension / 8, DOC_ID + 100, 100);
+            // flush to a 3.3 segment
+            flush(testIndex, true);
+            // merge together the 2.19 and the 3.3 segment
+            forceMergeKnnIndex(testIndex);
+            waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        }
+    }
+
+    public void testKNNIndexDiskBasedVectorSearchForceMerge() throws Exception {
+        int dimension = 48;
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(dimension))
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            putMappingRequest(testIndex, mapping);
+
+            addKNNDocs(testIndex, TEST_FIELD, dimension, DOC_ID, 100);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+            forceMergeKnnIndex(testIndex);
+        } else {
+            // add docs some new docs
+            addKNNDocs(testIndex, TEST_FIELD, dimension, DOC_ID + 100, 100);
+            // flush to a 3.3 segment
+            flush(testIndex, true);
+            // merge together the 2.19 and the 3.3 segment
+            //forceMergeKnnIndex(testIndex);
+            refreshIndex(testIndex);
+            flush(testIndex, true);
+            doKnnWarmup(List.of(testIndex));
+            waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         }
     }
 
