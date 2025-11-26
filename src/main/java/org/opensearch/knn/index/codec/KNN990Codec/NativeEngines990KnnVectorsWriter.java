@@ -231,6 +231,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         final QuantizationService quantizationService = QuantizationService.getInstance();
         final QuantizationParams quantizationParams = quantizationService.getQuantizationParams(
             fieldInfo,
+            // 9.12 read segments, merged into 10.3 write segment, below returns 10.3
             segmentWriteState.segmentInfo.getVersion()
         );
         QuantizationState quantizationState = null;
