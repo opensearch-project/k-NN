@@ -584,7 +584,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 addKNNDocs(indexName, TEST_FIELD, DIMENSIONS, DOC_ID + NUM_DOCS, NUM_DOCS);
                 flush(indexName, true);
                 forceMergeKnnIndex(indexName, 1);
-                validateKNNSearch(indexName, TEST_FIELD, DIMENSIONS, 2 * NUM_DOCS, K);
+                validateKNNSearch(indexName, TEST_FIELD, DIMENSIONS, 2 * NUM_DOCS, 2 * NUM_DOCS);
                 deleteKNNIndex(indexName);
             }
         }
