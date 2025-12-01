@@ -2042,21 +2042,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
 
-//        logger.error("[KNN] results: [] ",
-//                results.stream()
-//                        .map(KNNResult::getDocId)
-//                        .collect(Collectors.toList()));
-        throw new RuntimeException("KNN doc IDs: " +
-                results.stream()
-                        .map(KNNResult::getDocId)
-                        .collect(Collectors.toList())
-
-            );
-
-//        assertEquals(k, results.size());
-//        for (int i = 0; i < k; i++) {
-//            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
-//        }
+        assertEquals(k, results.size());
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
     }
     protected Map<String, Object> getSegments(final String index, final int num) throws Exception {
         Request request = new Request("GET", "/" + index + "/_segments");

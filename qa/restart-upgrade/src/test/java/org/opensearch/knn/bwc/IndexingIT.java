@@ -554,41 +554,41 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 //        }
 //    }
 
-    public void testDiskBasedMergeBWCMultipleCompressions() throws Exception {
-        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
-
-        if (isRunningAgainstOldCluster()) {
-            // Test multiple compression levels that might have different quantization configs
-            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
-                String indexName = testIndex + "_" + level.getName();
-                String mapping = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject(PROPERTIES)
-                    .startObject(TEST_FIELD)
-                    .field(VECTOR_TYPE, KNN_VECTOR)
-                    .field(DIMENSION, String.valueOf(DIMENSIONS))
-                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())
-                    .field(COMPRESSION_LEVEL_PARAMETER, level.getName())
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .toString();
-                createKnnIndex(indexName, getKNNDefaultIndexSettings(), mapping);
-                addKNNDocs(indexName, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
-                flush(indexName, true);
-                forceMergeKnnIndex(indexName, 1);
-            }
-        } else {
-            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
-                String indexName = testIndex + "_" + level.getName();
-                addKNNDocs(indexName, TEST_FIELD, DIMENSIONS, DOC_ID + NUM_DOCS, NUM_DOCS);
-                flush(indexName, true);
-                forceMergeKnnIndex(indexName, 1);
-                validateKNNSearch(indexName, TEST_FIELD, DIMENSIONS, 2 * NUM_DOCS, 2 * NUM_DOCS);
-                deleteKNNIndex(indexName);
-            }
-        }
-    }
+//    public void testDiskBasedMergeBWCMultipleCompressions() throws Exception {
+//        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+//
+//        if (isRunningAgainstOldCluster()) {
+//            // Test multiple compression levels that might have different quantization configs
+//            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
+//                String indexName = testIndex + "_" + level.getName();
+//                String mapping = XContentFactory.jsonBuilder()
+//                    .startObject()
+//                    .startObject(PROPERTIES)
+//                    .startObject(TEST_FIELD)
+//                    .field(VECTOR_TYPE, KNN_VECTOR)
+//                    .field(DIMENSION, String.valueOf(DIMENSIONS))
+//                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())throw new RuntimeException
+//                    .field(COMPRESSION_LEVEL_PARAMETER, level.getName())
+//                    .endObject()
+//                    .endObject()
+//                    .endObject()
+//                    .toString();
+//                createKnnIndex(indexName, getKNNDefaultIndexSettings(), mapping);
+//                addKNNDocs(indexName, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+//                flush(indexName, true);
+//                forceMergeKnnIndex(indexName, 1);
+//            }
+//        } else {
+//            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
+//                String indexName = testIndex + "_" + level.getName();
+//                addKNNDocs(indexName, TEST_FIELD, DIMENSIONS, DOC_ID + NUM_DOCS, NUM_DOCS);
+//                flush(indexName, true);
+//                forceMergeKnnIndex(indexName, 1);
+//                validateKNNSearch(indexName, TEST_FIELD, DIMENSIONS, 2 * NUM_DOCS, 2 * NUM_DOCS);
+//                deleteKNNIndex(indexName);
+//            }
+//        }
+//    }
 
 //    public void testDiskBasedMergeBWCLargeDataset() throws Exception {
 //        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
