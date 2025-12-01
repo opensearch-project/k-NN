@@ -189,6 +189,7 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, totalDocsCount, K);
     }
 
+
     /**
      * Test to verify that NMSLIB index creation is blocked in OpenSearch 3.0.0 and later,
      * while ensuring backward compatibility (BWC) for existing indexes created in OpenSearch 2.19,
