@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
@@ -723,6 +724,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             getSegments(indexName, 5);
             // issue occurs here: seg1 (2.19) seg2 (2.19) --- (restart upgrade) --- (merge) -> seg3 (3.3)
             forceMergeKnnIndex(indexName, 1);
+            TimeUnit.SECONDS.sleep(15);
             getSegments(indexName, 6);
             validateKNNSearch(indexName, TEST_FIELD, dimensions, 2 * numDocs, 2 * numDocs);
             validateSegmentsSameVersion(indexName);
