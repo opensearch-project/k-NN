@@ -724,8 +724,8 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             // issue occurs here: seg1 (2.19) seg2 (2.19) --- (restart upgrade) --- (merge) -> seg3 (3.3)
             forceMergeKnnIndex(indexName, 1);
             getSegments(indexName, 6);
-            validateSegmentsSameVersion(indexName);
             validateKNNSearch(indexName, TEST_FIELD, dimensions, 2 * numDocs, 2 * numDocs);
+            validateSegmentsSameVersion(indexName);
             deleteKNNIndex(indexName);
         }
     }
