@@ -6,7 +6,6 @@
 package org.opensearch.knn;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Floats;
@@ -70,7 +69,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.PriorityQueue;
+import java.util.Random;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.Rule;
@@ -1971,15 +1982,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
         client().performRequest(waitForGreen);
     }
 
-    public void addKNNDocsWithParkingAndRating(String indexName, String fieldName, int dimension, int firstDocID, int numDocs) throws IOException {
+    public void addKNNDocsWithParkingAndRating(String indexName, String fieldName, int dimension, int firstDocID, int numDocs)
+        throws IOException {
         Request request = new Request("POST", "/_bulk");
         request.addParameter("refresh", "true");
         StringBuilder sb = new StringBuilder();
 
         for (int i = firstDocID; i < firstDocID + numDocs; i++) {
             float[] indexVector = new float[dimension];
-            Arrays.fill(indexVector, (float) (i+ ((float) i * 0.1f)));
-            
+            Arrays.fill(indexVector, (float) (i + ((float) i * 0.1f)));
+
             sb.append("{ \"index\" : { \"_index\" : \"")
                 .append(indexName)
                 .append("\", \"_id\" : \"")
@@ -2047,6 +2059,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
         }
     }
+
     protected Map<String, Object> getSegments(final String index, final int num) throws Exception {
         Request request = new Request("GET", "/" + index + "/_segments");
         Response response = client().performRequest(request);
@@ -2061,27 +2074,27 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected void validateSegmentsSameVersion(final String index) throws Exception {
         Map<String, Object> segmentsResponse = getSegments(index, 1);
         logger.info("Segments response: {}", segmentsResponse);
-        
+
         Map<String, Object> indices = (Map<String, Object>) segmentsResponse.get("indices");
         if (indices == null) {
             logger.error("No indices found in segments response");
             return;
         }
-        
+
         Map<String, Object> indexData = (Map<String, Object>) indices.get(index);
         if (indexData == null) {
             logger.error("No data found for index: {}", index);
             return;
         }
-        
+
         Map<String, Object> shards = (Map<String, Object>) indexData.get("shards");
         if (shards == null) {
             logger.error("No shards found for index: {}", index);
             return;
         }
-        
+
         Set<String> versions = new HashSet<>();
-        
+
         for (Object shardList : shards.values()) {
             List<Map<String, Object>> shardData = (List<Map<String, Object>>) shardList;
             for (Map<String, Object> shard : shardData) {
@@ -2097,7 +2110,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 }
             }
         }
-        
+
         logger.info("Found versions: {}", versions);
         assertEquals("All segments should have the same version", 1, versions.size());
     }
