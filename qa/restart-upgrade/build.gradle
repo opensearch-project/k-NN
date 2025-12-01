@@ -111,7 +111,7 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }
             ) {
         filter {
-            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWCMultipleCompressions"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
         }
@@ -257,10 +257,11 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexBinaryForceMerge"
         }
     }
+
     def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
     if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
-            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWCMultipleCompressions"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
         }

@@ -1982,6 +1982,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         client().performRequest(waitForGreen);
     }
 
+    // Adds KNN Docs through the bulk API with additional fields. Similar to addKnnDoc but via bulk instead of 1 by 1.
     public void addKNNDocsWithParkingAndRating(String indexName, String fieldName, int dimension, int firstDocID, int numDocs)
         throws IOException {
         Request request = new Request("POST", "/_bulk");
@@ -2060,6 +2061,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
+    // calls the /_segments API and parses segment response. Used in BWC tests.
     protected Map<String, Object> getSegments(final String index, final int num) throws Exception {
         Request request = new Request("GET", "/" + index + "/_segments");
         Response response = client().performRequest(request);
@@ -2071,6 +2073,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return out;
     }
 
+    // Validate that all segments in an index are the same lucene version. Used in BWC tests.
     protected void validateSegmentsSameVersion(final String index) throws Exception {
         Map<String, Object> segmentsResponse = getSegments(index, 1);
         logger.info("Segments response: {}", segmentsResponse);
