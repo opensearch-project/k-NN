@@ -66,15 +66,12 @@ public class QuantizationConfigParser {
      * @param csv Csv format of quantization config
      * @return Quantization config
      */
-    public static QuantizationConfig fromCsv(String csv, org.apache.lucene.util.Version _luceneVersion) {
+    public static QuantizationConfig fromCsv(String csv, org.apache.lucene.util.Version luceneVersion) {
         if (csv == null || csv.isEmpty()) {
             return QuantizationConfig.EMPTY;
         }
-        String[] csvArray = CSVUtil.parse(csv);
-        int csvArrayLength = csvArray.length;
-        boolean adcAndRandomRotationInQuantizationConfig = (csvArrayLength == 4);
 
-        if (adcAndRandomRotationInQuantizationConfig) {
+        if (luceneVersion.onOrAfter(org.apache.lucene.util.Version.LUCENE_10_2_2)) {
             return parseCurrentVersion(csv);
         } else {
             return parseLegacyVersion(csv);
@@ -84,9 +81,7 @@ public class QuantizationConfigParser {
     private static QuantizationConfig parseCurrentVersion(String csv) {
         String[] csvArray = CSVUtil.parse(csv);
         if (csvArray.length != 4) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Invalid csv (not length 4) for quantization config: \"%s\"", csv)
-            );
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
         }
 
         String typeValue = getValueOrThrow(TYPE_NAME, csvArray[0]);
@@ -114,9 +109,7 @@ public class QuantizationConfigParser {
     private static QuantizationConfig parseLegacyVersion(String csv) {
         String[] csvArray = CSVUtil.parse(csv);
         if (csvArray.length != 2) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Invalid csv (not length 2) for quantization config: \"%s\"", csv)
-            );
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
         }
 
         String typeValue = getValueOrThrow(TYPE_NAME, csvArray[0]);
