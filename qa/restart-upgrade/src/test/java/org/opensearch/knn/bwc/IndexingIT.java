@@ -688,22 +688,22 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         if (isRunningAgainstOldCluster()) {
             String indexName = testIndex + "_" + level.getName();
             String mapping = XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject(PROPERTIES)
-                    .startObject(TEST_FIELD)
-                    .field(VECTOR_TYPE, KNN_VECTOR)
-                    .field(DIMENSION, String.valueOf(dimensions))
-                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())
-                    .field(COMPRESSION_LEVEL_PARAMETER, level.getName())
-                    .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-                    .startObject(KNN_METHOD)
-                    .field(KNN_ENGINE, "faiss")
-                    .field(NAME, "hnsw")
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .toString();
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(dimensions))
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .field(COMPRESSION_LEVEL_PARAMETER, level.getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                .startObject(KNN_METHOD)
+                .field(KNN_ENGINE, "faiss")
+                .field(NAME, "hnsw")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
             createKnnIndex(indexName, mapping, 2);
             addKNNDocsWithParkingAndRating(indexName, TEST_FIELD, dimensions, DOC_ID, numDocs);
             flush(indexName, true);
