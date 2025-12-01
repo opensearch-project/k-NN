@@ -6,6 +6,7 @@
 package org.opensearch.knn;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Floats;
@@ -69,18 +70,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.PriorityQueue;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.Rule;
@@ -1981,6 +1971,36 @@ public class KNNRestTestCase extends ODFERestTestCase {
         client().performRequest(waitForGreen);
     }
 
+    public void addKNNDocsWithParkingAndRating(String indexName, String fieldName, int dimension, int firstDocID, int numDocs) throws IOException {
+        Request request = new Request("POST", "/_bulk");
+        request.addParameter("refresh", "true");
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = firstDocID; i < firstDocID + numDocs; i++) {
+            float[] indexVector = new float[dimension];
+            Arrays.fill(indexVector, (float) (i+ ((float) i * 0.1f)));
+            
+            sb.append("{ \"index\" : { \"_index\" : \"")
+                .append(indexName)
+                .append("\", \"_id\" : \"")
+                .append(i)
+                .append("\" } }\n")
+                .append("{ \"")
+                .append(fieldName)
+                .append("\" : ")
+                .append(Arrays.toString(indexVector))
+                .append(", \"parking\" : \"")
+                .append(i % 2 == 0 ? "true" : "false")
+                .append("\", \"rating\" : ")
+                .append((i % 7) + 3)
+                .append(" }\n");
+        }
+
+        request.setJsonEntity(sb.toString());
+        Response response = client().performRequest(request);
+        assertEquals(response.getStatusLine().getStatusCode(), 200);
+    }
+
     // Add KNN docs into a KNN index by providing the initial documentID and number of documents
     public void addKNNDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
         for (int i = firstDocID; i < firstDocID + numDocs; i++) {
@@ -2037,6 +2057,71 @@ public class KNNRestTestCase extends ODFERestTestCase {
 //        for (int i = 0; i < k; i++) {
 //            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
 //        }
+    }
+    protected Map<String, Object> getSegments(final String index, final int num) throws Exception {
+        Request request = new Request("GET", "/" + index + "/_segments");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> out = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        logger.info("[BWC KNN {}] results: {}", num, out);
+        return out;
+    }
+
+    protected void validateSegmentsSameVersion(final String index) throws Exception {
+        Map<String, Object> segmentsResponse = getSegments(index, 1);
+        logger.info("Segments response: {}", segmentsResponse);
+        
+        Map<String, Object> indices = (Map<String, Object>) segmentsResponse.get("indices");
+        if (indices == null) {
+            logger.error("No indices found in segments response");
+            return;
+        }
+        
+        Map<String, Object> indexData = (Map<String, Object>) indices.get(index);
+        if (indexData == null) {
+            logger.error("No data found for index: {}", index);
+            return;
+        }
+        
+        Map<String, Object> shards = (Map<String, Object>) indexData.get("shards");
+        if (shards == null) {
+            logger.error("No shards found for index: {}", index);
+            return;
+        }
+        
+        Set<String> versions = new HashSet<>();
+        
+        for (Object shardList : shards.values()) {
+            List<Map<String, Object>> shardData = (List<Map<String, Object>>) shardList;
+            for (Map<String, Object> shard : shardData) {
+                Map<String, Object> segments = (Map<String, Object>) shard.get("segments");
+                if (segments != null) {
+                    for (Object segmentData : segments.values()) {
+                        Map<String, Object> segment = (Map<String, Object>) segmentData;
+                        String version = (String) segment.get("version");
+                        if (version != null) {
+                            versions.add(version);
+                        }
+                    }
+                }
+            }
+        }
+        
+        logger.info("Found versions: {}", versions);
+        assertEquals("All segments should have the same version", 1, versions.size());
+    }
+
+    protected Map<String, Object> getMappingAndPrint(final String index, final int num) throws Exception {
+        Request request = new Request("GET", "/" + index + "/_mapping");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> out = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        logger.info("[BWC KNN {}] results: {}", num, out);
+        return out;
     }
 
     public void validateKNNSearchDistance(

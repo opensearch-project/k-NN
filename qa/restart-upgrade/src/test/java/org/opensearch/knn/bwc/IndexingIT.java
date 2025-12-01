@@ -789,4 +789,65 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(newIndex);
         }
     }
+
+    /**
+     * Tests merge flow from 2.x version 2.17 and up to 3.2. GH Issue Ref: TODO
+     * getSegments is a noop that prints out segment information.
+     * We use old segments as a signal that the merge is unsuccessful.
+     * @throws Exception
+     */
+    public void testDiskBasedMergeBWCMultipleCompressions() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int dimensions = 2;
+        int numDocs = 25;
+
+        if (isRunningAgainstOldCluster()) {
+            // Test multiple compression levels that might have different quantization configs
+            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
+                String indexName = testIndex + "_" + level.getName();
+                String mapping = XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject(PROPERTIES)
+                        .startObject(TEST_FIELD)
+                        .field(VECTOR_TYPE, KNN_VECTOR)
+                        .field(DIMENSION, String.valueOf(dimensions))
+                        .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                        .field(COMPRESSION_LEVEL_PARAMETER, level.getName())
+                        .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                        .startObject(KNN_METHOD)
+                        .field(KNN_ENGINE, "faiss")
+                        .field(NAME, "hnsw")
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                        .toString();
+                createKnnIndex(indexName, mapping, 2);
+                addKNNDocsWithParkingAndRating(indexName, TEST_FIELD, dimensions, DOC_ID, numDocs);
+                flush(indexName, true);
+                getSegments(indexName, 1);
+                forceMergeKnnIndex(indexName, 1);
+                getSegments(indexName, 2);
+                validateKNNSearch(indexName, TEST_FIELD, dimensions, numDocs, numDocs);
+            }
+        } else {
+            for (CompressionLevel level : new CompressionLevel[]{CompressionLevel.x16, CompressionLevel.x32}) {
+                String indexName = testIndex + "_" + level.getName();
+                // here also need to get the index mapping and make sure it matches a binary quantized on disk thingy.
+                getMappingAndPrint(indexName, 1);
+                getSegments(indexName, 3);
+                addKNNDocsWithParkingAndRating(indexName, TEST_FIELD, dimensions, DOC_ID + numDocs, numDocs);
+                getSegments(indexName, 4);
+
+                flush(indexName, true);
+
+                getSegments(indexName, 5);
+                forceMergeKnnIndex(indexName, 1);
+                getSegments(indexName, 6);
+                validateKNNSearch(indexName, TEST_FIELD, dimensions, 2 * numDocs, 2 * numDocs);
+                validateSegmentsSameVersion(indexName);
+                deleteKNNIndex(indexName);
+            }
+        }
+    }
 }
