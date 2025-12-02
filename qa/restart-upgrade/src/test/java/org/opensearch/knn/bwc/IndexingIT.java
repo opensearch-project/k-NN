@@ -728,7 +728,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             refreshIndex(indexName);
             getSegments(indexName, 6);
             validateSegmentsSameVersion(indexName);
-//            validateKNNSearch(indexName, TEST_FIELD, dimensions, 2 * numDocs, 2 * numDocs);
             deleteKNNIndex(indexName);
         }
     }

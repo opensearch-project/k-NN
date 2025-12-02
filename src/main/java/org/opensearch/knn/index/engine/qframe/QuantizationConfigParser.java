@@ -66,29 +66,19 @@ public class QuantizationConfigParser {
      * @param csv Csv format of quantization config
      * @return Quantization config
      */
-    public static QuantizationConfig fromCsv(String csv, org.apache.lucene.util.Version _luceneVersion) {
+    public static QuantizationConfig fromCsv(String csv) {
         if (csv == null || csv.isEmpty()) {
             return QuantizationConfig.EMPTY;
         }
         String[] csvArray = CSVUtil.parse(csv);
         int csvArrayLength = csvArray.length;
-        boolean adcAndRandomRotationInQuantizationConfig = (csvArrayLength == 4);
 
-        if (adcAndRandomRotationInQuantizationConfig) {
-            return parseCurrentVersion(csv);
-        } else {
-            return parseLegacyVersion(csv);
-        }
-    }
-
-    private static QuantizationConfig parseCurrentVersion(String csv) {
-        String[] csvArray = CSVUtil.parse(csv);
-        if (csvArray.length != 4) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Invalid csv (not length 4) for quantization config: \"%s\"", csv)
-            );
+        // if length is not 2 or not 4 then the csv is invalid.
+        if (csvArrayLength < 2) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv (length < 2) for quantization config: \"%s\"", csv));
         }
 
+        // Parse common fields (type and bits)
         String typeValue = getValueOrThrow(TYPE_NAME, csvArray[0]);
         if (!typeValue.equals(BINARY_TYPE)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported quantization type: \"%s\"", typeValue));
@@ -96,42 +86,32 @@ public class QuantizationConfigParser {
 
         String bitsValue = getValueOrThrow(BIT_COUNT_NAME, csvArray[1]);
         int bitCount = Integer.parseInt(bitsValue);
-
-        String isEnableRandomRotationValue = getValueOrThrow(RANDOM_ROTATION_NAME, csvArray[2]);
-        boolean isEnableRandomRotation = Boolean.parseBoolean(isEnableRandomRotationValue);
-
-        String isEnableADCValue = getValueOrThrow(ADC_NAME, csvArray[3]);
-        boolean isEnableADC = Boolean.parseBoolean(isEnableADCValue);
-
         ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
+
+        // RR is disabled by default, and it must be disabled for old segments since the extra quantization info is not present.
+        boolean isEnableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
+        // ADC is disabled by default, and it must be disabled for old segments since the extra quantization info is not present.
+        boolean isEnableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
+
+        // parse "random_rotation" and "enable_adc" from csv if length 4
+        if (csvArrayLength == 4) {
+            String isEnableRandomRotationValue = getValueOrThrow(RANDOM_ROTATION_NAME, csvArray[2]);
+            isEnableRandomRotation = Boolean.parseBoolean(isEnableRandomRotationValue);
+
+            String isEnableADCValue = getValueOrThrow(ADC_NAME, csvArray[3]);
+            isEnableADC = Boolean.parseBoolean(isEnableADCValue);
+        } else if (csvArrayLength != 2) {
+            // length == 3 or length > 4. Both cases are invalid.
+            // For forward compatability we will reserve length > 4 lists for new config options.
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "Invalid csv (length must be 2 or 4) for quantization config: \"%s\"", csv)
+            );
+        }
+
         return QuantizationConfig.builder()
             .quantizationType(quantizationType)
             .enableRandomRotation(isEnableRandomRotation)
             .enableADC(isEnableADC)
-            .build();
-    }
-
-    private static QuantizationConfig parseLegacyVersion(String csv) {
-        String[] csvArray = CSVUtil.parse(csv);
-        if (csvArray.length != 2) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Invalid csv (not length 2) for quantization config: \"%s\"", csv)
-            );
-        }
-
-        String typeValue = getValueOrThrow(TYPE_NAME, csvArray[0]);
-        if (!typeValue.equals(BINARY_TYPE)) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported quantization type: \"%s\"", typeValue));
-        }
-
-        String bitsValue = getValueOrThrow(BIT_COUNT_NAME, csvArray[1]);
-        int bitCount = Integer.parseInt(bitsValue);
-
-        ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
-        return QuantizationConfig.builder()
-            .quantizationType(quantizationType)
-            .enableRandomRotation(QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION)  // default value for legacy version
-            .enableADC(QFrameBitEncoder.DEFAULT_ENABLE_ADC)  // default value for legacy version
             .build();
     }
 
