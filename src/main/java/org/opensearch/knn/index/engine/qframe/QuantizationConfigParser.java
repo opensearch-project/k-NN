@@ -73,9 +73,10 @@ public class QuantizationConfigParser {
         String[] csvArray = CSVUtil.parse(csv);
         int csvArrayLength = csvArray.length;
 
-        // if length is not 2 or not 4 then the csv is invalid.
-        if (csvArrayLength < 2) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv (length < 2) for quantization config: \"%s\"", csv));
+        // if csv nonnull and nonempty, then the only valid lengths are 2 and 4.
+        // For forwards compatability with adding more options we can reserve length > 4 and update this below check.
+        if (csvArrayLength != 2 && csvArrayLength != 4) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
         }
 
         // Parse common fields (type and bits)
@@ -100,12 +101,6 @@ public class QuantizationConfigParser {
 
             String isEnableADCValue = getValueOrThrow(ADC_NAME, csvArray[3]);
             isEnableADC = Boolean.parseBoolean(isEnableADCValue);
-        } else if (csvArrayLength != 2) {
-            // length == 3 or length > 4. Both cases are invalid.
-            // For forward compatability we will reserve length > 4 lists for new config options.
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Invalid csv (length must be 2 or 4) for quantization config: \"%s\"", csv)
-            );
         }
 
         return QuantizationConfig.builder()
