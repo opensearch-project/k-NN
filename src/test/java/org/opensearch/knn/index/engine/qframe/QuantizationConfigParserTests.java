@@ -50,6 +50,27 @@ public class QuantizationConfigParserTests extends KNNTestCase {
             )
         );
 
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> QuantizationConfigParser.fromCsv(
+                QuantizationConfigParser.TYPE_NAME
+                    + "="
+                    + QuantizationConfigParser.BINARY_TYPE
+                    + ","
+                    + QuantizationConfigParser.BIT_COUNT_NAME
+                    + "=4"
+                    + ","
+                    + QuantizationConfigParser.RANDOM_ROTATION_NAME
+                    + "=false"
+                    + ","
+                    + QuantizationConfigParser.ADC_NAME
+                    + "=false"
+                    + ","
+                    + "OTHER_FIFTH_OPTION"
+                    + "=20"
+            )
+        );
+
         assertEquals(
             QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build(),
             QuantizationConfigParser.fromCsv(
