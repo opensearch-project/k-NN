@@ -367,4 +367,87 @@ public class FaissTests extends KNNTestCase {
         assertEquals(expectedKNNMethodContext.getVectorValidator(), actualKNNLibraryIndexingContext.getVectorValidator());
     }
 
+    /**
+     * Test that scoreToRadialThreshold correctly converts Lucene scores to Faiss distances for INNER_PRODUCT.
+     * This test validates the fix for the bug where min_score filters were returning results below the threshold.
+     *
+     * The bug scenario:
+     * - Query vector: [1.0, 0.0], Indexed vector: [0.0, 1.0] (orthogonal)
+     * - Inner product = 0
+     * - Lucene score = 1.0 (from scoreTranslation: 0 <= 0 ? 1/(1-0) : 0+1 = 1.0)
+     * - User sets min_score = 1.4
+     * - Expected: orthogonal vector should be filtered out (score 1.0 < 1.4)
+     * - Bug: Faiss was receiving negative distance threshold, returning the vector incorrectly
+     */
+    public void testScoreToRadialThreshold_whenInnerProduct_thenCorrectlyConvertsScoreToDistance() {
+        // Test case 1: Score > 1 (positive inner product region)
+        // Lucene score 1.4 should map to inner product distance 0.4
+        // Because: distance + 1 = 1.4 => distance = 0.4
+        float score1 = 1.4f;
+        float expectedDistance1 = 0.4f;
+        float actualDistance1 = Faiss.INSTANCE.scoreToRadialThreshold(score1, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
+        assertEquals("Score 1.4 should convert to distance 0.4 (inner product >= 0.4)", expectedDistance1, actualDistance1, 1e-6);
+
+        // Test case 2: Score = 1.0 (boundary case, inner product = 0)
+        // Lucene score 1.0 should map to inner product distance 0.0
+        float score2 = 1.0f;
+        float expectedDistance2 = 0.0f;
+        float actualDistance2 = Faiss.INSTANCE.scoreToRadialThreshold(score2, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
+        assertEquals(
+            "Score 1.0 should convert to distance 0.0 (inner product = 0, orthogonal vectors)",
+            expectedDistance2,
+            actualDistance2,
+            1e-6
+        );
+
+        // Test case 3: Score < 1 (negative inner product region)
+        // Lucene score 0.5 should map to inner product distance -1.0
+        // Because: 1/(1-distance) = 0.5 => 1-distance = 2 => distance = -1.0
+        float score3 = 0.5f;
+        float expectedDistance3 = -1.0f;
+        float actualDistance3 = Faiss.INSTANCE.scoreToRadialThreshold(score3, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
+        assertEquals("Score 0.5 should convert to distance -1.0 (inner product = -1.0)", expectedDistance3, actualDistance3, 1e-6);
+
+        // Test case 4: Score = 2.0 (high positive inner product)
+        // Lucene score 2.0 should map to inner product distance 1.0
+        float score4 = 2.0f;
+        float expectedDistance4 = 1.0f;
+        float actualDistance4 = Faiss.INSTANCE.scoreToRadialThreshold(score4, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
+        assertEquals("Score 2.0 should convert to distance 1.0 (inner product = 1.0)", expectedDistance4, actualDistance4, 1e-6);
+
+        // Test case 5: Score = 0.667 (negative inner product)
+        // Lucene score 0.667 should map to inner product distance -0.5
+        // Because: 1/(1-distance) = 0.667 => 1-distance = 1.5 => distance = -0.5
+        float score5 = 2.0f / 3.0f; // 0.667
+        float expectedDistance5 = -0.5f;
+        float actualDistance5 = Faiss.INSTANCE.scoreToRadialThreshold(score5, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
+        assertEquals("Score 0.667 should convert to distance -0.5 (inner product = -0.5)", expectedDistance5, actualDistance5, 1e-6);
+    }
+
+    /**
+     * Test the round-trip conversion: distance -> score -> distance for INNER_PRODUCT.
+     * This ensures scoreToRadialThreshold is the proper inverse of distanceToRadialThreshold.
+     */
+    public void testInnerProductRoundTripConversion_whenDistanceToScoreToDistance_thenReturnsOriginalDistance() {
+        // Test positive inner products
+        float[] testDistances = { 0.0f, 0.4f, 1.0f, 5.5f, -0.5f, -1.0f, -2.0f };
+
+        for (float originalDistance : testDistances) {
+            // Convert distance to Lucene score
+            float luceneScore = org.opensearch.knn.index.engine.lucene.Lucene.INSTANCE.distanceToRadialThreshold(
+                originalDistance,
+                org.opensearch.knn.index.SpaceType.INNER_PRODUCT
+            );
+
+            // Convert Lucene score back to Faiss distance
+            float convertedDistance = Faiss.INSTANCE.scoreToRadialThreshold(luceneScore, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
+
+            assertEquals(
+                String.format("Round-trip conversion failed for distance %.2f (score was %.4f)", originalDistance, luceneScore),
+                originalDistance,
+                convertedDistance,
+                1e-5
+            );
+        }
+    }
 }
