@@ -53,7 +53,7 @@ public class Faiss extends NativeLibrary {
     private final static Map<SpaceType, Function<Float, Float>> SCORE_TO_DISTANCE_TRANSFORMATIONS = ImmutableMap.<
         SpaceType,
         Function<Float, Float>>builder()
-        .put(SpaceType.INNER_PRODUCT, score -> score > 1 ? 1 - score : (1 / score) - 1)
+        .put(SpaceType.INNER_PRODUCT, score -> score > 1 ? score - 1 : 1 - (1 / score))
         .put(SpaceType.COSINESIMIL, score -> 2 * score - 1)
         .build();
 
