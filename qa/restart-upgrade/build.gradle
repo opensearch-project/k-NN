@@ -111,15 +111,16 @@ testClusters {
             }
         }
 
-        // excludes: 1.any; 2.x where x < 17
-        def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-        if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }
-                ) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
-            }
+    // excludes: 1.any; 2.x where x < 17
+    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }
+            ) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
         }
+    }
 
 
         if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
@@ -256,13 +257,14 @@ testClusters {
             }
         }
 
-        def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-        if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
-            }
+    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
         }
+    }
 
         if (versionsBelow2_3.any {knn_bwc_version.startsWith(it) }) {
             filter {
