@@ -150,7 +150,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                 .getQuantizationState(
                     new QuantizationStateReadConfig(
                         segmentReadState,
-                        QuantizationService.getInstance().getQuantizationParams(fieldInfo, segmentReadState.segmentInfo.getVersion()),
+                        QuantizationService.getInstance().getQuantizationParams(fieldInfo),
                         field,
                         cacheKey
                     )
