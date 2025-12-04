@@ -335,7 +335,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
 
-        assertEquals(1 - score, query.getRadius(), 0);
+        // For INNER_PRODUCT with score > 1, the correct transformation is: distance = score - 1
+        // With score = 5, the expected distance (radius) is 4.0
+        assertEquals(score - 1, query.getRadius(), 0);
     }
 
     public void testDoToQuery_whenDoRadiusSearch_whenPassScoreMoreThanOne_whenUnsupportedSpaceType_thenException() {
