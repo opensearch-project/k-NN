@@ -27,7 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix rescoring logic for nested exact search [#2921](https://github.com/opensearch-project/k-NN/pull/2921)
 * Update Visitor to delegate for other fields [#2925](https://github.com/opensearch-project/k-NN/pull/2925)
 * Fix blocking old indices created before 2.18 to use memory optimized search. [#2918](https://github.com/opensearch-project/k-NN/pull/2918)
-* Fix Backwards Compatability on Segment Merge for Disk-Based vector search [#2994](https://github.com/opensearch-project/k-NN/pull/2994) 
+* Fix Backwards Compatability on Segment Merge for Disk-Based vector search [#2994](https://github.com/opensearch-project/k-NN/pull/2994)
+* Fix StopWatch IllegalStateException in KNN query execution [#3001](https://github.com/opensearch-project/k-NN/pull/3001)
 
 ### Refactoring
 * Refactored the KNN Stat files for better readability.

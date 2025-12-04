@@ -29,9 +29,19 @@ public final class StopWatchUtils {
     ) {
 
         if (stopWatch != null && log.isDebugEnabled()) {
-            stopWatch.stop();
-            final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in nanos:[{}] ";
-            log.debug(logMessage, shardId, segmentName, field, stopWatch.totalTime().nanos());
+            try {
+                stopWatch.stop();
+                final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in nanos:[{}] ";
+                log.debug(logMessage, shardId, segmentName, field, stopWatch.totalTime().nanos());
+            } catch (IllegalStateException e) {
+                log.error(
+                    "StopWatch was already stopped for operation: {} on shard: [{}], segment: [{}], field: [{}]",
+                    prefixMessage,
+                    shardId,
+                    segmentName,
+                    field
+                );
+            }
         }
     }
 }
