@@ -6,8 +6,10 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -150,5 +152,28 @@ public class Faiss extends NativeLibrary {
     @Override
     public VectorSearcherFactory getVectorSearcherFactory() {
         return new FaissMemoryOptimizedSearcherFactory();
+    }
+
+    @Override
+    public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        // First run the standard validation from parent class
+        ValidationException validationException = super.validateMethod(knnMethodContext, knnMethodConfigContext);
+
+        // Add Faiss-specific validation for cosine similarity with byte vectors
+        if (knnMethodContext != null
+            && knnMethodContext.getSpaceType() == SpaceType.COSINESIMIL
+            && knnMethodConfigContext.getVectorDataType() == VectorDataType.BYTE) {
+
+            if (validationException == null) {
+                validationException = new ValidationException();
+            }
+            validationException.addValidationError(
+                "Faiss engine does not support cosine similarity with byte vectors. "
+                    + "Cosine similarity requires vector normalization which is only supported for float vectors. "
+                    + "Please use float data type or choose a different space type like l2 or inner_product."
+            );
+        }
+
+        return validationException;
     }
 }
