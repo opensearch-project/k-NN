@@ -164,7 +164,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
             ).thenReturn(knnVectorValuesSupplier);
 
-            when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
+            when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
             nativeIndexWriterMockedStatic.when(
                 () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
             ).thenReturn(nativeIndexWriter);
@@ -235,7 +235,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
             ).thenReturn(knnVectorValuesSupplier);
 
-            when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
+            when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
             nativeIndexWriterMockedStatic.when(
                 () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
             ).thenReturn(nativeIndexWriter);
@@ -297,7 +297,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
             ).thenReturn(knnVectorValuesSupplier);
 
-            when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(null);
+            when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
             nativeIndexWriterMockedStatic.when(
                 () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
             ).thenReturn(nativeIndexWriter);
@@ -360,7 +360,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
                 () -> KNNVectorValuesFactory.getKNNVectorValuesSupplierForMerge(VectorDataType.FLOAT, fieldInfo, mergeState)
             ).thenReturn(knnVectorValuesSupplier);
 
-            when(quantizationService.getQuantizationParams(fieldInfo, Version.LATEST)).thenReturn(quantizationParams);
+            when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(quantizationParams);
             try {
                 // Fix mock to use the supplier
                 when(quantizationService.train(eq(quantizationParams), any(Supplier.class), eq((long) mergedVectors.size()))).thenReturn(

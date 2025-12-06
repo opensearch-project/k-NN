@@ -8,7 +8,6 @@ package org.opensearch.knn.index.quantizationservice;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -115,11 +114,10 @@ public final class QuantizationService<T, R> {
      * Retrieves quantization parameters from the FieldInfo.
      * @param fieldInfo The {@link FieldInfo} object containing metadata about the field for which the quantization parameters
      *                  are being determined.
-     * @param luceneVersion {@link Version} lucene version present in the segment, used for BWC.
      * @return The {@link QuantizationParams} corresponding to the provided field information.
      */
-    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo, Version luceneVersion) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
+    public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo) {
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return ScalarQuantizationParams.builder()
                 .sqType(quantizationConfig.getQuantizationType())
@@ -136,11 +134,10 @@ public final class QuantizationService<T, R> {
      *
      * @param fieldInfo The {@link FieldInfo} object containing metadata about the field for which the vector data type
      *                  is being determined.
-     * @param luceneVersion {@link Version} lucene version present in the segment, used for BWC.
      * @return The {@link VectorDataType} to be used during the vector transfer process
      */
-    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo, Version luceneVersion) {
-        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo, luceneVersion);
+    public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo) {
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
         if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
             return VectorDataType.BINARY;
         }

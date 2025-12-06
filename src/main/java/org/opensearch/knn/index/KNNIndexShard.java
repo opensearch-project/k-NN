@@ -226,15 +226,10 @@ public class KNNIndexShard {
                 final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
                     reader,
                     fieldInfo,
-                    fieldInfo.name,
-                    reader.getSegmentInfo().info.getVersion()
+                    fieldInfo.name
                 );
                 // obtain correct VectorDataType for this field based on the quantization state and if ADC is enabled.
-                VectorDataType vectorDataType = determineVectorDataType(
-                    fieldInfo,
-                    segmentLevelQuantizationInfo,
-                    reader.getSegmentInfo().info.getVersion()
-                );
+                VectorDataType vectorDataType = determineVectorDataType(fieldInfo, segmentLevelQuantizationInfo);
 
                 engineFiles.addAll(
                     getEngineFileContexts(
@@ -286,14 +281,10 @@ public class KNNIndexShard {
     }
 
     @VisibleForTesting
-    VectorDataType determineVectorDataType(
-        FieldInfo fieldInfo,
-        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
-        org.apache.lucene.util.Version segmentVersion
-    ) {
+    VectorDataType determineVectorDataType(FieldInfo fieldInfo, SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
 
         // First check if quantization config is empty
-        if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo, segmentVersion) == QuantizationConfig.EMPTY) {
+        if (FieldInfoExtractor.extractQuantizationConfig(fieldInfo) == QuantizationConfig.EMPTY) {
             // If empty, get from attributes with default FLOAT
             return VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()));
         }

@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
@@ -670,6 +671,64 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             // Clean up
             deleteKNNIndex(testIndex);
             deleteKNNIndex(newIndex);
+        }
+    }
+
+    /**
+     * Tests merge flow from 2.x version 2.17 and up against version >3.2 to validate merges with old/new
+     * segments are successful.
+     * GH Issue Ref: https://github.com/opensearch-project/k-NN/issues/2991.
+     * We use the presence of old segments as the signal that the merge is unsuccessful.
+     * @throws Exception
+     */
+    public void testDiskBasedMergeBWC() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int dimensions = 2;
+        int numDocs = 25;
+        CompressionLevel level = CompressionLevel.x32;
+        if (isRunningAgainstOldCluster()) {
+            String indexName = testIndex + "_" + level.getName();
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(dimensions))
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .field(COMPRESSION_LEVEL_PARAMETER, level.getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                .startObject(KNN_METHOD)
+                .field(KNN_ENGINE, "faiss")
+                .field(NAME, "hnsw")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(indexName, mapping, 2);
+            addKNNDocsWithParkingAndRating(indexName, TEST_FIELD, dimensions, DOC_ID, numDocs);
+            flush(indexName, true);
+            getSegments(indexName, 1);
+            forceMergeKnnIndex(indexName, 1);
+            getSegments(indexName, 2);
+            validateKNNSearch(indexName, TEST_FIELD, dimensions, numDocs, numDocs);
+        } else {
+            String indexName = testIndex + "_" + level.getName();
+            getMappingAndPrint(indexName, 1);
+            getSegments(indexName, 3);
+            addKNNDocsWithParkingAndRating(indexName, TEST_FIELD, dimensions, DOC_ID + numDocs, numDocs);
+            getSegments(indexName, 4);
+
+            flush(indexName, true);
+
+            getSegments(indexName, 5);
+            // issue occurs here: seg1 (2.19) seg2 (2.19) --- (restart upgrade) --- (merge) -> seg3 (3.3)
+            forceMergeKnnIndex(indexName, 1);
+            TimeUnit.SECONDS.sleep(15);
+            refreshIndex(indexName);
+            getSegments(indexName, 6);
+            validateSegmentsSameVersion(indexName);
+            deleteKNNIndex(indexName);
         }
     }
 }
