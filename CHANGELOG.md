@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix NativeEngineKnnQuery to return all part results for valid totalHits in response [#2965](https://github.com/opensearch-project/k-NN/pull/2965)
 * Fix unsafe concurrent update query vector in KNNQueryBuilder [#2974](https://github.com/opensearch-project/k-NN/pull/2974)
 * Fix Backwards Compatability on Segment Merge for Disk-Based vector search [#2994](https://github.com/opensearch-project/k-NN/pull/2994) 
+* dummy commit
 
 ### Refactoring
 * Refactor to not use parallel for MMR rerank. [#2968](https://github.com/opensearch-project/k-NN/pull/2968)
