@@ -751,6 +751,7 @@ public abstract class KNNWeight extends Weight {
         final BitSetIterator bitSetIterator = new BitSetIterator(bitSet, cardinality);
         int index = 0;
         int docId = bitSetIterator.nextDoc();
+	/// DUMMY COMMIT COMMENT DO NOT MERGE TO RUN CI
         while (docId != DocIdSetIterator.NO_MORE_DOCS) {
             assert index < intArray.length;
             intArray[index++] = docId;
