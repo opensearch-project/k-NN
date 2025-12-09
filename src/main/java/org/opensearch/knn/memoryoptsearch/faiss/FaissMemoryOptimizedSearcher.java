@@ -18,6 +18,7 @@ import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
+import org.apache.lucene.util.Version;
 import org.apache.lucene.util.hnsw.HnswGraphSearcher;
 import org.apache.lucene.util.hnsw.OrdinalTranslatedKnnCollector;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
@@ -62,7 +63,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         SpaceType spaceType = null;
         if (fieldInfo != null) {
             // Extract ADC info from fieldInfo to determine scorer.
-            final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
+            final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo, Version.LATEST);
             this.isAdc = quantizationConfig.isEnableADC();
             spaceType = isAdc ? SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)) : null;
         }

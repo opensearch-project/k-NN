@@ -72,7 +72,8 @@ public class DefaultKNNWeight extends KNNWeight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,
-            knnQuery.getField()
+            knnQuery.getField(),
+            segmentLuceneVersion
         );
 
         // We need to first get index allocation
@@ -116,7 +117,8 @@ public class DefaultKNNWeight extends KNNWeight {
             final int[] parentIds = getParentIdsArray(context);
             if (k > 0) {
                 if (knnQuery.getVectorDataType() == VectorDataType.BINARY
-                    || quantizedVector != null && quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
+                    || quantizedVector != null
+                        && quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion) == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
                         // TODO: In the future, quantizedVector can have other data types than byte

@@ -97,7 +97,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                 // KNN search
                 if (quantizedTargetVector != null) {
                     // Quantization case
-                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
+                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion) == VectorDataType.BINARY) {
                         return queryIndex(
                             quantizedTargetVector,
                             cardinality,
@@ -113,7 +113,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     // Should never occur, safety if ever any other quantization is added
                     throw new IllegalStateException(
                         "VectorDataType for transfer acquired ["
-                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo)
+                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo, segmentLuceneVersion)
                             + "] while it is expected to get ["
                             + VectorDataType.BINARY
                             + "]"
