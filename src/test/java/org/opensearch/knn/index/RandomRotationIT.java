@@ -9,12 +9,14 @@ import com.google.common.collect.ImmutableList;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.After;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
+import org.opensearch.test.junit.annotations.TestLogging;
 
 import java.io.IOException;
 import java.util.List;
@@ -33,9 +35,19 @@ import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 
 @Log4j2
+@TestLogging(value = "org.opensearch.knn:DEBUG", reason = "Debugging CI failures")
 public class RandomRotationIT extends KNNRestTestCase {
 
     private static final String TEST_FIELD_NAME = "test-field";
+
+    @After
+    public void cleanupIndices() throws Exception {
+        try {
+            deleteKNNIndex("*");
+        } catch (Exception e) {
+            log.warn("Cleanup failed", e);
+        }
+    }
 
     private String makeQBitIndex(String name, boolean isUnderTest) throws Exception {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
@@ -44,6 +56,12 @@ public class RandomRotationIT extends KNNRestTestCase {
         String indexName = "rand-rot-index" + isUnderTest;
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
+            .startObject("settings")
+            .field("index.merge.scheduler.max_thread_count", 1)
+            .field("index.merge.policy.max_merged_segment", "5gb")
+            .field("index.translog.durability", "REQUEST")
+            .field("index.translog.sync_interval", "1s")
+            .endObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(TEST_FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
@@ -466,6 +484,12 @@ public class RandomRotationIT extends KNNRestTestCase {
         throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
+            .startObject("settings")
+            .field("index.merge.scheduler.max_thread_count", 1)
+            .field("index.merge.policy.max_merged_segment", "5gb")
+            .field("index.translog.durability", "REQUEST")
+            .field("index.translog.sync_interval", "1s")
+            .endObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(TEST_FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
