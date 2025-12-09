@@ -54,14 +54,17 @@ public class RandomRotationIT extends KNNRestTestCase {
         Integer bits = 1;
         int dimension = 2;
         String indexName = "rand-rot-index" + isUnderTest;
-        XContentBuilder builder = XContentFactory.jsonBuilder()
+
+        Settings settings = Settings.builder()
+            .put(getKNNDefaultIndexSettings())
+            .put("index.merge.scheduler.max_thread_count", 1)
+            .put("index.merge.policy.max_merged_segment", "5gb")
+            .put("index.translog.durability", "REQUEST")
+            .put("index.translog.sync_interval", "1s")
+            .build();
+
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("settings")
-            .field("index.merge.scheduler.max_thread_count", 1)
-            .field("index.merge.policy.max_merged_segment", "5gb")
-            .field("index.translog.durability", "REQUEST")
-            .field("index.translog.sync_interval", "1s")
-            .endObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(TEST_FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
@@ -83,7 +86,7 @@ public class RandomRotationIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        createKnnIndex(indexName, builder.toString());
+        createKnnIndex(indexName, settings, mappingBuilder.toString());
 
         // Without rotation -> 1,3,2:
         // vec1: --> [1, 0]
@@ -108,6 +111,8 @@ public class RandomRotationIT extends KNNRestTestCase {
         addKnnDoc(indexName, "1", ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vector_1));
         addKnnDoc(indexName, "2", ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vector_2));
         addKnnDoc(indexName, "3", ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vector_3));
+
+        refreshAllIndices();
 
         forceMergeKnnIndex(indexName);
 
@@ -222,6 +227,7 @@ public class RandomRotationIT extends KNNRestTestCase {
 
         makeOnlyQBitIndex(destIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
         reindex(sourceIndex, destIndex);
+        refreshAllIndices();
         forceMergeKnnIndex(destIndex);
 
         float[] query = { 0.25f, -1.0f };
@@ -272,6 +278,7 @@ public class RandomRotationIT extends KNNRestTestCase {
 
         makeOnlyQBitIndex(nonRrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, false, SpaceType.INNER_PRODUCT);
         reindex(rrIndex, nonRrIndex);
+        refreshAllIndices();
         forceMergeKnnIndex(nonRrIndex);
 
         float[] query = { 0.25f, -1.0f };
@@ -343,6 +350,7 @@ public class RandomRotationIT extends KNNRestTestCase {
 
         makeOnlyQBitIndex(rrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
         reindex(nonRrIndex, rrIndex);
+        refreshAllIndices();
         forceMergeKnnIndex(rrIndex);
 
         float[] query = { 0.25f, -1.0f };
@@ -482,14 +490,16 @@ public class RandomRotationIT extends KNNRestTestCase {
 
     private void makeOnlyQBitIndex(String indexName, String name, int dimension, int bits, boolean isUnderTest, SpaceType spaceType)
         throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
+        Settings settings = Settings.builder()
+            .put(getKNNDefaultIndexSettings())
+            .put("index.merge.scheduler.max_thread_count", 1)
+            .put("index.merge.policy.max_merged_segment", "5gb")
+            .put("index.translog.durability", "REQUEST")
+            .put("index.translog.sync_interval", "1s")
+            .build();
+
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("settings")
-            .field("index.merge.scheduler.max_thread_count", 1)
-            .field("index.merge.policy.max_merged_segment", "5gb")
-            .field("index.translog.durability", "REQUEST")
-            .field("index.translog.sync_interval", "1s")
-            .endObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(TEST_FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
@@ -511,7 +521,7 @@ public class RandomRotationIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        createKnnIndex(indexName, builder.toString());
+        createKnnIndex(indexName, settings, mappingBuilder.toString());
     }
 
     private void assertVectorEquals(List<Double> expected, List<Double> actual) {
