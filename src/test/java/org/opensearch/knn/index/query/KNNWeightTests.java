@@ -1193,7 +1193,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
             // Mock Quantization
 
-            segmentLevelQuantizationInfoMockedStatic.when(() -> SegmentLevelQuantizationInfo.build(any(), any(), anyString()))
+            segmentLevelQuantizationInfoMockedStatic.when(() -> SegmentLevelQuantizationInfo.build(any(), any(), anyString(), any()))
                 .thenReturn(null);
 
             jniServiceMockedStatic.when(
@@ -1667,7 +1667,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
             quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
             QuantizationParams quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
-            when(quantizationService.getQuantizationParams(any(FieldInfo.class))).thenReturn(quantizationParams);
+            when(quantizationService.getQuantizationParams(any(FieldInfo.class), any(Version.class))).thenReturn(quantizationParams);
 
             // Given
             int k = 3;
@@ -1711,7 +1711,8 @@ public class KNNWeightTests extends KNNWeightTestCase {
         try (MockedStatic<QuantizationService> quantizationServiceMockedStatic = Mockito.mockStatic(QuantizationService.class)) {
             QuantizationService quantizationService = Mockito.mock(QuantizationService.class);
             ScalarQuantizationParams quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
-            Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class))).thenReturn(quantizationParams);
+            Mockito.when(quantizationService.getQuantizationParams(any(FieldInfo.class), any(Version.class)))
+                .thenReturn(quantizationParams);
             quantizationServiceMockedStatic.when(QuantizationService::getInstance).thenReturn(quantizationService);
 
             float[] meanThresholds = new float[] { 1.2f, 2.3f, 3.4f, 4.5f };

@@ -66,20 +66,24 @@ public class QuantizationConfigParser {
      * @param csv Csv format of quantization config
      * @return Quantization config
      */
-    public static QuantizationConfig fromCsv(String csv) {
+    public static QuantizationConfig fromCsv(String csv, org.apache.lucene.util.Version luceneVersion) {
         if (csv == null || csv.isEmpty()) {
             return QuantizationConfig.EMPTY;
         }
-        String[] csvArray = CSVUtil.parse(csv);
-        int csvArrayLength = csvArray.length;
 
-        // if csv nonnull and nonempty, then the only valid lengths are 2 and 4.
-        // For forwards compatability with adding more options we can reserve length > 4 and update this below check.
-        if (csvArrayLength != 2 && csvArrayLength != 4) {
+        if (luceneVersion.onOrAfter(org.apache.lucene.util.Version.LUCENE_10_2_2)) {
+            return parseCurrentVersion(csv);
+        } else {
+            return parseLegacyVersion(csv);
+        }
+    }
+
+    private static QuantizationConfig parseCurrentVersion(String csv) {
+        String[] csvArray = CSVUtil.parse(csv);
+        if (csvArray.length != 4) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
         }
 
-        // Parse common fields (type and bits)
         String typeValue = getValueOrThrow(TYPE_NAME, csvArray[0]);
         if (!typeValue.equals(BINARY_TYPE)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported quantization type: \"%s\"", typeValue));
@@ -87,26 +91,40 @@ public class QuantizationConfigParser {
 
         String bitsValue = getValueOrThrow(BIT_COUNT_NAME, csvArray[1]);
         int bitCount = Integer.parseInt(bitsValue);
+
+        String isEnableRandomRotationValue = getValueOrThrow(RANDOM_ROTATION_NAME, csvArray[2]);
+        boolean isEnableRandomRotation = Boolean.parseBoolean(isEnableRandomRotationValue);
+
+        String isEnableADCValue = getValueOrThrow(ADC_NAME, csvArray[3]);
+        boolean isEnableADC = Boolean.parseBoolean(isEnableADCValue);
+
         ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
-
-        // RR is disabled by default, and it must be disabled for old segments since the extra quantization info is not present.
-        boolean isEnableRandomRotation = QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION;
-        // ADC is disabled by default, and it must be disabled for old segments since the extra quantization info is not present.
-        boolean isEnableADC = QFrameBitEncoder.DEFAULT_ENABLE_ADC;
-
-        // parse "random_rotation" and "enable_adc" from csv if length 4
-        if (csvArrayLength == 4) {
-            String isEnableRandomRotationValue = getValueOrThrow(RANDOM_ROTATION_NAME, csvArray[2]);
-            isEnableRandomRotation = Boolean.parseBoolean(isEnableRandomRotationValue);
-
-            String isEnableADCValue = getValueOrThrow(ADC_NAME, csvArray[3]);
-            isEnableADC = Boolean.parseBoolean(isEnableADCValue);
-        }
-
         return QuantizationConfig.builder()
             .quantizationType(quantizationType)
             .enableRandomRotation(isEnableRandomRotation)
             .enableADC(isEnableADC)
+            .build();
+    }
+
+    private static QuantizationConfig parseLegacyVersion(String csv) {
+        String[] csvArray = CSVUtil.parse(csv);
+        if (csvArray.length != 2) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid csv for quantization config: \"%s\"", csv));
+        }
+
+        String typeValue = getValueOrThrow(TYPE_NAME, csvArray[0]);
+        if (!typeValue.equals(BINARY_TYPE)) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported quantization type: \"%s\"", typeValue));
+        }
+
+        String bitsValue = getValueOrThrow(BIT_COUNT_NAME, csvArray[1]);
+        int bitCount = Integer.parseInt(bitsValue);
+
+        ScalarQuantizationType quantizationType = ScalarQuantizationType.fromId(bitCount);
+        return QuantizationConfig.builder()
+            .quantizationType(quantizationType)
+            .enableRandomRotation(QFrameBitEncoder.DEFAULT_ENABLE_RANDOM_ROTATION)  // default value for legacy version
+            .enableADC(QFrameBitEncoder.DEFAULT_ENABLE_ADC)  // default value for legacy version
             .build();
     }
 
