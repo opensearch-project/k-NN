@@ -187,7 +187,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
     @Override
     public int getBytesPerVector() {
         // Calculate the number of bytes required for one-bit quantization
-        return meanThresholds.length;
+        return (meanThresholds.length + 7) / 8;
     }
 
     @Override

@@ -175,7 +175,8 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
         }
 
         // Calculate the number of bytes required for multi-bit quantization
-        return thresholds.length * thresholds[0].length;
+        int totalBits = thresholds.length * thresholds[0].length;
+        return (totalBits + 7) / 8;
     }
 
     @Override
@@ -187,13 +188,13 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             throw new IllegalStateException("Error in getting Dimension: The thresholds array is not initialized.");
         }
         int originalDimensions = thresholds[0].length;
+        int bitsPerDimension = thresholds.length;
 
-        // Align the original dimensions to the next multiple of 8 for each bit level
-        int alignedDimensions = (originalDimensions + 7) & ~7;
+        // First multiply by bits, then align to multiple of 8 for binary dimension
+        int totalBinaryDimensions = originalDimensions * bitsPerDimension;
+        int alignedBinaryDimensions = (totalBinaryDimensions + 7) & ~7;
 
-        // The final dimension count should consider the bit levels
-        return thresholds.length * alignedDimensions;
-
+        return alignedBinaryDimensions;
     }
 
     /**
