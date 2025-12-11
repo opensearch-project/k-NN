@@ -663,6 +663,16 @@ public abstract class KNNWeight extends Weight {
             log.debug("Perform exact search after approximate search since no native engine files are available");
             return true;
         }
+
+        // Disable the fallback mechanism to exact search after ANN Search when the index setting is set to true
+        if (KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName())) {
+            log.debug(
+                "ExactSearch is disabled after ANN Search because the index setting: {} is set to true",
+                KNNSettings.INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH
+            );
+            return false;
+        }
+
         if (isFilteredExactSearchRequireAfterANNSearch(filterIdsCount, annResultCount)) {
             log.debug(
                 "Doing ExactSearch after doing ANNSearch as the number of documents returned are less than "
