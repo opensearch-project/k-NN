@@ -15,6 +15,8 @@ import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import static org.opensearch.knn.common.KNNConstants.BITS_PER_BYTE;
+import static org.opensearch.knn.common.KNNConstants.BYTE_ALIGNMENT_MASK;
 
 import java.io.IOException;
 
@@ -176,7 +178,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
 
         // Calculate the number of bytes required for multi-bit quantization
         int totalBits = thresholds.length * thresholds[0].length;
-        return (totalBits + 7) / 8;
+        return (totalBits + BYTE_ALIGNMENT_MASK) / BITS_PER_BYTE;
     }
 
     @Override
@@ -192,7 +194,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
 
         // First multiply by bits, then align to multiple of 8 for binary dimension
         int totalBinaryDimensions = originalDimensions * bitsPerDimension;
-        int alignedBinaryDimensions = (totalBinaryDimensions + 7) & ~7;
+        int alignedBinaryDimensions = (totalBinaryDimensions + BYTE_ALIGNMENT_MASK) & ~BYTE_ALIGNMENT_MASK;
 
         return alignedBinaryDimensions;
     }
