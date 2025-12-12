@@ -130,7 +130,7 @@ fi
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
 ./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dbuild.lib.commit_patches=false -Dnmslib_simd_flags=$NMSLIB_SIMD_FLAGS
-./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512.enabled=false -Davx512_spr.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dbuild.snapshot=$SNAPSHOT
+./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss,opensearchknn_simd -Davx512.enabled=false -Davx512_spr.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dbuild.snapshot=$SNAPSHOT
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   echo "Building k-NN library nmslib with gcc 10 on non-windows x64"
