@@ -63,6 +63,14 @@ One easy way to install on mac or linux is to use pip:
 pip install cmake==3.24.0
 ```
 
+On Mac it might be needed to use pip3 and add the cmake install location to path
+example for python3.9
+```bash
+pip3 install cmake==3.24.0
+export PATH="$HOME/Library/Python/3.9/bin:$PATH"
+```
+
+
 #### Faiss Dependencies
 
 To build the *faiss* JNI library, you need to have openmp, lapack, gflags and blas installed. For more information on *faiss* 
