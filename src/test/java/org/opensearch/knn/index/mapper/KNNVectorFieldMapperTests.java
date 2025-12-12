@@ -2452,6 +2452,104 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(exception.getMessage().contains("name needs to be set"));
     }
 
+    public void testTypeParser_validateFaissEngineConstraints_withCosineAndByteVectors_thenException() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // Test Faiss + cosine similarity + byte vectors should fail
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.COSINESIMIL.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject();
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
+        );
+
+        assertTrue(exception.getMessage().contains("Faiss engine does not support cosine similarity with byte vectors"));
+    }
+
+    public void testTypeParser_validateFaissEngineConstraints_withValidCombinations_thenSuccess() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        // Test Faiss + cosine similarity + float vectors should succeed
+        XContentBuilder xContentBuilder1 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.COSINESIMIL.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder1 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder1),
+            buildParserContext(indexName, settings)
+        );
+        assertNotNull(builder1);
+
+        // Test Faiss + L2 + byte vectors should succeed
+        XContentBuilder xContentBuilder2 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder2 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder2),
+            buildParserContext(indexName, settings)
+        );
+        assertNotNull(builder2);
+
+        // Test other engines + cosine similarity + byte vectors should succeed
+        XContentBuilder xContentBuilder3 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.COSINESIMIL.getValue())
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder3 = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder3),
+            buildParserContext(indexName, settings)
+        );
+        assertNotNull(builder3);
+    }
+
     private void validateBuilderAfterParsing(
         KNNVectorFieldMapper.Builder builder,
         KNNEngine expectedEngine,
