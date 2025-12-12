@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Refactoring
 * Refactor to not use parallel for MMR rerank. [#2968](https://github.com/opensearch-project/k-NN/pull/2968)
+* Change ordering of build task and added tests to catch uninitialized libraries [#3024](https://github.com/opensearch-project/k-NN/pull/3024)
 
 ### Enhancements
 * Removed VectorSearchHolders map from NativeEngines990KnnVectorsReader [#2948](https://github.com/opensearch-project/k-NN/pull/2948)

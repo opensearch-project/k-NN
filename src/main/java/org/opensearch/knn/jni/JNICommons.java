@@ -11,21 +11,13 @@
 
 package org.opensearch.knn.jni;
 
-import org.opensearch.knn.common.KNNConstants;
-
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
 /**
  * Common class for providing the JNI related functionality to various JNIServices.
  */
 public class JNICommons {
 
     static {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            System.loadLibrary(KNNConstants.COMMON_JNI_LIBRARY_NAME);
-            return null;
-        });
+        KNNLibraryLoader.loadCommonLibrary();
     }
 
     /**

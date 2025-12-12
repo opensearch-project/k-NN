@@ -449,12 +449,26 @@ tasks.register('buildJniLib', Exec) {
     commandLine args
 }
 
-test {
+tasks.register('buildJniTest', Test) {
     dependsOn buildJniLib
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
+    systemProperty "jdk.attach.allowAttachSelf", true
+    include '**/*BT*' // Build tests will be denoted with BT to show they come before other tests
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
+}
+
+test {
+    dependsOn buildJniTest
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/build/release"
     //this change enables mockito-inline that supports mocking of static classes/calls
     systemProperty "jdk.attach.allowAttachSelf", true
+    exclude '**/*BT*'
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
@@ -513,6 +527,7 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
 
 integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    mustRunAfter test
 }
 
 task integTestRemoteIndexBuild(type: RestIntegTestTask) {
