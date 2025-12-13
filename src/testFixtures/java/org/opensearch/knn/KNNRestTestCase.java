@@ -13,7 +13,7 @@ import com.google.common.primitives.Ints;
 import com.jayway.jsonpath.JsonPath;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.Version;

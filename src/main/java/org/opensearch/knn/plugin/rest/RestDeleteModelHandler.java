@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.plugin.rest;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.knn.plugin.KNNPlugin;

@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.training;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.jni.JNICommons;

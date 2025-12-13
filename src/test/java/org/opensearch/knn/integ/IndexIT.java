@@ -8,7 +8,7 @@ package org.opensearch.knn.integ;
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.http.util.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;

@@ -6,7 +6,7 @@
 package org.opensearch.knn.plugin.rest;
 
 import lombok.AllArgsConstructor;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsRequest;
