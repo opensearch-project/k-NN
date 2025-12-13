@@ -16,7 +16,6 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.util.QuantizationUtils.FloatArrayWrapper;
-import static org.opensearch.knn.common.KNNConstants.BITS_PER_BYTE;
 import static org.opensearch.knn.common.KNNConstants.BYTE_ALIGNMENT_MASK;
 
 import java.io.IOException;
@@ -189,7 +188,7 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
     @Override
     public int getBytesPerVector() {
         // Calculate the number of bytes required for one-bit quantization
-        return (meanThresholds.length + BYTE_ALIGNMENT_MASK) / BITS_PER_BYTE;
+        return (meanThresholds.length + BYTE_ALIGNMENT_MASK) / Byte.SIZE;
     }
 
     @Override
