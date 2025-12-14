@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.ConjunctionUtils;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -400,12 +401,22 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .collect(Collectors.toSet());
                 DocIdSetIterator matchedDocs;
                 if (knnQuery.getParentsFilter() != null) {
-                    matchedDocs = queryUtils.getAllSiblings(
+                    final DocIdSetIterator groupedDISI = queryUtils.getAllSiblings(
                         leafReaderContext,
                         docIds,
                         knnQuery.getParentsFilter(),
                         perLeafeResult.getFilterBits()
                     );
+
+                    List<DocIdSetIterator> disiList = new ArrayList<>();
+                    disiList.add(groupedDISI);
+                    // Currently it is okay to find VectorValues Like this since disk based vector search only works
+                    // after 2.17 from when we added VectorValues. Also since disk based vector search works only on
+                    // floats getting FloatVectorValues is also okay for now. Need to think over this on how to fix
+                    // it properly
+                    disiList.add(leafReaderContext.reader().getFloatVectorValues(knnQuery.getField()).iterator());
+
+                    matchedDocs = ConjunctionUtils.intersectIterators(disiList);
                 } else {
                     matchedDocs = new TopDocsDISI(perLeafeResult.getResult());
                 }
