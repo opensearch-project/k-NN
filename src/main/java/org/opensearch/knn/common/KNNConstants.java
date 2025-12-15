@@ -176,4 +176,7 @@ public class KNNConstants {
     // Repository-S3
     public static final String S3 = "s3";
     public static final String BUCKET = "bucket";
+
+    // Bit manipulation constants for quantization
+    public static final int BYTE_ALIGNMENT_MASK = 7; // Used for rounding up to nearest byte (Byte.SIZE - 1)
 }
