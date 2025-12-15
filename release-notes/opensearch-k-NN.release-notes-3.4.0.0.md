@@ -22,3 +22,6 @@ Compatible with OpenSearch and OpenSearch Dashboards version 3.4.0
 ### Enhancements
 * Removed VectorSearchHolders map from NativeEngines990KnnVectorsReader ([#2948](https://github.com/opensearch-project/k-NN/pull/2948))
 * Native scoring for FP16 ([#2922](https://github.com/opensearch-project/k-NN/pull/2922))
+
+### Infrastructure
+* Include opensearchknn_simd in build configurations ([#3025](https://github.com/opensearch-project/k-NN/pull/3025))
