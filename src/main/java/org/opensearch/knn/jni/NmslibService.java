@@ -11,14 +11,11 @@
 
 package org.opensearch.knn.jni;
 
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.Map;
 
 /**
@@ -36,12 +33,9 @@ import java.util.Map;
 class NmslibService {
 
     static {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            System.loadLibrary(KNNConstants.NMSLIB_JNI_LIBRARY_NAME);
-            initLibrary();
-            KNNEngine.NMSLIB.setInitialized(true);
-            return null;
-        });
+        KNNLibraryLoader.loadNmslibLibrary();
+        initLibrary();
+        KNNEngine.NMSLIB.setInitialized(true);
     }
 
     /**
