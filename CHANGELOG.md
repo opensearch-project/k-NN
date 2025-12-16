@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 
 ### Maintenance
+* Added gradle task to generate task dependency graph ([#3032](https://github.com/opensearch-project/k-NN/pull/3032))
 
 ### Bug Fixes
 * Fix indexing for 16x and 8x compression [#3019](https://github.com/opensearch-project/k-NN/pull/3019)
