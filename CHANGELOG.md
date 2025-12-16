@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix blocking old indices created before 2.18 to use memory optimized search. [#2918](https://github.com/opensearch-project/k-NN/pull/2918)
 * Fix NativeEngineKnnQuery to return all part results for valid totalHits in response [#2965](https://github.com/opensearch-project/k-NN/pull/2965)
 * Fix unsafe concurrent update query vector in KNNQueryBuilder [#2974](https://github.com/opensearch-project/k-NN/pull/2974)
+* Fix efficient filtering in nested k-NN queries [#2990](https://github.com/opensearch-project/k-NN/pull/2990)
 * Fix Backwards Compatability on Segment Merge for Disk-Based vector search [#2994](https://github.com/opensearch-project/k-NN/pull/2994) 
 * Fix score to distance calculation for inner product in faiss [#2992](https://github.com/opensearch-project/k-NN/pull/2992) 
 * Fix indexing for 16x and 8x compression [#3019](https://github.com/opensearch-project/k-NN/pull/3019)
