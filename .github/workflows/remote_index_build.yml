@@ -16,22 +16,14 @@ jobs:
     name: Check file for Build and Test k-NN using Remote Index Builder
     runs-on: ubuntu-latest
     outputs:
-      RUN_IT_TEST: ${{ steps.changed-files-specific.outputs.any_changed }}
+      RUN_IT_TEST: ${{ steps.check.outputs.files_changed }}
     steps:
       - uses: actions/checkout@v6
-      - name: Get changed files
-        id: changed-files-specific
-        uses: tj-actions/changed-files@v47.0.0
+      - name: Check files
+        id: check
+        uses: ./.github/actions/check-files
         with:
-          files: |
-            build.gradle
-            settings.gradle
-            src/**
-            build-tools/**
-            buildSrc/**
-            gradle/**
-            jni/**
-            .github/workflows/remote_index_build.yml
+          files: .github/workflows/remote_index_build.yml
 
   Remote-Index-Build-IT-Tests:
     needs: check-files
