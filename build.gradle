@@ -347,6 +347,91 @@ task release(type: Copy, group: 'build') {
     eachFile { it.path = it.path - "opensearch/" }
 }
 
+tasks.register('generateTaskGraph') {
+    group = 'documentation'
+    description = 'Generates a Mermaid graph of the build task dependencies'
+    
+    doLast {
+        def buildTask = project.tasks.getByName('build')
+        def taskDeps = [:]
+        def mustRunAfter = [:]
+        
+        def collectDeps
+        collectDeps = { task ->
+            if (taskDeps.containsKey(task.name)) return
+            
+            def deps = task.taskDependencies.getDependencies(task)
+            def mustRunAfterTasks = task.mustRunAfter.getDependencies(task)
+            
+
+            // Combine regular dependencies and mustRunAfter, filter out self-dependencies
+            def allDeps = (deps + mustRunAfterTasks).collect { it.name }.unique().findAll { it != task.name }
+            taskDeps[task.name] = allDeps
+            
+            (deps + mustRunAfterTasks).each { collectDeps(it) }
+        }
+        
+        collectDeps(buildTask)
+        
+        def taskToLevel = [:]
+        
+        def calculateLevel
+        calculateLevel = { taskName ->
+            if (taskToLevel.containsKey(taskName)) {
+                return taskToLevel[taskName]
+            }
+            
+            def allConstraints = taskDeps[taskName] ?: []
+            
+            if (allConstraints.isEmpty()) {
+                taskToLevel[taskName] = 0
+                return 0
+            }
+            
+            def depLevels = allConstraints.collect { calculateLevel(it) }
+            def maxDepLevel = depLevels.isEmpty() ? -1 : depLevels.max()
+            def level = maxDepLevel + 1
+            taskToLevel[taskName] = level
+            return level
+        }
+        
+        // Proper transitive reduction
+        def reducedDeps = [:]
+        
+        def isReachable
+        isReachable = { from, to, visited = [] as Set ->
+            if (from == to) return true
+            if (visited.contains(from)) return false
+            visited.add(from)
+            return (taskDeps[from] ?: []).any { dep -> isReachable(dep, to, visited) }
+        }
+        
+        taskDeps.each { taskName, deps ->
+            def directDeps = deps.findAll { dep ->
+                !deps.any { otherDep -> otherDep != dep && isReachable(otherDep, dep) }
+            }
+            reducedDeps[taskName] = directDeps
+        }
+        
+        def mermaid = [
+            '%%{init: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 80}}}%%',
+            'graph TD'
+        ]
+        
+        // Generate connections with reduced dependencies
+        reducedDeps.each { taskName, deps ->
+            deps.each { dep ->
+                mermaid << "    ${dep} --> ${taskName}"
+            }
+        }
+        
+        def outputFile = file('GRADLE_GRAPH.md')
+        outputFile.text = "# Gradle Build Task Graph\n\nDependency DAG with transitive dependencies removed for clarity.\n\nPrompt AI with questions like 'Analyzing GRADLE_GRAPH.md, does buildJniTest come before integTest?'\n\nRegenerate with `./gradlew generateTaskGraph`\n\n```mermaid\n${mermaid.join('\n')}\n```\n"
+        
+        println "Task graph generated in GRADLE_GRAPH.md"
+    }
+}
+
 
 //****************************************************************************/
 // Dependencies
