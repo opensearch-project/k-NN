@@ -12,82 +12,84 @@ graph TD
     check --> build
     assemble --> build
     spotlessCheck --> check
-    javadoc --> check
     jacocoTestReport --> check
+    javadoc --> check
     spotlessJavaCheck --> spotlessCheck
     spotlessJavaApply --> spotlessJavaCheck
     spotlessInternalRegisterDependencies --> spotlessJava
     clean --> spotlessJava
     spotlessJava --> spotlessJavaApply
-    delombok --> javadoc
-    generateEffectiveLombokConfig --> compileJava
-    compileJava --> delombok
     integTest --> jacocoTestReport
     compileJava --> classes
     processResources --> classes
-    bundlePlugin --> integTest
-    test --> integTest
+    generateEffectiveLombokConfig --> compileJava
+    buildJniTest --> test
     compileTestFixturesJava --> compileTestJava
     generateTestEffectiveLombokConfig --> compileTestJava
     compileJava --> compileTestFixturesJava
     generateTestFixturesEffectiveLombokConfig --> compileTestFixturesJava
-    pluginProperties --> bundlePlugin
-    jar --> bundlePlugin
-    generateNotice --> bundlePlugin
     copyPluginPropertiesTemplate --> pluginProperties
-    classes --> jar
+    pluginProperties --> testClasses
     processTestResources --> testClasses
     compileTestJava --> testClasses
-    pluginProperties --> testClasses
     testFixturesClasses --> testFixturesJar
     compileTestFixturesJava --> testFixturesClasses
     processTestFixturesResources --> testFixturesClasses
-    cmakeJniLib --> buildJniLib
-    buildJniTest --> test
+    classes --> jar
+    compileJava --> validateLibraryUsage
     buildJniLib --> buildJniTest
     prepareJavaAgent --> buildJniTest
     precommit --> buildJniTest
-    thirdPartyAudit --> precommit
-    forbiddenPatterns --> precommit
-    jarHell --> precommit
-    forbiddenApis --> precommit
-    licenseHeaders --> precommit
-    testingConventions --> precommit
-    validatePom --> precommit
-    filepermissions --> precommit
+    cmakeJniLib --> buildJniLib
     dependencyLicenses --> precommit
+    validatePom --> precommit
+    licenseHeaders --> precommit
+    forbiddenApis --> precommit
+    thirdPartyAudit --> precommit
+    filepermissions --> precommit
+    testingConventions --> precommit
+    forbiddenPatterns --> precommit
     loggerUsageCheck --> precommit
-    thirdPartyAuditResources --> thirdPartyAudit
-    testClasses --> jarHell
-    testFixturesJar --> jarHell
-    jar --> jarHell
-    forbiddenApisTestFixtures --> forbiddenApis
+    jarHell --> precommit
+    validatePluginZipPom --> validatePom
+    validateNebulaPom --> validatePom
+    generatePomFileForPluginZipPublication --> validatePluginZipPom
+    generatePomFileForNebulaPublication --> validatePluginZipPom
+    generatePomFileForNebulaPublication --> validateNebulaPom
+    generatePomFileForPluginZipPublication --> validateNebulaPom
     forbiddenApisTest --> forbiddenApis
+    forbiddenApisTestFixtures --> forbiddenApis
     forbiddenApisMain --> forbiddenApis
-    testFixturesClasses --> forbiddenApisTestFixtures
-    jar --> forbiddenApisTestFixtures
-    forbiddenApisResources --> forbiddenApisTestFixtures
     testClasses --> forbiddenApisTest
     testFixturesJar --> forbiddenApisTest
     jar --> forbiddenApisTest
     forbiddenApisResources --> forbiddenApisTest
+    testFixturesClasses --> forbiddenApisTestFixtures
+    jar --> forbiddenApisTestFixtures
+    forbiddenApisResources --> forbiddenApisTestFixtures
     jar --> forbiddenApisMain
     forbiddenApisResources --> forbiddenApisMain
+    thirdPartyAuditResources --> thirdPartyAudit
     testClasses --> testingConventions
     testFixturesJar --> testingConventions
     jar --> testingConventions
-    validateNebulaPom --> validatePom
-    validatePluginZipPom --> validatePom
-    generatePomFileForNebulaPublication --> validateNebulaPom
-    generatePomFileForPluginZipPublication --> validateNebulaPom
-    generatePomFileForPluginZipPublication --> validatePluginZipPom
-    generatePomFileForNebulaPublication --> validatePluginZipPom
     compileTestJava --> loggerUsageCheck
-    javadocJar --> assemble
-    sourcesJar --> assemble
+    testClasses --> jarHell
+    testFixturesJar --> jarHell
+    jar --> jarHell
+    bundlePlugin --> integTest
+    test --> integTest
+    pluginProperties --> bundlePlugin
+    jar --> bundlePlugin
+    generateNotice --> bundlePlugin
+    delombok --> javadoc
+    compileJava --> delombok
     bundlePlugin --> assemble
     generatePom --> assemble
-    javadoc --> javadocJar
+    sourcesJar --> assemble
+    javadocJar --> assemble
     generatePomFileForPluginZipPublication --> generatePom
     generatePomFileForNebulaPublication --> generatePom
+    javadoc --> javadocJar
+    jar ==> validateLibraryUsage
 ```

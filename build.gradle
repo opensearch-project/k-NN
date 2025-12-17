@@ -322,6 +322,27 @@ if (!usingRemoteCluster) {
     }
 }
 
+tasks.register('validateLibraryUsage') {
+    dependsOn compileJava
+    doLast {
+        fileTree('build/classes').include('**/*.class').each { classFile ->
+            if (classFile.absolutePath.contains('KNNLibraryLoader')) return
+
+            def bytes = classFile.bytes
+            def foundLoadLibrary = scanForLoadLibrary(bytes)
+
+            if (foundLoadLibrary) {
+                throw new GradleException("System.loadLibrary call found in ${classFile.absolutePath}. Add any JNI library loading functionality into KNNLibraryLoader!")
+            }
+        }
+    }
+}
+
+static def scanForLoadLibrary(byte[] classBytes) {
+    def bytesAsString = new String(classBytes, "ISO-8859-1")
+    return bytesAsString.contains("java/lang/System") && bytesAsString.contains("loadLibrary")
+}
+
 check.dependsOn spotlessCheck
 check.dependsOn jacocoTestReport
 
@@ -356,19 +377,23 @@ tasks.register('generateTaskGraph') {
         def taskDeps = [:]
         def mustRunAfter = [:]
         
+        def finalizedBy = [:]
+        
         def collectDeps
         collectDeps = { task ->
             if (taskDeps.containsKey(task.name)) return
             
             def deps = task.taskDependencies.getDependencies(task)
             def mustRunAfterTasks = task.mustRunAfter.getDependencies(task)
+            def finalizedByTasks = task.finalizedBy.getDependencies(task)
             
+            finalizedBy[task.name] = finalizedByTasks.collect { it.name }.findAll { it != task.name }
 
             // Combine regular dependencies and mustRunAfter, filter out self-dependencies
             def allDeps = (deps + mustRunAfterTasks).collect { it.name }.unique().findAll { it != task.name }
             taskDeps[task.name] = allDeps
             
-            (deps + mustRunAfterTasks).each { collectDeps(it) }
+            (deps + mustRunAfterTasks + finalizedByTasks).each { collectDeps(it) }
         }
         
         collectDeps(buildTask)
@@ -422,6 +447,13 @@ tasks.register('generateTaskGraph') {
         reducedDeps.each { taskName, deps ->
             deps.each { dep ->
                 mermaid << "    ${dep} --> ${taskName}"
+            }
+        }
+        
+        // Generate bold arrows for finalizedBy relationships
+        finalizedBy.each { taskName, finalizedTasks ->
+            finalizedTasks.each { finalizedTask ->
+                mermaid << "    ${taskName} ==> ${finalizedTask}"
             }
         }
         
@@ -533,6 +565,8 @@ tasks.register('buildJniLib', Exec) {
     logger.lifecycle("Build command: ${args.join(' ')}")
     commandLine args
 }
+
+jar.finalizedBy validateLibraryUsage
 
 tasks.register('buildJniTest', Test) {
     dependsOn buildJniLib
