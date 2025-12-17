@@ -1,0 +1,30 @@
+name: 'KNN Check Files Changed'
+description: 'Check if specific files have changed for KNN repo'
+inputs:
+  files:
+    description: 'Files to check for changes'
+outputs:
+  files_changed:
+    description: 'Whether any files changed'
+    value: ${{ steps.changed-files.outputs.any_changed }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Combine files
+      id: combine-files
+      shell: bash
+      run: |
+        DEFAULT_FILES="build.gradle,settings.gradle,src/**,build-tools/**,buildSrc/**,gradle/**,jni/**"
+        COMBINED_FILES="$DEFAULT_FILES,${{ inputs.files }}"
+        echo "combined_files=$COMBINED_FILES" >> $GITHUB_OUTPUT
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v47.0.0
+      with:
+        files: ${{ steps.combine-files.outputs.combined_files }}
+        files_separator: ","
+    - name: Debug output
+      shell: bash
+      run: |
+        echo "Files changed: ${{ steps.changed-files.outputs.any_changed }}"
+        echo "Combined files: ${{ steps.combine-files.outputs.combined_files }}"

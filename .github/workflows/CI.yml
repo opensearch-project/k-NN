@@ -6,31 +6,29 @@ on:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/CI.yml'
+
   pull_request:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/CI.yml'
 
 jobs:
+  check-files:
+    name: Check file for Build and Test k-NN
+    runs-on: ubuntu-latest
+    outputs:
+      RUN_BUILD_AND_TEST: ${{ steps.check.outputs.files_changed }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check files
+        id: check
+        uses: ./.github/actions/check-files
+        with:
+          files: .github/workflows/CI.yml
+
   Get-CI-Image-Tag:
+    needs: check-files
+    if: needs.check-files.outputs.RUN_BUILD_AND_TEST == 'true'
     uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
     with:
       product: opensearch
@@ -206,3 +204,15 @@ jobs:
       - name: Run build
         run: |
           ./gradlew.bat build -D'avx2.enabled=false' -D'avx512.enabled=false' -D'nproc.count=4'
+
+  check-results:
+    needs: [check-files, Build-k-NN-Windows, Build-k-NN-MacOS, Build-k-NN-Linux]
+    if: always()
+    name: Check results Build and Test k-NN
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        if: ${{ needs.check-files.outputs.RUN_BUILD_AND_TEST && needs.Build-k-NN-Linux.result == 'failure' }}
+        run: |
+          echo "Integration tests failed, failing the check-results step"
+          exit 1
