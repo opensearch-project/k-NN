@@ -6,31 +6,36 @@ on:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/test_security.yml'
   pull_request:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/test_security.yml'
 
 jobs:
+  check-files:
+    name: Check file for Test k-NN on Secure Cluster
+    runs-on: ubuntu-latest
+    outputs:
+      RUN_IT_TEST: ${{ steps.changed-files-specific.outputs.any_changed }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Get changed files
+        id: changed-files-specific
+        uses: tj-actions/changed-files@v47.0.0
+        with:
+          files: |
+            build.gradle
+            settings.gradle
+            src/**
+            build-tools/**
+            buildSrc/**
+            gradle/**
+            jni/**
+            .github/workflows/test_security.yml
+
   Get-CI-Image-Tag:
+    needs: check-files
+    if: needs.check-files.outputs.RUN_IT_TEST == 'true'
     uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
     with:
       product: opensearch
@@ -92,4 +97,16 @@ jobs:
           else
             echo "avx512 and avx2 not available on system"
             su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`"
-          fi  
+          fi
+
+  check-results:
+    needs: [check-files, integ-test-with-security-linux]
+    if: always()
+    name: Check results Test k-NN on Secure Cluster
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        if: ${{ needs.check-files.outputs.RUN_IT_TEST && needs.integ-test-with-security-linux.result == 'failure' }}
+        run: |
+          echo "Integration tests failed, failing the check-results step"
+          exit 1

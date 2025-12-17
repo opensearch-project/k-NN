@@ -6,31 +6,36 @@ on:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/remote_index_build.yml'
   pull_request:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/remote_index_build.yml'
 
 jobs:
+  check-files:
+    name: Check file for Build and Test k-NN using Remote Index Builder
+    runs-on: ubuntu-latest
+    outputs:
+      RUN_IT_TEST: ${{ steps.changed-files-specific.outputs.any_changed }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Get changed files
+        id: changed-files-specific
+        uses: tj-actions/changed-files@v47.0.0
+        with:
+          files: |
+            build.gradle
+            settings.gradle
+            src/**
+            build-tools/**
+            buildSrc/**
+            gradle/**
+            jni/**
+            .github/workflows/remote_index_build.yml
+
   Remote-Index-Build-IT-Tests:
+    needs: check-files
+    if: needs.check-files.outputs.RUN_IT_TEST == 'true'
     strategy:
       matrix:
         java: [21]
@@ -151,3 +156,14 @@ jobs:
           docker logout
           rm -rf ${{ github.workspace }}/*
 
+  check-results:
+    needs: [check-files, Remote-Index-Build-IT-Tests]
+    if: always()
+    name: Check results for Build and Test k-NN using Remote Index Builder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        if: ${{ needs.check-files.outputs.RUN_IT_TEST && needs.Remote-Index-Build-IT-Tests.result == 'failure' }}
+        run: |
+          echo "Remote Integration tests failed, failing the check-results step"
+          exit 1
