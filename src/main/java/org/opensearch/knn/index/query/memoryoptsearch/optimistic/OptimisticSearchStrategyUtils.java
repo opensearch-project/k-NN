@@ -51,7 +51,7 @@ public class OptimisticSearchStrategyUtils {
      *                      used for boundary checks or optimizations
      * @return the score value that would appear at position {@code k} if all scores
      *         were globally sorted in descending order
-     * @throws IllegalArgumentException if {@code k} is less than 1 or greater than {@code totalResults}
+     * @throws IllegalArgumentException if either {@code k} or {@code totalResults} is less than 1
      */
     public static float findKthLargestScore(final List<PerLeafResult> results, final int k, final int totalResults) {
         if (totalResults <= 0) {
@@ -60,11 +60,8 @@ public class OptimisticSearchStrategyUtils {
         if (k <= 0) {
             throw new IllegalArgumentException("K must be greater than zero, got=" + k);
         }
-        if (k > totalResults) {
-            throw new IllegalArgumentException("K must be less than total results, got=" + k + ", totalResults=" + totalResults);
-        }
 
-        // If fewer than k scores, return the minimum score
+        // If fewer than or equal to k scores, return the minimum score
         if (totalResults <= k) {
             float min = Float.MAX_VALUE;
             for (final PerLeafResult result : results) {
