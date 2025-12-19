@@ -68,7 +68,6 @@ public class OptimisticSearchStrategyUtilsTests {
     public void testInvalidK() {
         List<PerLeafResult> results = List.of(perLeaf(1.0f, 2.0f));
         assertThrows(IllegalArgumentException.class, () -> findKthLargestScore(results, 0, 2));
-        assertThrows(IllegalArgumentException.class, () -> findKthLargestScore(results, 3, 2));
     }
 
     @Test
@@ -89,5 +88,13 @@ public class OptimisticSearchStrategyUtilsTests {
         List<PerLeafResult> results = List.of(perLeaf(10f, 9f, 8f), perLeaf(7f, 6f), perLeaf(5f, 4f));
         // Combined sorted: [10, 9, 8, 7, 6, 5, 4]
         assertEquals(4f, findKthLargestScore(results, 7, 7), 1e-6);
+    }
+
+    @Test
+    public void testTotalResultsLessThanK() {
+        List<PerLeafResult> results = List.of(perLeaf(9.0f, 7.0f), perLeaf(5.0f));
+        // When totalResults < k, should return minimum score
+        float score = findKthLargestScore(results, 5, 3);
+        assertEquals(5.0f, score, 1e-6);
     }
 }
