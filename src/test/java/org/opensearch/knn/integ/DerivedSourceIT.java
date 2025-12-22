@@ -7,9 +7,12 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.junit.Before;
+import org.opensearch.client.Request;
+import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
@@ -210,6 +213,90 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             }
             assertEquals(dsEnabledException, dsDisabledException);
         }
+    }
+
+    /**
+     * Tests that bulk indexing with dynamic templates works correctly when derived source is enabled.
+     * This is a regression test for https://github.com/opensearch-project/k-NN/issues/3012
+     *
+     * The bug: When bulk indexing documents with dynamic templates that create different field
+     * mappings per document, only the
+     * first document's vector was correctly reconstructed. Subsequent documents returned the
+     * mask value (1) instead of the actual vector.
+     *
+     * Root cause: Segment attributes were written at segment creation time (in fieldsWriter()),
+     * when only the first document's dynamic mapping existed. The fix moves attribute writing
+     * to finish(), when all documents have been parsed and all mappings exist.
+     */
+    @SneakyThrows
+    public void testDerivedSource_withDynamicTemplates_andBulkIndexing() {
+        String indexName = "test-derived-dynamic-template";
+        int dimension = 3;
+
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.knn.derived_source.enabled", true)
+            .build();
+
+        XContentBuilder mappingsBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startArray("dynamic_templates")
+            .startObject()
+            .startObject("knn_vector_template")
+            .field("path_match", "similar_products_vector.*.clip_vit_base_patch32")
+            .startObject("mapping")
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("space_type", "l2")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endArray()
+            .endObject();
+
+        createKnnIndex(indexName, settings, mappingsBuilder.toString());
+
+        StringBuilder bulkRequestBody = new StringBuilder();
+
+        bulkRequestBody.append("{\"index\": {\"_index\": \"").append(indexName).append("\", \"_id\": \"doc1\"}}\n");
+        bulkRequestBody.append("{\"similar_products_vector\": {\"key_1001\": {\"clip_vit_base_patch32\": [1.0, 1.0, 1.0]}}}\n");
+
+        bulkRequestBody.append("{\"index\": {\"_index\": \"").append(indexName).append("\", \"_id\": \"doc2\"}}\n");
+        bulkRequestBody.append("{\"similar_products_vector\": {\"key_1002\": {\"clip_vit_base_patch32\": [2.0, 2.0, 2.0]}}}\n");
+
+        bulkRequestBody.append("{\"index\": {\"_index\": \"").append(indexName).append("\", \"_id\": \"doc3\"}}\n");
+        bulkRequestBody.append("{\"similar_products_vector\": {\"key_1003\": {\"clip_vit_base_patch32\": [3.0, 3.0, 3.0]}}}\n");
+
+        Request bulkRequest = new Request("POST", "/_bulk");
+        bulkRequest.setJsonEntity(bulkRequestBody.toString());
+        Response bulkResponse = client().performRequest(bulkRequest);
+        assertEquals(RestStatus.OK.getStatus(), bulkResponse.getStatusLine().getStatusCode());
+
+        refreshIndex(indexName);
+
+        Map<String, Object> doc1Source = getKnnDoc(indexName, "doc1");
+        Map<String, Object> doc2Source = getKnnDoc(indexName, "doc2");
+        Map<String, Object> doc3Source = getKnnDoc(indexName, "doc3");
+
+        List<Float> retrievedVector1 = extractVector(doc1Source, "similar_products_vector", "key_1001", "clip_vit_base_patch32");
+        List<Float> retrievedVector2 = extractVector(doc2Source, "similar_products_vector", "key_1002", "clip_vit_base_patch32");
+        List<Float> retrievedVector3 = extractVector(doc3Source, "similar_products_vector", "key_1003", "clip_vit_base_patch32");
+
+        assertNotNull("Vector 1 should not be null - got mask value instead of array", retrievedVector1);
+        assertNotNull("Vector 2 should not be null - got mask value instead of array", retrievedVector2);
+        assertNotNull("Vector 3 should not be null - got mask value instead of array", retrievedVector3);
+
+        assertEquals("Vector 1 should have correct dimension", dimension, retrievedVector1.size());
+        assertEquals("Vector 2 should have correct dimension", dimension, retrievedVector2.size());
+        assertEquals("Vector 3 should have correct dimension", dimension, retrievedVector3.size());
+
+        deleteKNNIndex(indexName);
     }
 
     /**
@@ -427,4 +514,19 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         );
     }
 
+    @SuppressWarnings("unchecked")
+    private List<Float> extractVector(Map<String, Object> source, String... path) {
+        Object current = source;
+        for (String key : path) {
+            if (current instanceof Map) {
+                current = ((Map<String, Object>) current).get(key);
+            } else {
+                return null;
+            }
+        }
+        if (current instanceof List) {
+            return (List<Float>) current;
+        }
+        return null;
+    }
 }
