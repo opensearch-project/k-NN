@@ -6,23 +6,27 @@
 package org.opensearch.knn.index.query.lucene;
 
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.CompositeReaderContext;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
-import org.mockito.ArgumentCaptor;
+import org.apache.lucene.store.ByteBuffersDirectory;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.FloatPoint;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
-import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
@@ -114,20 +118,29 @@ public class LuceneEngineKnnVectorQueryTests extends OpenSearchTestCase {
     }
 
     public void testCreateWeightWithReduceToTopK() throws Exception {
-        // Test luceneK > k, should reduce results to k
-        DirectoryReader mockReader = mock(DirectoryReader.class);
-        CompositeReaderContext mockContext = mock(CompositeReaderContext.class);
-        TopDocs mockTopDocs = new TopDocs(
-            new TotalHits(3, TotalHits.Relation.EQUAL_TO),
-            new ScoreDoc[] { new ScoreDoc(0, 1.0f), new ScoreDoc(1, 0.8f), new ScoreDoc(2, 0.6f) }
-        );
+        // Create a real directory with documents to get real LeafReaderContext
+        Directory directory = new ByteBuffersDirectory();
+        IndexWriterConfig config = new IndexWriterConfig();
+        try (IndexWriter writer = new IndexWriter(directory, config)) {
+            Document doc = new Document();
+            doc.add(new FloatPoint("vector", 1.0f, 2.0f));
+            writer.addDocument(doc);
+            writer.commit();
+        }
 
-        when(indexSearcher.search(any(Query.class), eq(3))).thenReturn(mockTopDocs);
-        when(indexSearcher.getIndexReader()).thenReturn(mockReader);
-        when(mockReader.leaves()).thenReturn(Collections.emptyList());
-        when(mockReader.getContext()).thenReturn(mockContext);
+        DirectoryReader reader = DirectoryReader.open(directory);
+        LeafReaderContext leafContext = reader.leaves().get(0);
+        Scorer mockScorer = mock(Scorer.class);
+        DocIdSetIterator mockIterator = mock(DocIdSetIterator.class);
+
+        when(indexSearcher.getIndexReader()).thenReturn(reader);
+        when(weight.scorer(leafContext)).thenReturn(mockScorer);
+        when(mockScorer.iterator()).thenReturn(mockIterator);
+        when(mockIterator.nextDoc()).thenReturn(0, DocIdSetIterator.NO_MORE_DOCS);
+        when(mockScorer.score()).thenReturn(1.0f);
 
         try (MockedStatic<QueryUtils> queryUtilsMock = mockStatic(QueryUtils.class)) {
+
             QueryUtils mockQueryUtils = mock(QueryUtils.class);
             Query mockDocAndScoreQuery = mock(Query.class);
             Weight mockDocAndScoreWeight = mock(Weight.class);
@@ -139,15 +152,12 @@ public class LuceneEngineKnnVectorQueryTests extends OpenSearchTestCase {
             LuceneEngineKnnVectorQuery queryWithReduce = new LuceneEngineKnnVectorQuery(luceneQuery, 10, 3);
             Weight reducedWeight = queryWithReduce.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1.0f);
 
-            verify(indexSearcher, times(1)).search(any(Query.class), eq(3));
-
-            ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
-            verify(mockQueryUtils).createDocAndScoreQuery(eq(mockReader), topDocsCaptor.capture());
-
-            TopDocs capturedTopDocs = topDocsCaptor.getValue();
-            assertEquals(3, capturedTopDocs.scoreDocs.length);
-            assertEquals(3, capturedTopDocs.totalHits.value());
-            assertNotNull(reducedWeight);
+            verify(luceneQuery).createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1.0f);
+            verify(mockQueryUtils).createDocAndScoreQuery(eq(reader), any(TopDocs.class));
+            assertEquals(mockDocAndScoreWeight, reducedWeight);
         }
+
+        reader.close();
+        directory.close();
     }
 }
