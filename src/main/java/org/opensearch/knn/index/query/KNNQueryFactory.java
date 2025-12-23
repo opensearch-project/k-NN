@@ -12,6 +12,7 @@ import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
@@ -128,23 +129,36 @@ public class KNNQueryFactory extends BaseQueryFactory {
             return knnQuery;
         }
 
-        Integer requestEfSearch = null;
-        if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
-            requestEfSearch = (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
-        }
         int overSampledK = k;
         boolean needsRescore = shouldRescore(rescoreContext);
         if (needsRescore) {
             // Will always do shard level rescoring whenever rescore is required.
             overSampledK = rescoreContext.getFirstPassK(k, false, getDimension(vector, byteVector));
         }
-        int luceneK = requestEfSearch == null ? overSampledK : Math.max(overSampledK, requestEfSearch);
+
+        int luceneK = Math.max(overSampledK, getEfSearch(methodParameters, indexName));
         log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, luceneK);
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
-            getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType)
+            getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType),
+            luceneK,
+            k
         );
         return needsRescore ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 
+    }
+
+    // Determine the ef_search value using the following priority order:
+    // 1. Use ef_search from method parameters if specified in the query
+    // 2. Otherwise, use ef_search from index setting (knn.algo_param.ef_search)
+    // 3. If neither exists, fall back to default ef_search value based on index version
+    private static int getEfSearch(final Map<String, ?> methodParameters, final String indexName) {
+        if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
+            return (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
+        }
+
+        // Returns ef_search from index setting (knn.algo_param.ef_search) or
+        // falls back to default ef_search value based on index version
+        return KNNSettings.getEfSearchParam(indexName);
     }
 
     private static int getDimension(float[] floatQueryVector, byte[] byteQueryVector) {
