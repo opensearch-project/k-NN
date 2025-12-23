@@ -15,6 +15,7 @@ import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
@@ -46,6 +47,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.ReadAdvice;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.tests.store.BaseDirectoryWrapper;
 import org.apache.lucene.util.InfoStream;
@@ -69,6 +71,7 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +80,8 @@ import java.util.stream.Collectors;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Log4j2
 public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
@@ -99,37 +104,37 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
 
     @SneakyThrows
     public void testReaderAndWriter_whenValidInput_thenSuccess() {
-        final Lucene99FlatVectorsFormat mockedFlatVectorsFormat = Mockito.mock(Lucene99FlatVectorsFormat.class);
+        final Lucene99FlatVectorsFormat mockedFlatVectorsFormat = mock(Lucene99FlatVectorsFormat.class);
 
         final String segmentName = "test-segment-name";
 
         final SegmentInfo mockedSegmentInfo = new SegmentInfo(
-            Mockito.mock(Directory.class),
-            Mockito.mock(Version.class),
-            Mockito.mock(Version.class),
+            mock(Directory.class),
+            mock(Version.class),
+            mock(Version.class),
             segmentName,
             0,
             false,
             false,
-            Mockito.mock(Codec.class),
-            Mockito.mock(Map.class),
+            mock(Codec.class),
+            mock(Map.class),
             new byte[16],
-            Mockito.mock(Map.class),
-            Mockito.mock(Sort.class)
+            mock(Map.class),
+            mock(Sort.class)
         );
 
         final String segmentSuffix = "test-segment-suffix";
 
-        Directory directory = Mockito.mock(Directory.class);
-        IndexInput input = Mockito.mock(IndexInput.class);
-        Mockito.when(directory.openInput(any(), any())).thenReturn(input);
+        Directory directory = mock(Directory.class);
+        IndexInput input = mock(IndexInput.class);
+        when(directory.openInput(any(), any())).thenReturn(input);
 
         String fieldName = "test-field";
-        FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
-        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
-        Mockito.when(fieldInfo.getName()).thenReturn(fieldName);
-        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
-        Mockito.when(fieldInfos.iterator()).thenReturn(new Iterator<FieldInfo>() {
+        FieldInfos fieldInfos = mock(FieldInfos.class);
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getName()).thenReturn(fieldName);
+        when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
+        when(fieldInfos.iterator()).thenReturn(new Iterator<FieldInfo>() {
             @Override
             public boolean hasNext() {
                 return false;
@@ -145,20 +150,20 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
             directory,
             mockedSegmentInfo,
             fieldInfos,
-            Mockito.mock(IOContext.class),
+            mock(IOContext.class),
             segmentSuffix
         );
 
         final SegmentWriteState mockedSegmentWriteState = new SegmentWriteState(
-            Mockito.mock(InfoStream.class),
-            Mockito.mock(Directory.class),
+            mock(InfoStream.class),
+            mock(Directory.class),
             mockedSegmentInfo,
-            Mockito.mock(FieldInfos.class),
+            mock(FieldInfos.class),
             null,
-            Mockito.mock(IOContext.class)
+            mock(IOContext.class)
         );
-        Mockito.when(mockedFlatVectorsFormat.fieldsReader(mockedSegmentReadState)).thenReturn(Mockito.mock(FlatVectorsReader.class));
-        Mockito.when(mockedFlatVectorsFormat.fieldsWriter(mockedSegmentWriteState)).thenReturn(Mockito.mock(FlatVectorsWriter.class));
+        when(mockedFlatVectorsFormat.fieldsReader(mockedSegmentReadState)).thenReturn(mock(FlatVectorsReader.class));
+        when(mockedFlatVectorsFormat.fieldsWriter(mockedSegmentWriteState)).thenReturn(mock(FlatVectorsWriter.class));
 
         final NativeEngines990KnnVectorsFormat nativeEngines990KnnVectorsFormat = new NativeEngines990KnnVectorsFormat(
             mockedFlatVectorsFormat
@@ -308,6 +313,71 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
             new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
                 .getName()
         );
+    }
+
+    @SneakyThrows
+    public void testUseReadAdviceNormalForVecFile() {
+        // Index one vector to create `.vec` file.
+        setup();
+        float[] floatVector = { 1.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+        final FieldType fieldType = createVectorField(8, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldType.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"HNSW32\", \"spaceType\": \"l2\"}");
+        addFieldToIndex(new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, fieldType), indexWriter);
+
+        // Create a new segment
+        indexWriter.close();
+
+        // Create format
+        final NativeEngines990KnnVectorsFormat format = new NativeEngines990KnnVectorsFormat(
+            new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer())
+        );
+
+        // Create Directory interceptor
+        final Directory directory = mock(Directory.class);
+        when(directory.openInput(anyString(), any(IOContext.class))).thenAnswer(invocation -> {
+            final String fileName = invocation.getArgument(0);
+            final IOContext ctx = invocation.getArgument(1);
+
+            // For .vec file, NORMAL should be used instead of RANDOM
+            if (fileName.endsWith(".vec")) {
+                assertEquals(ctx.readAdvice(), ReadAdvice.NORMAL);
+            }
+
+            return dir.openInput(fileName, ctx);
+        });
+
+        // Create .vec reader
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        when(fieldInfos.iterator()).thenReturn(Collections.emptyIterator());
+        final SegmentInfo mockedSegmentInfo = new SegmentInfo(
+            directory,
+            mock(Version.class),
+            mock(Version.class),
+            "_0_NativeEngines990KnnVectorsFormat",
+            1,
+            false,
+            false,
+            mock(Codec.class),
+            mock(Map.class),
+            new byte[16],
+            mock(Map.class),
+            mock(Sort.class)
+        );
+        final SegmentReadState segmentReadState = new SegmentReadState(directory, mockedSegmentInfo, fieldInfos, IOContext.DEFAULT, "0");
+
+        // Create vectors reader, which will intercept `openInput` to force NORMAL advice.
+        KnnVectorsReader vectorsReader = null;
+        try (MockedStatic<CodecUtil> mocked = Mockito.mockStatic(CodecUtil.class)) {
+            // Skip header check
+            mocked.when(() -> CodecUtil.checkIndexHeader(any(), anyString(), anyInt(), anyInt(), any(), anyString())).thenReturn(1);
+
+            // Create vectors reader
+            vectorsReader = format.fieldsReader(segmentReadState);
+        } finally {
+            // Close .vec file + directory
+            vectorsReader.close();
+            dir.close();
+        }
     }
 
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {
