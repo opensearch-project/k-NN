@@ -17,8 +17,14 @@ import org.apache.lucene.search.join.ToChildBlockJoinQuery;
 import org.junit.Before;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.Version;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.QueryBuilder;
@@ -33,6 +39,7 @@ import org.opensearch.knn.index.query.lucenelib.ExpandNestedDocsQuery;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.Arrays;
 import java.util.List;
@@ -41,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
@@ -60,12 +68,23 @@ public class KNNQueryFactoryTests extends KNNTestCase {
 
     @Mock
     ClusterSettings clusterSettings;
+    @Mock
+    ClusterState clusterState;
+    @Mock
+    Metadata metadata;
+    @Mock
+    IndexMetadata indexMetadata;
 
     @Before
     @Override
     public void setUp() throws Exception {
         super.setUp();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterService.state()).thenReturn(clusterState);
+        when(clusterState.getMetadata()).thenReturn(metadata);
+        when(metadata.index(testIndexName)).thenReturn(indexMetadata);
+        when(indexMetadata.getSettings()).thenReturn(Settings.EMPTY);
+        when(indexMetadata.getCreationVersion()).thenReturn(Version.CURRENT);
         KNNSettings.state().setClusterService(clusterService);
     }
 
@@ -126,95 +145,151 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testLuceneFloatVectorQuery() {
-        Query actualQuery1 = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .vector(testQueryVector)
-                .k(testK)
-                .indexName(testIndexName)
-                .fieldName(testFieldName)
-                .methodParameters(methodParameters)
-                .vectorDataType(VectorDataType.FLOAT)
-                .build()
-        );
+        Query actualQuery1 = buildLuceneFloatQuery(methodParameters);
 
-        // efsearch > k
-        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, 100, null));
-        assertEquals(expectedQuery1, actualQuery1);
-
-        // efsearch < k
-        actualQuery1 = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .vector(testQueryVector)
-                .k(testK)
-                .indexName(testIndexName)
-                .fieldName(testFieldName)
-                .methodParameters(Map.of("ef_search", 1))
-                .vectorDataType(VectorDataType.FLOAT)
-                .build()
+        // efsearch > k and efSearch was set using methodParameters
+        int luceneK = getLuceneK(testK, methodParameters);
+        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(
+            new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
+            luceneK,
+            testK
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null));
         assertEquals(expectedQuery1, actualQuery1);
+        assertEquals(luceneK, methodParameters.get(METHOD_PARAMETER_EF_SEARCH));
 
-        actualQuery1 = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .vector(testQueryVector)
-                .k(testK)
-                .indexName(testIndexName)
-                .fieldName(testFieldName)
-                .vectorDataType(VectorDataType.FLOAT)
-                .build()
+        // efsearch < k and efSearch was set using methodParameters
+        Map<String, ?> methodParams = Map.of(METHOD_PARAMETER_EF_SEARCH, 1);
+        actualQuery1 = buildLuceneFloatQuery(methodParams);
+        luceneK = getLuceneK(testK, methodParams);
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(
+            new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
+            luceneK,
+            testK
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null));
         assertEquals(expectedQuery1, actualQuery1);
+        assertEquals(luceneK, testK);
+
+        // efsearch > k and efSearch was set using index setting
+        int efSearchIndexSettingValue = 110;
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            // Index setting mocking
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any())).thenReturn(efSearchIndexSettingValue);
+            luceneK = getLuceneK(testK, null);
+            actualQuery1 = buildLuceneFloatQuery(null);
+            expectedQuery1 = new LuceneEngineKnnVectorQuery(
+                new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
+                luceneK,
+                testK
+            );
+            assertEquals(expectedQuery1, actualQuery1);
+            assertEquals(luceneK, efSearchIndexSettingValue);
+        }
+
+        // efsearch < k and efSearch was set using index setting
+        efSearchIndexSettingValue = 2;
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            // Index setting mocking
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any())).thenReturn(efSearchIndexSettingValue);
+            luceneK = getLuceneK(testK, null);
+            actualQuery1 = buildLuceneFloatQuery(null);
+            expectedQuery1 = new LuceneEngineKnnVectorQuery(
+                new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
+                luceneK,
+                testK
+            );
+            assertEquals(expectedQuery1, actualQuery1);
+            assertEquals(luceneK, testK);
+        }
+
+        // efSearch was not set using methodParameters or index setting then the default value of efSearch will be used
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            // Index setting mocking
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any()))
+                .thenReturn(IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
+            luceneK = getLuceneK(testK, null);
+            actualQuery1 = buildLuceneFloatQuery(null);
+            expectedQuery1 = new LuceneEngineKnnVectorQuery(
+                new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
+                luceneK,
+                testK
+            );
+            assertEquals(expectedQuery1, actualQuery1);
+            assertEquals(luceneK, IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
+        }
     }
 
     public void testLuceneByteVectorQuery() {
-        Query actualQuery1 = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .byteVector(testByteQueryVector)
-                .k(testK)
-                .indexName(testIndexName)
-                .fieldName(testFieldName)
-                .methodParameters(methodParameters)
-                .vectorDataType(VectorDataType.BYTE)
-                .build()
-        );
+        Query actualQuery1 = buildLuceneByteQuery(methodParameters);
 
-        // efsearch > k
-        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, 100, null));
-        assertEquals(expectedQuery1, actualQuery1);
-
-        // efsearch < k
-        actualQuery1 = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .byteVector(testByteQueryVector)
-                .k(testK)
-                .indexName(testIndexName)
-                .fieldName(testFieldName)
-                .methodParameters(Map.of("ef_search", 1))
-                .vectorDataType(VectorDataType.BYTE)
-                .build()
+        // efsearch > k and efSearch was set using methodParameters
+        int luceneK = getLuceneK(testK, methodParameters);
+        Query expectedQuery1 = new LuceneEngineKnnVectorQuery(
+            new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
+            luceneK,
+            testK
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null));
         assertEquals(expectedQuery1, actualQuery1);
+        assertEquals(luceneK, methodParameters.get(METHOD_PARAMETER_EF_SEARCH));
 
-        actualQuery1 = KNNQueryFactory.create(
-            BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(KNNEngine.LUCENE)
-                .byteVector(testByteQueryVector)
-                .k(testK)
-                .indexName(testIndexName)
-                .fieldName(testFieldName)
-                .vectorDataType(VectorDataType.BYTE)
-                .build()
+        // efsearch < k and efSearch was set using methodParameters
+        Map<String, ?> methodParams = Map.of(METHOD_PARAMETER_EF_SEARCH, 1);
+        actualQuery1 = buildLuceneByteQuery(methodParams);
+        luceneK = getLuceneK(testK, methodParams);
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(
+            new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
+            luceneK,
+            testK
         );
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null));
         assertEquals(expectedQuery1, actualQuery1);
+        assertEquals(luceneK, testK);
+
+        // efsearch > k and efSearch was set using index setting
+        int efSearchIndexSettingValue = 110;
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            // Index setting mocking
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any())).thenReturn(efSearchIndexSettingValue);
+            luceneK = getLuceneK(testK, null);
+            actualQuery1 = buildLuceneByteQuery(null);
+            expectedQuery1 = new LuceneEngineKnnVectorQuery(
+                new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
+                luceneK,
+                testK
+            );
+            assertEquals(expectedQuery1, actualQuery1);
+            assertEquals(luceneK, efSearchIndexSettingValue);
+        }
+
+        // efsearch < k and efSearch was set using index setting
+        efSearchIndexSettingValue = 2;
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            // Index setting mocking
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any())).thenReturn(efSearchIndexSettingValue);
+            luceneK = getLuceneK(testK, null);
+            actualQuery1 = buildLuceneByteQuery(null);
+            expectedQuery1 = new LuceneEngineKnnVectorQuery(
+                new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
+                luceneK,
+                testK
+            );
+            assertEquals(expectedQuery1, actualQuery1);
+            assertEquals(luceneK, testK);
+        }
+
+        // efSearch was not set using methodParameters or index setting then the default value of efSearch will be used
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            // Index setting mocking
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any()))
+                .thenReturn(IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
+            luceneK = getLuceneK(testK, null);
+            actualQuery1 = buildLuceneByteQuery(null);
+            expectedQuery1 = new LuceneEngineKnnVectorQuery(
+                new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
+                luceneK,
+                testK
+            );
+            assertEquals(expectedQuery1, actualQuery1);
+            assertEquals(luceneK, IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
+        }
     }
 
     public void testCreateLuceneQueryWithFilter() {
@@ -540,5 +615,41 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             // Then
             assertEquals(expectedQueryClass, query.getClass());
         }
+    }
+
+    private int getLuceneK(final int k, final Map<String, ?> methodParameters) {
+        if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
+            return Math.max(k, (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH));
+        }
+
+        return Math.max(k, KNNSettings.getEfSearchParam(testIndexName));
+    }
+
+    private Query buildLuceneFloatQuery(Map<String, ?> methodParams) {
+        return KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .vector(testQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .methodParameters(methodParams)
+                .vectorDataType(VectorDataType.FLOAT)
+                .build()
+        );
+    }
+
+    private Query buildLuceneByteQuery(Map<String, ?> methodParams) {
+        return KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .byteVector(testByteQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .methodParameters(methodParams)
+                .vectorDataType(VectorDataType.BYTE)
+                .build()
+        );
     }
 }
