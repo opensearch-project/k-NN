@@ -55,13 +55,6 @@ final class DocAndScoreQuery extends Query {
                 if (found < 0) {
                     return Explanation.noMatch("not in top " + k);
                 }
-
-                // This is copied from org.apache.lucene.search.DocAndScoreQuery#createWeight
-                // for LuceneEngineKnnVectorQuery where knnWeight is null
-                if (knnWeight == null) {
-                    return Explanation.match(scores[found] * boost, "within top " + docs.length + " docs");
-                }
-
                 float score = 0;
                 try {
                     final Scorer scorer = scorer(context);

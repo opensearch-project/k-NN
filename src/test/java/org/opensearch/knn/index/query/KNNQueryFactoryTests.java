@@ -6,13 +6,9 @@
 package org.opensearch.knn.index.query;
 
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.KnnByteVectorQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
-import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.apache.lucene.search.join.ToChildBlockJoinQuery;
 import org.junit.Before;
 import org.mockito.Mock;
@@ -37,6 +33,10 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.lucenelib.ExpandNestedDocsQuery;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
+import org.opensearch.knn.index.query.lucenelib.OSDiversifyingChildrenByteKnnVectorQuery;
+import org.opensearch.knn.index.query.lucenelib.OSDiversifyingChildrenFloatKnnVectorQuery;
+import org.opensearch.knn.index.query.lucenelib.OSKnnByteVectorQuery;
+import org.opensearch.knn.index.query.lucenelib.OSKnnFloatVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
@@ -150,9 +150,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         // efsearch > k and efSearch was set using methodParameters
         int luceneK = getLuceneK(testK, methodParameters);
         Query expectedQuery1 = new LuceneEngineKnnVectorQuery(
-            new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
-            luceneK,
-            testK
+            new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
         );
         assertEquals(expectedQuery1, actualQuery1);
         assertEquals(luceneK, methodParameters.get(METHOD_PARAMETER_EF_SEARCH));
@@ -161,11 +159,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         Map<String, ?> methodParams = Map.of(METHOD_PARAMETER_EF_SEARCH, 1);
         actualQuery1 = buildLuceneFloatQuery(methodParams);
         luceneK = getLuceneK(testK, methodParams);
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(
-            new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
-            luceneK,
-            testK
-        );
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK));
         assertEquals(expectedQuery1, actualQuery1);
         assertEquals(luceneK, testK);
 
@@ -177,9 +171,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneFloatQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
-                luceneK,
-                testK
+                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, efSearchIndexSettingValue);
@@ -193,9 +185,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneFloatQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
-                luceneK,
-                testK
+                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, testK);
@@ -209,9 +199,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneFloatQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new KnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null),
-                luceneK,
-                testK
+                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
@@ -224,9 +212,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         // efsearch > k and efSearch was set using methodParameters
         int luceneK = getLuceneK(testK, methodParameters);
         Query expectedQuery1 = new LuceneEngineKnnVectorQuery(
-            new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
-            luceneK,
-            testK
+            new OSKnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null, testK)
         );
         assertEquals(expectedQuery1, actualQuery1);
         assertEquals(luceneK, methodParameters.get(METHOD_PARAMETER_EF_SEARCH));
@@ -235,11 +221,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         Map<String, ?> methodParams = Map.of(METHOD_PARAMETER_EF_SEARCH, 1);
         actualQuery1 = buildLuceneByteQuery(methodParams);
         luceneK = getLuceneK(testK, methodParams);
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(
-            new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
-            luceneK,
-            testK
-        );
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(new OSKnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null, testK));
         assertEquals(expectedQuery1, actualQuery1);
         assertEquals(luceneK, testK);
 
@@ -251,9 +233,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneByteQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
-                luceneK,
-                testK
+                new OSKnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null, testK)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, efSearchIndexSettingValue);
@@ -267,9 +247,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneByteQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
-                luceneK,
-                testK
+                new OSKnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null, testK)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, testK);
@@ -283,9 +261,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneByteQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new KnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null),
-                luceneK,
-                testK
+                new OSKnnByteVectorQuery(testFieldName, testByteQueryVector, luceneK, null, testK)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
@@ -582,8 +558,8 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     public void testCreate_whenExpandNestedDocsQueryWithLucene_thenCreateExpandNestedDocsQuery() {
         testExpandNestedDocsQuery(KNNEngine.LUCENE, ExpandNestedDocsQuery.class, VectorDataType.BYTE, true);
         testExpandNestedDocsQuery(KNNEngine.LUCENE, ExpandNestedDocsQuery.class, VectorDataType.FLOAT, true);
-        testExpandNestedDocsQuery(KNNEngine.LUCENE, DiversifyingChildrenByteKnnVectorQuery.class, VectorDataType.BYTE, false);
-        testExpandNestedDocsQuery(KNNEngine.LUCENE, DiversifyingChildrenFloatKnnVectorQuery.class, VectorDataType.FLOAT, false);
+        testExpandNestedDocsQuery(KNNEngine.LUCENE, OSDiversifyingChildrenByteKnnVectorQuery.class, VectorDataType.BYTE, false);
+        testExpandNestedDocsQuery(KNNEngine.LUCENE, OSDiversifyingChildrenFloatKnnVectorQuery.class, VectorDataType.FLOAT, false);
     }
 
     private void testExpandNestedDocsQuery(
@@ -618,11 +594,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     private int getLuceneK(final int k, final Map<String, ?> methodParameters) {
-        if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
-            return Math.max(k, (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH));
-        }
-
-        return Math.max(k, KNNSettings.getEfSearchParam(testIndexName));
+        return Math.max(k, IndexHyperParametersUtil.getHNSWEFSearchValue(methodParameters, testIndexName));
     }
 
     private Query buildLuceneFloatQuery(Map<String, ?> methodParams) {

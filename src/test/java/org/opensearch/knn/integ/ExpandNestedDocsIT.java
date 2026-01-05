@@ -106,6 +106,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         }
 
         int numberOfNestedFields = 2;
+        int k = 3;
         createKnnIndex(engine, mode, dimension, dataType);
         addRandomVectorsWithTopLevelField(1, numberOfNestedFields, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
         addRandomVectorsWithTopLevelField(2, numberOfNestedFields, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
@@ -117,12 +118,12 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
         // Run
         Float[] queryVector = createVector();
-        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, 10, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
+        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, k, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
 
         // Verify
         String entity = EntityUtils.toString(response.getEntity());
         Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
-        assertEquals(3, docIdToOffsets.keySet().size());
+        assertEquals(k, docIdToOffsets.keySet().size());
         for (String key : docIdToOffsets.keySet()) {
             assertEquals(numberOfNestedFields, docIdToOffsets.get(key).size());
         }
