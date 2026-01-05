@@ -2,6 +2,10 @@ grant {
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_nmslib";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_common";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_simd";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_simd_avx2";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_simd_avx512";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn_simd_avx512_spr";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx2";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx512";
     permission java.lang.RuntimePermission "loadLibrary.opensearchknn_faiss_avx512_spr";

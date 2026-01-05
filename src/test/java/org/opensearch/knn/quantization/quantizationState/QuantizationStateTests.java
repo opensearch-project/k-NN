@@ -180,21 +180,113 @@ public class QuantizationStateTests extends KNNTestCase {
 
     public void testMultiBitScalarQuantizationStateGetDimensions_withUnalignedThresholds() {
         ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
-        float[][] thresholds = { { 0.1f, 0.2f, 0.3f }, { 1.1f, 1.2f, 1.3f } };
 
+        // Case 1: 3D with 2 bits: 3*2=6 bits → align to 8 bits
+        float[][] thresholds = { { 0.1f, 0.2f, 0.3f }, { 1.1f, 1.2f, 1.3f } };
         MultiBitScalarQuantizationState state = MultiBitScalarQuantizationState.builder()
             .quantizationParams(params)
             .thresholds(thresholds)
             .build();
+        int expectedDimensions = 8; // 6 bits aligned to 8
+        assertEquals(expectedDimensions, state.getDimensions());
 
-        // Case 1: 3 thresholds, each with 2 dimensions
+        // Case 2: 2D with 3 bit levels: 2*3=6 bits → align to 8 bits
         float[][] thresholds1 = { { 0.5f, 1.5f }, { 1.0f, 2.0f }, { 1.5f, 2.5f } };
         MultiBitScalarQuantizationState state1 = new MultiBitScalarQuantizationState(params, thresholds1, null);
-        int expectedDimensions1 = 24; // The next multiple of 8 considering all bits
+        int expectedDimensions1 = 8; // 6 bits aligned to 8
         assertEquals(expectedDimensions1, state1.getDimensions());
+    }
 
-        int expectedDimensions = 16; // 2 bit levels × 8 dims already aligned
-        assertEquals(expectedDimensions, state.getDimensions());
+    public void testMultiBitScalarQuantizationState_getBytesPerVector() {
+        // Test 2D with 2 bits (16x compression)
+        ScalarQuantizationParams params2bit = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
+        float[][] thresholds2D = { { 0.5f, 1.5f }, { 1.0f, 2.0f } };
+        MultiBitScalarQuantizationState state2D = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params2bit)
+            .thresholds(thresholds2D)
+            .build();
+        assertEquals(1, state2D.getBytesPerVector()); // 4 bits = 1 byte
+
+        // Test 12D with 2 bits (16x compression)
+        float[][] thresholds12D = new float[2][12];
+        MultiBitScalarQuantizationState state12D = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params2bit)
+            .thresholds(thresholds12D)
+            .build();
+        assertEquals(3, state12D.getBytesPerVector()); // 24 bits = 3 bytes
+
+        // Test 2D with 4 bits (8x compression)
+        ScalarQuantizationParams params4bit = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
+        float[][] thresholds2D_4bit = new float[4][2];
+        MultiBitScalarQuantizationState state2D_4bit = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params4bit)
+            .thresholds(thresholds2D_4bit)
+            .build();
+        assertEquals(1, state2D_4bit.getBytesPerVector()); // 8 bits = 1 byte
+
+        // Test 12D with 4 bits (8x compression)
+        float[][] thresholds12D_4bit = new float[4][12];
+        MultiBitScalarQuantizationState state12D_4bit = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params4bit)
+            .thresholds(thresholds12D_4bit)
+            .build();
+        assertEquals(6, state12D_4bit.getBytesPerVector()); // 48 bits = 6 bytes
+    }
+
+    public void testOneBitScalarQuantizationState_getBytesPerVector() {
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+
+        // Test 2D with 1 bit (32x compression)
+        float[] thresholds2D = { 0.5f, 1.5f };
+        OneBitScalarQuantizationState state2D = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(thresholds2D)
+            .build();
+        assertEquals(1, state2D.getBytesPerVector()); // 2 bits = 1 byte
+
+        // Test 12D with 1 bit (32x compression)
+        float[] thresholds12D = new float[12];
+        OneBitScalarQuantizationState state12D = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(thresholds12D)
+            .build();
+        assertEquals(2, state12D.getBytesPerVector()); // 12 bits = 2 bytes
+    }
+
+    public void testMultiBitScalarQuantizationState_getDimensions_fixedLogic() {
+        // Test 2D with 2 bits: 2*2=4 bits → align to 8 bits
+        ScalarQuantizationParams params2bit = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
+        float[][] thresholds2D = { { 0.5f, 1.5f }, { 1.0f, 2.0f } };
+        MultiBitScalarQuantizationState state2D = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params2bit)
+            .thresholds(thresholds2D)
+            .build();
+        assertEquals(8, state2D.getDimensions()); // 4 bits aligned to 8
+
+        // Test 12D with 2 bits: 12*2=24 bits → already aligned
+        float[][] thresholds12D = new float[2][12];
+        MultiBitScalarQuantizationState state12D = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params2bit)
+            .thresholds(thresholds12D)
+            .build();
+        assertEquals(24, state12D.getDimensions()); // 24 bits already aligned
+
+        // Test 5D with 4 bits: 5*4=20 bits → align to 24 bits
+        ScalarQuantizationParams params4bit = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
+        float[][] thresholds5D_4bit = new float[4][5];
+        MultiBitScalarQuantizationState state5D_4bit = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params4bit)
+            .thresholds(thresholds5D_4bit)
+            .build();
+        assertEquals(24, state5D_4bit.getDimensions()); // 20 bits aligned to 24
+
+        // Test 12D with 4 bits: 12*4=48 bits → already aligned
+        float[][] thresholds12D_4bit = new float[4][12];
+        MultiBitScalarQuantizationState state12D_4bit = MultiBitScalarQuantizationState.builder()
+            .quantizationParams(params4bit)
+            .thresholds(thresholds12D_4bit)
+            .build();
+        assertEquals(48, state12D_4bit.getDimensions()); // 48 bits already aligned
     }
 
     public void testOneBitScalarQuantizationStateGetDimensions_withDimensionNotMultipleOf8_thenSuccess() {

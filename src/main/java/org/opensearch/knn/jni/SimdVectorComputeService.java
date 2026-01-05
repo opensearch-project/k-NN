@@ -5,18 +5,6 @@
 
 package org.opensearch.knn.jni;
 
-import org.opensearch.knn.common.KNNConstants;
-
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
-import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
-import static org.opensearch.knn.index.KNNSettings.isFaissAVX512Disabled;
-import static org.opensearch.knn.index.KNNSettings.isFaissAVX512SPRDisabled;
-import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
-import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
-import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
-
 /**
  * A service that computes vector similarity using native SIMD acceleration.
  * This service relies on a shared native library that implements optimized SIMD instructions to achieve faster performance during
@@ -25,21 +13,7 @@ import static org.opensearch.knn.jni.PlatformUtils.isAVX512SupportedBySystem;
  */
 public class SimdVectorComputeService {
     static {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            // Even if the underlying system supports AVX512 and AVX2, users can override and disable it by setting
-            // 'knn.faiss.avx2.disabled', 'knn.faiss.avx512.disabled', or 'knn.faiss.avx512_spr.disabled' to true in the opensearch.yml
-            // configuration
-            if (!isFaissAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
-                System.loadLibrary(KNNConstants.SIMD_COMPUTING_AVX512_SPR_JNI_LIBRARY_NAME);
-            } else if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
-                System.loadLibrary(KNNConstants.SIMD_COMPUTING_AVX512_JNI_LIBRARY_NAME);
-            } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
-                System.loadLibrary(KNNConstants.SIMD_COMPUTING_AVX2_JNI_LIBRARY_NAME);
-            } else {
-                System.loadLibrary(KNNConstants.DEFAULT_SIMD_COMPUTING_JNI_LIBRARY_NAME);
-            }
-            return null;
-        });
+        KNNLibraryLoader.loadSimdLibrary();
     }
 
     /**

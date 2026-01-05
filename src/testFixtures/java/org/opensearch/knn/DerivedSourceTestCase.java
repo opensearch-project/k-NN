@@ -20,6 +20,7 @@ import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1130,5 +1131,62 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
 
     protected void validateDerivedSetting(String indexName, boolean expectedValue) throws IOException {
         assertEquals(expectedValue, Boolean.parseBoolean(getIndexSettingByName(indexName, "index.knn.derived_source.enabled", true)));
+    }
+
+    @SneakyThrows
+    protected void assertSourceFiltering(
+        String indexName,
+        String[] includes,
+        String[] excludes,
+        String[] expectedPresent,
+        String[] expectedAbsent
+    ) {
+        XContentBuilder searchBuilder = XContentFactory.jsonBuilder().startObject().startObject("_source");
+
+        if (includes != null) {
+            searchBuilder.array("includes", includes);
+        }
+        if (excludes != null) {
+            searchBuilder.array("excludes", excludes);
+        }
+
+        searchBuilder.endObject().startObject("query").startObject("match_all").endObject().endObject().endObject();
+
+        Request searchRequest = new Request("POST", "/" + indexName + "/_search");
+        searchRequest.setJsonEntity(searchBuilder.toString());
+        Response response = client().performRequest(searchRequest);
+
+        Map<String, Object> responseMap = entityAsMap(response);
+        Map<String, Object> hits = (Map<String, Object>) responseMap.get("hits");
+        List<Map<String, Object>> hitsList = (List<Map<String, Object>>) hits.get("hits");
+
+        assertEquals("Expected 1 hit", 1, hitsList.size());
+        Map<String, Object> source = (Map<String, Object>) hitsList.get(0).get("_source");
+
+        for (String field : expectedPresent) {
+            assertTrue(
+                String.format(
+                    Locale.ROOT,
+                    "Field '%s' should be present in _source (includes=%s, excludes=%s)",
+                    field,
+                    Arrays.toString(includes),
+                    Arrays.toString(excludes)
+                ),
+                source.containsKey(field)
+            );
+        }
+
+        for (String field : expectedAbsent) {
+            assertFalse(
+                String.format(
+                    Locale.ROOT,
+                    "Field '%s' should be absent from _source (includes=%s, excludes=%s)",
+                    field,
+                    Arrays.toString(includes),
+                    Arrays.toString(excludes)
+                ),
+                source.containsKey(field)
+            );
+        }
     }
 }

@@ -1439,6 +1439,99 @@ public class KNNWeightTests extends KNNWeightTestCase {
     }
 
     @SneakyThrows
+    public void testANNWithFilterQuery_whenExactSearchIsDisabled_thenSuccess() {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNWeight.initialize(modelDao);
+        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(1);
+        knnSettingsMockedStatic.when(() -> KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(INDEX_NAME)).thenReturn(true);
+
+        int k = 4;
+        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
+        FixedBitSet filterBitSet = new FixedBitSet(filterDocIds.length);
+        for (int docId : filterDocIds) {
+            filterBitSet.set(docId);
+        }
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryIndex(
+                anyLong(),
+                eq(QUERY_VECTOR),
+                eq(k),
+                eq(HNSW_METHOD_PARAMETERS),
+                any(),
+                eq(filterBitSet.getBits()),
+                anyInt(),
+                any()
+            )
+        ).thenReturn(getFilteredKNNQueryResults());
+
+        final Bits liveDocsBits = mock(Bits.class);
+        for (int filterDocId : filterDocIds) {
+            when(liveDocsBits.get(filterDocId)).thenReturn(true);
+        }
+        when(liveDocsBits.length()).thenReturn(1000);
+
+        final SegmentReader reader = mockSegmentReader();
+        when(reader.maxDoc()).thenReturn(filterDocIds.length + 1);
+        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(k)
+            .indexName(INDEX_NAME)
+            .filterQuery(FILTER_QUERY)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .build();
+
+        final Weight filterQueryWeight = mock(Weight.class);
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+        // Just to make sure that we are not hitting the exact search condition
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length + 1));
+
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new DefaultKNNWeight(query, boost, filterQueryWeight);
+
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            SpaceType.L2.getValue()
+        );
+
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(fieldInfo.attributes()).thenReturn(attributesMap);
+
+        // When
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+
+        // Then
+        assertNotNull(knnScorer);
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertNotNull(docIdSetIterator);
+        assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+        jniServiceMockedStatic.verify(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any()),
+            times(1)
+        );
+
+        final List<Integer> actualDocIds = new ArrayList<>();
+        final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
+        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+            actualDocIds.add(docId);
+            assertEquals(translatedScores.get(docId) * boost, knnScorer.score(), 0.01f);
+        }
+        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
+    @SneakyThrows
     public void testDoANNSearch_whenRadialIsDefined_thenCallJniRadiusQueryIndex() {
         final float[] queryVector = new float[] { 0.1f, 0.3f };
         final float radius = 0.5f;
