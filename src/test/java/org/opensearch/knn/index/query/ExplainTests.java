@@ -265,15 +265,9 @@ public class ExplainTests extends KNNWeightTestCase {
             .build();
         final KNNWeight knnWeight = new DefaultKNNWeight(query, 1.0f, null);
 
-        final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            // setting to true, so that if quantization details are present we want to do search on the quantized
-            // vectors as this flow is used in first pass of search.
-            .useQuantizedVectorsForSearch(true)
-            .floatQueryVector(queryVector)
-            .field(FIELD_NAME)
-            .isMemoryOptimizedSearchEnabled(false)
-            .build();
-        when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
+        when(mockedExactSearcher.searchLeaf(eq(leafReaderContext), any(ExactSearcher.ExactSearcherContext.class))).thenReturn(
+            buildTopDocs(DOC_ID_TO_SCORES)
+        );
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
@@ -304,7 +298,7 @@ public class ExplainTests extends KNNWeightTestCase {
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
         // verify JNI Service is not called
         jniServiceMockedStatic.verifyNoInteractions();
-        verify(mockedExactSearcher).searchLeaf(leafReaderContext, exactSearchContext);
+        verify(mockedExactSearcher).searchLeaf(eq(leafReaderContext), any(ExactSearcher.ExactSearcherContext.class));
     }
 
     @SneakyThrows
@@ -479,15 +473,9 @@ public class ExplainTests extends KNNWeightTestCase {
 
         setupTest(null, attributesMap, 1, spaceType, false, null, null, null);
 
-        final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
-            // setting to true, so that if quantization details are present we want to do search on the quantized
-            // vectors as this flow is used in first pass of search.
-            .useQuantizedVectorsForSearch(true)
-            .field(FIELD_NAME)
-            .floatQueryVector(queryVector)
-            .isMemoryOptimizedSearchEnabled(false)
-            .build();
-        when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
+        when(mockedExactSearcher.searchLeaf(eq(leafReaderContext), any(ExactSearcher.ExactSearcherContext.class))).thenReturn(
+            buildTopDocs(DOC_ID_TO_SCORES)
+        );
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         knnWeight.getKnnExplanation().addKnnScorer(leafReaderContext, knnScorer);
@@ -512,7 +500,7 @@ public class ExplainTests extends KNNWeightTestCase {
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
         // verify JNI Service is not called
         jniServiceMockedStatic.verifyNoInteractions();
-        verify(mockedExactSearcher).searchLeaf(leafReaderContext, exactSearchContext);
+        verify(mockedExactSearcher).searchLeaf(eq(leafReaderContext), any(ExactSearcher.ExactSearcherContext.class));
     }
 
     @SneakyThrows

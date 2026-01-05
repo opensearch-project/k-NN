@@ -302,8 +302,9 @@ public abstract class KNNWeight extends Weight {
         final Bits liveDocs = context.reader().getLiveDocs();
         final int maxDoc = context.reader().maxDoc();
 
-        // No filter case - use maxDoc as cardinality and skip BitSet creation
+        // No filter case - use ANN search with null filterIdsBitSet then perform exactSearch if required.
         if (filterWeight == null) {
+            // Set filter cardinality to maxDoc since every doc passes through an empty filter.
             final int filterCardinality = maxDoc;
             if (knnQuery.isExplain()) {
                 knnExplanation.setCardinality(filterCardinality);
@@ -331,6 +332,8 @@ public abstract class KNNWeight extends Weight {
         }
 
         final DocIdSetIterator filterIterator = scorer.iterator();
+        // filterCardinality uses the cost() estimate instead of the exact cardinality to save work.
+        // Without the cost() estimate we would have to materialize a bitset and compute the accepted bits in linear time.
         final int filterCardinality = Math.toIntExact(Math.min(filterIterator.cost(), maxDoc));
         if (filterCardinality == 0) {
             return PerLeafResult.EMPTY_RESULT;
@@ -351,9 +354,9 @@ public abstract class KNNWeight extends Weight {
             return new PerLeafResult(null, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
         }
 
-        // Approximate search requires BitSet for efficient random access during graph traversal
+        // Approximate search requires BitSet; materialize it here.
         final StopWatch stopWatch = startStopWatch(log);
-        final BitSet filterBitSet = createBitSet(filterIterator, liveDocs, maxDoc);
+        final BitSet filterBitSet = createBitSet(context, filterIterator, liveDocs, maxDoc);
         final int actualCardinality = filterBitSet.cardinality();
         stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
@@ -366,6 +369,7 @@ public abstract class KNNWeight extends Weight {
         }
 
         if (isExactSearchRequire(context, actualCardinality, topDocs.scoreDocs.length)) {
+            // O(1) to transform filterBitSet to DISI for exact search.
             final BitSetIterator docs = new BitSetIterator(filterBitSet, actualCardinality);
             final TopDocs result = doExactSearch(context, docs, actualCardinality, k);
             return new PerLeafResult(filterBitSet, actualCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
@@ -376,6 +380,7 @@ public abstract class KNNWeight extends Weight {
 
     /**
      * Creates a filtered iterator that excludes deleted documents.
+     *
      */
     private DocIdSetIterator createLiveDocsFilteredIterator(final DocIdSetIterator iterator, final Bits liveDocs) {
         if (liveDocs == null) {
@@ -402,10 +407,15 @@ public abstract class KNNWeight extends Weight {
             return new FixedBitSet(0);
         }
 
-        return createBitSet(scorer.iterator(), liveDocs, maxDoc);
+        return createBitSet(ctx, scorer.iterator(), liveDocs, maxDoc);
     }
 
-    private BitSet createBitSet(final DocIdSetIterator filteredDocIdsIterator, final Bits liveDocs, int maxDoc) throws IOException {
+    protected BitSet createBitSet(
+        final LeafReaderContext ctx,
+        final DocIdSetIterator filteredDocIdsIterator,
+        final Bits liveDocs,
+        int maxDoc
+    ) throws IOException {
         if (liveDocs == null && filteredDocIdsIterator instanceof BitSetIterator) {
             // If we already have a BitSet and no deletions, reuse the BitSet
             return ((BitSetIterator) filteredDocIdsIterator).getBitSet();
