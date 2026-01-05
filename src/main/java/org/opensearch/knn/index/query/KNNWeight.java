@@ -347,8 +347,11 @@ public abstract class KNNWeight extends Weight {
          * OPTIMIZATION: When exact search is preferred, avoid materializing a BitSet.
          * Instead, use the iterator directly for exact search. This saves the cost of
          * iterating through all filtered docs just to set bits in a BitSet.
+         *
+         * NOTE: This optimization is skipped for nested docs (when parentsFilter is set)
+         * because nested doc handling requires proper iterator state management.
          */
-        if (isFilteredExactSearchPreferred(filterCardinality)) {
+        if (isFilteredExactSearchPreferred(filterCardinality) && knnQuery.getParentsFilter() == null) {
             final DocIdSetIterator liveFilterIterator = createLiveDocsFilteredIterator(filterIterator, liveDocs);
             final TopDocs result = doExactSearch(context, liveFilterIterator, filterCardinality, k);
             return new PerLeafResult(null, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);

@@ -79,6 +79,11 @@ public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
     @Override
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
+        // Set cardinality from exactSearcherContext - this handles both cases:
+        // 1. When BitSet was created: cardinality was already set, this overwrites with same value
+        // 2. When BitSet was NOT created (iterator optimization): this sets the cardinality
+        LongMetric cardMetric = (LongMetric) profile.context(leafReaderContext).getMetric(KNNMetrics.CARDINALITY);
+        cardMetric.setValue(exactSearcherContext.getNumberOfMatchedDocs());
         return (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,
             leafReaderContext,
