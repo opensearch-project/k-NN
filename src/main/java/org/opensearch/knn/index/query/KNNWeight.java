@@ -357,7 +357,7 @@ public abstract class KNNWeight extends Weight {
          * iterating through all filtered docs just to set bits in a BitSet.
          *
          * NOTE: This optimization is skipped for nested docs (when parentsFilter is set)
-         * because nested doc handling requires proper iterator state management.
+         * because nested doc handling requires the BitSet to be materialized.
          */
         if (isFilteredExactSearchPreferred(filterCardinality) && knnQuery.getParentsFilter() == null) {
             final DocIdSetIterator liveFilterIterator = createLiveDocsFilteredIterator(filterIterator, liveDocs);
@@ -365,11 +365,18 @@ public abstract class KNNWeight extends Weight {
             return new PerLeafResult(null, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
         }
 
-        // Approximate search requires BitSet; materialize it here.
+        // BitSet is required for: nested docs, approximate search, or exact search fallback after ANN
         final StopWatch stopWatch = startStopWatch(log);
         final BitSet filterBitSet = createBitSet(context, filterIterator, liveDocs, maxDoc);
         final int actualCardinality = filterBitSet.cardinality();
         stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
+
+        // For nested docs: check if exact search is preferred before doing ANN
+        if (knnQuery.getParentsFilter() != null && isFilteredExactSearchPreferred(actualCardinality)) {
+            final BitSetIterator docs = new BitSetIterator(filterBitSet, actualCardinality);
+            final TopDocs result = doExactSearch(context, docs, actualCardinality, k);
+            return new PerLeafResult(filterBitSet, actualCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
+        }
 
         final StopWatch annStopWatch = startStopWatch(log);
         final TopDocs topDocs = approximateSearch(context, filterBitSet, actualCardinality, k);
