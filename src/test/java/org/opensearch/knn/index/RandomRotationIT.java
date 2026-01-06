@@ -194,7 +194,6 @@ public class RandomRotationIT extends KNNRestTestCase {
     }
 
     // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
-    @Ignore
     @SneakyThrows
     public void testSourceConsistencyRRReindexToRR() {
         String sourceIndex = "rr-source";
@@ -246,7 +245,6 @@ public class RandomRotationIT extends KNNRestTestCase {
     }
 
     // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
-    @Ignore
     @SneakyThrows
     public void testSourceConsistencyReindexToNonRR() {
         String rrIndex = "rr-source";

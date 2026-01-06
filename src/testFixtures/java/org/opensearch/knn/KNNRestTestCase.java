@@ -1136,10 +1136,40 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .field("index", destination)
             .endObject()
             .endObject();
-        Request request = new Request("POST", "_reindex");
+        Request request = new Request("POST", "_reindex?wait_for_completion=false");
         request.setJsonEntity(builder.toString());
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        String taskId = (String) responseMap.get("task");
+
+        waitForTaskCompletion(taskId);
+    }
+
+    protected void waitForTaskCompletion(String taskId) throws Exception {
+        int maxRetries = 60;
+        int retryIntervalMs = 1000;
+        for (int i = 0; i < maxRetries; i++) {
+            Request taskRequest = new Request("GET", "_tasks/" + taskId);
+            Response taskResponse = client().performRequest(taskRequest);
+            String taskBody = EntityUtils.toString(taskResponse.getEntity());
+            Map<String, Object> taskMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), taskBody).map();
+            Boolean completed = (Boolean) taskMap.get("completed");
+            if (Boolean.TRUE.equals(completed)) {
+                Map<String, Object> taskResponseMap = (Map<String, Object>) taskMap.get("response");
+                if (taskResponseMap != null) {
+                    List<Object> failures = (List<Object>) taskResponseMap.get("failures");
+                    if (failures != null && !failures.isEmpty()) {
+                        throw new RuntimeException("Reindex task failed: " + failures);
+                    }
+                }
+                return;
+            }
+            Thread.sleep(retryIntervalMs);
+        }
+        throw new RuntimeException("Reindex task did not complete within timeout: " + taskId);
     }
 
     /**
@@ -1924,6 +1954,17 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Response response = client().performRequest(request);
         assertEquals(response.getStatusLine().getStatusCode(), 200);
+    }
+
+    // Bulk add random KNN docs
+    public void bulkAddKnnDocs(String index, String fieldName, int docCount, int dimension) throws IOException {
+        float[][] vectors = new float[docCount][dimension];
+        for (int i = 0; i < docCount; i++) {
+            for (int j = 0; j < dimension; j++) {
+                vectors[i][j] = randomFloat();
+            }
+        }
+        bulkAddKnnDocs(index, fieldName, vectors, docCount);
     }
 
     // Method that returns index vectors of the documents that were added before into the index
