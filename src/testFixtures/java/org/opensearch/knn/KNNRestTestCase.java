@@ -366,21 +366,47 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * Run KNN Search on Index with json string query
+     * Run KNN Search on Index with json string query, with retry for transient shard failures
      */
     protected Response searchKNNIndex(String index, String query, int resultSize) throws IOException {
+        return searchKNNIndexWithRetry(index, query, resultSize, 5, 2000);
+    }
+
+    /**
+     * Run KNN Search with retry mechanism for handling transient 503 errors
+     */
+    protected Response searchKNNIndexWithRetry(String index, String query, int resultSize, int maxRetries, int retryDelayMs)
+        throws IOException {
         Request request = new Request("POST", "/" + index + "/_search");
         request.setJsonEntity(query);
-
         request.addParameter("size", Integer.toString(resultSize));
         request.addParameter("search_type", "query_then_fetch");
-        // Nested field does not support explain parameter and the request is rejected if we set explain parameter
-        // request.addParameter("explain", Boolean.toString(true));
 
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        return response;
+        IOException lastException = null;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                Response response = client().performRequest(request);
+                assertEquals(
+                    request.getEndpoint() + ": failed",
+                    RestStatus.OK,
+                    RestStatus.fromCode(response.getStatusLine().getStatusCode())
+                );
+                return response;
+            } catch (org.opensearch.client.ResponseException e) {
+                if (e.getResponse().getStatusLine().getStatusCode() == 503 && attempt < maxRetries) {
+                    lastException = e;
+                    try {
+                        Thread.sleep(retryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw e;
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        }
+        throw lastException;
     }
 
     /**
