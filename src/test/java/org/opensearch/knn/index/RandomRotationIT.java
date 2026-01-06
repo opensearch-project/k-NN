@@ -196,8 +196,8 @@ public class RandomRotationIT extends KNNRestTestCase {
     // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
     @SneakyThrows
     public void testSourceConsistencyRRReindexToRR() {
-        String sourceIndex = "rr-source";
-        String destIndex = "rr-dest";
+        String sourceIndex = "rr2rr-source-" + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
+        String destIndex = "rr2rr-dest-" + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
 
         makeOnlyQBitIndex(sourceIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
 
@@ -207,14 +207,6 @@ public class RandomRotationIT extends KNNRestTestCase {
         }
 
         forceMergeKnnIndex(sourceIndex);
-
-        makeOnlyQBitIndex(destIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
-        reindex(sourceIndex, destIndex);
-        forceMergeKnnIndex(destIndex);
-
-        // Refresh source index and wait for shards to be available before searching
-        refreshIndex(sourceIndex);
-        waitForIndexReady(sourceIndex);
 
         float[] query = { 0.25f, -1.0f };
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
@@ -229,7 +221,13 @@ public class RandomRotationIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
+        // Search source BEFORE reindex
         String sourceResponse = EntityUtils.toString(searchKNNIndex(sourceIndex, queryBuilder, 10).getEntity());
+
+        makeOnlyQBitIndex(destIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
+        reindex(sourceIndex, destIndex);
+        forceMergeKnnIndex(destIndex);
+
         String destResponse = EntityUtils.toString(searchKNNIndex(destIndex, queryBuilder, 10).getEntity());
 
         List<Object> sourceHits = parseSearchResponseHits(sourceResponse);
@@ -251,8 +249,8 @@ public class RandomRotationIT extends KNNRestTestCase {
     // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
     @SneakyThrows
     public void testSourceConsistencyReindexToNonRR() {
-        String rrIndex = "rr-source";
-        String nonRrIndex = "non-rr-dest";
+        String rrIndex = "rr2nonrr-source-" + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
+        String nonRrIndex = "rr2nonrr-dest-" + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
 
         makeOnlyQBitIndex(rrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
 
@@ -262,14 +260,6 @@ public class RandomRotationIT extends KNNRestTestCase {
         }
 
         forceMergeKnnIndex(rrIndex);
-
-        makeOnlyQBitIndex(nonRrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, false, SpaceType.INNER_PRODUCT);
-        reindex(rrIndex, nonRrIndex);
-        forceMergeKnnIndex(nonRrIndex);
-
-        // Refresh source index and wait for shards to be available before searching
-        refreshIndex(rrIndex);
-        waitForIndexReady(rrIndex);
 
         float[] query = { 0.25f, -1.0f };
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
@@ -284,19 +274,18 @@ public class RandomRotationIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
+        // Search source BEFORE reindex
         String rrResponse = EntityUtils.toString(searchKNNIndex(rrIndex, queryBuilder, 10).getEntity());
+
+        makeOnlyQBitIndex(nonRrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, false, SpaceType.INNER_PRODUCT);
+        reindex(rrIndex, nonRrIndex);
+        forceMergeKnnIndex(nonRrIndex);
+
         String nonRrResponse = EntityUtils.toString(searchKNNIndex(nonRrIndex, queryBuilder, 10).getEntity());
 
         List<Object> rrHits = parseSearchResponseHits(rrResponse);
         List<Object> nonRrHits = parseSearchResponseHits(nonRrResponse);
 
-        // for (int i = 0; i < rrHits.size(); i++) {
-        // Map<String, Object> rrHit = (Map<String, Object>) rrHits.get(i);
-        // Map<String, Object> nonRrHit = (Map<String, Object>) nonRrHits.get(i);
-        // assertVectorEquals((List<Double>) ((Map<String, Object>) rrHit.get("_source")).get(TEST_FIELD_NAME),
-        // (List<Double>) ((Map<String, Object>) nonRrHit.get("_source")).get(TEST_FIELD_NAME));
-        // }
-        //
         // Verify source vectors are the same using document ID mapping
         Map<String, List<Double>> nonRrVectorMap = nonRrHits.stream()
             .collect(
