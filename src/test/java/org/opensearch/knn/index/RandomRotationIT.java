@@ -212,6 +212,10 @@ public class RandomRotationIT extends KNNRestTestCase {
         reindex(sourceIndex, destIndex);
         forceMergeKnnIndex(destIndex);
 
+        // Refresh source index and wait for shards to be available before searching
+        refreshIndex(sourceIndex);
+        waitForIndexReady(sourceIndex);
+
         float[] query = { 0.25f, -1.0f };
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -262,6 +266,10 @@ public class RandomRotationIT extends KNNRestTestCase {
         makeOnlyQBitIndex(nonRrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, false, SpaceType.INNER_PRODUCT);
         reindex(rrIndex, nonRrIndex);
         forceMergeKnnIndex(nonRrIndex);
+
+        // Refresh source index and wait for shards to be available before searching
+        refreshIndex(rrIndex);
+        waitForIndexReady(rrIndex);
 
         float[] query = { 0.25f, -1.0f };
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()

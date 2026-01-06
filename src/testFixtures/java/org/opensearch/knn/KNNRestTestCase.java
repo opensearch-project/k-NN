@@ -199,12 +199,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_POLL_INTERVAL, TimeValue.timeValueSeconds(0));
             setupRepository("integ-test-repo");
             BEFORE_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
-        } else if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
-            // Set up cluster settings for remote index build feature. We do this for all tests to ensure the fallback mechanisms are
-            // working correctly.
-            updateClusterSettings(KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
-            updateClusterSettings(KNNSettings.KNN_REMOTE_REPOSITORY, "integ-test-repo");
         }
+        // Note: Removed random enabling of remote build without repository setup.
+        // The previous code randomly enabled KNN_REMOTE_VECTOR_BUILD_SETTING and set KNN_REMOTE_REPOSITORY
+        // without calling setupRepository(), causing RepositoryMissingException failures.
     }
 
     @Rule
@@ -2649,6 +2647,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    /**
+     * Wait for index shards to be ready for search operations.
+     * Polls cluster health for the specific index until all shards are available.
+     */
+    protected void waitForIndexReady(final String index) throws Exception {
+        int maxRetries = 30;
+        for (int i = 0; i < maxRetries; i++) {
+            Request request = new Request("GET", "/_cluster/health/" + index);
+            request.addParameter("wait_for_status", "yellow");
+            request.addParameter("timeout", "5s");
+            Response response = client().performRequest(request);
+            String body = EntityUtils.toString(response.getEntity());
+            if (!body.contains("\"timed_out\":true")) {
+                return;
+            }
+            Thread.sleep(1000);
+        }
     }
 
     protected void flushIndex(final String index) throws IOException {
