@@ -97,8 +97,7 @@ public class IteratorCostAccuracyTests extends KNNTestCase {
     // ==================== BooleanQuery (MUST/AND) Tests ====================
 
     public void testBooleanMustQueryCost_LowCardinality() throws IOException {
-        Query query = new BooleanQuery.Builder()
-            .add(new TermQuery(new Term("category_low", "match")), BooleanClause.Occur.MUST)
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("category_low", "match")), BooleanClause.Occur.MUST)
             .add(new TermQuery(new Term("category_high", "match")), BooleanClause.Occur.MUST)
             .build();
         // AND of low and high should return low (intersection)
@@ -106,8 +105,7 @@ public class IteratorCostAccuracyTests extends KNNTestCase {
     }
 
     public void testBooleanMustQueryCost_MediumCardinality() throws IOException {
-        Query query = new BooleanQuery.Builder()
-            .add(new TermQuery(new Term("category_medium", "match")), BooleanClause.Occur.MUST)
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("category_medium", "match")), BooleanClause.Occur.MUST)
             .add(new TermQuery(new Term("category_high", "match")), BooleanClause.Occur.MUST)
             .build();
         verifyCostAccuracy(query, MEDIUM_CARDINALITY, "BooleanMUST-Medium");
@@ -117,16 +115,13 @@ public class IteratorCostAccuracyTests extends KNNTestCase {
 
     public void testBooleanShouldQueryCost_LowCardinality() throws IOException {
         // OR of two non-overlapping low cardinality sets
-        Query query = new BooleanQuery.Builder()
-            .add(new TermQuery(new Term("category_low", "match")), BooleanClause.Occur.SHOULD)
-            .build();
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("category_low", "match")), BooleanClause.Occur.SHOULD).build();
         verifyCostAccuracy(query, LOW_CARDINALITY, "BooleanSHOULD-Low");
     }
 
     public void testBooleanShouldQueryCost_HighCardinality() throws IOException {
         // OR of low and medium - should be union
-        Query query = new BooleanQuery.Builder()
-            .add(new TermQuery(new Term("category_low", "match")), BooleanClause.Occur.SHOULD)
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("category_low", "match")), BooleanClause.Occur.SHOULD)
             .add(new TermQuery(new Term("category_medium", "match")), BooleanClause.Occur.SHOULD)
             .build();
         // Union of [0,5) and [0,10) = [0,10) = 10 docs
@@ -183,12 +178,27 @@ public class IteratorCostAccuracyTests extends KNNTestCase {
 
     public void testMixedQueryCost_TermAndPointRange() throws IOException {
         // AND of term and point range
-        Query query = new BooleanQuery.Builder()
-            .add(new TermQuery(new Term("category_high", "match")), BooleanClause.Occur.MUST)
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("category_high", "match")), BooleanClause.Occur.MUST)
             .add(IntPoint.newRangeQuery("value", 0, MEDIUM_CARDINALITY - 1), BooleanClause.Occur.MUST)
             .build();
         // Intersection of [0,1000) and [0,10) = [0,10) = 10 docs
         verifyCostAccuracy(query, MEDIUM_CARDINALITY, "Mixed-TermAndPoint");
+    }
+
+    public void testMixedQueryCost_PointRangeAndTerm_LowCardinality() throws IOException {
+        // PointRange (low) AND Term (high) - PointRange is lead iterator
+        Query query = new BooleanQuery.Builder().add(IntPoint.newRangeQuery("value", 0, LOW_CARDINALITY - 1), BooleanClause.Occur.MUST)
+            .add(new TermQuery(new Term("category_high", "match")), BooleanClause.Occur.MUST)
+            .build();
+        verifyCostAccuracy(query, LOW_CARDINALITY, "Mixed-PointAndTerm-Low");
+    }
+
+    public void testMixedQueryCost_TermAndPointRange_TermLeads() throws IOException {
+        // Term (low) AND PointRange (high) - Term is lead iterator
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("category_low", "match")), BooleanClause.Occur.MUST)
+            .add(IntPoint.newRangeQuery("value", 0, HIGH_CARDINALITY - 1), BooleanClause.Occur.MUST)
+            .build();
+        verifyCostAccuracy(query, LOW_CARDINALITY, "Mixed-TermLeads-Low");
     }
 
     // ==================== Helper Methods ====================
@@ -231,14 +241,7 @@ public class IteratorCostAccuracyTests extends KNNTestCase {
         double accuracy = (double) cost / actualCount;
         boolean isExact = cost == actualCount;
 
-        logger.info(
-            "{}: cost={}, actual={}, accuracy={}, exact={}",
-            testName,
-            cost,
-            actualCount,
-            String.format("%.2f", accuracy),
-            isExact
-        );
+        logger.info("{}: cost={}, actual={}, accuracy={}, exact={}", testName, cost, actualCount, String.format("%.2f", accuracy), isExact);
 
         assertEquals(testName + ": BitSetIterator cost should be exact", expectedCardinality, cost);
         assertEquals(testName + ": actual count should match expected", expectedCardinality, actualCount);

@@ -22,6 +22,19 @@ re are the results:
 - **PointRangeQuery**: Significantly overestimates, especially at low cardinality (BKD tree estimation)
 - **BitSetIterator**: Always exact (cardinality passed at construction)
 
+Other mixed (boolean AND query): 
+> Results for mixed queries:
+> 
+> | Test | cost() | actual | accuracy | exact? |
+> |------|--------|--------|----------|--------|
+> | **Mixed-PointAndTerm-Low** (PointRange leads) | 1000 | 5 | 200x | ❌ |
+> | **Mixed-TermLeads-Low** (Term leads) | 5 | 5 | 1.00 | ✅ |
+> | **Mixed-TermAndPoint** (Term leads) | 10 | 10 | 1.00 | ✅ |
+> 
+> **Key insight**: BooleanMUST uses `min(cost)` of all clauses. When TermQuery has lower cost, it becomes the lead iterator and `cost()` is exact. When PointRangeQuery has lower estimated cost (even if inaccurate), it leads and the overestimate propagates.
+> [Tool uses: none]
+
+
 Full test results: 
 ./gradlew :test --tests "org.opensearch.knn.index.query.IteratorCostAccuracyTests" --info | pbcopy
 

@@ -41,6 +41,11 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -340,9 +345,24 @@ public abstract class KNNWeight extends Weight {
         }
 
         final DocIdSetIterator filterIterator = scorer.iterator();
-        // filterCardinality uses the cost() estimate instead of the exact cardinality to save work.
-        // Without the cost() estimate we would have to materialize a bitset and compute the accepted bits in linear time.
-        final int filterCardinality = Math.toIntExact(Math.min(filterIterator.cost(), maxDoc));
+
+        // Determine if cost() provides accurate cardinality based on filter query type
+        final boolean canUseCostForCardinality = canUseCostForCardinality(filterWeight.getQuery());
+
+        final int filterCardinality;
+        BitSet filterBitSet = null;
+
+        if (canUseCostForCardinality) {
+            // TermQuery and BooleanQuery with MUST clauses provide accurate cost()
+            filterCardinality = Math.toIntExact(Math.min(filterIterator.cost(), maxDoc));
+        } else {
+            // For other query types (e.g., PointRangeQuery), materialize BitSet for accurate cardinality
+            final StopWatch stopWatch = startStopWatch(log);
+            filterBitSet = createBitSet(context, filterIterator, liveDocs, maxDoc);
+            filterCardinality = filterBitSet.cardinality();
+            stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
+        }
+
         if (filterCardinality == 0) {
             return PerLeafResult.EMPTY_RESULT;
         }
@@ -360,16 +380,24 @@ public abstract class KNNWeight extends Weight {
          * because nested doc handling requires the BitSet to be materialized.
          */
         if (isFilteredExactSearchPreferred(filterCardinality) && knnQuery.getParentsFilter() == null) {
+            if (filterBitSet != null) {
+                // BitSet already created, use it
+                final BitSetIterator docs = new BitSetIterator(filterBitSet, filterCardinality);
+                final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
+                return new PerLeafResult(filterBitSet, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
+            }
             final DocIdSetIterator liveFilterIterator = createLiveDocsFilteredIterator(filterIterator, liveDocs);
             final TopDocs result = doExactSearch(context, liveFilterIterator, filterCardinality, k);
             return new PerLeafResult(null, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
         }
 
         // BitSet is required for: nested docs, approximate search, or exact search fallback after ANN
-        final StopWatch stopWatch = startStopWatch(log);
-        final BitSet filterBitSet = createBitSet(context, filterIterator, liveDocs, maxDoc);
+        if (filterBitSet == null) {
+            final StopWatch stopWatch = startStopWatch(log);
+            filterBitSet = createBitSet(context, filterIterator, liveDocs, maxDoc);
+            stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
+        }
         final int actualCardinality = filterBitSet.cardinality();
-        stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
         // For nested docs: check if exact search is preferred before doing ANN
         if (knnQuery.getParentsFilter() != null && isFilteredExactSearchPreferred(actualCardinality)) {
@@ -705,6 +733,34 @@ public abstract class KNNWeight extends Weight {
      */
     private boolean isExactSearchThresholdSettingSet(int filterThresholdValue) {
         return filterThresholdValue != KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
+    }
+
+    /**
+     * Determines if the filter query type provides accurate cost() estimates.
+     * TermQuery and BooleanQuery with only MUST/FILTER clauses provide exact cost().
+     * Other query types (e.g., PointRangeQuery) may significantly overestimate.
+     *
+     * @param query the filter query to check
+     * @return true if cost() can be trusted for cardinality estimation
+     */
+    @VisibleForTesting
+    static boolean canUseCostForCardinality(Query query) {
+        if (query instanceof TermQuery) {
+            return true;
+        }
+        if (query instanceof BooleanQuery) {
+            BooleanQuery bq = (BooleanQuery) query;
+            for (BooleanClause clause : bq.clauses()) {
+                if (clause.occur() == BooleanClause.Occur.SHOULD) {
+                    return false;
+                }
+                if (!canUseCostForCardinality(clause.query())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     /**

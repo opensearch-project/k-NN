@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
+import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -15,10 +16,15 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.store.FSDirectory;
@@ -1899,5 +1905,53 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 );
             }
         }
+    }
+
+    // ==================== canUseCostForCardinality Tests ====================
+
+    public void testCanUseCostForCardinality_TermQuery() {
+        Query termQuery = new TermQuery(new Term("field", "value"));
+        assertTrue(KNNWeight.canUseCostForCardinality(termQuery));
+    }
+
+    public void testCanUseCostForCardinality_BooleanMustWithTermQueries() {
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("field1", "value1")), BooleanClause.Occur.MUST)
+            .add(new TermQuery(new Term("field2", "value2")), BooleanClause.Occur.MUST)
+            .build();
+        assertTrue(KNNWeight.canUseCostForCardinality(query));
+    }
+
+    public void testCanUseCostForCardinality_BooleanFilterWithTermQueries() {
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("field1", "value1")), BooleanClause.Occur.FILTER)
+            .add(new TermQuery(new Term("field2", "value2")), BooleanClause.Occur.FILTER)
+            .build();
+        assertTrue(KNNWeight.canUseCostForCardinality(query));
+    }
+
+    public void testCanUseCostForCardinality_BooleanShouldQuery() {
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("field1", "value1")), BooleanClause.Occur.SHOULD)
+            .add(new TermQuery(new Term("field2", "value2")), BooleanClause.Occur.SHOULD)
+            .build();
+        assertFalse(KNNWeight.canUseCostForCardinality(query));
+    }
+
+    public void testCanUseCostForCardinality_PointRangeQuery() {
+        Query query = IntPoint.newRangeQuery("field", 0, 100);
+        assertFalse(KNNWeight.canUseCostForCardinality(query));
+    }
+
+    public void testCanUseCostForCardinality_NestedBooleanMustWithTermQueries() {
+        Query innerQuery = new BooleanQuery.Builder().add(new TermQuery(new Term("field1", "value1")), BooleanClause.Occur.MUST).build();
+        Query query = new BooleanQuery.Builder().add(innerQuery, BooleanClause.Occur.MUST)
+            .add(new TermQuery(new Term("field2", "value2")), BooleanClause.Occur.MUST)
+            .build();
+        assertTrue(KNNWeight.canUseCostForCardinality(query));
+    }
+
+    public void testCanUseCostForCardinality_BooleanMustWithTermAndPointRange() {
+        Query query = new BooleanQuery.Builder().add(new TermQuery(new Term("field1", "value1")), BooleanClause.Occur.MUST)
+            .add(IntPoint.newRangeQuery("field2", 0, 100), BooleanClause.Occur.MUST)
+            .build();
+        assertFalse(KNNWeight.canUseCostForCardinality(query));
     }
 }
