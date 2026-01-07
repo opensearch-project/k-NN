@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableList;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.junit.Ignore;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -110,8 +109,6 @@ public class RandomRotationIT extends KNNRestTestCase {
         return responseBody;
     }
 
-    // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
-    @Ignore
     @SneakyThrows
     public void testRandomRotation() {
         String responseControl = makeQBitIndex(QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, false);
@@ -127,12 +124,10 @@ public class RandomRotationIT extends KNNRestTestCase {
         assertEquals(3, testFirstHitId);
     }
 
-    // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
-    @Ignore
     @SneakyThrows
     public void testSourceConsistencyRRvsNonRR() {
-        String rrIndex = "rr-index";
-        String nonRrIndex = "non-rr-index";
+        String rrIndex = "source-consistency-rr-index";
+        String nonRrIndex = "source-consistency-non-rr-index";
 
         makeOnlyQBitIndex(rrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
         makeOnlyQBitIndex(nonRrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, false, SpaceType.INNER_PRODUCT);
@@ -193,7 +188,6 @@ public class RandomRotationIT extends KNNRestTestCase {
         deleteKNNIndex(nonRrIndex);
     }
 
-    // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
     @SneakyThrows
     public void testSourceConsistencyRRReindexToRR() {
         String sourceIndex = "rr2rr-source-" + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
@@ -246,7 +240,6 @@ public class RandomRotationIT extends KNNRestTestCase {
         deleteKNNIndex(destIndex);
     }
 
-    // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
     @SneakyThrows
     public void testSourceConsistencyReindexToNonRR() {
         String rrIndex = "rr2nonrr-source-" + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
@@ -310,12 +303,10 @@ public class RandomRotationIT extends KNNRestTestCase {
         deleteKNNIndex(nonRrIndex);
     }
 
-    // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
-    @Ignore
     @SneakyThrows
     public void testReindexNonRRToRROrderChange() {
-        String nonRrIndex = "non-rr-source";
-        String rrIndex = "rr-dest";
+        String nonRrIndex = "order-change-non-rr-source";
+        String rrIndex = "order-change-rr-dest";
 
         makeOnlyQBitIndex(nonRrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, false, SpaceType.INNER_PRODUCT);
 
@@ -329,10 +320,6 @@ public class RandomRotationIT extends KNNRestTestCase {
 
         forceMergeKnnIndex(nonRrIndex);
 
-        makeOnlyQBitIndex(rrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
-        reindex(nonRrIndex, rrIndex);
-        forceMergeKnnIndex(rrIndex);
-
         float[] query = { 0.25f, -1.0f };
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -345,8 +332,12 @@ public class RandomRotationIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-
         String nonRrResponse = EntityUtils.toString(searchKNNIndex(nonRrIndex, queryBuilder, 3).getEntity());
+
+        makeOnlyQBitIndex(rrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
+        reindex(nonRrIndex, rrIndex);
+        forceMergeKnnIndex(rrIndex);
+
         String rrResponse = EntityUtils.toString(searchKNNIndex(rrIndex, queryBuilder, 3).getEntity());
 
         List<Object> nonRrHits = parseSearchResponseHits(nonRrResponse);
@@ -382,8 +373,6 @@ public class RandomRotationIT extends KNNRestTestCase {
         deleteKNNIndex(rrIndex);
     }
 
-    // Tests are failing on ci-runner without error and passing locally. Flaky ignored for now.
-    @Ignore
     @SneakyThrows
     public void testSnapshotRestoreConsistency() {
         String indexName = "rr-snapshot-test-" + randomLowerCaseString();
