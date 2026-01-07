@@ -216,13 +216,13 @@ public class RandomRotationIT extends KNNRestTestCase {
             .endObject();
 
         // Search source BEFORE reindex
-        String sourceResponse = EntityUtils.toString(searchKNNIndex(sourceIndex, queryBuilder, 10).getEntity());
+        String sourceResponse = EntityUtils.toString(searchKNNIndexWithRetry(sourceIndex, queryBuilder.toString(), 10).getEntity());
 
         makeOnlyQBitIndex(destIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, true, SpaceType.INNER_PRODUCT);
-        reindex(sourceIndex, destIndex);
+        reindexWithRetry(sourceIndex, destIndex);
         forceMergeKnnIndex(destIndex);
 
-        String destResponse = EntityUtils.toString(searchKNNIndex(destIndex, queryBuilder, 10).getEntity());
+        String destResponse = EntityUtils.toString(searchKNNIndexWithRetry(destIndex, queryBuilder.toString(), 10).getEntity());
 
         List<Object> sourceHits = parseSearchResponseHits(sourceResponse);
         List<Object> destHits = parseSearchResponseHits(destResponse);
@@ -268,13 +268,13 @@ public class RandomRotationIT extends KNNRestTestCase {
             .endObject();
 
         // Search source BEFORE reindex
-        String rrResponse = EntityUtils.toString(searchKNNIndex(rrIndex, queryBuilder, 10).getEntity());
+        String rrResponse = EntityUtils.toString(searchKNNIndexWithRetry(rrIndex, queryBuilder.toString(), 10).getEntity());
 
         makeOnlyQBitIndex(nonRrIndex, QFrameBitEncoder.ENABLE_RANDOM_ROTATION_PARAM, 2, 1, false, SpaceType.INNER_PRODUCT);
-        reindex(rrIndex, nonRrIndex);
+        reindexWithRetry(rrIndex, nonRrIndex);
         forceMergeKnnIndex(nonRrIndex);
 
-        String nonRrResponse = EntityUtils.toString(searchKNNIndex(nonRrIndex, queryBuilder, 10).getEntity());
+        String nonRrResponse = EntityUtils.toString(searchKNNIndexWithRetry(nonRrIndex, queryBuilder.toString(), 10).getEntity());
 
         List<Object> rrHits = parseSearchResponseHits(rrResponse);
         List<Object> nonRrHits = parseSearchResponseHits(nonRrResponse);

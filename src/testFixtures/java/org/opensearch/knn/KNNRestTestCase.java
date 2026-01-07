@@ -199,10 +199,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_POLL_INTERVAL, TimeValue.timeValueSeconds(0));
             setupRepository("integ-test-repo");
             BEFORE_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
+        } else if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
+            // Set up cluster settings for remote index build feature. We do this for all tests to ensure the fallback mechanisms are
+            // working correctly.
+            updateClusterSettings(KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
+            updateClusterSettings(KNNSettings.KNN_REMOTE_REPOSITORY, "integ-test-repo");
         }
-        // Note: Removed random enabling of remote build without repository setup.
-        // The previous code randomly enabled KNN_REMOTE_VECTOR_BUILD_SETTING and set KNN_REMOTE_REPOSITORY
-        // without calling setupRepository(), causing RepositoryMissingException failures.
     }
 
     @Rule
@@ -366,24 +368,30 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * Run KNN Search on Index with json string query, with retry for transient shard failures
+     * Run KNN Search on Index with json string query
      */
     protected Response searchKNNIndex(String index, String query, int resultSize) throws IOException {
-        return searchKNNIndexWithRetry(index, query, resultSize, 5, 2000);
+        Request request = new Request("POST", "/" + index + "/_search");
+        request.setJsonEntity(query);
+        request.addParameter("size", Integer.toString(resultSize));
+        request.addParameter("search_type", "query_then_fetch");
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        return response;
     }
 
     /**
      * Run KNN Search with retry mechanism for handling transient 503 errors
      */
-    protected Response searchKNNIndexWithRetry(String index, String query, int resultSize, int maxRetries, int retryDelayMs)
-        throws IOException {
+    protected Response searchKNNIndexWithRetry(String index, String query, int resultSize) throws IOException {
         Request request = new Request("POST", "/" + index + "/_search");
         request.setJsonEntity(query);
         request.addParameter("size", Integer.toString(resultSize));
         request.addParameter("search_type", "query_then_fetch");
 
         IOException lastException = null;
-        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+        for (int attempt = 0; attempt < 5; attempt++) {
             try {
                 Response response = client().performRequest(request);
                 assertEquals(
@@ -393,10 +401,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 );
                 return response;
             } catch (org.opensearch.client.ResponseException e) {
-                if (e.getResponse().getStatusLine().getStatusCode() == 503 && attempt < maxRetries) {
+                if (e.getResponse().getStatusLine().getStatusCode() == 503 && attempt < 4) {
                     lastException = e;
                     try {
-                        Thread.sleep(retryDelayMs);
+                        Thread.sleep(2000);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw e;
@@ -1151,6 +1159,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected void reindex(String source, Object destination) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("source")
+            .field("index", source)
+            .endObject()
+            .startObject("dest")
+            .field("index", destination)
+            .endObject()
+            .endObject();
+        Request request = new Request("POST", "_reindex");
+        request.setJsonEntity(builder.toString());
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    protected void reindexWithRetry(String source, Object destination) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("source")
