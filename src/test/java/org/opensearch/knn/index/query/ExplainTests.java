@@ -265,12 +265,17 @@ public class ExplainTests extends KNNWeightTestCase {
             .build();
         final KNNWeight knnWeight = new DefaultKNNWeight(query, 1.0f, null);
 
+        // Build exact context matching what doExactSearch creates for no-filter case
+        // filterCardinality = maxDoc = 1, k = 0 (default), acceptedDocs = null
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
+            .k(0)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .floatQueryVector(queryVector)
             .field(FIELD_NAME)
+            .matchedDocsIterator(null)
+            .numberOfMatchedDocs(1)
+            .floatQueryVector(queryVector)
             .isMemoryOptimizedSearchEnabled(false)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
@@ -479,11 +484,16 @@ public class ExplainTests extends KNNWeightTestCase {
 
         setupTest(null, attributesMap, 1, spaceType, false, null, null, null);
 
+        // Build exact context matching what doExactSearch creates for no-filter case
+        // filterCardinality = maxDoc = 1, k = 0 (default), acceptedDocs = null
         final ExactSearcher.ExactSearcherContext exactSearchContext = ExactSearcher.ExactSearcherContext.builder()
+            .k(0)
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
             .field(FIELD_NAME)
+            .matchedDocsIterator(null)
+            .numberOfMatchedDocs(1)
             .floatQueryVector(queryVector)
             .isMemoryOptimizedSearchEnabled(false)
             .build();

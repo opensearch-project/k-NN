@@ -6,10 +6,12 @@
 package org.opensearch.knn.profile;
 
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
@@ -49,12 +51,17 @@ public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
     }
 
     @Override
-    protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+    protected BitSet createBitSet(
+        final LeafReaderContext ctx,
+        final DocIdSetIterator filteredDocIdsIterator,
+        final Bits liveDocs,
+        int maxDoc
+    ) throws IOException {
         BitSet filterBitSet = (BitSet) KNNProfileUtil.profileBreakdown(
             profile,
             ctx,
             KNNQueryTimingType.BITSET_CREATION,
-            () -> super.getFilteredDocsBitSet(ctx)
+            () -> super.createBitSet(ctx, filteredDocIdsIterator, liveDocs, maxDoc)
         );
         LongMetric cardMetric = (LongMetric) profile.context(ctx).getMetric(KNNMetrics.CARDINALITY);
         cardMetric.setValue((long) filterBitSet.cardinality());
@@ -75,6 +82,11 @@ public class ProfileMemoryOptKNNWeight extends MemoryOptimizedKNNWeight {
     @Override
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
+        // Set cardinality from exactSearcherContext - this handles both cases:
+        // 1. When BitSet was created: cardinality was already set, this overwrites with same value
+        // 2. When BitSet was NOT created (iterator optimization): this sets the cardinality
+        LongMetric cardMetric = (LongMetric) profile.context(leafReaderContext).getMetric(KNNMetrics.CARDINALITY);
+        cardMetric.setValue(exactSearcherContext.getNumberOfMatchedDocs());
         return (TopDocs) KNNProfileUtil.profileBreakdown(
             profile,
             leafReaderContext,
