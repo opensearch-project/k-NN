@@ -25,13 +25,11 @@ public enum Mode {
     ON_DISK("on_disk");
 
     // Internally, an empty string is easier to deal with them null. However, from the mapping,
-    // we do not want users to pass in the empty string and instead want null. So we make the conversion herex
+    // we do not want users to pass in the empty string and instead want null. So we make the conversion here
     public static final String[] NAMES_ARRAY = Arrays.stream(Mode.values())
         .map(mode -> mode == NOT_CONFIGURED ? null : mode.getName())
         .collect(Collectors.toList())
         .toArray(new String[0]);
-
-    private static final Mode DEFAULT = IN_MEMORY;
 
     /**
      * Convert a string to a Mode enum value
