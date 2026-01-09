@@ -18,25 +18,42 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         String fieldName = "field";
         byte[] byteVectors = new byte[3];
         float[] floatVectors = new float[3];
+        int luceneK = 10;
         int k = 3;
         Query queryFilter = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
         boolean expandNestedDocs = true;
 
         ExpandNestedDocsQuery expectedByteQuery = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-            new InternalNestedKnnByteVectoryQuery(fieldName, byteVectors, queryFilter, k, parentFilter)
+            new InternalNestedKnnByteVectorQuery(fieldName, byteVectors, queryFilter, luceneK, parentFilter, k)
         ).queryUtils(null).build();
         assertEquals(
             expectedByteQuery,
-            NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(fieldName, byteVectors, k, queryFilter, parentFilter, expandNestedDocs)
+            NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+                fieldName,
+                byteVectors,
+                luceneK,
+                queryFilter,
+                parentFilter,
+                expandNestedDocs,
+                k
+            )
         );
 
         ExpandNestedDocsQuery expectedFloatQuery = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-            new InternalNestedKnnFloatVectoryQuery(fieldName, floatVectors, queryFilter, k, parentFilter)
+            new InternalNestedKnnFloatVectorQuery(fieldName, floatVectors, queryFilter, luceneK, parentFilter, k)
         ).queryUtils(null).build();
         assertEquals(
             expectedFloatQuery,
-            NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(fieldName, floatVectors, k, queryFilter, parentFilter, expandNestedDocs)
+            NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+                fieldName,
+                floatVectors,
+                luceneK,
+                queryFilter,
+                parentFilter,
+                expandNestedDocs,
+                k
+            )
         );
     }
 
@@ -44,21 +61,34 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         String fieldName = "field";
         byte[] byteVectors = new byte[3];
         float[] floatVectors = new float[3];
+        int luceneK = 10;
         int k = 3;
         Query queryFilter = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
         boolean expandNestedDocs = false;
 
-        assertEquals(
-            DiversifyingChildrenByteKnnVectorQuery.class,
-            NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(fieldName, byteVectors, k, queryFilter, parentFilter, expandNestedDocs)
-                .getClass()
+        Query byteQuery = NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+            fieldName,
+            byteVectors,
+            luceneK,
+            queryFilter,
+            parentFilter,
+            expandNestedDocs,
+            k
         );
+        assertEquals(OSDiversifyingChildrenByteKnnVectorQuery.class, byteQuery.getClass());
+        assertTrue(byteQuery instanceof DiversifyingChildrenByteKnnVectorQuery);
 
-        assertEquals(
-            DiversifyingChildrenFloatKnnVectorQuery.class,
-            NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(fieldName, floatVectors, k, queryFilter, parentFilter, expandNestedDocs)
-                .getClass()
+        Query floatQuery = NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+            fieldName,
+            floatVectors,
+            luceneK,
+            queryFilter,
+            parentFilter,
+            expandNestedDocs,
+            k
         );
+        assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
+        assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);
     }
 }

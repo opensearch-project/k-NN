@@ -97,9 +97,10 @@ jobs:
 
 
       - name: Upload Coverage Report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          use_pypi: true
 
   Build-k-NN-MacOS:
     strategy:
