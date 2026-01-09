@@ -416,4 +416,14 @@ public class TestVectorValues {
         }
         return data;
     }
+
+    public static KNNVectorValues createKNNBinaryVectorValues(final BinaryDocValues binaryDocValues) {
+        return new KNNBinaryVectorValues(new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues));
+    }
+
+    public static KNNVectorValues createKNNFloatVectorValues(final List<float[]> vectors) {
+        return new KNNFloatVectorValues(
+            new KNNVectorValuesIterator.DocIdsIteratorValues(new PredefinedFloatVectorBinaryDocValues(vectors))
+        );
+    }
 }

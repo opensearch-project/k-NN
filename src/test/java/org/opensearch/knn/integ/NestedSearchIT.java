@@ -19,9 +19,11 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
+import org.opensearch.knn.index.mapper.Mode;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 
 import static org.opensearch.knn.common.Constants.FIELD_FILTER;
 import static org.opensearch.knn.common.Constants.FIELD_TERM;
@@ -35,6 +37,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRU
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
+import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.PATH;
@@ -105,6 +108,18 @@ public class NestedSearchIT extends KNNRestTestCase {
         assertEquals(2, parseTotalSearchHits(entity));
         assertEquals("14", parseIds(entity).get(0));
         assertEquals("13", parseIds(entity).get(1));
+    }
+
+    @SneakyThrows
+    public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
+        createKnnIndex(2, KNNEngine.FAISS.getName());
+        indexAndTestKNNIndexWithVectorAndNonVectorField();
+    }
+
+    @SneakyThrows
+    public void testNestedSearchWithOnDisk_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
+        createKnnIndex(2, KNNEngine.FAISS.getName(), Mode.ON_DISK);
+        indexAndTestKNNIndexWithVectorAndNonVectorField();
     }
 
     @SneakyThrows
@@ -250,6 +265,34 @@ public class NestedSearchIT extends KNNRestTestCase {
         assertEquals(2, parseTotalSearchHits(entity));
     }
 
+    @SneakyThrows
+    private void indexAndTestKNNIndexWithVectorAndNonVectorField() {
+        int totalDocCount = 15;
+        for (int i = 0; i < totalDocCount; i++) {
+            final String doc = String.format(
+                Locale.ROOT,
+                "{\"title\": \"Document $i\",\"test_nested\": [{\"title\": \"Document $i\","
+                    + "\"test_vector\": "
+                    + "[%d, %d]},{\"title\": \"Document %d - 2\"}]}",
+                i,
+                i,
+                i
+            );
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
+
+        Float[] queryVector = { 14f, 14f };
+        Response response = queryNestedField(INDEX_NAME, 2, queryVector, null, null, null, 2.0f);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(2, parseHits(entity));
+        assertEquals(2, parseTotalSearchHits(entity));
+        assertEquals("14", parseIds(entity).get(0));
+        assertEquals("13", parseIds(entity).get(1));
+    }
+
     /**
      * {
      *      "properties": {
@@ -270,20 +313,30 @@ public class NestedSearchIT extends KNNRestTestCase {
      *                      }
      *                  }
      *              }
-     *          }
+     *          },
+     *          "title": { "type": "text"}
      *      }
      *  }
      */
     private void createKnnIndex(final int dimension, final String engine) throws Exception {
+        // Using default mode of IN_MEMORY
+        createKnnIndex(dimension, engine, Mode.IN_MEMORY);
+    }
+
+    private void createKnnIndex(final int dimension, final String engine, Mode mode) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(FIELD_NAME_NESTED)
             .field(TYPE, TYPE_NESTED)
             .startObject(PROPERTIES_FIELD)
+            .startObject("title")
+            .field("type", "text")
+            .endObject()
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
             .field(DIMENSION, dimension)
+            .field(MODE_PARAMETER, mode.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SPACE_TYPE)

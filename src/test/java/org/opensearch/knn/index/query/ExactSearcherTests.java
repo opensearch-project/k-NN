@@ -12,6 +12,7 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.FSDirectory;
@@ -25,6 +26,7 @@ import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -195,6 +197,10 @@ public class ExactSearcherTests extends KNNTestCase {
 
             // Mocking float vector values
             KNNFloatVectorValues floatVectorValues = mock(KNNFloatVectorValues.class);
+            DocIdSetIterator docIdSetIterator = mock(DocIdSetIterator.class);
+            KNNVectorValuesIterator knnVectorValuesIterator = mock(KNNVectorValuesIterator.class);
+            when(knnVectorValuesIterator.getDocIdSetIterator()).thenReturn(docIdSetIterator);
+            when(floatVectorValues.getVectorValuesIterator()).thenReturn(knnVectorValuesIterator);
             valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(floatVectorValues);
             when(floatVectorValues.nextDoc()).thenReturn(0, 1, 2, NO_MORE_DOCS);
             when(floatVectorValues.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
