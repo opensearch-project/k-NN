@@ -18,6 +18,10 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.Version;
 import org.opensearch.knn.index.KNNSettings;
 
+import java.util.Map;
+
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+
 /**
  * This class acts as an abstraction to get the default hyperparameter values for different parameters used in the
  * Nearest Neighbor Algorithm across different version of Index.
@@ -95,5 +99,25 @@ public class IndexHyperParametersUtil {
      */
     public static int getBinaryQuantizationEFSearchValue() {
         return INDEX_BINARY_QUANTIZATION_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
+    }
+
+    /**
+     * Determine the ef_search value using the following priority order:
+     * 1. Use ef_search from method parameters if specified in the query
+     * 2. Otherwise, use ef_search from index setting (knn.algo_param.ef_search)
+     * 3. If neither exists, fall back to default ef_search value based on index version
+     *
+     * @param methodParameters method parameters from the query
+     * @param indexName name of the index
+     * @return ef_search value to use
+     */
+    public static int getHNSWEFSearchValue(final Map<String, ?> methodParameters, final String indexName) {
+        if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
+            return (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
+        }
+
+        // Returns ef_search from index setting (knn.algo_param.ef_search) or
+        // falls back to default ef_search value based on index version
+        return KNNSettings.getEfSearchParam(indexName);
     }
 }

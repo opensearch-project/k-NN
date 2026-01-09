@@ -98,6 +98,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(clusterState.getMetadata()).thenReturn(metadata);
         when(metadata.index(anyString())).thenReturn(indexMetadata);
         when(indexMetadata.getSettings()).thenReturn(settings);
+        when(indexMetadata.getCreationVersion()).thenReturn(Version.CURRENT);
     }
 
     public void testInvalidK() {

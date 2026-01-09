@@ -7,8 +7,6 @@ package org.opensearch.knn.index.query.lucenelib;
 
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
-import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.knn.index.query.common.QueryUtils;
 
 /**
@@ -23,26 +21,28 @@ public class NestedKnnVectorQueryFactory {
      *
      * @param fieldName field name for search
      * @param vector target vector for search
-     * @param k k nearest neighbor for search
+     * @param luceneK k value used for Lucene search, augmented based on efSearch
      * @param filterQuery efficient filtering query
      * @param parentFilter has mapping data between parent doc and child doc
      * @param expandNestedDocs tells if this query is for expanding nested docs
+     * @param k k nearest neighbor for search
      * @return Query for k-NN nested field
      */
     public static Query createNestedKnnVectorQuery(
         final String fieldName,
         final byte[] vector,
-        final int k,
+        final int luceneK,
         final Query filterQuery,
         final BitSetProducer parentFilter,
-        final boolean expandNestedDocs
+        final boolean expandNestedDocs,
+        final int k
     ) {
         if (expandNestedDocs) {
             return new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-                new InternalNestedKnnByteVectoryQuery(fieldName, vector, filterQuery, k, parentFilter)
+                new InternalNestedKnnByteVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k)
             ).queryUtils(QueryUtils.getInstance()).build();
         }
-        return new DiversifyingChildrenByteKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
+        return new OSDiversifyingChildrenByteKnnVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k);
     }
 
     /**
@@ -53,25 +53,27 @@ public class NestedKnnVectorQueryFactory {
      *
      * @param fieldName field name for search
      * @param vector target vector for search
-     * @param k k nearest neighbor for search
+     * @param luceneK k value used for Lucene search, augmented based on efSearch
      * @param filterQuery efficient filtering query
      * @param parentFilter has mapping data between parent doc and child doc
      * @param expandNestedDocs tells if this query is for expanding nested docs
+     * @param k k nearest neighbor for search
      * @return Query for k-NN nested field
      */
     public static Query createNestedKnnVectorQuery(
         final String fieldName,
         final float[] vector,
-        final int k,
+        final int luceneK,
         final Query filterQuery,
         final BitSetProducer parentFilter,
-        final boolean expandNestedDocs
+        final boolean expandNestedDocs,
+        final int k
     ) {
         if (expandNestedDocs) {
             return new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-                new InternalNestedKnnFloatVectoryQuery(fieldName, vector, filterQuery, k, parentFilter)
+                new InternalNestedKnnFloatVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k)
             ).queryUtils(QueryUtils.getInstance()).build();
         }
-        return new DiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
+        return new OSDiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k);
     }
 }

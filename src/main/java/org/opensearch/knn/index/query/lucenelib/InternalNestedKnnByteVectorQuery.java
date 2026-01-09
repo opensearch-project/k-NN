@@ -13,7 +13,6 @@ import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 
 import java.io.IOException;
 
@@ -21,33 +20,43 @@ import java.io.IOException;
  * InternalNestedKnnVectorQuery for byte vector
  */
 @Getter
-public class InternalNestedKnnByteVectoryQuery extends KnnByteVectorQuery implements InternalNestedKnnVectorQuery {
+public class InternalNestedKnnByteVectorQuery extends KnnByteVectorQuery implements InternalNestedKnnVectorQuery {
     private final String field;
     private final byte[] target;
     private final Query filter;
-    private final int k;
+    private final int luceneK; // Number of nearest neighbors to retrieve from Lucene (augmented k)
     private final BitSetProducer parentFilter;
-    private final DiversifyingChildrenByteKnnVectorQuery diversifyingChildrenByteKnnVectorQuery;
+    private final int k; // Number of nearest neighbors requested by the user query
+    private final OSDiversifyingChildrenByteKnnVectorQuery osDiversifyingChildrenByteKnnVectorQuery;
 
-    public InternalNestedKnnByteVectoryQuery(
+    public InternalNestedKnnByteVectorQuery(
         final String field,
         final byte[] target,
         final Query filter,
-        final int k,
-        final BitSetProducer parentFilter
+        final int luceneK,
+        final BitSetProducer parentFilter,
+        final int k
     ) {
         super(field, target, Integer.MAX_VALUE, filter);
         this.field = field;
         this.target = target;
         this.filter = filter;
-        this.k = k;
+        this.luceneK = luceneK;
         this.parentFilter = parentFilter;
-        this.diversifyingChildrenByteKnnVectorQuery = new DiversifyingChildrenByteKnnVectorQuery(field, target, filter, k, parentFilter);
+        this.k = k;
+        this.osDiversifyingChildrenByteKnnVectorQuery = new OSDiversifyingChildrenByteKnnVectorQuery(
+            field,
+            target,
+            filter,
+            luceneK,
+            parentFilter,
+            k
+        );
     }
 
     @Override
     public Query knnRewrite(final IndexSearcher searcher) throws IOException {
-        return diversifyingChildrenByteKnnVectorQuery.rewrite(searcher);
+        return osDiversifyingChildrenByteKnnVectorQuery.rewrite(searcher);
     }
 
     @Override

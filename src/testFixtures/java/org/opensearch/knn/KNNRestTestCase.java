@@ -5,14 +5,34 @@
 
 package org.opensearch.knn;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.primitives.Bytes;
-import com.google.common.primitives.Floats;
-import com.google.common.primitives.Ints;
-import com.jayway.jsonpath.JsonPath;
-import lombok.SneakyThrows;
-import lombok.extern.log4j.Log4j2;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.PriorityQueue;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -21,6 +41,8 @@ import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestName;
 import org.opensearch.Version;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -29,6 +51,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -42,52 +65,6 @@ import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.ParentChildHelper;
-import org.opensearch.knn.index.mapper.Mode;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.indices.ModelState;
-import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
-import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
-import org.opensearch.knn.plugin.stats.StatNames;
-import org.opensearch.script.Script;
-import org.opensearch.search.SearchService;
-import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
-
-import javax.management.MBeanServerInvocationHandler;
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.PriorityQueue;
-import java.util.Random;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import org.junit.Rule;
-import org.junit.rules.TestName;
-import java.lang.reflect.Method;
-
 import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.INDEX_KNN;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
@@ -97,6 +74,7 @@ import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
+import org.opensearch.knn.common.KNNConstants;
 import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -118,16 +96,40 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
+import org.opensearch.knn.index.KNNSettings;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SETTING;
+import org.opensearch.knn.index.SpaceType;
 import static org.opensearch.knn.index.SpaceType.L2;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.ParentChildHelper;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
+import org.opensearch.knn.index.mapper.Mode;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.plugin.KNNPlugin;
+import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
+import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
+import org.opensearch.knn.plugin.stats.StatNames;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
-import org.opensearch.common.xcontent.support.XContentMapValues;
+import org.opensearch.script.Script;
+import org.opensearch.search.SearchService;
+import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
+
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
+import com.jayway.jsonpath.JsonPath;
+
+import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
@@ -373,7 +375,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected Response searchKNNIndex(String index, String query, int resultSize) throws IOException {
         Request request = new Request("POST", "/" + index + "/_search");
         request.setJsonEntity(query);
-
         request.addParameter("size", Integer.toString(resultSize));
         request.addParameter("search_type", "query_then_fetch");
         // Nested field does not support explain parameter and the request is rejected if we set explain parameter
@@ -381,8 +382,43 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
         return response;
+    }
+
+    /**
+     * Run KNN Search with retry mechanism for handling transient 503 errors
+     */
+    protected Response searchKNNIndexWithRetry(String index, String query, int resultSize) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_search");
+        request.setJsonEntity(query);
+        request.addParameter("size", Integer.toString(resultSize));
+        request.addParameter("search_type", "query_then_fetch");
+
+        IOException lastException = null;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            try {
+                Response response = client().performRequest(request);
+                assertEquals(
+                    request.getEndpoint() + ": failed",
+                    RestStatus.OK,
+                    RestStatus.fromCode(response.getStatusLine().getStatusCode())
+                );
+                return response;
+            } catch (org.opensearch.client.ResponseException e) {
+                if (e.getResponse().getStatusLine().getStatusCode() == 503 && attempt < 4) {
+                    lastException = e;
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw e;
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        }
+        throw lastException;
     }
 
     /**
@@ -1140,6 +1176,52 @@ public class KNNRestTestCase extends ODFERestTestCase {
         request.setJsonEntity(builder.toString());
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    protected void reindexWithRetry(String source, Object destination) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("source")
+            .field("index", source)
+            .endObject()
+            .startObject("dest")
+            .field("index", destination)
+            .endObject()
+            .endObject();
+        Request request = new Request("POST", "_reindex?wait_for_completion=false");
+        request.setJsonEntity(builder.toString());
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        String taskId = (String) responseMap.get("task");
+
+        waitForTaskCompletion(taskId);
+    }
+
+    protected void waitForTaskCompletion(String taskId) throws Exception {
+        int maxRetries = 60;
+        int retryIntervalMs = 1000;
+        for (int i = 0; i < maxRetries; i++) {
+            Request taskRequest = new Request("GET", "_tasks/" + taskId);
+            Response taskResponse = client().performRequest(taskRequest);
+            String taskBody = EntityUtils.toString(taskResponse.getEntity());
+            Map<String, Object> taskMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), taskBody).map();
+            Boolean completed = (Boolean) taskMap.get("completed");
+            if (Boolean.TRUE.equals(completed)) {
+                Map<String, Object> taskResponseMap = (Map<String, Object>) taskMap.get("response");
+                if (taskResponseMap != null) {
+                    List<Object> failures = (List<Object>) taskResponseMap.get("failures");
+                    if (failures != null && !failures.isEmpty()) {
+                        throw new RuntimeException("Reindex task failed: " + failures);
+                    }
+                }
+                return;
+            }
+            Thread.sleep(retryIntervalMs);
+        }
+        throw new RuntimeException("Reindex task did not complete within timeout: " + taskId);
     }
 
     /**
