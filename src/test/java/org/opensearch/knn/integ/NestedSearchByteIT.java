@@ -25,36 +25,41 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 @Log4j2
 public class NestedSearchByteIT extends KNNRestTestCase {
     @SneakyThrows
-    public void testNestedSearchWithFaissHnswByte_whenKIsTwo_thenReturnTwoResults() {
-        String nestedFieldName = "nested";
-        createKnnByteIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 2, KNNEngine.FAISS);
+    public void testNestedSearchWithHnswByte_whenKIsTwo_thenReturnTwoResults() {
+        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+            String indexName = INDEX_NAME + "_" + engine.getName().toLowerCase();
+            String nestedFieldName = "nested";
+            createKnnByteIndexWithNestedField(indexName, nestedFieldName, FIELD_NAME, 2, engine);
 
-        int totalDocCount = 15;
-        for (byte i = 0; i < totalDocCount; i++) {
-            String doc = NestedKnnDocBuilder.create(nestedFieldName)
-                .addVectors(FIELD_NAME, new Byte[] { i, i }, new Byte[] { i, i })
-                .build();
-            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+            int totalDocCount = 15;
+            for (byte i = 0; i < totalDocCount; i++) {
+                String doc = NestedKnnDocBuilder.create(nestedFieldName)
+                    .addVectors(FIELD_NAME, new Byte[] { i, i }, new Byte[] { i, i })
+                    .build();
+                addKnnDoc(indexName, String.valueOf(i), doc);
+            }
+
+            refreshIndex(indexName);
+            forceMergeKnnIndex(indexName);
+
+            Byte[] queryVector = { 14, 14 };
+            String query = KNNJsonQueryBuilder.builder()
+                .nestedFieldName(nestedFieldName)
+                .fieldName(FIELD_NAME)
+                .vector(queryVector)
+                .k(2)
+                .build()
+                .getQueryString();
+            Response response = searchKNNIndex(indexName, query, 2);
+            String entity = EntityUtils.toString(response.getEntity());
+
+            assertEquals(2, parseHits(entity));
+            assertEquals(2, parseTotalSearchHits(entity));
+            assertEquals("14", parseIds(entity).get(0));
+            assertNotEquals("14", parseIds(entity).get(1));
+
+            deleteKNNIndex(indexName);
         }
-
-        refreshIndex(INDEX_NAME);
-        forceMergeKnnIndex(INDEX_NAME);
-
-        Byte[] queryVector = { 14, 14 };
-        String query = KNNJsonQueryBuilder.builder()
-            .nestedFieldName(nestedFieldName)
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .k(2)
-            .build()
-            .getQueryString();
-        Response response = searchKNNIndex(INDEX_NAME, query, 2);
-        String entity = EntityUtils.toString(response.getEntity());
-
-        assertEquals(2, parseHits(entity));
-        assertEquals(2, parseTotalSearchHits(entity));
-        assertEquals("14", parseIds(entity).get(0));
-        assertNotEquals("14", parseIds(entity).get(1));
     }
 
     /**
