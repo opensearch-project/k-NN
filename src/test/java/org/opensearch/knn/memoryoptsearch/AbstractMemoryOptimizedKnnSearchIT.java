@@ -157,6 +157,19 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         final boolean isRadial,
         final boolean enableMemoryOptimizedSearch
     ) {
+        doKnnSearchTest(spaceType, schema, indexingType, isRadial, enableMemoryOptimizedSearch, true);
+        doKnnSearchTest(spaceType, schema, indexingType, isRadial, enableMemoryOptimizedSearch, false);
+    }
+
+    @SneakyThrows
+    protected void doKnnSearchTest(
+        final SpaceType spaceType,
+        final Schema schema,
+        final IndexingType indexingType,
+        final boolean isRadial,
+        final boolean enableMemoryOptimizedSearch,
+        final boolean shouldForceMergeToSingleSegment
+    ) {
         // Create HNSW index
         log.info("Create HNSW index, mapping=" + schema.mapping);
         createKnnHnswIndex(schema.mapping, enableMemoryOptimizedSearch, schema.additionalSettings);
@@ -175,9 +188,11 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         log.info("Flushing " + INDEX_NAME);
         flushIndex(INDEX_NAME);
 
-        // Force merge
-        log.info("Force merging " + INDEX_NAME);
-        forceMergeKnnIndex(INDEX_NAME, 1);
+        if (shouldForceMergeToSingleSegment) {
+            // Force merge
+            log.info("Force merging " + INDEX_NAME);
+            forceMergeKnnIndex(INDEX_NAME, 1);
+        }
 
         // Do search tests
         doKnnSearchTest(documents, schema, indexingType, spaceType, isRadial, false, true);
