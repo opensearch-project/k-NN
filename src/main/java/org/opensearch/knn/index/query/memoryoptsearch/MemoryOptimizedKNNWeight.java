@@ -17,6 +17,7 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorManager;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
@@ -50,29 +51,43 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
     // Enable ACORN optimization when having filtering rate < 60%.
     private static final KnnSearchStrategy.Hnsw DEFAULT_HNSW_SEARCH_STRATEGY = new KnnSearchStrategy.Hnsw(60);
 
-    private final KnnCollectorManager knnCollectorManager;
+    private KnnCollectorManager knnCollectorManager;
     @Setter
     private ReentrantKnnCollectorManager reentrantKNNCollectorManager;
+    private final IndexSearcher searcher;
+    private final BitSetProducer parentsFilter;
+    private final boolean isRadialSearch;
 
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);
 
-        if (k != null && k > 0) {
-            // ANN Search
-            if (query.getParentsFilter() == null) {
-                // Non-nested case
-                this.knnCollectorManager = new OptimisticKnnCollectorManager(k, new TopKnnCollectorManager(k, searcher));
-            } else {
-                // Nested case
-                this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
-            }
-        } else {
-            // Radius search
+        this.searcher = searcher;
+        this.parentsFilter = query.getParentsFilter();
+        this.isRadialSearch = k == null || k == 0;
+
+        if (isRadialSearch) {
             this.knnCollectorManager = (visitLimit, searchStrategy, context) -> new RadiusVectorSimilarityCollector(
                 DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * query.getRadius(),
                 query.getRadius(),
                 visitLimit
             );
+        } else {
+            updateStatus(k);
+        }
+    }
+
+    @Override
+    public void updateStatus(int newTopK) {
+        if (isRadialSearch == false) {
+            log.debug("Re-instantiating KNN collector manager with new top-k {}", newTopK);
+
+            if (parentsFilter == null) {
+                // Non-nested case
+                this.knnCollectorManager = new OptimisticKnnCollectorManager(newTopK, new TopKnnCollectorManager(newTopK, searcher));
+            } else {
+                // Nested case
+                this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(newTopK, parentsFilter, searcher);
+            }
         }
     }
 
