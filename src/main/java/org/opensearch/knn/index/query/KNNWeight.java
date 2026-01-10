@@ -171,6 +171,10 @@ public abstract class KNNWeight extends Weight {
             : Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString()));
     }
 
+    public void updateStatus(int newTopK) {
+        // Nothing
+    }
+
     private StringBuilder getLeafLevelExplanation(LeafReaderContext context) {
         int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
         int cardinality = knnExplanation.getCardinality();

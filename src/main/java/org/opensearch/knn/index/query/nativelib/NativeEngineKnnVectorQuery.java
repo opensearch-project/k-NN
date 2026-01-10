@@ -106,6 +106,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             boolean isShardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName());
             int dimension = knnQuery.getQueryVector().length;
             int firstPassK = rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension);
+            knnWeight.updateStatus(firstPassK);
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassK);
             if (isShardLevelRescoringDisabled == false) {
                 ResultUtil.reduceToTopK(perLeafResults, firstPassK);
@@ -331,7 +332,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         }
 
         // Start 2nd deep dive, and get the minimum bar.
-        final float minTopKScore = OptimisticSearchStrategyUtils.findKthLargestScore(perLeafResults, knnQuery.getK(), totalResults);
+        final float minTopKScore = OptimisticSearchStrategyUtils.findKthLargestScore(perLeafResults, k, totalResults);
 
         // Select candidate segments for 2nd search. Pick whatever segment returned all vectors whose score values are greater than `kth`
         // value in the merged results.
