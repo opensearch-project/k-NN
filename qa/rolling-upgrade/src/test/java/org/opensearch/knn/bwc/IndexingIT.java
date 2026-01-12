@@ -6,6 +6,7 @@
 package org.opensearch.knn.bwc;
 
 import org.opensearch.client.ResponseException;
+import org.opensearch.common.xcontent.XContentFactory;
 
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
 
@@ -247,6 +248,164 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 );
 
                 // Step 6: Cleanup - Delete the original index
+                deleteKNNIndex(testIndex);
+                break;
+        }
+    }
+
+    public void testMixedFieldsWithFaissRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        switch (getClusterType()) {
+            case OLD:
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME));
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
+                addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+                deleteKnnDoc(testIndex, "0");
+                break;
+            case MIXED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+                break;
+            case UPGRADED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+                deleteKNNIndex(testIndex);
+                break;
+        }
+    }
+
+    public void testMixedFieldsWithLuceneRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        switch (getClusterType()) {
+            case OLD:
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, LUCENE_NAME));
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
+                addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+                deleteKnnDoc(testIndex, "0");
+                break;
+            case MIXED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+                break;
+            case UPGRADED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+                deleteKNNIndex(testIndex);
+                break;
+        }
+    }
+
+    public void testMixedFieldsWithCompressionRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        switch (getClusterType()) {
+            case OLD:
+                String mapping = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(TEST_FIELD)
+                    .field("type", "knn_vector")
+                    .field("dimension", DIMENSIONS)
+                    .field("compression_level", "32x")
+                    .field("mode", "on_disk")
+                    .startObject("method")
+                    .field("name", ALGO)
+                    .field("engine", FAISS_NAME)
+                    .endObject()
+                    .endObject()
+                    .startObject("description")
+                    .field("type", "text")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .toString();
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
+                addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+                deleteKnnDoc(testIndex, "0");
+                break;
+            case MIXED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+                break;
+            case UPGRADED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+                deleteKNNIndex(testIndex);
+                break;
+        }
+    }
+
+    public void testMixedSegmentsWithFaissRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        switch (getClusterType()) {
+            case OLD:
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, FAISS_NAME));
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS + 1);
+                flush(testIndex, true);
+                addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
+                deleteKnnDoc(testIndex, "0");
+                flush(testIndex, true);
+                break;
+            case MIXED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+                break;
+            case UPGRADED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+                deleteKNNIndex(testIndex);
+                break;
+        }
+    }
+
+    public void testMixedSegmentsWithLuceneRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        switch (getClusterType()) {
+            case OLD:
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, ALGO, LUCENE_NAME));
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS + 1);
+                flush(testIndex, true);
+                addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
+                deleteKnnDoc(testIndex, "0");
+                flush(testIndex, true);
+                break;
+            case MIXED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+                break;
+            case UPGRADED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+                deleteKNNIndex(testIndex);
+                break;
+        }
+    }
+
+    public void testMixedSegmentsWithCompressionRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        switch (getClusterType()) {
+            case OLD:
+                String mapping = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(TEST_FIELD)
+                    .field("type", "knn_vector")
+                    .field("dimension", DIMENSIONS)
+                    .field("compression_level", "32x")
+                    .field("mode", "on_disk")
+                    .startObject("method")
+                    .field("name", ALGO)
+                    .field("engine", FAISS_NAME)
+                    .endObject()
+                    .endObject()
+                    .startObject("description")
+                    .field("type", "text")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .toString();
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+                addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS + 1);
+                flush(testIndex, true);
+                addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
+                deleteKnnDoc(testIndex, "0");
+                flush(testIndex, true);
+                break;
+            case MIXED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+                break;
+            case UPGRADED:
+                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 deleteKNNIndex(testIndex);
                 break;
         }

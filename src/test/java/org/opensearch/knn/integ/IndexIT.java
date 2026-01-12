@@ -12,6 +12,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
@@ -68,6 +69,188 @@ public class IndexIT extends KNNRestTestCase {
             );
             assertTrue("Recall: " + recall, recall > 0.9);
         }
+    }
+
+    @SneakyThrows
+    public void testIndexWithNonVectorFields_whenValid_thenSucceed() {
+        String indexName = INDEX_NAME + "_mixed";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 128)
+            .field("data_type", VectorDataType.FLOAT.getValue())
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field("space_type", SpaceType.L2.getValue())
+            .field("engine", KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject("category")
+            .field("type", "keyword")
+            .endObject()
+            .startObject("description")
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        // Add mixed content
+        for (int i = 0; i < 10; i++) {
+            addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, Floats.asList(testData.indexData.vectors[i]).toArray());
+        }
+        addNonKNNDoc(indexName, "10", "description", "Test document");
+        deleteKnnDoc(indexName, "0");
+
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName);
+
+        // Test search
+        List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
+        assertTrue(results.size() > 0);
+    }
+
+    @SneakyThrows
+    public void testLuceneWithNonVectorFields_whenValid_thenSucceed() {
+        String indexName = INDEX_NAME + "_lucene_mixed";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 128)
+            .field("data_type", VectorDataType.FLOAT.getValue())
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field("space_type", SpaceType.L2.getValue())
+            .field("engine", KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .startObject("category")
+            .field("type", "keyword")
+            .endObject()
+            .startObject("description")
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        // Add mixed content
+        for (int i = 0; i < 10; i++) {
+            addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, Floats.asList(testData.indexData.vectors[i]).toArray());
+        }
+        addNonKNNDoc(indexName, "10", "description", "Test document");
+        deleteKnnDoc(indexName, "0");
+
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName);
+
+        // Test search
+        List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
+        assertTrue(results.size() > 0);
+    }
+
+    @SneakyThrows
+    public void testMixedSegmentsWithFaiss_whenValid_thenSucceed() {
+        String indexName = INDEX_NAME + "_faiss_mixed_segments";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 128)
+            .field("data_type", VectorDataType.FLOAT.getValue())
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field("space_type", SpaceType.L2.getValue())
+            .field("engine", KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject("category")
+            .field("type", "keyword")
+            .endObject()
+            .startObject("description")
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        // Add vector docs
+        for (int i = 0; i < 11; i++) {
+            addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, Floats.asList(testData.indexData.vectors[i]).toArray());
+        }
+        flush(indexName, true);
+
+        // Add non-vector doc (gets its own segment)
+        addNonKNNDoc(indexName, "11", "description", "Test document");
+        deleteKnnDoc(indexName, "0");
+        flush(indexName, true);
+
+        refreshIndex(indexName);
+
+        // Test search on mixed segments
+        List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
+        assertTrue(results.size() > 0);
+    }
+
+    @SneakyThrows
+    public void testMixedSegmentsWithLucene_whenValid_thenSucceed() {
+        String indexName = INDEX_NAME + "_lucene_mixed_segments";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 128)
+            .field("data_type", VectorDataType.FLOAT.getValue())
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field("space_type", SpaceType.L2.getValue())
+            .field("engine", KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .startObject("category")
+            .field("type", "keyword")
+            .endObject()
+            .startObject("description")
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        // Add vector docs
+        for (int i = 0; i < 11; i++) {
+            addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, Floats.asList(testData.indexData.vectors[i]).toArray());
+        }
+        flush(indexName, true);
+
+        // Add non-vector doc (gets its own segment)
+        addNonKNNDoc(indexName, "11", "description", "Test document");
+        deleteKnnDoc(indexName, "0");
+        flush(indexName, true);
+
+        refreshIndex(indexName);
+
+        // Test search on mixed segments
+        List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
+        assertTrue(results.size() > 0);
     }
 
     private float getRecall(final Set<String> truth, final Set<String> result) {

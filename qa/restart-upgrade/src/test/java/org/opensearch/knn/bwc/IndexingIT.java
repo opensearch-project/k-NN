@@ -731,4 +731,129 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(indexName);
         }
     }
+
+    public void testMixedFieldsWithFaissRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, FAISS_NAME));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+            deleteKnnDoc(testIndex, "0");
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testMixedFieldsWithLuceneRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                getKNNDefaultIndexSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+            deleteKnnDoc(testIndex, "0");
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testMixedFieldsWithCompressionRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, DIMENSIONS)
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .endObject()
+                .startObject("description")
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+            deleteKnnDoc(testIndex, "0");
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testMixedSegmentsWithFaissRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, FAISS_NAME));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS + 1);
+            flush(testIndex, true);
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
+            deleteKnnDoc(testIndex, "0");
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testMixedSegmentsWithLuceneRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(
+                testIndex,
+                getKNNDefaultIndexSettings(),
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME)
+            );
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS + 1);
+            flush(testIndex, true);
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
+            deleteKnnDoc(testIndex, "0");
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testMixedSegmentsWithCompressionRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, DIMENSIONS)
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .endObject()
+                .startObject("description")
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS + 1);
+            flush(testIndex, true);
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
+            deleteKnnDoc(testIndex, "0");
+            flush(testIndex, true);
+        } else {
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
 }

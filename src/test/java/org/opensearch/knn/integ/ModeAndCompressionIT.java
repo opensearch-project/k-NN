@@ -514,6 +514,54 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testMixedSegmentsWithNonVectorDoc_whenValid_ThenSucceed() {
+        CompressionLevel compressionLevel = CompressionLevel.x32;
+        String indexName = INDEX_NAME + "_mixed_segments";
+        try (
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .endObject()
+                .startObject(FIELD_NAME_NON_KNN)
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+        ) {
+            String mapping = builder.toString();
+            Settings indexSettings = buildKNNIndexSettings(0);
+            createKnnIndex(indexName, indexSettings, mapping);
+
+            // Add 21 docs with vector fields
+            addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS + 1);
+            // Flush to create a segment with vector docs
+            flush(indexName, true);
+
+            // Add 1 doc with only non-vector field (should get its own segment)
+            addNonKNNDoc(indexName, String.valueOf(NUM_DOCS + 2), FIELD_NAME_NON_KNN, "Non-vector document");
+            deleteKnnDoc(indexName, "0");
+            // Flush to ensure proper segmentation
+            flush(indexName, true);
+
+            validateGreenIndex(indexName);
+
+            // Validate search works on remaining vector docs (20 after deletion)
+            validateSearch(
+                indexName,
+                METHOD_PARAMETER_EF_SEARCH,
+                KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                compressionLevel.getName(),
+                Mode.ON_DISK.getName()
+            );
+        }
+    }
+
+    @SneakyThrows
     public void testTraining_whenInvalid_thenFail() {
         setupTrainingIndex();
         String modelId = "test";
