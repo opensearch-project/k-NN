@@ -23,11 +23,13 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.tests.analysis.MockAnalyzer;
+import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.FixedBitSet;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.invocation.InvocationOnMock;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.index.KNNSettings;
@@ -104,7 +106,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         // Set ClusterService in KNNSettings
         KNNSettings.state().setClusterService(clusterService);
         when(knnQuery.getQueryVector()).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });  // Example vector
-
+        when(knnQuery.getIndexName()).thenReturn("test-index");
     }
 
     @SneakyThrows
@@ -238,14 +240,26 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Document doc2 = new Document();
             doc2.add(new FloatPoint("vector", 4.0f, 5.0f, 6.0f));
             writer.addDocument(doc2);
-            // Force the creation of a second segment
-            writer.flush();
             Document doc3 = new Document();
             doc3.add(new FloatPoint("vector", 7.0f, 8.0f, 9.0f));
             writer.addDocument(doc3);
             Document doc4 = new Document();
             doc4.add(new FloatPoint("vector", 10.0f, 11.0f, 12.0f));
             writer.addDocument(doc4);
+            // Force the creation of a second segment
+            writer.flush();
+            Document doc5 = new Document();
+            doc5.add(new FloatPoint("vector", 13.0f, 14.0f, 15.0f));
+            writer.addDocument(doc5);
+            Document doc6 = new Document();
+            doc6.add(new FloatPoint("vector", 16.0f, 17.0f, 18.0f));
+            writer.addDocument(doc6);
+            Document doc7 = new Document();
+            doc7.add(new FloatPoint("vector", 16.0f, 17.0f, 18.0f));
+            writer.addDocument(doc7);
+            Document doc8 = new Document();
+            doc8.add(new FloatPoint("vector", 21.0f, 22.0f, 23.0f));
+            writer.addDocument(doc8);
             writer.commit();
         }
         Bits liveDocs1 = null;
@@ -290,7 +304,9 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class);
             MockedStatic<ResultUtil> mockedResultUtil = mockStatic(ResultUtil.class)
         ) {
-
+            mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
             // When shard-level re-scoring is enabled
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
@@ -356,14 +372,26 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Document doc2 = new Document();
             doc2.add(new FloatPoint("vector", 4.0f, 5.0f, 6.0f));
             writer.addDocument(doc2);
-            // Force the creation of a second segment
-            writer.flush();
             Document doc3 = new Document();
             doc3.add(new FloatPoint("vector", 7.0f, 8.0f, 9.0f));
             writer.addDocument(doc3);
             Document doc4 = new Document();
             doc4.add(new FloatPoint("vector", 10.0f, 11.0f, 12.0f));
             writer.addDocument(doc4);
+            // Force the creation of a second segment
+            writer.flush();
+            Document doc5 = new Document();
+            doc5.add(new FloatPoint("vector", 13.0f, 14.0f, 15.0f));
+            writer.addDocument(doc5);
+            Document doc6 = new Document();
+            doc6.add(new FloatPoint("vector", 16.0f, 17.0f, 18.0f));
+            writer.addDocument(doc6);
+            Document doc7 = new Document();
+            doc7.add(new FloatPoint("vector", 16.0f, 17.0f, 18.0f));
+            writer.addDocument(doc7);
+            Document doc8 = new Document();
+            doc8.add(new FloatPoint("vector", 21.0f, 22.0f, 23.0f));
+            writer.addDocument(doc8);
             writer.commit();
         }
         Bits liveDocs1 = null;
@@ -403,16 +431,12 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnWeight.exactSearch(eq(leaf2), any())).thenReturn(topDocs2);
         when(searcher.getIndexReader()).thenReturn(reader);
 
-        try (
-            MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class);
-            MockedStatic<ResultUtil> mockedResultUtil = mockStatic(ResultUtil.class)
-        ) {
-
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
             // When shard-level re-scoring is enabled
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
-
-            mockedResultUtil.when(() -> ResultUtil.reduceToTopK(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
-            mockedResultUtil.when(() -> ResultUtil.resultMapToDocIds(any(), anyInt())).thenAnswer(InvocationOnMock::callRealMethod);
 
             // Run
             Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
@@ -437,14 +461,26 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Document doc2 = new Document();
             doc2.add(new FloatPoint("vector", 4.0f, 5.0f, 6.0f));
             writer.addDocument(doc2);
-            // Force the creation of a second segment
-            writer.flush();
             Document doc3 = new Document();
             doc3.add(new FloatPoint("vector", 7.0f, 8.0f, 9.0f));
             writer.addDocument(doc3);
             Document doc4 = new Document();
             doc4.add(new FloatPoint("vector", 10.0f, 11.0f, 12.0f));
             writer.addDocument(doc4);
+            // Force the creation of a second segment
+            writer.flush();
+            Document doc5 = new Document();
+            doc5.add(new FloatPoint("vector", 13.0f, 14.0f, 15.0f));
+            writer.addDocument(doc5);
+            Document doc6 = new Document();
+            doc6.add(new FloatPoint("vector", 16.0f, 17.0f, 18.0f));
+            writer.addDocument(doc6);
+            Document doc7 = new Document();
+            doc7.add(new FloatPoint("vector", 16.0f, 17.0f, 18.0f));
+            writer.addDocument(doc7);
+            Document doc8 = new Document();
+            doc8.add(new FloatPoint("vector", 21.0f, 22.0f, 23.0f));
+            writer.addDocument(doc8);
             writer.commit();
         }
         Bits liveDocs1 = null;
@@ -496,7 +532,6 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnWeight.getFilterWeight()).thenReturn(filterWeight);
 
         DocIdSetIterator allSiblings = mock(DocIdSetIterator.class);
-        when(allSiblings.nextDoc()).thenReturn(1, 2, DocIdSetIterator.NO_MORE_DOCS);
 
         Weight expectedWeight = mock(Weight.class);
         Query finalQuery = mock(Query.class);
@@ -506,32 +541,43 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(allSiblings);
         when(queryUtils.createDocAndScoreQuery(eq(reader), any(), eq(knnWeight))).thenReturn(finalQuery);
 
-        // Run
-        NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, queryUtils, true);
-        Weight finalWeigh = query.createWeight(searcher, scoreMode, 1.f);
+        try (
+            MockedStatic<BitSet> mockedBitSet = mockStatic(BitSet.class);
+            MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)
+        ) {
+            mockedKnnSettings.when(() -> KNNSettings.isConcurrentExactSearchEnabled(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMaxPartitionCount(any())).thenReturn(0);
+            mockedKnnSettings.when(() -> KNNSettings.getConcurrentExactSearchMinDocumentCount(any())).thenReturn(1);
 
-        // Verify
-        assertEquals(expectedWeight, finalWeigh);
-        verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, queryFilterBits);
-        verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, queryFilterBits);
-        ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
-        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture(), eq(knnWeight));
-        TopDocs capturedTopDocs = topDocsCaptor.getValue();
-        assertEquals(topK.totalHits, capturedTopDocs.totalHits);
-        for (int i = 0; i < topK.scoreDocs.length; i++) {
-            assertEquals(topK.scoreDocs[i].doc, capturedTopDocs.scoreDocs[i].doc);
-            assertEquals(topK.scoreDocs[i].score, capturedTopDocs.scoreDocs[i].score, 0.01f);
-            assertEquals(topK.scoreDocs[i].shardIndex, capturedTopDocs.scoreDocs[i].shardIndex);
+            mockedBitSet.when(() -> BitSet.of(eq(allSiblings), anyInt())).thenReturn(new FixedBitSet(new long[] { 6 }, 3));
+            // Run
+            NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, queryUtils, true);
+            Weight finalWeigh = query.createWeight(searcher, scoreMode, 1.f);
+
+            // Verify
+            assertEquals(expectedWeight, finalWeigh);
+            verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, queryFilterBits);
+            verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, queryFilterBits);
+            ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
+            verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture(), eq(knnWeight));
+            TopDocs capturedTopDocs = topDocsCaptor.getValue();
+            assertEquals(topK.totalHits, capturedTopDocs.totalHits);
+            for (int i = 0; i < topK.scoreDocs.length; i++) {
+                assertEquals(topK.scoreDocs[i].doc, capturedTopDocs.scoreDocs[i].doc);
+                assertEquals(topK.scoreDocs[i].score, capturedTopDocs.scoreDocs[i].score, 0.01f);
+                assertEquals(topK.scoreDocs[i].shardIndex, capturedTopDocs.scoreDocs[i].shardIndex);
+            }
+
+            // Verify acceptedDocIds is intersection of allSiblings and filteredDocIds
+            ArgumentCaptor<ExactSearcher.ExactSearcherContext> contextCaptor = ArgumentCaptor.forClass(
+                ExactSearcher.ExactSearcherContext.class
+            );
+            verify(knnWeight, times(perLeafResults.size())).exactSearch(any(), contextCaptor.capture());
+            BitSetIterator matchedDocsIterator = new BitSetIterator(contextCaptor.getValue().getMatchedDocs(), 2);
+            assertEquals(1, matchedDocsIterator.nextDoc());
+            assertEquals(2, matchedDocsIterator.nextDoc());
+            assertEquals(DocIdSetIterator.NO_MORE_DOCS, matchedDocsIterator.nextDoc());
         }
-
-        // Verify acceptedDocIds is intersection of allSiblings and filteredDocIds
-        ArgumentCaptor<ExactSearcher.ExactSearcherContext> contextCaptor = ArgumentCaptor.forClass(
-            ExactSearcher.ExactSearcherContext.class
-        );
-        verify(knnWeight, times(perLeafResults.size())).exactSearch(any(), contextCaptor.capture());
-        assertEquals(1, contextCaptor.getValue().getMatchedDocsIterator().nextDoc());
-        assertEquals(2, contextCaptor.getValue().getMatchedDocsIterator().nextDoc());
-        assertEquals(DocIdSetIterator.NO_MORE_DOCS, contextCaptor.getValue().getMatchedDocsIterator().nextDoc());
     }
 
     private IndexReader createTestIndexReader() throws IOException {
