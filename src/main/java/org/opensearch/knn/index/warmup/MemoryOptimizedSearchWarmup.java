@@ -25,6 +25,8 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.query.memoryoptsearch.SearchVectorTypeResolver;
+import org.opensearch.knn.index.query.memoryoptsearch.VectorSearchFunction;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -101,12 +103,13 @@ public class MemoryOptimizedSearchWarmup {
                 return true;
             }
             final VectorDataType vectorDataType = VectorDataType.get(dataTypeStr);
-            // We expect a NPE here:
-            if (vectorDataType == VectorDataType.FLOAT) {
-                segmentReader.getVectorReader().search(field.getName(), (float[]) null, null, null);
-            } else {
-                segmentReader.getVectorReader().search(field.getName(), (byte[]) null, null, null);
-            }
+
+            // Get the appropriate search function using SearchVectorTypeResolver
+            // This ensures consistency with MemoryOptimizedKNNWeight
+            final VectorSearchFunction searchFunction = SearchVectorTypeResolver.getSearchFunction(segmentReader, field, vectorDataType);
+
+            // We expect a NPE here when calling with null vector:
+            searchFunction.search(field.getName(), null, null, null);
         } catch (NullPointerException ignored) {}
 
         return true;

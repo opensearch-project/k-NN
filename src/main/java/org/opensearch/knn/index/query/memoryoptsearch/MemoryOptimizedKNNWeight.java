@@ -24,7 +24,6 @@ import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -92,65 +91,25 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final int k
     ) {
         try {
-            final Version segmentLuceneVersion = reader.getSegmentInfo().info.getVersion();
+            // Get the appropriate search function based on field configuration
+            final VectorSearchFunction searchFunction = SearchVectorTypeResolver.getSearchFunction(reader, fieldInfo, vectorDataType);
+
             if (k > 0) {
-                // KNN search
+                // KNN search - determine which vector to use
+                final Object targetVector;
                 if (quantizedTargetVector != null) {
-                    // Quantization case
-                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
-                        return queryIndex(
-                            quantizedTargetVector,
-                            cardinality,
-                            cardinality + 1,
-                            context,
-                            filterIdsBitSet,
-                            reader,
-                            knnEngine,
-                            spaceType
-                        );
-                    }
-
-                    // Should never occur, safety if ever any other quantization is added
-                    throw new IllegalStateException(
-                        "VectorDataType for transfer acquired ["
-                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo)
-                            + "] while it is expected to get ["
-                            + VectorDataType.BINARY
-                            + "]"
-                    );
+                    targetVector = quantizedTargetVector;
+                } else if (adcTransformedVector != null) {
+                    targetVector = adcTransformedVector;
+                } else if (vectorDataType == VectorDataType.BINARY || vectorDataType == VectorDataType.BYTE) {
+                    targetVector = knnQuery.getByteQueryVector();
+                } else {
+                    targetVector = knnQuery.getQueryVector();
                 }
 
-                if (knnQuery.getVectorDataType() == VectorDataType.BINARY || knnQuery.getVectorDataType() == VectorDataType.BYTE) {
-                    // when data_type is set byte or binary
-                    return queryIndex(
-                        knnQuery.getByteQueryVector(),
-                        cardinality,
-                        cardinality + 1,
-                        context,
-                        filterIdsBitSet,
-                        reader,
-                        knnEngine,
-                        spaceType
-                    );
-                }
-
-                if (adcTransformedVector != null) {
-                    // ADC case
-                    return queryIndex(
-                        adcTransformedVector,
-                        cardinality,
-                        cardinality + 1,
-                        context,
-                        filterIdsBitSet,
-                        reader,
-                        knnEngine,
-                        spaceType
-                    );
-                }
-
-                // fallback to float
                 return queryIndex(
-                    knnQuery.getQueryVector(),
+                    targetVector,
+                    searchFunction,
                     cardinality,
                     cardinality + 1,
                     context,
@@ -161,7 +120,17 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                 );
             } else {
                 // Radius search
-                return queryIndex(knnQuery.getVector(), cardinality, cardinality, context, filterIdsBitSet, reader, knnEngine, spaceType);
+                return queryIndex(
+                    knnQuery.getVector(),
+                    searchFunction,
+                    cardinality,
+                    cardinality,
+                    context,
+                    filterIdsBitSet,
+                    reader,
+                    knnEngine,
+                    spaceType
+                );
             }
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
@@ -171,6 +140,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
 
     private TopDocs queryIndex(
         final Object targetVector,
+        final VectorSearchFunction searchFunction,
         final int cardinality,
         final int visitLimitWhenFilterExists,
         final LeafReaderContext context,
@@ -179,8 +149,6 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final KNNEngine knnEngine,
         final SpaceType spaceType
     ) throws IOException {
-        assert (targetVector instanceof float[] || targetVector instanceof byte[]);
-
         // Determine visit limit
         final int visitedLimit;
         if (getFilterWeight() == null) {
@@ -196,18 +164,14 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final KnnCollector knnCollector = collectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
         final AcceptDocs acceptDocs = getAcceptedDocs(reader, cardinality, filterIdsBitSet);
 
-        // Start searching index
-        if (targetVector instanceof float[] floatTargetVector) {
-            reader.getVectorReader().search(knnQuery.getField(), floatTargetVector, knnCollector, acceptDocs);
-        } else {
-            reader.getVectorReader().search(knnQuery.getField(), (byte[]) targetVector, knnCollector, acceptDocs);
-        }
+        // Start searching index using the provided search function
+        searchFunction.search(knnQuery.getField(), targetVector, knnCollector, acceptDocs);
 
         // Make results to return
         TopDocs topDocs = knnCollector.topDocs();
         // Align `hitCount` logic with the non-memory-optimized path by setting it to the size of the result set.
         // Note: DefaultKNNWeight defines `hitCount` as the number of results returned per Lucene segment,
-        // while Lucene’s implementation interprets it as the total number of vectors visited during search.
+        // while Lucene's implementation interprets it as the total number of vectors visited during search.
         topDocs = new TopDocs(new TotalHits(topDocs.scoreDocs.length, TotalHits.Relation.EQUAL_TO), topDocs.scoreDocs);
         if (topDocs.scoreDocs.length == 0) {
             log.debug("[KNN] Query yielded 0 results");

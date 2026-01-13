@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.warmup;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
@@ -27,12 +28,16 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +52,41 @@ import static org.mockito.Mockito.verify;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
+
+    private final String testDescription;
+    private final CompressionLevel compressionLevel;
+    private final QuantizationConfig quantizationConfig;
+
+    public MemoryOptimizedSearchWarmupTests(
+        String testDescription,
+        CompressionLevel compressionLevel,
+        QuantizationConfig quantizationConfig
+    ) {
+        this.testDescription = testDescription;
+        this.compressionLevel = compressionLevel;
+        this.quantizationConfig = quantizationConfig;
+    }
+
+    @ParametersFactory
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList(
+            new Object[][] {
+                { "1x compression", CompressionLevel.x1, QuantizationConfig.EMPTY },
+                { "2x compression", CompressionLevel.x2, QuantizationConfig.EMPTY },
+                { "4x compression", CompressionLevel.x4, QuantizationConfig.EMPTY },
+                { "8x compression", CompressionLevel.x8, QuantizationConfig.EMPTY },
+                { "16x compression", CompressionLevel.x16, QuantizationConfig.EMPTY },
+                { "32x compression", CompressionLevel.x32, QuantizationConfig.EMPTY },
+                {
+                    "ADC enabled",
+                    CompressionLevel.x32,
+                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).enableADC(true).build() },
+                {
+                    "ADC disabled",
+                    CompressionLevel.x32,
+                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).enableADC(false).build() } }
+        );
+    }
 
     @Mock
     private SegmentReader leafReader;
@@ -68,6 +108,8 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
     private FloatVectorValues floatVectorValues;
     @Mock
     private KnnVectorValues.DocIndexIterator docIndexIterator;
+    @Mock
+    private org.opensearch.knn.index.mapper.KNNMappingConfig knnMappingConfig;
 
     private MemoryOptimizedSearchWarmup warmup;
     private String indexName = "test-index";
@@ -107,6 +149,10 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
         when(clusterState.getMetadata()).thenReturn(metadata);
         when(metadata.index(indexName)).thenReturn(indexMetadata);
         when(indexMetadata.getSettings()).thenReturn(indexSettings);
+
+        // Setup quantization config for the field type
+        when(knnMappingConfig.getCompressionLevel()).thenReturn(compressionLevel);
+        when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(knnMappingConfig);
     }
 
     private void setupSingleKnnField(String fieldName) throws IOException {
@@ -149,8 +195,8 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
     public void testFullPrecisionVectorLoading() throws IOException {
         setupSingleKnnField("test-field");
         when(knnVectorFieldType.isMemoryOptimizedSearchAvailable()).thenReturn(true);
-        when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(mock(org.opensearch.knn.index.mapper.KNNMappingConfig.class));
         when(knnVectorFieldType.getIndexCreatedVersion()).thenReturn(org.opensearch.Version.CURRENT);
+        when(knnMappingConfig.getQuantizationConfig()).thenReturn(quantizationConfig);
 
         when(leafReader.getFloatVectorValues("test-field")).thenReturn(floatVectorValues);
         when(floatVectorValues.iterator()).thenReturn(docIndexIterator);
