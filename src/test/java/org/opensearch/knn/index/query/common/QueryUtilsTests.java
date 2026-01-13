@@ -20,6 +20,9 @@ import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
 import org.junit.Before;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.Timer;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,8 +33,11 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 public class QueryUtilsTests extends TestCase {
     private Executor executor;
@@ -69,6 +75,48 @@ public class QueryUtilsTests extends TestCase {
         List<Map<Integer, Float>> results = queryUtils.doSearch(indexSearcher, leafReaderContexts, weight);
 
         // Verify
+        assertEquals(2, results.size());
+        assertEquals(0, results.get(0).size());
+        assertEquals(2, results.get(1).size());
+        assertEquals(10.f, results.get(1).get(0));
+        assertEquals(11.f, results.get(1).get(1));
+
+    }
+
+    @SneakyThrows
+    public void testDoSearchWithProfile_whenExecuted_thenSucceed() {
+        IndexSearcher indexSearcher = mock(IndexSearcher.class);
+        when(indexSearcher.getTaskExecutor()).thenReturn(taskExecutor);
+
+        LeafReaderContext leafReaderContext1 = mock(LeafReaderContext.class);
+        LeafReaderContext leafReaderContext2 = mock(LeafReaderContext.class);
+        List<LeafReaderContext> leafReaderContexts = Arrays.asList(leafReaderContext1, leafReaderContext2);
+
+        DocIdSetIterator docIdSetIterator = mock(DocIdSetIterator.class);
+        when(docIdSetIterator.docID()).thenReturn(0, 1, DocIdSetIterator.NO_MORE_DOCS);
+        Scorer scorer = mock(Scorer.class);
+        when(scorer.iterator()).thenReturn(docIdSetIterator);
+        when(scorer.docID()).thenReturn(0, 1, DocIdSetIterator.NO_MORE_DOCS);
+        when(scorer.score()).thenReturn(10.f, 11.f, -1f);
+
+        Weight weight = mock(Weight.class);
+        when(weight.scorer(leafReaderContext1)).thenReturn(null);
+        when(weight.scorer(leafReaderContext2)).thenReturn(scorer);
+
+        ContextualProfileBreakdown profile = mock(ContextualProfileBreakdown.class);
+        Timer timer = mock(Timer.class);
+        when(profile.context(any())).thenReturn(profile);
+        when(profile.getTimer(KNNQueryTimingType.ANN_SEARCH)).thenReturn(timer);
+
+        // Run
+        List<Map<Integer, Float>> results = queryUtils.doSearch(indexSearcher, leafReaderContexts, weight, profile);
+
+        // Verify
+        verify(profile, times(2)).context(any());
+        verify(profile, times(2)).getTimer(KNNQueryTimingType.ANN_SEARCH);
+        verify(timer, times(2)).start();
+        verify(timer, times(2)).stop();
+
         assertEquals(2, results.size());
         assertEquals(0, results.get(0).size());
         assertEquals(2, results.get(1).size());
