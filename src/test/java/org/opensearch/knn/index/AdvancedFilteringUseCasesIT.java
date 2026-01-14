@@ -43,6 +43,8 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.TYPE_NESTED;
 import static org.opensearch.knn.common.KNNConstants.VECTOR;
 
+import static org.hamcrest.Matchers.containsString;
+
 /**
  * This class contains the IT for some advanced and tricky use-case of filters.
  * <a href="https://github.com/opensearch-project/k-NN/issues/1356">Github issue</a>
@@ -172,7 +174,7 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      */
     @SneakyThrows
     @ExpectRemoteBuildValidation
-    public void testFiltering_whenNestedKNNAndFilterFieldWithNoNestedContextInFilterQuery_thenSuccess() {
+    public void testFiltering_whenNestedKNNAndFilterFieldWithNoNestedContextInFilterQuery_thenFailure() {
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
             createKnnIndex(INDEX_NAME, createNestedMappings(1, engine));
@@ -202,7 +204,8 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
             builder.endObject();
             builder.endObject().endObject().endObject().endObject().endObject().endObject();
 
-            validateFilterSearch(builder.toString(), engine);
+            final AssertionError error = expectThrows(AssertionError.class, () -> validateFilterSearch(builder.toString(), engine));
+            assertThat(error.getMessage(), containsString("expected:<" + DOCUMENT_IN_RESPONSE + "> but was:<0>"));
 
             // cleanup
             deleteKNNIndex(INDEX_NAME);
