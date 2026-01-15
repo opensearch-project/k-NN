@@ -41,6 +41,11 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -307,66 +312,132 @@ public abstract class KNNWeight extends Weight {
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         final String segmentName = reader.getSegmentName();
+        final Bits liveDocs = context.reader().getLiveDocs();
+        final int maxDoc = context.reader().maxDoc();
 
-        final StopWatch stopWatch = startStopWatch(log);
-        final BitSet filterBitSet = getFilteredDocsBitSet(context);
-        stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
+        // No filter case - use ANN search with null filterIdsBitSet then perform exactSearch if required.
+        if (filterWeight == null) {
+            // Set filter cardinality to maxDoc since every doc passes through an empty filter.
+            final int filterCardinality = maxDoc;
+            if (knnQuery.isExplain()) {
+                knnExplanation.setCardinality(filterCardinality);
+            }
 
-        // Save its cardinality, as the cardinality calculation is expensive.
-        final int filterCardinality = filterBitSet.cardinality();
+            final StopWatch annStopWatch = startStopWatch(log);
+            final TopDocs topDocs = approximateSearch(context, null, filterCardinality, k);
+            stopStopWatchAndLog(log, annStopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
-        // We don't need to go to JNI layer if no documents are found which satisfy the filters
-        // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
-        // place,
-        if (filterWeight != null && filterCardinality == 0) {
+            if (knnQuery.isExplain()) {
+                knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
+            }
+
+            if (isExactSearchRequire(context, filterCardinality, topDocs.scoreDocs.length)) {
+                final TopDocs result = doExactSearch(context, null, filterCardinality, k);
+                return new PerLeafResult(null, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
+            }
+            return new PerLeafResult(null, filterCardinality, topDocs, PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
+        }
+
+        // Filter case - get scorer and use iterator.cost() for cardinality estimate
+        final Scorer scorer = filterWeight.scorer(context);
+        if (scorer == null) {
             return PerLeafResult.EMPTY_RESULT;
         }
+
+        final DocIdSetIterator filterIterator = scorer.iterator();
+
+        // Determine if cost() provides accurate cardinality based on filter query type
+        final boolean canUseCostForCardinality = canUseCostForCardinality(filterWeight.getQuery());
+
+        final int filterCardinality;
+        BitSet filterBitSet = null;
+
+        if (canUseCostForCardinality) {
+            // TermQuery and BooleanQuery with MUST clauses provide accurate cost()
+            filterCardinality = Math.toIntExact(Math.min(filterIterator.cost(), maxDoc));
+        } else {
+            // For other query types (e.g., PointRangeQuery), materialize BitSet for accurate cardinality
+            final StopWatch stopWatch = startStopWatch(log);
+            filterBitSet = createBitSet(context, filterIterator, liveDocs, maxDoc);
+            filterCardinality = filterBitSet.cardinality();
+            stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
+        }
+
+        if (filterCardinality == 0) {
+            return PerLeafResult.EMPTY_RESULT;
+        }
+
         if (knnQuery.isExplain()) {
             knnExplanation.setCardinality(filterCardinality);
         }
 
         /*
-         * The idea for this optimization is to get K results, we need to at least look at K vectors in the HNSW graph
-         * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
-         * This improves the recall.
+         * OPTIMIZATION: When exact search is preferred, avoid materializing a BitSet.
+         * Instead, use the iterator directly for exact search. This saves the cost of
+         * iterating through all filtered docs just to set bits in a BitSet.
+         *
+         * NOTE: This optimization is skipped for nested docs (when parentsFilter is set)
+         * because nested doc handling requires the BitSet to be materialized.
          */
-        if (isFilteredExactSearchPreferred(filterCardinality)) {
-            final TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, filterCardinality), filterCardinality, k);
-            return new PerLeafResult(
-                filterWeight == null ? null : filterBitSet,
-                filterCardinality,
-                result,
-                PerLeafResult.SearchMode.EXACT_SEARCH
-            );
+        if (isFilteredExactSearchPreferred(filterCardinality) && knnQuery.getParentsFilter() == null) {
+            if (filterBitSet != null) {
+                // BitSet already created, use it
+                final BitSetIterator docs = new BitSetIterator(filterBitSet, filterCardinality);
+                final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
+                return new PerLeafResult(filterBitSet, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
+            }
+            final DocIdSetIterator liveFilterIterator = createLiveDocsFilteredIterator(filterIterator, liveDocs);
+            final TopDocs result = doExactSearch(context, liveFilterIterator, filterCardinality, k);
+            return new PerLeafResult(null, filterCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
+        }
+
+        // BitSet is required for: nested docs, approximate search, or exact search fallback after ANN
+        if (filterBitSet == null) {
+            final StopWatch stopWatch = startStopWatch(log);
+            filterBitSet = createBitSet(context, filterIterator, liveDocs, maxDoc);
+            stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
+        }
+        final int actualCardinality = filterBitSet.cardinality();
+
+        // For nested docs: check if exact search is preferred before doing ANN
+        if (knnQuery.getParentsFilter() != null && isFilteredExactSearchPreferred(actualCardinality)) {
+            final BitSetIterator docs = new BitSetIterator(filterBitSet, actualCardinality);
+            final TopDocs result = doExactSearch(context, docs, actualCardinality, k);
+            return new PerLeafResult(filterBitSet, actualCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
         }
 
         final StopWatch annStopWatch = startStopWatch(log);
-        final TopDocs topDocs = approximateSearch(context, filterBitSet, filterCardinality, k);
+        final TopDocs topDocs = approximateSearch(context, filterBitSet, actualCardinality, k);
         stopStopWatchAndLog(log, annStopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
         }
-        // See whether we have to perform exact search based on approx search results
-        // This is required if there are no native engine files or if approximate search returned
-        // results less than K, though we have more than k filtered docs
-        if (isExactSearchRequire(context, filterCardinality, topDocs.scoreDocs.length)) {
-            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
-            final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
-            return new PerLeafResult(
-                filterWeight == null ? null : filterBitSet,
-                filterCardinality,
-                result,
-                PerLeafResult.SearchMode.EXACT_SEARCH
-            );
+
+        if (isExactSearchRequire(context, actualCardinality, topDocs.scoreDocs.length)) {
+            // O(1) to transform filterBitSet to DISI for exact search.
+            final BitSetIterator docs = new BitSetIterator(filterBitSet, actualCardinality);
+            final TopDocs result = doExactSearch(context, docs, actualCardinality, k);
+            return new PerLeafResult(filterBitSet, actualCardinality, result, PerLeafResult.SearchMode.EXACT_SEARCH);
         }
 
-        return new PerLeafResult(
-            filterWeight == null ? null : filterBitSet,
-            filterCardinality,
-            topDocs,
-            PerLeafResult.SearchMode.APPROXIMATE_SEARCH
-        );
+        return new PerLeafResult(filterBitSet, actualCardinality, topDocs, PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
+    }
+
+    /**
+     * Creates a filtered iterator that excludes deleted documents.
+     *
+     */
+    private DocIdSetIterator createLiveDocsFilteredIterator(final DocIdSetIterator iterator, final Bits liveDocs) {
+        if (liveDocs == null) {
+            return iterator;
+        }
+        return new FilteredDocIdSetIterator(iterator) {
+            @Override
+            protected boolean match(int doc) {
+                return liveDocs.get(doc);
+            }
+        };
     }
 
     protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
@@ -382,10 +453,15 @@ public abstract class KNNWeight extends Weight {
             return new FixedBitSet(0);
         }
 
-        return createBitSet(scorer.iterator(), liveDocs, maxDoc);
+        return createBitSet(ctx, scorer.iterator(), liveDocs, maxDoc);
     }
 
-    private BitSet createBitSet(final DocIdSetIterator filteredDocIdsIterator, final Bits liveDocs, int maxDoc) throws IOException {
+    protected BitSet createBitSet(
+        final LeafReaderContext ctx,
+        final DocIdSetIterator filteredDocIdsIterator,
+        final Bits liveDocs,
+        int maxDoc
+    ) throws IOException {
         if (liveDocs == null && filteredDocIdsIterator instanceof BitSetIterator) {
             // If we already have a BitSet and no deletions, reuse the BitSet
             return ((BitSetIterator) filteredDocIdsIterator).getBitSet();
@@ -657,6 +733,34 @@ public abstract class KNNWeight extends Weight {
      */
     private boolean isExactSearchThresholdSettingSet(int filterThresholdValue) {
         return filterThresholdValue != KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
+    }
+
+    /**
+     * Determines if the filter query type provides accurate cost() estimates.
+     * TermQuery and BooleanQuery with only MUST/FILTER clauses provide exact cost().
+     * Other query types (e.g., PointRangeQuery) may significantly overestimate.
+     *
+     * @param query the filter query to check
+     * @return true if cost() can be trusted for cardinality estimation
+     */
+    @VisibleForTesting
+    static boolean canUseCostForCardinality(Query query) {
+        if (query instanceof TermQuery) {
+            return true;
+        }
+        if (query instanceof BooleanQuery) {
+            BooleanQuery bq = (BooleanQuery) query;
+            for (BooleanClause clause : bq.clauses()) {
+                if (clause.occur() == BooleanClause.Occur.SHOULD) {
+                    return false;
+                }
+                if (!canUseCostForCardinality(clause.query())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     /**
