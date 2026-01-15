@@ -86,7 +86,7 @@ public class MemoryOptimizedSearchWarmup {
 
         try (IndexInput input = directory.openInput(indexPath.toString(), IOContext.READONCE)) {
             if (input.length() != 0) {
-                for (int i = 0; i < input.length(); i += 4096) {
+                for (long i = 0; i < input.length(); i += 4096) {
                     input.seek(i);
                     input.readByte();
                 }
