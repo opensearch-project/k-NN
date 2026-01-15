@@ -71,6 +71,11 @@ public class IndexIT extends KNNRestTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Deletes a vector doc, creating a new segment with deleted docs but no docs present.
+     * Validates k-NN search functionality works without errors.
+     */
     @SneakyThrows
     public void testIndexWithNonVectorFields_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_mixed";
@@ -105,16 +110,22 @@ public class IndexIT extends KNNRestTestCase {
             addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, Floats.asList(testData.indexData.vectors[i]).toArray());
         }
         addNonKNNDoc(indexName, "10", "description", "Test document");
+        assertEquals(11, getDocCount(indexName));
         deleteKnnDoc(indexName, "0");
+        assertEquals(10, getDocCount(indexName));
 
         refreshIndex(indexName);
-        forceMergeKnnIndex(indexName);
 
         // Test search
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
         assertTrue(results.size() > 0);
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Deletes a vector doc, creating a new segment with deleted docs but no docs present.
+     * Validates k-NN search functionality works without errors for Lucene engine.
+     */
     @SneakyThrows
     public void testLuceneWithNonVectorFields_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_lucene_mixed";
@@ -149,16 +160,22 @@ public class IndexIT extends KNNRestTestCase {
             addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, Floats.asList(testData.indexData.vectors[i]).toArray());
         }
         addNonKNNDoc(indexName, "10", "description", "Test document");
+        assertEquals(11, getDocCount(indexName));
         deleteKnnDoc(indexName, "0");
+        assertEquals(10, getDocCount(indexName));
 
         refreshIndex(indexName);
-        forceMergeKnnIndex(indexName);
 
         // Test search
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
         assertTrue(results.size() > 0);
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates separate segments: one with vector docs, one with only non-vector doc.
+     * Validates k-NN search functionality works without errors.
+     */
     @SneakyThrows
     public void testMixedSegmentsWithFaiss_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_faiss_mixed_segments";
@@ -196,7 +213,6 @@ public class IndexIT extends KNNRestTestCase {
 
         // Add non-vector doc (gets its own segment)
         addNonKNNDoc(indexName, "11", "description", "Test document");
-        deleteKnnDoc(indexName, "0");
         flush(indexName, true);
 
         refreshIndex(indexName);
@@ -206,6 +222,11 @@ public class IndexIT extends KNNRestTestCase {
         assertTrue(results.size() > 0);
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates separate segments: one with vector docs, one with only non-vector doc.
+     * Validates k-NN search functionality works without errors for Lucene engine.
+     */
     @SneakyThrows
     public void testMixedSegmentsWithLucene_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_lucene_mixed_segments";
@@ -243,7 +264,6 @@ public class IndexIT extends KNNRestTestCase {
 
         // Add non-vector doc (gets its own segment)
         addNonKNNDoc(indexName, "11", "description", "Test document");
-        deleteKnnDoc(indexName, "0");
         flush(indexName, true);
 
         refreshIndex(indexName);
@@ -251,6 +271,110 @@ public class IndexIT extends KNNRestTestCase {
         // Test search on mixed segments
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
         assertTrue(results.size() > 0);
+    }
+
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates a doc with vector field, then updates it to remove the vector field.
+     * Validates k-NN search functionality works without errors.
+     */
+    @SneakyThrows
+    public void testVectorFieldRemovalByUpdate_whenValid_thenSucceed() {
+        String indexName = INDEX_NAME + "_vector_removal";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 128)
+            .field("data_type", VectorDataType.FLOAT.getValue())
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field("space_type", SpaceType.L2.getValue())
+            .field("engine", KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject("description")
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        // Add doc with both vector and text field
+        String docId = "0";
+        String docWithBoth = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(FIELD_NAME, Floats.asList(testData.indexData.vectors[0]).toArray())
+            .field("description", "Test document")
+            .endObject()
+            .toString();
+        addKnnDoc(indexName, docId, docWithBoth);
+
+        // Update doc to remove vector field, keeping only text field
+        addNonKNNDoc(indexName, docId, "description", "Updated test document");
+
+        refreshIndex(indexName);
+
+        // Verify index has one doc with no vector field and search returns no results
+        assertEquals(1, getDocCount(indexName));
+        List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
+        assertEquals(0, results.size());
+    }
+
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates a doc with vector field, then updates it to remove the vector field.
+     * Validates k-NN search functionality works without errors for Lucene engine.
+     */
+    @SneakyThrows
+    public void testVectorFieldRemovalByUpdateLucene_whenValid_thenSucceed() {
+        String indexName = INDEX_NAME + "_vector_removal_lucene";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 128)
+            .field("data_type", VectorDataType.FLOAT.getValue())
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field("space_type", SpaceType.L2.getValue())
+            .field("engine", KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .startObject("description")
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        // Add doc with both vector and text field
+        String docId = "0";
+        String docWithBoth = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(FIELD_NAME, Floats.asList(testData.indexData.vectors[0]).toArray())
+            .field("description", "Test document")
+            .endObject()
+            .toString();
+        addKnnDoc(indexName, docId, docWithBoth);
+
+        // Update doc to remove vector field, keeping only text field
+        addNonKNNDoc(indexName, docId, "description", "Updated test document");
+
+        refreshIndex(indexName);
+
+        // Verify index has one doc with no vector field and search returns no results
+        assertEquals(1, getDocCount(indexName));
+        List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
+        assertEquals(0, results.size());
     }
 
     private float getRecall(final Set<String> truth, final Set<String> result) {

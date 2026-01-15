@@ -732,13 +732,20 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Deletes a vector doc, creating a new segment with deleted docs but no docs present.
+     * Validates k-NN search functionality works without errors after upgrade with Faiss engine.
+     */
     public void testMixedFieldsWithFaissRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, FAISS_NAME));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+            assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
             deleteKnnDoc(testIndex, "0");
+            assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
@@ -746,6 +753,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Deletes a vector doc, creating a new segment with deleted docs but no docs present.
+     * Validates k-NN search functionality works without errors after upgrade with Lucene engine.
+     */
     public void testMixedFieldsWithLuceneRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
@@ -756,7 +768,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+            assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
             deleteKnnDoc(testIndex, "0");
+            assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
@@ -764,6 +778,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Deletes a vector doc, creating a new segment with deleted docs but no docs present.
+     * Validates k-NN search functionality works without errors after upgrade with ON_DISK mode and compression.
+     */
     public void testMixedFieldsWithCompressionRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
@@ -785,7 +804,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
+            assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
             deleteKnnDoc(testIndex, "0");
+            assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
@@ -793,14 +814,18 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates separate segments: one with vector docs, one with only non-vector doc.
+     * Validates k-NN search functionality works without errors after upgrade with Faiss engine.
+     */
     public void testMixedSegmentsWithFaissRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, FAISS_NAME));
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS + 1);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             flush(testIndex, true);
-            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
-            deleteKnnDoc(testIndex, "0");
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             flush(testIndex, true);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
@@ -808,6 +833,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates separate segments: one with vector docs, one with only non-vector doc.
+     * Validates k-NN search functionality works without errors after upgrade with Lucene engine.
+     */
     public void testMixedSegmentsWithLuceneRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
@@ -816,10 +846,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 getKNNDefaultIndexSettings(),
                 createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME)
             );
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS + 1);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             flush(testIndex, true);
-            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
-            deleteKnnDoc(testIndex, "0");
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             flush(testIndex, true);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
@@ -827,6 +856,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates separate segments: one with vector docs, one with only non-vector doc.
+     * Validates k-NN search functionality works without errors after upgrade with ON_DISK mode and compression.
+     */
     public void testMixedSegmentsWithCompressionRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
@@ -846,13 +880,142 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .endObject()
                 .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS + 1);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             flush(testIndex, true);
-            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 2), "description", "Test document");
-            deleteKnnDoc(testIndex, "0");
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             flush(testIndex, true);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates a doc with both vector and text fields, then updates it to remove the vector field.
+     * Validates k-NN search functionality works without errors after upgrade with Faiss engine.
+     */
+    public void testVectorFieldRemovalByUpdateFaissRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, DIMENSIONS)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(KNN_ENGINE, FAISS_NAME)
+                .endObject()
+                .endObject()
+                .startObject("description")
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            // Add doc with both vector and text field
+            String docWithBoth = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TEST_FIELD, new float[] { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f })
+                .field("description", "Test document")
+                .endObject()
+                .toString();
+            addKnnDoc(testIndex, "0", docWithBoth);
+            // Update to remove vector field
+            addNonKNNDoc(testIndex, "0", "description", "Updated test document");
+            flush(testIndex, true);
+        } else {
+            assertEquals(1, getDocCount(testIndex));
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates a doc with both vector and text fields, then updates it to remove the vector field.
+     * Validates k-NN search functionality works without errors after upgrade with Lucene engine.
+     */
+    public void testVectorFieldRemovalByUpdateLuceneRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, DIMENSIONS)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .endObject()
+                .endObject()
+                .startObject("description")
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            // Add doc with both vector and text field
+            String docWithBoth = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TEST_FIELD, new float[] { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f })
+                .field("description", "Test document")
+                .endObject()
+                .toString();
+            addKnnDoc(testIndex, "0", docWithBoth);
+            // Update to remove vector field
+            addNonKNNDoc(testIndex, "0", "description", "Updated test document");
+            flush(testIndex, true);
+        } else {
+            assertEquals(1, getDocCount(testIndex));
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates a doc with both vector and text fields, then updates it to remove the vector field.
+     * Validates k-NN search functionality works without errors after upgrade with ON_DISK mode and compression.
+     */
+    public void testVectorFieldRemovalByUpdateCompressionRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, DIMENSIONS)
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .endObject()
+                .startObject("description")
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            // Add doc with both vector and text field
+            String docWithBoth = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(TEST_FIELD, new float[] { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f })
+                .field("description", "Test document")
+                .endObject()
+                .toString();
+            addKnnDoc(testIndex, "0", docWithBoth);
+            // Update to remove vector field
+            addNonKNNDoc(testIndex, "0", "description", "Updated test document");
+            flush(testIndex, true);
+        } else {
+            assertEquals(1, getDocCount(testIndex));
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
             deleteKNNIndex(testIndex);
         }
     }

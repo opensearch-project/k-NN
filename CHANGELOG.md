@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Added gradle task to generate task dependency graph ([#3032](https://github.com/opensearch-project/k-NN/pull/3032))
 * Added new gradle task validateLibraryUsage so that System.loadLibrary cannot be run outside KNNLibraryLoader ([#3033](https://github.com/opensearch-project/k-NN/pull/3033))
-* Add IT and bwc test with indices containing both vector and non-vector docs ([#]())
+* Add IT and bwc test with indices containing both vector and non-vector docs ([#3064](https://github.com/opensearch-project/k-NN/pull/3064))
 
 
 ### Bug Fixes

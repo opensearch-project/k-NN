@@ -58,6 +58,11 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         assertEquals(expectResultSize, parseTotalSearchHits(entity));
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Deletes a vector doc, creating a new segment with deleted docs but no docs present.
+     * Validates filtered k-NN search functionality works without errors.
+     */
     @SneakyThrows
     public void testFilteredSearchWithNonVectorFields_whenValid_thenSucceed() {
         String filterFieldName = "category";
@@ -91,11 +96,12 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         for (int i = 0; i < 5; i++) {
             addKnnDocWithAttributes(String.valueOf(i), new float[] { i, i, i }, ImmutableMap.of(filterFieldName, filterValue));
         }
-        addNonKNNDoc(INDEX_NAME, "6", "description", "Product description");
+        addNonKNNDoc(INDEX_NAME, "6", filterFieldName, "books");
+        assertEquals(6, getDocCount(INDEX_NAME));
         deleteKnnDoc(INDEX_NAME, "0");
+        assertEquals(5, getDocCount(INDEX_NAME));
 
         refreshIndex(INDEX_NAME);
-        forceMergeKnnIndex(INDEX_NAME);
 
         // Test filtered search
         Float[] queryVector = { 2f, 2f, 2f };
@@ -113,8 +119,41 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         String entity = EntityUtils.toString(response.getEntity());
         List<String> docIds = parseIds(entity);
         assertTrue(docIds.size() > 0);
+
+        // Test filter matches 0 docs
+        query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(3)
+            .filterFieldName(filterFieldName)
+            .filterValue("nonexistent")
+            .build()
+            .getQueryString();
+        response = searchKNNIndex(INDEX_NAME, query, 3);
+        assertOK(response);
+        entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseIds(entity).size());
+
+        // Test filter matches only non-vector doc
+        query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(3)
+            .filterFieldName(filterFieldName)
+            .filterValue("books")
+            .build()
+            .getQueryString();
+        response = searchKNNIndex(INDEX_NAME, query, 3);
+        assertOK(response);
+        entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseIds(entity).size());
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates separate segments: one with vector docs, one with only non-vector doc.
+     * Validates filtered k-NN search functionality works without errors.
+     */
     @SneakyThrows
     public void testMixedSegmentsFilteredSearch_whenValid_thenSucceed() {
         String filterFieldName = "category";
@@ -151,8 +190,7 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         flush(INDEX_NAME, true);
 
         // Add non-vector doc (gets its own segment)
-        addNonKNNDoc(INDEX_NAME, "6", "description", "Product description");
-        deleteKnnDoc(INDEX_NAME, "0");
+        addNonKNNDoc(INDEX_NAME, "6", filterFieldName, "books");
         flush(INDEX_NAME, true);
 
         refreshIndex(INDEX_NAME);
@@ -173,5 +211,120 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         String entity = EntityUtils.toString(response.getEntity());
         List<String> docIds = parseIds(entity);
         assertTrue(docIds.size() > 0);
+
+        // Test filter matches 0 docs
+        query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(3)
+            .filterFieldName(filterFieldName)
+            .filterValue("nonexistent")
+            .build()
+            .getQueryString();
+        response = searchKNNIndex(INDEX_NAME, query, 3);
+        assertOK(response);
+        entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseIds(entity).size());
+
+        // Test filter matches only non-vector doc
+        query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(3)
+            .filterFieldName(filterFieldName)
+            .filterValue("books")
+            .build()
+            .getQueryString();
+        response = searchKNNIndex(INDEX_NAME, query, 3);
+        assertOK(response);
+        entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseIds(entity).size());
+    }
+
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates a doc with vector field, then updates it to remove the vector field.
+     * Validates filtered k-NN search functionality works without errors.
+     */
+    @SneakyThrows
+    public void testVectorFieldRemovalByUpdate_whenValid_thenSucceed() {
+        String filterFieldName = "category";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 3)
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field("engine", FAISS_NAME)
+            .endObject()
+            .endObject()
+            .startObject(filterFieldName)
+            .field("type", "keyword")
+            .endObject()
+            .startObject("description")
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), mapping);
+
+        // Add doc with both vector and filter field
+        String docId = "0";
+        addKnnDocWithAttributes(docId, new float[] { 1f, 1f, 1f }, ImmutableMap.of(filterFieldName, "electronics"));
+
+        // Update doc to remove vector field, keeping only filter field
+        addNonKNNDoc(INDEX_NAME, docId, filterFieldName, "books");
+
+        refreshIndex(INDEX_NAME);
+
+        // Verify filtered search returns no results for original filter value
+        assertEquals(1, getDocCount(INDEX_NAME));
+        Float[] queryVector = { 1f, 1f, 1f };
+        String query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(5)
+            .filterFieldName(filterFieldName)
+            .filterValue("electronics")
+            .build()
+            .getQueryString();
+
+        Response response = searchKNNIndex(INDEX_NAME, query, 5);
+        assertOK(response);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseIds(entity).size());
+
+        // Test filter matches 0 docs
+        query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(5)
+            .filterFieldName(filterFieldName)
+            .filterValue("nonexistent")
+            .build()
+            .getQueryString();
+        response = searchKNNIndex(INDEX_NAME, query, 5);
+        assertOK(response);
+        entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseIds(entity).size());
+
+        // Test filter matches only non-vector doc
+        query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(5)
+            .filterFieldName(filterFieldName)
+            .filterValue("books")
+            .build()
+            .getQueryString();
+        response = searchKNNIndex(INDEX_NAME, query, 5);
+        assertOK(response);
+        entity = EntityUtils.toString(response.getEntity());
+        assertEquals(0, parseIds(entity).size());
     }
 }
