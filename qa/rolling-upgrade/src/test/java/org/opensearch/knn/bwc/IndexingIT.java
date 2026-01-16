@@ -266,16 +266,23 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
                 addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
                 assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+                int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
                 deleteKnnDoc(testIndex, "0");
                 assertEquals(NUM_DOCS, getDocCount(testIndex));
+                flush(testIndex, true);
+                int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
                 break;
             case MIXED:
+                int segmentCountMixed = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountMixed > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
                 break;
             case UPGRADED:
+                int segmentCountUpgraded = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountUpgraded > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -292,16 +299,23 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
                 addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
                 assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+                int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
                 deleteKnnDoc(testIndex, "0");
                 assertEquals(NUM_DOCS, getDocCount(testIndex));
+                flush(testIndex, true);
+                int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
                 break;
             case MIXED:
+                int segmentCountMixed = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountMixed > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
                 break;
             case UPGRADED:
+                int segmentCountUpgraded = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountUpgraded > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -337,16 +351,23 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
                 addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
                 assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+                int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
                 deleteKnnDoc(testIndex, "0");
                 assertEquals(NUM_DOCS, getDocCount(testIndex));
+                flush(testIndex, true);
+                int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
                 break;
             case MIXED:
+                int segmentCountMixed = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountMixed > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
                 break;
             case UPGRADED:
+                int segmentCountUpgraded = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountUpgraded > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -364,14 +385,19 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 flush(testIndex, true);
                 addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
                 flush(testIndex, true);
+                int segmentCount = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCount >= 2);
                 break;
             case MIXED:
+                int segmentCountMixed = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountMixed > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 break;
             case UPGRADED:
+                int segmentCountUpgraded = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountUpgraded > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -389,14 +415,19 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 flush(testIndex, true);
                 addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
                 flush(testIndex, true);
+                int segmentCount = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCount >= 2);
                 break;
             case MIXED:
+                int segmentCountMixed = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountMixed > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 break;
             case UPGRADED:
+                int segmentCountUpgraded = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountUpgraded > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -433,14 +464,19 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 flush(testIndex, true);
                 addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
                 flush(testIndex, true);
+                int segmentCount = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCount >= 2);
                 break;
             case MIXED:
+                int segmentCountMixed = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountMixed > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 break;
             case UPGRADED:
+                int segmentCountUpgraded = getTotalSegmentCount(testIndex);
+                assertTrue(segmentCountUpgraded > 0);
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -491,7 +527,6 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 assertEquals(1, getDocCount(testIndex));
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -542,7 +577,6 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 assertEquals(1, getDocCount(testIndex));
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 
@@ -595,7 +629,6 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 assertEquals(1, getDocCount(testIndex));
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
                 deleteKNNIndex(testIndex);
-                break;
         }
     }
 

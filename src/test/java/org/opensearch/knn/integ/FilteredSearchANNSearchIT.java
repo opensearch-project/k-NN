@@ -98,10 +98,13 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         }
         addNonKNNDoc(INDEX_NAME, "6", filterFieldName, "books");
         assertEquals(6, getDocCount(INDEX_NAME));
+        int segmentCountBeforeDelete = getTotalSegmentCount(INDEX_NAME);
         deleteKnnDoc(INDEX_NAME, "0");
         assertEquals(5, getDocCount(INDEX_NAME));
 
-        refreshIndex(INDEX_NAME);
+        flush(INDEX_NAME, true);
+        int segmentCountAfterDelete = getTotalSegmentCount(INDEX_NAME);
+        assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
 
         // Test filtered search
         Float[] queryVector = { 2f, 2f, 2f };
@@ -194,6 +197,8 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         flush(INDEX_NAME, true);
 
         refreshIndex(INDEX_NAME);
+        int segmentCount = getTotalSegmentCount(INDEX_NAME);
+        assertTrue(segmentCount >= 2);
 
         // Test filtered search on mixed segments
         Float[] queryVector = { 2f, 2f, 2f };
@@ -280,7 +285,7 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         // Update doc to remove vector field, keeping only filter field
         addNonKNNDoc(INDEX_NAME, docId, filterFieldName, "books");
 
-        refreshIndex(INDEX_NAME);
+        flush(INDEX_NAME, true);
 
         // Verify filtered search returns no results for original filter value
         assertEquals(1, getDocCount(INDEX_NAME));

@@ -111,10 +111,13 @@ public class IndexIT extends KNNRestTestCase {
         }
         addNonKNNDoc(indexName, "10", "description", "Test document");
         assertEquals(11, getDocCount(indexName));
+        int segmentCountBeforeDelete = getTotalSegmentCount(indexName);
         deleteKnnDoc(indexName, "0");
         assertEquals(10, getDocCount(indexName));
 
-        refreshIndex(indexName);
+        flush(indexName, true);
+        int segmentCountAfterDelete = getTotalSegmentCount(indexName);
+        assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
 
         // Test search
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
@@ -161,10 +164,13 @@ public class IndexIT extends KNNRestTestCase {
         }
         addNonKNNDoc(indexName, "10", "description", "Test document");
         assertEquals(11, getDocCount(indexName));
+        int segmentCountBeforeDelete = getTotalSegmentCount(indexName);
         deleteKnnDoc(indexName, "0");
         assertEquals(10, getDocCount(indexName));
 
-        refreshIndex(indexName);
+        flush(indexName, true);
+        int segmentCountAfterDelete = getTotalSegmentCount(indexName);
+        assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
 
         // Test search
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
@@ -215,7 +221,9 @@ public class IndexIT extends KNNRestTestCase {
         addNonKNNDoc(indexName, "11", "description", "Test document");
         flush(indexName, true);
 
-        refreshIndex(indexName);
+        flush(indexName, true);
+        int segmentCount = getTotalSegmentCount(indexName);
+        assertTrue(segmentCount >= 2);
 
         // Test search on mixed segments
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
@@ -266,7 +274,9 @@ public class IndexIT extends KNNRestTestCase {
         addNonKNNDoc(indexName, "11", "description", "Test document");
         flush(indexName, true);
 
-        refreshIndex(indexName);
+        flush(indexName, true);
+        int segmentCount = getTotalSegmentCount(indexName);
+        assertTrue(segmentCount >= 2);
 
         // Test search on mixed segments
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
@@ -317,7 +327,7 @@ public class IndexIT extends KNNRestTestCase {
         // Update doc to remove vector field, keeping only text field
         addNonKNNDoc(indexName, docId, "description", "Updated test document");
 
-        refreshIndex(indexName);
+        flush(indexName, true);
 
         // Verify index has one doc with no vector field and search returns no results
         assertEquals(1, getDocCount(indexName));
@@ -369,7 +379,7 @@ public class IndexIT extends KNNRestTestCase {
         // Update doc to remove vector field, keeping only text field
         addNonKNNDoc(indexName, docId, "description", "Updated test document");
 
-        refreshIndex(indexName);
+        flush(indexName, true);
 
         // Verify index has one doc with no vector field and search returns no results
         assertEquals(1, getDocCount(indexName));

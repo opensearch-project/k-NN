@@ -744,10 +744,15 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+            int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
             deleteKnnDoc(testIndex, "0");
             assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
+            int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
         } else {
+            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterUpgrade > 0);
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
             deleteKNNIndex(testIndex);
         }
@@ -769,10 +774,15 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+            int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
             deleteKnnDoc(testIndex, "0");
             assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
+            int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
         } else {
+            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterUpgrade > 0);
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
             deleteKNNIndex(testIndex);
         }
@@ -805,10 +815,15 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+            int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
             deleteKnnDoc(testIndex, "0");
             assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
+            int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
         } else {
+            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterUpgrade > 0);
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
             deleteKNNIndex(testIndex);
         }
@@ -827,7 +842,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             flush(testIndex, true);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             flush(testIndex, true);
+            int segmentCount = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCount >= 2);
         } else {
+            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterUpgrade > 0);
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
@@ -850,7 +869,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             flush(testIndex, true);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             flush(testIndex, true);
+            int segmentCount = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCount >= 2);
         } else {
+            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterUpgrade > 0);
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
@@ -884,7 +907,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             flush(testIndex, true);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             flush(testIndex, true);
+            int segmentCount = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCount >= 2);
         } else {
+            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
+            assertTrue(segmentCountAfterUpgrade > 0);
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
