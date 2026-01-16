@@ -8,7 +8,7 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
-import org.apache.commons.lang.math.RandomUtils;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.After;
@@ -36,6 +36,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.K;
+import static org.opensearch.knn.common.KNNConstants.KNN;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
@@ -44,10 +46,12 @@ import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class LuceneEngineIT extends KNNRestTestCase {
@@ -406,7 +410,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
 
         final float[] searchVector = TEST_QUERY_VECTORS[0];
-        final int k = 1 + RandomUtils.nextInt(TEST_INDEX_VECTORS.length);
+        final int k = 1 + RandomUtils.secure().randomInt(0, TEST_INDEX_VECTORS.length);
 
         final List<float[]> knnResultsBeforeIndexClosure = queryResults(searchVector, k);
 
@@ -982,5 +986,97 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(radiusResults.indexOf(result)), 0.0001);
             }
         }
+    }
+
+    public void testQuery_efSearchFromMethodParameters_returnsKResults() throws Exception {
+
+        // Create Lucene index with default knn settings which uses only 1 primary shard
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        // Test ef_search from method parameters takes priority
+        int efSearchFromQuery = 50;
+
+        // Testing with size as 10 but should still reduce and return top K results
+        int queryResultSize = 10;
+        int k = 2;
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
+        builder.startObject(KNN);
+        builder.startObject(FIELD_NAME);
+        builder.field(VECTOR, TEST_QUERY_VECTORS[0]);
+        builder.field(K, k);
+        builder.startObject(METHOD_PARAMETER);
+        builder.field(METHOD_PARAMETER_EF_SEARCH, efSearchFromQuery);
+        builder.endObject();
+        builder.endObject();
+        builder.endObject();
+        builder.endObject().endObject();
+
+        Response response = searchKNNIndex(INDEX_NAME, builder, queryResultSize);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(k, results.size());
+    }
+
+    public void testQuery_efSearchFromIndexSetting_returnsKResults() throws Exception {
+        // Create index with ef_search in index settings
+        Settings indexSettings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 100)
+            .build();
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, DIMENSION)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(INDEX_NAME, indexSettings, builder.toString());
+
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        // Testing with size as 10 but should still reduce and return top K results
+        int queryResultSize = 10;
+        int k = 2;
+
+        // Test query without method parameters uses index setting
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, TEST_QUERY_VECTORS[0], k);
+        Response response = searchKNNIndex(INDEX_NAME, knnQueryBuilder, queryResultSize);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(k, results.size());
+    }
+
+    public void testQuery_defaultEfSearchBasedOnIndexCreatedVersion_returnsKResults() throws Exception {
+
+        // Create Lucene index with default knn settings which uses only 1 primary shard
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        // Testing with size as 10 but should still reduce and return top K results
+        int queryResultSize = 10;
+        int k = 2;
+
+        // Test query without method parameters uses index setting
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, TEST_QUERY_VECTORS[0], k);
+        Response response = searchKNNIndex(INDEX_NAME, knnQueryBuilder, queryResultSize);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(k, results.size());
     }
 }

@@ -37,6 +37,15 @@ public class MOSFaissFP16IndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.INNER_PRODUCT, NO_ADDITIONAL_SETTINGS);
     }
 
+    public void testNonNestedFloatIndexWithCosine() {
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.COSINESIMIL, NO_ADDITIONAL_SETTINGS);
+        doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.COSINESIMIL, NO_ADDITIONAL_SETTINGS);
+    }
+
+    public void testNestedFloatIndexWithCosine() {
+        doTestNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, SpaceType.COSINESIMIL, NO_ADDITIONAL_SETTINGS);
+    }
+
     public void testWhenNoIndexBuilt() {
         doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, true, SpaceType.L2, NO_BUILD_HNSW);
         doTestNonNestedIndex(VectorDataType.FLOAT, METHOD_PARAMETERS, false, SpaceType.L2, NO_BUILD_HNSW);

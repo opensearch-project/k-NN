@@ -23,8 +23,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -149,7 +149,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         Map<String, Object> methodMap = (Map<String, Object>) in;
 
         boolean isEngineConfigured = false;
-        KNNEngine engine = KNNEngine.DEFAULT; // Get or default
+        KNNEngine engine = KNNEngine.UNDEFINED; // Get or default
         SpaceType spaceType = SpaceType.UNDEFINED; // Get or default
         String name = "";
         Map<String, Object> parameters = new HashMap<>();

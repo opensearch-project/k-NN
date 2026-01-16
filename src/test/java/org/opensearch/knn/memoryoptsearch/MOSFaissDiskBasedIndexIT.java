@@ -101,10 +101,4 @@ public class MOSFaissDiskBasedIndexIT extends AbstractMemoryOptimizedKnnSearchIT
             CompressionLevel.x32
         );
     }
-
-    public void testWhenNoIndexBuiltForNested() {
-        doTestNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, SpaceType.INNER_PRODUCT, NO_BUILD_HNSW, Mode.ON_DISK, CompressionLevel.x8);
-        doTestNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, SpaceType.INNER_PRODUCT, NO_BUILD_HNSW, Mode.ON_DISK, CompressionLevel.x16);
-        doTestNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, SpaceType.INNER_PRODUCT, NO_BUILD_HNSW, Mode.ON_DISK, CompressionLevel.x32);
-    }
 }

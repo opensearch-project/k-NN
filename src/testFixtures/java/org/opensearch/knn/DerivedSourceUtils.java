@@ -27,6 +27,8 @@ import java.util.Random;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.KNNRestTestCase.PROPERTIES_FIELD;
+import static org.opensearch.knn.KNNRestTestCase.REQUIRED_FIELD;
+import static org.opensearch.knn.KNNRestTestCase.ROUTING_FIELD;
 import static org.opensearch.knn.TestUtils.BWC_VERSION;
 
 public class DerivedSourceUtils {
@@ -95,6 +97,8 @@ public class DerivedSourceUtils {
         public int docCount = DOCS;
         @Builder.Default
         public Settings settings = null;
+        @Builder.Default
+        public Boolean isRoutingEnabled = false;
 
         public void init() {
             assert random != null;
@@ -112,7 +116,11 @@ public class DerivedSourceUtils {
 
         @SneakyThrows
         public String getMapping() {
-            XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject(PROPERTIES_FIELD);
+            XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+            if (isRoutingEnabled) {
+                builder.startObject(ROUTING_FIELD).field(REQUIRED_FIELD, true).endObject();
+            }
+            builder.startObject(PROPERTIES_FIELD);
             for (FieldContext context : fields) {
                 context.buildMapping(builder);
             }
@@ -403,6 +411,39 @@ public class DerivedSourceUtils {
 
             builder.startObject(getFieldName());
             builder.field("type", "text");
+            builder.endObject();
+            return builder;
+        }
+    }
+
+    @SuperBuilder
+    public static class TextAnalyzerFieldType extends LeafFieldContext {
+        @Builder.Default
+        public boolean isDynamic = false;
+
+        public void init(Random random) {
+            super.init(random);
+            if (valueSupplier == null) {
+                this.valueSupplier = () -> {
+                    if (random.nextBoolean()) {
+                        return "test|123";
+                    } else {
+                        return "test|bad|123";
+                    }
+                };
+            }
+        }
+
+        @Override
+        public XContentBuilder buildMapping(XContentBuilder builder) throws IOException {
+            if (isDynamic) {
+                return builder;
+            }
+
+            builder.startObject(getFieldName());
+            builder.field("type", "text");
+            builder.field("index_options", "freqs");
+            builder.field("analyzer", "delimited_tf");
             builder.endObject();
             return builder;
         }

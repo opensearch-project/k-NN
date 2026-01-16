@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query.parser;
 
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.ParsingException;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.Mockito.mock;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
@@ -138,7 +140,7 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
+        knnClusterUtil.initialize(clusterService, mock(IndexNameExpressionResolver.class));
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
@@ -191,7 +193,7 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
+        knnClusterUtil.initialize(clusterService, mock(IndexNameExpressionResolver.class));
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
@@ -219,7 +221,7 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
+        knnClusterUtil.initialize(clusterService, mock(IndexNameExpressionResolver.class));
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
@@ -246,7 +248,7 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
+        knnClusterUtil.initialize(clusterService, mock(IndexNameExpressionResolver.class));
 
         List<Object> invalidTypeQueryVector = new ArrayList<>();
         invalidTypeQueryVector.add(1.5);
@@ -274,7 +276,7 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
+        knnClusterUtil.initialize(clusterService, mock(IndexNameExpressionResolver.class));
 
         List<Object> invalidTypeQueryVector = new ArrayList<>();
         invalidTypeQueryVector.add(1.5);
@@ -302,7 +304,7 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
+        knnClusterUtil.initialize(clusterService, mock(IndexNameExpressionResolver.class));
 
         // Test without vector field
         XContentBuilder builderWithoutVectorField = XContentFactory.jsonBuilder();
@@ -493,7 +495,6 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         builder.startObject(NAME);
         builder.startObject(FIELD_NAME);
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), queryVector);
-        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), 0);
         builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), MAX_DISTANCE);
         builder.field(BOOST_FIELD.getPreferredName(), BOOST);
         builder.endObject();

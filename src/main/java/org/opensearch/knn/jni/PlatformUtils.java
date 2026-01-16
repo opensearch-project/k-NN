@@ -12,7 +12,7 @@
 package org.opensearch.knn.jni;
 
 import com.sun.jna.Platform;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -49,13 +49,13 @@ public class PlatformUtils {
      * 4. If the operating system is linux, read the '/proc/cpuinfo' file path and verify if
      *    the flags contains 'avx2' and return true if it exists else false.
      */
-    public static boolean isAVX2SupportedBySystem() {
-        if (!Platform.isIntel() || Platform.isWindows()) {
-            isAVX2Supported = false;
-        }
-
+    public synchronized static boolean isAVX2SupportedBySystem() {
         if (isAVX2Supported != null) {
             return isAVX2Supported;
+        }
+
+        if (!Platform.isIntel() || Platform.isWindows()) {
+            return isAVX2Supported = false;
         }
 
         if (Platform.isMac()) {
@@ -94,18 +94,20 @@ public class PlatformUtils {
                 isAVX2Supported = false;
                 logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
             }
+        } else {
+            isAVX2Supported = false;
         }
-        return isAVX2Supported;
+        return isAVX2Supported != null ? isAVX2Supported : false;
     }
 
-    public static boolean isAVX512SupportedBySystem() {
+    public static synchronized boolean isAVX512SupportedBySystem() {
         if (isAVX512Supported == null) {
             isAVX512Supported = areAVX512FlagsAvailable(new String[] { "avx512f", "avx512cd", "avx512vl", "avx512dq", "avx512bw" });
         }
         return isAVX512Supported;
     }
 
-    public static boolean isAVX512SPRSupportedBySystem() {
+    public static synchronized boolean isAVX512SPRSupportedBySystem() {
         if (isAVX512SPRSupported == null) {
             isAVX512SPRSupported = areAVX512FlagsAvailable(new String[] { "avx512_fp16", "avx512_bf16", "avx512_vpopcntdq" });
         }

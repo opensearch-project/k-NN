@@ -7,24 +7,24 @@ package org.opensearch.knn.index.query;
 
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.search.KnnByteVectorQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.lucenelib.OSKnnByteVectorQuery;
+import org.opensearch.knn.index.query.lucenelib.OSKnnFloatVectorQuery;
 import org.opensearch.knn.index.query.lucenelib.NestedKnnVectorQueryFactory;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS;
 
 /**
@@ -44,6 +44,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final String fieldName = createQueryRequest.getFieldName();
         final int k = createQueryRequest.getK();
         final float[] vector = createQueryRequest.getVector();
+        final float[] originalVector = createQueryRequest.getOriginalVector();
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
@@ -83,7 +84,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 methodParameters
             );
 
-            KNNQuery knnQuery = null;
+            final KNNQuery knnQuery;
             switch (vectorDataType) {
                 case BINARY:
                     knnQuery = KNNQuery.builder()
@@ -104,6 +105,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                     knnQuery = KNNQuery.builder()
                         .field(fieldName)
                         .queryVector(vector)
+                        .originalQueryVector(originalVector)
                         .byteQueryVector(byteVector)
                         .indexName(indexName)
                         .parentsFilter(parentFilter)
@@ -117,7 +119,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .build();
             }
 
-            if (createQueryRequest.getRescoreContext().isPresent()
+            if (memoryOptimizedSearchEnabled
+                || createQueryRequest.getRescoreContext().isPresent()
                 || (ENGINES_SUPPORTING_NESTED_FIELDS.contains(createQueryRequest.getKnnEngine()) && expandNested)) {
                 return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), expandNested);
             }
@@ -125,20 +128,17 @@ public class KNNQueryFactory extends BaseQueryFactory {
             return knnQuery;
         }
 
-        Integer requestEfSearch = null;
-        if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
-            requestEfSearch = (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
-        }
         int overSampledK = k;
         boolean needsRescore = shouldRescore(rescoreContext);
         if (needsRescore) {
             // Will always do shard level rescoring whenever rescore is required.
             overSampledK = rescoreContext.getFirstPassK(k, false, getDimension(vector, byteVector));
         }
-        int luceneK = requestEfSearch == null ? overSampledK : Math.max(overSampledK, requestEfSearch);
-        log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, luceneK);
+
+        int luceneK = Math.max(overSampledK, IndexHyperParametersUtil.getHNSWEFSearchValue(methodParameters, indexName));
+        log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}, luceneK: {}", indexName, fieldName, k, luceneK);
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
-            getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType)
+            getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType, k)
         );
         return needsRescore ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 
@@ -170,17 +170,18 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final String fieldName,
         final float[] floatQueryVector,
         final byte[] byteQueryVector,
-        final int k,
+        final int luceneK,
         final Query filterQuery,
         final BitSetProducer parentFilter,
         final boolean expandNested,
-        @NonNull final VectorDataType vectorDataType
+        @NonNull final VectorDataType vectorDataType,
+        final int k
     ) {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return vectorDataType == VectorDataType.FLOAT
-                ? new KnnFloatVectorQuery(fieldName, floatQueryVector, k, filterQuery)
-                : new KnnByteVectorQuery(fieldName, byteQueryVector, k, filterQuery);
+                ? new OSKnnFloatVectorQuery(fieldName, floatQueryVector, luceneK, filterQuery, k)
+                : new OSKnnByteVectorQuery(fieldName, byteQueryVector, luceneK, filterQuery, k);
         }
         // If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link
         // NestedKnnVectorQueryFactory}
@@ -189,18 +190,20 @@ public class KNNQueryFactory extends BaseQueryFactory {
             ? NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,
                 floatQueryVector,
-                k,
+                luceneK,
                 filterQuery,
                 parentFilter,
-                expandNested
+                expandNested,
+                k
             )
             : NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,
                 byteQueryVector,
-                k,
+                luceneK,
                 filterQuery,
                 parentFilter,
-                expandNested
+                expandNested,
+                k
             );
     }
 }

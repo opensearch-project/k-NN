@@ -9,14 +9,13 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -30,7 +29,7 @@ import static org.opensearch.knn.generate.DocumentsGenerator.FILTER_ID_NO_MOD;
  */
 @RequiredArgsConstructor
 public class Documents {
-    public record Result(String id, String filterId) {
+    public record Result(String id, String filterId, float score) {
     }
 
     // Document JSON strings. documents[i] indicates ith document JSON string.
@@ -41,7 +40,7 @@ public class Documents {
     // having three nested child documents.
     private final List<List<float[]>> vectors;
     // Expected document ids to be set in prepareAnswerSet against to those generated documents.
-    private Set<String> expectedIds;
+    private Map<String, Float> expectedAns;
     // Whether we need filtering or no.
     private boolean doFiltering;
 
@@ -106,12 +105,8 @@ public class Documents {
             scoreTable.putAll(newScoreTable);
         }
 
-        // Sort the results
-        final List<String> ids = new ArrayList<>(scoreTable.keySet());
-        Collections.sort(ids, (id0, id1) -> -Float.compare(scoreTable.get(id0), scoreTable.get(id1)));
-
         // Save the answer
-        expectedIds = new HashSet<>(ids);
+        expectedAns = new HashMap<>(scoreTable);
 
         return minSimilarity;
     }
@@ -127,7 +122,7 @@ public class Documents {
         return prepareAnswerSet(vector, similarityFunction, doFiltering, isRadial);
     }
 
-    public void validateResponse(final List<Result> results) {
+    public void validateResponse(final List<Result> results, final IndexingType indexingType, final Mode mode) {
         // Filtering check
         if (doFiltering) {
             for (final Result result : results) {
@@ -138,8 +133,30 @@ public class Documents {
         // Results validation.
         int matchCount = 0;
         for (final Result result : results) {
-            if (expectedIds.contains(result.id)) {
+            if (expectedAns.containsKey(result.id)) {
                 ++matchCount;
+                final float expectedScore = expectedAns.get(result.id);
+                final float error = Math.abs(expectedScore - result.score);
+                // ANN nested search might not return the best child score. So, we need to skip the score check in those cases.
+                // Scores for nested case are checked only for disk-based vector search to ensure that the rescoring gives the best child
+                // score
+                if ((indexingType == IndexingType.DENSE_NESTED || indexingType == IndexingType.SPARSE_NESTED) && (mode != Mode.ON_DISK)) {
+                    continue;
+                }
+                // At least error should be less than 5%.
+                assertTrue(
+                    "error="
+                        + error
+                        + ", expectedScore="
+                        + expectedScore
+                        + ", result score="
+                        + result.score
+                        + ", (error / expectedScore)="
+                        + (error / expectedScore)
+                        + " >= "
+                        + 0.05,
+                    (error / expectedScore) < 0.05
+                );
             }
         }
 

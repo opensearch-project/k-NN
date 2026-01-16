@@ -106,6 +106,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         }
 
         int numberOfNestedFields = 2;
+        int k = 3;
         createKnnIndex(engine, mode, dimension, dataType);
         addRandomVectorsWithTopLevelField(1, numberOfNestedFields, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
         addRandomVectorsWithTopLevelField(2, numberOfNestedFields, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
@@ -117,12 +118,12 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
         // Run
         Float[] queryVector = createVector();
-        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, 10, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
+        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, k, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE, false);
 
         // Verify
         String entity = EntityUtils.toString(response.getEntity());
         Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
-        assertEquals(3, docIdToOffsets.keySet().size());
+        assertEquals(k, docIdToOffsets.keySet().size());
         for (String key : docIdToOffsets.keySet()) {
             assertEquals(numberOfNestedFields, docIdToOffsets.get(key).size());
         }
@@ -152,7 +153,8 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
             10,
             queryVector,
             FIELD_NAME_NESTED + "." + FIELD_NAME_STORAGE,
-            FIELD_VALUE_TRUE
+            FIELD_VALUE_TRUE,
+            true
         );
 
         // Verify
@@ -335,7 +337,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
     }
 
     private Response queryNestedFieldWithExpandNestedDocs(final String index, final Integer k, final Object[] vector) throws IOException {
-        return queryNestedFieldWithExpandNestedDocs(index, k, vector, null, null);
+        return queryNestedFieldWithExpandNestedDocs(index, k, vector, null, null, false);
     }
 
     /**
@@ -347,16 +349,21 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
      *                  "knn": {
      *                      "test_nested.test_vector" : {
      *                          "vector: [1, 1, 2]
-     *                       	"k": 3,
-     *                      	"filter": {
-     *                      	 	"term": {
-     *                      	 		"nested_field.storage": true
-     *                      	 	}
-     *                      	}
+     *                          "k": 3,
+     *                          "filter": {
+     *                              "nested": {
+     *                                  "path": "test_nested",
+     *                                  "query": {
+     *                                      "term": {
+     *                                          "nested_field.storage": true
+     *                                      }
+     *                                  }
+     *                              }
+     *                          }
      *                      }
-    *                      }
-     *          	},
-     *          	"inner_hits": {}
+     *                  }
+     *              },
+     *              "inner_hits": {}
      *          }
      *      }
      *  }
@@ -366,7 +373,8 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         final Integer k,
         final Object[] vector,
         final String filterName,
-        final String filterValue
+        final String filterValue,
+        final Boolean filterIsNested
     ) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject(QUERY);
         builder.startObject(TYPE_NESTED);
@@ -377,8 +385,16 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         builder.field(EXPAND_NESTED, true);
         if (filterName != null && filterValue != null) {
             builder.startObject(FIELD_FILTER);
+            if (filterIsNested) {
+                builder.startObject(TYPE_NESTED);
+                builder.field(PATH, FIELD_NAME_NESTED);
+                builder.startObject(QUERY);
+            }
             builder.startObject(FIELD_TERM);
             builder.field(filterName, filterValue);
+            if (filterIsNested) {
+                builder.endObject().endObject();
+            }
             builder.endObject();
             builder.endObject();
         }

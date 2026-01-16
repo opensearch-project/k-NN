@@ -9,20 +9,25 @@ import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Supplier;
+
+import static org.opensearch.knn.TestUtils.BWC_VERSION;
 
 public class DerivedSourceTestCase extends KNNRestTestCase {
 
@@ -308,6 +313,91 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     /**
+     * Testing flat, single field base case with index configuration. The test will automatically skip adding fields for
+     *  random documents to ensure it works robustly. To ensure correctness, we repeat same operations against an
+     *  index without derived source enabled (baseline).
+     *  {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true/false
+     *         "analysis": {
+     *              "analyzer": {
+     *                  "delimited_tf": {
+     *                  "filter": [
+     *                             "delimited_term_freq"
+     *                         ],
+     *                  "index_options": "freqs",
+     *                  "tokenizer": "whitespace"
+     *                     }
+     *                 }
+     *             },
+     *     },
+     *     "mappings":{
+     *         "properties": {
+     *             "test_float_vector": {
+     *                 "type": "knn_vector",
+     *                 "dimension": 16,
+     *                 "data_type": float
+     *             },
+     *             "test-text" {
+     *                  "type": "text",
+     *                  "index_options": "freqs",
+     *                  "analyzer": "delimited_tf"
+     *             }
+     *         }
+     *     }
+     * }
+     */
+    protected List<DerivedSourceUtils.IndexConfigContext> getCustomAnalyzerIndexContexts(
+        String testSuitePrefix,
+        boolean addRandom,
+        boolean addNull
+    ) {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        long consistentRandomSeed = random().nextLong();
+        for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
+            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
+            Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
+            Settings settingsWithAnalyzer = Settings.builder()
+                .put(
+                    "index.number_of_shards",
+                    System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+                )
+                .put(
+                    "index.number_of_replicas",
+                    Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1
+                        && System.getProperty(BWC_VERSION, null) == null ? 1 : 0
+                )
+                .put("index.knn", true)
+                .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+                .put("index.analysis.analyzer.delimited_tf.filter", "delimited_term_freq")
+                .put("index.analysis.analyzer.delimited_tf.index_options", "freqs")
+                .put("index.analysis.analyzer.delimited_tf.tokenizer", "whitespace")
+                .build();
+            DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
+                .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
+                .docCount(randomDocCountSupplier.get())
+                .derivedEnabled(index.getSecond())
+                .random(new Random(consistentRandomSeed))
+                .fields(
+                    List.of(
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .dimension(dimensionSupplier.get())
+                            .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
+                            .fieldPath("test_float_vector")
+                            .build(),
+                        DerivedSourceUtils.TextAnalyzerFieldType.builder().fieldPath("test-text").build()
+                    )
+                )
+                .settings(settingsWithAnalyzer)
+                .build();
+            indexConfigContext.init();
+            indexConfigContexts.add(indexConfigContext);
+        }
+        return indexConfigContexts;
+    }
+
+    /**
      * Testing nested fields
      * {
      *     "settings": {
@@ -524,6 +614,67 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         return indexConfigContexts;
     }
 
+    /**
+     * Testing meta fields like routing
+     * <p>
+     * {
+     *     "settings": {
+     *         "index.knn" true,
+     *         "index.knn.derived_source.enabled": true/false
+     *     },
+     *     "mappings" : {
+     *       "_routing" : {"required" : true},
+     *       "properties" : {
+     *         "test_float_vector" : {
+     *             "type" : "knn_vector",
+     *            "dimension" : 63
+     *           }
+     *         },
+     *         "test-text" : {
+     *            "type" : "text"
+     *         },
+     *         "test-int" : {
+     *           "type" : "integer"
+     *         }
+     *    }
+     *  }
+     * </p>
+     */
+
+    protected List<DerivedSourceUtils.IndexConfigContext> getIndexContextsWithMetaFields(
+        String testSuitePrefix,
+        boolean addRandom,
+        boolean addNull
+    ) {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
+        long consistentRandomSeed = random().nextLong();
+        for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
+            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
+            Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
+            DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
+                .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
+                .docCount(randomDocCountSupplier.get())
+                .derivedEnabled(index.getSecond())
+                .random(new Random(consistentRandomSeed))
+                .fields(
+                    List.of(
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
+                            .dimension(dimensionSupplier.get())
+                            .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
+                            .fieldPath("test_float_vector")
+                            .build(),
+                        DerivedSourceUtils.TextFieldType.builder().fieldPath("test-text").build(),
+                        DerivedSourceUtils.IntFieldType.builder().fieldPath("test-int").build()
+                    )
+                )
+                .isRoutingEnabled(true)
+                .build();
+            indexConfigContext.init();
+            indexConfigContexts.add(indexConfigContext);
+        }
+        return indexConfigContexts;
+    }
+
     @SneakyThrows
     protected void prepareOriginalIndices(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
         assertTrue(1 < indexConfigContexts.size());
@@ -539,19 +690,33 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
             derivedSourceDisabledContext.getSettings(),
             derivedSourceDisabledContext.getMapping()
         );
+        // make sure that both index has same routing settings
+        assertEquals(derivedSourceEnabledContext.isRoutingEnabled, derivedSourceDisabledContext.isRoutingEnabled);
 
         for (int i = 0; i < derivedSourceDisabledContext.docCount; i++) {
             String doc1 = derivedSourceEnabledContext.buildDoc();
             String doc2 = derivedSourceDisabledContext.buildDoc();
             assertEquals(doc1, doc2);
-            addKnnDoc(derivedSourceEnabledContext.getIndexName(), String.valueOf(i + 1), doc1);
-            addKnnDoc(derivedSourceDisabledContext.getIndexName(), String.valueOf(i + 1), doc2);
+            // using doc id as routing value, which is default
+            addKnnDoc(
+                derivedSourceEnabledContext.getIndexName(),
+                String.valueOf(i + 1),
+                doc1,
+                derivedSourceEnabledContext.isRoutingEnabled ? String.valueOf(i + 1) : null
+            );
+            addKnnDoc(
+                derivedSourceDisabledContext.getIndexName(),
+                String.valueOf(i + 1),
+                doc2,
+                derivedSourceDisabledContext.isRoutingEnabled ? String.valueOf(i + 1) : null
+            );
         }
         refreshAllIndices();
         assertDocsMatch(
             derivedSourceDisabledContext.docCount,
             derivedSourceDisabledContext.indexName,
-            derivedSourceEnabledContext.indexName
+            derivedSourceEnabledContext.indexName,
+            derivedSourceEnabledContext.isRoutingEnabled
         );
     }
 
@@ -640,7 +805,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void testSearch(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+    protected List<Object> testSearch(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
         DerivedSourceUtils.IndexConfigContext derivedSourceEnabledContext = indexConfigContexts.get(0);
         String originalIndexNameDerivedSourceEnabled = derivedSourceEnabledContext.indexName;
 
@@ -660,7 +825,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         );
 
         // Include all vectors
-        validateSearch(
+        return validateSearch(
             originalIndexNameDerivedSourceEnabled,
             derivedSourceEnabledContext.docCount,
             true,
@@ -670,7 +835,13 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void validateSearch(String indexName, int size, boolean isSourceEnabled, List<String> includes, List<String> excludes) {
+    protected List<Object> validateSearch(
+        String indexName,
+        int size,
+        boolean isSourceEnabled,
+        List<String> includes,
+        List<String> excludes
+    ) {
         // TODO: We need to figure out a way to enhance validation
         QueryBuilder qb = new MatchAllQueryBuilder();
         Request request = new Request("POST", "/" + indexName + "/_search");
@@ -710,6 +881,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         List<Object> hits = parseSearchResponseHits(responseBody);
 
         assertNotEquals(0, hits.size());
+        return hits;
     }
 
     @SneakyThrows
@@ -914,14 +1086,20 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
 
     protected void assertDocsMatch(int docCount, String index1, String index2) {
         for (int i = 0; i < docCount; i++) {
-            assertDocMatches(i + 1, index1, index2);
+            assertDocMatches(i + 1, index1, index2, false);
+        }
+    }
+
+    protected void assertDocsMatch(int docCount, String index1, String index2, boolean isRoutingEnabled) {
+        for (int i = 0; i < docCount; i++) {
+            assertDocMatches(i + 1, index1, index2, isRoutingEnabled);
         }
     }
 
     @SneakyThrows
-    protected void assertDocMatches(int docId, String index1, String index2) {
-        Map<String, Object> response1 = getKnnDoc(index1, String.valueOf(docId));
-        Map<String, Object> response2 = getKnnDoc(index2, String.valueOf(docId));
+    protected void assertDocMatches(int docId, String index1, String index2, boolean isRoutingEnabled) {
+        Map<String, Object> response1 = getKnnDoc(index1, String.valueOf(docId), isRoutingEnabled ? String.valueOf(docId) : null);
+        Map<String, Object> response2 = getKnnDoc(index2, String.valueOf(docId), isRoutingEnabled ? String.valueOf(docId) : null);
         assertEquals("Docs do not match: " + docId, response1, response2);
     }
 
@@ -953,5 +1131,62 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
 
     protected void validateDerivedSetting(String indexName, boolean expectedValue) throws IOException {
         assertEquals(expectedValue, Boolean.parseBoolean(getIndexSettingByName(indexName, "index.knn.derived_source.enabled", true)));
+    }
+
+    @SneakyThrows
+    protected void assertSourceFiltering(
+        String indexName,
+        String[] includes,
+        String[] excludes,
+        String[] expectedPresent,
+        String[] expectedAbsent
+    ) {
+        XContentBuilder searchBuilder = XContentFactory.jsonBuilder().startObject().startObject("_source");
+
+        if (includes != null) {
+            searchBuilder.array("includes", includes);
+        }
+        if (excludes != null) {
+            searchBuilder.array("excludes", excludes);
+        }
+
+        searchBuilder.endObject().startObject("query").startObject("match_all").endObject().endObject().endObject();
+
+        Request searchRequest = new Request("POST", "/" + indexName + "/_search");
+        searchRequest.setJsonEntity(searchBuilder.toString());
+        Response response = client().performRequest(searchRequest);
+
+        Map<String, Object> responseMap = entityAsMap(response);
+        Map<String, Object> hits = (Map<String, Object>) responseMap.get("hits");
+        List<Map<String, Object>> hitsList = (List<Map<String, Object>>) hits.get("hits");
+
+        assertEquals("Expected 1 hit", 1, hitsList.size());
+        Map<String, Object> source = (Map<String, Object>) hitsList.get(0).get("_source");
+
+        for (String field : expectedPresent) {
+            assertTrue(
+                String.format(
+                    Locale.ROOT,
+                    "Field '%s' should be present in _source (includes=%s, excludes=%s)",
+                    field,
+                    Arrays.toString(includes),
+                    Arrays.toString(excludes)
+                ),
+                source.containsKey(field)
+            );
+        }
+
+        for (String field : expectedAbsent) {
+            assertFalse(
+                String.format(
+                    Locale.ROOT,
+                    "Field '%s' should be absent from _source (includes=%s, excludes=%s)",
+                    field,
+                    Arrays.toString(includes),
+                    Arrays.toString(excludes)
+                ),
+                source.containsKey(field)
+            );
+        }
     }
 }

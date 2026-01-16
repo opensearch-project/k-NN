@@ -13,8 +13,14 @@ package org.opensearch.knn.index.util;
 
 import junit.framework.TestCase;
 import org.junit.Assert;
+import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.knn.index.KNNSettings;
+
+import java.util.Map;
+
+import static org.mockito.Mockito.mockStatic;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 
 public class IndexHyperParametersUtilTests extends TestCase {
 
@@ -48,5 +54,42 @@ public class IndexHyperParametersUtilTests extends TestCase {
 
         // Test for Binary Quantization EF Search value
         Assert.assertEquals(256, IndexHyperParametersUtil.getBinaryQuantizationEFSearchValue());
+    }
+
+    public void testGetHNSWEFSearchValue_withMethodParameters_thenReturnMethodParameterValue() {
+        String indexName = "test-index";
+        int efSearchValue = 100;
+        Map<String, Object> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, efSearchValue);
+
+        int result = IndexHyperParametersUtil.getHNSWEFSearchValue(methodParameters, indexName);
+
+        Assert.assertEquals(efSearchValue, result);
+    }
+
+    public void testGetHNSWEFSearchValue_withNullMethodParameters_thenReturnIndexSetting() {
+        String indexName = "test-index";
+        int expectedValue = 150;
+
+        try (MockedStatic<KNNSettings> knnSettingsMock = mockStatic(KNNSettings.class)) {
+            knnSettingsMock.when(() -> KNNSettings.getEfSearchParam(indexName)).thenReturn(expectedValue);
+
+            int result = IndexHyperParametersUtil.getHNSWEFSearchValue(null, indexName);
+
+            Assert.assertEquals(expectedValue, result);
+        }
+    }
+
+    public void testGetHNSWEFSearchValue_withEmptyMethodParameters_thenReturnIndexSetting() {
+        String indexName = "test-index";
+        int expectedValue = 200;
+        Map<String, Object> methodParameters = Map.of();
+
+        try (MockedStatic<KNNSettings> knnSettingsMock = mockStatic(KNNSettings.class)) {
+            knnSettingsMock.when(() -> KNNSettings.getEfSearchParam(indexName)).thenReturn(expectedValue);
+
+            int result = IndexHyperParametersUtil.getHNSWEFSearchValue(methodParameters, indexName);
+
+            Assert.assertEquals(expectedValue, result);
+        }
     }
 }

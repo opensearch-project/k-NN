@@ -569,7 +569,7 @@ public class ExplainTests extends KNNWeightTestCase {
                     EXACT_SEARCH,
                     VectorDataType.BINARY.name(),
                     SpaceType.HAMMING.getValue(),
-                    "is greater than or equal to cardinality",
+                    "is greater than or equal to estimated distance computations",
                     "since filtered threshold value"
                 );
             }
@@ -624,7 +624,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 VectorDataType.FLOAT.name(),
                 SpaceType.L2.getValue(),
                 "since max distance computation",
-                "is greater than or equal to cardinality"
+                "is greater than or equal to estimated distance computations"
             );
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
@@ -677,6 +677,85 @@ public class ExplainTests extends KNNWeightTestCase {
                 "since filteredIds",
                 "is less than or equal to K"
             );
+        }
+        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
+    @SneakyThrows
+    public void testFilteredANNSearch_exactSearchDisabled_thenPerformANNSearch() {
+        // Given
+        int k = 4;
+        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(1);
+        knnSettingsMockedStatic.when(() -> KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(INDEX_NAME)).thenReturn(true);
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), eq(null), anyInt(), any())
+        ).thenReturn(getFilteredKNNQueryResults());
+
+        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            SpaceType.L2.getValue()
+        );
+
+        setupTest(filterDocIds, attributesMap);
+
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(k)
+            .indexName(INDEX_NAME)
+            .filterQuery(FILTER_QUERY)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .vectorDataType(VectorDataType.FLOAT)
+            .explain(true)
+            .build();
+        query.setExplain(true);
+
+        final float boost = 1;
+
+        final KNNWeight knnWeight = new DefaultKNNWeight(query, boost, filterQueryWeight);
+
+        // When
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+
+        // Then
+        assertNotNull(knnScorer);
+        knnWeight.getKnnExplanation().addKnnScorer(leafReaderContext, knnScorer);
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertNotNull(docIdSetIterator);
+        assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+
+        jniServiceMockedStatic.verify(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any()),
+            times(1)
+        );
+
+        final List<Integer> actualDocIds = new ArrayList<>();
+        final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
+        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+            actualDocIds.add(docId);
+            float score = translatedScores.get(docId) * boost;
+            Explanation explanation = knnWeight.explain(leafReaderContext, docId, score);
+
+            assertExplanation(
+                explanation,
+                score,
+                ANN_SEARCH,
+                ANN_SEARCH,
+                VectorDataType.FLOAT.name(),
+                SpaceType.L2.getValue(),
+                SpaceType.L2.explainScoreTranslation(DOC_ID_TO_SCORES.get(docId)),
+                ", it is not falling back to exact search after ",
+                ANN_SEARCH,
+                " search since exact search is disabled,"
+            );
+            Explanation nestedDetail = explanation.getDetails()[0].getDetails()[0];
+            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.name()));
+            assertEquals(DOC_ID_TO_SCORES.get(docId), nestedDetail.getValue().floatValue(), 0.01f);
+            assertEquals(score, knnScorer.score(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));

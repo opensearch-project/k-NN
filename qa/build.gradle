@@ -20,10 +20,16 @@ dependenciesInfo.enabled = false
 dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
-    api group: 'commons-lang', name: 'commons-lang', version: '2.6'
+    api "org.apache.commons:commons-lang3:${versions.commonslang}"
 
     api "org.apache.logging.log4j:log4j-api:${versions.log4j}"
     api "org.apache.logging.log4j:log4j-core:${versions.log4j}"
+
+    // We need to remove errorprone from guava since default guava is not bringing 2.26.1 version
+    // where as OpenSearch is using 2.41.0
+    testImplementation("com.google.guava:guava:${versions.guava}") {
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
 
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation(testFixtures(rootProject))

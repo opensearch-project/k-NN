@@ -48,6 +48,8 @@ import static org.opensearch.knn.generate.DocumentsGenerator.KNN_FIELD_NAME;
 import static org.opensearch.knn.generate.DocumentsGenerator.MAX_VECTOR_ELEMENT_VALUE;
 import static org.opensearch.knn.generate.DocumentsGenerator.MIN_VECTOR_ELEMENT_VALUE;
 import static org.opensearch.knn.generate.DocumentsGenerator.NESTED_FIELD_NAME;
+import static org.opensearch.knn.generate.DocumentsGenerator.SCORE_FIELD_NAME;
+import static org.opensearch.knn.index.KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
@@ -102,7 +104,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             .idFieldName(ID_FIELD_NAME);
 
         final String mappingStr = mapping.createString();
-        final Schema schema = new Schema(mappingStr, dataType, additionalSettings);
+        final Schema schema = new Schema(mappingStr, dataType, diskMode, additionalSettings);
 
         // Start validate dense, sparse cases.
         doKnnSearchTest(spaceType, schema, IndexingType.DENSE, isRadial);
@@ -140,7 +142,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             .idFieldName(ID_FIELD_NAME);
 
         final String mappingStr = mapping.createString();
-        final Schema schema = new Schema(mappingStr, dataType, additionalSettings);
+        final Schema schema = new Schema(mappingStr, dataType, diskMode, additionalSettings);
 
         // Start validate dense, sparse cases.
         doKnnSearchTest(spaceType, schema, IndexingType.DENSE_NESTED, false);
@@ -228,7 +230,8 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             final float[] queryVector = SearchTestHelper.generateOneSingleFloatVector(
                 DIMENSIONS,
                 MIN_VECTOR_ELEMENT_VALUE,
-                MAX_VECTOR_ELEMENT_VALUE
+                MAX_VECTOR_ELEMENT_VALUE,
+                false
             );
             final float minSimil = documents.prepareAnswerSet(
                 queryVector,
@@ -250,7 +253,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results);
+            documents.validateResponse(results, indexingType, schema.mode());
         } else if (schema.vectorDataType == VectorDataType.BYTE) {
             final byte[] queryVector = SearchTestHelper.generateOneSingleByteVector(
                 DIMENSIONS,
@@ -278,7 +281,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results);
+            documents.validateResponse(results, indexingType, schema.mode());
         } else if (schema.vectorDataType == VectorDataType.BINARY) {
             final byte[] queryVector = SearchTestHelper.generateOneSingleBinaryVector(DIMENSIONS);
             final float minSimil = documents.prepareAnswerSet(
@@ -303,7 +306,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results);
+            documents.validateResponse(results, indexingType, schema.mode());
         } else {
             throw new AssertionError();
         }
@@ -411,7 +414,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
     private List<Documents.Result> doNestedQuery(final Object vector, final boolean doExhaustiveSearch, final boolean doFiltering) {
         log.info("Sending a nested query");
 
-        final int size = doExhaustiveSearch ? NUM_DOCUMENTS : NUM_DOCUMENTS - 1;
+        final int size = doExhaustiveSearch ? NUM_DOCUMENTS : TOP_K;
         final XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
 
         // Size
@@ -502,8 +505,9 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             final Map<String, Object> source = (Map<String, Object>) ((Map<String, Object>) hitObj).get("_source");
             final String id = source.get(ID_FIELD_NAME).toString();
             final String filterId = source.get(FILTER_FIELD_NAME).toString();
+            final double score = (double) (((Map<String, Object>) hitObj).get(SCORE_FIELD_NAME));
 
-            results.add(new Documents.Result(id, filterId));
+            results.add(new Documents.Result(id, filterId, (float) score));
         }
 
         return results;
@@ -519,6 +523,11 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
             .put("index.use_compound_file", false)
+            // Disable exact search at the first phase by setting large number
+            // It will fallback to exact search only if the cardinality < 1, which will not happen in IT,
+            // therefore, disabling exact search.
+            // Note that when HNSW is skipped building, it will fallback to exact search, this one only blocks the one in the first phase.
+            .put(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 1)
             .put(KNN_INDEX, true)
             .put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, enableMemOptimizedSearch);
 
@@ -528,6 +537,6 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         createKnnIndex(INDEX_NAME, settingsBuilder.build(), mapping);
     }
 
-    protected record Schema(String mapping, VectorDataType vectorDataType, Consumer<Settings.Builder> additionalSettings) {
+    protected record Schema(String mapping, VectorDataType vectorDataType, Mode mode, Consumer<Settings.Builder> additionalSettings) {
     }
 }

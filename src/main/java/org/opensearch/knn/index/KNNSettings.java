@@ -116,6 +116,8 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_CLIENT_TIMEOUT = "knn.remote_index_build.client.timeout";
     public static final String KNN_REMOTE_BUILD_SERVICE_USERNAME = "knn.remote_index_build.service.username";
     public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_index_build.service.password";
+    public static final String INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH =
+        "index.knn.faiss.efficient_filter.disable_exact_search";
 
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
@@ -488,6 +490,13 @@ public class KNNSettings {
         Dynamic
     );
 
+    public static final Setting<Boolean> INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING = Setting.boolSetting(
+        INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH,
+        false,
+        IndexScope,
+        Dynamic
+    );
+
     /**
      * Keystore settings for build service HTTP authorization
      */
@@ -714,6 +723,10 @@ public class KNNSettings {
             return KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING;
         }
 
+        if (INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH.equals(key)) {
+            return INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -749,7 +762,8 @@ public class KNNSettings {
             KNN_REMOTE_BUILD_POLL_INTERVAL_SETTING,
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
             KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
-            KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING
+            KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING,
+            INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -863,6 +877,14 @@ public class KNNSettings {
 
     public static double getCircuitBreakerUnsetPercentage() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
+    }
+
+    public static boolean isKnnIndexFaissEfficientFilterExactSearchDisabled(String indexName) {
+        return KNNSettings.state().clusterService.state()
+            .getMetadata()
+            .index(indexName)
+            .getSettings()
+            .getAsBoolean(INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH, false);
     }
 
     /**

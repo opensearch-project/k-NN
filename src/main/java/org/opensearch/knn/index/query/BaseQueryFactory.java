@@ -10,12 +10,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
+
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.ToChildBlockJoinQuery;
+import org.opensearch.common.lucene.search.Queries;
 import org.opensearch.index.mapper.ObjectMapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
@@ -26,11 +25,8 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Deque;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -52,6 +48,7 @@ public abstract class BaseQueryFactory {
         private String indexName;
         private String fieldName;
         private float[] vector;
+        private float[] originalVector;
         private byte[] byteVector;
         private VectorDataType vectorDataType;
         private Map<String, ?> methodParameters;
@@ -101,7 +98,8 @@ public abstract class BaseQueryFactory {
             )
         );
 
-        // preserve nestedStack
+        // We want to evaluate the filter node's query at the root level.
+        // Unwind and preserve the nested object stack.
         Deque<ObjectMapper> nestedLevelStack = new LinkedList<>();
         ObjectMapper objectMapper = null;
         if (queryShardContext.nestedScope() != null) {
@@ -117,56 +115,47 @@ public abstract class BaseQueryFactory {
         } catch (IOException e) {
             throw new RuntimeException("Cannot create query with filter", e);
         } finally {
+            // Rewind the nested object stack before returning.
             while ((objectMapper = nestedLevelStack.peek()) != null) {
                 queryShardContext.nestedScope().nextLevel(objectMapper);
                 nestedLevelStack.pop();
             }
         }
-        BitSetProducer parentFilter = queryShardContext.getParentFilter();
-        if (parentFilter != null) {
-            boolean mightMatch = new NestedHelper(queryShardContext.getMapperService()).mightMatchNestedDocs(filterQuery);
-            if (mightMatch) {
-                return filterQuery;
-            } else if (filterQuery instanceof OpenSearchToParentBlockJoinQuery) {
-                // this case would happen when path = null, and filter is nested
-                return ((OpenSearchToParentBlockJoinQuery) filterQuery).getChildQuery();
-            } else if (filterQuery instanceof BooleanQuery) {
-                KNNQueryVisitor knnQueryVisitor = new KNNQueryVisitor();
-                filterQuery.visit(knnQueryVisitor);
-                BooleanQuery.Builder builder = (new BooleanQuery.Builder()).add(
-                    new ToChildBlockJoinQuery(filterQuery, parentFilter),
-                    BooleanClause.Occur.FILTER
-                );
-                for (Query q : knnQueryVisitor.nestedQuery) {
-                    builder.add(q, BooleanClause.Occur.FILTER);
+
+        if (filterQuery != null && queryShardContext.getParentFilter() != null) {
+            // This k-NN query is executing in nested context. Query nodes beneath nested
+            // queries must match child documents. However, the efficient filter query in
+            // the k-NN API is designed to work with root-level parent documents. Joining
+            // down to child documents is therefore required to make this work.
+
+            // To-parent joins which target the root level can simply be unwrapped to get
+            // a query matching the desired child documents.
+            if (filterQuery instanceof OpenSearchToParentBlockJoinQuery) {
+                final OpenSearchToParentBlockJoinQuery toParentQuery = (OpenSearchToParentBlockJoinQuery) filterQuery;
+
+                if (toParentQuery.getPath() == null) {
+                    return toParentQuery.getChildQuery();
                 }
-                return builder.build();
             }
-            return new ToChildBlockJoinQuery(filterQuery, parentFilter);
+
+            // Set up for performing the join.
+            final Query parentQuery = Queries.newNonNestedFilter();
+            final BitSetProducer parentFilter = queryShardContext.bitsetFilter(parentQuery);
+
+            // mightMatchNestedDocs() is conservative and only returns false if the query
+            // can never match a nested document. If it returns true, a filter to exclude
+            // nested documents should be applied first to guarantee they never match.
+            final Query nonNestedFilterQuery;
+
+            if (new NestedHelper(queryShardContext.getMapperService()).mightMatchNestedDocs(filterQuery)) {
+                nonNestedFilterQuery = Queries.filtered(filterQuery, parentQuery);
+            } else {
+                nonNestedFilterQuery = filterQuery;
+            }
+
+            return new ToChildBlockJoinQuery(nonNestedFilterQuery, parentFilter);
         }
+
         return filterQuery;
-    }
-
-    @Getter
-    static class KNNQueryVisitor extends QueryVisitor {
-        List<Query> nestedQuery;
-
-        public KNNQueryVisitor() {
-            nestedQuery = new ArrayList<>();
-        }
-
-        public QueryVisitor getSubVisitor(BooleanClause.Occur occur, Query parent) {
-            if (parent instanceof BooleanQuery && occur == BooleanClause.Occur.FILTER) {
-                Collection<Query> collection = ((BooleanQuery) parent).getClauses(BooleanClause.Occur.FILTER);
-                for (Query q : collection) {
-                    if (q instanceof OpenSearchToParentBlockJoinQuery) {
-                        nestedQuery.add(((OpenSearchToParentBlockJoinQuery) q).getChildQuery());
-                    } else {
-                        q.visit(this);
-                    }
-                }
-            }
-            return this;
-        }
     }
 }

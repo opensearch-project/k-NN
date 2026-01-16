@@ -5,11 +5,10 @@
 
 package org.opensearch.knn.index;
 
-import junit.framework.TestCase;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.util.Version;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
@@ -20,13 +19,12 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
-public class KNNIndexShardUnitTests extends TestCase {
+public class KNNIndexShardUnitTests extends KNNTestCase {
     /**
      * Unit test for the determineVectorDataType helper method
      */
     public void testDetermineVectorDataType() {
         KNNIndexShard knnIndexShard = new KNNIndexShard(null);
-        Version testVersion = Version.LATEST;
 
         // ----- Test Case 1: Empty Quantization Config with default FLOAT -----
         // Setup mocks
@@ -38,11 +36,11 @@ public class KNNIndexShardUnitTests extends TestCase {
 
         // Setup FieldInfoExtractor mock behavior using mockStatic
         try (MockedStatic<FieldInfoExtractor> fieldInfoExtractorMock = Mockito.mockStatic(FieldInfoExtractor.class)) {
-            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo1, testVersion))
+            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo1))
                 .thenReturn(QuantizationConfig.EMPTY);
 
             // Directly call the method
-            VectorDataType result1 = knnIndexShard.determineVectorDataType(fieldInfo1, segmentLevelQuantizationInfo1, testVersion);
+            VectorDataType result1 = knnIndexShard.determineVectorDataType(fieldInfo1, segmentLevelQuantizationInfo1);
 
             // Verify default FLOAT is returned
             assertEquals(VectorDataType.FLOAT, result1);
@@ -57,11 +55,11 @@ public class KNNIndexShardUnitTests extends TestCase {
         SegmentLevelQuantizationInfo segmentLevelQuantizationInfo2 = Mockito.mock(SegmentLevelQuantizationInfo.class);
 
         try (MockedStatic<FieldInfoExtractor> fieldInfoExtractorMock = Mockito.mockStatic(FieldInfoExtractor.class)) {
-            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo2, testVersion))
+            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo2))
                 .thenReturn(QuantizationConfig.EMPTY);
 
             // Directly call the method
-            VectorDataType result2 = knnIndexShard.determineVectorDataType(fieldInfo2, segmentLevelQuantizationInfo2, testVersion);
+            VectorDataType result2 = knnIndexShard.determineVectorDataType(fieldInfo2, segmentLevelQuantizationInfo2);
 
             // Verify BINARY is returned based on attributes
             assertEquals(VectorDataType.BINARY, result2);
@@ -79,14 +77,13 @@ public class KNNIndexShardUnitTests extends TestCase {
             // Setup for non-empty quantization config
             QuantizationConfig nonEmptyConfig = QuantizationConfig.builder().build();
 
-            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo3, testVersion))
-                .thenReturn(nonEmptyConfig);
+            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo3)).thenReturn(nonEmptyConfig);
 
             // Setup for ADC enabled
             segmentLevelQuantUtilMock.when(() -> SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo3)).thenReturn(true);
 
             // Directly call the method
-            VectorDataType result3 = knnIndexShard.determineVectorDataType(fieldInfo3, segmentLevelQuantizationInfo3, testVersion);
+            VectorDataType result3 = knnIndexShard.determineVectorDataType(fieldInfo3, segmentLevelQuantizationInfo3);
 
             // Verify FLOAT is returned when ADC is enabled
             assertEquals(VectorDataType.FLOAT, result3);
@@ -104,15 +101,14 @@ public class KNNIndexShardUnitTests extends TestCase {
             // Setup for non-empty quantization config
             QuantizationConfig nonEmptyConfig = QuantizationConfig.builder().build();
 
-            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo4, testVersion))
-                .thenReturn(nonEmptyConfig);
+            fieldInfoExtractorMock.when(() -> FieldInfoExtractor.extractQuantizationConfig(fieldInfo4)).thenReturn(nonEmptyConfig);
 
             // Setup for ADC disabled
             segmentLevelQuantUtilMock.when(() -> SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo4))
                 .thenReturn(false);
 
             // Directly call the method
-            VectorDataType result4 = knnIndexShard.determineVectorDataType(fieldInfo4, segmentLevelQuantizationInfo4, testVersion);
+            VectorDataType result4 = knnIndexShard.determineVectorDataType(fieldInfo4, segmentLevelQuantizationInfo4);
 
             // Verify BINARY is returned when ADC is disabled
             assertEquals(VectorDataType.BINARY, result4);

@@ -6,31 +6,28 @@ on:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/remote_index_build.yml'
   pull_request:
     branches:
       - "*"
       - "feature/**"
-    paths:
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'src/**'
-      - 'build-tools/**'
-      - 'buildSrc/**'
-      - 'gradle/**'
-      - 'jni/**'
-      - '.github/workflows/remote_index_build.yml'
 
 jobs:
+  check-files:
+    name: Check file for Build and Test k-NN using Remote Index Builder
+    runs-on: ubuntu-latest
+    outputs:
+      RUN_IT_TEST: ${{ steps.check.outputs.files_changed }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check files
+        id: check
+        uses: ./.github/actions/check-files
+        with:
+          files: .github/workflows/remote_index_build.yml
+
   Remote-Index-Build-IT-Tests:
+    needs: check-files
+    if: needs.check-files.outputs.RUN_IT_TEST == 'true'
     strategy:
       matrix:
         java: [21]
@@ -92,8 +89,8 @@ jobs:
 
       - name: Verify Localstack is ready
         run: |
-          if ! timeout 3 bash -c 'until curl --silent --fail http://localhost:4566/_localstack/health; do sleep 1; done'; then
-            echo "Localstack health check failed after 3 seconds"
+          if ! timeout 30 bash -c 'until curl --silent --fail http://localhost:4566/_localstack/health; do sleep 1; done'; then
+            echo "Localstack health check failed after 30 seconds"
             exit 1
           fi
 
@@ -108,6 +105,9 @@ jobs:
 
       - name: Run tests
         run: |
+          echo "Cleaning up submodules first ..."
+          rm -rf .git/modules/* &>/dev/null || true
+          rm -rf ./jni/external/* &>/dev/null || true
           if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw
           then
             if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
@@ -148,3 +148,14 @@ jobs:
           docker logout
           rm -rf ${{ github.workspace }}/*
 
+  check-results:
+    needs: [check-files, Remote-Index-Build-IT-Tests]
+    if: always()
+    name: Check results for Build and Test k-NN using Remote Index Builder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        if: ${{ needs.check-files.outputs.RUN_IT_TEST && needs.Remote-Index-Build-IT-Tests.result == 'failure' }}
+        run: |
+          echo "Remote Integration tests failed, failing the check-results step"
+          exit 1

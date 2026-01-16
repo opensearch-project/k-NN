@@ -5,21 +5,44 @@
 
 package org.opensearch.knn;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.primitives.Bytes;
-import com.google.common.primitives.Floats;
-import com.google.common.primitives.Ints;
-import com.jayway.jsonpath.JsonPath;
-import lombok.SneakyThrows;
-import lombok.extern.log4j.Log4j2;
-import org.apache.commons.lang.StringUtils;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.PriorityQueue;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.net.URIBuilder;
 import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestName;
 import org.opensearch.Version;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -28,6 +51,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -41,51 +65,6 @@ import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.ParentChildHelper;
-import org.opensearch.knn.index.mapper.Mode;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.indices.ModelState;
-import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
-import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
-import org.opensearch.knn.plugin.stats.StatNames;
-import org.opensearch.script.Script;
-import org.opensearch.search.SearchService;
-import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
-
-import javax.management.MBeanServerInvocationHandler;
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.PriorityQueue;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import org.junit.Rule;
-import org.junit.rules.TestName;
-import java.lang.reflect.Method;
-
 import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.INDEX_KNN;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
@@ -95,6 +74,7 @@ import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
+import org.opensearch.knn.common.KNNConstants;
 import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -116,16 +96,40 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
+import org.opensearch.knn.index.KNNSettings;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SETTING;
+import org.opensearch.knn.index.SpaceType;
 import static org.opensearch.knn.index.SpaceType.L2;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.ParentChildHelper;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
+import org.opensearch.knn.index.mapper.Mode;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.plugin.KNNPlugin;
+import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
+import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
+import org.opensearch.knn.plugin.stats.StatNames;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
-import org.opensearch.common.xcontent.support.XContentMapValues;
+import org.opensearch.script.Script;
+import org.opensearch.search.SearchService;
+import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
+
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
+import com.jayway.jsonpath.JsonPath;
+
+import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
@@ -136,6 +140,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public static final String FIELD_NAME = "test_field";
     public static final String FIELD_NAME_NON_KNN = "test_field_non_knn";
     public static final String PROPERTIES_FIELD = "properties";
+    public static final String ROUTING_FIELD = "_routing";
+    public static final String REQUIRED_FIELD = "required";
     public static final String STORE_FIELD = "store";
     public static final String STORED_QUERY_FIELD = "stored_fields";
     public static final String MATCH_ALL_QUERY_FIELD = "match_all";
@@ -284,6 +290,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Create KNN Index with custom shard num
+     */
+    protected void createKnnIndex(String index, String mapping, int shardNum) throws IOException {
+        Settings defaultSettings = getKNNDefaultIndexSettings();
+        Settings settings = Settings.builder().put(defaultSettings).put("number_of_shards", shardNum).build();
+        createIndex(index, settings);
+        putMappingRequest(index, mapping);
+    }
+
+    /**
      * Builds a KNN Index for dimension and index, with on_disk mode
      */
     protected void createOnDiskIndex(String index, Integer dimensions, SpaceType spaceType) throws IOException {
@@ -359,7 +375,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected Response searchKNNIndex(String index, String query, int resultSize) throws IOException {
         Request request = new Request("POST", "/" + index + "/_search");
         request.setJsonEntity(query);
-
         request.addParameter("size", Integer.toString(resultSize));
         request.addParameter("search_type", "query_then_fetch");
         // Nested field does not support explain parameter and the request is rejected if we set explain parameter
@@ -367,8 +382,43 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
         return response;
+    }
+
+    /**
+     * Run KNN Search with retry mechanism for handling transient 503 errors
+     */
+    protected Response searchKNNIndexWithRetry(String index, String query, int resultSize) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_search");
+        request.setJsonEntity(query);
+        request.addParameter("size", Integer.toString(resultSize));
+        request.addParameter("search_type", "query_then_fetch");
+
+        IOException lastException = null;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            try {
+                Response response = client().performRequest(request);
+                assertEquals(
+                    request.getEndpoint() + ": failed",
+                    RestStatus.OK,
+                    RestStatus.fromCode(response.getStatusLine().getStatusCode())
+                );
+                return response;
+            } catch (org.opensearch.client.ResponseException e) {
+                if (e.getResponse().getStatusLine().getStatusCode() == 503 && attempt < 4) {
+                    lastException = e;
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw e;
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        }
+        throw lastException;
     }
 
     /**
@@ -413,6 +463,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Parse the response of KNN search into a List of KNNResults
      */
+    @SuppressWarnings("unchecked")
     protected List<KNNResult> parseSearchResponse(String responseBody, String fieldName) throws IOException {
         @SuppressWarnings("unchecked")
         List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
@@ -420,22 +471,26 @@ public class KNNRestTestCase extends ODFERestTestCase {
             responseBody
         ).map().get("hits")).get("hits");
 
-        @SuppressWarnings("unchecked")
-        List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
-            @SuppressWarnings("unchecked")
-            final float[] vector = Floats.toArray(
-                Arrays.stream(
-                    ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
-                ).map(Object::toString).map(Float::valueOf).collect(Collectors.toList())
-            );
+        return hits.stream().map(hit -> {
+            Object sourceObj = ((Map<String, Object>) hit).get("_source");
+            float[] vector = null;
+            if (sourceObj != null) {
+                Object vectorObj = ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName);
+                vector = vectorObj == null
+                    ? null
+                    : Floats.toArray(
+                        Arrays.stream(((ArrayList<Float>) vectorObj).toArray())
+                            .map(Object::toString)
+                            .map(Float::valueOf)
+                            .collect(Collectors.toList())
+                    );
+            }
             return new KNNResult(
                 (String) ((Map<String, Object>) hit).get("_id"),
                 vector,
                 ((Double) ((Map<String, Object>) hit).get("_score")).floatValue()
             );
         }).collect(Collectors.toList());
-
-        return knnSearchResponses;
     }
 
     protected List<Float> parseSearchResponseScore(String responseBody, String fieldName) throws IOException {
@@ -938,10 +993,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Adds a doc where document is represented as a string.
      */
-    protected void addKnnDoc(final String index, final String docId, final String document) throws IOException {
-        Request request = new Request("POST", "/" + index + "/_doc/" + docId); // + "?refresh=true");
+    protected void addKnnDoc(final String index, final String docId, final String document, final String routingValue) throws IOException {
+        String endpoint = String.join("/", index, "_doc", docId);
+        if (!StringUtils.isEmpty(routingValue)) {
+            endpoint = endpoint + "?" + "routing=" + routingValue;
+        }
+        Request request = new Request("POST", endpoint); // + "?refresh=true");
         request.setJsonEntity(document);
         client().performRequest(request);
+    }
+
+    /**
+     * Adds a doc where document is represented as a string.
+     */
+    protected void addKnnDoc(final String index, final String docId, final String document) throws IOException {
+        addKnnDoc(index, docId, document, null);
     }
 
     /**
@@ -1054,34 +1120,42 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Retrieve document by index and document id
      */
     protected Map<String, Object> getKnnDoc(final String index, final String docId) throws Exception {
-        final Request request = new Request("GET", "/" + index + "/_doc/" + docId);
-        request.addParameter("ignore", "404");
-        final Response response = client().performRequest(request);
+        return getKnnDoc(index, docId, null);
+    }
 
-        final Map<String, Object> responseMap = createParser(
-            MediaTypeRegistry.getDefaultMediaType().xContent(),
-            EntityUtils.toString(response.getEntity())
-        ).map();
+    /**
+     * Retrieve document by index and document id
+     */
+    protected Map<String, Object> getKnnDoc(final String index, final String docId, final String routingValue) throws Exception {
 
-        assertNotNull(responseMap);
-        // assertTrue((Boolean) responseMap.get(DOCUMENT_FIELD_FOUND));
-        // assertNotNull(responseMap.get(DOCUMENT_FIELD_SOURCE));
+        String endpoint = String.join("/", index, "_doc", docId);
+        if (!StringUtils.isEmpty(routingValue)) {
+            endpoint += "?routing=" + routingValue;
+        }
+        return getKnnDoc(endpoint);
+    }
 
-        final Map<String, Object> docMap = (Map<String, Object>) responseMap.get(DOCUMENT_FIELD_SOURCE);
+    /**
+     * Get the segments information for an index
+     * @param index index name
+     * @return the parsed segments information as a Map
+     */
+    protected Map<String, Object> getSegments(final String index) throws Exception {
+        Request request = new Request("GET", "/" + index + "/_segments");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        return docMap;
+        String responseBody = EntityUtils.toString(response.getEntity());
+        return createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
     }
 
     /**
      * Utility to update  settings
      */
     protected void updateClusterSettings(String settingKey, Object value) throws Exception {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("persistent")
-            .field(settingKey, value)
-            .endObject()
-            .endObject();
+        XContentBuilder builder = value instanceof List
+            ? XContentFactory.jsonBuilder().startObject().startObject("persistent").array(settingKey, value).endObject().endObject()
+            : XContentFactory.jsonBuilder().startObject().startObject("persistent").field(settingKey, value).endObject().endObject();
         Request request = new Request("PUT", "_cluster/settings");
         request.setJsonEntity(builder.toString());
         Response response = client().performRequest(request);
@@ -1102,6 +1176,52 @@ public class KNNRestTestCase extends ODFERestTestCase {
         request.setJsonEntity(builder.toString());
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    protected void reindexWithRetry(String source, Object destination) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("source")
+            .field("index", source)
+            .endObject()
+            .startObject("dest")
+            .field("index", destination)
+            .endObject()
+            .endObject();
+        Request request = new Request("POST", "_reindex?wait_for_completion=false");
+        request.setJsonEntity(builder.toString());
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        String taskId = (String) responseMap.get("task");
+
+        waitForTaskCompletion(taskId);
+    }
+
+    protected void waitForTaskCompletion(String taskId) throws Exception {
+        int maxRetries = 60;
+        int retryIntervalMs = 1000;
+        for (int i = 0; i < maxRetries; i++) {
+            Request taskRequest = new Request("GET", "_tasks/" + taskId);
+            Response taskResponse = client().performRequest(taskRequest);
+            String taskBody = EntityUtils.toString(taskResponse.getEntity());
+            Map<String, Object> taskMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), taskBody).map();
+            Boolean completed = (Boolean) taskMap.get("completed");
+            if (Boolean.TRUE.equals(completed)) {
+                Map<String, Object> taskResponseMap = (Map<String, Object>) taskMap.get("response");
+                if (taskResponseMap != null) {
+                    List<Object> failures = (List<Object>) taskResponseMap.get("failures");
+                    if (failures != null && !failures.isEmpty()) {
+                        throw new RuntimeException("Reindex task failed: " + failures);
+                    }
+                }
+                return;
+            }
+            Thread.sleep(retryIntervalMs);
+        }
+        throw new RuntimeException("Reindex task did not complete within timeout: " + taskId);
     }
 
     /**
@@ -1944,6 +2064,38 @@ public class KNNRestTestCase extends ODFERestTestCase {
         client().performRequest(waitForGreen);
     }
 
+    // Adds KNN Docs through the bulk API with additional fields. Similar to addKnnDoc but via bulk instead of 1 by 1.
+    public void addKNNDocsWithParkingAndRating(String indexName, String fieldName, int dimension, int firstDocID, int numDocs)
+        throws IOException {
+        Request request = new Request("POST", "/_bulk");
+        request.addParameter("refresh", "true");
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = firstDocID; i < firstDocID + numDocs; i++) {
+            float[] indexVector = new float[dimension];
+            Arrays.fill(indexVector, (float) (i + ((float) i * 0.1f)));
+
+            sb.append("{ \"index\" : { \"_index\" : \"")
+                .append(indexName)
+                .append("\", \"_id\" : \"")
+                .append(i)
+                .append("\" } }\n")
+                .append("{ \"")
+                .append(fieldName)
+                .append("\" : ")
+                .append(Arrays.toString(indexVector))
+                .append(", \"parking\" : \"")
+                .append(i % 2 == 0 ? "true" : "false")
+                .append("\", \"rating\" : ")
+                .append((i % 7) + 3)
+                .append(" }\n");
+        }
+
+        request.setJsonEntity(sb.toString());
+        Response response = client().performRequest(request);
+        assertEquals(response.getStatusLine().getStatusCode(), 200);
+    }
+
     // Add KNN docs into a KNN index by providing the initial documentID and number of documents
     public void addKNNDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
         for (int i = firstDocID; i < firstDocID + numDocs; i++) {
@@ -1967,6 +2119,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         validateKNNSearch(testIndex, testField, dimension, numDocs, k, null);
     }
 
+    public void validateKNNSearchDistance(String testIndex, String testField, int dimension, int numDocs) throws Exception {
+        validateKNNSearchDistance(testIndex, testField, dimension, numDocs, Float.MAX_VALUE, null);
+    }
+
     // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
     public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k, Map<String, ?> methodParameters)
         throws Exception {
@@ -1983,6 +2139,105 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         assertEquals(k, results.size());
         for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
+    // calls the /_segments API and parses segment response. Used in BWC tests.
+    protected Map<String, Object> getSegments(final String index, final int num) throws Exception {
+        Request request = new Request("GET", "/" + index + "/_segments");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> out = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        logger.info("[BWC KNN {}] results: {}", num, out);
+        return out;
+    }
+
+    // Validate that all segments in an index are the same lucene version. Used in BWC tests.
+    protected void validateSegmentsSameVersion(final String index) throws Exception {
+        Map<String, Object> segmentsResponse = getSegments(index, 1);
+        logger.info("Segments response: {}", segmentsResponse);
+
+        Map<String, Object> indices = (Map<String, Object>) segmentsResponse.get("indices");
+        if (indices == null) {
+            logger.error("No indices found in segments response");
+            return;
+        }
+
+        Map<String, Object> indexData = (Map<String, Object>) indices.get(index);
+        if (indexData == null) {
+            logger.error("No data found for index: {}", index);
+            return;
+        }
+
+        Map<String, Object> shards = (Map<String, Object>) indexData.get("shards");
+        if (shards == null) {
+            logger.error("No shards found for index: {}", index);
+            return;
+        }
+
+        Set<String> versions = new HashSet<>();
+
+        for (Object shardList : shards.values()) {
+            List<Map<String, Object>> shardData = (List<Map<String, Object>>) shardList;
+            for (Map<String, Object> shard : shardData) {
+                Map<String, Object> segments = (Map<String, Object>) shard.get("segments");
+                if (segments != null) {
+                    for (Object segmentData : segments.values()) {
+                        Map<String, Object> segment = (Map<String, Object>) segmentData;
+                        Boolean isSearchable = (Boolean) segment.get("search");
+                        String version = (String) segment.get("version");
+                        if (version != null && isSearchable != null && isSearchable) {
+                            versions.add(version);
+                        }
+                    }
+                }
+            }
+        }
+
+        logger.info("Found versions: {}", versions);
+        assertEquals("All segments should have the same version", 1, versions.size());
+    }
+
+    protected Map<String, Object> getMappingAndPrint(final String index, final int num) throws Exception {
+        Request request = new Request("GET", "/" + index + "/_mapping");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> out = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        logger.info("[BWC KNN {}] results: {}", num, out);
+        return out;
+    }
+
+    public void validateKNNSearchDistance(
+        String testIndex,
+        String testField,
+        int dimension,
+        int numDocs,
+        float maxDistance,
+        Map<String, ?> methodParameters
+    ) throws Exception {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        Response searchResponse = searchKNNIndex(
+            testIndex,
+            KNNQueryBuilder.builder()
+                .maxDistance(maxDistance)
+                .methodParameters(methodParameters)
+                .fieldName(testField)
+                .vector(queryVector)
+                .build(),
+            numDocs
+        );
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
+
+        assertEquals(numDocs, results.size());
+        for (int i = 0; i < numDocs; i++) {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
         }
     }
@@ -2588,6 +2843,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
             restoreResponse.getStatusLine().getStatusCode(),
             Matchers.equalTo(RestStatus.OK.getStatus())
         );
+    }
+
+    private Map<String, Object> getKnnDoc(String endpoint) throws IOException, ParseException {
+        final Request request = new Request("GET", endpoint);
+        request.addParameter("ignore", "404");
+        final Response response = client().performRequest(request);
+
+        final Map<String, Object> responseMap = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
+
+        assertNotNull(responseMap);
+        // assertTrue((Boolean) responseMap.get(DOCUMENT_FIELD_FOUND));
+        // assertNotNull(responseMap.get(DOCUMENT_FIELD_SOURCE));
+
+        final Map<String, Object> docMap = (Map<String, Object>) responseMap.get(DOCUMENT_FIELD_SOURCE);
+
+        return docMap;
     }
 
 }

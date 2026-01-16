@@ -11,10 +11,10 @@ import org.opensearch.knn.index.VectorDataType;
 public class FaissCagraHnswFP32IndexTests extends AbstractFaissCagraHnswIndexTests {
 
     public void testKNNSearchFloat32() {
-        // Exhaustive search test
+        // ANN search test
         doTestKNNSearch(true, VectorDataType.FLOAT, KNNVectorSimilarityFunction.EUCLIDEAN);
 
-        // ANN search test
+        // Exhaustive search test
         doTestKNNSearch(false, VectorDataType.FLOAT, KNNVectorSimilarityFunction.EUCLIDEAN);
     }
 

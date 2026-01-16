@@ -24,7 +24,6 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
-import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -45,11 +44,15 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+
+import static org.opensearch.knn.profile.StopWatchUtils.startStopWatch;
+import static org.opensearch.knn.profile.StopWatchUtils.stopStopWatchAndLog;
 
 /**
  * {@link KNNWeight} serves as a template for implementing approximate nearest neighbor (ANN)
@@ -91,6 +94,7 @@ public abstract class KNNWeight extends Weight {
 
     public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
         super(query);
+        assert query != null : "query must not be null";
         this.knnQuery = query;
         this.boost = boost;
         this.filterWeight = filterWeight;
@@ -182,14 +186,14 @@ public abstract class KNNWeight extends Weight {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since filtered threshold value = ")
                     .append(filterThresholdValue)
-                    .append(" is greater than or equal to cardinality = ")
+                    .append(" is greater than or equal to estimated distance computations = ")
                     .append(cardinality);
-            } else if (!isExactSearchThresholdSettingSet(filterThresholdValue) && isMDCGreaterThanFilterIdCnt(cardinality)) {
+            } else if (!isExactSearchThresholdSettingSet(filterThresholdValue) && isMaxDistCompGreaterThanEstimatedDistComp(cardinality)) {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since max distance computation = ")
                     .append(KNNConstants.MAX_DISTANCE_COMPUTATIONS)
-                    .append(" is greater than or equal to cardinality = ")
-                    .append(cardinality);
+                    .append(" is greater than or equal to estimated distance computations = ")
+                    .append(((long) cardinality) * knnQuery.getQueryDimension());
             }
         }
         final Integer annResult = knnExplanation.getAnnResult(context.id());
@@ -197,11 +201,19 @@ public abstract class KNNWeight extends Weight {
             sb.append(KNNConstants.EXACT_SEARCH).append(" since no native engine files are available");
         }
         if (annResult != null && isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
-            sb.append(KNNConstants.EXACT_SEARCH)
-                .append(" since the number of documents returned are less than K = ")
-                .append(knnQuery.getK())
-                .append(" and there are more than K filtered Ids = ")
-                .append(cardinality);
+            boolean isExactSearchDisabled = KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName());
+            if (isExactSearchDisabled) {
+                sb.append(KNNConstants.ANN_SEARCH)
+                    .append(", it is not falling back to exact search after ")
+                    .append(KNNConstants.ANN_SEARCH)
+                    .append(" search since exact search is disabled,");
+            } else {
+                sb.append(KNNConstants.EXACT_SEARCH)
+                    .append(" since the number of documents returned are less than K = ")
+                    .append(knnQuery.getK())
+                    .append(" and there are more than K filtered Ids = ")
+                    .append(cardinality);
+            }
         }
         if (annResult != null && annResult > 0 && !isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
             sb.append(KNNConstants.ANN_SEARCH);
@@ -268,7 +280,7 @@ public abstract class KNNWeight extends Weight {
 
             @Override
             public Scorer get(long leadCost) throws IOException {
-                final TopDocs topDocs = searchLeaf(context, knnQuery.getK()).getResult();
+                final TopDocs topDocs = searchLeaf(context, Optional.ofNullable(knnQuery.getK()).orElse(0)).getResult();
                 cost = topDocs.scoreDocs.length;
                 if (cost == 0) {
                     return KNNScorer.emptyScorer();
@@ -279,7 +291,7 @@ public abstract class KNNWeight extends Weight {
             @Override
             public long cost() {
                 // Estimate the cost of the scoring operation, if applicable.
-                return cost == -1L ? knnQuery.getK() : cost;
+                return cost == -1L ? Optional.ofNullable(knnQuery.getK()).orElse(0) : cost;
             }
         };
     }
@@ -296,20 +308,21 @@ public abstract class KNNWeight extends Weight {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         final String segmentName = reader.getSegmentName();
 
-        StopWatch stopWatch = startStopWatch();
+        final StopWatch stopWatch = startStopWatch(log);
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
-        stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
+        stopStopWatchAndLog(log, stopWatch, "FilterBitSet creation", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
-        final int maxDoc = context.reader().maxDoc();
-        int cardinality = filterBitSet.cardinality();
+        // Save its cardinality, as the cardinality calculation is expensive.
+        final int filterCardinality = filterBitSet.cardinality();
+
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
-        if (filterWeight != null && cardinality == 0) {
+        if (filterWeight != null && filterCardinality == 0) {
             return PerLeafResult.EMPTY_RESULT;
         }
         if (knnQuery.isExplain()) {
-            knnExplanation.setCardinality(cardinality);
+            knnExplanation.setCardinality(filterCardinality);
         }
 
         /*
@@ -317,40 +330,43 @@ public abstract class KNNWeight extends Weight {
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
          * This improves the recall.
          */
-        if (isFilteredExactSearchPreferred(cardinality)) {
-            TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
-            return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
+        if (isFilteredExactSearchPreferred(filterCardinality)) {
+            final TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, filterCardinality), filterCardinality, k);
+            return new PerLeafResult(
+                filterWeight == null ? null : filterBitSet,
+                filterCardinality,
+                result,
+                PerLeafResult.SearchMode.EXACT_SEARCH
+            );
         }
 
-        /*
-         * If filters match all docs in this segment, then null should be passed as filterBitSet
-         * so that it will not do a bitset look up in bottom search layer.
-         */
-        final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
+        final StopWatch annStopWatch = startStopWatch(log);
+        final TopDocs topDocs = approximateSearch(context, filterBitSet, filterCardinality, k);
+        stopStopWatchAndLog(log, annStopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
-        StopWatch annStopWatch = startStopWatch();
-        final TopDocs topDocs = approximateSearch(context, annFilter, cardinality, k);
-        stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
         }
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
-        if (isExactSearchRequire(context, cardinality, topDocs.scoreDocs.length)) {
-            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            TopDocs result = doExactSearch(context, docs, cardinality, k);
-            return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
+        if (isExactSearchRequire(context, filterCardinality, topDocs.scoreDocs.length)) {
+            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
+            final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
+            return new PerLeafResult(
+                filterWeight == null ? null : filterBitSet,
+                filterCardinality,
+                result,
+                PerLeafResult.SearchMode.EXACT_SEARCH
+            );
         }
-        return new PerLeafResult(filterWeight == null ? null : filterBitSet, topDocs);
-    }
 
-    private void stopStopWatchAndLog(@Nullable final StopWatch stopWatch, final String prefixMessage, String segmentName) {
-        if (log.isDebugEnabled() && stopWatch != null) {
-            stopWatch.stop();
-            final String logMessage = prefixMessage + " shard: [{}], segment: [{}], field: [{}], time in nanos:[{}] ";
-            log.debug(logMessage, knnQuery.getShardId(), segmentName, knnQuery.getField(), stopWatch.totalTime().nanos());
-        }
+        return new PerLeafResult(
+            filterWeight == null ? null : filterBitSet,
+            filterCardinality,
+            topDocs,
+            PerLeafResult.SearchMode.APPROXIMATE_SEARCH
+        );
     }
 
     protected BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
@@ -411,9 +427,33 @@ public abstract class KNNWeight extends Weight {
         return exactSearch(context, exactSearcherContextBuilder.build());
     }
 
-    protected TopDocs approximateSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality, final int k)
-        throws IOException {
+    /**
+     * Performs an approximate nearest neighbor (ANN) search on the provided index segment.
+     * <p>
+     * This method prepares all necessary query metadata before triggering the actual ANN search.
+     * It extracts the {@code model_id} from field-level attributes if required, retrieves any
+     * quantization or auxiliary metadata associated with the vector field, and applies quantization
+     * to the query vector when applicable. After these preprocessing steps, it invokes
+     * {@code doANNSearch(LeafReaderContext, BitSet, int, int)} to execute the approximate search
+     * and obtain the top results.
+     *
+     * @param context the {@link LeafReaderContext} representing the current index segment
+     * @param filterIdsBitSet an optional {@link BitSet} indicating document IDs to include in the search;
+     *                        may be {@code null} if no filtering is required
+     * @param filterCardinality the number of documents included in {@code filterIdsBitSet};
+     *                          used to optimize search filtering
+     * @param k the number of nearest neighbors to retrieve
+     * @return a {@link TopDocs} object containing the top {@code k} approximate search results
+     * @throws IOException if an error occurs while reading index data or accessing vector fields
+     */
+    public TopDocs approximateSearch(
+        final LeafReaderContext context,
+        final BitSet filterIdsBitSet,
+        final int filterCardinality,
+        final int k
+    ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
+
         FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
 
         if (fieldInfo == null) {
@@ -450,8 +490,7 @@ public abstract class KNNWeight extends Weight {
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,
-            knnQuery.getField(),
-            reader.getSegmentInfo().info.getVersion()
+            knnQuery.getField()
         );
 
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
@@ -463,6 +502,11 @@ public abstract class KNNWeight extends Weight {
         // TODO: Change type of vector once more quantization methods are supported
         byte[] quantizedVector = maybeQuantizeVector(segmentLevelQuantizationInfo);
         float[] transformedVector = maybeTransformVector(segmentLevelQuantizationInfo, spaceType);
+        /*
+         * If filters match all docs in this segment, then null should be passed as filterBitSet
+         * so that it will not do a bitset look up in bottom search layer.
+         */
+        final BitSet annFilter = filterCardinality == context.reader().maxDoc() ? null : filterIdsBitSet;
 
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
         final TopDocs results = doANNSearch(
@@ -475,8 +519,8 @@ public abstract class KNNWeight extends Weight {
             quantizedVector,
             transformedVector,
             modelId,
-            filterIdsBitSet,
-            cardinality,
+            annFilter,
+            filterCardinality,
             k
         );
 
@@ -551,10 +595,10 @@ public abstract class KNNWeight extends Weight {
      */
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
-        StopWatch stopWatch = startStopWatch();
+        final StopWatch stopWatch = startStopWatch(log);
         TopDocs exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
+        stopStopWatchAndLog(log, stopWatch, "Exact search", knnQuery.getShardId(), reader.getSegmentName(), knnQuery.getField());
         return exactSearchResults;
     }
 
@@ -593,13 +637,12 @@ public abstract class KNNWeight extends Weight {
          * TODO we can have a different MAX_DISTANCE_COMPUTATIONS for binary index as computation cost for binary index
          * is cheaper than computation cost for non binary vector
          */
-        return isMDCGreaterThanFilterIdCnt(filterIdsCount);
+        return isMaxDistCompGreaterThanEstimatedDistComp(filterIdsCount);
     }
 
-    private boolean isMDCGreaterThanFilterIdCnt(int filterIdsCount) {
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getVectorDataType() == VectorDataType.FLOAT
-            ? knnQuery.getQueryVector().length
-            : knnQuery.getByteQueryVector().length);
+    private boolean isMaxDistCompGreaterThanEstimatedDistComp(int filterDocsCardinality) {
+        long estimatedDistanceComputations = ((long) filterDocsCardinality) * knnQuery.getQueryDimension();
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= estimatedDistanceComputations;
     }
 
     private boolean isFilterIdCountLessThanK(int filterIdsCount) {
@@ -628,7 +671,18 @@ public abstract class KNNWeight extends Weight {
             log.debug("Perform exact search after approximate search since no native engine files are available");
             return true;
         }
+
         if (isFilteredExactSearchRequireAfterANNSearch(filterIdsCount, annResultCount)) {
+
+            // Disable the fallback mechanism to exact search after ANN Search when the index setting is set to true
+            if (KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName())) {
+                log.debug(
+                    "ExactSearch is disabled after ANN Search because the index setting: {} is set to true",
+                    KNNSettings.INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH
+                );
+                return false;
+            }
+
             log.debug(
                 "Doing ExactSearch after doing ANNSearch as the number of documents returned are less than "
                     + "K, even when we have more than K filtered Ids. K: {}, ANNResults: {}, filteredIdCount: {}",
@@ -670,13 +724,6 @@ public abstract class KNNWeight extends Weight {
             reader.getSegmentInfo().info
         );
         return engineFiles.isEmpty();
-    }
-
-    private StopWatch startStopWatch() {
-        if (log.isDebugEnabled()) {
-            return new StopWatch().start();
-        }
-        return null;
     }
 
     protected int[] getParentIdsArray(final LeafReaderContext context) throws IOException {

@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -96,7 +97,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     private final String fieldName;
     private final float[] vector;
     @Getter
-    private int k;
+    @Setter
+    private Integer k;
     @Getter
     private Float maxDistance;
     @Getter
@@ -218,7 +220,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
         public KNNQueryBuilder build() {
             validate();
-            int k = this.k == null ? 0 : this.k;
             return new KNNQueryBuilder(
                 fieldName,
                 vector,
@@ -442,7 +443,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
         RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
-        knnVectorFieldType.transformQueryVector(vector);
+        // Transform the query vector if it's required. It will return `vector` itself if transform is not needed.
+        // Otherwise, it will return a new transformed vector.
+        final float[] transformedQueryVector = knnVectorFieldType.transformQueryVector(vector);
 
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         final String indexName = context.index().getName();
@@ -498,7 +501,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 );
             }
             if (memoryOptimizedSearchEnabled) {
-                radius = KNNEngine.LUCENE.distanceToRadialThreshold(this.maxDistance, spaceType);
+                radius = MemoryOptimizedSearchScoreConverter.distanceToRadialThreshold(this.maxDistance, spaceType);
             } else {
                 radius = knnEngine.distanceToRadialThreshold(this.maxDistance, spaceType);
             }
@@ -511,13 +514,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 );
             }
             if (memoryOptimizedSearchEnabled) {
-                radius = KNNEngine.LUCENE.scoreToRadialThreshold(this.minScore, spaceType);
+                radius = MemoryOptimizedSearchScoreConverter.scoreToRadialThreshold(this.minScore, spaceType);
             } else {
                 radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
             }
         }
 
-        int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
+        final int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
         if (knnMappingConfig.getDimension() != vectorLength) {
             throw new IllegalArgumentException(
                 String.format(
@@ -563,13 +566,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support filters", knnEngine));
         }
 
-        if (k != 0) {
+        if (k != null && k != 0) {
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine))
-                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
+                .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
+                .originalVector(vector)
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
@@ -586,8 +590,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
-                .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
+                .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
+                .originalVector(vector)
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
                 .vectorDataType(vectorDataType)
                 .radius(radius)
                 .methodParameters(this.methodParameters)
@@ -653,14 +658,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
      * @param maxDistance Maximum distance for the given vector, if maxDistance is set, then the query type is MAX_DISTANCE
      * @param minScore Minimum score for the given vector, if minScore is set, then the query type is MIN_SCORE
      */
-    private VectorQueryType getVectorQueryType(int k, Float maxDistance, Float minScore) {
+    private VectorQueryType getVectorQueryType(Integer k, Float maxDistance, Float minScore) {
         if (maxDistance != null) {
             return VectorQueryType.MAX_DISTANCE;
         }
         if (minScore != null) {
             return VectorQueryType.MIN_SCORE;
         }
-        if (k != 0) {
+        if (k != null && k != 0) {
             return VectorQueryType.K;
         }
         throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires exactly one of k, distance or score to be set", NAME));
@@ -678,14 +683,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
     }
 
-    private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
+    private float[] getFloatVectorForCreatingQueryRequest(
+        final float[] transformedVector,
+        VectorDataType vectorDataType,
+        KNNEngine knnEngine
+    ) {
+
         if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
-            return this.vector;
+            return transformedVector;
         }
         return null;
     }
 
-    private byte[] getVectorForCreatingQueryRequest(
+    private byte[] getByteVectorForCreatingQueryRequest(
         VectorDataType vectorDataType,
         KNNEngine knnEngine,
         byte[] byteVector,

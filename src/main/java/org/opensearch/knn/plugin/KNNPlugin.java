@@ -30,6 +30,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
@@ -88,9 +89,16 @@ import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
+import org.opensearch.knn.search.extension.MMRSearchExtBuilder;
+
+import org.opensearch.knn.search.processor.mmr.MMRKnnQueryTransformer;
+import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
+import org.opensearch.knn.search.processor.mmr.MMRQueryTransformer;
+import org.opensearch.knn.search.processor.mmr.MMRRerankProcessor;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
+import org.opensearch.knn.grpc.proto.request.search.query.KNNQueryBuilderProtoConverter;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
@@ -99,6 +107,7 @@ import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ReloadablePlugin;
 import org.opensearch.plugins.ScriptPlugin;
+import org.opensearch.plugins.SearchPipelinePlugin;
 import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.remoteindexbuild.client.RemoteIndexHTTPClient;
@@ -108,7 +117,11 @@ import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
+import org.opensearch.search.SearchExtBuilder;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
+import org.opensearch.search.pipeline.SearchRequestProcessor;
+import org.opensearch.search.pipeline.SearchResponseProcessor;
+import org.opensearch.search.pipeline.SystemGeneratedProcessor;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -119,10 +132,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
@@ -172,7 +186,8 @@ public class KNNPlugin extends Plugin
         ScriptPlugin,
         ExtensiblePlugin,
         SystemIndexPlugin,
-        ReloadablePlugin {
+        ReloadablePlugin,
+        SearchPipelinePlugin {
 
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
@@ -180,13 +195,12 @@ public class KNNPlugin extends Plugin
     private KNNStats knnStats;
     private ClusterService clusterService;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
+    private final Map<String, MMRQueryTransformer<? extends QueryBuilder>> mmrQueryTransformers = new HashMap<>();
 
     static {
-        ForkJoinPool.commonPool().execute(() -> {
-            PlatformUtils.isAVX2SupportedBySystem();
-            PlatformUtils.isAVX512SupportedBySystem();
-            PlatformUtils.isAVX512SPRSupportedBySystem();
-        });
+        PlatformUtils.isAVX2SupportedBySystem();
+        PlatformUtils.isAVX512SupportedBySystem();
+        PlatformUtils.isAVX512SPRSupportedBySystem();
     }
 
     @Override
@@ -236,7 +250,7 @@ public class KNNPlugin extends Plugin
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 
         KNNSettings.state().initialize(client, clusterService);
-        KNNClusterUtil.instance().initialize(clusterService);
+        KNNClusterUtil.instance().initialize(clusterService, indexNameExpressionResolver);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
@@ -251,7 +265,11 @@ public class KNNPlugin extends Plugin
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
         knnStats = new KNNStats();
-        return ImmutableList.of(knnStats);
+
+        // Create and provide the KNN query converter for gRPC transport
+        KNNQueryBuilderProtoConverter knnQueryConverter = new KNNQueryBuilderProtoConverter();
+
+        return ImmutableList.of(knnStats, knnQueryConverter);
     }
 
     @Override
@@ -351,6 +369,27 @@ public class KNNPlugin extends Plugin
         }
     }
 
+    @Override
+    public void loadExtensions(ExtensionLoader loader) {
+        // knn plugin cannot extend itself so we have to manually load the transformer implemented in knn plugin
+        mmrQueryTransformers.put(KNNQueryBuilder.NAME, new MMRKnnQueryTransformer());
+        for (MMRQueryTransformer<?> transformer : loader.loadExtensions(MMRQueryTransformer.class)) {
+            String queryName = transformer.getQueryName();
+            if (mmrQueryTransformers.containsKey(queryName)) {
+                throw new IllegalStateException(
+                    String.format(
+                        Locale.ROOT,
+                        "Already load the MMR query transformer %s for %s query. Cannot load another transformer %s for it.",
+                        mmrQueryTransformers.get(queryName).getClass().getName(),
+                        queryName,
+                        transformer.getClass().getName()
+                    )
+                );
+            }
+            mmrQueryTransformers.put(queryName, transformer);
+        }
+    }
+
     /**
      * Sample knn custom script
      *
@@ -441,5 +480,28 @@ public class KNNPlugin extends Plugin
         SecureString username = KNNSettings.KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING.get(settings);
         SecureString password = KNNSettings.KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING.get(settings);
         RemoteIndexHTTPClient.reloadAuthHeader(username, password);
+    }
+
+    @Override
+    public List<SearchExtSpec<?>> getSearchExts() {
+        return List.of(new SearchExtSpec<SearchExtBuilder>(MMRSearchExtBuilder.NAME, MMRSearchExtBuilder::new, MMRSearchExtBuilder::parse));
+    }
+
+    @Override
+    public Map<String, SystemGeneratedProcessor.SystemGeneratedFactory<SearchRequestProcessor>> getSystemGeneratedRequestProcessors(
+        Parameters parameters
+    ) {
+        KNNClusterUtil.instance().setSearchPipelineService(parameters.searchPipelineService);
+        return Map.of(
+            MMROverSampleProcessor.MMROverSampleProcessorFactory.TYPE,
+            new MMROverSampleProcessor.MMROverSampleProcessorFactory(parameters.client, mmrQueryTransformers)
+        );
+    }
+
+    @Override
+    public Map<String, SystemGeneratedProcessor.SystemGeneratedFactory<SearchResponseProcessor>> getSystemGeneratedResponseProcessors(
+        Parameters parameters
+    ) {
+        return Map.of(MMRRerankProcessor.MMRRerankProcessorFactory.TYPE, new MMRRerankProcessor.MMRRerankProcessorFactory());
     }
 }

@@ -1640,6 +1640,66 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testByteVectorWithFilter_whenFilterCountGreaterThanK_thenSucceed() {
+        String indexName = "test-byte-vector-filter";
+        String fieldName = "test-byte-field";
+        String categoryField = "category";
+        int dimension = 8;
+        int k = 5;
+        int numDocsPerCategory = 20; // This ensures filterCount (20) > k (5)
+
+        // Create index with byte vector
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field("data_type", "byte")
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject(categoryField)
+            .field("type", "keyword")
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, builder.toString());
+
+        for (int i = 0; i < numDocsPerCategory; i++) {
+            Byte[] vector = new Byte[dimension];
+            Arrays.fill(vector, (byte) (i % 128));
+            addKnnDocWithAttributes(indexName, "doc_" + i, fieldName, vector, ImmutableMap.of(categoryField, "test_category"));
+        }
+
+        refreshIndex(indexName);
+        assertEquals(numDocsPerCategory, getDocCount(indexName));
+
+        // Query with filter that matches all documents (filterCount = 20 > k = 5)
+        // filterCount * dimension = 20 * 8 = 160 < MAX_DISTANCE_COMPUTATIONS (2048000)
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (byte) 10);
+
+        Response response = searchKNNIndex(
+            indexName,
+            new KNNQueryBuilder(fieldName, queryVector, k, QueryBuilders.termQuery(categoryField, "test_category")),
+            k
+        );
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, fieldName);
+
+        // Should return k results even though filter matches more documents
+        assertEquals(k, results.size());
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
     public void testFiltering_whenUsingFaissExactSearchWithIP_thenMatchExpectedScore() {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -2036,6 +2096,125 @@ public class FaissIT extends KNNRestTestCase {
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testEndToEnd_whenDoRadiusSearch_withByteVector_thenSucceed() {
+        SpaceType spaceType = SpaceType.L2;
+        String indexName = "test-index-byte-radial";
+        String fieldName = "test-field-byte-radial";
+        int dimension = 8;
+
+        // Create an index with byte vector data type
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field("data_type", VectorDataType.BYTE.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 128)
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, 128)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(indexName, mapping);
+
+        // Index byte vectors with known distances
+        Byte[] vector1 = { 1, 2, 3, 4, 5, 6, 7, 8 };        // Close to query
+        Byte[] vector2 = { 10, 20, 30, 40, 50, 60, 70, 80 }; // Medium distance
+        Byte[] vector3 = { 100, 110, 120, 127, 126, 125, 124, 123 }; // Far from query
+
+        addKnnDoc(indexName, "1", fieldName, vector1);
+        addKnnDoc(indexName, "2", fieldName, vector2);
+        addKnnDoc(indexName, "3", fieldName, vector3);
+
+        refreshAllNonSystemIndices();
+        assertEquals(3, getDocCount(indexName));
+
+        float[] queryVector = { 5.0f, 10.0f, 15.0f, 20.0f, 25.0f, 30.0f, 35.0f, 40.0f };
+
+        // Calculate expected L2 squared distances:
+        // vector1: (5-1)² + (10-2)² + (15-3)² + (20-4)² + (25-5)² + (30-6)² + (35-7)² + (40-8)² = 16 + 64 + 144 + 256 + 400 + 576 + 784 +
+        // 1024 = 3264
+        // vector2: (5-10)² + (10-20)² + (15-30)² + (20-40)² + (25-50)² + (30-60)² + (35-70)² + (40-80)² = 25 + 100 + 225 + 400 + 625 + 900
+        // + 1225 + 1600 = 5100
+        // vector3: Much larger distance due to large values
+
+        // Test 1: Small distance threshold - should only return vector1
+        float smallDistance = 4000f; // Only vector1 should match (distance² = 3264)
+        List<List<KNNResult>> results1 = validateRadiusSearchResults(
+            indexName,
+            fieldName,
+            new float[][] { queryVector },
+            smallDistance,
+            null,
+            spaceType,
+            null,
+            null
+        );
+        assertEquals("Should return exactly 1 result for small distance", 1, results1.get(0).size());
+        assertEquals("Should return document 1", "1", results1.get(0).get(0).getDocId());
+
+        // Test 2: Medium distance threshold - should return vector1 and vector2
+        float mediumDistance = 6000f; // vector1 and vector2 should match
+        List<List<KNNResult>> results2 = validateRadiusSearchResults(
+            indexName,
+            fieldName,
+            new float[][] { queryVector },
+            mediumDistance,
+            null,
+            spaceType,
+            null,
+            null
+        );
+        assertEquals("Should return exactly 2 results for medium distance", 2, results2.get(0).size());
+
+        // Verify the returned documents are sorted by distance (closest first)
+        List<String> docIds = results2.get(0).stream().map(KNNResult::getDocId).collect(Collectors.toList());
+        assertTrue("Should contain document 1", docIds.contains("1"));
+        assertTrue("Should contain document 2", docIds.contains("2"));
+
+        // Test 3: Large distance threshold - should return all vectors
+        float largeDistance = 500000f;
+        List<List<KNNResult>> results3 = validateRadiusSearchResults(
+            indexName,
+            fieldName,
+            new float[][] { queryVector },
+            largeDistance,
+            null,
+            spaceType,
+            null,
+            null
+        );
+        assertEquals("Should return all 3 results for large distance", 3, results3.get(0).size());
+
+        // Test 4: Very small distance threshold - should return no results
+        float tinyDistance = 1000f; // No vectors should match
+        List<List<KNNResult>> results4 = validateRadiusSearchResults(
+            indexName,
+            fieldName,
+            new float[][] { queryVector },
+            tinyDistance,
+            null,
+            spaceType,
+            null,
+            null
+        );
+        assertEquals("Should return no results for very small distance", 0, results4.get(0).size());
+
+        // Delete index
+        deleteKNNIndex(indexName);
     }
 
     @SneakyThrows
