@@ -37,6 +37,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * This searcher directly reads FAISS index file via the provided {@link IndexInput} then perform vector search on it.
  */
 public class FaissMemoryOptimizedSearcher implements VectorSearcher {
+
     private final IndexInput indexInput;
     private final FaissIndex faissIndex;
     private final FlatVectorsScorer flatVectorsScorer;

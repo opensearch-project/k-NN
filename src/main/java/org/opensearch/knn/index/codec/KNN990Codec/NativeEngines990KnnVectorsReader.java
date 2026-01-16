@@ -65,11 +65,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     private Map<String, String> quantizationStateCacheKeyPerField;
     private final SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
-    private volatile VectorSearcherHolder vectorSearcherHolder;
-    // This lock object ensure that only one thread can initialize vectorSearcherHolder object.
-    // This is needed since we are mappings graphs to memory for memory optimized search lazily. But once we make it eager
-    // the lock object will not be needed
-    private final Object vectorSearcherHolderLockObject;
+    private final Map<String, VectorSearcherHolder> vectorSearcherHolders;
     private final IOContext ioContext;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
@@ -78,8 +74,8 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
         ioContext = state.context.withHints(FileTypeHint.DATA, FileDataHint.KNN_VECTORS, DataAccessHint.RANDOM);
         loadCacheKeyMap();
-        vectorSearcherHolder = new VectorSearcherHolder();
-        vectorSearcherHolderLockObject = new Object();
+        vectorSearcherHolders = new HashMap<>();
+        loadMemoryOptimizedSearchers();
     }
 
     /**
@@ -226,11 +222,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         final List<Closeable> closeables = new ArrayList<>();
         closeables.add(flatVectorsReader);
 
-        // Close Vector Search
-        if (vectorSearcherHolder != null) {
-            // We don't need to check if VectorSearcher is null or not because during close IoUtils checks it
-            closeables.add(vectorSearcherHolder.getVectorSearcher());
-        }
+        closeables.addAll(vectorSearcherHolders.values().stream().map(VectorSearcherHolder::getVectorSearcher).toList());
 
         IOUtils.close(closeables);
 
@@ -251,7 +243,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         final boolean isFloatVector
     ) throws IOException {
         // Try with memory optimized searcher
-        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(field);
+        final VectorSearcher memoryOptimizedSearcher = vectorSearcherHolders.get(field).getVectorSearcher();
 
         if (memoryOptimizedSearcher != null) {
             if (isFloatVector) {
@@ -287,29 +279,19 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         return cacheKeys;
     }
 
-    private VectorSearcher loadMemoryOptimizedSearcherIfRequired(final String fieldName) {
-        if (vectorSearcherHolder.isSet()) {
-            return vectorSearcherHolder.getVectorSearcher();
-        }
-
-        synchronized (vectorSearcherHolderLockObject) {
-            if (vectorSearcherHolder.isSet()) {
-                return vectorSearcherHolder.getVectorSearcher();
-            }
-            final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(fieldName);
+    private void loadMemoryOptimizedSearchers() {
+        for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
             final IOSupplier<VectorSearcher> searcherSupplier = getVectorSearcherSupplier(fieldInfo);
             // It's supported. There can be a case where a certain index type underlying is not yet supported while
             // KNNEngine itself supports memory optimized searching.
             if (searcherSupplier != null) {
                 try {
-                    vectorSearcherHolder.setVectorSearcher(searcherSupplier.get());
+                    vectorSearcherHolders.put(fieldInfo.getName(), new VectorSearcherHolder());
+                    vectorSearcherHolders.get(fieldInfo.getName()).setVectorSearcher(searcherSupplier.get());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-            } else {
-                log.error("Failed to load memory optimized searcher for field [{}]", fieldName);
             }
-            return vectorSearcherHolder.getVectorSearcher();
         }
     }
 

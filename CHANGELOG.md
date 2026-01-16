@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Changed warmup seek to use long instead of int to avoid overflow [#3067](https://github.com/opensearch-project/k-NN/pull/3067)
 * Fix memory-optimized-search reentrant search bug in byte index. [#3071](https://github.com/opensearch-project/k-NN/pull/3071)
 * Fix MemoryOptimizedKNNWeight to use expanded 'k' for disk based index. [#3061](https://github.com/opensearch-project/k-NN/pull/3061)
+* Warm up the memory optimized searchers during initialization [#3076](https://github.com/opensearch-project/k-NN/pull/3076)
 
 ### Refactoring
 * Change ordering of build task and added tests to catch uninitialized libraries [#3024](https://github.com/opensearch-project/k-NN/pull/3024)

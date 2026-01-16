@@ -26,6 +26,7 @@ import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -44,8 +45,8 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         // Load vector searchers
         final NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, Collections.emptySet());
 
-        final NativeEngines990KnnVectorsReader.VectorSearcherHolder vectorSearchers = getVectorSearcherHolders(reader);
-        assertFalse(vectorSearchers.isSet());
+        final Map<String, NativeEngines990KnnVectorsReader.VectorSearcherHolder> vectorSearchers = getVectorSearcherHolders(reader);
+        assertTrue(vectorSearchers.isEmpty());
     }
 
     @SneakyThrows
@@ -83,25 +84,22 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
 
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
 
-            final NativeEngines990KnnVectorsReader reader_field_2 = createReader(fieldInfos, filesInSegment);
-            final NativeEngines990KnnVectorsReader reader_field_3 = createReader(fieldInfos, filesInSegment);
-            final NativeEngines990KnnVectorsReader reader_field_4 = createReader(fieldInfos, filesInSegment);
+            final NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, filesInSegment);
 
-            assertFalse(getVectorSearcherHolders(reader_field_2).isSet());
-            assertFalse(getVectorSearcherHolders(reader_field_3).isSet());
-            assertFalse(getVectorSearcherHolders(reader_field_4).isSet());
+            final Map<String, NativeEngines990KnnVectorsReader.VectorSearcherHolder> holders = getVectorSearcherHolders(reader);
+            assertTrue(holders.containsKey("field3"));
+            assertTrue(holders.containsKey("field4"));
+            assertFalse(holders.containsKey("field5"));
+            assertTrue(holders.get("field3").isSet());
+            assertTrue(holders.get("field4").isSet());
 
             // Try search for supported field types
-            reader_field_2.search("field3", new float[] { 1, 2, 3, 4 }, null, null);
-            reader_field_3.search("field4", new float[] { 1, 2, 3, 4 }, null, null);
+            reader.search("field3", new float[] { 1, 2, 3, 4 }, null, null);
+            reader.search("field4", new float[] { 1, 2, 3, 4 }, null, null);
             Assert.assertThrows(
                 UnsupportedOperationException.class,
-                () -> { reader_field_4.search("field5", new float[] { 1, 2, 3, 4 }, null, null); }
+                () -> { reader.search("field5", new float[] { 1, 2, 3, 4 }, null, null); }
             );
-
-            // Check holders are set now
-            assertTrue(getVectorSearcherHolders(reader_field_2).isSet());
-            assertTrue(getVectorSearcherHolders(reader_field_3).isSet());
         }
     }
 
@@ -132,12 +130,12 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static NativeEngines990KnnVectorsReader.VectorSearcherHolder getVectorSearcherHolders(
+    private static Map<String, NativeEngines990KnnVectorsReader.VectorSearcherHolder> getVectorSearcherHolders(
         final NativeEngines990KnnVectorsReader reader
     ) {
         // Get searcher table
-        final Field tableField = NativeEngines990KnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
+        final Field tableField = NativeEngines990KnnVectorsReader.class.getDeclaredField("vectorSearcherHolders");
         tableField.setAccessible(true);
-        return (NativeEngines990KnnVectorsReader.VectorSearcherHolder) tableField.get(reader);
+        return (Map<String, NativeEngines990KnnVectorsReader.VectorSearcherHolder>) tableField.get(reader);
     }
 }

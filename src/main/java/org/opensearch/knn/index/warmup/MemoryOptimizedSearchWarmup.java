@@ -19,7 +19,6 @@ import org.apache.lucene.store.IndexInput;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
@@ -33,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 @Log4j2
 public class MemoryOptimizedSearchWarmup {
@@ -94,20 +92,6 @@ public class MemoryOptimizedSearchWarmup {
                 input.readByte();
             }
         }
-
-        try {
-            final String dataTypeStr = field.getAttribute(VECTOR_DATA_TYPE_FIELD);
-            if (dataTypeStr == null) {
-                return true;
-            }
-            final VectorDataType vectorDataType = VectorDataType.get(dataTypeStr);
-            // We expect a NPE here:
-            if (vectorDataType == VectorDataType.FLOAT) {
-                segmentReader.getVectorReader().search(field.getName(), (float[]) null, null, null);
-            } else {
-                segmentReader.getVectorReader().search(field.getName(), (byte[]) null, null, null);
-            }
-        } catch (NullPointerException ignored) {}
 
         return true;
     }
