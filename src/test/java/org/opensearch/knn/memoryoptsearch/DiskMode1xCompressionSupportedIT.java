@@ -34,7 +34,8 @@ public class DiskMode1xCompressionSupportedIT extends AbstractMemoryOptimizedKnn
         final Schema schema = new Schema(mappingStr, VectorDataType.FLOAT, Mode.ON_DISK, NO_ADDITIONAL_SETTINGS);
 
         // Start validate dense, sparse cases.
-        doKnnSearchTest(SpaceType.INNER_PRODUCT, schema, IndexingType.DENSE, false, false);
+        doKnnSearchTest(SpaceType.INNER_PRODUCT, schema, IndexingType.DENSE, false, false, true);
+        doKnnSearchTest(SpaceType.INNER_PRODUCT, schema, IndexingType.DENSE, false, false, false);
 
         // Even memory_opt_srch = false, it should have used LuceneOnFaiss regardless, no off-heap is expected.
         assertEquals(0, getTotalGraphsInCache());
