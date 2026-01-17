@@ -57,7 +57,7 @@ import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_M
 @Log4j2
 public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase {
     protected static final String INDEX_NAME = "target_index";
-    protected static final int NUM_DOCUMENTS = 200;
+    protected static final int NUM_DOCUMENTS = 400;
     protected static final int TOP_K = 20;
     protected static final String EMPTY_PARAMS = "{}";
     protected static final Consumer<Settings.Builder> NO_ADDITIONAL_SETTINGS = settingsBuilder -> {};
@@ -155,7 +155,8 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         final Schema schema,
         final IndexingType indexingType,
         final boolean isRadial,
-        final boolean enableMemoryOptimizedSearch
+        final boolean enableMemoryOptimizedSearch,
+        final boolean useForceMerge
     ) {
         // Create HNSW index
         log.info("Create HNSW index, mapping=" + schema.mapping);
@@ -175,9 +176,13 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         log.info("Flushing " + INDEX_NAME);
         flushIndex(INDEX_NAME);
 
-        // Force merge
-        log.info("Force merging " + INDEX_NAME);
-        forceMergeKnnIndex(INDEX_NAME, 1);
+        if (useForceMerge) {
+            // Force merge
+            log.info("Force merging " + INDEX_NAME);
+            forceMergeKnnIndex(INDEX_NAME, 1);
+        }
+
+        refreshIndex(INDEX_NAME);
 
         // Do search tests
         doKnnSearchTest(documents, schema, indexingType, spaceType, isRadial, false, true);
@@ -198,7 +203,8 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         final IndexingType indexingType,
         final boolean isRadial
     ) {
-        doKnnSearchTest(spaceType, schema, indexingType, isRadial, true);
+        // doKnnSearchTest(spaceType, schema, indexingType, isRadial, true, true);
+        doKnnSearchTest(spaceType, schema, indexingType, isRadial, true, false);
     }
 
     @SneakyThrows
@@ -532,6 +538,14 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             .put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, enableMemOptimizedSearch);
 
         additionalSettings.accept(settingsBuilder);
+
+        // Delete knn index first
+        try {
+            Request request = new Request("DELETE", "/" + INDEX_NAME);
+            client().performRequest(request);
+        } catch (Exception e) {
+            // Ignore
+        }
 
         // Create a HNSW index
         createKnnIndex(INDEX_NAME, settingsBuilder.build(), mapping);
