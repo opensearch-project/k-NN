@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.iterators;
+package org.opensearch.knn.index.query.exactsearch;
 
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
@@ -24,7 +24,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class NestedBinaryVectorIdsKNNIteratorTests extends TestCase {
+public class NestedBinaryVectorIdsExactKNNIteratorTests extends TestCase {
     @SneakyThrows
     public void testNextDoc_whenIterate_ReturnBestChildDocsPerParent() {
         final SpaceType spaceType = SpaceType.HAMMING;
@@ -49,7 +49,7 @@ public class NestedBinaryVectorIdsKNNIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        NestedBinaryVectorIdsKNNIterator iterator = new NestedBinaryVectorIdsKNNIterator(
+        NestedBinaryVectorIdsExactKNNIterator iterator = new NestedBinaryVectorIdsExactKNNIterator(
             new BitSetIterator(filterBitSet, filterBitSet.length()),
             queryVector,
             values,
@@ -81,7 +81,12 @@ public class NestedBinaryVectorIdsKNNIteratorTests extends TestCase {
         when(values.nextDoc()).thenReturn(0, 2, 3, Integer.MAX_VALUE);
 
         // Execute and verify
-        NestedBinaryVectorIdsKNNIterator iterator = new NestedBinaryVectorIdsKNNIterator(queryVector, values, spaceType, parentBitSet);
+        NestedBinaryVectorIdsExactKNNIterator iterator = new NestedBinaryVectorIdsExactKNNIterator(
+            queryVector,
+            values,
+            spaceType,
+            parentBitSet
+        );
         assertEquals(0, iterator.nextDoc());
         assertEquals(expectedScores.get(0), iterator.score());
         assertEquals(3, iterator.nextDoc());

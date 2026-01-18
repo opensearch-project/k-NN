@@ -3,38 +3,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.iterators;
+package org.opensearch.knn.index.query.exactsearch;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 
 import java.io.IOException;
 
 /**
- * This iterator iterates filterIdsArray to scoreif filter is provided else it iterates over all docs.
+ * This iterator iterates filterIdsArray to score if filter is provided else it iterates over all docs.
  * However, it dedupe docs per each parent doc
  * of which ID is set in parentBitSet and only return best child doc with the highest score.
  */
-public class NestedBinaryVectorIdsKNNIterator extends BinaryVectorIdsKNNIterator {
+class NestedByteVectorIdsExactKNNIterator extends ByteVectorIdsExactKNNIterator {
     private final BitSet parentBitSet;
 
-    public NestedBinaryVectorIdsKNNIterator(
+    public NestedByteVectorIdsExactKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
-        final byte[] queryVector,
-        final KNNBinaryVectorValues binaryVectorValues,
+        final float[] queryVector,
+        final KNNByteVectorValues byteVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {
-        super(filterIdsIterator, queryVector, binaryVectorValues, spaceType);
+        super(filterIdsIterator, queryVector, byteVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
     }
 
-    public NestedBinaryVectorIdsKNNIterator(
-        final byte[] queryVector,
-        final KNNBinaryVectorValues binaryVectorValues,
+    public NestedByteVectorIdsExactKNNIterator(
+        final float[] queryVector,
+        final KNNByteVectorValues binaryVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) throws IOException {

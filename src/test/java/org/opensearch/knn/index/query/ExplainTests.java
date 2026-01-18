@@ -18,7 +18,6 @@ import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -27,11 +26,12 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.jni.JNIService;
 
@@ -113,19 +113,15 @@ public class ExplainTests extends KNNWeightTestCase {
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
 
         if (floatVector != null) {
-            final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
+            final BinaryDocValues binaryDocValues = new TestVectorValues.PredefinedFloatVectorBinaryDocValues(List.of(floatVector));
             when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
-            when(binaryDocValues.advance(0)).thenReturn(0);
-            BytesRef vectorByteRef = new BytesRef(KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(floatVector));
-            when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
         }
 
         if (byteVector != null) {
-            final KNNBinaryVectorValues knnBinaryVectorValues = mock(KNNBinaryVectorValues.class);
-            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
-                .thenReturn(knnBinaryVectorValues);
-            when(knnBinaryVectorValues.advance(0)).thenReturn(0);
-            when(knnBinaryVectorValues.getVector()).thenReturn(byteVector);
+            final KNNVectorValues vectorValues = TestVectorValues.createKNNBinaryVectorValues(
+                new TestVectorValues.PredefinedByteVectorBinaryDocValues(List.of(byteVector))
+            );
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(vectorValues);
         }
     }
 

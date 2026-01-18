@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.iterators;
+package org.opensearch.knn.index.query.exactsearch;
 
 import junit.framework.TestCase;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -22,13 +22,13 @@ import java.io.IOException;
 
 import static org.junit.Assert.assertThrows;;
 
-public class VectorIdsKNNIteratorUnitTests extends TestCase {
+public class VectorIdsExactKNNIteratorUnitTests extends TestCase {
     @Mock
     private DocIdSetIterator mockFilterIdsIterator;
     @Mock
     private KNNFloatVectorValues mockKnnFloatVectorValues;
 
-    private VectorIdsKNNIterator iterator;
+    private VectorIdsExactKNNIterator iterator;
     private float[] queryVector;
     private SpaceType spaceType;
 
@@ -40,7 +40,7 @@ public class VectorIdsKNNIteratorUnitTests extends TestCase {
         spaceType = SpaceType.L2;
 
         // Initialize the iterator with mocked dependencies
-        iterator = new VectorIdsKNNIterator(mockFilterIdsIterator, queryVector, mockKnnFloatVectorValues, spaceType);
+        iterator = new VectorIdsExactKNNIterator(mockFilterIdsIterator, queryVector, mockKnnFloatVectorValues, spaceType);
     }
 
     public void testShouldScoreWithADC() {
