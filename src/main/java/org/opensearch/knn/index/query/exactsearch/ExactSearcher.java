@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query;
+package org.opensearch.knn.index.query.exactsearch;
 
 import com.google.common.base.Predicates;
 import lombok.AllArgsConstructor;
@@ -15,6 +15,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.search.ConjunctionUtils;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
@@ -22,18 +23,14 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.query.iterators.ByteVectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.NestedBinaryVectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.VectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.KNNIterator;
-import org.opensearch.knn.index.query.iterators.NestedByteVectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.NestedVectorIdsKNNIterator;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -65,8 +62,8 @@ public class ExactSearcher {
      * @throws IOException exception during execution of exact search
      */
     public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
-        final KNNIterator iterator = getKNNIterator(leafReaderContext, context);
-        // because of any reason if we are not able to get KNNIterator, return empty top docss
+        final ExactKNNIterator iterator = getKNNIterator(leafReaderContext, context);
+        // because of any reason if we are not able to get ExactKNNIterator, return empty top docss
         if (iterator == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
@@ -85,11 +82,11 @@ public class ExactSearcher {
      * to filter out the documents that does not have given min score.
      * @param leafReaderContext {@link LeafReaderContext}
      * @param context {@link ExactSearcherContext}
-     * @param iterator {@link KNNIterator}
+     * @param iterator {@link ExactKNNIterator}
      * @return TopDocs containing the results of the search
      * @throws IOException exception raised by iterator during traversal
      */
-    private TopDocs doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext context, KNNIterator iterator)
+    private TopDocs doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext context, ExactKNNIterator iterator)
         throws IOException {
         // Ensure `isMemoryOptimizedSearchEnabled` is set. This is necessary to determine whether distance to score conversion is required.
         assert (context.isMemoryOptimizedSearchEnabled != null);
@@ -114,7 +111,7 @@ public class ExactSearcher {
         return filterDocsByMinScore(context, iterator, minScore);
     }
 
-    private TopDocs scoreAllDocs(KNNIterator iterator) throws IOException {
+    private TopDocs scoreAllDocs(ExactKNNIterator iterator) throws IOException {
         final List<ScoreDoc> scoreDocList = new ArrayList<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
@@ -124,7 +121,7 @@ public class ExactSearcher {
         return new TopDocs(new TotalHits(scoreDocList.size(), TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
     }
 
-    private TopDocs searchTopCandidates(KNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
+    private TopDocs searchTopCandidates(ExactKNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
@@ -157,19 +154,19 @@ public class ExactSearcher {
         return new TopDocs(totalHits, topScoreDocs);
     }
 
-    private TopDocs filterDocsByMinScore(ExactSearcherContext context, KNNIterator iterator, float minScore) throws IOException {
+    private TopDocs filterDocsByMinScore(ExactSearcherContext context, ExactKNNIterator iterator, float minScore) throws IOException {
         int maxResultWindow = context.getMaxResultWindow();
         Predicate<Float> scoreGreaterThanOrEqualToMinScore = score -> score >= minScore;
         return searchTopCandidates(iterator, maxResultWindow, scoreGreaterThanOrEqualToMinScore);
     }
 
-    private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
-        final DocIdSetIterator matchedDocs = exactSearcherContext.getMatchedDocsIterator();
+    private ExactKNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext)
+        throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, exactSearcherContext.getField());
         if (fieldInfo == null) {
             log.debug(
-                "[KNN] Cannot get KNNIterator as Field info not found for {}:{}",
+                "[KNN] Cannot get ExactKNNIterator as Field info not found for {}:{}",
                 exactSearcherContext.getField(),
                 reader.getSegmentName()
             );
@@ -179,10 +176,16 @@ public class ExactSearcher {
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
         boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
 
+        // We need to create a new VectorValues instances as the new one will be used to iterate over the docIds in
+        // conjunction with Matched Docs.
+        final DocIdSetIterator matchedDocs = getMatchedDocsIterator(
+            exactSearcherContext.getMatchedDocsIterator(),
+            KNNVectorValuesFactory.getVectorValues(fieldInfo, reader).getVectorValuesIterator().getDocIdSetIterator()
+        );
         if (VectorDataType.BINARY == vectorDataType) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
             if (isNestedRequired) {
-                return new NestedBinaryVectorIdsKNNIterator(
+                return new NestedBinaryVectorIdsExactKNNIterator(
                     matchedDocs,
                     exactSearcherContext.getByteQueryVector(),
                     (KNNBinaryVectorValues) vectorValues,
@@ -190,7 +193,7 @@ public class ExactSearcher {
                     exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
-            return new BinaryVectorIdsKNNIterator(
+            return new BinaryVectorIdsExactKNNIterator(
                 matchedDocs,
                 exactSearcherContext.getByteQueryVector(),
                 (KNNBinaryVectorValues) vectorValues,
@@ -201,7 +204,7 @@ public class ExactSearcher {
         if (VectorDataType.BYTE == vectorDataType) {
             final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
             if (isNestedRequired) {
-                return new NestedByteVectorIdsKNNIterator(
+                return new NestedByteVectorIdsExactKNNIterator(
                     matchedDocs,
                     exactSearcherContext.getFloatQueryVector(),
                     (KNNByteVectorValues) vectorValues,
@@ -209,7 +212,7 @@ public class ExactSearcher {
                     exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
-            return new ByteVectorIdsKNNIterator(
+            return new ByteVectorIdsExactKNNIterator(
                 matchedDocs,
                 exactSearcherContext.getFloatQueryVector(),
                 (KNNByteVectorValues) vectorValues,
@@ -238,7 +241,7 @@ public class ExactSearcher {
 
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
         if (isNestedRequired) {
-            return new NestedVectorIdsKNNIterator(
+            return new NestedVectorIdsExactKNNIterator(
                 matchedDocs,
                 exactSearcherContext.getFloatQueryVector(),
                 (KNNFloatVectorValues) vectorValues,
@@ -248,7 +251,7 @@ public class ExactSearcher {
                 segmentLevelQuantizationInfo
             );
         }
-        return new VectorIdsKNNIterator(
+        return new VectorIdsExactKNNIterator(
             matchedDocs,
             exactSearcherContext.getFloatQueryVector(),
             (KNNFloatVectorValues) vectorValues,
@@ -256,6 +259,27 @@ public class ExactSearcher {
             quantizedQueryVector,
             segmentLevelQuantizationInfo
         );
+    }
+
+    /**
+    * Creates a {@link DocIdSetIterator} which is an intersection of the iterators passed as arguments.
+    * This is used to get the intersection of the matched docs and the vector values docIds.
+    *
+    * @param originalMatchedDocsDISI A {@link DocIdSetIterator} on which exact search needs to be performed
+    * @param vectorValuesDISI A {@link DocIdSetIterator} which contains the docIds which has vector on it.
+    * @return DocIdSetIterator A intersection of the iterators
+    */
+    private DocIdSetIterator getMatchedDocsIterator(
+        @Nullable final DocIdSetIterator originalMatchedDocsDISI,
+        final DocIdSetIterator vectorValuesDISI
+    ) {
+        if (originalMatchedDocsDISI == null) {
+            return null;
+        }
+        final List<DocIdSetIterator> disiList = new ArrayList<>();
+        disiList.add(originalMatchedDocsDISI);
+        disiList.add(vectorValuesDISI);
+        return ConjunctionUtils.intersectIterators(disiList);
     }
 
     /**
@@ -272,11 +296,12 @@ public class ExactSearcher {
         boolean useQuantizedVectorsForSearch;
         int k;
         Float radius;
+        @Nullable
         DocIdSetIterator matchedDocsIterator;
         long numberOfMatchedDocs;
         /**
          * whether the matchedDocs contains parent ids or child ids. This is relevant in the case of
-         * filtered nested search where the matchedDocs contain the parent ids and {@link NestedVectorIdsKNNIterator}
+         * filtered nested search where the matchedDocs contain the parent ids and {@link NestedVectorIdsExactKNNIterator}
          * needs to be used.
          */
         BitSetProducer parentsFilter;
