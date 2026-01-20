@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.iterators;
+package org.opensearch.knn.index.query.exactsearch;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
@@ -19,10 +19,10 @@ import java.io.IOException;
  * However, it dedupe docs per each parent doc
  * of which ID is set in parentBitSet and only return best child doc with the highest score.
  */
-public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
+class NestedVectorIdsExactKNNIterator extends VectorIdsExactKNNIterator {
     private final BitSet parentBitSet;
 
-    public NestedVectorIdsKNNIterator(
+    public NestedVectorIdsExactKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
@@ -32,7 +32,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         this(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
     }
 
-    public NestedVectorIdsKNNIterator(
+    public NestedVectorIdsExactKNNIterator(
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
@@ -41,7 +41,7 @@ public class NestedVectorIdsKNNIterator extends VectorIdsKNNIterator {
         this(null, queryVector, knnFloatVectorValues, spaceType, parentBitSet, null, null);
     }
 
-    public NestedVectorIdsKNNIterator(
+    public NestedVectorIdsExactKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
         final float[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,

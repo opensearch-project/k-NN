@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.iterators;
+package org.opensearch.knn.index.query.exactsearch;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.common.Nullable;
@@ -18,7 +18,7 @@ import java.io.IOException;
  *
  * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
-public class BinaryVectorIdsKNNIterator implements KNNIterator {
+class BinaryVectorIdsExactKNNIterator implements ExactKNNIterator {
     protected final DocIdSetIterator docIdSetIterator;
     protected final byte[] queryVector;
     protected final KNNBinaryVectorValues binaryVectorValues;
@@ -26,7 +26,7 @@ public class BinaryVectorIdsKNNIterator implements KNNIterator {
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
 
-    public BinaryVectorIdsKNNIterator(
+    public BinaryVectorIdsExactKNNIterator(
         @Nullable final DocIdSetIterator docIdSetIterator,
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
@@ -41,8 +41,11 @@ public class BinaryVectorIdsKNNIterator implements KNNIterator {
         this.docId = getNextDocId();
     }
 
-    public BinaryVectorIdsKNNIterator(final byte[] queryVector, final KNNBinaryVectorValues binaryVectorValues, final SpaceType spaceType)
-        throws IOException {
+    public BinaryVectorIdsExactKNNIterator(
+        final byte[] queryVector,
+        final KNNBinaryVectorValues binaryVectorValues,
+        final SpaceType spaceType
+    ) throws IOException {
         this(null, queryVector, binaryVectorValues, spaceType);
     }
 

@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.iterators;
+package org.opensearch.knn.index.query.exactsearch;
 
 import java.io.IOException;
 
-public interface KNNIterator {
+interface ExactKNNIterator {
     int nextDoc() throws IOException;
 
     float score();

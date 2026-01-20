@@ -6,6 +6,8 @@
 package org.opensearch.knn.integ;
 
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
@@ -15,6 +17,7 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.common.util.CollectionUtils;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
@@ -27,7 +30,9 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
@@ -195,6 +200,107 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testExpandNestedDocs_whenFewChildHasNoVectors_thenReturnCorrectResult() {
+        if (engine == KNNEngine.NMSLIB) {
+            // NMSLIB does not support filtering
+            return;
+        }
+        int numberOfNestedFields = 2;
+        int numberOfDocs = 5;
+        final Set<Integer> childDocsToSkipVectorField = ImmutableSet.of(1);
+        final Set<String> docIdWithVectorFieldAbsent = ImmutableSet.of("1");
+        createKnnIndex(engine, mode, dimension, dataType);
+
+        for (int i = 1; i <= numberOfDocs; i++) {
+            if (docIdWithVectorFieldAbsent.contains(String.valueOf(i))) {
+                addRandomVectorsWithMetadata(
+                    i,
+                    numberOfNestedFields,
+                    FIELD_NAME_STORAGE,
+                    Arrays.asList(FIELD_VALUE_FALSE, FIELD_VALUE_FALSE),
+                    childDocsToSkipVectorField
+                );
+            } else {
+                addRandomVectorsWithMetadata(
+                    i,
+                    numberOfNestedFields,
+                    FIELD_NAME_STORAGE,
+                    Arrays.asList(FIELD_VALUE_FALSE, FIELD_VALUE_FALSE)
+                );
+            }
+        }
+
+        Float[] queryVector = createVector();
+        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, 10, queryVector);
+
+        // Verify
+        String entity = EntityUtils.toString(response.getEntity());
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
+        assertEquals(numberOfDocs, docIdToOffsets.keySet().size());
+        for (String key : docIdToOffsets.keySet()) {
+            if (docIdWithVectorFieldAbsent.contains(key)) {
+                assertEquals(numberOfNestedFields - childDocsToSkipVectorField.size(), docIdToOffsets.get(key).size());
+            } else {
+                assertEquals(numberOfNestedFields, docIdToOffsets.get(key).size());
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testExpandNestedDocsWithFilters_whenFewChildHasNoVectors_thenReturnCorrectResult() {
+        if (engine == KNNEngine.NMSLIB) {
+            // NMSLIB does not support filtering
+            return;
+        }
+        int numberOfNestedFields = 2;
+        int numberOfDocs = 5;
+        final Set<Integer> childDocsToSkipVectorField = ImmutableSet.of(1);
+        final Set<String> docIdWithVectorFieldAbsent = ImmutableSet.of("1");
+        createKnnIndex(engine, mode, dimension, dataType);
+
+        for (int i = 1; i <= numberOfDocs; i++) {
+            if (docIdWithVectorFieldAbsent.contains(String.valueOf(i))) {
+                addRandomVectorsWithMetadata(
+                    i,
+                    numberOfNestedFields,
+                    FIELD_NAME_STORAGE,
+                    Arrays.asList(FIELD_VALUE_FALSE, FIELD_VALUE_FALSE),
+                    childDocsToSkipVectorField
+                );
+            } else {
+                addRandomVectorsWithMetadata(
+                    i,
+                    numberOfNestedFields,
+                    FIELD_NAME_STORAGE,
+                    Arrays.asList(FIELD_VALUE_FALSE, FIELD_VALUE_FALSE)
+                );
+            }
+        }
+
+        Float[] queryVector = createVector();
+        Response response = queryNestedFieldWithExpandNestedDocs(
+            INDEX_NAME,
+            10,
+            queryVector,
+            FIELD_NAME_NESTED + "." + FIELD_NAME_STORAGE,
+            FIELD_VALUE_FALSE,
+            true
+        );
+
+        // Verify
+        String entity = EntityUtils.toString(response.getEntity());
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
+        assertEquals(numberOfDocs, docIdToOffsets.keySet().size());
+        for (String key : docIdToOffsets.keySet()) {
+            if (docIdWithVectorFieldAbsent.contains(key)) {
+                assertEquals(numberOfNestedFields - childDocsToSkipVectorField.size(), docIdToOffsets.get(key).size());
+            } else {
+                assertEquals(numberOfNestedFields, docIdToOffsets.get(key).size());
+            }
+        }
+    }
+
     private Float[] createVector() {
         int vectorSize = VectorDataType.BINARY.equals(dataType) ? dimension / 8 : dimension;
         Float[] vector = new Float[vectorSize];
@@ -247,11 +353,26 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         final String nestedFieldName,
         final List<String> nestedFieldValue
     ) throws IOException {
+        addRandomVectorsWithMetadata(docId, numOfNestedFields, nestedFieldName, nestedFieldValue, Collections.emptySet());
+    }
+
+    private void addRandomVectorsWithMetadata(
+        final int docId,
+        final int numOfNestedFields,
+        final String nestedFieldName,
+        final List<String> nestedFieldValue,
+        final Set<Integer> childDocsNotContainingVectors
+    ) throws IOException {
         assert numOfNestedFields == nestedFieldValue.size();
+        assert CollectionUtils.isEmpty(childDocsNotContainingVectors) || numOfNestedFields >= childDocsNotContainingVectors.size();
 
         NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
         for (int i = 0; i < numOfNestedFields; i++) {
-            builder.addVectorWithMetadata(FIELD_NAME_VECTOR, createVector(), nestedFieldName, nestedFieldValue.get(i));
+            if (childDocsNotContainingVectors.contains(i)) {
+                builder.addMetadata(ImmutableMap.of(nestedFieldName, nestedFieldValue.get(i)));
+            } else {
+                builder.addVectorWithMetadata(FIELD_NAME_VECTOR, createVector(), nestedFieldName, nestedFieldValue.get(i));
+            }
         }
         String doc = builder.build();
         addKnnDoc(INDEX_NAME, String.valueOf(docId), doc);
