@@ -156,7 +156,7 @@ struct ArmNeonFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Scor
 
         // Tail loop for remaining vectors
         for (; processedCount < numVectors; ++processedCount) {
-            const __fp16* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
+            const auto* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
             float16x8_t acc = vdupq_n_f16(0);
             int32_t i = 0;
 

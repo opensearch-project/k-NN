@@ -17,7 +17,7 @@ struct AVX512SPRFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc,
     void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                    int32_t* internalVectorIds,
                                    float* scores,
-                                   const int32_t numVectors) final {
+                                   const int32_t numVectors) {
 
         int32_t processedCount = 0;
         const _Float16* queryPtr = (const _Float16*) srchContext->queryVectorSimdAligned;
@@ -97,7 +97,7 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
     void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                    int32_t* internalVectorIds,
                                    float* scores,
-                                   const int32_t numVectors) final {
+                                   const int32_t numVectors) {
         int32_t processedCount = 0;
         const _Float16* queryPtr = (const _Float16*) srchContext->queryVectorSimdAligned;
         const int32_t dim = srchContext->dimension;
