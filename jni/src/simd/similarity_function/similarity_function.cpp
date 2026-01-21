@@ -9,6 +9,14 @@
  * GitHub history for details.
  */
 
-// Today, we're sitting on V1 implementation.
-// For V2, refer to https://github.com/opensearch-project/k-NN/issues/2875 for more details.
-#include "default_simd_similarity_function.cpp"
+#ifdef KNN_HAVE_AVX512
+    #include "avx512_simd_similarity_function.cpp"
+#elif KNN_HAVE_AVX512_SPR
+    #include "avx512_spr_simd_similarity_function.cpp"
+#elif KNN_HAVE_AVX2_F16C
+    #include "avx256_simd_similarity_function.cpp"
+#elif KNN_HAVE_ARM_FP16
+    #include "arm_neon_simd_similarity_function.cpp"
+#else
+    #include "default_simd_similarity_function.cpp"
+#endif
