@@ -13,8 +13,6 @@
     #include "avx512_simd_similarity_function.cpp"
 #elif KNN_HAVE_AVX512_SPR
     #include "avx512_spr_simd_similarity_function.cpp"
-#elif KNN_HAVE_AVX2_F16C
-    #include "avx256_simd_similarity_function.cpp"
 #elif KNN_HAVE_ARM_FP16
     #include "arm_neon_simd_similarity_function.cpp"
 #else
