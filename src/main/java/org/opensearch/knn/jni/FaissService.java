@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.jni;
 
+import org.apache.lucene.index.KNNMergeHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
@@ -32,6 +33,14 @@ class FaissService {
         KNNLibraryLoader.loadFaissLibrary();
         initLibrary();
         KNNEngine.FAISS.setInitialized(true);
+
+        try {
+            KNNMergeHelper.class.getMethod("isMergeAborted");
+            KNNMergeHelper.isMergeAborted();
+            setMergeInterruptCallback();
+        } catch (Exception e) {
+            //Ignore merge abort callback
+        }
     }
 
     /**
@@ -438,7 +447,9 @@ class FaissService {
         int[] parentIds
     );
 
+    /**
+     * Faiss InterruptCallback singleton init
+     * we need
+     */
     public static native void setMergeInterruptCallback();
-
-    public static native void unsetMergeInterruptCallback();
 }

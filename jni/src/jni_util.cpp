@@ -101,7 +101,7 @@ void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env, const char* message) {
 
 void knn_jni::JNIUtil::CatchAbortExceptionAndThrowJava(JNIEnv* env)
 {
-    this->ThrowJavaException(env, "java/io/IOException", "Faiss Abort Build");
+    this->ThrowJavaException(env, "java/io/IOException", "JNI Abort Build");
 }
 void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
 {

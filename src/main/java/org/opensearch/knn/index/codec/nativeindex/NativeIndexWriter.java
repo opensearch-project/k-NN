@@ -48,8 +48,6 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
-import static org.opensearch.knn.jni.JNIService.setMergeInterruptCallback;
-import static org.opensearch.knn.jni.JNIService.unsetMergeInterruptCallback;
 
 /**
  * Writes KNN Index for a field in a segment. This is intended to be used for native engines
@@ -125,7 +123,7 @@ public class NativeIndexWriter {
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
-        setMergeInterruptCallback(knnEngine);
+
         try {
             startMergeStats(totalLiveDocs, bytesPerVector);
             buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs, false);
@@ -135,8 +133,6 @@ public class NativeIndexWriter {
             throw new MergePolicy.MergeAbortedException("KNN Merge aborted.");
         } catch (Exception ex) {
             log.debug("Merge exception {}", ex.getMessage());
-        } finally {
-            unsetMergeInterruptCallback(knnEngine);
         }
     }
 

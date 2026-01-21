@@ -38,6 +38,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 void JNI_OnUnload(JavaVM *vm, void *reserved) {
     JNIEnv* env;
     vm->GetEnv((void**)&env, KNN_FAISS_JNI_VERSION);
+    faiss::InterruptCallback::instance.get()->clear_instance();
     jniUtil.Uninitialize(env);
 }
 
