@@ -19,6 +19,7 @@ import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
 import java.util.Map;
 import lombok.extern.log4j.Log4j2;
+
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
  * <p>
@@ -41,7 +42,7 @@ class FaissService {
             setMergeInterruptCallback();
             testMergeInterruptCallback();
         } catch (Exception e) {
-            //Ignore merge abort callback
+            // Ignore merge abort callback
             log.error("Init Faiss Service Error" + e);
         }
     }

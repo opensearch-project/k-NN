@@ -22,6 +22,7 @@ public class RelocationIT extends KNNRestTestCase {
 
     private static final String INDEX_NAME = "relocation-knn-index";
     private static final String TEST_FIELD = "test-field";
+
     @BeforeClass
     public static void setUpClass() throws IOException {
         if (FaissIT.class.getClassLoader() == null) {
@@ -37,15 +38,16 @@ public class RelocationIT extends KNNRestTestCase {
         Response response = client().performRequest(nodesNamesRequest);
         assertOK(response);
         String[] nodeNamesStr = new String(response.getEntity().getContent().readAllBytes()).split("\n");
-        if(nodeNamesStr.length < numNodes) {
+        if (nodeNamesStr.length < numNodes) {
             System.out.println("numNodes need to be: " + nodeNamesStr.length);
         }
         Settings indexSettings = Settings.builder()
-                                         .put("number_of_shards", 1)
-                                         .put("number_of_replicas", 0)
-                                         .put("index.routing.allocation.include._name", nodeNamesStr[0])
-                                         .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
-                                         .put(KNN_INDEX, true).build();
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.routing.allocation.include._name", nodeNamesStr[0])
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .put(KNN_INDEX, true)
+            .build();
 
         createKnnIndex(
             INDEX_NAME,
@@ -62,12 +64,11 @@ public class RelocationIT extends KNNRestTestCase {
         );
         waitForClusterHealthGreen(Integer.toString(numNodes));
         for (int i = 0; i < 10; i++) {
-            addKNNDocsWithParkingAndRating(INDEX_NAME, TEST_FIELD, dimension, i*1000, 1000);
+            addKNNDocsWithParkingAndRating(INDEX_NAME, TEST_FIELD, dimension, i * 1000, 1000);
             refreshAllIndices();
         }
         logger.info("Update Routing Allocation");
-        Settings.Builder updateSettings = Settings.builder()
-                .put("index.routing.allocation.include._name", nodeNamesStr[1]);
+        Settings.Builder updateSettings = Settings.builder().put("index.routing.allocation.include._name", nodeNamesStr[1]);
         updateIndexSettings(INDEX_NAME, updateSettings);
 
         Thread forceMergeThread = new Thread(() -> {
