@@ -110,13 +110,13 @@ struct ArmNeonFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, S
 
         // Tail loop for remaining vectors
         for (; processedCount < numVectors; ++processedCount) {
-            const auto* vecPtr = (const uint8_t*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
+            const auto* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
             float32x4_t acc = vdupq_n_f32(0.0f);
             int32_t i = 0;
             for (; i <= dim - numBatch; i += numBatch) {
                 float32x4_t q0 = vld1q_f32(queryPtr + i);
                 float32x4_t q1 = vld1q_f32(queryPtr + i + 4);
-                float16x8_t h0 = vld1q_f16((const __fp16 *)(vecPtr + 2 * i));
+                float16x8_t h0 = vld1q_f16((const __fp16 *)(vecPtr + i));
                 float32x4_t d0_lo = vcvt_f32_f16(vget_low_f16(h0));
                 float32x4_t d0_hi = vcvt_f32_f16(vget_high_f16(h0));
                 acc = vfmaq_f32(acc, q0, d0_lo);
