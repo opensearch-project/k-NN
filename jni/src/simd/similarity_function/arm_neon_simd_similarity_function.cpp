@@ -7,9 +7,22 @@
 #include <cstddef>
 #include <stdint.h>
 #include <cmath>
+#include <iostream>
 
 #include "simd_similarity_function_common.cpp"
 #include "faiss_score_to_lucene_transform.cpp"
+
+inline void print_f32x4(const char* label, float32x4_t v) {
+    alignas(16) float tmp[4];
+    vst1q_f32(tmp, v);
+
+    std::cout << label << ": [ "
+              << tmp[0] << ", "
+              << tmp[1] << ", "
+              << tmp[2] << ", "
+              << tmp[3] << " ]\n";
+}
+
 
 //
 // FP16
@@ -22,67 +35,76 @@ struct ArmNeonFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, S
                                    float* scores,
                                    const int32_t numVectors) {
         int32_t processedCount = 0;
-        const __fp16* queryPtr = (const __fp16*) srchContext->queryVectorSimdAligned;
+        const float* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
         const int32_t dim = srchContext->dimension;
 
         constexpr int32_t vecBlock = 8;
-        constexpr int32_t elemPerLoad = 8;
+        constexpr int32_t elemPerLoad = 4;
 
         for (; processedCount <= numVectors - vecBlock; processedCount += vecBlock) {
             const __fp16* vectors[vecBlock];
             srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
 
-            float16x8_t sum[vecBlock];
+            float32x4_t sum[vecBlock];
             #pragma unroll
             for (int v = 0; v < vecBlock; ++v) {
-                sum[v] = vdupq_n_f16(0);
+                sum[v] = vdupq_n_f32(0.0f);
             }
 
             for (int32_t i = 0; i < dim; i += elemPerLoad) {
-                float16x8_t q0 = vld1q_f16(queryPtr + i);
+                // 1. LOAD & CONVERT Phase
+                // Load 4 FP32 from query
+                float32x4_t q0 = vld1q_f32(queryPtr + i);
 
-                float16x8_t vRegs[vecBlock];
+                float32x4_t vRegs32[vecBlock];
                 #pragma unroll
                 for (int v = 0; v < vecBlock; ++v) {
-                    vRegs[v] = vld1q_f16(vectors[v] + i);
+                    // Load 4 FP16 and convert to FP32 immediately
+                    vRegs32[v] = vcvt_f32_f16(vld1_f16(vectors[v] + i));
                 }
 
+                // 2. PREFETCH Phase
+                // We prefetch the NEXT chunk of data.
+                // Query is float (4 bytes): 4 elements = 16 bytes.
+                // Vectors are fp16 (2 bytes): 4 elements = 8 bytes.
+                if ((i + elemPerLoad) < dim) {
+                    #pragma unroll
+                    for (int v = 0; v < vecBlock; ++v) {
+                        // Prefetching 32 bytes ahead is usually optimal for Neon L1
+                        __builtin_prefetch(vectors[v] + i + (elemPerLoad * 4), 0, 3);
+                    }
+                    __builtin_prefetch(queryPtr + i + (elemPerLoad * 4), 0, 3);
+                }
+
+                // 3. FMA Phase
+                // While the prefetch is issued and conversions are finishing in the pipeline...
                 #pragma unroll
                 for (int v = 0; v < vecBlock; ++v) {
-                    sum[v] = vfmaq_f16(sum[v], q0, vRegs[v]);
+                    sum[v] = vfmaq_f32(sum[v], q0, vRegs32[v]);
                 }
             }
 
-            // Manual Horizontal Reduction (More template-friendly than vaddvq_f16)
             #pragma unroll
             for (int v = 0; v < vecBlock; ++v) {
-                // 1. Fold 8 lanes into 4
-                float16x4_t low = vget_low_f16(sum[v]);
-                float16x4_t high = vget_high_f16(sum[v]);
-                float16x4_t res4 = vadd_f16(low, high);
-
-                // 2. Pairwise add to get scalar
-                // vpadd_f16 adds adjacent lanes: [a,b,c,d] -> [a+b, c+d, a+b, c+d]
-                float16x4_t res2 = vpadd_f16(res4, res4);
-                float16x4_t res1 = vpadd_f16(res2, res2);
-
-                // 3. Extract lane 0
-                scores[processedCount + v] = static_cast<float>(vget_lane_f16(res1, 0));
+                scores[processedCount + v] = vaddvq_f32(sum[v]);
             }
         }
-
-        // Tail loop (simplified for brevity, use same logic as above)
+        // Tail loop for remaining vectors
         for (; processedCount < numVectors; ++processedCount) {
             const __fp16* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
-            float16x8_t acc = vdupq_n_f16(0);
+            float32x4_t acc = vdupq_n_f32(0.0f);
             int32_t i = 0;
             for (; i <= dim - elemPerLoad; i += elemPerLoad) {
-                acc = vfmaq_f16(acc, vld1q_f16(queryPtr + i), vld1q_f16(vecPtr + i));
+                float32x4_t q = vld1q_f32(queryPtr + i);
+                float32x4_t v = vcvt_f32_f16(vld1_f16(vecPtr + i));
+                acc = vfmaq_f32(acc, q, v);
             }
-            float16x4_t r4 = vadd_f16(vget_low_f16(acc), vget_high_f16(acc));
-            float16x4_t r1 = vpadd_f16(vpadd_f16(r4, r4), vpadd_f16(r4, r4));
-            float finalSum = static_cast<float>(vget_lane_f16(r1, 0));
-            for (; i < dim; ++i) finalSum += (float)(queryPtr[i] * vecPtr[i]);
+
+            float finalSum = vaddvq_f32(acc);
+            // Scalar tail for dimensions not divisible by 4
+            for (; i < dim; ++i) {
+                finalSum += queryPtr[i] * (float)vecPtr[i];
+            }
             scores[processedCount] = finalSum;
         }
 
@@ -96,90 +118,18 @@ struct ArmNeonFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Scor
                                    int32_t* internalVectorIds,
                                    float* scores,
                                    const int32_t numVectors) {
-        int32_t processedCount = 0;
-        const __fp16* queryPtr = (const __fp16*) srchContext->queryVectorSimdAligned;
-        const int32_t dim = srchContext->dimension;
+        // Prepare similarity calculation
+        auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
+        knn_jni::util::ParameterCheck::require_non_null(
+            func, "Unexpected distance function acquired. Expected SQDistanceComputer, but it was something else");
 
-        constexpr int32_t vecBlock = 8;
-        constexpr int32_t elemPerLoad = 8;
-
-        for (; processedCount <= numVectors - vecBlock; processedCount += vecBlock) {
-            const __fp16* vectors[vecBlock];
-            srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
-
-            float16x8_t sum[vecBlock];
-            #pragma unroll
-            for (int v = 0; v < vecBlock; ++v) {
-                sum[v] = vdupq_n_f16(0);
-            }
-
-            for (int32_t i = 0; i < dim; i += elemPerLoad) {
-                float16x8_t q0 = vld1q_f16(queryPtr + i);
-
-                float16x8_t vRegs[vecBlock];
-                #pragma unroll
-                for (int v = 0; v < vecBlock; ++v) {
-                    vRegs[v] = vld1q_f16(vectors[v] + i);
-                }
-
-                // Prefetch logic
-                if ((i + elemPerLoad) < dim) {
-                    #pragma unroll
-                    for (int v = 0; v < vecBlock; ++v) {
-                        __builtin_prefetch(vectors[v] + i + elemPerLoad, 0, 3);
-                    }
-                    __builtin_prefetch(queryPtr + i + elemPerLoad, 0, 3);
-                }
-
-                // L2 Math: sum += (q - v) * (q - v)
-                #pragma unroll
-                for (int v = 0; v < vecBlock; ++v) {
-                    float16x8_t diff = vsubq_f16(q0, vRegs[v]);
-                    sum[v] = vfmaq_f16(sum[v], diff, diff);
-                }
-            }
-
-            // Pairwise Horizontal Reduction (Template-safe)
-            #pragma unroll
-            for (int v = 0; v < vecBlock; ++v) {
-                float16x4_t low = vget_low_f16(sum[v]);
-                float16x4_t high = vget_high_f16(sum[v]);
-                float16x4_t r4 = vadd_f16(low, high);
-
-                // Pairwise fold: [a, b, c, d] -> [a+b, c+d, a+b, c+d]
-                float16x4_t r2 = vpadd_f16(r4, r4);
-                float16x4_t r1 = vpadd_f16(r2, r2);
-
-                scores[processedCount + v] = static_cast<float>(vget_lane_f16(r1, 0));
-            }
+        for (int32_t i = 0 ; i < numVectors ; ++i) {
+            // Calculate distance
+            auto vector = reinterpret_cast<uint8_t*>(srchContext->getVectorPointer(internalVectorIds[i]));
+            scores[i] = func->query_to_code(vector);
         }
 
-        // Tail loop for remaining vectors
-        for (; processedCount < numVectors; ++processedCount) {
-            const auto* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
-            float16x8_t acc = vdupq_n_f16(0);
-            int32_t i = 0;
-
-            for (; i <= dim - elemPerLoad; i += elemPerLoad) {
-                float16x8_t q = vld1q_f16(queryPtr + i);
-                float16x8_t v = vld1q_f16(vecPtr + i);
-                float16x8_t diff = vsubq_f16(q, v);
-                acc = vfmaq_f16(acc, diff, diff);
-            }
-
-            // Scalar reduction for acc
-            float16x4_t r4 = vadd_f16(vget_low_f16(acc), vget_high_f16(acc));
-            float16x4_t r1 = vpadd_f16(vpadd_f16(r4, r4), vpadd_f16(r4, r4));
-            float finalSum = static_cast<float>(vget_lane_f16(r1, 0));
-
-            // Dimension tail
-            for (; i < dim; ++i) {
-                float d = static_cast<float>(queryPtr[i]) - static_cast<float>(vecPtr[i]);
-                finalSum += (d * d);
-            }
-            scores[processedCount] = finalSum;
-        }
-
+        // Transform score values if it needs to
         BulkScoreTransformFunc(scores, numVectors);
     }
 };

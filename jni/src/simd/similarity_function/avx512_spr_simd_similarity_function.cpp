@@ -123,14 +123,18 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
         const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
         const int32_t dim = srchContext->dimension;
 
+        // Use 8 to keep the register pressure low
         constexpr int32_t vecBlock = 8;
+        // Maximum number of elements to load at the same time
         constexpr int32_t elemPerLoad = 16;
+        // L2 partial sum tracking per each vector
         __m512 sum[vecBlock];
 
         for (; processedCount <= numVectors - vecBlock; processedCount += vecBlock) {
             const uint8_t* vectors[vecBlock];
             srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
 
+            // Init sum variables
             #pragma unroll
             for (int32_t v = 0; v < vecBlock; ++v) {
                 sum[v] = _mm512_setzero_ps();
@@ -140,16 +144,19 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
                 const int32_t rem = dim - i;
                 __mmask16 mask = rem < elemPerLoad ? (__mmask16)((1U << rem) - 1) : 0xFFFF;
 
-                // LOAD & CONVERT
+                // Load queries
                 __m512 q0 = _mm512_maskz_loadu_ps(mask, queryPtr + i);
 
+                // Convert N FP16 values to FP32 values per each vector.
+                // vRegs[i] will hold N FP32 converted values from ith vector.
                 __m512 vRegs[vecBlock];
                 #pragma unroll
                 for (int32_t v = 0; v < vecBlock; ++v) {
                     vRegs[v] = _mm512_cvtph_ps(_mm256_maskz_loadu_epi16(mask, vectors[v] + 2 * i));
                 }
 
-                // TRIGGER PREFETCH
+                // Trigger prefetch for the next elements (For the next iteration: +16 elements = +32 bytes)
+                // While we're doing FMA operation, this will help it pull the next elements to fit into L1 cache.
                 if ((i + elemPerLoad) < dim) {
                     const int32_t nextByteOffset = (i + elemPerLoad) * 2;
                     #pragma unroll
@@ -169,6 +176,8 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
                 }
             }
 
+            // __m512 have 16 FP32 values.
+            // __m512_reduce_add_ps is summing the values stored in __m512.
             #pragma unroll
             for (int32_t v = 0; v < vecBlock; ++v) {
                 scores[processedCount + v] = _mm512_reduce_add_ps(sum[v]);
@@ -177,6 +186,7 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
 
         // Tail loop for remaining vectors
         for (; processedCount < numVectors; ++processedCount) {
+            // Get vector
             const _Float16* vecPtr = (const _Float16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
             __m512 sumScalar = _mm512_setzero_ps();
 
@@ -184,15 +194,21 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
                 const int32_t rem = dim - i;
                 __mmask16 mask = rem < elemPerLoad ? (__mmask16)((1U << rem) - 1) : 0xFFFF;
 
+                // Have N FP32 values from query
                 __m512 q = _mm512_maskz_loadu_ps(mask, queryPtr + i);
+                // Have N FP32 values from vector
                 __m512 v = _mm512_cvtph_ps(_mm256_maskz_loadu_epi16(mask, vecPtr + i));
-
+                // Do FMA e.g. L2 = L2 + diff * diff
                 __m512 diff = _mm512_sub_ps(q, v);
                 sumScalar = _mm512_fmadd_ps(diff, diff, sumScalar);
             }
-           scores[processedCount] = _mm512_reduce_add_ps(sumScalar);
+
+            // __m512 have 16 FP32 values.
+            // __m512_reduce_add_ps is summing the values stored in __m512.
+            scores[processedCount] = _mm512_reduce_add_ps(sumScalar);
        }
 
+       // Now, convert score values to L2 score scheme that Lucene uses.
        BulkScoreTransformFunc(scores, numVectors);
    }
 };
