@@ -207,6 +207,31 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
+        return createWeight(searcher, scoreMode, boost, k);
+    }
+
+    /**
+     * Creates a {@link Weight} for this {@link KNNQuery}, allowing the caller to override
+     * the {@code k} value used during search.
+     * <p>
+     * Normally, a {@link KNNQuery} creates its {@link Weight} using the {@code k} value
+     * defined at query construction time. This method provides an alternative entry point
+     * that enables the caller to supply a different {@code k} value when building the
+     * {@link Weight}.
+     * <p>
+     * Overriding {@code k} is useful when the caller wants to expand the search budget
+     * (for example, during multi-phase search) in order to potentially
+     * retrieve more relevant candidates than the original {@code k} would allow.
+     *
+     * @param searcher   the {@link IndexSearcher} that will execute the query
+     * @param scoreMode  we don't use this value.
+     * @param boost      the boost to apply to this query
+     * @param kOverride  the {@code k} value to use when creating the {@link Weight},
+     *                   overriding the {@code k} defined in the {@link KNNQuery}
+     * @return a {@link Weight} instance configured with the overridden {@code k} value
+     */
+    public Weight createWeight(final IndexSearcher searcher, final ScoreMode scoreMode, final float boost, final int kOverride)
+        throws IOException {
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {
             stopWatch = new StopWatch().start();
@@ -227,14 +252,14 @@ public class KNNQuery extends Query {
         if (profiler != null) {
             ContextualProfileBreakdown profile = (ContextualProfileBreakdown) profiler.getProfileBreakdown(this);
             if (isMemoryOptimizedSearch) {
-                return new ProfileMemoryOptKNNWeight(this, boost, filterWeight, searcher, k, profile);
+                return new ProfileMemoryOptKNNWeight(this, boost, filterWeight, searcher, kOverride, profile);
             }
             return new ProfileDefaultKNNWeight(this, boost, filterWeight, profile);
         }
 
         if (isMemoryOptimizedSearch) {
             // Using memory optimized search logic on index.
-            return new MemoryOptimizedKNNWeight(this, boost, filterWeight, searcher, k);
+            return new MemoryOptimizedKNNWeight(this, boost, filterWeight, searcher, kOverride);
         }
 
         // Using native library to perform search on index.
