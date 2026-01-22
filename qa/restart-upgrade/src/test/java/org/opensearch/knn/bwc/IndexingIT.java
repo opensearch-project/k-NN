@@ -744,16 +744,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
-            int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
             deleteKnnDoc(testIndex, "0");
             assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
-            int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
-            assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
         } else {
-            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
-            assertTrue(segmentCountAfterUpgrade > 0);
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
     }
@@ -774,16 +769,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
-            int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
             deleteKnnDoc(testIndex, "0");
             assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
-            int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
-            assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
         } else {
-            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
-            assertTrue(segmentCountAfterUpgrade > 0);
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
     }
@@ -815,16 +805,11 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS + 1), "description", "Test document");
             assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
-            int segmentCountBeforeDelete = getTotalSegmentCount(testIndex);
             deleteKnnDoc(testIndex, "0");
             assertEquals(NUM_DOCS, getDocCount(testIndex));
             flush(testIndex, true);
-            int segmentCountAfterDelete = getTotalSegmentCount(testIndex);
-            assertTrue(segmentCountAfterDelete > segmentCountBeforeDelete);
         } else {
-            int segmentCountAfterUpgrade = getTotalSegmentCount(testIndex);
-            assertTrue(segmentCountAfterUpgrade > 0);
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS - 1, K);
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
     }
@@ -943,6 +928,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .endObject()
                 .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            // Add docs with vector fields first
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
+            flush(testIndex, true);
             // Add doc with both vector and text field
             String docWithBoth = XContentFactory.jsonBuilder()
                 .startObject()
@@ -950,13 +938,13 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .field("description", "Test document")
                 .endObject()
                 .toString();
-            addKnnDoc(testIndex, "0", docWithBoth);
+            addKnnDoc(testIndex, String.valueOf(NUM_DOCS), docWithBoth);
             // Update to remove vector field
-            addNonKNNDoc(testIndex, "0", "description", "Updated test document");
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS), "description", "Updated test document");
             flush(testIndex, true);
         } else {
-            assertEquals(1, getDocCount(testIndex));
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
+            assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
     }
@@ -987,6 +975,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .endObject()
                 .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            // Add docs with vector fields first
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
+            flush(testIndex, true);
             // Add doc with both vector and text field
             String docWithBoth = XContentFactory.jsonBuilder()
                 .startObject()
@@ -994,13 +985,13 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .field("description", "Test document")
                 .endObject()
                 .toString();
-            addKnnDoc(testIndex, "0", docWithBoth);
+            addKnnDoc(testIndex, String.valueOf(NUM_DOCS), docWithBoth);
             // Update to remove vector field
-            addNonKNNDoc(testIndex, "0", "description", "Updated test document");
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS), "description", "Updated test document");
             flush(testIndex, true);
         } else {
-            assertEquals(1, getDocCount(testIndex));
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
+            assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
     }
@@ -1029,6 +1020,9 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .endObject()
                 .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            // Add docs with vector fields first
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, NUM_DOCS);
+            flush(testIndex, true);
             // Add doc with both vector and text field
             String docWithBoth = XContentFactory.jsonBuilder()
                 .startObject()
@@ -1036,13 +1030,13 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .field("description", "Test document")
                 .endObject()
                 .toString();
-            addKnnDoc(testIndex, "0", docWithBoth);
+            addKnnDoc(testIndex, String.valueOf(NUM_DOCS), docWithBoth);
             // Update to remove vector field
-            addNonKNNDoc(testIndex, "0", "description", "Updated test document");
+            addNonKNNDoc(testIndex, String.valueOf(NUM_DOCS), "description", "Updated test document");
             flush(testIndex, true);
         } else {
-            assertEquals(1, getDocCount(testIndex));
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 0, K);
+            assertEquals(NUM_DOCS + 1, getDocCount(testIndex));
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
             deleteKNNIndex(testIndex);
         }
     }

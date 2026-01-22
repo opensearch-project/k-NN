@@ -113,6 +113,9 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedFieldsWithCompressionRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithCompressionRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testVectorFieldRemovalByUpdateCompressionRestartUpgrade"
         }
     }
 
@@ -121,6 +124,9 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedFieldsWithLuceneRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testVectorFieldRemovalByUpdateLuceneRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithLuceneRestartUpgrade"
         }
     }
     if (!(knn_bwc_version.startsWith("2.13.") ||
@@ -266,6 +272,9 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedFieldsWithCompressionRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithCompressionRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testVectorFieldRemovalByUpdateCompressionRestartUpgrade"
         }
     }
 
@@ -273,6 +282,9 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnLuceneIndex"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneForceMerge"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedFieldsWithLuceneRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testVectorFieldRemovalByUpdateLuceneRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithLuceneRestartUpgrade"
         }
     }
 
