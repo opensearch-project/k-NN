@@ -24,70 +24,103 @@ struct ArmNeonFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, S
                                    int32_t* internalVectorIds,
                                    float* scores,
                                    const int32_t numVectors) {
+        // Bulk inner product with 4 batch
         int32_t processedCount = 0;
-        const float* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
+        constexpr int32_t vecBlock = 4;
+        const uint8_t* vectors[vecBlock];
+        const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
         const int32_t dim = srchContext->dimension;
+        constexpr int32_t numBatch = 8;
 
-        constexpr int32_t vecBlock = 8;
-        constexpr int32_t elemPerLoad = 4;
-
-        for (; processedCount <= numVectors - vecBlock; processedCount += vecBlock) {
-            const __fp16* vectors[vecBlock];
+        for ( ; (processedCount + vecBlock) <= numVectors ; processedCount += vecBlock) {
             srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
 
-            float32x4_t sum[vecBlock];
-            #pragma unroll
-            for (int v = 0; v < vecBlock; ++v) {
-                sum[v] = vdupq_n_f32(0.0f);
-            }
+            // Score accumulator per each vector
+            float32x4_t acc0 = vdupq_n_f32(0.0f);
+            float32x4_t acc1 = vdupq_n_f32(0.0f);
+            float32x4_t acc2 = vdupq_n_f32(0.0f);
+            float32x4_t acc3 = vdupq_n_f32(0.0f);
 
-            for (int32_t i = 0; i < dim; i += elemPerLoad) {
-                // 1. LOAD & CONVERT Phase
-                // Load 4 FP32 from query
+            // Batch inner product for 8 values
+            int32_t i = 0;
+            for (; i + numBatch <= dim; i += numBatch) {
+                // Load 8 FP32 query elements
                 float32x4_t q0 = vld1q_f32(queryPtr + i);
+                float32x4_t q1 = vld1q_f32(queryPtr + i + 4);
 
-                float32x4_t vRegs32[vecBlock];
-                #pragma unroll
-                for (int v = 0; v < vecBlock; ++v) {
-                    // Load 4 FP16 and convert to FP32 immediately
-                    vRegs32[v] = vcvt_f32_f16(vld1_f16(vectors[v] + i));
+                // Load 8 FP16 elements from each target and convert to FP32
+                float16x8_t h0 = vld1q_f16((const __fp16 *)(vectors[0] + i * 2));
+                float16x8_t h1 = vld1q_f16((const __fp16 *)(vectors[1] + i * 2));
+                float16x8_t h2 = vld1q_f16((const __fp16 *)(vectors[2] + i * 2));
+                float16x8_t h3 = vld1q_f16((const __fp16 *)(vectors[3] + i * 2));
+                float32x4_t d0_lo = vcvt_f32_f16(vget_low_f16(h0));
+                float32x4_t d0_hi = vcvt_f32_f16(vget_high_f16(h0));
+                float32x4_t d1_lo = vcvt_f32_f16(vget_low_f16(h1));
+                float32x4_t d1_hi = vcvt_f32_f16(vget_high_f16(h1));
+                float32x4_t d2_lo = vcvt_f32_f16(vget_low_f16(h2));
+                float32x4_t d2_hi = vcvt_f32_f16(vget_high_f16(h2));
+                float32x4_t d3_lo = vcvt_f32_f16(vget_low_f16(h3));
+                float32x4_t d3_hi = vcvt_f32_f16(vget_high_f16(h3));
+
+                // Post-load prefetch: next 8 elements
+                // By the time in the next loop,
+                if (i + numBatch < dim) {
+                    __builtin_prefetch(queryPtr + i + 8);
+                    __builtin_prefetch(vectors[0] + (i + 8) * 2);
+                    __builtin_prefetch(vectors[1] + (i + 8) * 2);
+                    __builtin_prefetch(vectors[2] + (i + 8) * 2);
+                    __builtin_prefetch(vectors[3] + (i + 8) * 2);
                 }
 
-                // 2. PREFETCH Phase
-                // We prefetch the NEXT chunk of data.
-                // Query is float (4 bytes): 4 elements = 16 bytes.
-                // Vectors are fp16 (2 bytes): 4 elements = 8 bytes.
-                if ((i + elemPerLoad) < dim) {
-                    #pragma unroll
-                    for (int v = 0; v < vecBlock; ++v) {
-                        // Prefetching 32 bytes ahead is usually optimal for Neon L1
-                        __builtin_prefetch(vectors[v] + i + (elemPerLoad * 4), 0, 3);
-                    }
-                    __builtin_prefetch(queryPtr + i + (elemPerLoad * 4), 0, 3);
-                }
+                // Accumulate FMA
+                acc0 = vfmaq_f32(acc0, q0, d0_lo);
+                acc0 = vfmaq_f32(acc0, q1, d0_hi);
 
-                // 3. FMA Phase
-                // While the prefetch is issued and conversions are finishing in the pipeline...
-                #pragma unroll
-                for (int v = 0; v < vecBlock; ++v) {
-                    sum[v] = vfmaq_f32(sum[v], q0, vRegs32[v]);
-                }
+                acc1 = vfmaq_f32(acc1, q0, d1_lo);
+                acc1 = vfmaq_f32(acc1, q1, d1_hi);
+
+                acc2 = vfmaq_f32(acc2, q0, d2_lo);
+                acc2 = vfmaq_f32(acc2, q1, d2_hi);
+
+                acc3 = vfmaq_f32(acc3, q0, d3_lo);
+                acc3 = vfmaq_f32(acc3, q1, d3_hi);
             }
 
-            #pragma unroll
-            for (int v = 0; v < vecBlock; ++v) {
-                scores[processedCount + v] = vaddvq_f32(sum[v]);
+            // Horizontal sum
+            scores[processedCount] = vaddvq_f32(acc0);
+            scores[processedCount + 1] = vaddvq_f32(acc1);
+            scores[processedCount + 2] = vaddvq_f32(acc2);
+            scores[processedCount + 3] = vaddvq_f32(acc3);
+
+            // Scalar tail.
+            // For example,
+            // if dimension was 66 then this loop will take care of remaining 2 values.
+            for (; i < dim; i++) {
+                __fp16 h0 = *((const __fp16 *)(vectors[0] + i * 2));
+                __fp16 h1 = *((const __fp16 *)(vectors[1] + i * 2));
+                __fp16 h2 = *((const __fp16 *)(vectors[2] + i * 2));
+                __fp16 h3 = *((const __fp16 *)(vectors[3] + i * 2));
+                const float qv = queryPtr[i];
+                scores[processedCount] += qv * (float)h0;
+                scores[processedCount + 1] += qv * (float)h1;
+                scores[processedCount + 2] += qv * (float)h2;
+                scores[processedCount + 3] += qv * (float)h3;
             }
         }
+
         // Tail loop for remaining vectors
         for (; processedCount < numVectors; ++processedCount) {
-            const __fp16* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
+            const auto* vecPtr = (const uint8_t*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
             float32x4_t acc = vdupq_n_f32(0.0f);
             int32_t i = 0;
-            for (; i <= dim - elemPerLoad; i += elemPerLoad) {
-                float32x4_t q = vld1q_f32(queryPtr + i);
-                float32x4_t v = vcvt_f32_f16(vld1_f16(vecPtr + i));
-                acc = vfmaq_f32(acc, q, v);
+            for (; i <= dim - numBatch; i += numBatch) {
+                float32x4_t q0 = vld1q_f32(queryPtr + i);
+                float32x4_t q1 = vld1q_f32(queryPtr + i + 4);
+                float16x8_t h0 = vld1q_f16((const __fp16 *)(vecPtr + 2 * i));
+                float32x4_t d0_lo = vcvt_f32_f16(vget_low_f16(h0));
+                float32x4_t d0_hi = vcvt_f32_f16(vget_high_f16(h0));
+                acc = vfmaq_f32(acc, q0, d0_lo);
+                acc = vfmaq_f32(acc, q1, d0_hi);
             }
 
             float finalSum = vaddvq_f32(acc);
