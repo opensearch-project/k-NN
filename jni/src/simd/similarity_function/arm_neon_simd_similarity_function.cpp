@@ -30,7 +30,7 @@ struct ArmNeonFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, S
         const uint8_t* vectors[vecBlock];
         const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
         const int32_t dim = srchContext->dimension;
-        constexpr int32_t numBatch = 8;
+        constexpr int32_t dimensionBatch = 8;
 
         for ( ; (processedCount + vecBlock) <= numVectors ; processedCount += vecBlock) {
             srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
@@ -43,7 +43,7 @@ struct ArmNeonFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, S
 
             // Batch inner product for 8 values
             int32_t i = 0;
-            for (; i + numBatch <= dim; i += numBatch) {
+            for (; i + dimensionBatch <= dim; i += dimensionBatch) {
                 // Load 8 FP32 query elements
                 float32x4_t q0 = vld1q_f32(queryPtr + i);
                 float32x4_t q1 = vld1q_f32(queryPtr + i + 4);
@@ -64,7 +64,7 @@ struct ArmNeonFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, S
 
                 // Post-load prefetch: next 8 elements
                 // By the time in the next loop,
-                if (i + numBatch < dim) {
+                if (i + dimensionBatch < dim) {
                     __builtin_prefetch(queryPtr + i + 8);
                     __builtin_prefetch(vectors[0] + (i + 8) * 2);
                     __builtin_prefetch(vectors[1] + (i + 8) * 2);
@@ -113,7 +113,7 @@ struct ArmNeonFP16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, S
             const auto* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
             float32x4_t acc = vdupq_n_f32(0.0f);
             int32_t i = 0;
-            for (; i <= dim - numBatch; i += numBatch) {
+            for (; i <= dim - dimensionBatch; i += dimensionBatch) {
                 float32x4_t q0 = vld1q_f32(queryPtr + i);
                 float32x4_t q1 = vld1q_f32(queryPtr + i + 4);
                 float16x8_t h0 = vld1q_f16((const __fp16 *)(vecPtr + i));
