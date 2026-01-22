@@ -162,6 +162,9 @@ public class Documents {
 
         // At least we must have 0.8 recall.
         float matchRatio = (float) matchCount / (float) results.size();
-        assertTrue("Match ratio[=" + matchRatio + "] <= 0.8", matchRatio > 0.8);
+        assertTrue(
+            "Match ratio[=" + matchRatio + "] <= 0.8, matchCount=" + matchCount + ", num results=" + results.size(),
+            matchRatio > 0.8
+        );
     }
 }

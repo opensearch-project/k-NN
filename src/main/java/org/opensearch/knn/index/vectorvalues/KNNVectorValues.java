@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.vectorvalues;
 
+import lombok.Getter;
 import lombok.ToString;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.index.BinaryDocValues;
@@ -21,6 +22,7 @@ import java.io.IOException;
 @ToString
 public abstract class KNNVectorValues<T> {
 
+    @Getter
     protected final KNNVectorValuesIterator vectorValuesIterator;
     protected int dimension;
     protected int bytesPerVector;

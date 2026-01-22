@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.iterators;
+package org.opensearch.knn.index.query.exactsearch;
 
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class BinaryVectorIdsKNNIteratorTests extends TestCase {
+public class BinaryVectorIdsExactKNNIteratorTests extends TestCase {
     @SneakyThrows
     public void testNextDoc_whenCalled_IterateAllDocs() {
         final SpaceType spaceType = SpaceType.HAMMING;
@@ -46,7 +46,7 @@ public class BinaryVectorIdsKNNIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        BinaryVectorIdsKNNIterator iterator = new BinaryVectorIdsKNNIterator(
+        BinaryVectorIdsExactKNNIterator iterator = new BinaryVectorIdsExactKNNIterator(
             new BitSetIterator(filterBitSet, filterBitSet.length()),
             queryVector,
             values,
@@ -92,7 +92,7 @@ public class BinaryVectorIdsKNNIteratorTests extends TestCase {
         stubbing.thenReturn(Integer.MAX_VALUE);
 
         // Execute and verify
-        BinaryVectorIdsKNNIterator iterator = new BinaryVectorIdsKNNIterator(queryVector, values, spaceType);
+        BinaryVectorIdsExactKNNIterator iterator = new BinaryVectorIdsExactKNNIterator(queryVector, values, spaceType);
         for (int i = 0; i < dataVectors.size(); i++) {
             assertEquals(i, iterator.nextDoc());
             assertEquals(expectedScores.get(i), iterator.score());

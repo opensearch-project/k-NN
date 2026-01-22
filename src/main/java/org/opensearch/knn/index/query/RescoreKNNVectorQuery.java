@@ -22,6 +22,7 @@ import org.apache.lucene.search.Weight;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;

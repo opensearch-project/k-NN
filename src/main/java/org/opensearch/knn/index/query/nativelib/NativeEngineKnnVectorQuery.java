@@ -24,13 +24,14 @@ import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.query.ExactSearcher;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.memoryoptsearch.optimistic.OptimisticSearchStrategyUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
@@ -368,7 +369,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             final ReentrantKnnCollectorManager reentrantCollectorManager = new ReentrantKnnCollectorManager(
                 new TopKnnCollectorManager(k, indexSearcher),
                 segmentOrdToResults,
-                knnQuery.getQueryVector(),
+                knnQuery.getVectorDataType() == VectorDataType.FLOAT ? knnQuery.getQueryVector() : knnQuery.getByteQueryVector(),
                 knnQuery.getField()
             );
 
