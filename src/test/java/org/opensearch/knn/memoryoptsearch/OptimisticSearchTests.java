@@ -21,6 +21,7 @@ import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.common.QueryUtils;
@@ -69,6 +70,9 @@ public class OptimisticSearchTests {
         when(knnQuery.createWeight(any(), any(), anyFloat())).thenReturn(knnWeight);
         when(knnQuery.getK()).thenReturn(DEFAULT_K);
         when(knnQuery.isMemoryOptimizedSearch()).thenReturn(true);
+        when(knnQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(knnQuery.getQueryVector()).thenReturn(new float[8]);
+        when(knnQuery.getField()).thenReturn("field");
     }
 
     @Test
