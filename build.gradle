@@ -662,6 +662,13 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
     systemProperty("test.base_path", System.getProperty("test.base_path"))
 }
 
+task integTestRelocationWhenMerge(type: RestIntegTestTask) {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, 2)
+    filter {
+        includeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
+}
+
 def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     cluster.testDistribution = "ARCHIVE"
 
@@ -685,6 +692,9 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
     // since we also support multi node integration tests we increase debugPort per node
+    cluster.nodes.forEach { node ->
+        node.jvmArgs("-Xmx512m")
+    }
     if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
         cluster.nodes.forEach { node ->
@@ -692,6 +702,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
             debugPort += 1
         }
     }
+
 
     cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
@@ -718,6 +729,10 @@ testClusters.integTestRemoteIndexBuild {
     keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
     // Forcing optimistic search for testing
     systemProperty 'mem_opt_srch.force_reenter', 'true'
+}
+
+testClusters.integTestRelocationWhenMerge {
+    commonIntegTestClusters(it, 2)
 }
 
 task integTestRemote(type: RestIntegTestTask) {

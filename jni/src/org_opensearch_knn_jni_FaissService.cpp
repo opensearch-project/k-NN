@@ -569,10 +569,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
     }
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_unsetMergeInterruptCallback(JNIEnv * env, jclass cls)
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_testMergeInterruptCallback(JNIEnv * env, jclass cls)
 {
     try {
-        faiss::InterruptCallback::instance.get()->clear_instance();
+        faiss::InterruptCallback::instance.get()->want_interrupt();
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

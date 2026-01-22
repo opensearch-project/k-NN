@@ -18,7 +18,7 @@ import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
 import java.util.Map;
-
+import lombok.extern.log4j.Log4j2;
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
  * <p>
@@ -27,6 +27,7 @@ import java.util.Map;
  *      src/main/java/org/opensearch/knn/index/query/KNNQueryResult.java
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
  */
+@Log4j2
 class FaissService {
 
     static {
@@ -38,8 +39,10 @@ class FaissService {
             KNNMergeHelper.class.getMethod("isMergeAborted");
             KNNMergeHelper.isMergeAborted();
             setMergeInterruptCallback();
+            testMergeInterruptCallback();
         } catch (Exception e) {
             //Ignore merge abort callback
+            log.error("Init Faiss Service Error" + e);
         }
     }
 
@@ -452,4 +455,6 @@ class FaissService {
      * we need
      */
     public static native void setMergeInterruptCallback();
+
+    public static native void testMergeInterruptCallback();
 }

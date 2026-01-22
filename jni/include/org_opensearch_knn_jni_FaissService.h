@@ -285,10 +285,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    setMergeInterruptCallback
+ * Method:    testMergeInterruptCallback
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_unsetMergeInterruptCallback(JNIEnv * env, jclass cls);
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_testMergeInterruptCallback(JNIEnv * env, jclass cls);
 
 #ifdef __cplusplus
 }
