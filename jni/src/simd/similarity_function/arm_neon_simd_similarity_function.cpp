@@ -12,16 +12,6 @@
 #include "simd_similarity_function_common.cpp"
 #include "faiss_score_to_lucene_transform.cpp"
 
-inline void print_f32x4(const char* label, float32x4_t v) {
-    alignas(16) float tmp[4];
-    vst1q_f32(tmp, v);
-
-    std::cout << label << ": [ "
-              << tmp[0] << ", "
-              << tmp[1] << ", "
-              << tmp[2] << ", "
-              << tmp[3] << " ]\n";
-}
 
 
 //
