@@ -18,7 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add regex support to derived source transformer include / exclude check [#3031](https://github.com/opensearch-project/k-NN/pull/3031)
 * Correct ef_search parameter for Lucene engine and override mergeLeafResults to return top K results [#3037](https://github.com/opensearch-project/k-NN/pull/3037)
 * Fix efficient filtering in nested k-NN queries [#2990](https://github.com/opensearch-project/k-NN/pull/2990)
+* Fix nested docs and exact search query when some docs has no vector field present. [#3051](https://github.com/opensearch-project/k-NN/pull/3051)
 * Changed warmup seek to use long instead of int to avoid overflow [#3067](https://github.com/opensearch-project/k-NN/pull/3067)
+* Fix memory-optimized-search reentrant search bug in byte index. [#3071](https://github.com/opensearch-project/k-NN/pull/3071)
+* Fix MemoryOptimizedKNNWeight to use expanded 'k' for disk based index. [#3061](https://github.com/opensearch-project/k-NN/pull/3061)
 
 ### Refactoring
 * Change ordering of build task and added tests to catch uninitialized libraries [#3024](https://github.com/opensearch-project/k-NN/pull/3024)

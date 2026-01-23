@@ -5,9 +5,11 @@
 
 package org.opensearch.lucene;
 
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.lucene90.IndexedDISI;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReader;
@@ -18,6 +20,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
+import org.apache.lucene.util.IOSupplier;
 
 import java.io.IOException;
 import java.util.Map;
@@ -32,22 +35,28 @@ import java.util.Map;
  * {@link SeededTopDocsDISI} and {@link SeededMappedDISI}, enabling the internal searcher to start from these known points
  * instead of beginning from random or default graph entry nodes.
  * <p>
- * See <a href="https://github.com/apache/lucene/blob/71e822e6240878018a6ff3c28381a0d88bebdc72/lucene/core/src/java/org/apache/lucene/search/AbstractKnnVectorQuery.java#L368">...</a>
+ * See
+ * <a href="https://github.com/apache/lucene/blob/71e822e6240878018a6ff3c28381a0d88bebdc72/lucene/core/src/java/org/apache/lucene/search/AbstractKnnVectorQuery.java#L368">...</a>
  */
 @Log4j2
 @RequiredArgsConstructor
 public class ReentrantKnnCollectorManager implements KnnCollectorManager {
 
     // The underlying (delegate) KNN collector manager used to create collectors.
+    @NonNull
     private final KnnCollectorManager knnCollectorManager;
 
     // Mapping from segment ordinal to previously collected {@link TopDocs}.
+    @NonNull
     private final Map<Integer, TopDocs> segmentOrdToResults;
 
     // Query vector used for scoring during vector similarity search.
-    private final float[] query;
+    // It must be float[] or byte[]
+    @NonNull
+    private final Object query;
 
     // Name of the vector field being searched.
+    @NonNull
     private final String field;
 
     /**
@@ -83,32 +92,41 @@ public class ReentrantKnnCollectorManager implements KnnCollectorManager {
 
         // Obtain the per-segment vector values
         final LeafReader reader = ctx.reader();
-        final FloatVectorValues vectorValues = reader.getFloatVectorValues(field);
-        if (vectorValues == null) {
-            log.error("Acquired null {} for field [{}]", FloatVectorValues.class.getSimpleName(), field);
-            // Validates the field exists, otherwise throws informative exception
-            FloatVectorValues.checkField(reader, field);
-            return null;
+
+        final IOSupplier<VectorScorer> vectorScorerSupplier;
+        if (query instanceof float[] floatQuery) {
+            final FloatVectorValues vectorValues = reader.getFloatVectorValues(field);
+            if (vectorValues == null) {
+                log.error("Acquired null {} for field [{}]", FloatVectorValues.class.getSimpleName(), field);
+                // Validates the field exists, otherwise throws informative exception
+                FloatVectorValues.checkField(reader, field);
+                return null;
+            }
+            vectorScorerSupplier = () -> vectorValues.scorer(floatQuery);
+        } else if (query instanceof byte[] byteQuery) {
+            final ByteVectorValues vectorValues = reader.getByteVectorValues(field);
+            if (vectorValues == null) {
+                log.error("Acquired null {} for field [{}]", ByteVectorValues.class.getSimpleName(), field);
+                // Validates the field exists, otherwise throws informative exception
+                ByteVectorValues.checkField(reader, field);
+                return null;
+            }
+            vectorScorerSupplier = () -> vectorValues.scorer(byteQuery);
+        } else {
+            throw new IllegalStateException("Unknown query type: " + query.getClass());
         }
 
         // Create a vector scorer for the query vector
-        final VectorScorer scorer = vectorValues.scorer(query);
+        final VectorScorer scorer = vectorScorerSupplier.get();
 
         if (scorer == null) {
             log.error("Acquired null {} for field [{}]", VectorScorer.class.getSimpleName(), field);
             // Normally shouldn't happen
-            assert false;
             return delegateCollector;
         }
 
         // Get DocIdSetIterator from scorer
         DocIdSetIterator vectorIterator = scorer.iterator();
-
-        // Convert to an indexed iterator if possible (for sparse vectors)
-        // Note that we're extracting DISI from Lucene's flat vector.
-        if (vectorIterator instanceof IndexedDISI indexedDISI) {
-            vectorIterator = IndexedDISI.asDocIndexIterator(indexedDISI);
-        }
 
         // Map seed document IDs to vector indices to use as HNSW entry points
         if (vectorIterator instanceof KnnVectorValues.DocIndexIterator indexIterator) {
@@ -128,7 +146,6 @@ public class ReentrantKnnCollectorManager implements KnnCollectorManager {
         );
 
         // This should not occur; fallback to delegate to prevent infinite loops
-        assert false;
         return delegateCollector;
     }
 }

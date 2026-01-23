@@ -28,6 +28,7 @@ import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.test.OpenSearchTestCase;
 

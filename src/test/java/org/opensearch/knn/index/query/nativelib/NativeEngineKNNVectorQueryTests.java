@@ -31,18 +31,24 @@ import org.mockito.invocation.InvocationOnMock;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.query.ExactSearcher;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.lucene.ReentrantKnnCollectorManager;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,15 +96,29 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         reader = createTestIndexReader();
         indexReaderContext = reader.getContext();
         when(searcher.getIndexReader()).thenReturn(reader);
-        when(knnQuery.createWeight(searcher, scoreMode, 1)).thenReturn(knnWeight);
+        when(knnQuery.createWeight(eq(searcher), eq(scoreMode), eq(1f))).thenReturn(knnWeight);
+        when(knnQuery.createWeight(eq(searcher), eq(scoreMode), eq(1f), anyInt())).thenReturn(knnWeight);
+        when(knnQuery.getIndexName()).thenReturn("test-index");
         when(searcher.getTaskExecutor()).thenReturn(taskExecutor);
         when(taskExecutor.invokeAll(any())).thenAnswer(invocationOnMock -> {
-            List<Callable<PerLeafResult>> callables = invocationOnMock.getArgument(0);
-            List<PerLeafResult> results = new ArrayList<>();
-            for (Callable<PerLeafResult> callable : callables) {
-                results.add(callable.call());
+            List<Callable<?>> callables = invocationOnMock.getArgument(0);
+            List<PerLeafResult> perLeafResults = new ArrayList<>();
+            List<TopDocs> topDocs = new ArrayList<>();
+            boolean isForPerLeaf = false;
+
+            for (Callable<?> callable : callables) {
+                Object result = callable.call();
+                if (result instanceof PerLeafResult perLeafResult) {
+                    isForPerLeaf = true;
+                    perLeafResults.add(perLeafResult);
+                } else if (result instanceof TopDocs topDocsResult) {
+                    topDocs.add(topDocsResult);
+                } else {
+                    fail("Unknown type : " + result.getClass().getName());
+                }
             }
-            return results;
+
+            return isForPerLeaf ? perLeafResults : topDocs;
         });
         when(clusterService.state()).thenReturn(mock(ClusterState.class)); // Mock ClusterState
         // Set ClusterService in KNNSettings
@@ -189,12 +209,16 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             ResultUtil.resultMapToTopDocs(convertTopDocsToMap(leaf2Result.getResult()), leaf2.docBase) };
         TopDocs expectedTopDocs = TopDocs.merge(4, topDocs);
 
-        // When
-        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
-        // Then
-        Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
-        assertEquals(expected, actual.getQuery());
+            // When
+            Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
+
+            // Then
+            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
+            assertEquals(expected, actual.getQuery());
+        }
     }
 
     @SneakyThrows
@@ -225,18 +249,22 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         TopDocs[] topDocs = { leafResult.getResult() };
         TopDocs expectedTopDocs = TopDocs.merge(4, topDocs);
 
-        // When
-        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
-        // Then
-        Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
-        assertEquals(expected, actual.getQuery());
-        for (ScoreDoc scoreDoc : expectedTopDocs.scoreDocs) {
-            int docId = scoreDoc.doc;
-            if (docId == 0) continue;
-            float score = scoreDoc.score;
-            actual.explain(leaf1, docId);
-            verify(knnWeight).explain(leaf1, docId, score);
+            // When
+            Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
+
+            // Then
+            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
+            assertEquals(expected, actual.getQuery());
+            for (ScoreDoc scoreDoc : expectedTopDocs.scoreDocs) {
+                int docId = scoreDoc.doc;
+                if (docId == 0) continue;
+                float score = scoreDoc.score;
+                actual.explain(leaf1, docId);
+                verify(knnWeight).explain(leaf1, docId, score);
+            }
         }
     }
 
@@ -350,12 +378,16 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnQuery.getK()).thenReturn(k);
         TopDocs expectedTopDocs = ResultUtil.resultMapToTopDocs(convertTopDocsToMap(leaf1Result.getResult()), leaf1.docBase);
 
-        // When
-        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, boost);
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
-        // Then
-        Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
-        assertEquals(expected, actual.getQuery());
+            // When
+            Weight actual = objectUnderTest.createWeight(searcher, scoreMode, boost);
+
+            // Then
+            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
+            assertEquals(expected, actual.getQuery());
+        }
     }
 
     @SneakyThrows
@@ -366,11 +398,15 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnWeight.searchLeaf(leaf1, 4)).thenReturn(PerLeafResult.EMPTY_RESULT);
         when(knnQuery.getK()).thenReturn(4);
 
-        // When
-        Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
-        // Then
-        assertEquals(new MatchNoDocsQuery(), actual.getQuery());
+            // When
+            Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
+
+            // Then
+            assertEquals(new MatchNoDocsQuery(), actual.getQuery());
+        }
     }
 
     @SneakyThrows
@@ -557,10 +593,16 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         // Run
         NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, queryUtils, true);
-        Weight finalWeigh = query.createWeight(searcher, scoreMode, 1.f);
 
-        // Verify
-        assertEquals(expectedWeight, finalWeigh);
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
+
+            Weight finalWeigh = query.createWeight(searcher, scoreMode, 1.f);
+
+            // Verify
+            assertEquals(expectedWeight, finalWeigh);
+        }
+
         verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, PerLeafResult.MATCH_ALL_BIT_SET);
         verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, PerLeafResult.MATCH_ALL_BIT_SET);
         ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
@@ -581,6 +623,205 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         assertEquals(1, contextCaptor.getValue().getMatchedDocsIterator().nextDoc());
         assertEquals(2, contextCaptor.getValue().getMatchedDocsIterator().nextDoc());
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, contextCaptor.getValue().getMatchedDocsIterator().nextDoc());
+    }
+
+    public void testMemoryOptimizedSearchUsingExpandKAbove1000() {
+        // No Rescore + Disable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(1200, false, true);
+
+        // No Rescore + Enable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(1200, false, false);
+
+        // Rescore + Disable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(1200, true, true);
+
+        // Rescore + Enable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(1200, true, false);
+    }
+
+    public void testMemoryOptimizedSearchUsingExpandKIn768_1000() {
+        // No Rescore + Disable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(800, false, true);
+
+        // No Rescore + Enable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(800, false, false);
+
+        // Rescore + Disable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(800, true, true);
+
+        // Rescore + Enable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(800, true, false);
+    }
+
+    public void testMemoryOptimizedSearchUsingExpandKBelow768Dimension() {
+        // No Rescore + Disable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(100, false, true);
+
+        // No Rescore + Enable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(100, false, false);
+
+        // Rescore + Disable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(100, true, true);
+
+        // Rescore + Enable shard level rescoring
+        doTestMemoryOptimizedSearchUsingExpandK(100, true, false);
+    }
+
+    @SneakyThrows
+    private void doTestMemoryOptimizedSearchUsingExpandK(
+        final int dimension,
+        final boolean rescoreEnabled,
+        final boolean isShardLevelRescoringDisabled
+    ) {
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            // Enforce reentrant search
+            System.setProperty("mem_opt_srch.force_reenter", "true");
+
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any()))
+                .thenReturn(isShardLevelRescoringDisabled);
+
+            // Prepare index searcher + reader
+            final IndexSearcher indexSearcher = mock(IndexSearcher.class);
+            final IndexReader indexReader = mock(CompositeReader.class);
+            when(indexSearcher.getIndexReader()).thenReturn(indexReader);
+            when(indexSearcher.getTaskExecutor()).thenReturn(taskExecutor);
+
+            // LeafReaderContext(CompositeReaderContext parent, LeafReader reader, int ord, int docBase, int leafOrd, int leafDocBase)
+            Constructor<LeafReaderContext> ctor = LeafReaderContext.class.getDeclaredConstructor(
+                CompositeReaderContext.class,
+                LeafReader.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class
+            );
+            ctor.setAccessible(true);
+            final LeafReader leafReader = mock(LeafReader.class);
+            // We should prepare 2 segments to trigger reentrant search with MOS
+            when(indexReader.leaves()).thenReturn(
+                Arrays.asList(ctor.newInstance(null, leafReader, 0, 0, 0, 0), ctor.newInstance(null, leafReader, 1, 10000, 1, 10000))
+            );
+            when(indexReader.getContext()).thenReturn(indexReaderContext);
+
+            // Prepare query
+            final KNNQuery knnQuery = mock(KNNQuery.class);
+            final int k = 50;
+            when(knnQuery.getField()).thenReturn("field");
+            when(knnQuery.getOriginalQueryVector()).thenReturn(new float[dimension]);
+            when(knnQuery.getQueryVector()).thenReturn(new float[dimension]);
+            when(knnQuery.getK()).thenReturn(k);
+            when(knnQuery.getMethodParameters()).thenReturn(Collections.emptyMap());
+            when(knnQuery.getIndexName()).thenReturn("test-index");
+            when(knnQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+            when(knnQuery.isMemoryOptimizedSearch()).thenReturn(true);
+            if (rescoreEnabled) {
+                when(knnQuery.getRescoreContext()).thenReturn(RescoreContext.getDefault());
+            }
+
+            final int expectedExpandedK = RescoreContext.getDefault().getFirstPassK(k, isShardLevelRescoringDisabled, dimension);
+            final MemoryOptimizedKNNWeight weight = mock(MemoryOptimizedKNNWeight.class);
+            doAnswer(invocation -> {
+                // This will be invoked for reentrant search.
+                // Once reentrant search is determined, then the collector should have the correct `k` value.
+
+                final ReentrantKnnCollectorManager reentrantKnnCollectorManager = invocation.getArgument(0);
+
+                // Extract `k` value
+                Field delegateField = ReentrantKnnCollectorManager.class.getDeclaredField("knnCollectorManager");
+                delegateField.setAccessible(true);
+
+                Object delegate = delegateField.get(reentrantKnnCollectorManager);
+                Field kField = delegate.getClass().getDeclaredField("k");
+                kField.setAccessible(true);
+
+                final int passedK = (int) kField.get(delegate);
+
+                // Validate `k` value
+                if (rescoreEnabled) {
+                    assertEquals(expectedExpandedK, passedK);
+                } else {
+                    assertEquals(k, passedK);
+                }
+
+                return null;
+            }).when(weight).setReentrantKNNCollectorManager(any());
+
+            when(weight.searchLeaf(any(), anyInt())).thenAnswer(invocation -> {
+                // This will be called for searching a single Lucene segment.
+                // Passed `k` value should have a correct value.
+
+                // Validate passed `k`
+                final int passedK = invocation.getArgument(1);
+                if (rescoreEnabled) {
+                    assertEquals(expectedExpandedK, passedK);
+                } else {
+                    assertEquals(k, passedK);
+                }
+
+                // Make dummy results and return
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, i);
+                }
+                final TopDocs topDocs = new TopDocs(totalHits, scoreDocs);
+                return new PerLeafResult(null, 0, topDocs, PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
+            });
+
+            when(weight.exactSearch(any(), any())).thenAnswer(invocation -> {
+                // Make dummy results and return for exactSearch which is called when rescoring is enabled.
+                ExactSearcher.ExactSearcherContext context = invocation.getArgument(1);
+                final int passedK = context.getK();
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, i);
+                }
+                return new TopDocs(totalHits, scoreDocs);
+            });
+
+            when(weight.approximateSearch(any(), any(), anyInt(), anyInt())).thenAnswer(invocation -> {
+                // This is called when reentrant search is enabled.
+                // It should have the correct `k` value.
+                final int passedK = invocation.getArgument(3);
+                if (rescoreEnabled) {
+                    assertEquals(expectedExpandedK, passedK);
+                } else {
+                    assertEquals(k, passedK);
+                }
+
+                // Make dummy results and return
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, i);
+                }
+                return new TopDocs(totalHits, scoreDocs);
+            });
+
+            // Weight creation mocking
+            when(knnQuery.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1)).thenAnswer(invocation -> {
+                if (rescoreEnabled) {
+                    throw new AssertionError("This should not be called when rescoring enabled");
+                }
+                return weight;
+            });
+
+            when(knnQuery.createWeight(eq(indexSearcher), eq(ScoreMode.TOP_DOCS), eq(1f), anyInt())).thenAnswer(invocation -> {
+                if (rescoreEnabled == false) {
+                    throw new AssertionError("This should not be called when rescoring disabled");
+                }
+                final int expandedK = invocation.getArgument(3);
+                assertEquals(expectedExpandedK, expandedK);
+                return weight;
+            });
+
+            // Create NativeEngineKnnVectorQuery and do search.
+            final NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false);
+            query.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1);
+        } finally {
+            System.clearProperty("mem_opt_srch.force_reenter");
+        }
     }
 
     private IndexReader createTestIndexReader() throws IOException {
