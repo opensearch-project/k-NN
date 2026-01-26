@@ -41,6 +41,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -252,6 +253,10 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     ) throws IOException {
         // Try with memory optimized searcher
         final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(field);
+
+        if (target == null) {
+            throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
+        }
 
         if (memoryOptimizedSearcher != null) {
             if (isFloatVector) {

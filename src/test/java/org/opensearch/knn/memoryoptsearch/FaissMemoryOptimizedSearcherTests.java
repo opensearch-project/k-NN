@@ -50,6 +50,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -308,6 +309,12 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
     public void testADCWithBinaryQuantizationCosine() {
         doTestADCWithBinaryQuantization(SpaceType.COSINESIMIL);
+    }
+
+    public void testWarmupInitializationException_whenNullVectorSupplied_thenThrowsException() {
+        assertThrows(FaissMemoryOptimizedSearcher.WarmupInitializationException.class, () -> {
+            throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
+        });
     }
 
     @SneakyThrows
