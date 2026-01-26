@@ -28,7 +28,6 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.warmup.MemoryOptimizedSearchWarmup;
 
 import java.io.IOException;
@@ -90,7 +89,6 @@ public class KNNIndexShard {
 
         final MapperService mapperService = indexShard.mapperService();
         final String indexName = indexShard.shardId().getIndexName();
-        final Directory directory = indexShard.store().directory();
 
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup-mem")) {
             final Directory directory = indexShard.store().directory();
