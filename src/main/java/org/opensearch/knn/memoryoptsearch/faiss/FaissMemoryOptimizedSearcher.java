@@ -28,6 +28,18 @@ import java.util.concurrent.ThreadLocalRandom;
  * This searcher directly reads FAISS index file via the provided {@link IndexInput} then perform vector search on it.
  */
 public class FaissMemoryOptimizedSearcher implements VectorSearcher {
+
+    /**
+     * Exception thrown during warmup initialization when the search cannot proceed.
+     * This encapsulates expected exceptions like NullPointerException (from null target vectors)
+     * and UnsupportedOperationException (from vector encoding mismatches with quantized indices).
+     */
+    public static class WarmupInitializationException extends RuntimeException {
+        public WarmupInitializationException(String message) {
+            super(message);
+        }
+    }
+
     private final IndexInput indexInput;
     private final FaissIndex faissIndex;
     private final FlatVectorsScorer flatVectorsScorer;
