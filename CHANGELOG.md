@@ -29,3 +29,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Enhancements
 * Index setting to disable exact search after ANN Search with Faiss efficient filters [#3022](https://github.com/opensearch-project/k-NN/pull/3022)
+* Bulk SIMD for FP16 distance computation [#3071](https://github.com/opensearch-project/k-NN/pull/3071)
