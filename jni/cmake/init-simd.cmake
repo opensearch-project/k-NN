@@ -5,6 +5,7 @@
 
 include(CheckCXXSourceCompiles)
 
+
 # Allow user overrides
 if(NOT DEFINED AVX2_ENABLED)
     set(AVX2_ENABLED true)   # set default value as true if the argument is not set
@@ -68,7 +69,11 @@ elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} 
     endif()
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
-    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512fp16 -mf16c")
+    # -mavx512f	: 512-bit Registers & FMA. Ex: __m512, _mm512_fmadd_ps
+    # -mavx512bw : 16-bit Masking. Ex: __mmask16, mask generation
+    # -mavx512vl : 256-bit "Sub-vector" support. Ex: _mm256_maskz_loadu_epi16
+    # -mavx512fp16 : Native FP16 / EVEX Conversion.
+    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512fp16")
     check_cxx_source_compiles("
         #include <immintrin.h>
         int main() {
@@ -83,7 +88,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     if(HAVE_AVX512_SPR_COMPILER)
         set(KNN_HAVE_AVX512_SPR ON)
         set(SIMD_OPT_LEVEL "avx512_spr")
-        set(SIMD_FLAGS -mavx512f -mavx512fp16 -mf16c)
+        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512vl -mavx512fp16)
         add_definitions(-DKNN_HAVE_AVX512_SPR)
         message(STATUS "[SIMD] AVX512_SPR supported by compiler.")
     else()
@@ -91,7 +96,10 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     endif()
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_ENABLED)
-    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mf16c")
+    # -mavx512f	: 512-bit Registers & FMA. Ex: __m512, _mm512_fmadd_ps
+    # -mavx512bw : 16-bit Masking. Ex: __mmask16, mask generation
+    # -mavx512vl : 256-bit "Sub-vector" support. Ex: _mm256_maskz_loadu_epi16
+    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512vl -mavx512bw")
     check_cxx_source_compiles("
         #include <immintrin.h>
         int main() {
@@ -105,7 +113,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_ENABLED)
     if(HAVE_AVX512_COMPILER)
         set(KNN_HAVE_AVX512 ON)
         set(SIMD_OPT_LEVEL "avx512") # Keep optimization level as avx512 to improve performance on Linux. This is not present on mac systems, and presently not supported on Windows OS.
-        set(SIMD_FLAGS -mavx512f -mf16c)
+        set(SIMD_FLAGS -mavx512f -mavx512vl -mavx512bw)
         add_definitions(-DKNN_HAVE_AVX512)
         message(STATUS "[SIMD] AVX512 + F16C supported by compiler.")
     else()

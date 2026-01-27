@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 
+#include "parameter_utils.h"
 #include "platform_defs.h"
 #include "simd/similarity_function/similarity_function.h"
 #include "faiss/impl/ScalarQuantizer.h"
@@ -267,3 +268,27 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
 SimdVectorSearchContext* SimilarityFunction::getSearchContext() {
     return &THREAD_LOCAL_SIMD_VEC_SRCH_CTX;
 }
+
+//
+// Similarity function base
+//
+using BulkScoreTransform = void (*)(float*/*scores*/, int32_t/*num scores to transform*/);
+using ScoreTransform = float (*)(float/*score*/);
+
+template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
+struct BaseSimilarityFunction : SimilarityFunction {
+    float calculateSimilarity(SimdVectorSearchContext* srchContext, const int32_t internalVectorId) final {
+        // Prepare distance calculation
+        auto vector = reinterpret_cast<uint8_t*>(srchContext->getVectorPointer(internalVectorId));
+        knn_jni::util::ParameterCheck::require_non_null(vector, "vector from getVectorPointer");
+        auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
+        knn_jni::util::ParameterCheck::require_non_null(
+            func, "Unexpected distance function acquired. Expected SQDistanceComputer, but it was something else");
+
+        // Calculate distance
+        const float score = func->query_to_code(vector);
+
+        // Transform score value if it needs to
+        return ScoreTransformFunc(score);
+    }
+};

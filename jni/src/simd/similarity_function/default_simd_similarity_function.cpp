@@ -12,15 +12,13 @@
 // FP16
 //
 
-using BulkScoreTransform = void (*)(float*/*scores*/, int32_t/*num scores to transform*/);
-using ScoreTransform = float (*)(float/*score*/);
 
 template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
-struct DefaultFP16SimilarityFunction final : SimilarityFunction {
+struct DefaultFP16SimilarityFunction final : BaseSimilarityFunction<BulkScoreTransformFunc, ScoreTransformFunc> {
     void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                    int32_t* internalVectorIds,
                                    float* scores,
-                                   const int32_t numVectors) final {
+                                   const int32_t numVectors) {
 
         // Prepare similarity calculation
         auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
@@ -35,21 +33,6 @@ struct DefaultFP16SimilarityFunction final : SimilarityFunction {
 
         // Transform score values if it needs to
         BulkScoreTransformFunc(scores, numVectors);
-    }
-
-    float calculateSimilarity(SimdVectorSearchContext* srchContext, const int32_t internalVectorId) final {
-        // Prepare distance calculation
-        auto vector = reinterpret_cast<uint8_t*>(srchContext->getVectorPointer(internalVectorId));
-        knn_jni::util::ParameterCheck::require_non_null(vector, "vector from getVectorPointer");
-        auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
-        knn_jni::util::ParameterCheck::require_non_null(
-            func, "Unexpected distance function acquired. Expected SQDistanceComputer, but it was something else");
-
-        // Calculate distance
-        const float score = func->query_to_code(vector);
-
-        // Transform score value if it needs to
-        return ScoreTransformFunc(score);
     }
 };
 
