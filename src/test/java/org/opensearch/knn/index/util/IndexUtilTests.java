@@ -16,6 +16,8 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.index.mapper.FieldMapper;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -26,12 +28,18 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.index.mapper.DocumentMapper;
+import org.opensearch.index.mapper.MappingLookup;
+import org.opensearch.index.mapper.SourceFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Collection;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -341,5 +349,112 @@ public class IndexUtilTests extends KNNTestCase {
         assert Objects.requireNonNull(e)
             .getMessage()
             .contains(String.format(Locale.ROOT, "encoder is not supported for vector data type [%s]", vectorDataType.getValue()));
+    }
+
+    public void testIsDerivedEnabledForField_withVariousIncludeExcludeCombinations() {
+        // Test 1: No includes, no excludes → field not excluded → derived enabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", Collections.emptyList(), Collections.emptyList(), true);
+
+        // Test 2: Only includes specified, field matches → field not excluded → derived enabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", List.of("my_vector", "title"), Collections.emptyList(), true);
+
+        // Test 3: Only includes specified, field doesn't match → field excluded → derived disabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", List.of("title", "author"), Collections.emptyList(), false);
+
+        // Test 4: Only excludes specified, field matches → field excluded → derived disabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", Collections.emptyList(), List.of("my_vector"), false);
+
+        // Test 5: Only excludes specified, field doesn't match → field not excluded → derived enabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", Collections.emptyList(), List.of("other_field"), true);
+
+        // Test 6: Both specified, field matches include but also matches exclude → field excluded → derived disabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", List.of("my_vector", "title"), List.of("my_vector"), false);
+
+        // Test 7: Both specified, field matches include and doesn't match exclude → field not excluded → derived enabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", List.of("my_vector", "title"), List.of("other_field"), true);
+
+        // Test 8: Wildcard includes, field matches → field not excluded → derived enabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", List.of("my_*"), Collections.emptyList(), true);
+
+        // Test 9: Wildcard includes, field doesn't match → field excluded → derived disabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", List.of("other_*"), Collections.emptyList(), false);
+
+        // Test 10: Wildcard excludes, field matches → field excluded → derived disabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", Collections.emptyList(), List.of("my_*"), false);
+
+        // Test 11: Wildcard excludes, field doesn't match → field not excluded → derived enabled
+        assertDerivedEnabledWithSourceFiltering("my_vector", Collections.emptyList(), List.of("other_*"), true);
+
+        // Test 12: Nested field with wildcard includes
+        assertDerivedEnabledWithSourceFiltering("user.name.embedding", List.of("user.*"), Collections.emptyList(), true);
+
+        // Test 13: Nested field not matching wildcard includes
+        assertDerivedEnabledWithSourceFiltering("product.embedding", List.of("user.*"), Collections.emptyList(), false);
+
+        // Test 14: Null sourceMapper → field not excluded → derived enabled
+        assertDerivedEnabledWithNullSourceMapper("my_vector", true);
+    }
+
+    private void assertDerivedEnabledWithSourceFiltering(
+        String fieldName,
+        Collection<String> includes,
+        Collection<String> excludes,
+        boolean expectedDerivedEnabled
+    ) {
+        KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
+        when(knnVectorFieldType.name()).thenReturn(fieldName);
+
+        MapperService mapperService = mock(MapperService.class);
+        DocumentMapper documentMapper = mock(DocumentMapper.class);
+        SourceFieldMapper sourceFieldMapper = mock(SourceFieldMapper.class);
+        MappingLookup mappingLookup = mock(MappingLookup.class);
+        FieldMapper fieldMapper = mock(FieldMapper.class);
+
+        when(mapperService.documentMapper()).thenReturn(documentMapper);
+        when(documentMapper.metadataMapper(SourceFieldMapper.class)).thenReturn(sourceFieldMapper);
+        when(sourceFieldMapper.getIncludes()).thenReturn(includes);
+        when(sourceFieldMapper.getExcludes()).thenReturn(excludes);
+
+        // Setup for copyTo check to pass (not affect our test)
+        when(documentMapper.mappers()).thenReturn(mappingLookup);
+        when(mappingLookup.getMapper(fieldName)).thenReturn(fieldMapper);
+        when(fieldMapper.copyTo()).thenReturn(null);
+
+        boolean result = IndexUtil.isDerivedEnabledForField(knnVectorFieldType, mapperService);
+
+        assertEquals(
+            String.format(
+                Locale.ROOT,
+                "Field '%s' with includes=%s, excludes=%s: isDerivedEnabledForField should be %s",
+                fieldName,
+                includes,
+                excludes,
+                expectedDerivedEnabled
+            ),
+            expectedDerivedEnabled,
+            result
+        );
+    }
+
+    private void assertDerivedEnabledWithNullSourceMapper(String fieldName, boolean expectedDerivedEnabled) {
+        KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
+        when(knnVectorFieldType.name()).thenReturn(fieldName);
+
+        MapperService mapperService = mock(MapperService.class);
+        DocumentMapper documentMapper = mock(DocumentMapper.class);
+        MappingLookup mappingLookup = mock(MappingLookup.class);
+        FieldMapper fieldMapper = mock(FieldMapper.class);
+
+        when(mapperService.documentMapper()).thenReturn(documentMapper);
+        when(documentMapper.metadataMapper(SourceFieldMapper.class)).thenReturn(null);
+
+        // Setup for copyTo check to pass
+        when(documentMapper.mappers()).thenReturn(mappingLookup);
+        when(mappingLookup.getMapper(fieldName)).thenReturn(fieldMapper);
+        when(fieldMapper.copyTo()).thenReturn(null);
+
+        boolean result = IndexUtil.isDerivedEnabledForField(knnVectorFieldType, mapperService);
+
+        assertEquals(expectedDerivedEnabled, result);
     }
 }

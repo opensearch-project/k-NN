@@ -9,6 +9,15 @@
  * GitHub history for details.
  */
 
-// Today, we're sitting on V1 implementation.
-// For V2, refer to https://github.com/opensearch-project/k-NN/issues/2875 for more details.
-#include "default_simd_similarity_function.cpp"
+#ifdef KNN_HAVE_AVX512
+    #include "avx512_simd_similarity_function.cpp"
+#elif KNN_HAVE_AVX512_SPR
+    // Since we convert FP16 to FP32 then do bulk operation,
+    // we're not really using SPR instruction set.
+    // Therefore, both AVX512 and AVX512_SPR are sharing the same code piece.
+    #include "avx512_simd_similarity_function.cpp"
+#elif KNN_HAVE_ARM_FP16
+    #include "arm_neon_simd_similarity_function.cpp"
+#else
+    #include "default_simd_similarity_function.cpp"
+#endif

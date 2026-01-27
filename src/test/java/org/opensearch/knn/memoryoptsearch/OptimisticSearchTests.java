@@ -21,6 +21,8 @@ import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.MockedStatic;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.PerLeafResult;
@@ -39,6 +41,7 @@ import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -106,117 +109,121 @@ public class OptimisticSearchTests {
 
     @SneakyThrows
     private void testOptimisticSearch(final int numSegments, final int numSegmentsForReentering, final boolean isApproximateSearch) {
-        // Create a query
-        final NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false);
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
-        // Create answer sets for 1st phase search
-        final List<List<ScoreDoc>> searchResults = new ArrayList<>();
-        for (int i = 0; i < numSegments; i++) {
-            searchResults.add(new ArrayList<>());
-        }
+            // Create a query
+            final NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false);
 
-        // Score distribution = 0.123, 1.123, ..., (#segments * k - 1) + 0.123
-        final float kthLargestScore = (numSegments * DEFAULT_K - DEFAULT_K) + 0.123F;
-        for (int i = 0, j = 0; i < numSegments * DEFAULT_K; j = (j + 1) % numSegments) {
-            final float score = i + 0.123F;
-            final List<ScoreDoc> scoreDocs = searchResults.get(j);
-            int prevDocId = -1;
-            if (scoreDocs.isEmpty() == false) {
-                prevDocId = scoreDocs.get(scoreDocs.size() - 1).doc;
+            // Create answer sets for 1st phase search
+            final List<List<ScoreDoc>> searchResults = new ArrayList<>();
+            for (int i = 0; i < numSegments; i++) {
+                searchResults.add(new ArrayList<>());
             }
-            if (j >= numSegmentsForReentering || score >= kthLargestScore) {
-                scoreDocs.add(new ScoreDoc(prevDocId + 1, score));
-                ++i;
+
+            // Score distribution = 0.123, 1.123, ..., (#segments * k - 1) + 0.123
+            final float kthLargestScore = (numSegments * DEFAULT_K - DEFAULT_K) + 0.123F;
+            for (int i = 0, j = 0; i < numSegments * DEFAULT_K; j = (j + 1) % numSegments) {
+                final float score = i + 0.123F;
+                final List<ScoreDoc> scoreDocs = searchResults.get(j);
+                int prevDocId = -1;
+                if (scoreDocs.isEmpty() == false) {
+                    prevDocId = scoreDocs.get(scoreDocs.size() - 1).doc;
+                }
+                if (j >= numSegmentsForReentering || score >= kthLargestScore) {
+                    scoreDocs.add(new ScoreDoc(prevDocId + 1, score));
+                    ++i;
+                }
             }
-        }
 
-        // Sort by score by desc
-        for (List<ScoreDoc> scoreDocs : searchResults) {
-            scoreDocs.sort((a, b) -> Float.compare(b.score, a.score));
-        }
-
-        // Wrap results with PerLeafResult
-        final List<PerLeafResult> perLeafResults = new ArrayList<>();
-        for (int i = 0; i < numSegments; i++) {
-            perLeafResults.add(
-                new PerLeafResult(
-                    null,
-                    0,
-                    new TopDocs(
-                        new TotalHits(searchResults.get(i).size(), TotalHits.Relation.EQUAL_TO),
-                        searchResults.get(i).toArray(new ScoreDoc[0])
-                    ),
-                    isApproximateSearch ? PerLeafResult.SearchMode.APPROXIMATE_SEARCH : PerLeafResult.SearchMode.EXACT_SEARCH
-                )
-            );
-        }
-
-        // Create segments
-        final List<LeafReaderContext> leafReaderContexts = new ArrayList<>();
-        final int numDocsInSegment = 1000;
-        for (int i = 0, j = 0, docBase = 0; i < numSegments; ++i, ++j, docBase += numDocsInSegment) {
-            // Make mock for leaf reader context
-            final SegmentReader mockSegmentReader = mock(SegmentReader.class);
-            when(mockSegmentReader.getSegmentName()).thenReturn("_" + i + "_165_target_field.faiss");
-            when(mockSegmentReader.maxDoc()).thenReturn(numDocsInSegment);
-
-            final LeafReaderContext leafReaderContext = createLeafReaderContext(i, docBase, mockSegmentReader);
-            when(mockSegmentReader.getContext()).thenReturn(leafReaderContext);
-
-            leafReaderContexts.add(leafReaderContext);
-
-            // Return answer set per this segment
-            when(knnWeight.searchLeaf(eq(leafReaderContext), anyInt())).thenReturn(perLeafResults.get(i));
-            when(knnWeight.approximateSearch(eq(leafReaderContext), any(), anyInt(), anyInt())).thenReturn(
-                perLeafResults.get(i).getResult()
-            );
-        }
-
-        when(parentIndexReader.leaves()).thenReturn(leafReaderContexts);
-
-        // Create a weight and do search
-        final Weight weight = query.createWeight(searcher, ScoreMode.TOP_DOCS_WITH_SCORES, 1.0f);
-
-        // Validate reentering
-        for (int i = 0; i < leafReaderContexts.size(); ++i) {
-            // Make mock for leaf reader context
-            final LeafReaderContext mockLeafReaderContext = leafReaderContexts.get(i);
-
-            verify(knnWeight, times(1)).searchLeaf(eq(mockLeafReaderContext), anyInt());
-
-            if (i < numSegmentsForReentering) {
-                // Even a segment has potential, if the results gotten from exact search, then we must not reenter
-                final int expectedInvocations = isApproximateSearch ? 1 : 0;
-
-                // For competitive segments, it should be revisited.
-                verify(knnWeight, times(expectedInvocations)).approximateSearch(eq(mockLeafReaderContext), any(), anyInt(), anyInt());
+            // Sort by score by desc
+            for (List<ScoreDoc> scoreDocs : searchResults) {
+                scoreDocs.sort((a, b) -> Float.compare(b.score, a.score));
             }
-        }
 
-        // Validate results
-        // Take top-k for answer set
-        List<Float> answerScores = new ArrayList<>();
-        for (List<ScoreDoc> scoreDocs : searchResults) {
-            for (ScoreDoc scoreDoc : scoreDocs) {
-                answerScores.add(scoreDoc.score);
+            // Wrap results with PerLeafResult
+            final List<PerLeafResult> perLeafResults = new ArrayList<>();
+            for (int i = 0; i < numSegments; i++) {
+                perLeafResults.add(
+                    new PerLeafResult(
+                        null,
+                        0,
+                        new TopDocs(
+                            new TotalHits(searchResults.get(i).size(), TotalHits.Relation.EQUAL_TO),
+                            searchResults.get(i).toArray(new ScoreDoc[0])
+                        ),
+                        isApproximateSearch ? PerLeafResult.SearchMode.APPROXIMATE_SEARCH : PerLeafResult.SearchMode.EXACT_SEARCH
+                    )
+                );
             }
-        }
-        answerScores.sort((a, b) -> Float.compare(b, a));
 
-        // Collect scores and sort them in desc.
-        final List<Float> acquiredScores = new ArrayList<>();
-        for (final LeafReaderContext leafReaderContext : leafReaderContexts) {
-            final Scorer scorer = weight.scorer(leafReaderContext);
-            final DocIdSetIterator iterator = scorer.iterator();
-            while (iterator.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
-                final float score = scorer.score();
-                acquiredScores.add(score);
+            // Create segments
+            final List<LeafReaderContext> leafReaderContexts = new ArrayList<>();
+            final int numDocsInSegment = 1000;
+            for (int i = 0, j = 0, docBase = 0; i < numSegments; ++i, ++j, docBase += numDocsInSegment) {
+                // Make mock for leaf reader context
+                final SegmentReader mockSegmentReader = mock(SegmentReader.class);
+                when(mockSegmentReader.getSegmentName()).thenReturn("_" + i + "_165_target_field.faiss");
+                when(mockSegmentReader.maxDoc()).thenReturn(numDocsInSegment);
+
+                final LeafReaderContext leafReaderContext = createLeafReaderContext(i, docBase, mockSegmentReader);
+                when(mockSegmentReader.getContext()).thenReturn(leafReaderContext);
+
+                leafReaderContexts.add(leafReaderContext);
+
+                // Return answer set per this segment
+                when(knnWeight.searchLeaf(eq(leafReaderContext), anyInt())).thenReturn(perLeafResults.get(i));
+                when(knnWeight.approximateSearch(eq(leafReaderContext), any(), anyInt(), anyInt())).thenReturn(
+                    perLeafResults.get(i).getResult()
+                );
             }
-        }
-        acquiredScores.sort((a, b) -> Float.compare(b, a));
 
-        // Scores should be the same
-        assertEquals("Invalid scores acquired. Answer=" + answerScores + ", got=" + acquiredScores, answerScores, acquiredScores);
+            when(parentIndexReader.leaves()).thenReturn(leafReaderContexts);
+
+            // Create a weight and do search
+            final Weight weight = query.createWeight(searcher, ScoreMode.TOP_DOCS_WITH_SCORES, 1.0f);
+
+            // Validate reentering
+            for (int i = 0; i < leafReaderContexts.size(); ++i) {
+                // Make mock for leaf reader context
+                final LeafReaderContext mockLeafReaderContext = leafReaderContexts.get(i);
+
+                verify(knnWeight, times(1)).searchLeaf(eq(mockLeafReaderContext), anyInt());
+
+                if (i < numSegmentsForReentering) {
+                    // Even a segment has potential, if the results gotten from exact search, then we must not reenter
+                    final int expectedInvocations = isApproximateSearch ? 1 : 0;
+
+                    // For competitive segments, it should be revisited.
+                    verify(knnWeight, times(expectedInvocations)).approximateSearch(eq(mockLeafReaderContext), any(), anyInt(), anyInt());
+                }
+            }
+
+            // Validate results
+            // Take top-k for answer set
+            List<Float> answerScores = new ArrayList<>();
+            for (List<ScoreDoc> scoreDocs : searchResults) {
+                for (ScoreDoc scoreDoc : scoreDocs) {
+                    answerScores.add(scoreDoc.score);
+                }
+            }
+            answerScores.sort((a, b) -> Float.compare(b, a));
+
+            // Collect scores and sort them in desc.
+            final List<Float> acquiredScores = new ArrayList<>();
+            for (final LeafReaderContext leafReaderContext : leafReaderContexts) {
+                final Scorer scorer = weight.scorer(leafReaderContext);
+                final DocIdSetIterator iterator = scorer.iterator();
+                while (iterator.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+                    final float score = scorer.score();
+                    acquiredScores.add(score);
+                }
+            }
+            acquiredScores.sort((a, b) -> Float.compare(b, a));
+
+            // Scores should be the same
+            assertEquals("Invalid scores acquired. Answer=" + answerScores + ", got=" + acquiredScores, answerScores, acquiredScores);
+        }
     }
 
     private static LeafReaderContext createLeafReaderContext(final int ord, final int docBase, SegmentReader mockSegmentReader) {

@@ -23,9 +23,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix nested docs and exact search query when some docs has no vector field present. [#3051](https://github.com/opensearch-project/k-NN/pull/3051)
 * Changed warmup seek to use long instead of int to avoid overflow [#3067](https://github.com/opensearch-project/k-NN/pull/3067)
 * Fix memory-optimized-search reentrant search bug in byte index. [#3071](https://github.com/opensearch-project/k-NN/pull/3071)
+* Fix MemoryOptimizedKNNWeight to use expanded 'k' for disk based index. [#3061](https://github.com/opensearch-project/k-NN/pull/3061)
+* Added new exception type to signify expected warmup behavior [#3070](https://github.com/opensearch-project/k-NN/pull/3070)
+* Add derived source handling for when field is excluded in source on indexing [#3049](https://github.com/opensearch-project/k-NN/pull/3049)
 
 ### Refactoring
 * Change ordering of build task and added tests to catch uninitialized libraries [#3024](https://github.com/opensearch-project/k-NN/pull/3024)
 
 ### Enhancements
 * Index setting to disable exact search after ANN Search with Faiss efficient filters [#3022](https://github.com/opensearch-project/k-NN/pull/3022)
+* Bulk SIMD for FP16 distance computation [#3071](https://github.com/opensearch-project/k-NN/pull/3071)
