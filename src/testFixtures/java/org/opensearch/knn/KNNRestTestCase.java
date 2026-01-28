@@ -2155,6 +2155,35 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return out;
     }
 
+    /**
+     * Get the total number of segments for an index
+     * @param index index name
+     * @return total segment count across all shards
+     */
+    protected int getTotalSegmentCount(final String index) throws Exception {
+        Map<String, Object> segmentsResponse = getSegments(index);
+        Map<String, Object> indices = (Map<String, Object>) segmentsResponse.get("indices");
+        if (indices == null) return 0;
+
+        Map<String, Object> indexData = (Map<String, Object>) indices.get(index);
+        if (indexData == null) return 0;
+
+        Map<String, Object> shards = (Map<String, Object>) indexData.get("shards");
+        if (shards == null) return 0;
+
+        int totalSegments = 0;
+        for (Object shardList : shards.values()) {
+            List<Map<String, Object>> shardData = (List<Map<String, Object>>) shardList;
+            for (Map<String, Object> shard : shardData) {
+                Map<String, Object> segments = (Map<String, Object>) shard.get("segments");
+                if (segments != null) {
+                    totalSegments += segments.size();
+                }
+            }
+        }
+        return totalSegments;
+    }
+
     // Validate that all segments in an index are the same lucene version. Used in BWC tests.
     protected void validateSegmentsSameVersion(final String index) throws Exception {
         Map<String, Object> segmentsResponse = getSegments(index, 1);

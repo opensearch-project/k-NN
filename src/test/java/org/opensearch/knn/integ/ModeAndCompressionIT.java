@@ -513,6 +513,123 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         }
     }
 
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates separate segments: one with vector docs, one with only non-vector doc.
+     * Validates k-NN search functionality works without errors for ON_DISK mode with compression.
+     */
+    @SneakyThrows
+    public void testMixedSegmentsWithNonVectorDoc_whenValid_ThenSucceed() {
+        for (String compressionLevelName : COMPRESSION_LEVELS) {
+            String indexName = INDEX_NAME + "_mixed_segments_" + compressionLevelName;
+            try (
+                XContentBuilder builder = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME)
+                    .field("type", "knn_vector")
+                    .field("dimension", DIMENSION)
+                    .field(COMPRESSION_LEVEL_PARAMETER, compressionLevelName)
+                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                    .endObject()
+                    .startObject(FIELD_NAME_NON_KNN)
+                    .field("type", "text")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+            ) {
+                String mapping = builder.toString();
+                Settings indexSettings = buildKNNIndexSettings(0);
+                createKnnIndex(indexName, indexSettings, mapping);
+
+                // Add 21 docs with vector fields
+                addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS + 1);
+                // Flush to create a segment with vector docs
+                flush(indexName, true);
+
+                // Add 1 doc with only non-vector field (should get its own segment)
+                addNonKNNDoc(indexName, String.valueOf(NUM_DOCS + 2), FIELD_NAME_NON_KNN, "Non-vector document");
+                // Flush to ensure proper segmentation
+                flush(indexName, true);
+
+                validateGreenIndex(indexName);
+                int segmentCount = getTotalSegmentCount(indexName);
+                assertTrue(segmentCount >= 2);
+
+                validateSearch(
+                    indexName,
+                    METHOD_PARAMETER_EF_SEARCH,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                    compressionLevelName,
+                    Mode.ON_DISK.getName()
+                );
+            }
+        }
+    }
+
+    /**
+     * Test segment with knn_vector field mapping but no docs containing the vector field.
+     * Creates a doc with vector field, then updates it to remove the vector field.
+     * Validates k-NN search functionality works without errors for ON_DISK mode with compression.
+     */
+    @SneakyThrows
+    public void testVectorFieldRemovalByUpdate_whenValid_thenSucceed() {
+        for (String compressionLevelName : COMPRESSION_LEVELS) {
+            String indexName = INDEX_NAME + "_vector_removal_" + compressionLevelName;
+
+            try (
+                XContentBuilder builder = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME)
+                    .field("type", "knn_vector")
+                    .field("dimension", DIMENSION)
+                    .field(COMPRESSION_LEVEL_PARAMETER, compressionLevelName)
+                    .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                    .endObject()
+                    .startObject("description")
+                    .field("type", "text")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+            ) {
+                String mapping = builder.toString();
+                Settings indexSettings = buildKNNIndexSettings(0);
+                createKnnIndex(indexName, indexSettings, mapping);
+
+                // Add 21 docs with vector fields
+                addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS + 1);
+                // Flush to create a segment with vector docs
+                flush(indexName, true);
+
+                // Add doc with both vector and text field
+                String docId = String.valueOf(NUM_DOCS + 1);
+                String docWithBoth = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .field(FIELD_NAME, TEST_VECTOR)
+                    .field("description", "Test document")
+                    .endObject()
+                    .toString();
+                addKnnDoc(indexName, docId, docWithBoth);
+
+                // Update doc to remove vector field, keeping only text field
+                addNonKNNDoc(indexName, docId, "description", "Updated test document");
+                // Flush to create a new segment containing doc with no vector fields
+                flush(indexName, true);
+
+                validateGreenIndex(indexName);
+
+                validateSearch(
+                    indexName,
+                    METHOD_PARAMETER_EF_SEARCH,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                    compressionLevelName,
+                    Mode.ON_DISK.getName()
+                );
+            }
+        }
+    }
+
     @SneakyThrows
     public void testTraining_whenInvalid_thenFail() {
         setupTrainingIndex();
