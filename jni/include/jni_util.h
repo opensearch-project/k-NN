@@ -167,7 +167,7 @@ namespace knn_jni {
     class JNIUtil final : public JNIUtilInterface {
     public:
         // Initialize and Uninitialize methods are used for caching/cleaning up Java classes and methods
-        void Initialize(JNIEnv* env);
+        void Initialize(JNIEnv* env, JavaVM *javaVm);
         void Uninitialize(JNIEnv* env);
 
         void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "") final;
@@ -219,8 +219,10 @@ namespace knn_jni {
         void CallNonvirtualVoidMethodA(JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args) final;
         void * GetPrimitiveArrayCritical(JNIEnv * env, jarray array, jboolean *isCopy) final;
         void ReleasePrimitiveArrayCritical(JNIEnv * env, jarray array, void *carray, jint mode) final;
+        JNIEnv* GetJNICurrentEnv();
 
     private:
+        JavaVM* vm;
         std::unordered_map<std::string, jclass> cachedClasses;
         std::unordered_map<std::string, jmethodID> cachedMethods;
     };  // class JNIUtil

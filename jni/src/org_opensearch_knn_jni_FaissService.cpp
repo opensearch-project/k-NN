@@ -30,7 +30,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         return JNI_ERR;
     }
 
-    jniUtil.Initialize(env);
+    jniUtil.Initialize(env, vm);
 
     return KNN_FAISS_JNI_VERSION;
 }
@@ -415,7 +415,11 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryInd
     try {
         return knn_jni::faiss_wrapper::QueryIndex(&jniUtil, env, indexPointerJ, queryVectorJ, kJ, methodParamsJ, parentIdsJ);
 
-    } catch (...) {
+    }
+    catch (const faiss::FaissException& e) {
+        std::cout << "====> query get faiss exception:" << e.what() << "\n";
+    }
+    catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
     return nullptr;
@@ -562,7 +566,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
 {
     try {
         faiss::InterruptCallback::instance.reset(
-            new knn_jni::faiss_wrapper::OpenSearchMergeInterruptCallback(&jniUtil, env)
+            new knn_jni::faiss_wrapper::OpenSearchMergeInterruptCallback(&jniUtil)
         );
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
