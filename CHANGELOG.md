@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix MemoryOptimizedKNNWeight to use expanded 'k' for disk based index. [#3061](https://github.com/opensearch-project/k-NN/pull/3061)
 * Added new exception type to signify expected warmup behavior [#3070](https://github.com/opensearch-project/k-NN/pull/3070)
 * Add derived source handling for when field is excluded in source on indexing [#3049](https://github.com/opensearch-project/k-NN/pull/3049)
+* Fix patch to have a valid score conversion for BinaryCagra. [#2983](https://github.com/opensearch-project/k-NN/pull/2983)
 
 ### Refactoring
 * Change ordering of build task and added tests to catch uninitialized libraries [#3024](https://github.com/opensearch-project/k-NN/pull/3024)
