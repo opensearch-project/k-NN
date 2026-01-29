@@ -39,7 +39,7 @@ public class RelocationIT extends KNNRestTestCase {
         assertOK(response);
         String[] nodeNamesStr = new String(response.getEntity().getContent().readAllBytes()).split("\n");
         if (nodeNamesStr.length < numNodes) {
-            System.out.println("numNodes need to be: " + nodeNamesStr.length);
+            return;
         }
         Settings indexSettings = Settings.builder()
             .put("number_of_shards", 1)
