@@ -24,7 +24,12 @@ public class KNNCodecService extends CodecService {
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
     public KNNCodecService(CodecServiceConfig codecServiceConfig, NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory) {
-        super(codecServiceConfig.getMapperService(), codecServiceConfig.getIndexSettings(), codecServiceConfig.getLogger());
+        super(
+            codecServiceConfig.getMapperService(),
+            codecServiceConfig.getIndexSettings(),
+            codecServiceConfig.getLogger(),
+            codecServiceConfig.getAdditionalCodecs()
+        );
         mapperService = codecServiceConfig.getMapperService();
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
