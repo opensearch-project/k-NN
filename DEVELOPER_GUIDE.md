@@ -184,6 +184,21 @@ run:
 ./bin/jni_test --gtest_filter='Faiss*'
 ```
 
+To run JNI Tests via gradle:
+```
+# To run all tests
+./gradlew jniTest
+
+# To run nmslib tests
+./gradlew jniTest -Dgtest_filter=Nmslib*
+
+# To run faiss tests
+./gradlew jniTest -Dgtest_filter=Faiss*
+```
+
+The task `jniTest` is a dependency if `check` task which ensures that JNI tests are running as part of `./gradlew build` command.
+
+
 ### JNI Library Artifacts
 
 We build and distribute binary library artifacts with OpenSearch. We build the library binaries in 
