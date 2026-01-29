@@ -1,16 +1,16 @@
-From a48361e8158ef5e7a38e2d21410c792a9378ac18 Mon Sep 17 00:00:00 2001
+From 82862f439bbffa8c6711d5865fe784868d6dfceb Mon Sep 17 00:00:00 2001
 From: Dooyong Kim <kdooyong@amazon.com>
-Date: Mon, 4 Aug 2025 19:56:58 -0700
+Date: Sun, 23 Nov 2025 12:22:40 -0800
 Subject: [PATCH] Add nested search support for IndexBinaryHNSWCagra
 
 Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
 ---
- faiss/IndexBinaryHNSW.cpp | 110 +++++++++++++++++++++++++++-----------
- tests/test_id_grouper.cpp |  80 +++++++++++++++++++++++++++
- 2 files changed, 158 insertions(+), 32 deletions(-)
+ faiss/IndexBinaryHNSW.cpp | 103 +++++++++++++++++++++++++++-----------
+ tests/test_id_grouper.cpp |  80 +++++++++++++++++++++++++++++
+ 2 files changed, 153 insertions(+), 30 deletions(-)
 
 diff --git a/faiss/IndexBinaryHNSW.cpp b/faiss/IndexBinaryHNSW.cpp
-index 02646a8fd..4fbfb5ff5 100644
+index 02646a8fd..a1db923b9 100644
 --- a/faiss/IndexBinaryHNSW.cpp
 +++ b/faiss/IndexBinaryHNSW.cpp
 @@ -377,6 +377,48 @@ void IndexBinaryHNSWCagra::add(idx_t n, const uint8_t* x) {
@@ -73,7 +73,7 @@ index 02646a8fd..4fbfb5ff5 100644
          std::vector<storage_idx_t> nearest(n);
          std::vector<float> nearest_d(n);
  
-@@ -420,38 +458,46 @@ void IndexBinaryHNSWCagra::search(
+@@ -420,38 +458,43 @@ void IndexBinaryHNSWCagra::search(
                      nearest[i] >= 0, "Could not find a valid entrypoint.");
          }
  
@@ -134,14 +134,9 @@ index 02646a8fd..4fbfb5ff5 100644
 +                    bres);
          }
  
-+        if (is_similarity_metric(this->metric_type)) {
-+            // we need to revert the negated distances
  #pragma omp parallel for
--        for (int i = 0; i < n * k; ++i) {
--            distances[i] = std::round(distances_f[i]);
-+            for (int64_t i = 0; i < k * n; i++) {
-+                distances[i] = -distances[i];
-+            }
+         for (int i = 0; i < n * k; ++i) {
+             distances[i] = std::round(distances_f[i]);
          }
 -    }
 +    }  // End if
@@ -237,5 +232,5 @@ index 7c79ddc79..df5dde737 100644
 +    ASSERT_EQ(numResults, group_ids.size());
 +}
 -- 
-2.39.5 (Apple Git-154)
+2.50.1 (Apple Git-155)
 
