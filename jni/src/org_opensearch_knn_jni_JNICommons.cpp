@@ -25,7 +25,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         return JNI_ERR;
     }
 
-    jniUtil.Initialize(env);
+    jniUtil.Initialize(env, vm);
 
     return KNN_JNICOMMONS_JNI_VERSION;
 }
