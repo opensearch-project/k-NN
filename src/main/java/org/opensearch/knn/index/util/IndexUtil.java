@@ -470,6 +470,11 @@ public class IndexUtil {
             return false;
         }
 
+        // if core based setting is turned on, then it takes precedence
+        if (mapperService.getIndexSettings().isDerivedSourceEnabled()) {
+            return false;
+        }
+
         if (KNNSettings.isKNNDerivedSourceEnabled(mapperService.getIndexSettings().getSettings()) == false) {
             return false;
         }
