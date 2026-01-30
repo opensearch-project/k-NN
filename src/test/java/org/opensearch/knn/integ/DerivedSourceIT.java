@@ -58,30 +58,23 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         testDerivedSourceE2E(indexConfigContexts);
     }
 
+    @SneakyThrows
     @ExpectRemoteBuildValidation
-    public void testMetaFields() {
+    public void testFlatFieldsWithCore() {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("derivedit", true, false, true);
+        testDerivedSourceE2E(indexConfigContexts);
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testMetaFieldsWithKnn() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getIndexContextsWithMetaFields("derivedit", true, true);
-        List<String> metaFields = List.of(ROUTING_FIELD, "_id", "_score");
+        testMetaFields(indexConfigContexts);
+    }
 
-        assertEquals("Expected 6 index contexts for meta fields test", 6, indexConfigContexts.size());
-        prepareOriginalIndices(indexConfigContexts);
-
-        List<Object> searchResults = testSearch(indexConfigContexts);
-        assertFalse("Search results should not be empty", searchResults.isEmpty());
-
-        for (int i = 0; i < searchResults.size(); i++) {
-            Object searchResult = searchResults.get(i);
-            assertNotNull("Search result at index " + i + " should not be null", searchResult);
-
-            Map<String, Object> hits = (Map<String, Object>) searchResult;
-            for (String metaField : metaFields) {
-                assertTrue(String.format("Missing meta field '%s' in search result %d", metaField, i), hits.containsKey(metaField));
-                assertNotNull(
-                    String.format("Meta field '%s' value should not be null in search result %d", metaField, i),
-                    hits.get(metaField)
-                );
-            }
-        }
+    @ExpectRemoteBuildValidation
+    public void testMetaFieldsWithCore() {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getIndexContextsWithMetaFields("derivedit", true, false, true);
+        testMetaFields(indexConfigContexts);
     }
 
     @SneakyThrows
@@ -96,6 +89,19 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
     public void testNestedField() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getNestedIndexContexts("derivedit", true);
         testDerivedSourceE2E(indexConfigContexts);
+    }
+
+    @SneakyThrows
+    public void testNestedFieldWithCore() {
+        List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getNestedIndexContexts("derivedit", true, true);
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndex(
+                indexConfigContexts.get(0).indexName,
+                indexConfigContexts.get(0).getSettings(),
+                indexConfigContexts.get(0).getMapping()
+            )
+        );
     }
 
     @SneakyThrows
@@ -212,6 +218,30 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                 dsDisabledException = true;
             }
             assertEquals(dsEnabledException, dsDisabledException);
+        }
+    }
+
+    private void testMetaFields(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+        List<String> metaFields = List.of(ROUTING_FIELD, "_id", "_score");
+
+        assertEquals("Expected 6 index contexts for meta fields test", 6, indexConfigContexts.size());
+        prepareOriginalIndices(indexConfigContexts);
+
+        List<Object> searchResults = testSearch(indexConfigContexts);
+        assertFalse("Search results should not be empty", searchResults.isEmpty());
+
+        for (int i = 0; i < searchResults.size(); i++) {
+            Object searchResult = searchResults.get(i);
+            assertNotNull("Search result at index " + i + " should not be null", searchResult);
+
+            Map<String, Object> hits = (Map<String, Object>) searchResult;
+            for (String metaField : metaFields) {
+                assertTrue(String.format("Missing meta field '%s' in search result %d", metaField, i), hits.containsKey(metaField));
+                assertNotNull(
+                    String.format("Meta field '%s' value should not be null in search result %d", metaField, i),
+                    hits.get(metaField)
+                );
+            }
         }
     }
 
