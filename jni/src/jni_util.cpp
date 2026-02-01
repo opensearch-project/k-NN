@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
+void knn_jni::JNIUtil::Initialize(JNIEnv *env, JavaVM *javaVm) {
     // Followed recommendation from this SO post: https://stackoverflow.com/a/13940735
     jclass tempLocalClassRef;
 
@@ -64,6 +64,23 @@ void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     this->cachedClasses["org/opensearch/knn/index/query/KNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
     this->cachedMethods["org/opensearch/knn/index/query/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
     env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("org/apache/lucene/index/KNNMergeHelper");
+    this->cachedClasses["org/apache/lucene/index/KNNMergeHelper"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["org/apache/lucene/index/KNNMergeHelper:isMergeAborted"] = env->GetStaticMethodID(tempLocalClassRef, "isMergeAborted", "()Z");
+    env->DeleteLocalRef(tempLocalClassRef);
+    vm = javaVm;
+}
+
+JNIEnv* knn_jni::JNIUtil::GetJNICurrentEnv() {
+    JNIEnv* env;
+    if (vm == nullptr) {
+        return nullptr;
+    }
+    if (vm->GetEnv((void**)&env, JNI_VERSION_1_1) != JNI_OK) {
+        return env;
+    }
+    return env;
 }
 
 void knn_jni::JNIUtil::Uninitialize(JNIEnv* env) {
@@ -94,6 +111,10 @@ void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env, const char* message) {
     }
 }
 
+void knn_jni::JNIUtil::CatchAbortExceptionAndThrowJava(JNIEnv* env)
+{
+    this->ThrowJavaException(env, "java/io/IOException", "JNI Abort Build");
+}
 void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
 {
     try {
