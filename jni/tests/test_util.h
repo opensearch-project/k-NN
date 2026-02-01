@@ -86,6 +86,7 @@ namespace test_util {
         MOCK_METHOD(void, HasExceptionInStack, (JNIEnv * env));
         MOCK_METHOD(void, HasExceptionInStack,
                     (JNIEnv * env, const char* message));
+        MOCK_METHOD(void, CatchAbortExceptionAndThrowJava, (JNIEnv * env));
         MOCK_METHOD(jbyteArray, NewByteArray, (JNIEnv * env, jsize len));
         MOCK_METHOD(jobject, NewObject,
                     (JNIEnv * env, jclass clazz, jmethodID methodId, int id,
@@ -121,7 +122,6 @@ namespace test_util {
                 ConvertJavaStringToQuantizationLevel,
                 (JNIEnv *env, jobject javaString),
                 (override));
-
     };
 
 // For our unit tests, we want to ensure that each test tests one function in

@@ -204,6 +204,15 @@ struct OpenSearchMergeInterruptCallback : faiss::InterruptCallback {
         mergeHelperClass = jniUtil->FindClass(jenv,"org/apache/lucene/index/KNNMergeHelper");
         isAbortedMethod = jniUtil->FindMethod(jenv, "org/apache/lucene/index/KNNMergeHelper", "isMergeAborted");
     }
+
+    static size_t get_period_hint(size_t flops) {
+        if (!instance.get()) {
+            return (size_t)1 << 30; // never check
+        }
+        // for 10M flops, it is reasonable to check once every 100 iterations
+        return std::max((size_t)100L * 10 * 1000 * 1000 / (flops + 1), (size_t)1);
+    }
+
     bool want_interrupt () override {
         JNIEnv* jenv;
 

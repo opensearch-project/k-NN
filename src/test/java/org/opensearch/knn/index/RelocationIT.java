@@ -44,8 +44,8 @@ public class RelocationIT extends KNNRestTestCase {
         Settings indexSettings = Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
-            .put("index.routing.allocation.include._name", nodeNamesStr[0])
-            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .put("index.routing.allocation.require._name", nodeNamesStr[0])
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 10000)
             .put(KNN_INDEX, true)
             .build();
 
@@ -63,23 +63,44 @@ public class RelocationIT extends KNNRestTestCase {
             )
         );
         waitForClusterHealthGreen(Integer.toString(numNodes));
+
+        logger.info("bulk Write docs");
         for (int i = 0; i < 10; i++) {
             addKNNDocsWithParkingAndRating(INDEX_NAME, TEST_FIELD, dimension, i * 1000, 1000);
             refreshAllIndices();
         }
-        logger.info("Update Routing Allocation");
-        Settings.Builder updateSettings = Settings.builder().put("index.routing.allocation.include._name", nodeNamesStr[1]);
-        updateIndexSettings(INDEX_NAME, updateSettings);
 
-        Thread forceMergeThread = new Thread(() -> {
+        Thread write = new Thread(() -> {
             try {
+                Settings.Builder updateSettings = Settings.builder().put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
+                updateIndexSettings(INDEX_NAME, updateSettings);
+
                 logger.info("Force merge");
                 forceMergeKnnIndex(INDEX_NAME);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         });
-        forceMergeThread.start();
-        forceMergeThread.join();
+        write.start();
+
+        Thread.sleep(1000 * 20);
+
+        logger.info("Update Routing Allocation");
+        Settings.Builder updateSettings = Settings.builder().put("index.routing.allocation.require._name", nodeNamesStr[1]);
+        updateIndexSettings(INDEX_NAME, updateSettings);
+
+        while (true) {
+            Request request = new Request("GET", "_cat/recovery?active_only=true");
+
+            Response resp = client().performRequest(request);
+            String respStr = new String(resp.getEntity().getContent().readAllBytes());
+            if (respStr.isEmpty()) {
+                break;
+            } else {
+                logger.info("recovery: {}", respStr);
+            }
+            Thread.sleep(1000 * 1);
+        }
+        write.join();
     }
 }

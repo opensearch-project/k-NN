@@ -29,6 +29,8 @@ public class KNNMergeHelper {
         if (mergeThread instanceof ConcurrentMergeScheduler.MergeThread) {
             try {
                 MergePolicy.OneMerge merge = (MergePolicy.OneMerge) MERGE_FIELD.get(mergeThread);
+                boolean aborted = merge.isAborted();
+                log.debug("Current Thread {} is aborted: {}", mergeThread.getName(), aborted);
                 return merge.isAborted();
             } catch (RuntimeException e) {
                 log.error("isMergeAborted get exception", e);
