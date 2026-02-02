@@ -132,11 +132,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 null,
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                KNNEngine.UNDEFINED.getName()
+                KNNEngine.UNDEFINED.getName(),
+                false
             )
         );
 
-        assertEquals(11, builder.getParameters().size());
+        assertEquals(12, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
         List<String> expectedParams = Arrays.asList(
             "store",
@@ -149,7 +150,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             MODE_PARAMETER,
             COMPRESSION_LEVEL_PARAMETER,
             KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE,
-            TOP_LEVEL_PARAMETER_ENGINE
+            TOP_LEVEL_PARAMETER_ENGINE,
+            KNNConstants.MULTI_VECTOR_PARAMETER
         );
         assertEquals(expectedParams, actualParams);
     }
@@ -1422,7 +1424,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 CompressionLevel.NOT_CONFIGURED.getName(),
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                KNNEngine.UNDEFINED.getName()
+                KNNEngine.UNDEFINED.getName(),
+                false
             );
             originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
             EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1492,7 +1495,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     CompressionLevel.NOT_CONFIGURED.getName(),
                     null,
                     SpaceType.UNDEFINED.getValue(),
-                    KNNEngine.UNDEFINED.getName()
+                    KNNEngine.UNDEFINED.getName(),
+                    false
                 );
                 originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
                 EngineFieldMapper methodFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1610,7 +1614,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     CompressionLevel.NOT_CONFIGURED.getName(),
                     MODEL_ID,
                     SpaceType.UNDEFINED.getValue(),
-                    KNNEngine.UNDEFINED.getName()
+                    KNNEngine.UNDEFINED.getName(),
+                    false
                 );
 
                 ModelFieldMapper modelFieldMapper = ModelFieldMapper.createFieldMapper(
@@ -1713,7 +1718,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
             SpaceType.UNDEFINED.getValue(),
-            KNNEngine.UNDEFINED.getName()
+            KNNEngine.UNDEFINED.getName(),
+            false
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
@@ -1777,7 +1783,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
             SpaceType.UNDEFINED.getValue(),
-            KNNEngine.UNDEFINED.getName()
+            KNNEngine.UNDEFINED.getName(),
+            false
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
         luceneFieldMapper = EngineFieldMapper.createFieldMapper(
@@ -1826,7 +1833,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             CompressionLevel.NOT_CONFIGURED.getName(),
             null,
             SpaceType.UNDEFINED.getValue(),
-            KNNEngine.UNDEFINED.getName()
+            KNNEngine.UNDEFINED.getName(),
+            false
         );
         originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
 
@@ -2740,6 +2748,141 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             null,
             null,
             null
+        );
+    }
+
+    // Tests for multiVector property validation
+    public void testMultiVector_validation() throws IOException {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+
+        // Test case: Valid configuration - should succeed
+        XContentBuilder validConfig = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, TEST_DIMENSION)
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(validConfig),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper mapper = builder.build(builderContext);
+        assertTrue(mapper instanceof LateInteractionFieldMapper);
+        assertEquals(VectorDataType.FLOAT, mapper.fieldType().getVectorDataType());
+
+        // Test case: Non-Lucene engine - should fail
+        XContentBuilder nonLuceneEngine = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, TEST_DIMENSION)
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.FAISS.getName())
+            .endObject();
+
+        Exception exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(nonLuceneEngine), buildParserContext(TEST_INDEX_NAME, settings))
+        );
+        assertTrue(exception.getMessage().contains("Multi-Vectors are only supported with engine"));
+        assertTrue(exception.getMessage().contains(KNNEngine.LUCENE.getName()));
+
+        // Test case: Non-float data type - should fail
+        XContentBuilder nonFloatDataType = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, TEST_DIMENSION)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject();
+
+        exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(nonFloatDataType), buildParserContext(TEST_INDEX_NAME, settings))
+        );
+        assertTrue(exception.getMessage().contains("Multi-Vectors are only supported for float data_type"));
+
+        // Test case: Mode parameter set - should fail
+        XContentBuilder withMode = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, TEST_DIMENSION)
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .endObject();
+
+        exception = expectThrows(
+            MapperParsingException.class,
+            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withMode), buildParserContext(TEST_INDEX_NAME, settings))
+        );
+        assertTrue(exception.getMessage().contains("mode"));
+
+        // Test case: Compression level set - should fail
+        XContentBuilder withCompression = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, TEST_DIMENSION)
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x2.getName())
+            .endObject();
+
+        exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withCompression), buildParserContext(TEST_INDEX_NAME, settings))
+        );
+        assertTrue(exception.getMessage().contains("compression"));
+
+        // Test case: Stored field set - should fail
+        XContentBuilder withStored = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, TEST_DIMENSION)
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .field("store", true)
+            .endObject();
+
+        exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withStored), buildParserContext(TEST_INDEX_NAME, settings))
+        );
+        assertTrue(exception.getMessage().contains("Stored fields are not allowed for multi-vectors"));
+
+        // Test case: Space type set - should fail
+        XContentBuilder withSpaceType = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, TEST_DIMENSION)
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject();
+
+        exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withSpaceType), buildParserContext(TEST_INDEX_NAME, settings))
+        );
+        assertTrue(exception.getMessage().contains("Index time space type for multi_vector fields is not supported"));
+
+        // Test case: Dimension not set - should fail
+        XContentBuilder withoutDimension = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(KNNConstants.MULTI_VECTOR_PARAMETER, true)
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject();
+
+        exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(TEST_FIELD_NAME, xContentBuilderToMap(withoutDimension), buildParserContext(TEST_INDEX_NAME, settings))
         );
     }
 }
