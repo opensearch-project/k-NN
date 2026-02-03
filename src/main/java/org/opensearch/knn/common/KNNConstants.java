@@ -47,6 +47,7 @@ public class KNNConstants {
     public static final String MODEL_BLOB_PARAMETER = "model_blob";
     public static final String MODEL_INDEX_MAPPING_PATH = "mappings/model-index.json";
     public static final String MODEL_INDEX_NAME = ".opensearch-knn-models";
+    public static final String TASKS_INDEX_NAME = ".tasks";
     public static final String PLUGIN_NAME = "knn";
     public static final String MODEL_METADATA_FIELD = "knn-models";
     public static final Integer BYTES_PER_KILOBYTES = 1024;
