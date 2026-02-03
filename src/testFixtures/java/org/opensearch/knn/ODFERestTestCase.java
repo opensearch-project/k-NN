@@ -57,6 +57,7 @@ import static org.opensearch.knn.TestUtils.SECURITY_AUDITLOG_PREFIX;
 import static org.opensearch.knn.TestUtils.SKIP_DELETE_MODEL_INDEX;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.TASKS_INDEX_NAME;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
@@ -218,6 +219,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return indexName == null
             || OPENDISTRO_SECURITY.equals(indexName)
             || IMMUTABLE_INDEX_PREFIXES.stream().anyMatch(indexName::startsWith)
-            || MODEL_INDEX_NAME.equals(indexName);
+            || MODEL_INDEX_NAME.equals(indexName)
+            || TASKS_INDEX_NAME.equals(indexName);
     }
 }
