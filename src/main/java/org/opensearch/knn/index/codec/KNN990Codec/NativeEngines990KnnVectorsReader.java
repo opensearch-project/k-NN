@@ -34,6 +34,7 @@ import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.codec.quantization.QuantizedVectorsReader;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -60,7 +61,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
  * over the vectors and retrieving their values.
  */
 @Log4j2
-public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
+public class NativeEngines990KnnVectorsReader extends KnnVectorsReader implements QuantizedVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
     private Map<String, String> quantizationStateCacheKeyPerField;
@@ -347,6 +348,22 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
         // Not supported
         return null;
+    }
+
+    /**
+     * Returns the quantized byte vector values for the specified field.
+     *
+     * @param fieldName the name of the vector field
+     * @return {@link ByteVectorValues} containing the quantized vectors
+     * @throws UnsupportedOperationException if quantized vectors are not available for the field
+     */
+    @Override
+    public ByteVectorValues getQuantizedVectorValues(final String fieldName) throws IOException {
+        VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldName);
+        if (vectorSearcher instanceof FaissMemoryOptimizedSearcher searcher) {
+            return searcher.getByteVectorValues();
+        }
+        throw new UnsupportedOperationException("Quantized vector values not available for field: " + fieldName);
     }
 
     /**

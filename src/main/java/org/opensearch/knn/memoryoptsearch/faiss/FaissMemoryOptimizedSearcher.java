@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
@@ -141,6 +142,16 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
             knnCollector,
             acceptDocs
         );
+    }
+
+    /**
+     * Returns the byte vector values from the underlying FAISS index.
+     *
+     * @return {@link ByteVectorValues} containing the quantized vectors
+     * @throws IOException if an I/O error occurs while reading the index
+     */
+    public ByteVectorValues getByteVectorValues() throws IOException {
+        return faissIndex.getByteValues(getSlicedIndexInput());
     }
 
     @Override
