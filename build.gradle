@@ -583,6 +583,21 @@ tasks.register('buildJniTest', Test) {
     }
 }
 
+tasks.register('jniTest', Exec) {
+    if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+        dependsOn buildJniTest
+        var args = ''
+        if (System.getProperty("gtest_filter") != null) {
+            args = '--gtest_filter=' + System.getProperty("gtest_filter")
+        }
+        workingDir 'jni'
+        commandLine './bin/jni_test' , "${args}"
+    }
+}
+
+// Ensure that jniTest task is running during the ./gradlew build
+check.dependsOn jniTest
+
 test {
     dependsOn buildJniTest
     systemProperty 'tests.security.manager', 'false'
