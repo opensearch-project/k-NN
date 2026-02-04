@@ -12,7 +12,7 @@ import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.KNNMergeHelper;
+import org.apache.lucene.index.MergeAbortChecker;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
@@ -661,11 +661,11 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         JNICommons.freeVectorData(trainingPtr);
 
         try (
-            MockedStatic<KNNMergeHelper> mergeHelper = mockStatic(KNNMergeHelper.class);
+            MockedStatic<MergeAbortChecker> mergeHelper = mockStatic(MergeAbortChecker.class);
             MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)
         ) {
             // Setup isMergeAborted return true
-            mergeHelper.when(KNNMergeHelper::isMergeAborted).thenReturn(true);
+            mergeHelper.when(MergeAbortChecker::isMergeAborted).thenReturn(true);
             // Setup the model cache to return the correct model
             ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
             when(modelDao.get(modelId)).thenReturn(model);
@@ -716,7 +716,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 MergePolicy.MergeAbortedException.class,
                 () -> knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true)
             );
-            mergeHelper.verify(KNNMergeHelper::isMergeAborted, atLeastOnce());
+            mergeHelper.verify(MergeAbortChecker::isMergeAborted, atLeastOnce());
         }
     }
 }

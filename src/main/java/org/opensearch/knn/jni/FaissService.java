@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.jni;
 
-import org.apache.lucene.index.KNNMergeHelper;
+import org.apache.lucene.index.MergeAbortChecker;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
@@ -37,8 +37,8 @@ class FaissService {
         KNNEngine.FAISS.setInitialized(true);
 
         try {
-            KNNMergeHelper.class.getMethod("isMergeAborted");
-            KNNMergeHelper.isMergeAborted();
+            MergeAbortChecker.class.getMethod("isMergeAborted");
+            MergeAbortChecker.isMergeAborted();
             setMergeInterruptCallback();
             testMergeInterruptCallback();
         } catch (Exception e) {
@@ -452,8 +452,18 @@ class FaissService {
     );
 
     /**
-     * Faiss InterruptCallback singleton init
-     * we need
+     * Sets the merge interrupt callback for Faiss operations.
+     *
+     * <p>This method initializes a singleton interrupt callback that allows Faiss operations
+     * to be aborted when Lucene merge operations are cancelled. The callback uses
+     * {@link org.apache.lucene.index.MergeAbortChecker} to detect when the current thread
+     * is a merge thread and if its merge operation has been aborted.
+     *
+     * <p>When the callback detects an aborted merge, it signals Faiss to interrupt
+     * long-running operations like index creation or training, preventing resource
+     * waste and ensuring timely cleanup.
+     *
+     * @see org.apache.lucene.index.MergeAbortChecker#isMergeAborted()
      */
     public static native void setMergeInterruptCallback();
 

@@ -662,7 +662,7 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
     systemProperty("test.base_path", System.getProperty("test.base_path"))
 }
 
-task integTestRelocationWhenMerge(type: RestIntegTestTask) {
+task integTestMultiNode(type: RestIntegTestTask) {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, 2)
     filter {
         includeTestsMatching "org.opensearch.knn.index.RelocationIT"
@@ -731,7 +731,7 @@ testClusters.integTestRemoteIndexBuild {
     systemProperty 'mem_opt_srch.force_reenter', 'true'
 }
 
-testClusters.integTestRelocationWhenMerge {
+testClusters.integTestMultiNode {
     commonIntegTestClusters(it, 2)
 }
 

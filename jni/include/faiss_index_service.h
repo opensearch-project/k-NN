@@ -201,8 +201,8 @@ struct OpenSearchMergeInterruptCallback : faiss::InterruptCallback {
     OpenSearchMergeInterruptCallback(JNIUtil *jniUtil) {
         jutil = jniUtil;
         JNIEnv* jenv = jutil->GetJNICurrentEnv();
-        mergeHelperClass = jniUtil->FindClass(jenv,"org/apache/lucene/index/KNNMergeHelper");
-        isAbortedMethod = jniUtil->FindMethod(jenv, "org/apache/lucene/index/KNNMergeHelper", "isMergeAborted");
+        mergeHelperClass = jniUtil->FindClass(jenv,"org/apache/lucene/index/MergeAbortChecker");
+        isAbortedMethod = jniUtil->FindMethod(jenv, "org/apache/lucene/index/MergeAbortChecker", "isMergeAborted");
     }
 
     /**
@@ -231,15 +231,15 @@ struct OpenSearchMergeInterruptCallback : faiss::InterruptCallback {
         jenv = jutil->GetJNICurrentEnv();
 
         if (jenv == nullptr) {
-            std::cerr << "JNIEnv Not Find\n";
+            std::cerr << "JNIEnv not found\n";
             return false;
         }
         if (mergeHelperClass == nullptr) {
-            std::cerr << "KNNMergeHelper Not Find\n";
+            std::cerr << "MergeAbortChecker class not found\n";
             return false;
         }
         if (isAbortedMethod == nullptr) {
-            std::cerr << "is MergeAborted Not Find\n";
+            std::cerr << "isMergeAborted method not found\n";
             return false;
         }
 

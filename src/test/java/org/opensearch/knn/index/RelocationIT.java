@@ -37,10 +37,10 @@ public class RelocationIT extends KNNRestTestCase {
         Request nodesNamesRequest = new Request("GET", "_cat/nodes?h=name");
         Response response = client().performRequest(nodesNamesRequest);
         assertOK(response);
+
         String[] nodeNamesStr = new String(response.getEntity().getContent().readAllBytes()).split("\n");
-        if (nodeNamesStr.length < numNodes) {
-            return;
-        }
+        assertEquals(numNodes, nodeNamesStr.length);
+
         Settings indexSettings = Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)

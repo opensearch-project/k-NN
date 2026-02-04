@@ -65,9 +65,9 @@ void knn_jni::JNIUtil::Initialize(JNIEnv *env, JavaVM *javaVm) {
     this->cachedMethods["org/opensearch/knn/index/query/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
     env->DeleteLocalRef(tempLocalClassRef);
 
-    tempLocalClassRef = env->FindClass("org/apache/lucene/index/KNNMergeHelper");
-    this->cachedClasses["org/apache/lucene/index/KNNMergeHelper"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
-    this->cachedMethods["org/apache/lucene/index/KNNMergeHelper:isMergeAborted"] = env->GetStaticMethodID(tempLocalClassRef, "isMergeAborted", "()Z");
+    tempLocalClassRef = env->FindClass("org/apache/lucene/index/MergeAbortChecker");
+    this->cachedClasses["org/apache/lucene/index/MergeAbortChecker"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["org/apache/lucene/index/MergeAbortChecker:isMergeAborted"] = env->GetStaticMethodID(tempLocalClassRef, "isMergeAborted", "()Z");
     env->DeleteLocalRef(tempLocalClassRef);
     vm = javaVm;
 }
@@ -111,9 +111,9 @@ void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env, const char* message) {
     }
 }
 
-void knn_jni::JNIUtil::CatchAbortExceptionAndThrowJava(JNIEnv* env)
+void knn_jni::JNIUtil::CatchIndexBuildAbortExceptionAndThrowJava(JNIEnv* env)
 {
-    this->ThrowJavaException(env, "java/io/IOException", "JNI Abort Build");
+    this->ThrowJavaException(env, "org/opensearch/knn/index/codec/nativeindex/IndexBuildAbortedException", "Faiss index build aborted");
 }
 void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
 {

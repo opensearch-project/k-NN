@@ -86,7 +86,7 @@ namespace test_util {
         MOCK_METHOD(void, HasExceptionInStack, (JNIEnv * env));
         MOCK_METHOD(void, HasExceptionInStack,
                     (JNIEnv * env, const char* message));
-        MOCK_METHOD(void, CatchAbortExceptionAndThrowJava, (JNIEnv * env));
+        MOCK_METHOD(void, CatchIndexBuildAbortExceptionAndThrowJava, (JNIEnv * env));
         MOCK_METHOD(jbyteArray, NewByteArray, (JNIEnv * env, jsize len));
         MOCK_METHOD(jobject, NewObject,
                     (JNIEnv * env, jclass clazz, jmethodID methodId, int id,

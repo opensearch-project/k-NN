@@ -122,17 +122,16 @@ public class NativeIndexWriter {
         }
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
-        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
 
         try {
             startMergeStats(totalLiveDocs, bytesPerVector);
             buildAndWriteIndex(knnVectorValuesSupplier, totalLiveDocs, false);
             endMergeStats(totalLiveDocs, bytesPerVector);
-        } catch (IOException | RuntimeException ex) {
-            log.debug("Merge Aborted", ex.getMessage());
+        } catch (IndexBuildAbortedException ex) {
+            log.error("Merge Aborted", ex);
             throw new MergePolicy.MergeAbortedException("KNN Merge aborted.");
         } catch (Exception ex) {
-            log.debug("Merge exception {}", ex.getMessage());
+            log.error("Merge exception {}", ex.getMessage());
         }
     }
 

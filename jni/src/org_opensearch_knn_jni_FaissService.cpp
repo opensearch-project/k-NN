@@ -97,7 +97,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
         std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            jniUtil.CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchIndexBuildAbortExceptionAndThrowJava(env);
         } else {
             jniUtil.CatchCppExceptionAndThrowJava(env);
         }
@@ -121,7 +121,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
         std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            jniUtil.CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchIndexBuildAbortExceptionAndThrowJava(env);
         } else {
             jniUtil.CatchCppExceptionAndThrowJava(env);
         }
@@ -145,7 +145,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToByteInde
         std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            jniUtil.CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchIndexBuildAbortExceptionAndThrowJava(env);
         } else {
             jniUtil.CatchCppExceptionAndThrowJava(env);
         }
@@ -221,7 +221,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
         std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            jniUtil.CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchIndexBuildAbortExceptionAndThrowJava(env);
         } else {
             jniUtil.CatchCppExceptionAndThrowJava(env);
         }
@@ -254,7 +254,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createBinaryInde
         std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            jniUtil.CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchIndexBuildAbortExceptionAndThrowJava(env);
         } else {
             jniUtil.CatchCppExceptionAndThrowJava(env);
         }
@@ -287,7 +287,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createByteIndexF
         std::string errormsg = e.msg;
         std::size_t found = errormsg.find("computation interrupted");
         if (found != std::string::npos) {
-            jniUtil.CatchAbortExceptionAndThrowJava(env);
+            jniUtil.CatchIndexBuildAbortExceptionAndThrowJava(env);
         } else {
             jniUtil.CatchCppExceptionAndThrowJava(env);
         }
