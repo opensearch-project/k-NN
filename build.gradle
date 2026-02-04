@@ -648,6 +648,9 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
 
 integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    filter {
+        excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
     mustRunAfter test
 }
 
@@ -668,6 +671,9 @@ task integTestMultiNode(type: RestIntegTestTask) {
         includeTestsMatching "org.opensearch.knn.index.RelocationIT"
     }
 }
+
+// Make integTest run integTestMultiNode after completion
+integTest.finalizedBy integTestMultiNode
 
 def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     cluster.testDistribution = "ARCHIVE"
