@@ -5,7 +5,9 @@
 
 package org.opensearch.knn;
 
+import lombok.SneakyThrows;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.cluster.ClusterName;
@@ -15,7 +17,7 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.block.ClusterBlocks;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -34,7 +36,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.index.IndexService;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.core.rest.RestStatus;
@@ -45,10 +46,16 @@ import com.carrotsearch.randomizedtesting.ThreadFilter;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -65,7 +72,6 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
 @ThreadLeakFilters(defaultFilters = true, filters = { KNNSingleNodeTestCase.ForkJoinFilter.class })
 public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
@@ -107,20 +113,6 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().close();
         NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance().close();
         super.tearDown();
-    }
-
-    /**
-     * Create a k-NN index with default settings
-     */
-    protected IndexService createKNNIndex(String indexName) {
-        return createIndex(indexName, getKNNDefaultIndexSettingsBuildsGraphAlways());
-    }
-
-    protected IndexService createMemoryOptimizedSearchEnabledKNNIndex(final String indexName) {
-        Settings settings = getKNNDefaultIndexSettingsBuildsGraphAlways();
-        final Settings.Builder builder = Settings.builder().put(settings);
-        builder.put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true);
-        return createIndex(indexName, builder.build());
     }
 
     /**
@@ -186,18 +178,6 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     }
 
     /**
-     * Get default k-NN settings for test cases with build graph always
-     */
-    protected Settings getKNNDefaultIndexSettingsBuildsGraphAlways() {
-        return Settings.builder()
-            .put("number_of_shards", 1)
-            .put("number_of_replicas", 0)
-            .put("index.knn", true)
-            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
-            .build();
-    }
-
-    /**
      * Add a k-NN doc to an index
      */
     protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException, InterruptedException,
@@ -210,6 +190,54 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
 
         IndexResponse response = client().index(indexRequest).get();
         assertEquals(response.status(), RestStatus.CREATED);
+    }
+
+    /**
+     * Add multiple k-NN docs to an index
+     */
+    protected void addKnnDocBulk(String index, List<String> docIds, String fieldName, List<Object[]> vectors) throws IOException,
+        InterruptedException, ExecutionException {
+        for (int i = 0; i < vectors.size(); i++) {
+            XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vectors.get(i)).endObject();
+            IndexRequest indexRequest = new IndexRequest().index(index).id(docIds.get(i)).source(builder);
+            client().index(indexRequest).get();
+        }
+        client().admin().indices().prepareRefresh(index).get();
+    }
+
+    /**
+     * Loads a ground truth file into a JSON list of objects.
+     *
+     * The ground truth file should be of the format:
+     * [
+     *   {
+     *     "id": "338",
+     *     "vector": [0.0, 1.0]
+     *     "score": 1.0
+     *   },
+     *   {
+     *     "id": "61",
+     *     "vector": [1.0, 2.0]
+     *     "score": 0.9637892
+     *   },
+     * ]
+     * The first vector will be the query vector.
+     * @param groundTruthFile
+     * @return List of json vectors
+     * @throws IOException
+     */
+    @SneakyThrows
+    protected List<Object> loadGroundTruth(String groundTruthFile) {
+        final URL hnswWithOneVector = this.getClass().getClassLoader().getResource(groundTruthFile);
+        try (InputStream inputStream = Files.newInputStream(Path.of(hnswWithOneVector.toURI()))) {
+            if (inputStream == null) {
+                throw new IOException("Resource not found: " + groundTruthFile);
+            }
+            XContentParser parser = JsonXContent.jsonXContent.createParser(null, null, inputStream);
+            List<Object> groundTruth = parser.list();
+            parser.close();
+            return groundTruth;
+        }
     }
 
     /**
@@ -305,7 +333,8 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      * Run a search against a k-NN index
      */
     protected void searchKNNIndex(String index, String fieldName, float[] vector, int k) {
-        SearchResponse response = client().prepareSearch(index).setQuery(new KNNQueryBuilder(fieldName, vector, k)).get();
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(fieldName).vector(vector).k(k).build();
+        SearchResponse response = client().prepareSearch(index).setQuery(knnQueryBuilder).get();
         assertEquals(response.status(), RestStatus.OK);
     }
 
@@ -357,5 +386,43 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         ClusterBlocks clusterBlocks = ClusterBlocks.builder().addIndexBlock(testIndex, block).build();
         ClusterState state = ClusterState.builder(ClusterName.DEFAULT).blocks(clusterBlocks).build();
         when(clusterService.state()).thenReturn(state);
+    }
+
+    /**
+     * Indexes the ground truth objects into a KNN Index and returns the query vector for testing
+     * @param indexName
+     * @param fieldName
+     * @param dimensions
+     * @param groundTruth
+     * @return Query vector
+     * @throws IOException
+     * @throws ExecutionException
+     * @throws InterruptedException
+     */
+    protected float[] setupTestFromGroundTruth(String indexName, String fieldName, int dimensions, List<Object> groundTruth)
+        throws IOException, ExecutionException, InterruptedException {
+        float[] queryVector = null;
+        ArrayList<String> ids = new ArrayList<>();
+        ArrayList<Object[]> vectors = new ArrayList<>();
+        for (Object docObj : groundTruth) {
+            Map<String, Object> doc = (Map<String, Object>) docObj;
+            String id = (String) doc.get("id");
+            List<Object> vectorList = (List<Object>) doc.get("vector");
+            Float[] vector = new Float[dimensions];
+            for (int i = 0; i < dimensions; i++) {
+                vector[i] = ((Number) vectorList.get(i)).floatValue();
+            }
+            if (queryVector == null) {
+                queryVector = new float[dimensions];
+                for (int i = 0; i < dimensions; i++) {
+                    queryVector[i] = vector[i];
+                }
+            }
+            ids.add(id);
+            vectors.add(vector);
+        }
+        addKnnDocBulk(indexName, ids, fieldName, vectors);
+        // Returns first vector as query vector
+        return queryVector;
     }
 }
