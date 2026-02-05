@@ -14,5 +14,5 @@ import java.io.IOException;
  */
 public interface NativeIndexBuildStrategy {
 
-    void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException;
+    void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException, IndexBuildAbortedException;
 }
