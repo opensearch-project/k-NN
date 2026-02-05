@@ -19,6 +19,7 @@
 #include "jni_util.h"
 #include "faiss_stream_support.h"
 #include "faiss/impl/FaissException.h"
+#include "faiss_index_service.h"
 
 static knn_jni::JNIUtil jniUtil;
 static const jint KNN_FAISS_JNI_VERSION = JNI_VERSION_1_1;
