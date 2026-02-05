@@ -283,13 +283,6 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_rangeSea
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterruptCallback(JNIEnv * env, jclass cls);
 
-/*
- * Class:     org_opensearch_knn_jni_FaissService
- * Method:    testMergeInterruptCallback
- * Signature: ()V
- */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_testMergeInterruptCallback(JNIEnv * env, jclass cls);
-
 #ifdef __cplusplus
 }
 #endif

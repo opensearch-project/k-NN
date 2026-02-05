@@ -40,7 +40,6 @@ class FaissService {
             MergeAbortChecker.class.getMethod("isMergeAborted");
             MergeAbortChecker.isMergeAborted();
             setMergeInterruptCallback();
-            testMergeInterruptCallback();
         } catch (Exception e) {
             // Ignore merge abort callback
             log.error("Init Faiss Service Error" + e);
@@ -466,6 +465,4 @@ class FaissService {
      * @see org.apache.lucene.index.MergeAbortChecker#isMergeAborted()
      */
     public static native void setMergeInterruptCallback();
-
-    public static native void testMergeInterruptCallback();
 }

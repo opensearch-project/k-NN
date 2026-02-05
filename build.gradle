@@ -659,6 +659,7 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
     filter {
         // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
         excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
+        excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))
