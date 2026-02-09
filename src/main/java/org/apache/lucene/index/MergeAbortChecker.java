@@ -5,6 +5,7 @@
 
 package org.apache.lucene.index;
 
+import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
 import java.lang.reflect.Field;
@@ -19,27 +20,26 @@ import java.lang.reflect.Field;
  * @since 1.0
  */
 @Log4j2
+@NoArgsConstructor
 public final class MergeAbortChecker {
 
     /** The reflected field for accessing merge state from MergeThread */
-    private static final Field MERGE_FIELD;
+    private static Field MERGE_FIELD;
 
     /** The name of the merge field in ConcurrentMergeScheduler.MergeThread */
     private static final String MERGE_FIELD_NAME = "merge";
 
+    private static boolean hasMergeField;
     static {
         try {
             MERGE_FIELD = ConcurrentMergeScheduler.MergeThread.class.getDeclaredField(MERGE_FIELD_NAME);
             MERGE_FIELD.setAccessible(true);
+            hasMergeField = true;
         } catch (NoSuchFieldException e) {
-            throw new RuntimeException("Failed to initialize MergeAbortChecker: merge field not found", e);
+            hasMergeField = false;
+            log.error("Not find merge field in MergeThread", e);
         }
     }
-
-    /**
-     * Private constructor to prevent instantiation of utility class.
-     */
-    private MergeAbortChecker() {}
 
     /**
      * Checks if the current thread is a merge thread and if its merge operation has been aborted.
@@ -56,6 +56,9 @@ public final class MergeAbortChecker {
      * @see MergePolicy.OneMerge#isAborted()
      */
     public static boolean isMergeAborted() {
+        if (!hasMergeField) {
+            return false;
+        }
         Thread mergeThread = Thread.currentThread();
         if (mergeThread instanceof ConcurrentMergeScheduler.MergeThread) {
             try {

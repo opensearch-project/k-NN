@@ -37,12 +37,11 @@ class FaissService {
         KNNEngine.FAISS.setInitialized(true);
 
         try {
-            MergeAbortChecker.class.getMethod("isMergeAborted");
             MergeAbortChecker.isMergeAborted();
             setMergeInterruptCallback();
         } catch (Exception e) {
             // Ignore merge abort callback
-            log.error("Init Faiss Service Error" + e);
+            log.warn("Unable to add the mergeAbortChecker during Faiss Initialization", e);
         }
     }
 
