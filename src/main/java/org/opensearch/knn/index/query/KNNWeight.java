@@ -203,11 +203,24 @@ public abstract class KNNWeight extends Weight {
         }
         if (annResult != null && isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
             boolean isExactSearchDisabled = KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName());
+            int disableExactSearchThreshold = KNNSettings.getKnnIndexFaissEfficientFilterDisableExactSearchThreshold(
+                knnQuery.getIndexName()
+            );
+            boolean isCardinalityAboveThreshold = disableExactSearchThreshold >= 0 && cardinality >= disableExactSearchThreshold;
             if (isExactSearchDisabled) {
                 sb.append(KNNConstants.ANN_SEARCH)
                     .append(", it is not falling back to exact search after ")
                     .append(KNNConstants.ANN_SEARCH)
                     .append(" search since exact search is disabled,");
+            } else if (isCardinalityAboveThreshold) {
+                sb.append(KNNConstants.ANN_SEARCH)
+                    .append(", it is not falling back to exact search after ")
+                    .append(KNNConstants.ANN_SEARCH)
+                    .append(" search since filter cardinality = ")
+                    .append(cardinality)
+                    .append(" is not lower than the cardinality threshold = ")
+                    .append(disableExactSearchThreshold)
+                    .append(",");
             } else {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since the number of documents returned are less than K = ")
@@ -680,6 +693,21 @@ public abstract class KNNWeight extends Weight {
                 log.debug(
                     "ExactSearch is disabled after ANN Search because the index setting: {} is set to true",
                     KNNSettings.INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH
+                );
+                return false;
+            }
+
+            // Only fallback to exact search if cardinality is lower than the threshold setting value
+            int disableExactSearchThreshold = KNNSettings.getKnnIndexFaissEfficientFilterDisableExactSearchThreshold(
+                knnQuery.getIndexName()
+            );
+            if (disableExactSearchThreshold >= 0 && filterIdsCount >= disableExactSearchThreshold) {
+                log.debug(
+                    "ExactSearch is skipped after ANN Search because filter cardinality {} is not lower than "
+                        + "the disable exact search threshold setting: {} = {}",
+                    filterIdsCount,
+                    KNNSettings.INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD,
+                    disableExactSearchThreshold
                 );
                 return false;
             }

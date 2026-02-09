@@ -115,6 +115,8 @@ public class KNNWeightTestCase extends KNNTestCase {
     public void setupBeforeTest() {
         knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(0);
         knnSettingsMockedStatic.when(() -> KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(INDEX_NAME)).thenReturn(false);
+        knnSettingsMockedStatic.when(() -> KNNSettings.getKnnIndexFaissEfficientFilterDisableExactSearchThreshold(INDEX_NAME))
+            .thenReturn(-1);
         jniServiceMockedStatic = mockStatic(JNIService.class);
     }
 
