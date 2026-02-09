@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
@@ -18,14 +19,16 @@ import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.MergeState;
+import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocIdSetIterator;
-import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.function.Supplier;
+
+import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
 
 /**
  * A factory class that provides various methods to create the {@link KNNVectorValues}.
@@ -102,26 +105,52 @@ public final class KNNVectorValuesFactory {
      * @param leafReader {@link LeafReader}
      * @return {@link KNNVectorValues}
      */
-    public static <T> KNNVectorValues<T> getVectorValues(final FieldInfo fieldInfo, final LeafReader leafReader) throws IOException {
-        final DocIdSetIterator docIdSetIterator;
+    public static <T> KNNVectorValues<T> getVectorValues(final FieldInfo fieldInfo, final SegmentReader leafReader) throws IOException {
+        return getVectorValues(fieldInfo, leafReader, false);
+    }
+
+    /**
+     * Returns a {@link KNNVectorValues} for the given {@link FieldInfo} and {@link LeafReader}
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @param leafReader {@link LeafReader}
+     * @return {@link KNNVectorValues}
+     */
+    public static <T> KNNVectorValues<T> getVectorValues(
+        final FieldInfo fieldInfo,
+        final SegmentReader leafReader,
+        boolean isQueryVectorQuantized
+    ) throws IOException {
+        final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
+        final VectorEncoding vectorEncoding = fieldInfo.getVectorEncoding();
+
         if (!fieldInfo.hasVectorValues()) {
-            docIdSetIterator = DocValues.getBinary(leafReader, fieldInfo.getName());
+            final DocIdSetIterator docIdSetIterator = DocValues.getBinary(leafReader, fieldInfo.getName());
             final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator);
-            return getVectorValues(FieldInfoExtractor.extractVectorDataType(fieldInfo), vectorValuesIterator);
+            return getVectorValues(vectorDataType, vectorValuesIterator);
         }
-        if (fieldInfo.getVectorEncoding() == VectorEncoding.BYTE) {
-            return getVectorValues(
-                FieldInfoExtractor.extractVectorDataType(fieldInfo),
-                new KNNVectorValuesIterator.DocIdsIteratorValues(leafReader.getByteVectorValues(fieldInfo.getName()))
+        if (vectorEncoding == VectorEncoding.BYTE) {
+            final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(
+                leafReader.getByteVectorValues(fieldInfo.getName())
             );
-        } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
-            return getVectorValues(
-                FieldInfoExtractor.extractVectorDataType(fieldInfo),
-                new KNNVectorValuesIterator.DocIdsIteratorValues(leafReader.getFloatVectorValues(fieldInfo.getName()))
-            );
-        } else {
-            throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
+            return getVectorValues(vectorDataType, vectorValuesIterator);
         }
+        if (vectorEncoding == VectorEncoding.FLOAT32) {
+            final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(fieldInfo.getName());
+            // for quantized query vectors, we need to pass the original byte vectors to the engine if supported, otherwise fallback
+            if (isQueryVectorQuantized && leafReader.getVectorReader() instanceof PerFieldKnnVectorsFormat.FieldsReader fieldsReader) {
+                final KnnVectorsReader fieldReader = fieldsReader.getFieldReader(fieldInfo.getName());
+                return getVectorValues(
+                    VectorDataType.BINARY,  // retrieve binary data from reader
+                    new KNNVectorValuesIterator.DocIdsIteratorValues(
+                        floatVectorValues.iterator(),
+                        fieldReader.getByteVectorValues(fieldInfo.getName())
+                    )
+                );
+            }
+            return getVectorValues(vectorDataType, new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues));
+        }
+        throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
     }
 
     /**
@@ -146,13 +175,10 @@ public final class KNNVectorValuesFactory {
             } else {
                 throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
             }
-            return getVectorValues(
-                FieldInfoExtractor.extractVectorDataType(fieldInfo),
-                new KNNVectorValuesIterator.DocIdsIteratorValues(knnVectorValues)
-            );
+            return getVectorValues(extractVectorDataType(fieldInfo), new KNNVectorValuesIterator.DocIdsIteratorValues(knnVectorValues));
         } else if (docValuesProducer != null) {
             return getVectorValues(
-                FieldInfoExtractor.extractVectorDataType(fieldInfo),
+                extractVectorDataType(fieldInfo),
                 new KNNVectorValuesIterator.DocIdsIteratorValues(docValuesProducer.getBinary(fieldInfo))
             );
         } else {

@@ -21,13 +21,11 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.List;
 
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 
 /**
  * Integration test for disk-based filtered exact search.
- * Tests QuantizedVectorIdsExactKNNIterator with ON_DISK mode and filters.
  */
 @Log4j2
 public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
@@ -73,11 +71,6 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
         assertEquals(expectResultSize, parseTotalSearchHits(entity));
     }
 
-    /**
-     * Test segment with knn_vector field mapping but no docs containing the vector field.
-     * Deletes a vector doc, creating a new segment with deleted docs but no docs present.
-     * Validates filtered k-NN exact search with disk-based mode works without errors.
-     */
     @SneakyThrows
     public void testDiskBasedFilteredExactSearch_whenNonVectorFields_thenSucceed() {
         String filterFieldName = "category";
@@ -160,7 +153,6 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
 
     /**
      * Test nested field with disk-based exact search.
-     * Tests NestedQuantizedVectorIdsExactKNNIterator with ON_DISK mode.
      */
     @SneakyThrows
     public void testDiskBasedFilteredExactSearch_whenNestedField_thenSucceed() {
@@ -168,7 +160,7 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
         String filterFieldName = "parking";
         String filterValue = "true";
 
-        createKnnIndex(8, FAISS_NAME, Mode.ON_DISK);
+        createNestedKnnIndex(8);
 
         for (int i = 1; i < 4; i++) {
             float value = (float) i;
@@ -218,7 +210,6 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .field(MODE_PARAMETER, Mode.ON_DISK.getName())
             .startObject("method")
             .field("name", METHOD_HNSW)
-            .field("engine", FAISS_NAME)
             .endObject()
             .endObject()
             .endObject()
@@ -228,7 +219,7 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
         createKnnIndex(indexName, getKNNDefaultIndexSettings(), mapping);
     }
 
-    private void createKnnIndex(int dimension, String engine, Mode mode) throws Exception {
+    private void createNestedKnnIndex(int dimension) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -238,10 +229,9 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", dimension)
-            .field(MODE_PARAMETER, mode.getName())
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
             .startObject("method")
             .field("name", METHOD_HNSW)
-            .field("engine", engine)
             .endObject()
             .endObject()
             .endObject()

@@ -34,7 +34,6 @@ import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.index.codec.quantization.QuantizedVectorsReader;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -54,6 +53,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 /**
@@ -61,7 +61,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
  * over the vectors and retrieving their values.
  */
 @Log4j2
-public class NativeEngines990KnnVectorsReader extends KnnVectorsReader implements QuantizedVectorsReader {
+public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
     private Map<String, String> quantizationStateCacheKeyPerField;
@@ -109,15 +109,29 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader implement
     }
 
     /**
-     * Returns the {@link ByteVectorValues} for the given {@code field}. The behavior is undefined if
-     * the given field doesn't have KNN vectors enabled on its {@link FieldInfo}. The return value is
-     * never {@code null}.
+     * Returns the {@link ByteVectorValues} for the given field.
+     * Attempts flat vectors reader first, then falls back to quantized vectors if available.
      *
-     * @param field {@link String}
+     * @param field the vector field name
+     * @return {@link ByteVectorValues} for the field, never {@code null}
+     * @throws IOException if an I/O error occurs or no byte vectors are available for the field
      */
     @Override
     public ByteVectorValues getByteVectorValues(final String field) throws IOException {
-        return flatVectorsReader.getByteVectorValues(field);
+        try {
+            return flatVectorsReader.getByteVectorValues(field);
+        } catch (Exception originalException) {
+            log.debug("Failed to retrieve byte vectors from flat reader for field [{}], attempting quantized searcher fallback", field);
+            final ByteVectorValues quantizedVectorValues = getQuantizedVectorValues(field);
+
+            if (quantizedVectorValues != null) {
+                log.debug("Successfully retrieved byte vectors from quantized searcher for field [{}]", field);
+                return quantizedVectorValues;
+            }
+
+            log.debug("No quantized vectors available for field [{}], rethrowing original exception", field);
+            throw originalException;
+        }
     }
 
     /**
@@ -351,19 +365,20 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader implement
     }
 
     /**
-     * Returns the quantized byte vector values for the specified field.
+     * Attempts to retrieve byte vector values from a Faiss memory-optimized searcher.
+     * Checks if the field has quantization configuration and returns vectors from the searcher if available.
      *
-     * @param fieldName the name of the vector field
-     * @return {@link ByteVectorValues} containing the quantized vectors
-     * @throws UnsupportedOperationException if quantized vectors are not available for the field
+     * @param fieldName the field name to retrieve vectors for
+     * @return byte vector values from the searcher, or null if quantization is not configured or searcher is unavailable
+     * @throws IOException if an I/O error occurs during retrieval
      */
-    @Override
-    public ByteVectorValues getQuantizedVectorValues(final String fieldName) throws IOException {
-        VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldName);
-        if (vectorSearcher instanceof FaissMemoryOptimizedSearcher searcher) {
-            return searcher.getByteVectorValues();
+    private ByteVectorValues getQuantizedVectorValues(@NonNull final String fieldName) throws IOException {
+        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(fieldName);
+        if (fieldInfo.getAttribute(QFRAMEWORK_CONFIG) == null) {
+            return null;
         }
-        throw new UnsupportedOperationException("Quantized vector values not available for field: " + fieldName);
+        final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldName);
+        return vectorSearcher instanceof FaissMemoryOptimizedSearcher searcher ? searcher.getByteVectorValues() : null;
     }
 
     /**

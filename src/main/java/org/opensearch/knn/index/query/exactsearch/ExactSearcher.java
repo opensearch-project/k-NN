@@ -11,11 +11,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.codecs.KnnVectorsReader;
-import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
-import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -32,7 +28,6 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.quantization.QuantizedVectorsReader;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -227,7 +222,9 @@ public class ExactSearcher {
         byte[] quantizedQueryVector = null;
         SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = null;
         if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
+            // Build Segment Level Quantization info.
             segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, exactSearcherContext.getField());
+            // Quantize the Query Vector Once. Or transform it in the case of ADC.
             if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
                 SegmentLevelQuantizationUtil.transformVectorWithADC(
                     exactSearcherContext.getFloatQueryVector(),
@@ -241,21 +238,25 @@ public class ExactSearcher {
                 );
             }
         }
+        // Quantized search path: retrieve quantized byte vectors from reader as KNNBinaryVectorValues and perform exact search
+        // using Hamming distance.
         if (quantizedQueryVector != null) {
-            // Use pre-quantized vectors from native engine to avoid quantization multiple times
-            final ByteVectorValues quantizedVectorValues = getQuantizedVectorValues(reader, exactSearcherContext.getField());
-            // mapping from lucene id is managed in DocIndexIterator
-            final KnnVectorValues.DocIndexIterator indexIterator = reader.getFloatVectorValues(exactSearcherContext.getField()).iterator();
+            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
             if (isNestedRequired) {
-                return new NestedQuantizedVectorIdsExactKNNIterator(
+                return new NestedBinaryVectorIdsExactKNNIterator(
                     matchedDocs,
-                    indexIterator,
-                    quantizedVectorValues,
                     quantizedQueryVector,
+                    (KNNBinaryVectorValues) vectorValues,
+                    SpaceType.HAMMING,
                     exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
-            return new QuantizedVectorIdsExactKNNIterator(matchedDocs, indexIterator, quantizedVectorValues, quantizedQueryVector);
+            return new BinaryVectorIdsExactKNNIterator(
+                matchedDocs,
+                quantizedQueryVector,
+                (KNNBinaryVectorValues) vectorValues,
+                SpaceType.HAMMING
+            );
         }
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
         if (isNestedRequired) {
@@ -277,16 +278,6 @@ public class ExactSearcher {
             quantizedQueryVector,
             segmentLevelQuantizationInfo
         );
-    }
-
-    private ByteVectorValues getQuantizedVectorValues(SegmentReader reader, String fieldName) throws IOException {
-        if (reader.getVectorReader() instanceof PerFieldKnnVectorsFormat.FieldsReader fieldsReader) {
-            final KnnVectorsReader fieldReader = fieldsReader.getFieldReader(fieldName);
-            if (fieldReader instanceof QuantizedVectorsReader quantizedReader) {
-                return quantizedReader.getQuantizedVectorValues(fieldName);
-            }
-        }
-        return null;
     }
 
     /**
