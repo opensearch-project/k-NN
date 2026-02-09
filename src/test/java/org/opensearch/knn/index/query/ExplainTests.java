@@ -793,7 +793,7 @@ public class ExplainTests extends KNNWeightTestCase {
 
         final KNNWeight knnWeight = new DefaultKNNWeight(query, boost, filterQueryWeight);
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
-        
+
         assertNotNull(knnScorer);
         knnWeight.getKnnExplanation().addKnnScorer(leafReaderContext, knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();

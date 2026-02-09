@@ -905,10 +905,7 @@ public class KNNSettings {
     }
 
     public static Integer getKnnIndexFaissEfficientFilterDisableExactSearchThreshold(String indexName) {
-        return getIndexSettings(indexName).getAsInt(
-            INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD,
-            -1
-        );
+        return getIndexSettings(indexName).getAsInt(INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD, -1);
     }
 
     /**
