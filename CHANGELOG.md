@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.6](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
-* Add index setting `index.knn.faiss.efficient_filter.disable_exact_search_threshold` to control fallback to exact search based on filter cardinality [#XXXX](https://github.com/opensearch-project/k-NN/pull/XXXX)
+* Add index setting `index.knn.faiss.efficient_filter.disable_exact_search_threshold` to control fallback to exact search based on filter cardinality [#3109](https://github.com/opensearch-project/k-NN/pull/3109)
 
 ### Maintenance
 
