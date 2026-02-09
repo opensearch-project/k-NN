@@ -422,7 +422,26 @@ integTest {
     if (System.getProperty("test.debug") != null) {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
+
+    filter {
+        excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
+    mustRunAfter test
 }
+
+task integTestMultiNode(type: RestIntegTestTask) {
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
+    systemProperty "java.library.path", "$rootDir/jni/release"
+    systemProperty('project.root', project.rootDir.absolutePath)
+    filter {
+        includeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
+}
+
+// Make integTest run integTestMultiNode after completion
+integTest.finalizedBy integTestMultiNode
 
 testClusters.integTest {
     testDistribution = "ARCHIVE"
@@ -443,6 +462,9 @@ testClusters.integTest {
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
     // since we also support multi node integration tests we increase debugPort per node
+    nodes.forEach { node ->
+        node.jvmArgs("-Xmx512m")
+    }
     if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
         nodes.forEach { node ->
@@ -454,6 +476,35 @@ testClusters.integTest {
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
     testSnapshotFolder.mkdirs()
     setting 'path.repo', "${buildDir}/testSnapshotFolder"
+}
+
+testClusters.integTestMultiNode {
+    testDistribution = "ARCHIVE"
+
+    if (System.getProperty("security.enabled") != null) {
+        configureSecurityPlugin(testClusters.integTestMultiNode)
+    }
+
+    plugin(project.tasks.bundlePlugin.archiveFile)
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
+
+    if (2 > 1) numberOfNodes = 2
+    nodes.forEach { node ->
+        node.jvmArgs("-Xmx512m")
+    }
+    if (System.getProperty("cluster.debug") != null) {
+        def debugPort = 5005
+        nodes.forEach { node ->
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
+            debugPort += 1
+        }
+    }
+    final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
+    testSnapshotFolder.mkdirs()
+    setting 'path.repo', "${buildDir}/testSnapshotFolder"
+    systemProperty("java.library.path", "$rootDir/jni/release")
 }
 
 task integTestRemote(type: RestIntegTestTask) {

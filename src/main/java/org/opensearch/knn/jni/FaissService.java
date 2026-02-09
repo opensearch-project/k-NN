@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.jni;
 
+import org.apache.lucene.index.MergeAbortChecker;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
@@ -20,6 +21,7 @@ import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Map;
+import lombok.extern.log4j.Log4j2;
 
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX512Disabled;
@@ -36,6 +38,7 @@ import static org.opensearch.knn.jni.PlatformUtils.isAVX512SPRSupportedBySystem;
  *      src/main/java/org/opensearch/knn/index/query/KNNQueryResult.java
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
  */
+@Log4j2
 class FaissService {
 
     static {
@@ -58,6 +61,14 @@ class FaissService {
             KNNEngine.FAISS.setInitialized(true);
             return null;
         });
+
+        try {
+            MergeAbortChecker.isMergeAborted();
+            setMergeInterruptCallback();
+        } catch (Exception e) {
+            // Ignore merge abort callback
+            log.warn("Unable to add the mergeAbortChecker during Faiss Initialization", e);
+        }
     }
 
     /**
@@ -463,4 +474,20 @@ class FaissService {
         int indexMaxResultWindow,
         int[] parentIds
     );
+
+    /**
+     * Sets the merge interrupt callback for Faiss operations.
+     *
+     * <p>This method initializes a singleton interrupt callback that allows Faiss operations
+     * to be aborted when Lucene merge operations are cancelled. The callback uses
+     * {@link org.apache.lucene.index.MergeAbortChecker} to detect when the current thread
+     * is a merge thread and if its merge operation has been aborted.
+     *
+     * <p>When the callback detects an aborted merge, it signals Faiss to interrupt
+     * long-running operations like index creation or training, preventing resource
+     * waste and ensuring timely cleanup.
+     *
+     * @see org.apache.lucene.index.MergeAbortChecker#isMergeAborted()
+     */
+    public static native void setMergeInterruptCallback();
 }
