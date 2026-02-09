@@ -86,6 +86,7 @@ namespace test_util {
         MOCK_METHOD(void, HasExceptionInStack, (JNIEnv * env));
         MOCK_METHOD(void, HasExceptionInStack,
                     (JNIEnv * env, const char* message));
+        MOCK_METHOD(void, CatchIndexBuildAbortExceptionAndThrowJava, (JNIEnv * env));
         MOCK_METHOD(jbyteArray, NewByteArray, (JNIEnv * env, jsize len));
         MOCK_METHOD(jobject, NewObject,
                     (JNIEnv * env, jclass clazz, jmethodID methodId, int id,
@@ -117,6 +118,7 @@ namespace test_util {
         MOCK_METHOD(void *, GetPrimitiveArrayCritical, (JNIEnv * env, jarray array, jboolean *isCopy));
         MOCK_METHOD(void, ReleasePrimitiveArrayCritical, (JNIEnv * env, jarray array, void *carray, jint mode));
         MOCK_METHOD(void, CallNonvirtualVoidMethodA, (JNIEnv * env, jobject obj, jclass clazz, jmethodID methodID, jvalue* args));
+
     };
 
 // For our unit tests, we want to ensure that each test tests one function in
