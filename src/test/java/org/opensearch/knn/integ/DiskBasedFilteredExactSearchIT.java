@@ -17,10 +17,12 @@ import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.List;
 
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 
@@ -32,26 +34,37 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testDiskBasedFilteredExactSearch_whenFiltersMatchAllDocs_thenReturnCorrectResults() {
+        for (CompressionLevel compressionLevel : List.of(
+            CompressionLevel.x4,
+            CompressionLevel.x8,
+            CompressionLevel.x16,
+            CompressionLevel.x32
+        )) {
+            testDiskBasedFilteredExactSearchWhenFiltersMatchAllDocs(compressionLevel);
+        }
+    }
+
+    private void testDiskBasedFilteredExactSearchWhenFiltersMatchAllDocs(CompressionLevel compressionLevel) throws Exception {
+        String indexName = INDEX_NAME + "_" + compressionLevel.getName();
         String filterFieldName = "color";
         final int expectResultSize = randomIntBetween(1, 3);
         final String filterValue = "red";
 
-        createDiskBasedIndex(INDEX_NAME, FIELD_NAME, 8);
+        createDiskBasedIndex(indexName, FIELD_NAME, 8, compressionLevel);
 
-        // Ingest 5 vector docs with the same filter value
         for (int i = 0; i < 5; i++) {
             addKnnDocWithAttributes(
+                indexName,
                 String.valueOf(i),
+                FIELD_NAME,
                 new float[] { i, i, i, i, i, i, i, i },
                 ImmutableMap.of(filterFieldName, filterValue)
             );
         }
 
-        refreshIndex(INDEX_NAME);
-        forceMergeKnnIndex(INDEX_NAME);
-
-        // Force exact search
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName);
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
 
         Float[] queryVector = { 3f, 3f, 3f, 3f, 3f, 3f, 3f, 3f };
         String query = KNNJsonQueryBuilder.builder()
@@ -64,37 +77,54 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .build()
             .getQueryString();
 
-        Response response = searchKNNIndex(INDEX_NAME, query, expectResultSize);
+        Response response = searchKNNIndex(indexName, query, expectResultSize);
         String entity = EntityUtils.toString(response.getEntity());
         List<String> docIds = parseIds(entity);
         assertEquals(expectResultSize, docIds.size());
         assertEquals(expectResultSize, parseTotalSearchHits(entity));
+
+        deleteKNNIndex(indexName);
     }
 
     @SneakyThrows
     public void testDiskBasedFilteredExactSearch_whenNonVectorFields_thenSucceed() {
+        for (CompressionLevel compressionLevel : List.of(
+            CompressionLevel.x4,
+            CompressionLevel.x8,
+            CompressionLevel.x16,
+            CompressionLevel.x32
+        )) {
+            testDiskBasedFilteredExactSearchWithNonVectorFields(compressionLevel);
+        }
+    }
+
+    private void testDiskBasedFilteredExactSearchWithNonVectorFields(CompressionLevel compressionLevel) throws Exception {
         String filterFieldName = "category";
         String filterValue = "electronics";
+        String indexName = INDEX_NAME + "_" + compressionLevel.getName();
+        createDiskBasedIndex(indexName, FIELD_NAME, 8, compressionLevel);
 
-        createDiskBasedIndex(INDEX_NAME, FIELD_NAME, 8);
-
-        // Add mixed content
         for (int i = 0; i < 5; i++) {
             addKnnDocWithAttributes(
+                indexName,
                 String.valueOf(i),
+                FIELD_NAME,
                 new float[] { i, i, i, i, i, i, i, i },
                 ImmutableMap.of(filterFieldName, filterValue)
             );
         }
-        addKnnDocWithAttributes(String.valueOf(6), new float[] { 6, 6, 6, 6, 6, 6, 6, 6 }, ImmutableMap.of(filterFieldName, "books"));
-        addNonKNNDoc(INDEX_NAME, String.valueOf(7), filterFieldName, "clothes");
+        addKnnDocWithAttributes(
+            indexName,
+            String.valueOf(6),
+            FIELD_NAME,
+            new float[] { 6, 6, 6, 6, 6, 6, 6, 6 },
+            ImmutableMap.of(filterFieldName, "books")
+        );
+        addNonKNNDoc(indexName, String.valueOf(7), filterFieldName, "clothes");
 
-        flush(INDEX_NAME, true);
+        flush(indexName, true);
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
 
-        // Force exact search
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
-
-        // Test filtered search
         Float[] queryVector = { 2f, 2f, 2f, 2f, 2f, 2f, 2f, 2f };
         String query = KNNJsonQueryBuilder.builder()
             .fieldName(FIELD_NAME)
@@ -106,7 +136,7 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .build()
             .getQueryString();
 
-        Response response = searchKNNIndex(INDEX_NAME, query, 10);
+        Response response = searchKNNIndex(indexName, query, 10);
         assertOK(response);
         String entity = EntityUtils.toString(response.getEntity());
         List<String> docIds = parseIds(entity);
@@ -114,13 +144,11 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
         assertFalse(docIds.contains("6"));
         assertFalse(docIds.contains("7"));
 
-        // Verify scores are valid (non-negative for Hamming distance)
         List<Double> scores = parseScores(entity);
         for (Double score : scores) {
             assertTrue("Score should be non-negative: " + score, score >= 0);
         }
 
-        // Test filter matches 0 docs
         query = KNNJsonQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -130,12 +158,11 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .rescoreEnabled(false)
             .build()
             .getQueryString();
-        response = searchKNNIndex(INDEX_NAME, query, 10);
+        response = searchKNNIndex(indexName, query, 10);
         assertOK(response);
         entity = EntityUtils.toString(response.getEntity());
         assertEquals(0, parseIds(entity).size());
 
-        // Test filter matches only non-vector doc
         query = KNNJsonQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -145,10 +172,12 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .rescoreEnabled(false)
             .build()
             .getQueryString();
-        response = searchKNNIndex(INDEX_NAME, query, 10);
+        response = searchKNNIndex(indexName, query, 10);
         assertOK(response);
         entity = EntityUtils.toString(response.getEntity());
         assertEquals(0, parseIds(entity).size());
+
+        deleteKNNIndex(indexName);
     }
 
     /**
@@ -156,11 +185,23 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
      */
     @SneakyThrows
     public void testDiskBasedFilteredExactSearch_whenNestedField_thenSucceed() {
+        for (CompressionLevel compressionLevel : List.of(
+            CompressionLevel.x4,
+            CompressionLevel.x8,
+            CompressionLevel.x16,
+            CompressionLevel.x32
+        )) {
+            testDiskBasedFilteredExactSearchWithCompressionLevel(compressionLevel);
+        }
+    }
+
+    private void testDiskBasedFilteredExactSearchWithCompressionLevel(CompressionLevel compressionLevel) throws Exception {
+        String indexName = INDEX_NAME + "_" + compressionLevel.getName();
         String nestedFieldName = "test_nested";
         String filterFieldName = "parking";
         String filterValue = "true";
 
-        createNestedKnnIndex(8);
+        createNestedDiskBasedKnnIndex(indexName, 8, compressionLevel);
 
         for (int i = 1; i < 4; i++) {
             float value = (float) i;
@@ -172,12 +213,12 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
                 )
                 .addTopLevelField(filterFieldName, i % 2 == 1 ? "true" : "false")
                 .build();
-            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+            addKnnDoc(indexName, String.valueOf(i), doc);
         }
-        refreshIndex(INDEX_NAME);
-        forceMergeKnnIndex(INDEX_NAME);
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName);
 
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
+        updateIndexSettings(indexName, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
 
         Float[] queryVector = { 3f, 3f, 3f, 3f, 3f, 3f, 3f, 3f };
         String query = KNNJsonQueryBuilder.builder()
@@ -191,16 +232,19 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .build()
             .getQueryString();
 
-        Response response = searchKNNIndex(INDEX_NAME, query, 10);
+        Response response = searchKNNIndex(indexName, query, 10);
         assertOK(response);
         String entity = EntityUtils.toString(response.getEntity());
         List<String> docIds = parseIds(entity);
         assertEquals(2, docIds.size());
         assertEquals("3", docIds.get(0));
         assertEquals("1", docIds.get(1));
+
+        deleteKNNIndex(indexName);
     }
 
-    private void createDiskBasedIndex(String indexName, String fieldName, int dimension) throws Exception {
+    private void createDiskBasedIndex(String indexName, String fieldName, int dimension, CompressionLevel compressionLevel)
+        throws Exception {
         String mapping = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -208,6 +252,7 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
             .startObject("method")
             .field("name", METHOD_HNSW)
             .endObject()
@@ -219,7 +264,7 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
         createKnnIndex(indexName, getKNNDefaultIndexSettings(), mapping);
     }
 
-    private void createNestedKnnIndex(int dimension) throws Exception {
+    private void createNestedDiskBasedKnnIndex(String indexName, int dimension, CompressionLevel compressionLevel) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -230,6 +275,7 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel.getName())
             .startObject("method")
             .field("name", METHOD_HNSW)
             .endObject()
@@ -239,6 +285,6 @@ public class DiskBasedFilteredExactSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        createKnnIndex(INDEX_NAME, builder.toString());
+        createKnnIndex(indexName, builder.toString());
     }
 }

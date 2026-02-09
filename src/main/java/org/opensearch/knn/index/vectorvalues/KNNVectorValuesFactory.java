@@ -22,6 +22,7 @@ import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
@@ -121,21 +122,17 @@ public final class KNNVectorValuesFactory {
         final SegmentReader leafReader,
         boolean isQueryVectorQuantized
     ) throws IOException {
-        final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
-        final VectorEncoding vectorEncoding = fieldInfo.getVectorEncoding();
-
         if (!fieldInfo.hasVectorValues()) {
             final DocIdSetIterator docIdSetIterator = DocValues.getBinary(leafReader, fieldInfo.getName());
             final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator);
-            return getVectorValues(vectorDataType, vectorValuesIterator);
+            return getVectorValues(FieldInfoExtractor.extractVectorDataType(fieldInfo), vectorValuesIterator);
         }
-        if (vectorEncoding == VectorEncoding.BYTE) {
-            final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(
-                leafReader.getByteVectorValues(fieldInfo.getName())
+        if (fieldInfo.getVectorEncoding() == VectorEncoding.BYTE) {
+            return getVectorValues(
+                FieldInfoExtractor.extractVectorDataType(fieldInfo),
+                new KNNVectorValuesIterator.DocIdsIteratorValues(leafReader.getByteVectorValues(fieldInfo.getName()))
             );
-            return getVectorValues(vectorDataType, vectorValuesIterator);
-        }
-        if (vectorEncoding == VectorEncoding.FLOAT32) {
+        } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
             final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(fieldInfo.getName());
             // for quantized query vectors, we need to pass the original byte vectors to the engine if supported, otherwise fallback
             if (isQueryVectorQuantized && leafReader.getVectorReader() instanceof PerFieldKnnVectorsFormat.FieldsReader fieldsReader) {
@@ -148,9 +145,14 @@ public final class KNNVectorValuesFactory {
                     )
                 );
             }
-            return getVectorValues(vectorDataType, new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues));
+            return getVectorValues(
+                FieldInfoExtractor.extractVectorDataType(fieldInfo),
+                new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues)
+            );
+
+        } else {
+            throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
         }
-        throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
     }
 
     /**
