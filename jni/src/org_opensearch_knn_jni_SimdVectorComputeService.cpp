@@ -15,7 +15,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         return JNI_ERR;
     }
 
-    JNI_UTIL.Initialize(env);
+    JNI_UTIL.Initialize(env, vm);
 
     return KNN_SIMD_COMPUTE_JNI_VERSION;
 }

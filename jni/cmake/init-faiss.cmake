@@ -102,6 +102,11 @@ set(BUILD_TESTING OFF)          # Avoid building faiss tests
 set(FAISS_ENABLE_GPU OFF)
 set(FAISS_ENABLE_PYTHON OFF)
 
+# On Windows, define FAISS_MAIN_LIB to export symbols when building the Faiss library
+if(${CMAKE_SYSTEM_NAME} STREQUAL Windows)
+    add_compile_definitions(FAISS_MAIN_LIB)
+endif()
+
 if(NOT DEFINED AVX2_ENABLED)
     set(AVX2_ENABLED true)   # set default value as true if the argument is not set
 endif()

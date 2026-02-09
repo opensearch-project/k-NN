@@ -36,3 +36,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Added engine as a top-level optional parameter while creating vector field [#2736](https://github.com/opensearch-project/k-NN/pull/2736)
 * Migrate k-NN plugin to use GRPC transport-grpc SPI interface [#2833](https://github.com/opensearch-project/k-NN/pull/2833)
 * Native scoring for FP16 [#2922](https://github.com/opensearch-project/k-NN/pull/2922)
+* Make Merge in nativeEngine can Abort [#2529](https://github.com/opensearch-project/k-NN/pull/2529)
