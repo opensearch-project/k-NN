@@ -76,4 +76,8 @@ public interface KNNMappingConfig {
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
         return null;
     }
+
+    default boolean isMultiVector() {
+        return false;
+    }
 }

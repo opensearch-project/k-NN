@@ -185,6 +185,7 @@ public class KNNConstants {
 
     public static final String MODE_PARAMETER = "mode";
     public static final String COMPRESSION_LEVEL_PARAMETER = "compression_level";
+    public static final String MULTI_VECTOR_PARAMETER = "multi_vector";
 
     // Repository filepath constants
     public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
