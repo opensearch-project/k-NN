@@ -145,10 +145,10 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     /**
-     * Returns the byte vector values from the underlying FAISS index.
+     * Returns byte vector values from the FAISS index.
      *
-     * @return {@link ByteVectorValues} containing the quantized vectors
-     * @throws IOException if an I/O error occurs while reading the index
+     * @return byte vector values
+     * @throws IOException if an I/O error occurs
      */
     public ByteVectorValues getByteVectorValues() throws IOException {
         return faissIndex.getByteValues(getSlicedIndexInput());

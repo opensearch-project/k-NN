@@ -53,7 +53,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
@@ -122,9 +121,9 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     public ByteVectorValues getByteVectorValues(final String field) throws IOException {
         final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
         if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
-            final Optional<ByteVectorValues> quantizedVectorValues = getQuantizedVectorValues(fieldInfo);
-            if (quantizedVectorValues.isPresent()) {
-                return quantizedVectorValues.get();
+            final ByteVectorValues quantizedVectorValues = getQuantizedVectorValues(fieldInfo);
+            if (quantizedVectorValues != null) {
+                return quantizedVectorValues;
             }
         }
         return flatVectorsReader.getByteVectorValues(field);
@@ -362,20 +361,18 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     }
 
     /**
-     * Retrieves quantized byte vectors from Faiss memory-optimized searcher if available.
+     * Retrieves quantized byte vectors from Faiss memory-optimized searcher.
      *
      * @param fieldInfo the field to retrieve vectors for
-     * @return {@link Optional} containing quantized byte vectors, or empty if not available
+     * @return quantized byte vectors, or null if not available
      * @throws IOException if an I/O error occurs
      */
-    private Optional<ByteVectorValues> getQuantizedVectorValues(@NonNull final FieldInfo fieldInfo) throws IOException {
+    private ByteVectorValues getQuantizedVectorValues(@NonNull final FieldInfo fieldInfo) throws IOException {
         if (fieldInfo.getAttribute(QFRAMEWORK_CONFIG) == null) {
-            return Optional.empty();
+            return null;
         }
         final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
-        return vectorSearcher instanceof FaissMemoryOptimizedSearcher searcher
-            ? Optional.ofNullable(searcher.getByteVectorValues())
-            : Optional.empty();
+        return vectorSearcher instanceof FaissMemoryOptimizedSearcher searcher ? searcher.getByteVectorValues() : null;
     }
 
     /**
