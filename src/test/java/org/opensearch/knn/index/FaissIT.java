@@ -237,6 +237,83 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testRadialSearchWithCosineAndFilter_ensureThresholdEnforced_thenSucceed() {
+        String indexName = "test-index-cosine-radial";
+        String filterFieldName = "category";
+        int dimension = 128;
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 128)
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject(filterFieldName)
+            .field(TYPE_FIELD_NAME, "keyword")
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, builder.toString());
+
+        Random random = new Random();
+        float[] baseVector = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            baseVector[i] = random.nextFloat() - 0.5f;
+        }
+        VectorUtil.l2normalize(baseVector);
+
+        for (int i = 0; i < 30; i++) {
+            float[] vector = new float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = baseVector[j] + (random.nextFloat() - 0.5f) * 0.3f;
+            }
+            VectorUtil.l2normalize(vector);
+            addKnnDocWithAttributes(indexName, "doc_" + i, FIELD_NAME, vector, ImmutableMap.of(filterFieldName, "A"));
+        }
+
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName);
+
+        float[] queryVector = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            queryVector[i] = baseVector[i] + (random.nextFloat() - 0.5f) * 0.1f;
+        }
+        VectorUtil.l2normalize(queryVector);
+
+        float minScore = 0.935f;
+        TermQueryBuilder filterQuery = QueryBuilders.termQuery(filterFieldName, "A");
+
+        List<List<KNNResult>> results = validateRadiusSearchResults(
+            indexName,
+            FIELD_NAME,
+            new float[][] { queryVector },
+            null,
+            minScore,
+            spaceType,
+            filterQuery,
+            null
+        );
+
+        for (KNNResult result : results.get(0)) {
+            assertTrue(String.format("Score %.4f below threshold %.3f", result.getScore(), minScore), result.getScore() >= minScore);
+        }
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testEndToEnd_whenDoRadiusSearch_whenMoreThanOneScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
