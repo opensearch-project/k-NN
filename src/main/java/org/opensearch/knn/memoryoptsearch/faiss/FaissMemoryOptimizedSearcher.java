@@ -150,6 +150,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
      * @return byte vector values
      * @throws IOException if an I/O error occurs
      */
+    @Override
     public ByteVectorValues getByteVectorValues() throws IOException {
         return faissIndex.getByteValues(getSlicedIndexInput());
     }

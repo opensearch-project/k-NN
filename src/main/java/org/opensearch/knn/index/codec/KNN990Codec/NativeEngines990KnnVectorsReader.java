@@ -372,7 +372,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             return null;
         }
         final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
-        return vectorSearcher instanceof FaissMemoryOptimizedSearcher searcher ? searcher.getByteVectorValues() : null;
+        return vectorSearcher != null ? vectorSearcher.getByteVectorValues() : null;
     }
 
     /**

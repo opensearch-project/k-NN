@@ -27,7 +27,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -57,37 +56,6 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         assertFalse(vectorSearchers.isSet());
     }
 
-    public void testSearcherBinaryVectorValuesIsCalled() throws IOException {
-        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("field1")
-            .fieldNumber(0)
-            .addAttribute(KNN_ENGINE, KNNEngine.FAISS.getName())
-            .addAttribute(QFRAMEWORK_CONFIG, "some-value")
-            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-            .build();
-
-        FieldInfo[] fieldInfoArray = new FieldInfo[] { fieldInfo };
-        final FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
-
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
-        VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
-        FaissMemoryOptimizedSearcher mockSearcher = mock(FaissMemoryOptimizedSearcher.class);
-        when(mockSearcher.getByteVectorValues()).thenReturn(mock(ByteVectorValues.class));
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mockSearcher);
-        when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-
-        final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
-        try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
-            mockedStatic.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            final Set<String> filesInSegment = Set.of("_0_165_field1.faiss");
-            mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-            NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, filesInSegment, flatVectorsReader);
-            reader.getByteVectorValues("field1");
-
-            verify(mockSearcher).getByteVectorValues();
-            verify(flatVectorsReader, Mockito.never()).getByteVectorValues("field1");
-        }
-    }
-
     public void testFlatVectorReaderIsCalled_whenNoQuantization() throws IOException {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("field1")
             .fieldNumber(0)
@@ -105,7 +73,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         verify(flatVectorsReader).getByteVectorValues("field1");
     }
 
-    public void testFlatVectorReaderIsCalled_whenNotFaissMemoryOptimizedSearcherIsCreated() throws IOException {
+    public void testBinaryVectorValuesIsCalled_whenQuantizationIsAvailable_thenSuccess() throws IOException {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("field1")
             .fieldNumber(0)
             .addAttribute(KNN_ENGINE, KNNEngine.FAISS.getName())
@@ -119,8 +87,9 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mockSearcher);
+        when(mockSearcher.getByteVectorValues()).thenReturn(mock(ByteVectorValues.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mockSearcher);
 
         final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
@@ -129,11 +98,12 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, filesInSegment, flatVectorsReader);
             reader.getByteVectorValues("field1");
-            verify(flatVectorsReader).getByteVectorValues("field1");
+            verify(mockSearcher).getByteVectorValues();
+            verify(flatVectorsReader, Mockito.never()).getByteVectorValues("field1");
         }
     }
 
-    public void testFlatVectorReaderIsCalled() throws IOException {
+    public void testFlatVectorReaderIsCalled_whenEncodingIsByte_thenSuccess() throws IOException {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("field1")
             .fieldNumber(0)
             .addAttribute(KNN_ENGINE, KNNEngine.FAISS.getName())

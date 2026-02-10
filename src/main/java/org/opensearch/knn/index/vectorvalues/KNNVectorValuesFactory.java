@@ -10,7 +10,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
-import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
@@ -134,15 +133,14 @@ public final class KNNVectorValuesFactory {
             );
         } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
             final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(fieldInfo.getName());
-            // for quantized query vectors, we need to pass the original byte vectors to the engine if supported, otherwise fallback
-            if (isQueryVectorQuantized && leafReader.getVectorReader() instanceof PerFieldKnnVectorsFormat.FieldsReader fieldsReader) {
-                final KnnVectorsReader fieldReader = fieldsReader.getFieldReader(fieldInfo.getName());
+            // Quantized search path: retrieve quantized byte vectors from codec.
+            if (isQueryVectorQuantized) {
+                // Bypasses leafReader.getByteVectorValues() which enforces BYTE encoding check.
+                // This will call getByteVectorValues from NativeEngines990KnnVectorsReader at the end.
+                final ByteVectorValues byteVectorValues = leafReader.getVectorReader().getByteVectorValues(fieldInfo.getName());
                 return getVectorValues(
                     VectorDataType.BINARY,  // retrieve binary data from reader
-                    new KNNVectorValuesIterator.DocIdsIteratorValues(
-                        floatVectorValues.iterator(),
-                        fieldReader.getByteVectorValues(fieldInfo.getName())
-                    )
+                    new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues.iterator(), byteVectorValues)
                 );
             }
             return getVectorValues(
