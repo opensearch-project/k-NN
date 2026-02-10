@@ -16,3 +16,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Refactoring
 
 ### Enhancements
+* Make Merge in nativeEngine can Abort [#2529](https://github.com/opensearch-project/k-NN/pull/2529)
+

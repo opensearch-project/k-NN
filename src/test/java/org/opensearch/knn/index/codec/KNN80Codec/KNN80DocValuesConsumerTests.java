@@ -12,6 +12,8 @@ import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.MergeAbortChecker;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.Directory;
@@ -56,8 +58,10 @@ import java.util.concurrent.ExecutionException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -618,5 +622,101 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         verify(delegate, times(1)).addBinaryField(fieldInfo, docValuesProducer);
         verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), eq(false));
+    }
+
+    public void testAddKNNBinaryField_fromModel_faiss_with_mergeAbort() throws IOException {
+        // Generate a trained faiss model
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        int dimension = 16;
+        String modelId = "test-model-id";
+
+        float[][] trainingData = TestVectorValues.getRandomVectors(200, dimension);
+        long trainingPtr = JNICommons.storeVectorData(0, trainingData, trainingData.length * dimension);
+
+        Map<String, Object> parameters = ImmutableMap.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            "IVF4,Flat",
+            KNNConstants.SPACE_TYPE,
+            SpaceType.L2.getValue()
+        );
+
+        byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine);
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            "timestamp",
+            "Empty description",
+            "",
+            "",
+            MethodComponentContext.EMPTY,
+            VectorDataType.FLOAT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED,
+            Version.V_EMPTY
+        );
+        Model model = new Model(modelMetadata, modelBytes, modelId);
+        JNICommons.freeVectorData(trainingPtr);
+
+        try (
+            MockedStatic<MergeAbortChecker> mergeHelper = mockStatic(MergeAbortChecker.class);
+            MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)
+        ) {
+            // Setup isMergeAborted return true
+            mergeHelper.when(MergeAbortChecker::isMergeAborted).thenReturn(true);
+            // Setup the model cache to return the correct model
+            ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+            when(modelDao.get(modelId)).thenReturn(model);
+            when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+
+            modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
+
+            ClusterService clusterService = mock(ClusterService.class);
+            when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
+
+            ClusterSettings clusterSettings = new ClusterSettings(
+                Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb").build(),
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
+            );
+
+            when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+            ModelCache.initialize(modelDao, clusterService);
+
+            // Build the segment and field info
+            String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+            int docsInSegment = 100;
+            String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+
+            SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+                .directory(directory)
+                .segmentName(segmentName)
+                .docsInSegment(docsInSegment)
+                .codec(codec)
+                .build();
+
+            FieldInfo[] fieldInfoArray = new FieldInfo[] {
+                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                    .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                    .addAttribute(MODEL_ID, modelId)
+                    .build() };
+
+            FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+            SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+
+            long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
+
+            // Add documents to the field
+            KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
+            TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer =
+                new TestVectorValues.RandomVectorDocValuesProducer(docsInSegment, dimension);
+            // Throw MergeAbortedException
+            expectThrows(
+                MergePolicy.MergeAbortedException.class,
+                () -> knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true)
+            );
+            mergeHelper.verify(MergeAbortChecker::isMergeAborted, atLeastOnce());
+        }
     }
 }
