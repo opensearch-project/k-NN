@@ -6,12 +6,17 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.hnsw.HnswGraphSearcher;
@@ -58,7 +63,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     @Override
-    public void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+    public void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         search(
             VectorEncoding.FLOAT32,
             () -> flatVectorsScorer.getRandomVectorScorer(
@@ -72,7 +77,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     @Override
-    public void search(byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
+    public void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         search(
             VectorEncoding.BYTE,
             () -> flatVectorsScorer.getRandomVectorScorer(
@@ -85,6 +90,17 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         );
     }
 
+    /**
+     * Returns byte vector values from the FAISS index.
+     *
+     * @return byte vector values
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    public ByteVectorValues getByteVectorValues() throws IOException {
+        return faissIndex.getByteValues(getSlicedIndexInput());
+    }
+
     @Override
     public void close() throws IOException {
         indexInput.close();
@@ -94,7 +110,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final VectorEncoding vectorEncoding,
         final IOSupplier<RandomVectorScorer> scorerSupplier,
         final KnnCollector knnCollector,
-        final Bits acceptDocs
+        final AcceptDocs acceptDocs
     ) throws IOException {
         if (faissIndex.getTotalNumberOfVectors() == 0 || knnCollector.k() == 0) {
             return;

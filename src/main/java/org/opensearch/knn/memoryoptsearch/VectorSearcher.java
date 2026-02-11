@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.util.Bits;
 
@@ -16,6 +19,11 @@ import java.io.IOException;
  * Two search APIs will be compatible with Lucene, taking {@link KnnCollector} and {@link Bits}.
  * In its implementation, it must collect top vectors that is similar to the given query. Make sure to transform the result to similarity
  * value if internally calculates distance between.
+ *
+ * <p>TODO: Refactor to eliminate this interface in favor of extending KnnVectorReader directly.
+ * VectorSearcher duplicates functionality already present in KnnVectorReader (search methods and getByteVectorValues),
+ * creating maintenance overhead and potential inconsistencies. Remove this interface and have all implementing classes
+ * extend KnnVectorReader instead.
  */
 public interface VectorSearcher extends Closeable {
     /**
@@ -33,7 +41,7 @@ public interface VectorSearcher extends Closeable {
      * @param acceptDocs {@link Bits} that represents the allowed documents to match, or {@code null}
      *     if they are all allowed to match.
      */
-    void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException;
+    void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException;
 
     /**
      * Return the k nearest neighbor documents as determined by comparison of their vector values for
@@ -50,5 +58,12 @@ public interface VectorSearcher extends Closeable {
      * @param acceptDocs {@link Bits} that represents the allowed documents to match, or {@code null}
      *     if they are all allowed to match.
      */
-    void search(byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException;
+    void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException;
+
+    /**
+     * Returns the {@link ByteVectorValues} from the searcher. The behavior is undefined if
+     * searcher doesn't have KNN vectors enabled on its {@link FieldInfo}. The return value is
+     * never {@code null}.
+     */
+    ByteVectorValues getByteVectorValues() throws IOException;
 }

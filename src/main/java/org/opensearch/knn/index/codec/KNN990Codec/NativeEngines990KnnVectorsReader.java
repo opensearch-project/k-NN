@@ -20,6 +20,8 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -36,6 +38,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -47,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 
 /**
@@ -98,14 +102,23 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     }
 
     /**
-     * Returns the {@link ByteVectorValues} for the given {@code field}. The behavior is undefined if
-     * the given field doesn't have KNN vectors enabled on its {@link FieldInfo}. The return value is
-     * never {@code null}.
+     * Returns the {@link ByteVectorValues} for the given field.
+     * Attempts flat vectors reader first, then falls back to quantized vectors if available.
      *
-     * @param field {@link String}
+     * @param field the vector field name
+     * @return {@link ByteVectorValues} for the field, never {@code null}
+     * @throws IOException if an I/O error occurs or no byte vectors are available for the field
      */
     @Override
     public ByteVectorValues getByteVectorValues(final String field) throws IOException {
+        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+        if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
+            final ByteVectorValues quantizedVectorValues = getQuantizedVectorValues(fieldInfo);
+            if (quantizedVectorValues != null) {
+                return quantizedVectorValues;
+            }
+            log.warn("No quantized vectors found for field [{}]", field);
+        }
         return flatVectorsReader.getByteVectorValues(field);
     }
 
@@ -152,8 +165,8 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
-
-        if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, true)) {
+        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+        if (trySearchWithMemoryOptimizedSearch(fieldInfo, target, knnCollector, acceptDocs, true)) {
             return;
         }
 
@@ -186,8 +199,10 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      *                     if they are all allowed to match.
      */
     @Override
-    public void search(String field, byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
-        if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, false)) {
+    public void search(String field, byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
+        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+        // searching with byte vector is not supported by ADC.
+        if (trySearchWithMemoryOptimizedSearch(fieldInfo, target, knnCollector, acceptDocs, false)) {
             return;
         }
 
@@ -236,14 +251,18 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
     }
 
     private boolean trySearchWithMemoryOptimizedSearch(
-        final String field,
+        final FieldInfo fieldInfo,
         final Object target,
         final KnnCollector knnCollector,
-        final Bits acceptDocs,
+        final AcceptDocs acceptDocs,
         final boolean isFloatVector
     ) throws IOException {
         // Try with memory optimized searcher
-        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(field);
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
+
+        if (target == null) {
+            throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
+        }
 
         if (memoryOptimizedSearcher != null) {
             if (isFloatVector) {
@@ -293,8 +312,8 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         return cacheKeys;
     }
 
-    private VectorSearcher loadMemoryOptimizedSearcherIfRequired(final String fieldName) {
-        final VectorSearcherHolder searcherHolder = vectorSearchers.get(fieldName);
+    private VectorSearcher loadMemoryOptimizedSearcherIfRequired(final FieldInfo fieldInfo) {
+        final VectorSearcherHolder searcherHolder = vectorSearchers.get(fieldInfo.getName());
         if (searcherHolder == null) {
             // This is not KNN field or unsupported field.
             return null;
@@ -308,34 +327,19 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             if (searcherHolder.isSet()) {
                 return searcherHolder.getVectorSearcher();
             }
-
-            VectorSearcher searcher = null;
-
-            try {
-                final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(fieldName);
-                if (fieldInfo != null) {
-                    final IOSupplier<VectorSearcher> searcherSupplier = getVectorSearcherSupplier(fieldInfo);
-                    if (searcherSupplier != null) {
-                        searcher = searcherSupplier.get();
-                        if (searcher != null) {
-                            // It's supported. There can be a case where a certain index type underlying is not yet supported while
-                            // KNNEngine
-                            // itself supports memory optimized searching.
-                            searcherHolder.setVectorSearcher(searcher);
-                        }
-                    }
-                }
-
-                return searcher;
-            } catch (Exception e) {
-                // Close opened searchers first, then suppress
+            final IOSupplier<VectorSearcher> searcherSupplier = getVectorSearcherSupplier(fieldInfo);
+            // It's supported. There can be a case where a certain index type underlying is not yet supported while
+            // KNNEngine itself supports memory optimized searching.
+            if (searcherSupplier != null) {
                 try {
-                    IOUtils.closeWhileHandlingException(searcher);
-                } catch (Exception closeException) {
-                    log.error(closeException.getMessage(), closeException);
+                    searcherHolder.setVectorSearcher(searcherSupplier.get());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-                throw new RuntimeException(e);
+            } else {
+                log.error("Failed to load memory optimized searcher for field [{}]", fieldInfo.getName());
             }
+            return searcherHolder.getVectorSearcher();
         }
     }
 
@@ -369,6 +373,21 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
         // Not supported
         return null;
+    }
+
+    /**
+     * Retrieves quantized byte vectors from Faiss memory-optimized searcher.
+     *
+     * @param fieldInfo the field to retrieve vectors for
+     * @return quantized byte vectors, or null if not available
+     * @throws IOException if an I/O error occurs
+     */
+    private ByteVectorValues getQuantizedVectorValues(@NonNull final FieldInfo fieldInfo) throws IOException {
+        if (fieldInfo.getAttribute(QFRAMEWORK_CONFIG) == null) {
+            return null;
+        }
+        final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
+        return vectorSearcher != null ? vectorSearcher.getByteVectorValues() : null;
     }
 
     /**
