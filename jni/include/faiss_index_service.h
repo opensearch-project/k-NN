@@ -17,6 +17,7 @@
 #include <jni.h>
 #include "faiss/MetricType.h"
 #include "faiss/impl/io.h"
+#include "faiss/impl/AuxIndexStructures.h"
 #include "jni_util.h"
 #include "faiss_methods.h"
 #include "faiss_stream_support.h"
@@ -195,6 +196,59 @@ public:
     void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
 };  // class ByteIndexService
 
+struct OpenSearchMergeInterruptCallback : faiss::InterruptCallback {
+
+    OpenSearchMergeInterruptCallback(JNIUtil *jniUtil) {
+        jutil = jniUtil;
+        JNIEnv* jenv = jutil->GetJNICurrentEnv();
+        mergeHelperClass = jniUtil->FindClass(jenv,"org/apache/lucene/index/MergeAbortChecker");
+        isAbortedMethod = jniUtil->FindMethod(jenv, "org/apache/lucene/index/MergeAbortChecker", "isMergeAborted");
+    }
+
+    /**
+     * override check function for noop
+     * in IndexHNSW, Search Index call check function would degradation performance
+     */
+    static void check() {
+        return;
+    }
+
+    static size_t get_period_hint(size_t flops) {
+        if (!instance.get()) {
+            return (size_t)1 << 30; // never check
+        }
+        // for 10M flops, it is reasonable to check once every 100 iterations
+        return std::max((size_t)100L * 10 * 1000 * 1000 / (flops + 1), (size_t)1);
+    }
+
+    /**
+     * override want_interrupt function for building
+     * index which need check when merge is abort
+     */
+    bool want_interrupt () override {
+        JNIEnv* jenv;
+
+        jenv = jutil->GetJNICurrentEnv();
+
+        if (jenv == nullptr) {
+            std::cerr << "JNIEnv not found\n";
+            return false;
+        }
+        if (mergeHelperClass == nullptr) {
+            std::cerr << "MergeAbortChecker class not found\n";
+            return false;
+        }
+        if (isAbortedMethod == nullptr) {
+            std::cerr << "isMergeAborted method not found\n";
+            return false;
+        }
+
+        return (bool) jenv->CallStaticBooleanMethod(mergeHelperClass, isAbortedMethod);
+    }
+    JNIUtil *jutil;
+    jclass mergeHelperClass;
+    jmethodID isAbortedMethod;
+};
 }
 }
 
