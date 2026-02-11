@@ -106,14 +106,13 @@ public interface KNNVectorValuesIterator {
      * A DocIdsIteratorValues provides a common iteration logic for all Values that implements
      * {@link DocIdSetIterator} interface. Example: {@link BinaryDocValues}, {@link FloatVectorValues} etc.
      */
+    @Getter
     class DocIdsIteratorValues extends AbstractVectorValuesIterator {
 
         private final KnnVectorValues knnVectorValues;
 
-        @Getter
         @Setter
         private int lastOrd = -1;
-        @Getter
         @Setter
         private Object lastAccessedVector = null;
 
@@ -127,8 +126,9 @@ public interface KNNVectorValuesIterator {
             this.knnVectorValues = null;
         }
 
-        public KnnVectorValues getKnnVectorValues() {
-            return knnVectorValues;
+        DocIdsIteratorValues(@NonNull final DocIdSetIterator docIdSetIterator, @NonNull final KnnVectorValues knnVectorValues) {
+            super(docIdSetIterator);
+            this.knnVectorValues = knnVectorValues;
         }
 
         @Override
