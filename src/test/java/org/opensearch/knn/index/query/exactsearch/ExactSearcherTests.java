@@ -200,7 +200,7 @@ public class ExactSearcherTests extends KNNTestCase {
             )
         ) {
             final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
-            final byte[] quantizedQueryVector = new byte[] { 1, 2, 3 };
+            final byte[] quantizedQueryVector = new byte[] { 1, 0, 1 };
             final List<float[]> floatVectors = List.of(
                 new float[] { 1, 2, 3 },
                 new float[] { 4, 5, 6 },
@@ -209,11 +209,11 @@ public class ExactSearcherTests extends KNNTestCase {
                 new float[] { 0, 1, 2 }
             );
             final List<byte[]> quantizedDataVectors = List.of(
-                new byte[] { 1, 2, 3 },
-                new byte[] { 4, 5, 6 },
-                new byte[] { 2, 3, 4 },
-                new byte[] { 7, 8, 9 },
-                new byte[] { 0, 1, 2 }
+                new byte[] { 1, 0, 1 },
+                new byte[] { 0, 1, 0 },
+                new byte[] { 1, 1, 0 },
+                new byte[] { 0, 0, 1 },
+                new byte[] { 1, 1, 1 }
             );
             final SpaceType spaceType = SpaceType.L2;
             final int k = 10;
