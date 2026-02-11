@@ -125,6 +125,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             if (quantizedVectorValues != null) {
                 return quantizedVectorValues;
             }
+            log.warn("No quantized vectors found for field [{}]", field);
         }
         return flatVectorsReader.getByteVectorValues(field);
     }
