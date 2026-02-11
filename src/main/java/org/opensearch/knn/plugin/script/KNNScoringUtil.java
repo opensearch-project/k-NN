@@ -174,6 +174,27 @@ public class KNNScoringUtil {
         return score;
     }
 
+    /**
+     * Computes the similarity score between a float query vector and a quantized byte document vector using ADC.
+     * This method applies the appropriate distance metric based on the space type and returns a similarity score.
+     *
+     * @param queryVector the full-precision float query vector
+     * @param documentVector the quantized byte document vector
+     * @param spaceType the distance metric to use
+     * @return the similarity score
+     * @throws UnsupportedOperationException if the space type is not supported for ADC
+     */
+    public static float scoreWithADC(float[] queryVector, byte[] documentVector, SpaceType spaceType) {
+        if (spaceType.equals(SpaceType.L2)) {
+            return SpaceType.L2.scoreTranslation(l2SquaredADC(queryVector, documentVector));
+        } else if (spaceType.equals(SpaceType.INNER_PRODUCT)) {
+            return SpaceType.INNER_PRODUCT.scoreTranslation((-1 * innerProductADC(queryVector, documentVector)));
+        } else if (spaceType.equals(SpaceType.COSINESIMIL)) {
+            return SpaceType.COSINESIMIL.scoreTranslation(1 - innerProductADC(queryVector, documentVector));
+        }
+        throw new UnsupportedOperationException("Space type " + spaceType.getValue() + " is not supported for ADC");
+    }
+
     private static float[] toFloat(final List<Number> inputVector, final VectorDataType vectorDataType) {
         Objects.requireNonNull(inputVector);
         float[] value = new float[inputVector.size()];

@@ -9,7 +9,6 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
-import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
@@ -26,12 +25,10 @@ import java.io.IOException;
 class VectorIdsExactKNNIterator implements ExactKNNIterator {
     protected final DocIdSetIterator filterIdsIterator;
     protected final float[] queryVector;
-    private final byte[] quantizedQueryVector;
     protected final KNNFloatVectorValues knnFloatVectorValues;
     protected final SpaceType spaceType;
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
-    private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
 
     public VectorIdsExactKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
@@ -44,7 +41,7 @@ class VectorIdsExactKNNIterator implements ExactKNNIterator {
 
     public VectorIdsExactKNNIterator(final float[] queryVector, final KNNFloatVectorValues knnFloatVectorValues, final SpaceType spaceType)
         throws IOException {
-        this(null, queryVector, knnFloatVectorValues, spaceType, null, null);
+        this(null, queryVector, knnFloatVectorValues, spaceType);
     }
 
     public VectorIdsExactKNNIterator(
@@ -62,8 +59,6 @@ class VectorIdsExactKNNIterator implements ExactKNNIterator {
         // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
         // nextDoc should already be referring to next knnVectorValues
         this.docId = getNextDocId();
-        this.quantizedQueryVector = quantizedQueryVector;
-        this.segmentLevelQuantizationInfo = segmentLevelQuantizationInfo;
     }
 
     /**
@@ -91,16 +86,7 @@ class VectorIdsExactKNNIterator implements ExactKNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
-        if (segmentLevelQuantizationInfo == null) {
-            return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
-        }
-
-        byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
-        if (quantizedQueryVector == null) {
-            // in ExactSearcher::getKnnIterator we don't set quantizedQueryVector if adc is enabled. So at this point adc is enabled.
-            return scoreWithADC(queryVector, quantizedVector, spaceType);
-        }
-        return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
+        return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
     }
 
     protected int getNextDocId() throws IOException {
