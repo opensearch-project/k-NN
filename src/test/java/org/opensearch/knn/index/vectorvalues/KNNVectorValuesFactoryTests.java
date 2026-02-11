@@ -6,17 +6,20 @@
 package org.opensearch.knn.index.vectorvalues;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.junit.Assert;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -70,8 +73,18 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetVectorValuesFromFieldInfo_whenQueryVectorQuantized_thenSuccess() {
-        final List<float[]> floatArrayList = List.of(new float[] { 1.3f, 2.2f, 3.2f });
-        final List<byte[]> quantizedByteArrayList = List.of(new byte[] { 1, 2, 3 });
+        final List<float[]> floatArrayList = List.of(
+            new float[] { 1.3f, 2.2f, 3.2f },
+            new float[] { 4.1f, 5.5f, 6.6f },
+            new float[] { 7.7f, 8.8f, 9.9f },
+            new float[] { 0.5f, 1.5f, 2.5f }
+        );
+        final List<byte[]> quantizedByteArrayList = List.of(
+            new byte[] { 1, 0, 1 },
+            new byte[] { 0, 1, 0 },
+            new byte[] { 1, 1, 1 },
+            new byte[] { 0, 0, 1 }
+        );
         final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
         final SegmentReader reader = Mockito.mock(SegmentReader.class);
         Mockito.when(fieldInfo.hasVectorValues()).thenReturn(true);
@@ -81,21 +94,26 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         Mockito.when(reader.getFloatVectorValues("test_field"))
             .thenReturn(new TestVectorValues.PreDefinedFloatVectorValues(floatArrayList));
 
-        final org.apache.lucene.codecs.KnnVectorsReader vectorsReader = Mockito.mock(org.apache.lucene.codecs.KnnVectorsReader.class);
+        final KnnVectorsReader vectorsReader = Mockito.mock(KnnVectorsReader.class);
         Mockito.when(reader.getVectorReader()).thenReturn(vectorsReader);
         Mockito.when(vectorsReader.getByteVectorValues("test_field"))
             .thenReturn(new TestVectorValues.PreDefinedByteVectorValues(quantizedByteArrayList));
 
         final KNNVectorValues<byte[]> quantizedVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
-        quantizedVectorValues.nextDoc();
-        Assert.assertArrayEquals(quantizedByteArrayList.getFirst(), quantizedVectorValues.getVector());
         Assert.assertNotNull(quantizedVectorValues);
+        Assert.assertTrue(quantizedVectorValues instanceof KNNBinaryVectorValues);
         verify(reader).getFloatVectorValues("test_field");
+        verify(vectorsReader).getByteVectorValues("test_field");
+        assertByteVectorValues(quantizedVectorValues, quantizedByteArrayList);
     }
 
     @SneakyThrows
     public void testGetVectorValuesFromFieldInfo_whenQueryVectorNotQuantized_thenSuccess() {
-        final List<float[]> floatArrayList = List.of(new float[] { 1.3f, 2.2f, 3.2f });
+        final List<float[]> floatArrayList = List.of(
+            new float[] { 1.3f, 2.2f, 3.2f },
+            new float[] { 4.1f, 5.5f, 6.6f },
+            new float[] { 7.7f, 8.8f, 9.9f }
+        );
         final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
         final SegmentReader reader = Mockito.mock(SegmentReader.class);
         Mockito.when(fieldInfo.hasVectorValues()).thenReturn(true);
@@ -107,8 +125,7 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
 
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, false);
         Assert.assertNotNull(vectorValues);
-        vectorValues.nextDoc();
-        Assert.assertNotNull(vectorValues.getVector());
+        assertFloatVectorValues(vectorValues, floatArrayList);
         verify(reader).getFloatVectorValues("test_field");
         verify(reader, never()).getVectorReader();
 
@@ -116,9 +133,13 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetVectorValuesFromFieldInfo_whenVectorDimIsNotZero_thenSuccess() {
-        final List<byte[]> byteArrayList = List.of(new byte[] { 1, 2, 3 });
-        final List<float[]> floatArrayList = List.of(new float[] { 1.3f, 2.2f, 3.2f });
-        final List<byte[]> binaryArrayList = List.of(new byte[] { 3, 2, 3 });
+        final List<byte[]> byteArrayList = List.of(new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 }, new byte[] { 7, 8, 9 });
+        final List<float[]> floatArrayList = List.of(
+            new float[] { 1.3f, 2.2f, 3.2f },
+            new float[] { 4.1f, 5.5f, 6.6f },
+            new float[] { 7.7f, 8.8f, 9.9f }
+        );
+        final List<byte[]> binaryArrayList = List.of(new byte[] { 1, 0, 1 }, new byte[] { 0, 1, 0 }, new byte[] { 1, 1, 1 });
         final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
         final SegmentReader reader = Mockito.mock(SegmentReader.class);
         Mockito.when(fieldInfo.hasVectorValues()).thenReturn(true);
@@ -129,9 +150,8 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.BYTE.getValue());
         Mockito.when(reader.getByteVectorValues("test_field")).thenReturn(new TestVectorValues.PreDefinedByteVectorValues(byteArrayList));
         final KNNVectorValues<byte[]> byteVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        byteVectorValues.nextDoc();
-        Assert.assertArrayEquals(byteArrayList.get(0), byteVectorValues.getVector());
         Assert.assertNotNull(byteVectorValues);
+        assertByteVectorValues(byteVectorValues, byteArrayList);
 
         // Checking for FloatVectorValues
         Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.FLOAT32);
@@ -139,9 +159,8 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         Mockito.when(reader.getFloatVectorValues("test_field"))
             .thenReturn(new TestVectorValues.PreDefinedFloatVectorValues(floatArrayList));
         final KNNVectorValues<float[]> floatVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        floatVectorValues.nextDoc();
-        Assert.assertArrayEquals(floatArrayList.get(0), floatVectorValues.getVector(), 0.0f);
         Assert.assertNotNull(floatVectorValues);
+        assertFloatVectorValues(floatVectorValues, floatArrayList);
 
         // Checking for BinaryVectorValues
         Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.BYTE);
@@ -149,17 +168,20 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         Mockito.when(reader.getByteVectorValues("test_field"))
             .thenReturn(new TestVectorValues.PreDefinedBinaryVectorValues(binaryArrayList));
         final KNNVectorValues<byte[]> binaryVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        binaryVectorValues.nextDoc();
-        Assert.assertArrayEquals(binaryArrayList.get(0), binaryVectorValues.getVector());
         Assert.assertNotNull(binaryVectorValues);
+        assertByteVectorValues(binaryVectorValues, binaryArrayList);
 
     }
 
     @SneakyThrows
     public void testGetVectorValuesFromFieldInfo_whenVectorDimIsZero_thenSuccess() {
-        final List<byte[]> byteArrayList = List.of(new byte[] { 1, 2, 3 });
-        final List<float[]> floatArrayList = List.of(new float[] { 1.3f, 2.2f, 3.2f });
-        final List<byte[]> binaryArrayList = List.of(new byte[] { 3, 2, 3 });
+        final List<byte[]> byteArrayList = List.of(new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 }, new byte[] { 7, 8, 9 });
+        final List<float[]> floatArrayList = List.of(
+            new float[] { 1.3f, 2.2f, 3.2f },
+            new float[] { 4.1f, 5.5f, 6.6f },
+            new float[] { 7.7f, 8.8f, 9.9f }
+        );
+        final List<byte[]> binaryArrayList = List.of(new byte[] { 1, 0, 1 }, new byte[] { 0, 1, 0 }, new byte[] { 1, 1, 1 });
         final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
         final SegmentReader reader = Mockito.mock(SegmentReader.class);
         Mockito.when(fieldInfo.hasVectorValues()).thenReturn(false);
@@ -171,9 +193,8 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
             .thenReturn(new TestVectorValues.PredefinedByteVectorBinaryDocValues(byteArrayList));
 
         final KNNVectorValues<byte[]> byteVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        byteVectorValues.nextDoc();
-        Assert.assertArrayEquals(byteArrayList.get(0), byteVectorValues.getVector());
         Assert.assertNotNull(byteVectorValues);
+        assertByteVectorValues(byteVectorValues, byteArrayList);
 
         // Checking for Floats with BinaryDocValues
         Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.FLOAT.getValue());
@@ -181,9 +202,8 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
             .thenReturn(new TestVectorValues.PredefinedFloatVectorBinaryDocValues(floatArrayList));
 
         final KNNVectorValues<float[]> floatVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        floatVectorValues.nextDoc();
-        Assert.assertArrayEquals(floatArrayList.get(0), floatVectorValues.getVector(), 0.0f);
         Assert.assertNotNull(floatVectorValues);
+        assertFloatVectorValues(floatVectorValues, floatArrayList);
 
         // Checking for BinaryVectorValues
         Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.BINARY.getValue());
@@ -191,11 +211,26 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
             .thenReturn(new TestVectorValues.PredefinedByteVectorBinaryDocValues(binaryArrayList));
 
         final KNNVectorValues<byte[]> binaryVectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        binaryVectorValues.nextDoc();
-        Assert.assertArrayEquals(binaryArrayList.get(0), binaryVectorValues.getVector());
         Assert.assertNotNull(binaryVectorValues);
+        assertByteVectorValues(binaryVectorValues, binaryArrayList);
 
         verify(fieldInfo, Mockito.times(0)).getVectorEncoding();
+    }
+
+    private void assertByteVectorValues(KNNVectorValues<byte[]> vectorValues, List<byte[]> expectedVectors) throws IOException {
+        for (byte[] expectedVector : expectedVectors) {
+            vectorValues.nextDoc();
+            Assert.assertArrayEquals(expectedVector, vectorValues.getVector());
+        }
+        assert (vectorValues.nextDoc() == DocIdSetIterator.NO_MORE_DOCS);
+    }
+
+    private void assertFloatVectorValues(KNNVectorValues<float[]> vectorValues, List<float[]> expectedVectors) throws IOException {
+        for (float[] expectedVector : expectedVectors) {
+            vectorValues.nextDoc();
+            Assert.assertArrayEquals(expectedVector, vectorValues.getVector(), 0.0f);
+        }
+        assert (vectorValues.nextDoc() == DocIdSetIterator.NO_MORE_DOCS);
     }
 
 }
