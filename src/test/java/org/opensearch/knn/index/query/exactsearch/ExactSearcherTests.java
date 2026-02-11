@@ -189,6 +189,86 @@ public class ExactSearcherTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testExactSearch_whenQuantizationWithoutADC_thenSuccess() {
+        try (
+            MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class);
+            MockedStatic<org.opensearch.knn.index.query.SegmentLevelQuantizationInfo> quantizationInfoMockedStatic = Mockito.mockStatic(
+                org.opensearch.knn.index.query.SegmentLevelQuantizationInfo.class
+            );
+            MockedStatic<org.opensearch.knn.index.query.SegmentLevelQuantizationUtil> quantizationUtilMockedStatic = Mockito.mockStatic(
+                org.opensearch.knn.index.query.SegmentLevelQuantizationUtil.class
+            )
+        ) {
+            final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+            final byte[] quantizedQueryVector = new byte[] { 1, 2, 3 };
+            final List<float[]> floatVectors = List.of(
+                new float[] { 1, 2, 3 },
+                new float[] { 4, 5, 6 },
+                new float[] { 2, 3, 4 },
+                new float[] { 7, 8, 9 },
+                new float[] { 0, 1, 2 }
+            );
+            final List<byte[]> quantizedDataVectors = List.of(
+                new byte[] { 1, 2, 3 },
+                new byte[] { 4, 5, 6 },
+                new byte[] { 2, 3, 4 },
+                new byte[] { 7, 8, 9 },
+                new byte[] { 0, 1, 2 }
+            );
+            final SpaceType spaceType = SpaceType.L2;
+            final int k = 10;
+
+            final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(queryVector)
+                .useQuantizedVectorsForSearch(true)
+                .k(k)
+                .build();
+
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+
+            final org.opensearch.knn.index.query.SegmentLevelQuantizationInfo quantizationInfo = mock(
+                org.opensearch.knn.index.query.SegmentLevelQuantizationInfo.class
+            );
+            quantizationInfoMockedStatic.when(
+                () -> org.opensearch.knn.index.query.SegmentLevelQuantizationInfo.build(reader, fieldInfo, FIELD_NAME)
+            ).thenReturn(quantizationInfo);
+            quantizationUtilMockedStatic.when(
+                () -> org.opensearch.knn.index.query.SegmentLevelQuantizationUtil.isAdcEnabled(quantizationInfo)
+            ).thenReturn(false);
+            quantizationUtilMockedStatic.when(
+                () -> org.opensearch.knn.index.query.SegmentLevelQuantizationUtil.quantizeVector(queryVector, quantizationInfo)
+            ).thenReturn(quantizedQueryVector);
+
+            final KNNVectorValues knnFloatVectorValues = TestVectorValues.createKNNFloatVectorValues(floatVectors);
+            final KNNVectorValues knnByteVectorValues = TestVectorValues.createKNNBinaryVectorValues(quantizedDataVectors);
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnFloatVectorValues);
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true))
+                .thenReturn(knnByteVectorValues);
+
+            TopDocs docs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+            assertEquals(quantizedDataVectors.size(), docs.scoreDocs.length);
+
+            final List<Float> expectedScores = quantizedDataVectors.stream()
+                .map(quantizedVector -> SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector))
+                .sorted(Comparator.reverseOrder())
+                .toList();
+            final List<Float> actualScores = Arrays.stream(docs.scoreDocs).map(scoreDoc -> scoreDoc.score).toList();
+            assertEquals(expectedScores, actualScores);
+        }
+    }
+
+    @SneakyThrows
     private void doTestRadialSearch_whenNoEngineFiles_thenSuccess(final boolean memoryOptimizedSearchEnabled) {
         try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
             // Prepare data
