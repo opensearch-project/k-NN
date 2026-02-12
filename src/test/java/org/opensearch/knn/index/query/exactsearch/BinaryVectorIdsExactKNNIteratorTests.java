@@ -13,12 +13,14 @@ import org.apache.lucene.util.FixedBitSet;
 import org.mockito.stubbing.OngoingStubbing;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
+import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -54,7 +56,7 @@ public class BinaryVectorIdsExactKNNIteratorTests extends TestCase {
         );
         for (int i = 0; i < filterIds.length; i++) {
             assertEquals(filterIds[i], iterator.nextDoc());
-            assertEquals(expectedScores.get(i), (Float) iterator.score());
+            assertEquals(expectedScores.get(i), iterator.score());
         }
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
     }
@@ -99,5 +101,76 @@ public class BinaryVectorIdsExactKNNIteratorTests extends TestCase {
         }
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
         verify(values, never()).advance(anyInt());
+    }
+
+    @SneakyThrows
+    public void testNextDoc_whenCalledWithFloatQueryVector_thenUseADCScoring() {
+        final SpaceType spaceType = SpaceType.L2;
+        final float[] queryVector = { 1, 2, 3 };
+        final int[] filterIds = { 1, 2, 3 };
+        final List<byte[]> dataVectors = Arrays.asList(new byte[] { 11, 12, 13 }, new byte[] { 14, 15, 16 }, new byte[] { 17, 18, 19 });
+        final List<Float> expectedScores = dataVectors.stream()
+            .map(vector -> KNNScoringUtil.scoreWithADC(queryVector, vector, spaceType))
+            .collect(Collectors.toList());
+
+        KNNBinaryVectorValues values = mock(KNNBinaryVectorValues.class);
+        when(values.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
+
+        FixedBitSet filterBitSet = new FixedBitSet(4);
+        for (int id : filterIds) {
+            when(values.advance(id)).thenReturn(id);
+            filterBitSet.set(id);
+        }
+
+        // Execute and verify
+        BinaryVectorIdsExactKNNIterator iterator = new BinaryVectorIdsExactKNNIterator(
+            new BitSetIterator(filterBitSet, filterBitSet.length()),
+            queryVector,
+            values,
+            spaceType
+        );
+        for (int i = 0; i < filterIds.length; i++) {
+            assertEquals(filterIds[i], iterator.nextDoc());
+            assertEquals(expectedScores.get(i), iterator.score());
+        }
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testNextDoc_whenCalledWithFloatQueryVectorNoFilter_thenUseADCScoring() {
+        final SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        final float[] queryVector = { 1, 2, 3 };
+        final List<byte[]> dataVectors = Arrays.asList(new byte[] { 11, 12, 13 }, new byte[] { 14, 15, 16 });
+        final List<Float> expectedScores = dataVectors.stream()
+            .map(vector -> KNNScoringUtil.scoreWithADC(queryVector, vector, spaceType))
+            .collect(Collectors.toList());
+
+        KNNBinaryVectorValues values = mock(KNNBinaryVectorValues.class);
+        when(values.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1));
+
+        OngoingStubbing<Integer> stubbing = when(values.nextDoc());
+        for (int i = 0; i < dataVectors.size(); i++) {
+            stubbing = stubbing.thenReturn(i);
+        }
+        stubbing.thenReturn(Integer.MAX_VALUE);
+
+        BinaryVectorIdsExactKNNIterator iterator = new BinaryVectorIdsExactKNNIterator(null, queryVector, values, spaceType);
+
+        for (int i = 0; i < dataVectors.size(); i++) {
+            assertEquals(i, iterator.nextDoc());
+            assertEquals(expectedScores.get(i), iterator.score(), 0.001f);
+        }
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testNextDoc_whenCalledWithFloatQueryVectorNotSupportedSpaceType_thenThrowsException() {
+        final SpaceType spaceType = SpaceType.HAMMING;
+        final float[] queryVector = { 1, 2, 3 };
+        KNNBinaryVectorValues values = mock(KNNBinaryVectorValues.class);
+        when(values.getVector()).thenReturn(new byte[] { 11, 12, 13 });
+        BinaryVectorIdsExactKNNIterator iterator = new BinaryVectorIdsExactKNNIterator(null, queryVector, values, spaceType);
+        // assert throws exception when call iterator nextDoc
+        assertThrows(UnsupportedOperationException.class, iterator::nextDoc);
     }
 }

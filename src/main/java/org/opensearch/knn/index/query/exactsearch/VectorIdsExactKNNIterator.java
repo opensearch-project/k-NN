@@ -11,9 +11,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
-import org.opensearch.knn.plugin.script.KNNScoringUtil;
-import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
-
 import java.io.IOException;
 
 /**
@@ -99,37 +96,5 @@ class VectorIdsExactKNNIterator implements ExactKNNIterator {
             knnFloatVectorValues.advance(nextDocID);
         }
         return nextDocID;
-    }
-
-    /*
-        protected for testing.
-        Logic:
-        - segmentLevelQuantizationInfo is null -> should not score with ADC
-        - quantizationParams is not ScalarQuantizationParams -> should not score with ADC
-        - quantizationParams is ScalarQuantizationParams -> defer to isEnableADC() to determine if should score with ADC.
-     */
-    protected boolean shouldScoreWithADC(SegmentLevelQuantizationInfo segmentLevelQuantizationInfo) {
-        if (segmentLevelQuantizationInfo == null) {
-            return false;
-        }
-
-        if (segmentLevelQuantizationInfo.getQuantizationParams() instanceof ScalarQuantizationParams scalarQuantizationParams) {
-            return scalarQuantizationParams.isEnableADC();
-        }
-        return false;
-    }
-
-    // protected for testing. scoreWithADC is used in exact searcher.
-    protected float scoreWithADC(float[] queryVector, byte[] documentVector, SpaceType spaceType) {
-        // NOTE: the prescore translations come from Faiss.java::SCORE_TRANSLATIONS.
-        if (spaceType.equals(SpaceType.L2)) {
-            return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(queryVector, documentVector));
-        } else if (spaceType.equals(SpaceType.INNER_PRODUCT)) {
-            return SpaceType.INNER_PRODUCT.scoreTranslation((-1 * KNNScoringUtil.innerProductADC(queryVector, documentVector)));
-        } else if (spaceType.equals(SpaceType.COSINESIMIL)) {
-            return SpaceType.COSINESIMIL.scoreTranslation(1 - KNNScoringUtil.innerProductADC(queryVector, documentVector));
-        }
-
-        throw new UnsupportedOperationException("Space type " + spaceType.getValue() + " is not supported for ADC");
     }
 }
