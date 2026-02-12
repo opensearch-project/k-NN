@@ -48,4 +48,8 @@ public class MOSFaissFloatIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, true, SpaceType.L2, NO_BUILD_HNSW);
         doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, false, SpaceType.L2, NO_BUILD_HNSW);
     }
+
+    public void testRadialSearchWithCosineAndFilter_thenThresholdEnforced() {
+        doTestNonNestedIndexWithRadialAndFilter(VectorDataType.FLOAT, EMPTY_PARAMS, SpaceType.COSINESIMIL, NO_ADDITIONAL_SETTINGS);
+    }
 }
