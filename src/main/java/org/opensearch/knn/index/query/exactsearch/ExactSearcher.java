@@ -104,9 +104,9 @@ public class ExactSearcher {
         // We need to use the given radius when memory optimized search is enabled. Since it relies on Lucene's scoring framework, the given
         // max distance is already converted min score then saved in `radius`. Thus, we don't need a score translation which does not make
         // sense as it is treating min score as a max distance otherwise.
-        final float minScore = context.isMemoryOptimizedSearchEnabled
-            ? context.getRadius()
-            : spaceType.scoreTranslation(context.getRadius());
+        // For FAISS exact search, radius is in FAISS distance space (e.g., inner product for cosine).
+        // We need to convert it to OpenSearch score space using the reverse translation.
+        final float minScore = context.isMemoryOptimizedSearchEnabled ? context.getRadius() : engine.score(context.getRadius(), spaceType);
 
         return filterDocsByMinScore(context, iterator, minScore);
     }
