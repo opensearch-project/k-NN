@@ -93,6 +93,11 @@ public class KNN1030Codec extends FilterCodec {
             return null;
 
         });
-        return new KNN10010DerivedSourceStoredFieldsFormat(delegate.storedFieldsFormat(), derivedSourceReadersSupplier, mapperService);
+        return new KNN10010DerivedSourceStoredFieldsFormat(
+            delegate.getName() /* codec name */,
+            delegate.storedFieldsFormat(),
+            derivedSourceReadersSupplier,
+            mapperService
+        );
     }
 }
