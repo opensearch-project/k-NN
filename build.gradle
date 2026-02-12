@@ -15,7 +15,7 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "3.5.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "3.6.0-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -648,6 +648,9 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
 
 integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    filter {
+        excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
     mustRunAfter test
 }
 
@@ -656,11 +659,22 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
     filter {
         // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
         excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
+        excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))
     systemProperty("test.base_path", System.getProperty("test.base_path"))
 }
+
+task integTestMultiNode(type: RestIntegTestTask) {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, 2)
+    filter {
+        includeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
+}
+
+// Make integTest run integTestMultiNode after completion
+integTest.finalizedBy integTestMultiNode
 
 def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     cluster.testDistribution = "ARCHIVE"
@@ -685,6 +699,9 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
     // since we also support multi node integration tests we increase debugPort per node
+    cluster.nodes.forEach { node ->
+        node.jvmArgs("-Xmx512m")
+    }
     if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
         cluster.nodes.forEach { node ->
@@ -692,6 +709,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
             debugPort += 1
         }
     }
+
 
     cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
     final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
@@ -718,6 +736,10 @@ testClusters.integTestRemoteIndexBuild {
     keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
     // Forcing optimistic search for testing
     systemProperty 'mem_opt_srch.force_reenter', 'true'
+}
+
+testClusters.integTestMultiNode {
+    commonIntegTestClusters(it, 2)
 }
 
 task integTestRemote(type: RestIntegTestTask) {
