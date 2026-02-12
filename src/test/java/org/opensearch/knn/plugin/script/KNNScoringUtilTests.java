@@ -8,6 +8,9 @@ package org.opensearch.knn.plugin.script;
 import java.util.Arrays;
 import java.util.Locale;
 import org.apache.lucene.util.BytesRef;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
@@ -337,6 +340,43 @@ public class KNNScoringUtilTests extends KNNTestCase {
         assertEquals(10, KNNScoringUtil.calculateHammingBit(v1, v2), 0.001f);
     }
 
+    public void testScoreWithADC() {
+        float[] queryVector = new float[] { 1.0f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+        byte[] documentVector = new byte[] { 0 };
+
+        // Test case 1: L2 space type
+        try (MockedStatic<KNNScoringUtil> knnScoringUtilMock = Mockito.mockStatic(KNNScoringUtil.class, InvocationOnMock::callRealMethod)) {
+            knnScoringUtilMock.when(() -> KNNScoringUtil.l2SquaredADC(queryVector, documentVector)).thenReturn(5.0f);
+
+            float result = KNNScoringUtil.scoreWithADC(queryVector, documentVector, SpaceType.L2);
+            assertEquals(SpaceType.L2.scoreTranslation(5.0f), result, 0.01f);
+        }
+
+        // Test case 2: INNER_PRODUCT space type
+        try (MockedStatic<KNNScoringUtil> knnScoringUtilMock = Mockito.mockStatic(KNNScoringUtil.class, InvocationOnMock::callRealMethod)) {
+            knnScoringUtilMock.when(() -> KNNScoringUtil.innerProductADC(queryVector, documentVector)).thenReturn(10.0f);
+
+            float result = KNNScoringUtil.scoreWithADC(queryVector, documentVector, SpaceType.INNER_PRODUCT);
+            assertEquals(SpaceType.INNER_PRODUCT.scoreTranslation(-10.0f), result, 0.01f);
+        }
+
+        // Test case 3: COSINESIMIL space type
+        try (MockedStatic<KNNScoringUtil> knnScoringUtilMock = Mockito.mockStatic(KNNScoringUtil.class, InvocationOnMock::callRealMethod)) {
+            knnScoringUtilMock.when(() -> KNNScoringUtil.innerProductADC(queryVector, documentVector)).thenReturn(15.0f);
+
+            float result = KNNScoringUtil.scoreWithADC(queryVector, documentVector, SpaceType.COSINESIMIL);
+            assertEquals(SpaceType.COSINESIMIL.scoreTranslation(1 - 15.0f), result, 0.01f);
+        }
+
+        // Test case 4: Unsupported space type - using a different existing enum value
+        // that isn't handled in the method
+        UnsupportedOperationException exception = assertThrows(
+            UnsupportedOperationException.class,
+            () -> KNNScoringUtil.scoreWithADC(queryVector, documentVector, SpaceType.HAMMING)
+        );
+        assertEquals("Space type " + SpaceType.HAMMING.getValue() + " is not supported for ADC", exception.getMessage());
+    }
+
     private void validateThrowExceptionOnGivenDataType(
         final BiFunction<List<Number>, KNNVectorScriptDocValues, Float> func,
         final VectorDataType dataType,
@@ -374,7 +414,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
         byte[] b2 = { 2, 17, -1 };    // 0000 0010, 0001 0001, 1111 1111
         float[] f1 = { 1, 16, -128 };  // 0000 0001, 0001 0000, 1000 0000
         List<Number> queryVector = Arrays.asList(f1[0], f1[1], f1[2]);
-        KNNVectorScriptDocValues<?> docValues = mock(KNNVectorScriptDocValues.class);
+        KNNVectorScriptDocValues<byte[]> docValues = mock(KNNVectorScriptDocValues.class);
         when(docValues.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         when(docValues.getValue()).thenReturn(b2);
         assertEquals(KNNScoringUtil.calculateHammingBit(b1, b2), KNNScoringUtil.hamming(queryVector, docValues), 0.01f);
