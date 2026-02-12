@@ -238,7 +238,26 @@ public class ExactSearcher {
                 );
             }
         }
-
+        // Quantized search path: retrieve quantized byte vectors from reader as KNNBinaryVectorValues and perform exact search
+        // using Hamming distance.
+        if (quantizedQueryVector != null) {
+            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
+            if (isNestedRequired) {
+                return new NestedBinaryVectorIdsExactKNNIterator(
+                    matchedDocs,
+                    quantizedQueryVector,
+                    (KNNBinaryVectorValues) vectorValues,
+                    SpaceType.HAMMING,
+                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
+                );
+            }
+            return new BinaryVectorIdsExactKNNIterator(
+                matchedDocs,
+                quantizedQueryVector,
+                (KNNBinaryVectorValues) vectorValues,
+                SpaceType.HAMMING
+            );
+        }
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
         if (isNestedRequired) {
             return new NestedVectorIdsExactKNNIterator(
