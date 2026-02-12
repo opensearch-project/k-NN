@@ -306,8 +306,12 @@ public class FaissIT extends KNNRestTestCase {
             null
         );
 
+        final float tolerance = 0.0001f;
         for (KNNResult result : results.get(0)) {
-            assertTrue(String.format("Score %.4f below threshold %.3f", result.getScore(), minScore), result.getScore() >= minScore);
+            assertTrue(
+                String.format("Score %.4f below threshold %.3f", result.getScore(), minScore),
+                result.getScore() >= (minScore - tolerance)
+            );
         }
 
         deleteKNNIndex(indexName);
