@@ -585,6 +585,8 @@ tasks.register('buildJniTest', Test) {
 
 test {
     dependsOn buildJniTest
+    // This will ensure that Unit test also uses optimized Vector Scorers and Pananma APIs
+    jvmArgs '--add-modules=jdk.incubator.vector'
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/build/release"
     //this change enables mockito-inline that supports mocking of static classes/calls

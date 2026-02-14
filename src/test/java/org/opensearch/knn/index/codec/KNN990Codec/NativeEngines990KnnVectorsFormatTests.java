@@ -15,10 +15,6 @@ import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
-import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
-import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
-import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
-import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
@@ -99,8 +95,6 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
 
     @SneakyThrows
     public void testReaderAndWriter_whenValidInput_thenSuccess() {
-        final Lucene99FlatVectorsFormat mockedFlatVectorsFormat = Mockito.mock(Lucene99FlatVectorsFormat.class);
-
         final String segmentName = "test-segment-name";
 
         final SegmentInfo mockedSegmentInfo = new SegmentInfo(
@@ -157,12 +151,8 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
             null,
             Mockito.mock(IOContext.class)
         );
-        Mockito.when(mockedFlatVectorsFormat.fieldsReader(mockedSegmentReadState)).thenReturn(Mockito.mock(FlatVectorsReader.class));
-        Mockito.when(mockedFlatVectorsFormat.fieldsWriter(mockedSegmentWriteState)).thenReturn(Mockito.mock(FlatVectorsWriter.class));
 
-        final NativeEngines990KnnVectorsFormat nativeEngines990KnnVectorsFormat = new NativeEngines990KnnVectorsFormat(
-            mockedFlatVectorsFormat
-        );
+        final NativeEngines990KnnVectorsFormat nativeEngines990KnnVectorsFormat = new NativeEngines990KnnVectorsFormat();
         try (MockedStatic<CodecUtil> mockedStaticCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
             mockedStaticCodecUtil.when(
                 () -> CodecUtil.writeIndexHeader(any(IndexOutput.class), anyString(), anyInt(), any(byte[].class), anyString())
@@ -303,11 +293,29 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     public void testFormatName_withValidInput_thenSuccess() {
         final String validFormatName = "NativeEngines990KnnVectorsFormat";
         Assert.assertEquals(validFormatName, new NativeEngines990KnnVectorsFormat().getName());
-        Assert.assertEquals(
-            validFormatName,
-            new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
-                .getName()
-        );
+        Assert.assertEquals(validFormatName, new NativeEngines990KnnVectorsFormat().getName());
+    }
+
+    public void testGetMaxDimensions_whenCalled_thenUseFaissEngine() {
+        try (MockedStatic<KNNEngine> mockedKNNEngine = Mockito.mockStatic(KNNEngine.class)) {
+            mockedKNNEngine.when(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS)).thenReturn(16000);
+
+            NativeEngines990KnnVectorsFormat format = new NativeEngines990KnnVectorsFormat();
+            int result = format.getMaxDimensions("test-field");
+
+            assertEquals(16000, result);
+            mockedKNNEngine.verify(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS));
+        }
+    }
+
+    public void testApproximateThreshold_whenMultipleInstances_thenIndependent() {
+        NativeEngines990KnnVectorsFormat format1 = new NativeEngines990KnnVectorsFormat(100);
+        NativeEngines990KnnVectorsFormat format2 = new NativeEngines990KnnVectorsFormat(200);
+        NativeEngines990KnnVectorsFormat format3 = new NativeEngines990KnnVectorsFormat(300);
+
+        assertTrue(format1.toString().contains("approximateThreshold=100"));
+        assertTrue(format2.toString().contains("approximateThreshold=200"));
+        assertTrue(format3.toString().contains("approximateThreshold=300"));
     }
 
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {
