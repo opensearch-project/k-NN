@@ -444,6 +444,7 @@ public class KNNSettings {
     public static final Setting<ByteSizeValue> KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING = Setting.byteSizeSetting(
         KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN,
         KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_DEFAULT_VALUE,
+        new ByteSizeValue(1, ByteSizeUnit.KB),
         Dynamic,
         IndexScope
     );
