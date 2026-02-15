@@ -195,6 +195,6 @@ public class FaissHnswGraph extends HnswGraph {
 
     @Override
     public int maxConn() {
-        return faissHnsw.getMaxNumNeighbors();
+        return faissHnsw.getMaxNumNeighbors() / 2;
     }
 }
