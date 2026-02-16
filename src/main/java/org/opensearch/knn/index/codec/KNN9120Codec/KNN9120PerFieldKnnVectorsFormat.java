@@ -24,6 +24,8 @@ import java.util.concurrent.Executors;
  */
 public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
     private static final Tuple<Integer, ExecutorService> DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE = Tuple.tuple(1, null);
+    private static volatile ExecutorService cachedMergeExecutorService;
+    private static volatile int cachedMergeThreadCount;
 
     public KNN9120PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
         this(mapperService, new NativeIndexBuildStrategyFactory());
@@ -91,16 +93,26 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
         return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
     }
 
-    private static Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {
-        // To ensure that only once we are fetching the settings per segment, we are fetching the num threads once while
-        // creating the executors
+    private static synchronized Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {
         int mergeThreadCount = KNNSettings.getIndexThreadQty();
-        // We need to return null whenever the merge threads are <=1, as lucene assumes that if number of threads are 1
-        // then we should be giving a null value of the executor
         if (mergeThreadCount <= 1) {
+            shutdownCachedExecutor();
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
-        } else {
-            return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
+        }
+        if (cachedMergeExecutorService != null && cachedMergeThreadCount == mergeThreadCount) {
+            return Tuple.tuple(cachedMergeThreadCount, cachedMergeExecutorService);
+        }
+        shutdownCachedExecutor();
+        cachedMergeExecutorService = Executors.newFixedThreadPool(mergeThreadCount);
+        cachedMergeThreadCount = mergeThreadCount;
+        return Tuple.tuple(cachedMergeThreadCount, cachedMergeExecutorService);
+    }
+
+    private static void shutdownCachedExecutor() {
+        if (cachedMergeExecutorService != null) {
+            cachedMergeExecutorService.shutdown();
+            cachedMergeExecutorService = null;
+            cachedMergeThreadCount = 0;
         }
     }
 }
