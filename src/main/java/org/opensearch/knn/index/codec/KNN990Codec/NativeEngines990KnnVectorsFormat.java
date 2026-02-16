@@ -15,7 +15,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
-import org.apache.lucene.codecs.hnsw.DefaultFlatVectorScorer;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.index.SegmentReadState;
@@ -33,35 +33,27 @@ import java.io.IOException;
 @Log4j2
 public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     /** The format for storing, reading, merging vectors on disk */
-    private static FlatVectorsFormat flatVectorsFormat;
+    private static final FlatVectorsFormat flatVectorsFormat = new Lucene99FlatVectorsFormat(
+        FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+    );
     private static final String FORMAT_NAME = "NativeEngines990KnnVectorsFormat";
-    private static int approximateThreshold;
+    private final int approximateThreshold;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
     public NativeEngines990KnnVectorsFormat() {
-        this(new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer()));
+        this(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
     }
 
     public NativeEngines990KnnVectorsFormat(int approximateThreshold) {
-        this(new Lucene99FlatVectorsFormat(new DefaultFlatVectorScorer()), approximateThreshold);
-    }
-
-    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat) {
-        this(flatVectorsFormat, KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
-    }
-
-    public NativeEngines990KnnVectorsFormat(final FlatVectorsFormat flatVectorsFormat, int approximateThreshold) {
-        this(flatVectorsFormat, approximateThreshold, new NativeIndexBuildStrategyFactory());
+        this(approximateThreshold, new NativeIndexBuildStrategyFactory());
     }
 
     public NativeEngines990KnnVectorsFormat(
-        final FlatVectorsFormat flatVectorsFormat,
         int approximateThreshold,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
         super(FORMAT_NAME);
-        NativeEngines990KnnVectorsFormat.flatVectorsFormat = flatVectorsFormat;
-        NativeEngines990KnnVectorsFormat.approximateThreshold = approximateThreshold;
+        this.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
@@ -91,12 +83,20 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     }
 
     /**
-     * @param s
-     * @return
+     * Returns the maximum number of vector dimensions supported by this codec for the given field
+     * name
+     *
+     * <p>Codecs implement this method to specify the maximum number of dimensions they support.
+     *
+     * Even though this codec is used for both Nmslib and Faiss, but we are usin Faiss Engine here since Nmslib is
+     * deprecated
+     *
+     * @param fieldName the field name
+     * @return the maximum number of vector dimensions.
      */
     @Override
-    public int getMaxDimensions(String s) {
-        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+    public int getMaxDimensions(final String fieldName) {
+        return KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS);
     }
 
     @Override
