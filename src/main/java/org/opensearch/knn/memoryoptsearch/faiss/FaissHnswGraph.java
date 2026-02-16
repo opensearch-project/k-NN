@@ -195,6 +195,9 @@ public class FaissHnswGraph extends HnswGraph {
 
     @Override
     public int maxConn() {
-        return faissHnsw.getMaxNumNeighbors();
+        // The maximum number of neighbors in bottom layer of HNSW in faiss and also in lucene is 2*M. But the
+        // expectation from this function is to return M. The factor of 2 is already taken care by Lucene in
+        // graph searcher class. Hence, we are dividing here by 2 to ensure that we return correct value of M.
+        return faissHnsw.getMaxNumNeighbors() / 2;
     }
 }
