@@ -25,6 +25,7 @@ import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
+import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
@@ -613,6 +614,8 @@ public class KNNSettings {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
             quantizationStateCacheManager.rebuildCache();
         });
+        clusterService.getClusterSettings()
+            .addSettingsUpdateConsumer(KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING, KNN9120PerFieldKnnVectorsFormat::updateMergeThreadCount);
     }
 
     /**
@@ -974,6 +977,7 @@ public class KNNSettings {
         this.clusterService = clusterService;
         this.nodeCbAttribute = Optional.empty();
         setSettingsUpdateConsumers();
+        KNN9120PerFieldKnnVectorsFormat.updateMergeThreadCount(getIndexThreadQty());
     }
 
     public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, String settingName) {
