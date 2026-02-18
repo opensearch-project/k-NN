@@ -28,24 +28,6 @@ class BinaryVectorIdsExactKNNIterator implements ExactKNNIterator {
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
 
-    private BinaryVectorIdsExactKNNIterator(
-        @Nullable final DocIdSetIterator docIdSetIterator,
-        final byte[] byteQueryVector,
-        final float[] floatQueryVector,
-        final KNNBinaryVectorValues binaryVectorValues,
-        final SpaceType spaceType
-    ) throws IOException {
-        assert (floatQueryVector == null) != (byteQueryVector == null)
-            : "Exactly one of byteQueryVector or floatQueryVector must be non-null";
-        this.docIdSetIterator = docIdSetIterator;
-        this.byteQueryVector = byteQueryVector;
-        this.floatQueryVector = floatQueryVector;
-        this.binaryVectorValues = binaryVectorValues;
-        this.spaceType = spaceType;
-        this.docId = getNextDocId();
-
-    }
-
     public BinaryVectorIdsExactKNNIterator(
         @Nullable final DocIdSetIterator docIdSetIterator,
         final byte[] byteQueryVector,
@@ -64,12 +46,21 @@ class BinaryVectorIdsExactKNNIterator implements ExactKNNIterator {
         this(docIdSetIterator, null, floatQueryVector, binaryVectorValues, spaceType);
     }
 
-    public BinaryVectorIdsExactKNNIterator(
+    private BinaryVectorIdsExactKNNIterator(
+        @Nullable final DocIdSetIterator docIdSetIterator,
         final byte[] byteQueryVector,
+        final float[] floatQueryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType
     ) throws IOException {
-        this(null, byteQueryVector, binaryVectorValues, spaceType);
+        assert (floatQueryVector == null) != (byteQueryVector == null)
+            : "Exactly one of byteQueryVector or floatQueryVector must be non-null";
+        this.docIdSetIterator = docIdSetIterator;
+        this.byteQueryVector = byteQueryVector;
+        this.floatQueryVector = floatQueryVector;
+        this.binaryVectorValues = binaryVectorValues;
+        this.spaceType = spaceType;
+        this.docId = getNextDocId();
     }
 
     /**

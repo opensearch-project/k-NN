@@ -94,7 +94,7 @@ public class BinaryVectorIdsExactKNNIteratorTests extends TestCase {
         stubbing.thenReturn(Integer.MAX_VALUE);
 
         // Execute and verify
-        BinaryVectorIdsExactKNNIterator iterator = new BinaryVectorIdsExactKNNIterator(queryVector, values, spaceType);
+        BinaryVectorIdsExactKNNIterator iterator = new BinaryVectorIdsExactKNNIterator(null, queryVector, values, spaceType);
         for (int i = 0; i < dataVectors.size(); i++) {
             assertEquals(i, iterator.nextDoc());
             assertEquals(expectedScores.get(i), iterator.score());
