@@ -152,4 +152,13 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
         }
         return storedFieldsReader;
     }
+
+    /**
+     * Returns the list of derived vector fields for this reader.
+     * Used during merge to collect field names from source segments.
+     */
+    public List<DerivedFieldInfo> getDerivedVectorFields() {
+        return derivedVectorFields;
+    }
+
 }
