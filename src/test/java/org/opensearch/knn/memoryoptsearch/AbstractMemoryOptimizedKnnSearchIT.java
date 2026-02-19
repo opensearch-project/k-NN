@@ -149,6 +149,50 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         doKnnSearchTest(spaceType, schema, IndexingType.SPARSE_NESTED, false);
     }
 
+    /**
+     * Test with radial search and filtering both enabled.
+     */
+    @SneakyThrows
+    protected void doTestNonNestedIndexWithRadialAndFilter(
+        final VectorDataType dataType,
+        final String methodParams,
+        final SpaceType spaceType,
+        final Consumer<Settings.Builder> additionalSettings
+    ) {
+        final NonNestedNMappingSchema mapping = new NonNestedNMappingSchema().knnFieldName(KNN_FIELD_NAME)
+            .dimension(DIMENSIONS)
+            .dataType(dataType)
+            .mode(Mode.NOT_CONFIGURED)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .methodParamString(methodParams)
+            .spaceType(spaceType)
+            .filterFieldName(FILTER_FIELD_NAME)
+            .idFieldName(ID_FIELD_NAME);
+
+        final String mappingStr = mapping.createString();
+        final Schema schema = new Schema(mappingStr, dataType, Mode.NOT_CONFIGURED, additionalSettings);
+
+        doKnnSearchTestWithRadialAndFilter(spaceType, schema, IndexingType.DENSE);
+    }
+
+    @SneakyThrows
+    private void doKnnSearchTestWithRadialAndFilter(final SpaceType spaceType, final Schema schema, final IndexingType indexingType) {
+        createKnnHnswIndex(schema.mapping, true, schema.additionalSettings);
+
+        final Documents documents = DocumentsGenerator.create(indexingType, schema.vectorDataType, NUM_DOCUMENTS).generate();
+        final List<String> docStrings = documents.getDocuments();
+        for (int i = 0; i < docStrings.size(); ++i) {
+            addKnnDoc(INDEX_NAME, Integer.toString(i), docStrings.get(i));
+        }
+
+        flushIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        doKnnSearchTestAllowRadialWithFilter(documents, schema, indexingType, spaceType);
+
+        deleteKNNIndex(INDEX_NAME);
+    }
+
     @SneakyThrows
     protected void doKnnSearchTest(
         final SpaceType spaceType,
@@ -320,6 +364,31 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         }
 
         // Off-heap is not loaded
+        checkOffheapNotLoaded();
+    }
+
+    @SneakyThrows
+    private void doKnnSearchTestAllowRadialWithFilter(
+        final Documents documents,
+        final Schema schema,
+        final IndexingType indexingType,
+        final SpaceType spaceType
+    ) {
+        final float[] queryVector = SearchTestHelper.generateOneSingleFloatVector(
+            DIMENSIONS,
+            MIN_VECTOR_ELEMENT_VALUE,
+            MAX_VECTOR_ELEMENT_VALUE,
+            false
+        );
+        final float minSimil = documents.prepareAnswerSet(
+            queryVector,
+            spaceType.getKnnVectorSimilarityFunction(),
+            true,  // doFiltering = true
+            true   // isRadial = true
+        );
+        final List<Documents.Result> results = doQuery(queryVector, false, true, true, Optional.of(minSimil));
+
+        documents.validateResponse(results, indexingType, schema.mode());
         checkOffheapNotLoaded();
     }
 
