@@ -34,7 +34,7 @@ import java.util.stream.Stream;
 @AllArgsConstructor
 public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
     // Stores the delegate codec name (in case it is different from the default one)
-    static final String KNN_DELEGATE_CODEC_NAME = "knn_delegate_codec_key";
+    static final String KNN_DELEGATE_CODEC_NAME = "knn_delegate_stored_fields_codec_key";
 
     private final String name;
     private final StoredFieldsFormat delegate;
