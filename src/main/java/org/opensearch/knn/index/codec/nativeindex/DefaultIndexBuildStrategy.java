@@ -105,6 +105,8 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             }
             // Resetting here as vectors are deleted in JNILayer for non-iterative index builds
             vectorTransfer.reset();
+        } catch (IndexBuildAbortedException indexBuildAbortedException) {
+            throw indexBuildAbortedException;
         } catch (Exception exception) {
             throw new RuntimeException(
                 "Failed to build index, field name " + indexInfo.getFieldName() + ", parameters " + indexInfo,

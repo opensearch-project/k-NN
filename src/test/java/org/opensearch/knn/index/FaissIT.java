@@ -11,12 +11,14 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.lucene.tests.util.TimeUnits;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
@@ -82,6 +84,7 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
+@TimeoutSuite(millis = 40 * TimeUnits.MINUTE)
 public class FaissIT extends KNNRestTestCase {
     private static final String DOC_ID_1 = "doc1";
     private static final String DOC_ID_2 = "doc2";
@@ -231,6 +234,83 @@ public class FaissIT extends KNNRestTestCase {
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testRadialSearchWithCosineAndFilter_ensureThresholdEnforced_thenSucceed() {
+        String indexName = "test-index-cosine-radial";
+        String filterFieldName = "category";
+        int dimension = 128;
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 128)
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject(filterFieldName)
+            .field(TYPE_FIELD_NAME, "keyword")
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, builder.toString());
+
+        Random random = new Random();
+        float[] baseVector = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            baseVector[i] = random.nextFloat() - 0.5f;
+        }
+        VectorUtil.l2normalize(baseVector);
+
+        for (int i = 0; i < 30; i++) {
+            float[] vector = new float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = baseVector[j] + (random.nextFloat() - 0.5f) * 0.3f;
+            }
+            VectorUtil.l2normalize(vector);
+            addKnnDocWithAttributes(indexName, "doc_" + i, FIELD_NAME, vector, ImmutableMap.of(filterFieldName, "A"));
+        }
+
+        refreshIndex(indexName);
+        forceMergeKnnIndex(indexName);
+
+        float[] queryVector = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            queryVector[i] = baseVector[i] + (random.nextFloat() - 0.5f) * 0.1f;
+        }
+        VectorUtil.l2normalize(queryVector);
+
+        float minScore = 0.935f;
+        TermQueryBuilder filterQuery = QueryBuilders.termQuery(filterFieldName, "A");
+
+        List<List<KNNResult>> results = validateRadiusSearchResults(
+            indexName,
+            FIELD_NAME,
+            new float[][] { queryVector },
+            null,
+            minScore,
+            spaceType,
+            filterQuery,
+            null
+        );
+
+        for (KNNResult result : results.get(0)) {
+            assertTrue(String.format("Score %.4f below threshold %.3f", result.getScore(), minScore), result.getScore() >= minScore);
+        }
+
+        deleteKNNIndex(indexName);
     }
 
     @SneakyThrows

@@ -27,6 +27,7 @@ public class KNNJsonQueryBuilder {
     private String nestedFieldName;
     private String filterFieldName;
     private String filterValue;
+    private Boolean rescoreEnabled;
 
     public String getQueryString() throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
@@ -55,6 +56,10 @@ public class KNNJsonQueryBuilder {
             builder.field(filterFieldName, filterValue);
             builder.endObject();
             builder.endObject();
+        }
+
+        if (rescoreEnabled != null) {
+            builder.field("rescore", rescoreEnabled);
         }
 
         builder.endObject().endObject().endObject().endObject();
