@@ -33,6 +33,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
 import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING;
 import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING;
 
@@ -76,7 +77,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             .build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -136,7 +141,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             .build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -177,7 +186,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             .build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -238,7 +251,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Mocking ClusterService
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
@@ -295,7 +312,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         // Mocking ClusterService
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
@@ -359,7 +380,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             .build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -416,7 +441,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             .build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -467,7 +496,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         Settings settings = Settings.builder().build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -528,7 +561,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         Settings settings = Settings.builder().build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -583,7 +620,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         Settings settings = Settings.builder().build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -651,7 +692,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         Settings settings = Settings.builder().build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING
+            )
         );
 
         // Mocking ClusterService
