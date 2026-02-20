@@ -213,6 +213,97 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testLowDimensionCompression_whenValid_ThenSucceed() {
+        int[] testDimensions = { 2, 5, 12 };
+
+        XContentBuilder builder;
+        for (int dimension : testDimensions) {
+            for (String compressionLevel : COMPRESSION_LEVELS) {
+                String indexName = INDEX_NAME + "_dim" + dimension + "_" + compressionLevel;
+                builder = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME)
+                    .field("type", "knn_vector")
+                    .field("dimension", dimension)
+                    .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel)
+                    .endObject()
+                    .endObject()
+                    .endObject();
+                String mapping = builder.toString();
+                validateIndexWithDimension(indexName, mapping, dimension);
+                logger.info("Dimension {} with compression level {}", dimension, compressionLevel);
+                validateSearchWithDimension(
+                    indexName,
+                    METHOD_PARAMETER_EF_SEARCH,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                    compressionLevel,
+                    Mode.NOT_CONFIGURED.getName(),
+                    dimension
+                );
+            }
+
+            for (String compressionLevel : COMPRESSION_LEVELS) {
+                for (String mode : Mode.NAMES_ARRAY) {
+                    String indexName = INDEX_NAME + "_dim" + dimension + "_" + compressionLevel + "_" + mode;
+                    builder = XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject("properties")
+                        .startObject(FIELD_NAME)
+                        .field("type", "knn_vector")
+                        .field("dimension", dimension)
+                        .field(MODE_PARAMETER, mode)
+                        .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel)
+                        .endObject()
+                        .endObject()
+                        .endObject();
+                    String mapping = builder.toString();
+                    validateIndexWithDimension(indexName, mapping, dimension);
+                    logger.info("Dimension {} with compression level {} and mode {}", dimension, compressionLevel, mode);
+                    validateSearchWithDimension(
+                        indexName,
+                        METHOD_PARAMETER_EF_SEARCH,
+                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                        compressionLevel,
+                        mode,
+                        dimension
+                    );
+                }
+            }
+
+            for (String mode : Mode.NAMES_ARRAY) {
+                String indexName = INDEX_NAME + "_dim" + dimension + "_" + mode;
+                builder = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME)
+                    .field("type", "knn_vector")
+                    .field("dimension", dimension)
+                    .field(MODE_PARAMETER, mode)
+                    .endObject()
+                    .endObject()
+                    .endObject();
+                String mapping = builder.toString();
+                validateIndexWithDimension(indexName, mapping, dimension);
+                logger.info(
+                    "Dimension {} with mode {} and compression level {}",
+                    dimension,
+                    mode,
+                    CompressionLevel.NOT_CONFIGURED.getName()
+                );
+                validateSearchWithDimension(
+                    indexName,
+                    METHOD_PARAMETER_EF_SEARCH,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                    CompressionLevel.NOT_CONFIGURED.getName(),
+                    mode,
+                    dimension
+                );
+            }
+        }
+    }
+
+    @SneakyThrows
     public void testQueryRescoreEnabledAndDisabled() {
         XContentBuilder builder;
         String mode = Mode.ON_DISK.getName();
@@ -546,6 +637,114 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         createKnnIndex(indexName, mapping);
         addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS);
         forceMergeKnnIndex(indexName, 1);
+    }
+
+    @SneakyThrows
+    private void validateIndexWithDimension(String indexName, String mapping, int dimension) {
+        createKnnIndex(indexName, mapping);
+        addKNNDocs(indexName, FIELD_NAME, dimension, 0, NUM_DOCS);
+        forceMergeKnnIndex(indexName, 1);
+    }
+
+    @SneakyThrows
+    private void validateSearchWithDimension(
+        String indexName,
+        String methodParameterName,
+        int methodParameterValue,
+        String compressionLevelString,
+        String mode,
+        int dimension
+    ) {
+        float[] testVector = new float[dimension];
+        Arrays.fill(testVector, 1.0f);
+
+        // Basic search
+        Response response = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", testVector)
+                .field("k", K)
+                .startObject(METHOD_PARAMETER)
+                .field(methodParameterName, methodParameterValue)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(response);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(K, knnResults.size());
+
+        // Do exact search and gather right scores for the documents
+        Response exactSearchResponse = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("script_score")
+                .startObject("query")
+                .field("match_all")
+                .startObject()
+                .endObject()
+                .endObject()
+                .startObject("script")
+                .field("source", "knn_score")
+                .field("lang", "knn")
+                .startObject("params")
+                .field("field", FIELD_NAME)
+                .field("query_value", testVector)
+                .field("space_type", SpaceType.L2.getValue())
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(exactSearchResponse);
+        String exactSearchResponseBody = EntityUtils.toString(exactSearchResponse.getEntity());
+        List<Float> exactSearchKnnResults = parseSearchResponseScore(exactSearchResponseBody, FIELD_NAME);
+        assertEquals(NUM_DOCS, exactSearchKnnResults.size());
+        if (Mode.ON_DISK.getName().equals(mode)) {
+            Assert.assertEquals(exactSearchKnnResults, knnResults);
+        }
+
+        // Search with rescore
+        response = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", testVector)
+                .field("k", K)
+                .startObject(RescoreParser.RESCORE_PARAMETER)
+                .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+                .endObject()
+                .startObject(METHOD_PARAMETER)
+                .field(methodParameterName, methodParameterValue)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            K
+        );
+        assertOK(response);
+        responseBody = EntityUtils.toString(response.getEntity());
+        knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(K, knnResults.size());
+        if (Mode.ON_DISK.getName().equals(mode)) {
+            Assert.assertEquals(exactSearchKnnResults, knnResults);
+        }
     }
 
     @SneakyThrows

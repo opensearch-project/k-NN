@@ -13,6 +13,7 @@ import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
+import static org.opensearch.knn.common.KNNConstants.BYTE_ALIGNMENT_MASK;
 
 import java.io.IOException;
 
@@ -139,7 +140,8 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
         }
 
         // Calculate the number of bytes required for multi-bit quantization
-        return thresholds.length * thresholds[0].length;
+        int totalBits = thresholds.length * thresholds[0].length;
+        return (totalBits + BYTE_ALIGNMENT_MASK) / Byte.SIZE;
     }
 
     @Override
@@ -151,13 +153,13 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
             throw new IllegalStateException("Error in getting Dimension: The thresholds array is not initialized.");
         }
         int originalDimensions = thresholds[0].length;
+        int bitsPerDimension = thresholds.length;
 
-        // Align the original dimensions to the next multiple of 8 for each bit level
-        int alignedDimensions = (originalDimensions + 7) & ~7;
+        // First multiply by bits, then align to multiple of 8 for binary dimension
+        int totalBinaryDimensions = originalDimensions * bitsPerDimension;
+        int alignedBinaryDimensions = (totalBinaryDimensions + BYTE_ALIGNMENT_MASK) & ~BYTE_ALIGNMENT_MASK;
 
-        // The final dimension count should consider the bit levels
-        return thresholds.length * alignedDimensions;
-
+        return alignedBinaryDimensions;
     }
 
     /**
