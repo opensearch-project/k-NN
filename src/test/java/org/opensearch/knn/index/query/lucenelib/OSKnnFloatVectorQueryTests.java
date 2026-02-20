@@ -21,21 +21,22 @@ public class OSKnnFloatVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 5;
+        boolean needsRescore = false;
         Query filterQuery = mock(Query.class);
 
-        OSKnnFloatVectorQuery query = new OSKnnFloatVectorQuery(fieldName, queryVector, luceneK, filterQuery, k);
+        OSKnnFloatVectorQuery query = new OSKnnFloatVectorQuery(fieldName, queryVector, luceneK, filterQuery, k, needsRescore);
 
         assertTrue(query instanceof KnnFloatVectorQuery);
     }
 
-    public void testMergeLeafResults() {
+    public void testMergeLeafResultsWithRescoreFalse() {
         String fieldName = "test_field";
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 3;
         Query filterQuery = mock(Query.class);
 
-        OSKnnFloatVectorQuery query = new OSKnnFloatVectorQuery(fieldName, queryVector, luceneK, filterQuery, k);
+        OSKnnFloatVectorQuery query = new OSKnnFloatVectorQuery(fieldName, queryVector, luceneK, filterQuery, k, false);
 
         // Create mock TopDocs with more results than k
         ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
@@ -62,7 +63,7 @@ public class OSKnnFloatVectorQueryTests extends TestCase {
         int k = 5;
         Query filterQuery = mock(Query.class);
 
-        OSKnnFloatVectorQuery query = new OSKnnFloatVectorQuery(fieldName, queryVector, luceneK, filterQuery, k);
+        OSKnnFloatVectorQuery query = new OSKnnFloatVectorQuery(fieldName, queryVector, luceneK, filterQuery, k, false);
 
         // Create mock TopDocs with fewer results than k
         ScoreDoc[] scoreDocs = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
