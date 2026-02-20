@@ -206,4 +206,7 @@ public class KNNConstants {
     public static final String VECTOR_FIELD_DATA_TYPE = "vector_field_data_type";
     public static final String VECTOR_FIELD_SPACE_TYPE = "vector_field_space_type";
     public static final String MMR_RERANK_CONTEXT = "mmr.rerank_context";
+
+    // Bit manipulation constants for quantization
+    public static final int BYTE_ALIGNMENT_MASK = 7; // Used for rounding up to nearest byte (Byte.SIZE - 1)
 }
