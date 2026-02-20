@@ -36,6 +36,8 @@ public final class OSKnnFloatVectorQuery extends KnnFloatVectorQuery {
     @Override
     protected TopDocs mergeLeafResults(TopDocs[] perLeafResults) {
         if (needsRescore) {
+
+            // When rescoring is enabled, we need to return all the oversampled k results to rescore which are later reduced to k
             return super.mergeLeafResults(perLeafResults);
         }
         // Merge all segment level results and take top k from it

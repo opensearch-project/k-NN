@@ -93,4 +93,28 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
         assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);
     }
+
+    public void testCreate_whenNoExpandNestedDocsWithRescore_thenDiversifyingQuery() {
+        String fieldName = "field";
+        float[] floatVectors = new float[3];
+        int luceneK = 10;
+        int k = 3;
+        Query queryFilter = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        boolean expandNestedDocs = false;
+        boolean needsRescore = true;
+
+        Query floatQuery = NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+            fieldName,
+            floatVectors,
+            luceneK,
+            queryFilter,
+            parentFilter,
+            expandNestedDocs,
+            k,
+            needsRescore
+        );
+        assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
+        assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);
+    }
 }

@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * The KNN1030Codec does not properly support delegation for non-default codec(s). [#3093](https://github.com/opensearch-project/k-NN/pull/3093)
 * Fix score conversion logic for radial exact search [#3110](https://github.com/opensearch-project/k-NN/pull/3110)
+* Fix lucene reduce to topK when rescoring is enabled [#3124](https://github.com/opensearch-project/k-NN/pull/3124)
 
 ### Refactoring
 

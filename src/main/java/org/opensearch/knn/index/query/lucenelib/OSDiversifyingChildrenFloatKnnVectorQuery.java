@@ -54,6 +54,8 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
     protected TopDocs mergeLeafResults(TopDocs[] perLeafResults) {
         // TODO: Fix this if condition after adding rescoring logic inside ExpandNestedDocsQuery when rescoring is enabled
         if (needsRescore && !expandNestedDocs) {
+
+            // When rescoring is enabled, we need to return all the oversampled k results to rescore which are later reduced to k
             return super.mergeLeafResults(perLeafResults);
         }
         // Merge all segment level results and take top k from it
