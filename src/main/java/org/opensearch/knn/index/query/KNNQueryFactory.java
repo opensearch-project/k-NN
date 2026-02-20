@@ -154,8 +154,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
         // Skip wrapping with RescoreKNNVectorQuery for expandNested as it will reduce the results to k after rescoring
         // which will not return all the child documents
-        // TODO: Add rescoring logic inside ExpandNestedDocsQuery to rescore on oversampled k(luceneK) results and reduce them to k before
-        // retrieving all the child documents.
+        // TODO: Skip retrieving child docs in ExpandNestedDocsQuery if rescoring is enabled and instead retrieve them after rescoring and
+        // reducing to top K.
         return needsRescore && !expandNested ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 
     }

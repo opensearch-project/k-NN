@@ -75,4 +75,27 @@ public class OSKnnFloatVectorQueryTests extends TestCase {
         // Should return all available results (less than k)
         assertEquals(2, result.scoreDocs.length);
     }
+
+    public void testMergeLeafResultsWithRescoreTrue() {
+        String fieldName = "test_field";
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        int luceneK = 4;
+        int k = 2;
+        Query filterQuery = mock(Query.class);
+
+        OSKnnFloatVectorQuery query = new OSKnnFloatVectorQuery(fieldName, queryVector, luceneK, filterQuery, k, true);
+
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f) };
+
+        TopDocs topDocs1 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // When needsRescore is true, results are not reduced to k and instead reduced to luceneK
+        assertEquals(luceneK, result.scoreDocs.length);
+    }
 }

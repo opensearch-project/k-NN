@@ -106,4 +106,110 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
 
         assertEquals(2, result.scoreDocs.length);
     }
+
+    public void testMergeLeafResultsWithRescoreEnabled() {
+        String fieldName = "test_field";
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        int luceneK = 10;
+        int k = 3;
+        boolean needsRescore = true;
+        boolean expandNestedDocs = false;
+        Query filterQuery = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+
+        OSDiversifyingChildrenFloatKnnVectorQuery query = new OSDiversifyingChildrenFloatKnnVectorQuery(
+            fieldName,
+            queryVector,
+            filterQuery,
+            luceneK,
+            parentFilter,
+            k,
+            needsRescore,
+            expandNestedDocs
+        );
+
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f) };
+
+        TopDocs topDocs1 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // When needsRescore is true and expandNestedDocs is false, should use parent's merge (not reduce to k)
+        assertEquals(4, result.scoreDocs.length);
+    }
+
+    public void testMergeLeafResultsWithExpandNestedDocs() {
+        String fieldName = "test_field";
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        int luceneK = 10;
+        int k = 3;
+        boolean needsRescore = false;
+        boolean expandNestedDocs = true;
+        Query filterQuery = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+
+        OSDiversifyingChildrenFloatKnnVectorQuery query = new OSDiversifyingChildrenFloatKnnVectorQuery(
+            fieldName,
+            queryVector,
+            filterQuery,
+            luceneK,
+            parentFilter,
+            k,
+            needsRescore,
+            expandNestedDocs
+        );
+
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f) };
+
+        TopDocs topDocs1 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // When expandNestedDocs is true, should reduce to k
+        assertEquals(k, result.scoreDocs.length);
+    }
+
+    public void testConstructorWithoutExpandNestedDocs() {
+        String fieldName = "test_field";
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        int luceneK = 10;
+        int k = 3;
+        boolean needsRescore = false;
+        Query filterQuery = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+
+        // Test the overloaded constructor without expandNestedDocs parameter
+        OSDiversifyingChildrenFloatKnnVectorQuery query = new OSDiversifyingChildrenFloatKnnVectorQuery(
+            fieldName,
+            queryVector,
+            filterQuery,
+            luceneK,
+            parentFilter,
+            k,
+            needsRescore
+        );
+
+        assertTrue(query instanceof DiversifyingChildrenFloatKnnVectorQuery);
+
+        // Verify it behaves as if expandNestedDocs is false
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f) };
+
+        TopDocs topDocs1 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // Should reduce to k (default behavior when expandNestedDocs is false and needsRescore is false)
+        assertEquals(k, result.scoreDocs.length);
+    }
 }
