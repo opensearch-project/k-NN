@@ -41,7 +41,7 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         );
 
         ExpandNestedDocsQuery expectedFloatQuery = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-            new InternalNestedKnnFloatVectorQuery(fieldName, floatVectors, queryFilter, luceneK, parentFilter, k)
+            new InternalNestedKnnFloatVectorQuery(fieldName, floatVectors, queryFilter, luceneK, parentFilter, k, false, expandNestedDocs)
         ).queryUtils(null).build();
         assertEquals(
             expectedFloatQuery,
@@ -52,7 +52,8 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
                 queryFilter,
                 parentFilter,
                 expandNestedDocs,
-                k
+                k,
+                false
             )
         );
     }
@@ -86,7 +87,32 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
             queryFilter,
             parentFilter,
             expandNestedDocs,
-            k
+            k,
+            false
+        );
+        assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
+        assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);
+    }
+
+    public void testCreate_whenNoExpandNestedDocsWithRescore_thenDiversifyingQuery() {
+        String fieldName = "field";
+        float[] floatVectors = new float[3];
+        int luceneK = 10;
+        int k = 3;
+        Query queryFilter = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        boolean expandNestedDocs = false;
+        boolean needsRescore = true;
+
+        Query floatQuery = NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+            fieldName,
+            floatVectors,
+            luceneK,
+            queryFilter,
+            parentFilter,
+            expandNestedDocs,
+            k,
+            needsRescore
         );
         assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
         assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);

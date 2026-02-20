@@ -150,7 +150,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         // efsearch > k and efSearch was set using methodParameters
         int luceneK = getLuceneK(testK, methodParameters);
         Query expectedQuery1 = new LuceneEngineKnnVectorQuery(
-            new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
+            new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK, false)
         );
         assertEquals(expectedQuery1, actualQuery1);
         assertEquals(luceneK, methodParameters.get(METHOD_PARAMETER_EF_SEARCH));
@@ -159,7 +159,9 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         Map<String, ?> methodParams = Map.of(METHOD_PARAMETER_EF_SEARCH, 1);
         actualQuery1 = buildLuceneFloatQuery(methodParams);
         luceneK = getLuceneK(testK, methodParams);
-        expectedQuery1 = new LuceneEngineKnnVectorQuery(new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK));
+        expectedQuery1 = new LuceneEngineKnnVectorQuery(
+            new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK, false)
+        );
         assertEquals(expectedQuery1, actualQuery1);
         assertEquals(luceneK, testK);
 
@@ -171,7 +173,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneFloatQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
+                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK, false)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, efSearchIndexSettingValue);
@@ -185,7 +187,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneFloatQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
+                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK, false)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, testK);
@@ -199,7 +201,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             luceneK = getLuceneK(testK, null);
             actualQuery1 = buildLuceneFloatQuery(null);
             expectedQuery1 = new LuceneEngineKnnVectorQuery(
-                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK)
+                new OSKnnFloatVectorQuery(testFieldName, testQueryVector, luceneK, null, testK, false)
             );
             assertEquals(expectedQuery1, actualQuery1);
             assertEquals(luceneK, IndexHyperParametersUtil.getHNSWEFSearchValue(Version.CURRENT));
@@ -560,6 +562,76 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         testExpandNestedDocsQuery(KNNEngine.LUCENE, ExpandNestedDocsQuery.class, VectorDataType.FLOAT, true);
         testExpandNestedDocsQuery(KNNEngine.LUCENE, OSDiversifyingChildrenByteKnnVectorQuery.class, VectorDataType.BYTE, false);
         testExpandNestedDocsQuery(KNNEngine.LUCENE, OSDiversifyingChildrenFloatKnnVectorQuery.class, VectorDataType.FLOAT, false);
+    }
+
+    public void testCreate_whenRescoreWithExpandNested_thenSkipRescoreWrapper() {
+        QueryShardContext queryShardContext = mock(QueryShardContext.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        when(queryShardContext.getParentFilter()).thenReturn(parentFilter);
+        when(queryShardContext.getShardId()).thenReturn(0);
+
+        RescoreContext rescoreContext = RescoreContext.getDefault();
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.LUCENE)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .vectorDataType(VectorDataType.FLOAT)
+            .k(testK)
+            .expandNested(true)
+            .rescoreContext(rescoreContext)
+            .context(queryShardContext)
+            .build();
+        Query query = KNNQueryFactory.create(createQueryRequest);
+
+        // Should return LuceneEngineKnnVectorQuery without RescoreKNNVectorQuery wrapper
+        assertEquals(LuceneEngineKnnVectorQuery.class, query.getClass());
+        assertFalse(query instanceof RescoreKNNVectorQuery);
+    }
+
+    public void testCreate_whenRescoreWithoutExpandNested_thenWrapWithRescoreQuery() {
+        QueryShardContext queryShardContext = mock(QueryShardContext.class);
+        when(queryShardContext.getShardId()).thenReturn(0);
+
+        RescoreContext rescoreContext = RescoreContext.getDefault();
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.LUCENE)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .vectorDataType(VectorDataType.FLOAT)
+            .k(testK)
+            .expandNested(false)
+            .rescoreContext(rescoreContext)
+            .context(queryShardContext)
+            .build();
+        Query query = KNNQueryFactory.create(createQueryRequest);
+
+        // Should return RescoreKNNVectorQuery wrapper
+        assertEquals(RescoreKNNVectorQuery.class, query.getClass());
+    }
+
+    public void testCreate_whenNoRescoreContext_thenNoRescoreWrapper() {
+        QueryShardContext queryShardContext = mock(QueryShardContext.class);
+        when(queryShardContext.getShardId()).thenReturn(0);
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.LUCENE)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .vectorDataType(VectorDataType.FLOAT)
+            .k(testK)
+            .expandNested(false)
+            .context(queryShardContext)
+            .build();
+        Query query = KNNQueryFactory.create(createQueryRequest);
+
+        // Should return LuceneEngineKnnVectorQuery without RescoreKNNVectorQuery wrapper
+        assertEquals(LuceneEngineKnnVectorQuery.class, query.getClass());
+        assertFalse(query instanceof RescoreKNNVectorQuery);
     }
 
     private void testExpandNestedDocsQuery(
