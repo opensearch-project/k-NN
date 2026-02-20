@@ -22,6 +22,8 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 5;
+        boolean needsRescore = false;
+        boolean expandNestedDocs = false;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
 
@@ -31,17 +33,21 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             filterQuery,
             luceneK,
             parentFilter,
-            k
+            k,
+            needsRescore,
+            expandNestedDocs
         );
 
         assertTrue(query instanceof DiversifyingChildrenFloatKnnVectorQuery);
     }
 
-    public void testMergeLeafResults() {
+    public void testMergeLeafResultsWithRescoreDisabled() {
         String fieldName = "test_field";
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 3;
+        boolean needsRescore = false;
+        boolean expandNestedDocs = false;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
 
@@ -51,7 +57,9 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             filterQuery,
             luceneK,
             parentFilter,
-            k
+            k,
+            needsRescore,
+            expandNestedDocs
         );
 
         ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
@@ -74,6 +82,8 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 5;
+        boolean needsRescore = false;
+        boolean expandNestedDocs = false;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
 
@@ -83,7 +93,9 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             filterQuery,
             luceneK,
             parentFilter,
-            k
+            k,
+            needsRescore,
+            expandNestedDocs
         );
 
         ScoreDoc[] scoreDocs = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };

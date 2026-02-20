@@ -41,7 +41,7 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         );
 
         ExpandNestedDocsQuery expectedFloatQuery = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-            new InternalNestedKnnFloatVectorQuery(fieldName, floatVectors, queryFilter, luceneK, parentFilter, k)
+            new InternalNestedKnnFloatVectorQuery(fieldName, floatVectors, queryFilter, luceneK, parentFilter, k, false, expandNestedDocs)
         ).queryUtils(null).build();
         assertEquals(
             expectedFloatQuery,
@@ -52,7 +52,8 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
                 queryFilter,
                 parentFilter,
                 expandNestedDocs,
-                k
+                k,
+                false
             )
         );
     }
@@ -86,7 +87,8 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
             queryFilter,
             parentFilter,
             expandNestedDocs,
-            k
+            k,
+            false
         );
         assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
         assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);
