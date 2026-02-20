@@ -10,6 +10,8 @@ import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.CustomCodec;
+import org.opensearch.knn.index.codec.CustomCodecNoStoredFields;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 
@@ -21,6 +23,16 @@ public class KNN1030CodecTests extends KNNCodecTestCase {
     @SneakyThrows
     public void testMultiFieldsKnnIndex() {
         testMultiFieldsKnnIndex(KNN1030Codec.builder().delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE).build());
+    }
+
+    @SneakyThrows
+    public void testMultiFieldsKnnIndexCustomCodecWithStoredFields() {
+        testMultiFieldsKnnIndex(KNN1030Codec.builder().delegate(new CustomCodec()).build());
+    }
+
+    @SneakyThrows
+    public void testMultiFieldsKnnIndexCustomCodecWithoutStoredFields() {
+        testMultiFieldsKnnIndex(KNN1030Codec.builder().delegate(new CustomCodecNoStoredFields()).build());
     }
 
     @SneakyThrows
