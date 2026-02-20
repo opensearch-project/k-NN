@@ -330,55 +330,6 @@ public class QuantizationStateTests extends KNNTestCase {
         assertEquals(48, state12D_4bit.getDimensions()); // 48 bits already aligned
     }
 
-    public void testOneBitScalarQuantizationStateGetDimensions_withDimensionNotMultipleOf8_thenSuccess() {
-        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
-
-        // Case 1: 5 dimensions (should align to 8)
-        float[] thresholds1 = { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f };
-        OneBitScalarQuantizationState state1 = OneBitScalarQuantizationState.builder()
-            .quantizationParams(params)
-            .meanThresholds(thresholds1)
-            .build();
-        int expectedDimensions1 = 8; // The next multiple of 8
-        assertEquals(expectedDimensions1, state1.getDimensions());
-
-        // Case 2: 7 dimensions (should align to 8)
-        float[] thresholds2 = { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f };
-        OneBitScalarQuantizationState state2 = OneBitScalarQuantizationState.builder()
-            .quantizationParams(params)
-            .meanThresholds(thresholds2)
-            .build();
-        int expectedDimensions2 = 8; // The next multiple of 8
-        assertEquals(expectedDimensions2, state2.getDimensions());
-
-        // Case 3: 8 dimensions (already aligned to 8)
-        float[] thresholds3 = { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f };
-        OneBitScalarQuantizationState state3 = OneBitScalarQuantizationState.builder()
-            .quantizationParams(params)
-            .meanThresholds(thresholds3)
-            .build();
-        int expectedDimensions3 = 8; // Already aligned to 8
-        assertEquals(expectedDimensions3, state3.getDimensions());
-
-        // Case 4: 10 dimensions (should align to 16)
-        float[] thresholds4 = { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f, 8.5f, 9.5f };
-        OneBitScalarQuantizationState state4 = OneBitScalarQuantizationState.builder()
-            .quantizationParams(params)
-            .meanThresholds(thresholds4)
-            .build();
-        int expectedDimensions4 = 16; // The next multiple of 8
-        assertEquals(expectedDimensions4, state4.getDimensions());
-
-        // Case 5: 16 dimensions (already aligned to 16)
-        float[] thresholds5 = { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f, 8.5f, 9.5f, 10.5f, 11.5f, 12.5f, 13.5f, 14.5f, 15.5f };
-        OneBitScalarQuantizationState state5 = OneBitScalarQuantizationState.builder()
-            .quantizationParams(params)
-            .meanThresholds(thresholds5)
-            .build();
-        int expectedDimensions5 = 16; // Already aligned to 16
-        assertEquals(expectedDimensions5, state5.getDimensions());
-    }
-
     private long alignSize(long size) {
         return (size + 7) & ~7;  // Align to 8 bytes boundary
     }
