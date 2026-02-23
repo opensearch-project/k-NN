@@ -9,6 +9,7 @@ import java.net.URL;
 import java.util.List;
 
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
@@ -41,6 +42,12 @@ public class CustomCodecsIT extends KNNRestTestCase {
         assert testIndexVectors != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
+    }
+
+    @After
+    @SneakyThrows
+    public final void cleanUp() {
+        deleteKNNIndex(INDEX_NAME);
     }
 
     // Test KNN index with ZSTD codec enabled
