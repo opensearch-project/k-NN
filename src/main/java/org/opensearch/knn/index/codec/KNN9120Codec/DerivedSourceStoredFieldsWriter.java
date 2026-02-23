@@ -83,7 +83,7 @@ public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
                 true,
                 MediaTypeRegistry.JSON
             );
-            Map<String, Object> filteredSource = XContentMapValues.filter(null, vectorFieldTypes.toArray(new String[0]))
+            Map<String, Object> filteredSource = XContentMapValues.filter(null, vectorFieldTypes.toArray(new String[0]), true)
                 .apply(mapTuple.v2());
             BytesStreamOutput bStream = new BytesStreamOutput();
             MediaType actualContentType = mapTuple.v1();
