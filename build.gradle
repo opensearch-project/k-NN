@@ -500,6 +500,7 @@ dependencies {
     api "net.java.dev.jna:jna-platform:${versions.jna}"
     implementation "org.slf4j:slf4j-api:${versions.slf4j}"
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
+    zipArchive group: 'org.opensearch.plugin', name:'opensearch-custom-codecs', version: "${opensearch_build}"
 }
 
 task windowsPatches(type:Exec) {
@@ -687,6 +688,21 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(cluster)
+    } else {
+        // Only install custom codecs plugin
+        configurations.zipArchive.asFileTree.filter(f -> f.name.contains("custom-codecs")).each {
+            cluster.plugin(provider(new Callable<RegularFile>() {
+                @Override
+                RegularFile call() throws Exception {
+                    return new RegularFile() {
+                        @Override
+                        File getAsFile() {
+                            return it
+                        }
+                }
+            }
+          }))
+       }
     }
 
     cluster.plugin(project.tasks.bundlePlugin.archiveFile)
