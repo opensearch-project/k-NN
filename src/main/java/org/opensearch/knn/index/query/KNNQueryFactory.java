@@ -156,7 +156,11 @@ public class KNNQueryFactory extends BaseQueryFactory {
         // which will not return all the child documents
         // TODO: Skip retrieving child docs in ExpandNestedDocsQuery if rescoring is enabled and instead retrieve them after rescoring and
         // reducing to top K.
-        return needsRescore && !expandNested ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
+        if (needsRescore && expandNested) {
+            log.warn("Rescoring is not supported when [{}] is set to true", EXPAND_NESTED);
+            return luceneKnnQuery;
+        }
+        return needsRescore ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 
     }
 

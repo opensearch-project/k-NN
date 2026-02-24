@@ -73,16 +73,7 @@ public class NestedKnnVectorQueryFactory {
     ) {
         if (expandNestedDocs) {
             return new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-                new InternalNestedKnnFloatVectorQuery(
-                    fieldName,
-                    vector,
-                    filterQuery,
-                    luceneK,
-                    parentFilter,
-                    k,
-                    needsRescore,
-                    expandNestedDocs
-                )
+                new InternalNestedKnnFloatVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k, needsRescore)
             ).queryUtils(QueryUtils.getInstance()).build();
         }
         return new OSDiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k, needsRescore);
