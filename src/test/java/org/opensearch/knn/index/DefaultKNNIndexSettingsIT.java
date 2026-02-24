@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.index.TieredMergePolicyProvider;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.settings.Settings;
 
@@ -30,8 +31,16 @@ public class DefaultKNNIndexSettingsIT extends KNNRestTestCase {
         String derivedSourceEnabled = getIndexSettingByName(indexName, KNN_DERIVED_SOURCE_ENABLED);
         assertEquals(Boolean.toString(isKnnIndex), derivedSourceEnabled);
 
-        String maxMergeAtOnce = getIndexSettingByName(indexName, "index.merge.policy.max_merge_at_once", !isKnnIndex);
-        String floorSegment = getIndexSettingByName(indexName, "index.merge.policy.floor_segment", !isKnnIndex);
+        String maxMergeAtOnce = getIndexSettingByName(
+            indexName,
+            TieredMergePolicyProvider.INDEX_MERGE_POLICY_MAX_MERGE_AT_ONCE_SETTING.getKey(),
+            !isKnnIndex
+        );
+        String floorSegment = getIndexSettingByName(
+            indexName,
+            TieredMergePolicyProvider.INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(),
+            !isKnnIndex
+        );
 
         if (isKnnIndex) {
             assertEquals("10", maxMergeAtOnce);

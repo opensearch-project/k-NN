@@ -294,7 +294,10 @@ public class KNNPlugin extends Plugin
                         // Core has max_merge_at_once default as 30, which can make merges more aggressive
                         .put(TieredMergePolicyProvider.INDEX_MERGE_POLICY_MAX_MERGE_AT_ONCE_SETTING.getKey(), 10)
                         // Core has max_merge_at_once default as 16MB, which can make merges more aggressive
-                        .put(TieredMergePolicyProvider.INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), new ByteSizeValue(2, ByteSizeUnit.MB))
+                        .put(
+                            TieredMergePolicyProvider.INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(),
+                            new ByteSizeValue(2, ByteSizeUnit.MB)
+                        )
                         .build();
                 }
                 return Settings.EMPTY;
