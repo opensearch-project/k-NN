@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Bug Fixes
 * Fix score conversion logic for radial exact search [#3110](https://github.com/opensearch-project/k-NN/pull/3110)
+* Adjusting the merge policy setting to make merges less aggressive [#3128](https://github.com/opensearch-project/k-NN/pull/3128)
 
 ### Refactoring
 
