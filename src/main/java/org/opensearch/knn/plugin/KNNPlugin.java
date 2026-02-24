@@ -22,6 +22,8 @@ import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.settings.SecureString;
+import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
@@ -284,7 +286,15 @@ public class KNNPlugin extends Plugin
             @Override
             public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
                 if (templateAndRequestSettings.getAsBoolean(KNNSettings.KNN_INDEX, false)) {
-                    return Settings.builder().put(KNN_DERIVED_SOURCE_ENABLED, true).build();
+                    return Settings.builder()
+                        .put(KNN_DERIVED_SOURCE_ENABLED, true)
+                        // Aggressive merges for k-NN can hogg CPU which can degrade search performance
+                        // These settings are being overridden to make it less aggressive
+                        // Core has max_merge_at_once default as 30, which can make merges more aggressive
+                        .put("index.merge.policy.max_merge_at_once", 10)
+                        // Core has max_merge_at_once default as 16MB, which can make merges more aggressive
+                        .put("index.merge.policy.floor_segment", new ByteSizeValue(2, ByteSizeUnit.MB))
+                        .build();
                 }
                 return Settings.EMPTY;
             }
