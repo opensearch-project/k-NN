@@ -29,6 +29,7 @@ import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
+import org.opensearch.index.TieredMergePolicyProvider;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
@@ -291,9 +292,9 @@ public class KNNPlugin extends Plugin
                         // Aggressive merges for k-NN can hogg CPU which can degrade search performance
                         // These settings are being overridden to make it less aggressive
                         // Core has max_merge_at_once default as 30, which can make merges more aggressive
-                        .put("index.merge.policy.max_merge_at_once", 10)
+                        .put(TieredMergePolicyProvider.INDEX_MERGE_POLICY_MAX_MERGE_AT_ONCE_SETTING.getKey(), 10)
                         // Core has max_merge_at_once default as 16MB, which can make merges more aggressive
-                        .put("index.merge.policy.floor_segment", new ByteSizeValue(2, ByteSizeUnit.MB))
+                        .put(TieredMergePolicyProvider.INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(), new ByteSizeValue(2, ByteSizeUnit.MB))
                         .build();
                 }
                 return Settings.EMPTY;
