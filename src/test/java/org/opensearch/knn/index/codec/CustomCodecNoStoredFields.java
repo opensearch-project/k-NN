@@ -1,0 +1,15 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package org.opensearch.knn.index.codec;
+
+import org.apache.lucene.codecs.FilterCodec;
+import org.apache.lucene.codecs.lucene103.Lucene103Codec;
+
+public class CustomCodecNoStoredFields extends FilterCodec {
+    public CustomCodecNoStoredFields() {
+        super("CustomCodecNoStoredFields", new Lucene103Codec());
+    }
+}

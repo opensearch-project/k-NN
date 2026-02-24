@@ -29,6 +29,7 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
         List<String> fields = List.of("test");
 
         KNN10010DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new KNN10010DerivedSourceStoredFieldsWriter(
+            "mock-codec",
             delegate,
             fields
         );
