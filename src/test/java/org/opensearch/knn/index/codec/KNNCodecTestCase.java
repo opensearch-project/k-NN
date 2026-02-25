@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.document.KnnFloatVectorField;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -64,6 +65,7 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.file.Path;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -155,7 +157,8 @@ public class KNNCodecTestCase extends KNNTestCase {
 
     public void testMultiFieldsKnnIndex(Codec codec) throws Exception {
         setUpMockClusterService();
-        try (Directory dir = newFSDirectory(createTempDir())) {
+        final Path path = createTempDir();
+        try (Directory dir = newFSDirectory(path)) {
             IndexWriterConfig iwc = newIndexWriterConfig();
             iwc.setMergeScheduler(new SerialMergeScheduler());
             iwc.setCodec(codec);
@@ -184,7 +187,6 @@ public class KNNCodecTestCase extends KNNTestCase {
             writer.addDocument(doc1);
             // ensuring the refresh happens, to create the segment and hnsw file
             writer.flush();
-            IndexReader reader = writer.getReader();
             writer.close();
             List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
 
@@ -192,7 +194,9 @@ public class KNNCodecTestCase extends KNNTestCase {
             assertEquals(2, hnswfiles.size());
             assertEquals(hnswfiles.stream().filter(x -> x.contains("test_vector")).collect(Collectors.toList()).size(), 1);
             assertEquals(hnswfiles.stream().filter(x -> x.contains("my_vector")).collect(Collectors.toList()).size(), 1);
+        }
 
+        try (Directory dir = newFSDirectory(path); IndexReader reader = DirectoryReader.open(dir)) {
             // query to verify distance for each of the field
             IndexSearcher searcher = new IndexSearcher(reader);
             float score = searcher.search(
