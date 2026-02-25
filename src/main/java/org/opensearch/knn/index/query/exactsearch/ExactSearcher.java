@@ -219,64 +219,81 @@ public class ExactSearcher {
                 spaceType
             );
         }
-        byte[] quantizedQueryVector = null;
-        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = null;
-        if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
-            // Build Segment Level Quantization info.
-            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, exactSearcherContext.getField());
-            // Quantize the Query Vector Once. Or transform it in the case of ADC.
-            if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
-                SegmentLevelQuantizationUtil.transformVectorWithADC(
+        // Build Segment Level Quantization info.
+        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+            reader,
+            fieldInfo,
+            exactSearcherContext.getField()
+        );
+        // For FP32 vectors, there are two execution paths:
+        // 1. Full precision path: Used during rescoring or when quantization is not available.
+        // Loads original float32 vectors and performs exact search using the configured distance metric (L2, Cosine, etc.).
+        // 2. Quantized path: Used during approximate search when quantization is enabled.
+        // Loads quantized byte vectors from segment and performs search using either:
+        // a) ADC (Asymmetric Distance Computation): Transforms query vector and compares against quantized doc vectors
+        // b) Symmetric quantization: Quantizes query vector and uses Hamming distance for comparison
+        if (segmentLevelQuantizationInfo == null || !exactSearcherContext.isUseQuantizedVectorsForSearch()) {
+            final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+            if (isNestedRequired) {
+                return new NestedVectorIdsExactKNNIterator(
+                    matchedDocs,
                     exactSearcherContext.getFloatQueryVector(),
-                    segmentLevelQuantizationInfo,
-                    spaceType
-                );
-            } else {
-                quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
-                    exactSearcherContext.getFloatQueryVector(),
-                    segmentLevelQuantizationInfo
+                    (KNNFloatVectorValues) vectorValues,
+                    spaceType,
+                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
+            return new VectorIdsExactKNNIterator(
+                matchedDocs,
+                exactSearcherContext.getFloatQueryVector(),
+                (KNNFloatVectorValues) vectorValues,
+                spaceType
+            );
         }
-        // Quantized search path: retrieve quantized byte vectors from reader as KNNBinaryVectorValues and perform exact search
-        // using Hamming distance.
-        if (quantizedQueryVector != null) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
+        final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
+        // For ADC, we will transform float vector -> ADC's float vector
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
+            SegmentLevelQuantizationUtil.transformVectorWithADC(
+                exactSearcherContext.getFloatQueryVector(),
+                segmentLevelQuantizationInfo,
+                spaceType
+            );
             if (isNestedRequired) {
                 return new NestedBinaryVectorIdsExactKNNIterator(
                     matchedDocs,
-                    quantizedQueryVector,
+                    exactSearcherContext.getFloatQueryVector(),
                     (KNNBinaryVectorValues) vectorValues,
-                    SpaceType.HAMMING,
+                    spaceType,
                     exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
                 );
             }
             return new BinaryVectorIdsExactKNNIterator(
                 matchedDocs,
+                exactSearcherContext.getFloatQueryVector(),
+                (KNNBinaryVectorValues) vectorValues,
+                spaceType
+            );
+        }
+        final byte[] quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
+            exactSearcherContext.getFloatQueryVector(),
+            segmentLevelQuantizationInfo
+        );
+        // Quantized search path: retrieve quantized byte vectors from reader as KNNBinaryVectorValues and perform exact search
+        // using Hamming distance.
+        if (isNestedRequired) {
+            return new NestedBinaryVectorIdsExactKNNIterator(
+                matchedDocs,
                 quantizedQueryVector,
                 (KNNBinaryVectorValues) vectorValues,
-                SpaceType.HAMMING
+                SpaceType.HAMMING,
+                exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
             );
         }
-        final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-        if (isNestedRequired) {
-            return new NestedVectorIdsExactKNNIterator(
-                matchedDocs,
-                exactSearcherContext.getFloatQueryVector(),
-                (KNNFloatVectorValues) vectorValues,
-                spaceType,
-                exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext),
-                quantizedQueryVector,
-                segmentLevelQuantizationInfo
-            );
-        }
-        return new VectorIdsExactKNNIterator(
+        return new BinaryVectorIdsExactKNNIterator(
             matchedDocs,
-            exactSearcherContext.getFloatQueryVector(),
-            (KNNFloatVectorValues) vectorValues,
-            spaceType,
             quantizedQueryVector,
-            segmentLevelQuantizationInfo
+            (KNNBinaryVectorValues) vectorValues,
+            SpaceType.HAMMING
         );
     }
 

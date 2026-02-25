@@ -110,16 +110,19 @@ public final class KNNVectorValuesFactory {
     }
 
     /**
-     * Returns a {@link KNNVectorValues} for the given {@link FieldInfo} and {@link LeafReader}
+     * Returns a {@link KNNVectorValues} for the given {@link FieldInfo} and {@link LeafReader}.
+     * When shouldRetrieveQuantizedVectors is true, retrieves quantized byte vectors for FLOAT32 encoded fields.
      *
      * @param fieldInfo {@link FieldInfo}
      * @param leafReader {@link LeafReader}
+     * @param shouldRetrieveQuantizedVectors if true, retrieves quantized byte vectors for FLOAT32 fields
      * @return {@link KNNVectorValues}
+     * @throws IOException if an I/O error occurs
      */
     public static <T> KNNVectorValues<T> getVectorValues(
         final FieldInfo fieldInfo,
         final SegmentReader leafReader,
-        boolean isQueryVectorQuantized
+        boolean shouldRetrieveQuantizedVectors
     ) throws IOException {
         if (!fieldInfo.hasVectorValues()) {
             final DocIdSetIterator docIdSetIterator = DocValues.getBinary(leafReader, fieldInfo.getName());
@@ -134,7 +137,7 @@ public final class KNNVectorValuesFactory {
         } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
             final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(fieldInfo.getName());
             // Quantized search path: retrieve quantized byte vectors from codec.
-            if (isQueryVectorQuantized) {
+            if (shouldRetrieveQuantizedVectors) {
                 // Bypasses leafReader.getByteVectorValues() which enforces BYTE encoding check.
                 // This will call getByteVectorValues from NativeEngines990KnnVectorsReader at the end.
                 final ByteVectorValues byteVectorValues = leafReader.getVectorReader().getByteVectorValues(fieldInfo.getName());

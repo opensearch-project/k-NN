@@ -8,8 +8,6 @@ package org.opensearch.knn.index.codec;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
-import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
-import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
@@ -157,11 +155,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         // mapperService is already checked for null or valid instance type at caller, hence we don't need
         // addition isPresent check here.
         final int approximateThreshold = getApproximateThresholdValue();
-        return new NativeEngines990KnnVectorsFormat(
-            new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()),
-            approximateThreshold,
-            nativeIndexBuildStrategyFactory
-        );
+        return new NativeEngines990KnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory);
     }
 
     private int getApproximateThresholdValue() {
