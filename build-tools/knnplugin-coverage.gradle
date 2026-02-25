@@ -1,0 +1,49 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+apply plugin: 'jacoco'
+
+jacoco {
+    toolVersion = "0.8.13"
+}
+
+/**
+ * This code sets up coverage reporting manually for the k-NN plugin tests. This is complicated because:
+ *  1. The OS integTest Task doesn't implement Gradle's JavaForkOptions so we have to manually start the jacoco agent with the test JVM
+ *  2. The cluster nodes are stopped using 'kill -9' which means jacoco can't dump it's execution output to a file on VM shutdown
+ *  3. The Java Security Manager prevents JMX from writing execution output to the file.
+ *
+ *  To workaround these we start the cluster with jmx enabled and then use Jacoco's JMX MBean to get the execution data before the
+ *  cluster is stopped and dump it to a file. Luckily our current security policy seems to allow this. This will also probably
+ *  break if there are multiple nodes in the integTestCluster. But for now... it sorta works.
+ */
+integTest {
+    jacoco {
+        jmx = true
+    }
+
+    systemProperty 'jacoco.dir', project.layout.buildDirectory.get().file("jacoco").asFile.absolutePath
+    systemProperty 'jmx.serviceUrl', "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
+}
+
+jacocoTestReport {
+    dependsOn integTest, test
+    executionData.from = [integTest.jacoco.destinationFile, test.jacoco.destinationFile]
+    reports {
+        html.getRequired().set(true) // human readable
+        csv.getRequired().set(true)
+        xml.getRequired().set(true) // for coverlay
+    }
+}
+
+testClusters.integTest {
+    jvmArgs " ${integTest.jacoco.getAsJvmArg()}"
+
+    systemProperty 'com.sun.management.jmxremote', "true"
+    systemProperty 'com.sun.management.jmxremote.authenticate', "false"
+    systemProperty 'com.sun.management.jmxremote.port', "7777"
+    systemProperty 'com.sun.management.jmxremote.ssl', "false"
+    systemProperty 'java.rmi.server.hostname', "127.0.0.1"
+}

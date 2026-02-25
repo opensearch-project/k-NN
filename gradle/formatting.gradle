@@ -1,0 +1,16 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+allprojects {
+    project.apply plugin: "com.diffplug.spotless"
+    spotless {
+        java {
+            target 'src/**/*.java'
+            removeUnusedImports()
+            eclipse().configFile rootProject.file('buildSrc/formatterConfig.xml')
+            trimTrailingWhitespace()
+        }
+    }
+}

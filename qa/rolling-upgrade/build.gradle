@@ -1,0 +1,120 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.apache.tools.ant.taskdefs.condition.Os
+
+apply from : "$rootDir/qa/build.gradle"
+
+String default_bwc_version = System.getProperty("bwc.version")
+String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
+boolean isSnapshot = knn_bwc_version.contains("-SNAPSHOT")
+String knn_bwc_version_no_qualifier = isSnapshot ? knn_bwc_version - "-SNAPSHOT" : knn_bwc_version
+String baseName = "knnBwcCluster-rolling"
+
+// Creates a test cluster of previous version and loads k-NN plugin of bwcVersion
+testClusters {
+    "${baseName}" {
+        testDistribution = "ARCHIVE"
+        versions = [knn_bwc_version, opensearch_version]
+        numberOfNodes = 3
+        plugin(project.tasks.zipBwcPlugin.archiveFile)
+        setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
+        setting 'http.content_type.required', 'true'
+        environment "LD_LIBRARY_PATH", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            // While running on Windows OS, setting the PATH environment variable to include the paths to dlls of JNI libraries and windows dependencies
+            environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+            systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
+        } else {
+            systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib:${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
+        }
+    }
+}
+
+
+// Task to run BWC tests against the old cluster
+task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
+    dependsOn "zipBwcPlugin"
+    useCluster testClusters."${baseName}"
+    systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    systemProperty 'tests.skip_delete_model_index', 'true'
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+
+// Part of rolling upgrade. Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version
+// This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
+task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
+    useCluster testClusters."${baseName}"
+    dependsOn rootProject.tasks.buildJniLib
+    dependsOn rootProject.tasks.assemble
+    dependsOn "testAgainstOldCluster"
+    doFirst {
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-0").environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-0").systemProperty("java.library.path", "$rootDir/jni/build/release")
+        testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
+    systemProperty 'tests.rest.first_round', 'true'
+    systemProperty 'tests.skip_delete_model_index', 'true'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+// Part of rolling upgrade. Upgrades the second node to new OpenSearch version with upgraded plugin version after the
+// first node is upgraded. This results in a mixed cluster with 1 node on the old version and 2 upgraded nodes.
+task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
+    dependsOn "testAgainstOneThirdUpgradedCluster"
+    useCluster testClusters."${baseName}"
+    doFirst {
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-1").environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-1").systemProperty("java.library.path", "$rootDir/jni/build/release")
+        testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
+    systemProperty 'tests.rest.first_round', 'false'
+    systemProperty 'tests.skip_delete_model_index', 'true'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+// Part of rolling upgrade. Upgrades the third node to new OpenSearch version with upgraded plugin version after the
+// second node is upgraded. This results in a fully upgraded cluster.
+task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
+    dependsOn "testAgainstTwoThirdsUpgradedCluster"
+    useCluster testClusters."${baseName}"
+    doFirst {
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-2").environment("LD_LIBRARY_PATH", "$rootDir/jni/build/release")
+        testClusters."${baseName}".getNodes().getAt("${baseName}" + "-2").systemProperty("java.library.path", "$rootDir/jni/build/release")
+        testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
+    }
+    mustRunAfter "testAgainstOneThirdUpgradedCluster"
+    systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
+    systemProperty 'tests.skip_delete_model_index', 'true'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}

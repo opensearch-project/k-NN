@@ -1,0 +1,825 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+
+import org.gradle.internal.jvm.Jvm
+import org.opensearch.gradle.test.RestIntegTestTask
+import org.opensearch.gradle.testclusters.OpenSearchCluster
+import org.apache.tools.ant.taskdefs.condition.Os
+import java.nio.file.Paths
+import java.util.concurrent.Callable
+
+buildscript {
+    ext {
+        // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
+        // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
+        opensearch_version = System.getProperty("opensearch.version", "3.6.0-SNAPSHOT")
+        version_qualifier = System.getProperty("build.version_qualifier", "")
+        opensearch_group = "org.opensearch"
+        isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+        avx2_enabled = System.getProperty("avx2.enabled")
+        nproc_count = System.getProperty("nproc.count", "1")
+        avx512_enabled = System.getProperty("avx512.enabled")
+        avx512_spr_enabled = System.getProperty("avx512_spr.enabled")
+        // This flag determines whether the CMake build system should apply a custom patch. It prevents build failures
+        // when the cmakeJniLib task is run multiple times. If the build.lib.commit_patches is true, the CMake build
+        // system skips applying the patch if the patches have been applied already. If build.lib.commit_patches is
+        // false, the patches are always applied. To avoid patch conflicts, disable this flag manually after the first
+        // run of buildJniLib
+        apply_lib_patches = System.getProperty("build.lib.apply_patches", "true")
+        // Flag to determine whether cmake build system should commit the patch or not. In automated build environments
+        // set this to false. In dev environments, set to true. If false, repetitive execution of cmakeJniLib may fail.
+        // To prevent this, set build.lib.apply_patches to false after the first cmakeJniLib run.
+        commit_lib_patches = System.getProperty("build.lib.commit_patches", "true")
+        nmslib_simd_flags = System.getProperty("nmslib_simd_flags")
+
+        version_tokens = opensearch_version.tokenize('-')
+        opensearch_build = version_tokens[0] + '.0'
+        plugin_no_snapshot = opensearch_build
+        if (version_qualifier) {
+            opensearch_build += "-${version_qualifier}"
+            plugin_no_snapshot += "-${version_qualifier}"
+        }
+        if (isSnapshot) {
+            opensearch_build += "-SNAPSHOT"
+        }
+        opensearch_no_snapshot = opensearch_build.replace("-SNAPSHOT","")
+
+        os_platform = "linux"
+        artifact_type = "tar"
+
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            os_platform = "windows"
+            artifact_type = "zip"
+        }
+
+        opensearch_version_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
+        repo_s3_resource_folder = "build/resource/repository-s3"
+        repo_s3_download_url = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${opensearch_version_no_snapshot}/latest/${os_platform}/x64/${artifact_type}/builds/opensearch/core-plugins/repository-s3-${opensearch_version_no_snapshot}.zip"
+    }
+
+    // This isn't applying from repositories.gradle so repeating git diff it here
+    repositories {
+        mavenLocal()
+        maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+
+    dependencies {
+        classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
+        configurations.all {
+            resolutionStrategy {
+                force("org.eclipse.platform:org.eclipse.core.runtime:4.29.0") // CVE for < 4.29
+                force("org.eclipse.platform:org.eclipse.core.resources:4.20.0") // CVE for < 4.20
+            }
+        }
+    }
+}
+
+//****************************************************************************/
+// Build configurations
+//****************************************************************************/
+
+plugins {
+    id 'eclipse'
+    id 'java-library'
+    id 'java-test-fixtures'
+    id 'idea'
+    id "com.diffplug.spotless" version "6.25.0" apply false
+    id 'io.freefair.lombok' version '8.14'
+    id "de.undercouch.download" version "5.3.0"
+}
+
+apply from: 'gradle/formatting.gradle'
+apply plugin: 'opensearch.opensearchplugin'
+apply plugin: 'opensearch.rest-test'
+apply plugin: 'opensearch.pluginzip'
+apply plugin: 'opensearch.repositories'
+apply plugin: 'opensearch.java-agent'
+
+def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
+opensearch_tmp_dir.mkdirs()
+
+ext {
+    projectSubstitutions = [:]
+
+    configureSecurityPlugin = { OpenSearchCluster cluster ->
+        configurations.zipArchive.asFileTree.each {
+            cluster.plugin(provider(new Callable<RegularFile>() {
+                @Override
+                RegularFile call() throws Exception {
+                    return new RegularFile() {
+                        @Override
+                        File getAsFile() {
+                            return it
+                        }
+                    }
+                }
+            }))
+        }
+
+        cluster.getNodes().forEach { node ->
+            var creds = node.getCredentials()
+            if (creds.isEmpty()) {
+                creds.add(Map.of('username', 'admin', 'password', 'admin'))
+            } else {
+                creds.get(0).putAll(Map.of('username', 'admin', 'password', 'admin'))
+            }
+        }
+
+        // Config below including files are copied from security demo configuration
+        ['esnode.pem', 'esnode-key.pem', 'root-ca.pem'].forEach { file ->
+            File local = Paths.get(opensearch_tmp_dir.absolutePath, file).toFile()
+            download.run {
+                src "https://raw.githubusercontent.com/opensearch-project/security/main/bwc-test/src/test/resources/security/" + file
+                dest local
+                overwrite false
+            }
+            cluster.extraConfigFile(file, local)
+        }
+
+        // This configuration is copied from the security plugins demo install:
+        // https://github.com/opensearch-project/security/blob/2.11.1.0/tools/install_demo_configuration.sh#L365-L388
+        cluster.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
+        cluster.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
+        cluster.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
+        cluster.setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
+        cluster.setting("plugins.security.ssl.http.enabled", "true")
+        cluster.setting("plugins.security.ssl.http.pemcert_filepath", "esnode.pem")
+        cluster.setting("plugins.security.ssl.http.pemkey_filepath", "esnode-key.pem")
+        cluster.setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
+        cluster.setting("plugins.security.allow_unsafe_democertificates", "true")
+        cluster.setting("plugins.security.allow_default_init_securityindex", "true")
+        cluster.setting("plugins.security.unsupported.inject_user.enabled", "true")
+
+        cluster.setting("plugins.security.authcz.admin_dn", "\n- CN=kirk,OU=client,O=client,L=test, C=de")
+        cluster.setting('plugins.security.restapi.roles_enabled', '["all_access", "security_rest_api_access"]')
+        cluster.setting('plugins.security.system_indices.enabled', "true")
+        cluster.setting('plugins.security.system_indices.indices', '[' +
+                '".plugins-ml-config", ' +
+                '".plugins-ml-connector", ' +
+                '".plugins-ml-model-group", ' +
+                '".plugins-ml-model", ".plugins-ml-task", ' +
+                '".plugins-ml-conversation-meta", ' +
+                '".plugins-ml-conversation-interactions", ' +
+                '".opendistro-alerting-config", ' +
+                '".opendistro-alerting-alert*", ' +
+                '".opendistro-anomaly-results*", ' +
+                '".opendistro-anomaly-detector*", ' +
+                '".opendistro-anomaly-checkpoints", ' +
+                '".opendistro-anomaly-detection-state", ' +
+                '".opendistro-reports-*", ' +
+                '".opensearch-notifications-*", ' +
+                '".opensearch-notebooks", ' +
+                '".opensearch-observability", ' +
+                '".ql-datasources", ' +
+                '".opendistro-asynchronous-search-response*", ' +
+                '".replication-metadata-store", ' +
+                '".opensearch-knn-models", ' +
+                '".geospatial-ip2geo-data*"' +
+                ']'
+        )
+        cluster.setSecure(true)
+    }
+
+    configureS3Plugin = { OpenSearchCluster cluster ->
+        cluster.plugin(provider(new Callable<RegularFile>(){
+            @Override
+            RegularFile call() throws Exception {
+                return new RegularFile() {
+                    @Override
+                    File getAsFile() {
+                        if (new File("$project.rootDir/$repo_s3_resource_folder").exists()) {
+                            project.delete(files("$project.rootDir/$repo_s3_resource_folder"))
+                        }
+                        project.mkdir repo_s3_resource_folder
+                        ant.get(src: repo_s3_download_url,
+                                dest: repo_s3_resource_folder,
+                                httpusecaches: false)
+                        return fileTree(repo_s3_resource_folder).getSingleFile()
+                    }
+                }
+            }
+        }))
+    }
+
+    propertyKeys = [
+        breaker: [
+            useRealMemory: 'tests.opensearch.indices.breaker.total.use_real_memory'
+        ]
+    ]
+}
+
+def getBreakerSetting() {
+    return System.getProperty(propertyKeys.breaker.useRealMemory, 'true')
+}
+
+allprojects {
+
+    group = 'org.opensearch'
+    version = opensearch_version.tokenize('-')[0] + '.0'
+    if (version_qualifier) {
+        version += "-${version_qualifier}"
+    }
+    if (isSnapshot) {
+        version += "-SNAPSHOT"
+    }
+    apply from: rootProject.file('build-tools/repositories.gradle').absoluteFile
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    afterEvaluate {
+        project.dependencyLicenses.enabled = false
+        project.thirdPartyAudit.enabled = false
+        project.loggerUsageCheck.enabled = false
+        project.forbiddenApis.ignoreFailures = true
+        project.forbiddenPatterns {
+            setEnabled(false)
+        }
+        project.testingConventions.enabled = false
+        project.validateNebulaPom.enabled = false
+        project.licenseFile = rootProject.file('LICENSE.txt')
+        project.noticeFile = rootProject.file('NOTICE.txt')
+        project.forbiddenApis.ignoreFailures = true
+    }
+}
+
+configurations {
+    zipArchive
+}
+
+publishing {
+    repositories {
+        maven {
+            name = "Snapshots"
+            url = System.getenv("MAVEN_SNAPSHOTS_S3_REPO")
+            credentials(AwsCredentials) {
+                accessKey = System.getenv("AWS_ACCESS_KEY_ID")
+                secretKey = System.getenv("AWS_SECRET_ACCESS_KEY")
+                sessionToken = System.getenv("AWS_SESSION_TOKEN")
+            }
+        }
+    }
+    publications {
+        pluginZip(MavenPublication) { publication ->
+            pom {
+                name = "opensearch-knn"
+                description = "OpenSearch k-NN plugin"
+                groupId = "org.opensearch.plugin"
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        name = "OpenSearch"
+                        url = "https://github.com/opensearch-project/k-NN"
+                    }
+                }
+            }
+        }
+    }
+}
+
+compileJava {
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+
+    // Since MemorySegment is not available until JDK22, exclude it when packaging and only include it for Java22+.
+    def javaExt = project.extensions.getByType(JavaPluginExtension)
+    if (javaExt.sourceCompatibility <= JavaVersion.VERSION_21 || javaExt.targetCompatibility <= JavaVersion.VERSION_21) {
+        exclude("org/opensearch/knn/memoryoptsearch/MemorySegmentAddressExtractorJDK22.java")
+    }
+}
+compileTestJava {
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+}
+javadoc {
+    // Block generating Java doc as it will complain MemorySegment is under preview for Java21.
+    def javaExt = project.extensions.getByType(JavaPluginExtension)
+    if (javaExt.sourceCompatibility <= JavaVersion.VERSION_21 || javaExt.targetCompatibility <= JavaVersion.VERSION_21) {
+        exclude("org/opensearch/knn/memoryoptsearch/MemorySegmentAddressExtractorJDK22.java")
+    }
+}
+compileTestFixturesJava {
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+}
+
+def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
+def usingMultiNode = project.properties.containsKey('numNodes')
+// Only apply jacoco test coverage if we are running a local single node cluster
+def integTestDependOnJniLib = false
+if (!usingRemoteCluster) {
+    integTestDependOnJniLib = true
+    if (!usingMultiNode) {
+        apply from: 'build-tools/knnplugin-coverage.gradle'
+    }
+}
+
+tasks.register('validateLibraryUsage') {
+    dependsOn compileJava
+    doLast {
+        fileTree('build/classes').include('**/*.class').each { classFile ->
+            if (classFile.absolutePath.contains('KNNLibraryLoader')) return
+
+            def bytes = classFile.bytes
+            def foundLoadLibrary = scanForLoadLibrary(bytes)
+
+            if (foundLoadLibrary) {
+                throw new GradleException("System.loadLibrary call found in ${classFile.absolutePath}. Add any JNI library loading functionality into KNNLibraryLoader!")
+            }
+        }
+    }
+}
+
+static def scanForLoadLibrary(byte[] classBytes) {
+    def bytesAsString = new String(classBytes, "ISO-8859-1")
+    return bytesAsString.contains("java/lang/System") && bytesAsString.contains("loadLibrary")
+}
+
+check.dependsOn spotlessCheck
+check.dependsOn jacocoTestReport
+
+opensearchplugin {
+    name 'opensearch-knn'
+    // zip file name and plugin name in ${opensearch.plugin.name} read by OpenSearch when plugin loading
+    description 'OpenSearch k-NN plugin'
+    classname 'org.opensearch.knn.plugin.KNNPlugin'
+    extendedPlugins = ['lang-painless', 'transport-grpc']
+    licenseFile = rootProject.file('LICENSE.txt')
+    noticeFile = rootProject.file('NOTICE.txt')
+}
+
+tasks.named("integTest").configure {
+    it.dependsOn(project.tasks.named("bundlePlugin"))
+}
+
+task release(type: Copy, group: 'build') {
+    dependsOn project.tasks.build
+    from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
+    into "build/plugins/opensearch-knn"
+    includeEmptyDirs = false
+    eachFile { it.path = it.path - "opensearch/" }
+}
+
+tasks.register('generateTaskGraph') {
+    group = 'documentation'
+    description = 'Generates a Mermaid graph of the build task dependencies'
+    
+    doLast {
+        def buildTask = project.tasks.getByName('build')
+        def taskDeps = [:]
+        def mustRunAfter = [:]
+        
+        def finalizedBy = [:]
+        
+        def collectDeps
+        collectDeps = { task ->
+            if (taskDeps.containsKey(task.name)) return
+            
+            def deps = task.taskDependencies.getDependencies(task)
+            def mustRunAfterTasks = task.mustRunAfter.getDependencies(task)
+            def finalizedByTasks = task.finalizedBy.getDependencies(task)
+            
+            finalizedBy[task.name] = finalizedByTasks.collect { it.name }.findAll { it != task.name }
+
+            // Combine regular dependencies and mustRunAfter, filter out self-dependencies
+            def allDeps = (deps + mustRunAfterTasks).collect { it.name }.unique().findAll { it != task.name }
+            taskDeps[task.name] = allDeps
+            
+            (deps + mustRunAfterTasks + finalizedByTasks).each { collectDeps(it) }
+        }
+        
+        collectDeps(buildTask)
+        
+        def taskToLevel = [:]
+        
+        def calculateLevel
+        calculateLevel = { taskName ->
+            if (taskToLevel.containsKey(taskName)) {
+                return taskToLevel[taskName]
+            }
+            
+            def allConstraints = taskDeps[taskName] ?: []
+            
+            if (allConstraints.isEmpty()) {
+                taskToLevel[taskName] = 0
+                return 0
+            }
+            
+            def depLevels = allConstraints.collect { calculateLevel(it) }
+            def maxDepLevel = depLevels.isEmpty() ? -1 : depLevels.max()
+            def level = maxDepLevel + 1
+            taskToLevel[taskName] = level
+            return level
+        }
+        
+        // Proper transitive reduction
+        def reducedDeps = [:]
+        
+        def isReachable
+        isReachable = { from, to, visited = [] as Set ->
+            if (from == to) return true
+            if (visited.contains(from)) return false
+            visited.add(from)
+            return (taskDeps[from] ?: []).any { dep -> isReachable(dep, to, visited) }
+        }
+        
+        taskDeps.each { taskName, deps ->
+            def directDeps = deps.findAll { dep ->
+                !deps.any { otherDep -> otherDep != dep && isReachable(otherDep, dep) }
+            }
+            reducedDeps[taskName] = directDeps
+        }
+        
+        def mermaid = [
+            '%%{init: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 80}}}%%',
+            'graph TD'
+        ]
+        
+        // Generate connections with reduced dependencies
+        reducedDeps.each { taskName, deps ->
+            deps.each { dep ->
+                mermaid << "    ${dep} --> ${taskName}"
+            }
+        }
+        
+        // Generate bold arrows for finalizedBy relationships
+        finalizedBy.each { taskName, finalizedTasks ->
+            finalizedTasks.each { finalizedTask ->
+                mermaid << "    ${taskName} ==> ${finalizedTask}"
+            }
+        }
+        
+        def outputFile = file('GRADLE_GRAPH.md')
+        outputFile.text = "# Gradle Build Task Graph\n\nDependency DAG with transitive dependencies removed for clarity.\n\nPrompt AI with questions like 'Analyzing GRADLE_GRAPH.md, does buildJniTest come before integTest?'\n\nRegenerate with `./gradlew generateTaskGraph`\n\n```mermaid\n${mermaid.join('\n')}\n```\n"
+        
+        println "Task graph generated in GRADLE_GRAPH.md"
+    }
+}
+
+
+//****************************************************************************/
+// Dependencies
+//****************************************************************************/
+dependencies {
+    api "org.opensearch:opensearch:${opensearch_version}"
+    api project(":remote-index-build-client")
+    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
+    compileOnly "org.opensearch.plugin:transport-grpc-spi:${opensearch_version}"
+    compileOnly "org.opensearch:protobufs:${versions.opensearchprotobufs}"
+    // Declare guava as compile time since guava will come from OpenSearch transport-grpc module.
+    compileOnly group: 'com.google.guava', name: 'guava', version: "${versions.guava}"
+
+    api "org.apache.commons:commons-lang3:${versions.commonslang}"
+    testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
+    testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
+    testImplementation("com.google.guava:guava:${versions.guava}")
+    testFixturesImplementation("com.google.guava:guava:${versions.guava}") {
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+    // json-path 2.9.0 depends on slf4j 2.0.11, which conflicts with the version used by OpenSearch core.
+    // Excluding slf4j here since json-path is only used for testing, and logging failures in this context are acceptable.
+    testFixturesImplementation('com.jayway.jsonpath:json-path:2.9.0') {
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+        exclude group: 'net.minidev', module: 'json-smart'
+    }
+    // Explicitly include a safe version of json-smart for test fixtures
+    testFixturesImplementation group: 'net.minidev', name: 'json-smart', version: "${versions.json_smart}"
+    testFixturesImplementation "org.opensearch:common-utils:${version}"
+    implementation 'com.github.oshi:oshi-core:6.4.13'
+    api "net.java.dev.jna:jna:${versions.jna}"
+    api "net.java.dev.jna:jna-platform:${versions.jna}"
+    implementation "org.slf4j:slf4j-api:${versions.slf4j}"
+    zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
+    zipArchive group: 'org.opensearch.plugin', name:'opensearch-custom-codecs', version: "${opensearch_build}"
+}
+
+task windowsPatches(type:Exec) {
+    commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
+}
+
+tasks.register('cmakeJniLib', Exec) {
+    def args = []
+    args.add("cmake")
+    args.add("-S jni") // CMakelists.txt directory
+    args.add("-B jni/build") // Build directory
+    args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
+    if (avx2_enabled != null) {
+        args.add("-DAVX2_ENABLED=${avx2_enabled}")
+    }
+    if (avx512_enabled != null) {
+        args.add("-DAVX512_ENABLED=${avx512_enabled}")
+    }
+    if (avx512_spr_enabled != null) {
+        args.add("-DAVX512_SPR_ENABLED=${avx512_spr_enabled}")
+    }
+    if (nmslib_simd_flags?.trim()) {
+        args.add("-DNMSLIB_SIMD_FLAGS=${nmslib_simd_flags}")
+    }
+    args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
+    args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
+    args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+    def javaHome = Jvm.current().getJavaHome()
+    logger.lifecycle("Java home directory used by gradle: $javaHome")
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        dependsOn windowsPatches
+        args.add("-G")
+        args.add("Unix Makefiles")
+        args.add("-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
+        args.add("-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
+    }
+
+    // Print the command that will be executed
+    logger.lifecycle("CMake command: ${args.join(' ')}")
+    def outputStream = new ByteArrayOutputStream()
+    commandLine args
+    standardOutput = outputStream
+}
+
+// Makes sure that `./gradlew clean` removes all JNI build artifacts
+tasks.clean.doFirst {
+    // Delete JNI build directory
+    delete "${projectDir}/jni/build"
+}
+
+tasks.register('buildJniLib', Exec) {
+    dependsOn cmakeJniLib
+    def args = []
+    args.add("cmake")
+    args.add("--build")
+    args.add("jni/build")
+    args.add("--target")
+    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib', 'opensearchknn_simd']
+    if (project.hasProperty('knn_libs')) {
+        knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
+    }
+    args.addAll(knn_libs)
+    args.add("--parallel")
+    args.add("${nproc_count}")
+    logger.lifecycle("Build command: ${args.join(' ')}")
+    commandLine args
+}
+
+jar.finalizedBy validateLibraryUsage
+
+tasks.register('buildJniTest', Test) {
+    dependsOn buildJniLib
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
+    systemProperty "jdk.attach.allowAttachSelf", true
+    include '**/*BT*' // Build tests will be denoted with BT to show they come before other tests
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
+}
+
+test {
+    dependsOn buildJniTest
+    // This will ensure that Unit test also uses optimized Vector Scorers and Pananma APIs
+    jvmArgs '--add-modules=jdk.incubator.vector'
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty "java.library.path", "$rootDir/jni/build/release"
+    //this change enables mockito-inline that supports mocking of static classes/calls
+    systemProperty "jdk.attach.allowAttachSelf", true
+    exclude '**/*BT*'
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
+}
+
+def _numNodes = findProperty('numNodes') as Integer ?: 1
+def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes){
+    if (integTestDependOnJniLib) {
+        task.dependsOn buildJniLib
+    }
+    task.systemProperty 'tests.security.manager', 'false'
+    task.systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    task.systemProperty "java.library.path", "$rootDir/jni/build/release"
+    task.systemProperty "tests.path.repo", "${buildDir}/testSnapshotFolder"
+    // allows integration test classes to access test resource from project root path
+    task.systemProperty('project.root', project.rootDir.absolutePath)
+
+    var is_https = System.getProperty("https")
+    var user = System.getProperty("user")
+    var password = System.getProperty("password")
+
+    if (System.getProperty("security.enabled") != null) {
+        // If security is enabled, set is_https/user/password defaults
+        is_https = is_https == null ? "true" : is_https
+        user = user == null ? "admin" : user
+        password = password == null ? "admin" : password
+    }
+
+    task.systemProperty("https", is_https)
+    task.systemProperty("user", user)
+    task.systemProperty("password", password)
+    task.systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+
+    task.doFirst {
+        // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+        // use longer timeouts for requests.
+        def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+        task.systemProperty 'cluster.debug', isDebuggingCluster
+        // Set number of nodes system property to be used in tests
+        task.systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        task.getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
+        }
+    }
+
+    // The -Ddebug.es option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        task.jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
+    }
+    task.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+}
+
+integTest {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    filter {
+        excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
+    mustRunAfter test
+}
+
+task integTestRemoteIndexBuild(type: RestIntegTestTask) {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    filter {
+        // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
+        excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
+        excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
+    systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
+    systemProperty("test.bucket", System.getProperty("test.bucket"))
+    systemProperty("test.base_path", System.getProperty("test.base_path"))
+}
+
+task integTestMultiNode(type: RestIntegTestTask) {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, 2)
+    filter {
+        includeTestsMatching "org.opensearch.knn.index.RelocationIT"
+    }
+}
+
+// Make integTest run integTestMultiNode after completion
+integTest.finalizedBy integTestMultiNode
+
+def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
+    cluster.testDistribution = "ARCHIVE"
+
+    //Used for circuit breaker integration tests
+    cluster.setting 'node.attr.knn_cb_tier', 'integ'
+
+    // Optionally install security
+    if (System.getProperty("security.enabled") != null) {
+        configureSecurityPlugin(cluster)
+    } else {
+        // Only install custom codecs plugin
+        configurations.zipArchive.asFileTree.filter(f -> f.name.contains("custom-codecs")).each {
+            cluster.plugin(provider(new Callable<RegularFile>() {
+                @Override
+                RegularFile call() throws Exception {
+                    return new RegularFile() {
+                        @Override
+                        File getAsFile() {
+                            return it
+                        }
+                }
+            }
+          }))
+       }
+    }
+
+    cluster.plugin(project.tasks.bundlePlugin.archiveFile)
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
+        cluster.environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
+
+
+    // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
+    if (_numNodes > 1) cluster.numberOfNodes = _numNodes
+    // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
+    // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
+    // since we also support multi node integration tests we increase debugPort per node
+    cluster.nodes.forEach { node ->
+        node.jvmArgs("-Xmx512m")
+    }
+    if (System.getProperty("cluster.debug") != null) {
+        def debugPort = 5005
+        cluster.nodes.forEach { node ->
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
+            debugPort += 1
+        }
+    }
+
+
+    cluster.systemProperty("java.library.path", "$rootDir/jni/build/release")
+    final testSnapshotFolder = file("${buildDir}/testSnapshotFolder")
+    testSnapshotFolder.mkdirs()
+    cluster.setting 'path.repo', "${buildDir}/testSnapshotFolder"
+    cluster.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+}
+
+testClusters.integTest {
+    commonIntegTestClusters(it, _numNodes)
+    // Forcing optimistic search for testing
+    systemProperty 'mem_opt_srch.force_reenter', 'true'
+}
+
+testClusters.integTestRemoteIndexBuild {
+    commonIntegTestClusters(it, _numNodes)
+    // Optionally install S3
+    if (System.getProperty("s3.enabled") != null) {
+        configureS3Plugin(testClusters.integTestRemoteIndexBuild)
+    }
+
+    keystore 's3.client.default.access_key', "${System.getProperty("access_key")}"
+    keystore 's3.client.default.secret_key', "${System.getProperty("secret_key")}"
+    keystore 's3.client.default.session_token', "${System.getProperty("session_token")}"
+    // Forcing optimistic search for testing
+    systemProperty 'mem_opt_srch.force_reenter', 'true'
+}
+
+testClusters.integTestMultiNode {
+    commonIntegTestClusters(it, 2)
+}
+
+task integTestRemote(type: RestIntegTestTask) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+
+    systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+    systemProperty "tests.path.repo", "${layout.buildDirectory.toString()}/testSnapshotFolder"
+
+    // Run tests with remote cluster only if rest case is defined
+    if (System.getProperty("tests.rest.cluster") != null) {
+        filter {
+            includeTestsMatching "org.opensearch.knn.*IT"
+        }
+    }
+}
+
+run {
+    useCluster project.testClusters.integTest
+    dependsOn buildJniLib
+    doFirst {
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
+        }
+    }
+}
+
+// updateVersion: Task to auto increment to the next development iteration
+task updateVersion {
+    onlyIf { System.getProperty('newVersion') }
+    doLast {
+        ext.newVersion = System.getProperty('newVersion')
+        println "Setting version to ${newVersion}."
+        // String tokenization to support -SNAPSHOT
+        // Include the required files that needs to be updated with new Version
+        ant.replaceregexp(match: opensearch_version.tokenize('-')[0], replace: newVersion.tokenize('-')[0], flags:'g', byline:true) {
+            fileset(dir: projectDir) {
+                // Include the required files that needs to be updated with new Version
+                include(name: ".github/workflows/backwards_compatibility_tests_workflow.yml")
+            }
+        }
+        ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
+
+        ext.os_version_without_snapshot = opensearch_version.tokenize('-')[0]
+        ext.os_version_major = os_version_without_snapshot.tokenize('.')[0]
+        ext.os_version_minor = os_version_without_snapshot.tokenize('.')[1]
+        ext.os_version_patch = os_version_without_snapshot.tokenize('.')[2]
+        // This condition will check if the BWC workflow is already updated or not and will run next steps if not updated
+        if (!fileTree(".github/workflows/backwards_compatibility_tests_workflow.yml").getSingleFile().text.contains(os_version_without_snapshot)) {
+            // Extract the oldBWCVersion from the existing OpenSearch Version (oldBWCVersion = major . (minor-1) . patch)
+            ext.oldBWCVersion = os_version_major + '.' + Integer.toString(Integer.valueOf(os_version_minor) - 1) + '.' + os_version_patch
+            // Include the current OpenSearch Version before version bump to the bwc_version matrix
+            ant.replaceregexp(file:".github/workflows/backwards_compatibility_tests_workflow.yml", match: oldBWCVersion, replace: oldBWCVersion + '", "' + opensearch_version.tokenize('-')[0], flags:'g', byline:true)
+        }
+    }
+}

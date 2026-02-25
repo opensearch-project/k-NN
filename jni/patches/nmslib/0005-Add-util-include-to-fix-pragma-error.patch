@@ -1,0 +1,26 @@
+From d9e3486454a843448119dff5b7011b9184123aa2 Mon Sep 17 00:00:00 2001
+From: John Mazanec <jmazane@amazon.com>
+Date: Mon, 3 Mar 2025 12:33:59 -0800
+Subject: [PATCH] Add util include to fix pragma error
+
+Adds include method in distcomp_scalar.cc to fix error related
+to pragma statements.
+---
+ similarity_search/src/distcomp_scalar.cc | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/similarity_search/src/distcomp_scalar.cc b/similarity_search/src/distcomp_scalar.cc
+index 0aed6eb..245075f 100644
+--- a/similarity_search/src/distcomp_scalar.cc
++++ b/similarity_search/src/distcomp_scalar.cc
+@@ -15,6 +15,7 @@
+ #include "portable_intrinsics.h"
+ #include "distcomp.h"
+ #include "string.h"
++#include "utils.h"
+ 
+ #include <cstdlib>
+ #include <limits>
+-- 
+2.39.5 (Apple Git-154)
+

@@ -1,0 +1,4 @@
+class org.opensearch.knn.plugin.script.KNNPainlessScriptUtils @no_import {
+  float lateInteractionScore(List, String, Map)
+  float lateInteractionScore(List, String, Map, String)
+}

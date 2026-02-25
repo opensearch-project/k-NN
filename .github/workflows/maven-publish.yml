@@ -1,0 +1,47 @@
+name: Publish snapshots to maven
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+      - '[0-9]+.[0-9]+'
+      - '[0-9]+.x'
+
+jobs:
+  build-and-publish-snapshots:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin # Temurin is a distribution of adoptium
+          java-version: 21
+      - uses: actions/checkout@v3
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v2
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          MAVEN_SNAPSHOTS_S3_REPO: op://opensearch-infra-secrets/maven-snapshots-s3/repo
+          MAVEN_SNAPSHOTS_S3_ROLE: op://opensearch-infra-secrets/maven-snapshots-s3/role
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.MAVEN_SNAPSHOTS_S3_ROLE }}
+          aws-region: us-east-1
+
+      - name: publish snapshots to maven
+        run: |
+          # For zip
+          ./gradlew publishPluginZipPublicationToSnapshotsRepository
+          # For jar
+          ./gradlew publishNebulaPublicationToSnapshotsRepository

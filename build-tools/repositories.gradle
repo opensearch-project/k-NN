@@ -1,0 +1,12 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+repositories {
+    mavenLocal()
+    maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
+    mavenCentral()
+    maven { url "https://plugins.gradle.org/m2/" }
+}
+

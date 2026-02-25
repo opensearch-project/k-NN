@@ -1,0 +1,26 @@
+From 8910700776afa714ff1f2af44504fa2a4c2af9ae Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Thu, 23 Oct 2025 11:25:13 -0700
+Subject: [PATCH] Bump up CMake version
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ similarity_search/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/similarity_search/CMakeLists.txt b/similarity_search/CMakeLists.txt
+index 03a3275..b500c49 100644
+--- a/similarity_search/CMakeLists.txt
++++ b/similarity_search/CMakeLists.txt
+@@ -8,7 +8,7 @@
+ #
+ #
+ 
+-cmake_minimum_required (VERSION 2.8)
++cmake_minimum_required (VERSION 3.5)
+ 
+ project (NonMetricSpaceLib)
+ 
+-- 
+2.39.5 (Apple Git-154)
+
