@@ -11,6 +11,7 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.opensearch.Version;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
@@ -19,10 +20,14 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.codec.params.KNNBBQVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
+import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Map;
 import java.util.Optional;
@@ -109,7 +114,16 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         final KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
             .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
         nativeIndexBuildStrategyFactory.setKnnLibraryIndexingContext(knnMappingConfig.getKnnLibraryIndexingContext());
-        final KNNEngine engine = knnMethodContext.getKnnEngine();
+
+        final KNNEngine engine = EngineResolver.INSTANCE.resolveEngine(
+            KNNMethodConfigContext.builder()
+                .dimension(knnMappingConfig.getDimension())
+                .versionCreated(knnMappingConfig.getIndexCreatedVersion())
+                .compressionLevel(knnMappingConfig.getCompressionLevel())
+                .mode(knnMappingConfig.getMode())
+                .build(),
+                knnMethodContext, knnMappingConfig.getTopLevelKnnEngine().orElse(null), false, knnMappingConfig.getIndexCreatedVersion()
+            );
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
 
         if (engine == KNNEngine.LUCENE) {
@@ -147,6 +161,22 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                     );
                     return scalarQuantizedVectorsFormatSupplier.apply(knnScalarQuantizedVectorsFormatParams);
                 }
+            }
+            // BBQ encoder should be implied for on_disk mode or compression level 32x
+            if (knnMappingConfig.getIndexCreatedVersion().onOrAfter(Version.V_3_6_0) && (
+                (knnMappingConfig.getCompressionLevel() == CompressionLevel.NOT_CONFIGURED && knnMappingConfig.getMode() == Mode.ON_DISK) ||
+                knnMappingConfig.getCompressionLevel() == CompressionLevel.x32
+            )) {
+                KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
+                log.debug(
+                    "Initialize KNN vector format for field [{}] with binary quantization, params [{}] = \"{}\", [{}] = \"{}\"",
+                    field,
+                    MAX_CONNECTIONS,
+                    bbqParams.getMaxConnections(),
+                    BEAM_WIDTH,
+                    bbqParams.getBeamWidth()
+                );
+                return bbqVectorsFormatSupplier.apply(bbqParams);
             }
 
             KNNVectorsFormatParams knnVectorsFormatParams = new KNNVectorsFormatParams(

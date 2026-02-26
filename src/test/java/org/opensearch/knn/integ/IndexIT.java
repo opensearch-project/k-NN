@@ -21,6 +21,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
@@ -122,6 +123,39 @@ public class IndexIT extends KNNRestTestCase {
         // Test search
         List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
         assertTrue(results.size() > 0);
+    }
+
+    /**
+     * Test segment with knn_vector field mapping that has Lucene engine
+     * configured at the top level. Validates if everything resolves cleanly
+     * and k-NN search works as expected.
+     */
+    @SneakyThrows
+    public void testLucene_topLevel_thenSucceed() {
+        String indexName = INDEX_NAME + "_lucene_top_level";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 128)
+            .field("mode", Mode.ON_DISK.getName())
+            .field("engine", KNNEngine.LUCENE.getName())
+            .field("compression_level", CompressionLevel.x4.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(indexName, mapping);
+
+        for (int i = 0; i < 10; i++) {
+            addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, Floats.asList(testData.indexData.vectors[i]).toArray());
+        }
+        assertEquals(10, getDocCount(indexName));
+
+        List<KNNResult> results = runKnnQuery(indexName, FIELD_NAME, testData.queries[0], 5);
+        assertEquals(5, results.size());
     }
 
     /**

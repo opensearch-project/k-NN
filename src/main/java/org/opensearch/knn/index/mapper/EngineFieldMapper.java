@@ -110,6 +110,11 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 }
 
                 @Override
+                public Optional<String> getTopLevelKnnEngine() {
+                    return Optional.ofNullable(originalMappingParameters.getTopLevelEngine());
+                }
+
+                @Override
                 public KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
                     return libraryContext;
                 }

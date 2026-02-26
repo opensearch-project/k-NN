@@ -76,4 +76,11 @@ public interface KNNMappingConfig {
     default KNNLibraryIndexingContext getKnnLibraryIndexingContext() {
         return null;
     }
+
+    /**
+     * @return Optional top level engine
+     */
+    default Optional<String> getTopLevelKnnEngine() {
+        return Optional.empty();
+    }
 }

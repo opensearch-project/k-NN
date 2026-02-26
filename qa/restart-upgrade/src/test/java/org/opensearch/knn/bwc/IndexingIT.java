@@ -674,6 +674,73 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    private void testKNNBBQBWCRunner(String mapping) throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int k = 4;
+        int dimension = 8;
+
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            Float[] vector1 = { 1.0f, 2.0f, 3.0f, 12.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector2 = { 1.0f, 2.0f, 7.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector3 = { 1.0f, 4.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector4 = { 2.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
+            addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
+
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(k, Integer.parseInt(results.get(i).getDocId()));
+            }
+        } else {
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(k, Integer.parseInt(results.get(i).getDocId()));
+            }
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testKNNIndexLucene32xBWC() throws Exception {
+        int dimension = 8;
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        testKNNBBQBWCRunner(mapping);
+    }
+
+    public void testKNNIndexLuceneOnDiskNoCompressionBWC() throws Exception {
+        int dimension = 8;
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        testKNNBBQBWCRunner(mapping);
+    }
+
     public void testKNNIndexLuceneBBQ() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
