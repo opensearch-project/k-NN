@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.codec.KNN10010Codec;
 
 import lombok.AllArgsConstructor;
+
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
@@ -28,7 +30,10 @@ import java.util.stream.Stream;
 
 @AllArgsConstructor
 public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
+    // Stores the delegate codec name (in case it is different from the default one)
+    static final String KNN_DELEGATE_CODEC_NAME = "knn_delegate_stored_fields_codec_key";
 
+    private final String name;
     private final StoredFieldsFormat delegate;
     private final DerivedSourceReadersSupplier derivedSourceReadersSupplier;
     // IMPORTANT Do not rely on this for the reader, it will be null if SPI is used
@@ -38,6 +43,8 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
+
+        final StoredFieldsFormat delegatingFormat = getStoredFieldsFormat(segmentInfo);
         List<DerivedFieldInfo> derivedVectorFields = Stream.concat(
             DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false)
                 .stream()
@@ -51,26 +58,52 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
 
         // If no fields have it enabled, we can just short-circuit and return the delegate's fieldReader
         if (derivedVectorFields.isEmpty()) {
-            return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
+            return delegatingFormat.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
         }
         SegmentReadState segmentReadState = new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext);
         DerivedSourceReaders derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         return new KNN10010DerivedSourceStoredFieldsReader(
-            delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
+            delegatingFormat.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
             derivedVectorFields,
             derivedSourceReaders,
             segmentReadState
         );
     }
 
+    private StoredFieldsFormat getStoredFieldsFormat(final SegmentInfo segmentInfo) throws IOException {
+        // Apache Lucene does not have an SPI for StoredFieldsFormat, so we are doing Codec lookups
+        final String name = segmentInfo.getAttribute(KNN_DELEGATE_CODEC_NAME);
+        if (name != null && !this.name.equalsIgnoreCase(name)) {
+            // Only when name is different from the default one (delegate)
+            return Codec.forName(name).storedFieldsFormat();
+        } else {
+            return delegate;
+        }
+    }
+
     @Override
     public StoredFieldsWriter fieldsWriter(Directory directory, SegmentInfo segmentInfo, IOContext ioContext) throws IOException {
+        // Store delegate codec name to be used by reader side
+        String previous = segmentInfo.putAttribute(KNN_DELEGATE_CODEC_NAME, name);
+        if (previous != null && previous.equals(name) == false) {
+            throw new IllegalStateException(
+                "Found existing value for "
+                    + KNN_DELEGATE_CODEC_NAME
+                    + " for segment: "
+                    + segmentInfo.name
+                    + " old = "
+                    + previous
+                    + ", new = "
+                    + name
+            );
+        }
+
         StoredFieldsWriter delegateWriter = delegate.fieldsWriter(directory, segmentInfo, ioContext);
         if (IndexUtil.isDerivedEnabledForIndex(mapperService) == false) {
             return delegateWriter;
         }
 
         // Just pass mapperService - we'll query for fields in finish() when all mappings exist
-        return new KNN10010DerivedSourceStoredFieldsWriter(delegateWriter, segmentInfo, mapperService);
+        return new KNN10010DerivedSourceStoredFieldsWriter(name, delegateWriter, segmentInfo, mapperService);
     }
 }

@@ -9,6 +9,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
+import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 
@@ -20,7 +21,8 @@ import java.io.IOException;
  */
 class BinaryVectorIdsExactKNNIterator implements ExactKNNIterator {
     protected final DocIdSetIterator docIdSetIterator;
-    protected final byte[] queryVector;
+    protected final byte[] byteQueryVector;
+    protected final float[] floatQueryVector;
     protected final KNNBinaryVectorValues binaryVectorValues;
     protected final SpaceType spaceType;
     protected float currentScore = Float.NEGATIVE_INFINITY;
@@ -28,25 +30,37 @@ class BinaryVectorIdsExactKNNIterator implements ExactKNNIterator {
 
     public BinaryVectorIdsExactKNNIterator(
         @Nullable final DocIdSetIterator docIdSetIterator,
-        final byte[] queryVector,
+        final byte[] byteQueryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType
     ) throws IOException {
-        this.docIdSetIterator = docIdSetIterator;
-        this.queryVector = queryVector;
-        this.binaryVectorValues = binaryVectorValues;
-        this.spaceType = spaceType;
-        // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
-        // nextDoc should already be referring to next knnVectorValues
-        this.docId = getNextDocId();
+        this(docIdSetIterator, byteQueryVector, null, binaryVectorValues, spaceType);
     }
 
     public BinaryVectorIdsExactKNNIterator(
-        final byte[] queryVector,
+        @Nullable final DocIdSetIterator docIdSetIterator,
+        final float[] floatQueryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType
     ) throws IOException {
-        this(null, queryVector, binaryVectorValues, spaceType);
+        this(docIdSetIterator, null, floatQueryVector, binaryVectorValues, spaceType);
+    }
+
+    private BinaryVectorIdsExactKNNIterator(
+        @Nullable final DocIdSetIterator docIdSetIterator,
+        final byte[] byteQueryVector,
+        final float[] floatQueryVector,
+        final KNNBinaryVectorValues binaryVectorValues,
+        final SpaceType spaceType
+    ) throws IOException {
+        assert (floatQueryVector == null) != (byteQueryVector == null)
+            : "Exactly one of byteQueryVector or floatQueryVector must be non-null";
+        this.docIdSetIterator = docIdSetIterator;
+        this.byteQueryVector = byteQueryVector;
+        this.floatQueryVector = floatQueryVector;
+        this.binaryVectorValues = binaryVectorValues;
+        this.spaceType = spaceType;
+        this.docId = getNextDocId();
     }
 
     /**
@@ -73,10 +87,11 @@ class BinaryVectorIdsExactKNNIterator implements ExactKNNIterator {
     }
 
     protected float computeScore() throws IOException {
-        final byte[] vector = binaryVectorValues.getVector();
-        // Calculates a similarity score between the two vectors with a specified function. Higher similarity
-        // scores correspond to closer vectors.
-        return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
+        final byte[] documentVector = binaryVectorValues.getVector();
+        if (floatQueryVector != null) {
+            return KNNScoringUtil.scoreWithADC(floatQueryVector, documentVector, spaceType);
+        }
+        return spaceType.getKnnVectorSimilarityFunction().compare(byteQueryVector, documentVector);
     }
 
     protected int getNextDocId() throws IOException {

@@ -39,6 +39,7 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("_source").build();
 
         KNN10010DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new KNN10010DerivedSourceStoredFieldsWriter(
+            "mock-codec",
             delegate,
             segmentInfo,
             mapperService

@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 @Log4j2
 public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
 
+    private final String name;
     private final StoredFieldsWriter delegate;
     private final SegmentInfo segmentInfo;
     private final MapperService mapperService;
@@ -60,7 +61,13 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
      *
      * @param delegate StoredFieldsWriter to wrap
      */
-    public KNN10010DerivedSourceStoredFieldsWriter(StoredFieldsWriter delegate, SegmentInfo segmentInfo, MapperService mapperService) {
+    public KNN10010DerivedSourceStoredFieldsWriter(
+        String name,
+        StoredFieldsWriter delegate,
+        SegmentInfo segmentInfo,
+        MapperService mapperService
+    ) {
+        this.name = name;
         this.delegate = delegate;
         this.segmentInfo = segmentInfo;
         this.mapperService = mapperService;
@@ -195,6 +202,9 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
         if (!nestedVectorFields.isEmpty()) {
             DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, nestedVectorFields, true);
         }
+
+        // Store delegate codec name to be used by reader side
+        mergeState.segmentInfo.putAttribute(KNN10010DerivedSourceStoredFieldsFormat.KNN_DELEGATE_CODEC_NAME, name);
 
         return result;
     }
