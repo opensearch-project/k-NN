@@ -106,6 +106,52 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    // Test resolveEngine default with Version 2_17_0 for AOSS
+    public void testResolveEngine_whenModeAndCompressionAreNotSpecified_whenVersionOn2_17_0thenNMSLIB() {
+//        assertEquals(
+//            KNNEngine.NMSLIB,
+//            ENGINE_RESOLVER.resolveEngine(
+//                KNNMethodConfigContext.builder().mode(Mode.NOT_CONFIGURED).build(),
+//                null,
+//                null,
+//                false
+//            )
+//        );
+        assertEquals(
+                KNNEngine.NMSLIB,
+                ENGINE_RESOLVER.resolveEngine(
+                        KNNMethodConfigContext.builder().mode(Mode.NOT_CONFIGURED).build(),
+                        new KNNMethodContext(KNNEngine.UNDEFINED, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                        null,
+                        false,
+                        Version.V_2_17_0
+                )
+        );
+    }
+
+    // Test resolveEngine default with Version 3_3_0 for AOSS
+    public void testResolveEngine_whenModeAndCompressionAreNotSpecified_whenVersionOn3_3_0thenFAISS() {
+//        assertEquals(
+//            KNNEngine.FAISS,
+//            ENGINE_RESOLVER.resolveEngine(
+//                KNNMethodConfigContext.builder().mode(Mode.NOT_CONFIGURED).build(),
+//                null,
+//                null,
+//                false
+//            )
+//        );
+        assertEquals(
+                KNNEngine.FAISS,
+                ENGINE_RESOLVER.resolveEngine(
+                        KNNMethodConfigContext.builder().mode(Mode.NOT_CONFIGURED).build(),
+                        new KNNMethodContext(KNNEngine.UNDEFINED, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                        null,
+                        false,
+                        Version.V_3_3_0
+                )
+        );
+    }
+
     public void testResolveEngine_whenCompressionIs4x_thenEngineIsLucene() {
         assertEquals(
             KNNEngine.LUCENE,

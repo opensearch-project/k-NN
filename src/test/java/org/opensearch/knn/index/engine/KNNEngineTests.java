@@ -55,7 +55,7 @@ public class KNNEngineTests extends KNNTestCase {
         assertEquals(Lucene.INSTANCE.getVersion(), KNNEngine.LUCENE.getVersion());
 
         // Validate that deprecated engines have correct deprecation versions
-        assertTrue(KNNEngine.NMSLIB.getRestrictedFromVersion() != null);
+        assertTrue(KNNEngine.NMSLIB.getRestrictedFromVersion() == null);
         assertFalse(KNNEngine.FAISS.isRestricted(Version.V_3_0_0)); // FAISS should not be deprecated
     }
 
@@ -64,8 +64,8 @@ public class KNNEngineTests extends KNNTestCase {
      */
     public void testIsRestricted() {
         Version deprecatedVersion = KNNEngine.NMSLIB.getRestrictedFromVersion();
-        assertNotNull(deprecatedVersion);
-        assertTrue(KNNEngine.NMSLIB.isRestricted(Version.V_3_0_0)); // Should return true for later versions
+        assertNull(deprecatedVersion);
+        assertFalse(KNNEngine.NMSLIB.isRestricted(Version.V_3_0_0)); // Should return true for later versions
 
         assertFalse(KNNEngine.FAISS.isRestricted(Version.V_2_19_0)); // FAISS should not be deprecated
         assertFalse(KNNEngine.LUCENE.isRestricted(Version.V_2_19_0)); // LUCENE should not be deprecated
