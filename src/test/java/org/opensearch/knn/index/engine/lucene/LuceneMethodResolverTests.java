@@ -178,14 +178,14 @@ public class LuceneMethodResolverTests extends KNNTestCase {
             )
         );
 
-        // Invalid compression
+        // Changed from 32x to 16x, Lucene 32x compression was added
         expectThrows(
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
                 null,
                 KNNMethodConfigContext.builder()
                     .vectorDataType(VectorDataType.FLOAT)
-                    .compressionLevel(CompressionLevel.x32)
+                    .compressionLevel(CompressionLevel.x16)
                     .versionCreated(Version.CURRENT)
                     .build(),
                 false,
