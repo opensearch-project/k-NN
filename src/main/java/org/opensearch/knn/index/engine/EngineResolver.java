@@ -100,7 +100,7 @@ public final class EngineResolver {
 
         // If both mode and compression are not specified, we can just default
         if (Mode.isConfigured(mode) == false && CompressionLevel.isConfigured(compressionLevel) == false) {
-            return KNNEngine.DEFAULT;
+            return KNNEngine.getDefaultEngine(version);
         }
 
         if (compressionLevel == CompressionLevel.x4) {

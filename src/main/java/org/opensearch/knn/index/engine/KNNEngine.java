@@ -29,10 +29,16 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
  */
 public enum KNNEngine implements KNNLibrary {
     @Deprecated(since = "2.19.0", forRemoval = true)
-    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0),
+    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE),
     FAISS(FAISS_NAME, Faiss.INSTANCE),
     LUCENE(LUCENE_NAME, Lucene.INSTANCE),
     UNDEFINED("undefined");
+
+    private static final Version FAISS_DEFAULT_VERSION = Version.V_2_19_0;
+
+    public static KNNEngine getDefaultEngine(Version indexCreatedVersion) {
+        return indexCreatedVersion.onOrAfter(FAISS_DEFAULT_VERSION) ? FAISS : NMSLIB;
+    }
 
     public static final KNNEngine DEFAULT = FAISS;
     private final Version restrictedFromVersion; // Nullable field

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.bwc;
 
+import org.junit.Ignore;
 import org.opensearch.client.ResponseException;
 
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;

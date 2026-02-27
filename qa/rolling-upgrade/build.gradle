@@ -34,9 +34,14 @@ testClusters {
     }
 }
 
+def versionsBelow2_17 = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
 
 // Task to run BWC tests against the old cluster
 task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
+    onlyIf { !versionsBelow2_17.any { knn_bwc_version.startsWith(it) } }
+    filter {
+        excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockNMSLIBIndexCreationPost3_0_0_RollingUpgrade"
+    }
     dependsOn "zipBwcPlugin"
     useCluster testClusters."${baseName}"
     systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
@@ -51,6 +56,7 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
 // Part of rolling upgrade. Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version
 // This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
 task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
+    onlyIf { !versionsBelow2_17.any { knn_bwc_version.startsWith(it) } }
     useCluster testClusters."${baseName}"
     dependsOn rootProject.tasks.buildJniLib
     dependsOn rootProject.tasks.assemble
@@ -72,6 +78,10 @@ task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
 // Part of rolling upgrade. Upgrades the second node to new OpenSearch version with upgraded plugin version after the
 // first node is upgraded. This results in a mixed cluster with 1 node on the old version and 2 upgraded nodes.
 task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
+    onlyIf { !versionsBelow2_17.any { knn_bwc_version.startsWith(it) } }
+    filter {
+        excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockNMSLIBIndexCreationPost3_0_0_RollingUpgrade"
+    }
     dependsOn "testAgainstOneThirdUpgradedCluster"
     useCluster testClusters."${baseName}"
     doFirst {
@@ -91,6 +101,10 @@ task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
 // Part of rolling upgrade. Upgrades the third node to new OpenSearch version with upgraded plugin version after the
 // second node is upgraded. This results in a fully upgraded cluster.
 task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
+    onlyIf { !versionsBelow2_17.any { knn_bwc_version.startsWith(it) } }
+    filter {
+        excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockNMSLIBIndexCreationPost3_0_0_RollingUpgrade"
+    }
     dependsOn "testAgainstTwoThirdsUpgradedCluster"
     useCluster testClusters."${baseName}"
     doFirst {

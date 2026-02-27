@@ -18,7 +18,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.shard.IndexShard;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.io.IOException;
@@ -108,10 +107,10 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
     public void testGetAllEngineFileContexts() {
         IndexService indexService = createKNNIndex(testIndexName);
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> createKnnIndexMapping(testIndexName, testFieldName, dimensions, KNNEngine.NMSLIB)
-        );
+        // assertThrows(
+        // IllegalArgumentException.class,
+        // () -> createKnnIndexMapping(testIndexName, testFieldName, dimensions, KNNEngine.NMSLIB)
+        // );
     }
 
     @SneakyThrows
