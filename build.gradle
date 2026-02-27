@@ -479,6 +479,9 @@ dependencies {
 
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
+    // Add Guava for test configurations since it's needed for testing but excluded from runtime
+    testImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
+    testFixturesImplementation group: 'com.google.guava', name: 'guava', version:'33.2.1-jre'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
     testImplementation group: 'org.objenesis', name: 'objenesis', version: "${versions.objenesis}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${versions.bytebuddy}"
