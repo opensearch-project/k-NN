@@ -14,7 +14,6 @@ import org.opensearch.knn.index.codec.CustomCodecNoStoredFields;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
-import org.opensearch.knn.index.codec.backward_codecs.KNN1030Codec.KNN1030Codec;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -54,7 +53,7 @@ public class KNN1040CodecTest extends KNNCodecTestCase {
         Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
             mapperService) -> new KNN9120PerFieldKnnVectorsFormat(Optional.of(mapperService));
 
-        Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN1030Codec.builder()
+        Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN1040Codec.builder()
             .delegate(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE)
             .knnVectorsFormat(knnVectorFormat)
             .build();
