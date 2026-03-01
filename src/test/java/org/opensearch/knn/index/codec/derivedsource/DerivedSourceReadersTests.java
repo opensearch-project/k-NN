@@ -11,6 +11,7 @@ import org.apache.lucene.codecs.KnnVectorsReader;
 import org.mockito.Mock;
 import org.opensearch.knn.KNNTestCase;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 public class DerivedSourceReadersTests extends KNNTestCase {
@@ -23,20 +24,33 @@ public class DerivedSourceReadersTests extends KNNTestCase {
     private DerivedSourceReaders readers;
 
     @SneakyThrows
-    public void testInitialReferenceCount() {
+    public void testClose() {
         readers = new DerivedSourceReaders(mockKnnVectorsReader, mockDocValuesProducer);
-
-        // Initial reference count is 1, so closing once should trigger actual close
         readers.close();
-
         verify(mockKnnVectorsReader).close();
         verify(mockDocValuesProducer).close();
     }
 
     @SneakyThrows
+    public void testCloneDoesNotClose() {
+        readers = new DerivedSourceReaders(mockKnnVectorsReader, mockDocValuesProducer);
+        DerivedSourceReaders clone = readers.clone();
+        clone.close(); // should be no-op
+        verify(mockKnnVectorsReader, never()).close();
+        verify(mockDocValuesProducer, never()).close();
+    }
+
+    @SneakyThrows
+    public void testGetMergeInstanceDoesNotClose() {
+        readers = new DerivedSourceReaders(mockKnnVectorsReader, mockDocValuesProducer);
+        DerivedSourceReaders mergeInstance = readers.getMergeInstance();
+        mergeInstance.close(); // no-op
+        verify(mockKnnVectorsReader, never()).close();
+        verify(mockDocValuesProducer, never()).close();
+    }
+
+    @SneakyThrows
     public void testNullReaders() {
-        // Test with null readers to ensure no NPE
-        DerivedSourceReaders nullReaders = new DerivedSourceReaders(null, null);
-        nullReaders.close(); // Should not throw any exception
+        expectThrows(AssertionError.class, () -> new DerivedSourceReaders(null, null));
     }
 }
