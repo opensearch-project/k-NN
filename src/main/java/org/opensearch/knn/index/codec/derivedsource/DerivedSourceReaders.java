@@ -6,70 +6,97 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
-import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Class holds the readers necessary to implement derived source. Important to note that if a segment does not have
- * any of these fields, the values will be null. Caller needs to check if these are null before using.
+ * Holds the Lucene readers required to reconstruct vector fields for derived source.
+ *
+ * <p>Derived source allows OpenSearch to reconstruct the original {@code _source} document from
+ * stored field data rather than persisting raw source bytes. This class bundles the two readers
+ * needed for that reconstruction:
+ * <ul>
+ *   <li>{@link KnnVectorsReader} - reads raw vector values from the segment.</li>
+ *   <li>{@link DocValuesProducer} - reads doc-values (e.g. quantized or nested vector data).
+ *   This is needed for backward compatibility for indices created before 2.17 </li>
+ * </ul>
+ *
+ * <p>Either reader may be {@code null} when the corresponding field type is absent in a segment;
+ * callers must null-check before use.
+ *
+ * <p><b>Lifecycle:</b> The owning instance (created via the public constructor) is responsible for
+ * closing both underlying readers. Cloned instances (via {@link #clone()}) and merge instances
+ * (via {@link #getMergeInstance()}) are non-owning: their {@link #close()} is a no-op, so only
+ * the original instance drives resource cleanup.
  */
-@RequiredArgsConstructor
 @Getter
-public final class DerivedSourceReaders implements Closeable {
+public final class DerivedSourceReaders implements Cloneable, Closeable {
     @Nullable
     private final KnnVectorsReader knnVectorsReader;
     @Nullable
     private final DocValuesProducer docValuesProducer;
-
-    // Copied from lucene (https://github.com/apache/lucene/blob/main/lucene/core/src/java/org/apache/lucene/index/SegmentCoreReaders.java):
-    // We need to reference count these readers because they may be shared amongst different instances.
-    // "Counts how many other readers share the core objects
-    // (freqStream, proxStream, tis, etc.) of this reader;
-    // when coreRef drops to 0, these core objects may be
-    // closed. A given instance of SegmentReader may be
-    // closed, even though it shares core objects with other
-    // SegmentReaders":
-    private final AtomicInteger ref = new AtomicInteger(1);
+    private final Closeable onClose;
 
     /**
-     * Returns this DerivedSourceReaders object with incremented reference count
+     * Creates an owning instance. Closing this instance will close both underlying readers.
      *
-     * @return DerivedSourceReaders object with incremented reference count
+     * @param knnVectorsReader  reader for raw vector values; may be {@code null}.
+     * @param docValuesProducer reader for doc-values; may be {@code null}.
      */
-    public DerivedSourceReaders cloneWithMerge() {
-        // For cloning, we dont need to reference count. In Lucene, the merging will actually not close any of the
-        // readers, so it should only be handled by the original code. See
-        // https://github.com/apache/lucene/blob/main/lucene/core/src/java/org/apache/lucene/index/IndexWriter.java#L3372
-        // for more details
-        return this;
+    public DerivedSourceReaders(KnnVectorsReader knnVectorsReader, DocValuesProducer docValuesProducer) {
+        assert knnVectorsReader != null || docValuesProducer != null : "At least one reader must be non-null";
+        this.knnVectorsReader = knnVectorsReader;
+        this.docValuesProducer = docValuesProducer;
+        this.onClose = () -> IOUtils.closeWhileHandlingException(knnVectorsReader, docValuesProducer);
     }
 
+    private DerivedSourceReaders(KnnVectorsReader knnVectorsReader, DocValuesProducer docValuesProducer, Closeable onClose) {
+        assert knnVectorsReader != null || docValuesProducer != null : "At least one reader must be non-null";
+        this.knnVectorsReader = knnVectorsReader;
+        this.docValuesProducer = docValuesProducer;
+        this.onClose = onClose;
+    }
+
+    /**
+     * Returns a non-owning view of this instance for use during Lucene segment merges.
+     * The returned instance's {@link #close()} is a no-op; the original instance retains
+     * ownership of the underlying readers. See
+     * <a href="https://github.com/apache/lucene/blob/main/lucene/core/src/java/org/apache/lucene/index/IndexWriter.java#L3372">IndexWriter</a>
+     * for context on why merging does not close readers.
+     *
+     * {@link #clone()} and {@link #getMergeInstance()} are kept separate to avoid any side effects between the two
+     * if the behavior ever changes
+     *
+     * @return a non-owning {@code DerivedSourceReaders} sharing the same underlying readers.
+     */
+    public DerivedSourceReaders getMergeInstance() {
+        return new DerivedSourceReaders(knnVectorsReader, docValuesProducer, () -> {});
+    }
+
+    /**
+     * Returns a non-owning shallow clone sharing the same underlying readers.
+     * The cloned instance's {@link #close()} is a no-op.
+     *
+     * {@link #clone()} and {@link #getMergeInstance()} are kept separate to avoid any side effects between the two
+     * if the behavior ever changes
+     *
+     * @return a non-owning {@code DerivedSourceReaders} sharing the same underlying readers.
+     */
+    @Override
+    public DerivedSourceReaders clone() {
+        return new DerivedSourceReaders(knnVectorsReader, docValuesProducer, () -> {});
+    }
+
+    /**
+     * Closes the underlying readers if this is an owning instance. No-op for cloned or merge instances.
+     */
     @Override
     public void close() throws IOException {
-        decRef();
-    }
-
-    private void incRef() {
-        int count;
-        while ((count = ref.get()) > 0) {
-            if (ref.compareAndSet(count, count + 1)) {
-                return;
-            }
-        }
-        throw new AlreadyClosedException("DerivedSourceReaders is already closed");
-    }
-
-    private void decRef() throws IOException {
-        if (ref.decrementAndGet() == 0) {
-            IOUtils.close(knnVectorsReader, docValuesProducer);
-        }
+        onClose.close();
     }
 }
