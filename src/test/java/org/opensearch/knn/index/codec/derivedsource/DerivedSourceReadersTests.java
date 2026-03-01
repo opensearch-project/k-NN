@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.mockito.Mock;
 import org.opensearch.knn.KNNTestCase;
 
@@ -47,6 +48,20 @@ public class DerivedSourceReadersTests extends KNNTestCase {
         mergeInstance.close(); // no-op
         verify(mockKnnVectorsReader, never()).close();
         verify(mockDocValuesProducer, never()).close();
+    }
+
+    @SneakyThrows
+    public void testCloneAfterCloseThrows() {
+        readers = new DerivedSourceReaders(mockKnnVectorsReader, mockDocValuesProducer);
+        readers.close();
+        expectThrows(AlreadyClosedException.class, () -> readers.clone());
+    }
+
+    @SneakyThrows
+    public void testGetMergeInstanceAfterCloseThrows() {
+        readers = new DerivedSourceReaders(mockKnnVectorsReader, mockDocValuesProducer);
+        readers.close();
+        expectThrows(AlreadyClosedException.class, () -> readers.getMergeInstance());
     }
 
     @SneakyThrows
