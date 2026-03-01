@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 import lombok.Getter;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.common.Nullable;
 
@@ -32,7 +33,9 @@ import java.io.IOException;
  * <p><b>Lifecycle:</b> The owning instance (created via the public constructor) is responsible for
  * closing both underlying readers. Cloned instances (via {@link #clone()}) and merge instances
  * (via {@link #getMergeInstance()}) are non-owning: their {@link #close()} is a no-op, so only
- * the original instance drives resource cleanup.
+ * the original instance drives resource cleanup. Calling {@link #clone()} or
+ * {@link #getMergeInstance()} on a closed owning instance throws
+ * {@link org.apache.lucene.store.AlreadyClosedException}.
  */
 @Getter
 public final class DerivedSourceReaders implements Cloneable, Closeable {
@@ -41,6 +44,7 @@ public final class DerivedSourceReaders implements Cloneable, Closeable {
     @Nullable
     private final DocValuesProducer docValuesProducer;
     private final Closeable onClose;
+    private boolean closed;
 
     /**
      * Creates an owning instance. Closing this instance will close both underlying readers.
@@ -75,6 +79,7 @@ public final class DerivedSourceReaders implements Cloneable, Closeable {
      * @return a non-owning {@code DerivedSourceReaders} sharing the same underlying readers.
      */
     public DerivedSourceReaders getMergeInstance() {
+        ensureOpen();
         return new DerivedSourceReaders(knnVectorsReader, docValuesProducer, () -> {});
     }
 
@@ -89,6 +94,7 @@ public final class DerivedSourceReaders implements Cloneable, Closeable {
      */
     @Override
     public DerivedSourceReaders clone() {
+        ensureOpen();
         return new DerivedSourceReaders(knnVectorsReader, docValuesProducer, () -> {});
     }
 
@@ -97,6 +103,18 @@ public final class DerivedSourceReaders implements Cloneable, Closeable {
      */
     @Override
     public void close() throws IOException {
-        onClose.close();
+        if (!closed) {
+            onClose.close();
+            closed = true;
+        }
     }
+
+    /**
+     * Throws {@link AlreadyClosedException} if this instance has been closed.
+     */
+    private void ensureOpen() {
+        if (closed) {
+            throw new AlreadyClosedException("DerivedSourceReader is closed");
+        }
+    };
 }
