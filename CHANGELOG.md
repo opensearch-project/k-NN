@@ -11,14 +11,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Improve unit tests by tightening asserts [#3112](https://github.com/opensearch-project/k-NN/pull/3112)
 
 ### Bug Fixes
-* The KNN1030Codec does not properly support delegation for non-default codec(s). [#3093](https://github.com/opensearch-project/k-NN/pull/3093)
+* Fix indexing for 16x and 8x compression [#3019](https://github.com/opensearch-project/k-NN/pull/3019)
+* Block index creation for Faiss engine with cosine similarity and byte vectors due to normalization incompatibility [#3002](https://github.com/opensearch-project/k-NN/pull/3002)
+* Update validation for cases when k is greater than total results [#3038](https://github.com/opensearch-project/k-NN/pull/3038)
+* Add regex support to derived source transformer include / exclude check [#3031](https://github.com/opensearch-project/k-NN/pull/3031)
+* Correct ef_search parameter for Lucene engine and override mergeLeafResults to return top K results [#3037](https://github.com/opensearch-project/k-NN/pull/3037)
+* Fix efficient filtering in nested k-NN queries [#2990](https://github.com/opensearch-project/k-NN/pull/2990)
+* Fix nested docs and exact search query when some docs has no vector field present. [#3051](https://github.com/opensearch-project/k-NN/pull/3051)
+* Changed warmup seek to use long instead of int to avoid overflow [#3067](https://github.com/opensearch-project/k-NN/pull/3067)
+* Fix memory-optimized-search reentrant search bug in byte index. [#3071](https://github.com/opensearch-project/k-NN/pull/3071)
+* Fix MemoryOptimizedKNNWeight to use expanded 'k' for disk based index. [#3061](https://github.com/opensearch-project/k-NN/pull/3061)
+* Added new exception type to signify expected warmup behavior [#3070](https://github.com/opensearch-project/k-NN/pull/3070)
+* Add derived source handling for when field is excluded in source on indexing [#3049](https://github.com/opensearch-project/k-NN/pull/3049)
+* Fix patch to have a valid score conversion for BinaryCagra. [#2983](https://github.com/opensearch-project/k-NN/pull/2983)
 * Fix score conversion logic for radial exact search [#3110](https://github.com/opensearch-project/k-NN/pull/3110)
 * Simplify DerivedSourceReaders lifecycle by removing manual ref-counting [#3137](https://github.com/opensearch-project/k-NN/pull/3137)
 
 ### Refactoring
 
 ### Enhancements
+* Index setting to disable exact search after ANN Search with Faiss efficient filters [#3022](https://github.com/opensearch-project/k-NN/pull/3022)
+* Bulk SIMD for FP16 distance computation [#3071](https://github.com/opensearch-project/k-NN/pull/3071)
+* Include AdditionalCodecs argument to allow additional Codec registration [#3085](https://github.com/opensearch-project/k-NN/pull/3085)
 * Make Merge in nativeEngine can Abort [#2529](https://github.com/opensearch-project/k-NN/pull/2529)
-* Use pre-quantized vectors from native engines for exact search [#3095](https://github.com/opensearch-project/k-NN/pull/3095)
-* Use right Vector Scorer when segments are initialized using SPI and also corrected the maxConn for MOS [#3117](https://github.com/opensearch-project/k-NN/pull/3117)
-* Use pre-quantized vectors for ADC [#3113](https://github.com/opensearch-project/k-NN/pull/3113)
