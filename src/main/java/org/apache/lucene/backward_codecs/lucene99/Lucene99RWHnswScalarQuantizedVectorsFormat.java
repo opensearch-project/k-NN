@@ -51,10 +51,11 @@ public class Lucene99RWHnswScalarQuantizedVectorsFormat extends Lucene99HnswScal
         int numMergeThreads,
         int bits,
         boolean compressFlag,
-        float confidenceInterval,
+        Float confidenceInterval,
         ExecutorService executor
     ) {
         super(maxConn, beamWidth, numMergeThreads, bits, compressFlag, confidenceInterval, executor);
+        this.flatVectorsFormat = new Lucene99RWScalarQuantizedVectorsFormat(confidenceInterval, bits, compressFlag);
         this.maxConn = maxConn;
         this.beamWidth = beamWidth;
         this.numMergeThreads = numMergeThreads;
@@ -63,7 +64,6 @@ public class Lucene99RWHnswScalarQuantizedVectorsFormat extends Lucene99HnswScal
         } else {
             this.executorService = null;
         }
-        this.flatVectorsFormat = new Lucene99RWScalarQuantizedVectorsFormat(confidenceInterval, bits, compressFlag);
     }
 
     @Override
