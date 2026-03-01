@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * The KNN1030Codec does not properly support delegation for non-default codec(s). [#3093](https://github.com/opensearch-project/k-NN/pull/3093)
 * Fix score conversion logic for radial exact search [#3110](https://github.com/opensearch-project/k-NN/pull/3110)
-* Simplify DerivedSourceReaders lifecycle by removing manual ref-counting [#3137](https://github.com/opensearch-project/k-NN/pull/3137)
+* Simplify DerivedSourceReaders lifecycle by removing manual ref-counting [#3138](https://github.com/opensearch-project/k-NN/pull/3138)
 
 ### Refactoring
 
